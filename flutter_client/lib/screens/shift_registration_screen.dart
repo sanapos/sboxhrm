@@ -1,8 +1,12 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/permission_provider.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../widgets/notification_overlay.dart';
+import '../widgets/app_scroll_safe.dart';
 import '../widgets/hrm_page_chrome.dart';
 
 class ShiftRegistrationScreen extends StatefulWidget {
@@ -14,6 +18,9 @@ class ShiftRegistrationScreen extends StatefulWidget {
 }
 
 class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
+  PermissionProvider get _perm =>
+      Provider.of<PermissionProvider>(context, listen: false);
+
   final ApiService _apiService = ApiService();
   bool _isLoading = false;
 
@@ -545,27 +552,28 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
                 ],
               ),
               for (final emp in pageEmps) _employeeRow(emp, days, todayStr),
-              // "Add employee" row
-              TableRow(children: [
-                TableCell(
-                    child: InkWell(
-                  onTap: _showAddEmployeeToTable,
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    child: Row(children: [
-                      Icon(Icons.person_add, size: 16, color: Colors.grey[400]),
-                      const SizedBox(width: 6),
-                      Text('Thêm nhân viên...',
-                          style: TextStyle(
-                              color: Colors.grey[500],
-                              fontSize: 12,
-                              fontStyle: FontStyle.italic)),
-                    ]),
-                  ),
-                )),
-                for (int i = 0; i < 7; i++)
-                  const TableCell(child: SizedBox(height: 36)),
-              ]),
+              if (_perm.canCreate('WorkSchedule'))
+                TableRow(children: [
+                  TableCell(
+                      child: InkWell(
+                    onTap: _showAddEmployeeToTable,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      child: Row(children: [
+                        Icon(Icons.person_add,
+                            size: 16, color: Colors.grey[400]),
+                        const SizedBox(width: 6),
+                        Text('Thêm nhân viên...',
+                            style: TextStyle(
+                                color: Colors.grey[500],
+                                fontSize: 12,
+                                fontStyle: FontStyle.italic)),
+                      ]),
+                    ),
+                  )),
+                  for (int i = 0; i < 7; i++)
+                    const TableCell(child: SizedBox(height: 36)),
+                ]),
             ],
           ),
         ),
@@ -726,7 +734,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
       List<Map<String, dynamic>> pending) {
     final shiftName = shift['name'] ?? '';
     final dateStr = DateFormat('dd/MM/yyyy (EEEE)', 'vi').format(date);
-    showModalBottomSheet(
+    showAppSheet(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
@@ -758,16 +766,17 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
                         style:
                             TextStyle(color: Colors.grey[600], fontSize: 14)),
                   ])),
-              FilledButton.icon(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  _showAssignEmployeeDialog(shift, date);
-                },
-                icon: const Icon(Icons.person_add, size: 18),
-                label: const Text('Thêm NV'),
-                style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF0891B2)),
-              ),
+              if (_perm.canCreate('WorkSchedule'))
+                FilledButton.icon(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _showAssignEmployeeDialog(shift, date);
+                  },
+                  icon: const Icon(Icons.person_add, size: 18),
+                  label: const Text('Thêm NV'),
+                  style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF0891B2)),
+                ),
             ]),
           ),
           const Divider(height: 24),
@@ -817,7 +826,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
       dynamic emp, DateTime date, List<Map<String, dynamic>> shifts) {
     final empName = emp['fullName'] ?? emp['name'] ?? '';
     final dateStr = DateFormat('dd/MM/yyyy (EEEE)', 'vi').format(date);
-    showModalBottomSheet(
+    showAppSheet(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
@@ -849,16 +858,17 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
                         style:
                             TextStyle(color: Colors.grey[600], fontSize: 14)),
                   ])),
-              FilledButton.icon(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  _showAssignShiftDialog(emp, date);
-                },
-                icon: const Icon(Icons.work_history, size: 18),
-                label: const Text('Thêm ca'),
-                style: FilledButton.styleFrom(
-                    backgroundColor: HrmPageChrome.primaryNavy),
-              ),
+              if (_perm.canCreate('WorkSchedule'))
+                FilledButton.icon(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _showAssignShiftDialog(emp, date);
+                  },
+                  icon: const Icon(Icons.work_history, size: 18),
+                  label: const Text('Thêm ca'),
+                  style: FilledButton.styleFrom(
+                      backgroundColor: HrmPageChrome.primaryNavy),
+                ),
             ]),
           ),
           const Divider(height: 24),
@@ -892,11 +902,13 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
                               '${_fmtTime(ws['shiftStartTime'])} - ${_fmtTime(ws['shiftEndTime'])}',
                               style: TextStyle(
                                   color: Colors.grey[500], fontSize: 12)),
-                          trailing: IconButton(
-                              icon: const Icon(Icons.delete_outline,
-                                  color: Colors.red, size: 20),
-                              onPressed: () =>
-                                  _removeWorkSchedule(ws['id']?.toString())),
+                          trailing: _perm.canDelete('WorkSchedule')
+                              ? IconButton(
+                                  icon: const Icon(Icons.delete_outline,
+                                      color: Colors.red, size: 20),
+                                  onPressed: () => _removeWorkSchedule(
+                                      ws['id']?.toString()))
+                              : null,
                         ),
                       )),
                 ],
@@ -935,9 +947,12 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
             style: const TextStyle(fontWeight: FontWeight.w500)),
         subtitle: Text(ws['employeeCode'] ?? '',
             style: TextStyle(color: Colors.grey[500], fontSize: 12)),
-        trailing: IconButton(
-            icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
-            onPressed: () => _removeWorkSchedule(ws['id']?.toString())),
+        trailing: _perm.canDelete('WorkSchedule')
+            ? IconButton(
+                icon: const Icon(Icons.delete_outline,
+                    color: Colors.red, size: 20),
+                onPressed: () => _removeWorkSchedule(ws['id']?.toString()))
+            : null,
       ),
     );
   }
@@ -961,14 +976,23 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
             style: const TextStyle(fontWeight: FontWeight.w500)),
         subtitle: Text(reg['note'] ?? '',
             style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-        trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-          IconButton(
-              icon: const Icon(Icons.close, color: Colors.red, size: 20),
-              onPressed: () => _rejectRegistration(reg['id']?.toString())),
-          IconButton(
-              icon: const Icon(Icons.check, color: HrmPageChrome.primaryNavy, size: 20),
-              onPressed: () => _approveRegistration(reg['id']?.toString())),
-        ]),
+        trailing: (_perm.canApprove('WorkSchedule') ||
+                _perm.canDelete('WorkSchedule'))
+            ? Row(mainAxisSize: MainAxisSize.min, children: [
+                if (_perm.canDelete('WorkSchedule'))
+                  IconButton(
+                      icon: const Icon(Icons.close,
+                          color: Colors.red, size: 20),
+                      onPressed: () =>
+                          _rejectRegistration(reg['id']?.toString())),
+                if (_perm.canApprove('WorkSchedule'))
+                  IconButton(
+                      icon: const Icon(Icons.check,
+                          color: HrmPageChrome.primaryNavy, size: 20),
+                      onPressed: () =>
+                          _approveRegistration(reg['id']?.toString())),
+              ])
+            : null,
       ),
     );
   }
@@ -1004,7 +1028,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
           });
         }
 
-        return AlertDialog(
+        return ScrollableAlertDialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title:
@@ -1102,7 +1126,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('Chọn ca cho $empName'),
@@ -1198,7 +1222,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
           });
         }
 
-        return AlertDialog(
+        return ScrollableAlertDialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Text('Chọn nhân viên'),
@@ -1297,7 +1321,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
     if (id == null) return;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Text('Xóa phân ca'),
         content: const Text('Bạn có chắc muốn xóa phân ca này?'),
         actions: [
@@ -1357,7 +1381,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
     final reasonCtrl = TextEditingController();
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Text('Từ chối đăng ký'),
         content: SingleChildScrollView(
             child: TextField(
@@ -1404,7 +1428,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
     final pending = _pendingRegistrations
         .where((r) => (r['status']?.toString().toLowerCase()) == 'pending')
         .toList();
-    showModalBottomSheet(
+    showAppSheet(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
@@ -1459,23 +1483,30 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
                               '${r['shiftName'] ?? ''} - ${_fmtDate(r['date'])}',
                               style: TextStyle(
                                   color: Colors.grey[600], fontSize: 12)),
-                          trailing:
-                              Row(mainAxisSize: MainAxisSize.min, children: [
-                            IconButton(
-                                icon: const Icon(Icons.close,
-                                    color: Colors.red, size: 20),
-                                onPressed: () {
-                                  Navigator.pop(ctx);
-                                  _rejectRegistration(r['id']?.toString());
-                                }),
-                            IconButton(
-                                icon: const Icon(Icons.check,
-                                    color: HrmPageChrome.primaryNavy, size: 20),
-                                onPressed: () {
-                                  Navigator.pop(ctx);
-                                  _approveRegistration(r['id']?.toString());
-                                }),
-                          ]),
+                          trailing: (_perm.canApprove('WorkSchedule') ||
+                                  _perm.canDelete('WorkSchedule'))
+                              ? Row(mainAxisSize: MainAxisSize.min, children: [
+                                  if (_perm.canDelete('WorkSchedule'))
+                                    IconButton(
+                                        icon: const Icon(Icons.close,
+                                            color: Colors.red, size: 20),
+                                        onPressed: () {
+                                          Navigator.pop(ctx);
+                                          _rejectRegistration(
+                                              r['id']?.toString());
+                                        }),
+                                  if (_perm.canApprove('WorkSchedule'))
+                                    IconButton(
+                                        icon: const Icon(Icons.check,
+                                            color: HrmPageChrome.primaryNavy,
+                                            size: 20),
+                                        onPressed: () {
+                                          Navigator.pop(ctx);
+                                          _approveRegistration(
+                                              r['id']?.toString());
+                                        }),
+                                ])
+                              : null,
                         ),
                       );
                     },

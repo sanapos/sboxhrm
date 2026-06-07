@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
+import '../utils/paged_load_utils.dart';
 import '../widgets/app_button.dart';
 import '../widgets/app_responsive_dialog.dart';
 import '../widgets/notification_overlay.dart';
@@ -42,18 +45,16 @@ class _HrDocumentsScreenState extends State<HrDocumentsScreen>
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
-      final results = await Future.wait([
-        _apiService.getHrDocuments(),
-        _apiService.getExpiringDocuments(),
-      ]);
+      final docs = await fetchAllPagedMaps(
+        (p, s) => _apiService.getHrDocuments(page: p, pageSize: s),
+        pageSize: 500,
+      );
+      final expiringRes = await _apiService.getExpiringDocuments();
       setState(() {
-        if (results[0]['isSuccess'] == true) {
-          _documents =
-              List<Map<String, dynamic>>.from(results[0]['data'] ?? []);
-        }
-        if (results[1]['isSuccess'] == true) {
+        _documents = docs;
+        if (expiringRes['isSuccess'] == true) {
           _expiringDocs =
-              List<Map<String, dynamic>>.from(results[1]['data'] ?? []);
+              List<Map<String, dynamic>>.from(expiringRes['data'] ?? []);
         }
       });
     } catch (e) {
@@ -159,12 +160,16 @@ class _HrDocumentsScreenState extends State<HrDocumentsScreen>
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showDocumentDialog(),
-        icon: const Icon(Icons.note_add),
-        label: const Text('Thêm tài liệu'),
-        backgroundColor: HrmPageChrome.primaryNavy,
-      ),
+      floatingActionButton:
+          Provider.of<PermissionProvider>(context, listen: false)
+                  .canCreate('HrDocument')
+              ? FloatingActionButton.extended(
+                  onPressed: () => _showDocumentDialog(),
+                  icon: const Icon(Icons.note_add),
+                  label: const Text('Thêm tài liệu'),
+                  backgroundColor: HrmPageChrome.primaryNavy,
+                )
+              : null,
     );
   }
 
@@ -470,29 +475,43 @@ class _HrDocumentsScreenState extends State<HrDocumentsScreen>
             if (showWarning)
               const Icon(Icons.warning_amber,
                   size: 16, color: Color(0xFFD97706)),
-            PopupMenuButton<String>(
-              icon: Icon(Icons.more_vert, color: Colors.grey[400], size: 18),
-              itemBuilder: (_) => [
-                const PopupMenuItem(
-                    value: 'edit',
-                    child: Row(children: [
-                      Icon(Icons.edit, size: 16),
-                      SizedBox(width: 8),
-                      Text('Sửa')
-                    ])),
-                const PopupMenuItem(
-                    value: 'delete',
-                    child: Row(children: [
-                      Icon(Icons.delete, size: 16, color: Colors.red),
-                      SizedBox(width: 8),
-                      Text('Xóa', style: TextStyle(color: Colors.red))
-                    ])),
-              ],
-              onSelected: (v) {
-                if (v == 'edit') _showDocumentDialog(doc: doc);
-                if (v == 'delete') _deleteDocument(doc);
-              },
-            ),
+            if (Provider.of<PermissionProvider>(context, listen: false)
+                    .canEdit('HrDocument') ||
+                Provider.of<PermissionProvider>(context, listen: false)
+                    .canDelete('HrDocument'))
+              PopupMenuButton<String>(
+                icon: Icon(Icons.more_vert, color: Colors.grey[400], size: 18),
+                itemBuilder: (_) => [
+                  if (Provider.of<PermissionProvider>(context, listen: false)
+                      .canEdit('HrDocument'))
+                    const PopupMenuItem(
+                        value: 'edit',
+                        child: Row(children: [
+                          Icon(Icons.edit, size: 16),
+                          SizedBox(width: 8),
+                          Text('Sửa')
+                        ])),
+                  if (Provider.of<PermissionProvider>(context, listen: false)
+                      .canDelete('HrDocument'))
+                    const PopupMenuItem(
+                        value: 'delete',
+                        child: Row(children: [
+                          Icon(Icons.delete, size: 16, color: Colors.red),
+                          SizedBox(width: 8),
+                          Text('Xóa', style: TextStyle(color: Colors.red))
+                        ])),
+                ],
+                onSelected: (v) {
+                  final perm =
+                      Provider.of<PermissionProvider>(context, listen: false);
+                  if (v == 'edit' && perm.canEdit('HrDocument')) {
+                    _showDocumentDialog(doc: doc);
+                  }
+                  if (v == 'delete' && perm.canDelete('HrDocument')) {
+                    _deleteDocument(doc);
+                  }
+                },
+              ),
           ],
         ),
       ),

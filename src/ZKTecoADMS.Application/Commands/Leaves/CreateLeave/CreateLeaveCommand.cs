@@ -15,4 +15,8 @@ public record CreateLeaveCommand(
     bool IsHalfShift,
     string Reason,
     Guid? ReplacementEmployeeId,
-    Guid? EmployeeId) : ICommand<AppResponse<LeaveDto>>;
+    Guid? EmployeeId,
+    bool AutoApprove,
+    bool CountAsWork,
+    SickLeaveMode? SickLeaveMode,
+    string? BhxhDocumentNote) : ICommand<AppResponse<LeaveDto>>;

@@ -20,8 +20,8 @@ public class GetPenaltySettingsHandler(
             
             if (settings == null)
             {
-                // Return default settings
-                settings = new PenaltySetting();
+                settings = new PenaltySetting { StoreId = request.StoreId };
+                settings = await repository.AddAsync(settings, cancellationToken);
             }
             
             return AppResponse<PenaltySettingDto>.Success(settings.Adapt<PenaltySettingDto>());

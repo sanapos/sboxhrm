@@ -5,6 +5,7 @@ using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.DTOs.Transactions;
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
@@ -22,7 +23,7 @@ public class BankAccountsController(ZKTecoDbContext context) : AuthenticatedCont
     /// </summary>
     [HttpGet]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
-    [RequireModulePermission("BankAccount", ModulePermissionAction.View)]
+    [RequireModulePermission("CashTransaction", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<BankAccountDto>>>> GetBankAccounts()
     {
         var storeId = RequiredStoreId;
@@ -58,7 +59,7 @@ public class BankAccountsController(ZKTecoDbContext context) : AuthenticatedCont
     /// </summary>
     [HttpGet("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
-    [RequireModulePermission("BankAccount", ModulePermissionAction.View)]
+    [RequireModulePermission("CashTransaction", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<BankAccountDto>>> GetBankAccount(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -83,7 +84,7 @@ public class BankAccountsController(ZKTecoDbContext context) : AuthenticatedCont
             .FirstOrDefaultAsync();
 
         if (bankAccount == null)
-            return NotFound(AppResponse<BankAccountDto>.Error("KhÃ´ng tÃ¬m tháº¥y tÃ i khoáº£n ngÃ¢n hÃ ng"));
+            return NotFound(AppResponse<BankAccountDto>.Error("Không tìm thấy tài khoản ngân hàng"));
 
         return Ok(AppResponse<BankAccountDto>.Success(bankAccount));
     }
@@ -134,13 +135,13 @@ public class BankAccountsController(ZKTecoDbContext context) : AuthenticatedCont
     /// </summary>
     [HttpPut("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
-    [RequireModulePermission("BankAccount", ModulePermissionAction.Edit)]
+    [RequireModulePermission("CashTransaction", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<BankAccountDto>>> UpdateBankAccount(Guid id, [FromBody] UpdateBankAccountDto request)
     {
         var storeId = RequiredStoreId;
         var bankAccount = await context.BankAccounts.AsTracking().FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId);
         if (bankAccount == null)
-            return NotFound(AppResponse<BankAccountDto>.Error("KhÃ´ng tÃ¬m tháº¥y tÃ i khoáº£n ngÃ¢n hÃ ng"));
+            return NotFound(AppResponse<BankAccountDto>.Error("Không tìm thấy tài khoản ngân hàng"));
 
         // If set as default, remove default from others
         if (request.IsDefault && !bankAccount.IsDefault)
@@ -176,7 +177,7 @@ public class BankAccountsController(ZKTecoDbContext context) : AuthenticatedCont
         var storeId = RequiredStoreId;
         var bankAccount = await context.BankAccounts.AsTracking().FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId);
         if (bankAccount == null)
-            return NotFound(AppResponse<BankAccountDto>.Error("KhÃ´ng tÃ¬m tháº¥y tÃ i khoáº£n ngÃ¢n hÃ ng"));
+            return NotFound(AppResponse<BankAccountDto>.Error("Không tìm thấy tài khoản ngân hàng"));
 
         // Remove default from all others
         var existingDefaults = await context.BankAccounts
@@ -198,7 +199,7 @@ public class BankAccountsController(ZKTecoDbContext context) : AuthenticatedCont
     /// </summary>
     [HttpDelete("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
-    [RequireModulePermission("BankAccount", ModulePermissionAction.Delete)]
+    [RequireModulePermission("CashTransaction", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> DeleteBankAccount(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -259,7 +260,7 @@ public class TransactionCategoriesController(ZKTecoDbContext context, ICacheServ
     /// </summary>
     [HttpGet]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
-    [RequireModulePermission("BankAccount", ModulePermissionAction.View)]
+    [RequireModulePermission("CashTransaction", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<TransactionCategoryDto>>>> GetCategories(
         [FromQuery] CashTransactionType? type = null,
         [FromQuery] bool includeInactive = false)
@@ -315,15 +316,17 @@ public class TransactionCategoriesController(ZKTecoDbContext context, ICacheServ
             })
             .ToListAsync();
 
+        categories = categories.Select(FixCategoryDtoEncoding).ToList();
+
         return Ok(AppResponse<List<TransactionCategoryDto>>.Success(categories));
     }
 
     /// <summary>
-    /// Láº¥y danh sÃ¡ch danh má»¥c dáº¡ng pháº³ng (flat list)
+    /// Lấy danh sách danh mục dạng phẳng (flat list)
     /// </summary>
     [HttpGet("flat")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
-    [RequireModulePermission("BankAccount", ModulePermissionAction.View)]
+    [RequireModulePermission("CashTransaction", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<TransactionCategoryDto>>>> GetCategoriesFlat(
         [FromQuery] CashTransactionType? type = null)
     {
@@ -362,7 +365,8 @@ public class TransactionCategoriesController(ZKTecoDbContext context, ICacheServ
                 .ToListAsync();
         }, TimeSpan.FromMinutes(10));
 
-        return Ok(AppResponse<List<TransactionCategoryDto>>.Success(categories!));
+        var fixedCategories = categories!.Select(FixCategoryDtoEncoding).ToList();
+        return Ok(AppResponse<List<TransactionCategoryDto>>.Success(fixedCategories));
     }
 
     /// <summary>
@@ -370,7 +374,7 @@ public class TransactionCategoriesController(ZKTecoDbContext context, ICacheServ
     /// </summary>
     [HttpPost]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
-    [RequireModulePermission("BankAccount", ModulePermissionAction.Create)]
+    [RequireModulePermission("CashTransaction", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<TransactionCategoryDto>>> CreateCategory([FromBody] CreateTransactionCategoryDto request)
     {
         var storeId = RequiredStoreId;
@@ -380,7 +384,7 @@ public class TransactionCategoriesController(ZKTecoDbContext context, ICacheServ
         {
             var parent = await context.TransactionCategories.FirstOrDefaultAsync(x => x.Id == request.ParentCategoryId.Value && x.StoreId == storeId);
             if (parent == null)
-                return BadRequest(AppResponse<TransactionCategoryDto>.Error("Danh má»¥c cha khÃ´ng tá»“n táº¡i"));
+                return BadRequest(AppResponse<TransactionCategoryDto>.Error("Danh mục cha không tồn tại"));
             if (parent.Type != request.Type)
                 return BadRequest(AppResponse<TransactionCategoryDto>.Error("Danh má»¥c cha khÃ´ng cÃ¹ng loáº¡i"));
         }
@@ -412,7 +416,7 @@ public class TransactionCategoriesController(ZKTecoDbContext context, ICacheServ
     /// </summary>
     [HttpGet("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
-    [RequireModulePermission("BankAccount", ModulePermissionAction.View)]
+    [RequireModulePermission("CashTransaction", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<TransactionCategoryDto>>> GetCategory(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -437,9 +441,9 @@ public class TransactionCategoriesController(ZKTecoDbContext context, ICacheServ
             .FirstOrDefaultAsync();
 
         if (category == null)
-            return NotFound(AppResponse<TransactionCategoryDto>.Error("KhÃ´ng tÃ¬m tháº¥y danh má»¥c"));
+            return NotFound(AppResponse<TransactionCategoryDto>.Error("Không tìm thấy danh mục"));
 
-        return Ok(AppResponse<TransactionCategoryDto>.Success(category));
+        return Ok(AppResponse<TransactionCategoryDto>.Success(FixCategoryDtoEncoding(category)));
     }
 
     /// <summary>
@@ -447,23 +451,20 @@ public class TransactionCategoriesController(ZKTecoDbContext context, ICacheServ
     /// </summary>
     [HttpPut("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
-    [RequireModulePermission("BankAccount", ModulePermissionAction.Edit)]
+    [RequireModulePermission("CashTransaction", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<TransactionCategoryDto>>> UpdateCategory(Guid id, [FromBody] UpdateTransactionCategoryDto request)
     {
         var storeId = RequiredStoreId;
         var category = await context.TransactionCategories.AsTracking().FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId);
         if (category == null)
-            return NotFound(AppResponse<TransactionCategoryDto>.Error("KhÃ´ng tÃ¬m tháº¥y danh má»¥c"));
-
-        if (category.IsSystem)
-            return BadRequest(AppResponse<TransactionCategoryDto>.Error("KhÃ´ng thá»ƒ sá»­a danh má»¥c há»‡ thá»‘ng"));
+            return NotFound(AppResponse<TransactionCategoryDto>.Error("Không tìm thấy danh mục"));
 
         // Validate parent category
         if (request.ParentCategoryId.HasValue && request.ParentCategoryId.Value != id)
         {
             var parent = await context.TransactionCategories.FirstOrDefaultAsync(x => x.Id == request.ParentCategoryId.Value && x.StoreId == storeId);
             if (parent == null)
-                return BadRequest(AppResponse<TransactionCategoryDto>.Error("Danh má»¥c cha khÃ´ng tá»“n táº¡i"));
+                return BadRequest(AppResponse<TransactionCategoryDto>.Error("Danh mục cha không tồn tại"));
             if (parent.Type != category.Type)
                 return BadRequest(AppResponse<TransactionCategoryDto>.Error("Danh má»¥c cha khÃ´ng cÃ¹ng loáº¡i"));
         }
@@ -473,8 +474,9 @@ public class TransactionCategoriesController(ZKTecoDbContext context, ICacheServ
         category.Icon = request.Icon;
         category.Color = request.Color;
         category.SortOrder = request.SortOrder;
-        category.ParentCategoryId = request.ParentCategoryId;
         category.IsActive = request.IsActive;
+        if (!category.IsSystem)
+            category.ParentCategoryId = request.ParentCategoryId;
         category.LastModified = DateTime.UtcNow;
 
         await context.SaveChangesAsync();
@@ -487,7 +489,7 @@ public class TransactionCategoriesController(ZKTecoDbContext context, ICacheServ
     /// </summary>
     [HttpDelete("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
-    [RequireModulePermission("BankAccount", ModulePermissionAction.Delete)]
+    [RequireModulePermission("CashTransaction", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> DeleteCategory(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -495,12 +497,8 @@ public class TransactionCategoriesController(ZKTecoDbContext context, ICacheServ
         if (category == null)
             return NotFound(AppResponse<bool>.Error("KhÃ´ng tÃ¬m tháº¥y danh má»¥c"));
 
-        if (category.IsSystem)
-            return BadRequest(AppResponse<bool>.Error("KhÃ´ng thá»ƒ xÃ³a danh má»¥c há»‡ thá»‘ng"));
-
-        // Check if used
         var usedCount = await context.CashTransactions.CountAsync(x => x.CategoryId == id && x.IsActive);
-        if (usedCount > 0)
+        if (category.IsSystem || usedCount > 0)
         {
             category.IsActive = false;
             category.LastModified = DateTime.UtcNow;
@@ -516,47 +514,167 @@ public class TransactionCategoriesController(ZKTecoDbContext context, ICacheServ
     }
 
     /// <summary>
-    /// Khá»Ÿi táº¡o danh má»¥c máº·c Ä‘á»‹nh
+    /// Đồng bộ danh mục hệ thống Thu + Chi (bổ sung thiếu, sửa tên/type, kích hoạt lại).
     /// </summary>
     [HttpPost("init-default")]
-    [Authorize(Policy = PolicyNames.AtLeastAdmin)]
-    [RequireModulePermission("BankAccount", ModulePermissionAction.Create)]
-    public async Task<ActionResult<AppResponse<bool>>> InitDefaultCategories()
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("CashTransaction", ModulePermissionAction.Create)]
+    public async Task<ActionResult<AppResponse<object>>> InitDefaultCategories()
     {
         var storeId = RequiredStoreId;
-        
-        // Check if already initialized
-        var existingCount = await context.TransactionCategories.CountAsync(x => x.StoreId == storeId && x.IsSystem);
-        if (existingCount > 0)
-            return Ok(AppResponse<bool>.Success(true));
+        var existing = await context.TransactionCategories
+            .Where(x => x.StoreId == storeId)
+            .ToListAsync();
 
-        var defaultCategories = new List<TransactionCategory>
+        var added = 0;
+        var repaired = 0;
+        var reactivated = 0;
+        var typeFixed = 0;
+
+        foreach (var def in VietnameseEncodingFix.DefaultTransactionCategories())
         {
-            // === THU (Income) ===
-            new() { Id = Guid.NewGuid(), Name = "BÃ¡n hÃ ng", Type = CashTransactionType.Income, Icon = "shopping_cart", Color = "#22C55E", IsSystem = true, IsActive = true, SortOrder = 1, StoreId = storeId },
-            new() { Id = Guid.NewGuid(), Name = "Dá»‹ch vá»¥", Type = CashTransactionType.Income, Icon = "build", Color = "#10B981", IsSystem = true, IsActive = true, SortOrder = 2, StoreId = storeId },
-            new() { Id = Guid.NewGuid(), Name = "LÃ£i vay/Ä‘áº§u tÆ°", Type = CashTransactionType.Income, Icon = "trending_up", Color = "#14B8A6", IsSystem = true, IsActive = true, SortOrder = 3, StoreId = storeId },
-            new() { Id = Guid.NewGuid(), Name = "Cho thuÃª", Type = CashTransactionType.Income, Icon = "home", Color = "#06B6D4", IsSystem = true, IsActive = true, SortOrder = 4, StoreId = storeId },
-            new() { Id = Guid.NewGuid(), Name = "HoÃ n tiá»n", Type = CashTransactionType.Income, Icon = "replay", Color = "#0EA5E9", IsSystem = true, IsActive = true, SortOrder = 5, StoreId = storeId },
-            new() { Id = Guid.NewGuid(), Name = "Thu khÃ¡c", Type = CashTransactionType.Income, Icon = "add_circle", Color = "#3B82F6", IsSystem = true, IsActive = true, SortOrder = 99, StoreId = storeId },
-            
-            // === CHI (Expense) ===
-            new() { Id = Guid.NewGuid(), Name = "Nháº­p hÃ ng", Type = CashTransactionType.Expense, Icon = "inventory", Color = "#EF4444", IsSystem = true, IsActive = true, SortOrder = 1, StoreId = storeId },
-            new() { Id = Guid.NewGuid(), Name = "LÆ°Æ¡ng nhÃ¢n viÃªn", Type = CashTransactionType.Expense, Icon = "people", Color = "#F97316", IsSystem = true, IsActive = true, SortOrder = 2, StoreId = storeId },
-            new() { Id = Guid.NewGuid(), Name = "Äiá»‡n/NÆ°á»›c/Internet", Type = CashTransactionType.Expense, Icon = "bolt", Color = "#F59E0B", IsSystem = true, IsActive = true, SortOrder = 3, StoreId = storeId },
-            new() { Id = Guid.NewGuid(), Name = "ThuÃª máº·t báº±ng", Type = CashTransactionType.Expense, Icon = "storefront", Color = "#EAB308", IsSystem = true, IsActive = true, SortOrder = 4, StoreId = storeId },
-            new() { Id = Guid.NewGuid(), Name = "Váº­n chuyá»ƒn", Type = CashTransactionType.Expense, Icon = "local_shipping", Color = "#84CC16", IsSystem = true, IsActive = true, SortOrder = 5, StoreId = storeId },
-            new() { Id = Guid.NewGuid(), Name = "Marketing", Type = CashTransactionType.Expense, Icon = "campaign", Color = "#EC4899", IsSystem = true, IsActive = true, SortOrder = 6, StoreId = storeId },
-            new() { Id = Guid.NewGuid(), Name = "VÄƒn phÃ²ng pháº©m", Type = CashTransactionType.Expense, Icon = "edit_note", Color = "#8B5CF6", IsSystem = true, IsActive = true, SortOrder = 7, StoreId = storeId },
-            new() { Id = Guid.NewGuid(), Name = "Báº£o trÃ¬/Sá»­a chá»¯a", Type = CashTransactionType.Expense, Icon = "handyman", Color = "#6366F1", IsSystem = true, IsActive = true, SortOrder = 8, StoreId = storeId },
-            new() { Id = Guid.NewGuid(), Name = "Thuáº¿/PhÃ­", Type = CashTransactionType.Expense, Icon = "receipt_long", Color = "#A855F7", IsSystem = true, IsActive = true, SortOrder = 9, StoreId = storeId },
-            new() { Id = Guid.NewGuid(), Name = "Chi khÃ¡c", Type = CashTransactionType.Expense, Icon = "remove_circle", Color = "#6B7280", IsSystem = true, IsActive = true, SortOrder = 99, StoreId = storeId },
-        };
+            // Khớp theo tên (kể cả type sai trong DB)
+            var match = existing.FirstOrDefault(c =>
+                VietnameseEncodingFix.CategoryNamesMatch(c.Name, def.Name));
 
-        context.TransactionCategories.AddRange(defaultCategories);
-        await context.SaveChangesAsync();
+            // Khớp theo hệ thống + loại + thứ tự (tên cũ bị lỗi font nặng)
+            match ??= existing.FirstOrDefault(c =>
+                c.IsSystem && c.Type == def.Type && c.SortOrder == def.SortOrder);
 
-        return Ok(AppResponse<bool>.Success(true));
+            if (match == null)
+            {
+                var created = new TransactionCategory
+                {
+                    Id = Guid.NewGuid(),
+                    Name = def.Name,
+                    Type = def.Type,
+                    Icon = def.Icon,
+                    Color = def.Color,
+                    IsSystem = true,
+                    IsActive = true,
+                    SortOrder = def.SortOrder,
+                    StoreId = storeId,
+                };
+                context.TransactionCategories.Add(created);
+                existing.Add(created);
+                added++;
+                continue;
+            }
+
+            var changed = false;
+
+            if (!VietnameseEncodingFix.CategoryNamesMatch(match.Name, def.Name))
+            {
+                match.Name = def.Name;
+                repaired++;
+                changed = true;
+            }
+
+            if (match.Type != def.Type)
+            {
+                match.Type = def.Type;
+                typeFixed++;
+                changed = true;
+            }
+
+            if (match.Icon != def.Icon)
+            {
+                match.Icon = def.Icon;
+                changed = true;
+            }
+
+            if (match.Color != def.Color)
+            {
+                match.Color = def.Color;
+                changed = true;
+            }
+
+            if (match.SortOrder != def.SortOrder)
+            {
+                match.SortOrder = def.SortOrder;
+                changed = true;
+            }
+
+            if (!match.IsActive)
+            {
+                match.IsActive = true;
+                reactivated++;
+                changed = true;
+            }
+
+            if (changed)
+                match.LastModified = DateTime.UtcNow;
+        }
+
+        if (context.ChangeTracker.HasChanges())
+        {
+            await context.SaveChangesAsync();
+            cacheService.RemoveByPrefix("categories_flat_");
+        }
+
+        var incomeCount = existing.Count(c =>
+            c.IsActive && c.Type == CashTransactionType.Income && c.IsSystem);
+        var expenseCount = existing.Count(c =>
+            c.IsActive && c.Type == CashTransactionType.Expense && c.IsSystem);
+
+        return Ok(AppResponse<object>.Success(new
+        {
+            added,
+            repaired,
+            reactivated,
+            typeFixed,
+            systemIncome = incomeCount,
+            systemExpense = expenseCount,
+        }));
     }
+
+    /// <summary>
+    /// Sửa tên danh mục bị lỗi font (mojibake) trong DB.
+    /// </summary>
+    [HttpPost("repair-encoding")]
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("CashTransaction", ModulePermissionAction.Edit)]
+    public async Task<ActionResult<AppResponse<object>>> RepairCategoryEncoding()
+    {
+        var storeId = RequiredStoreId;
+        var categories = await context.TransactionCategories
+            .Where(x => x.StoreId == storeId)
+            .ToListAsync();
+
+        var updated = 0;
+        foreach (var cat in categories)
+        {
+            var fixedName = VietnameseEncodingFix.TryFix(cat.Name);
+            var fixedDesc = cat.Description != null ? VietnameseEncodingFix.TryFix(cat.Description) : null;
+            if (fixedName != cat.Name || fixedDesc != cat.Description)
+            {
+                cat.Name = fixedName;
+                if (fixedDesc != null) cat.Description = fixedDesc;
+                cat.LastModified = DateTime.UtcNow;
+                updated++;
+            }
+        }
+
+        if (updated > 0)
+        {
+            await context.SaveChangesAsync();
+            cacheService.RemoveByPrefix("categories_flat_");
+        }
+
+        return Ok(AppResponse<object>.Success(new { updated, total = categories.Count }));
+    }
+
+    private static TransactionCategoryDto FixCategoryDtoEncoding(TransactionCategoryDto dto)
+        => dto with
+        {
+            Name = VietnameseEncodingFix.TryFix(dto.Name),
+            Description = dto.Description != null
+                ? VietnameseEncodingFix.TryFix(dto.Description)
+                : null,
+            ParentCategoryName = dto.ParentCategoryName != null
+                ? VietnameseEncodingFix.TryFix(dto.ParentCategoryName)
+                : null,
+            SubCategories = dto.SubCategories.Select(FixCategoryDtoEncoding).ToList()
+        };
 }
 

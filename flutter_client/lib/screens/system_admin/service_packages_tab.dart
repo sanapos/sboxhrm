@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import '../../services/api_service.dart';
 import 'system_admin_helpers.dart';
 import '../../widgets/hrm_page_chrome.dart';
@@ -261,17 +262,18 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
             spacing: 8,
             runSpacing: 8,
             children: [
-              OutlinedButton.icon(
-                onPressed: () => _showCreateEditDialog(pkg),
-                icon: const Icon(Icons.edit, size: 14),
-                label: const Text('Sửa', style: TextStyle(fontSize: 12)),
-                style: OutlinedButton.styleFrom(
-                    foregroundColor: AdminHelpers.info,
-                    side: BorderSide(
-                        color: AdminHelpers.info.withValues(alpha: 0.3))),
-              ),
-              OutlinedButton.icon(
-                onPressed: () => _togglePackageStatus(pkg),
+              if (context.systemAdminCanEdit) ...[
+                OutlinedButton.icon(
+                  onPressed: () => _showCreateEditDialog(pkg),
+                  icon: const Icon(Icons.edit, size: 14),
+                  label: const Text('Sửa', style: TextStyle(fontSize: 12)),
+                  style: OutlinedButton.styleFrom(
+                      foregroundColor: AdminHelpers.info,
+                      side: BorderSide(
+                          color: AdminHelpers.info.withValues(alpha: 0.3))),
+                ),
+                OutlinedButton.icon(
+                  onPressed: () => _togglePackageStatus(pkg),
                 icon: Icon(isActive ? Icons.pause : Icons.play_arrow,
                     size: 14),
                 label: Text(isActive ? 'Tắt' : 'Bật',
@@ -284,8 +286,9 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
                                 ? AdminHelpers.warning
                                 : AdminHelpers.success)
                             .withValues(alpha: 0.3))),
-              ),
-              if (storeCount == 0)
+                ),
+              ],
+              if (storeCount == 0 && context.systemAdminCanDelete)
                 OutlinedButton.icon(
                   onPressed: () => _deletePackage(pkg),
                   icon: const Icon(Icons.delete, size: 14),
@@ -329,7 +332,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) {
           final grouped = _groupedModules;
-          return AlertDialog(
+          return ScrollableAlertDialog(
             title: Row(children: [
               Icon(isEdit ? Icons.edit : Icons.add_circle,
                   color: AdminHelpers.primary, size: 24),

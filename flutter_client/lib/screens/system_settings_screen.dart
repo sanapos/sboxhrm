@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/hrm_page_chrome.dart';
@@ -19,6 +21,9 @@ class SystemSettingsScreen extends StatefulWidget {
 }
 
 class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
+  PermissionProvider get _perm =>
+      Provider.of<PermissionProvider>(context, listen: false);
+
   final ApiService _apiService = ApiService();
   bool _isLoading = true;
   bool _isSaving = false;
@@ -210,22 +215,24 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final saveButton = FilledButton.icon(
-      onPressed: _isSaving ? null : _saveSettings,
-      icon: _isSaving
-          ? const SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(
-                  strokeWidth: 2, color: Colors.white),
-            )
-          : const Icon(Icons.save, size: 18),
-      label: const Text('Lưu thiết lập'),
-      style: FilledButton.styleFrom(
-        backgroundColor: HrmPageChrome.primaryNavy,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      ),
-    );
+    final saveButton = _perm.canEdit('SystemSettings')
+        ? FilledButton.icon(
+            onPressed: _isSaving ? null : _saveSettings,
+            icon: _isSaving
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white),
+                  )
+                : const Icon(Icons.save, size: 18),
+            label: const Text('Lưu thiết lập'),
+            style: FilledButton.styleFrom(
+              backgroundColor: HrmPageChrome.primaryNavy,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            ),
+          )
+        : const SizedBox.shrink();
 
     return Scaffold(
       backgroundColor: HrmPageChrome.background,

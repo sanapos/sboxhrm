@@ -3,6 +3,7 @@ import '../../utils/file_saver.dart' as file_saver;
 import '../../utils/web_canvas.dart' as web_canvas;
 
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:intl/intl.dart';
 import 'package:excel/excel.dart' as excel_lib;
 import '../../models/attendance.dart';
@@ -20,8 +21,9 @@ import '../../widgets/hrm_page_chrome.dart';
 import '../../widgets/attendance_correction_reason_field.dart';
 import '../../widgets/attendance_delete_confirm_dialog.dart';
 import '../../widgets/synced_scroll_list_view.dart'
-    show HorizontallySyncedClip, linkHorizontalScrollControllers;
+    show SyncedScrollListView, linkHorizontalScrollControllers;
 import '../../widgets/pinned_box_header_delegate.dart';
+import '../../utils/excel_report_builder.dart';
 
 /// Model cho yêu cầu chỉnh sửa chấm công
 class AttendanceCorrectionRequest {
@@ -189,10 +191,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
   Map<String, String> _codeOrPinToApplicationUserId = {};
   Map<String, String> _codeOrPinToHrEmployeeCode = {};
 
-  /// Cuộn ngang 3 bảng mobile — body + header riêng (một controller / một ScrollView).
-  final ScrollController _ctAttScrollHeader = ScrollController();
-  final ScrollController _ctHrsScrollHeader = ScrollController();
-  final ScrollController _ctWrkScrollHeader = ScrollController();
+  /// Cuộn ngang/dọc 3 bảng mobile (Điểm danh / Giờ làm / Ngày công).
   final ScrollController _ctAttScroll = ScrollController();
   final ScrollController _ctHrsScroll = ScrollController();
   final ScrollController _ctWrkScroll = ScrollController();
@@ -270,9 +269,6 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
   void _ensureCrossTabScrollLinked() {
     if (_ctScrollLinked) return;
     _ctScrollLinked = true;
-    linkHorizontalScrollControllers(_ctAttScrollHeader, _ctAttScroll);
-    linkHorizontalScrollControllers(_ctHrsScrollHeader, _ctHrsScroll);
-    linkHorizontalScrollControllers(_ctWrkScrollHeader, _ctWrkScroll);
     linkHorizontalScrollControllers(_ctAttScroll, _ctHrsScroll);
     linkHorizontalScrollControllers(_ctHrsScroll, _ctWrkScroll);
   }
@@ -298,9 +294,6 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
   @override
   void dispose() {
     _listScrollController.dispose();
-    _ctAttScrollHeader.dispose();
-    _ctHrsScrollHeader.dispose();
-    _ctWrkScrollHeader.dispose();
     _ctAttScroll.dispose();
     _ctHrsScroll.dispose();
     _ctWrkScroll.dispose();
@@ -332,6 +325,30 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
     final pad = MediaQuery.paddingOf(context);
     final reserved = pad.top + pad.bottom + 240;
     return (mq.height - reserved).clamp(260.0, 520.0);
+  }
+
+  static const int _mobileVisibleEmployeeRows = 10;
+
+  double _mobileListViewportHeight(double rowHeight) =>
+      _mobileVisibleEmployeeRows * rowHeight;
+
+  Widget _buildBottomHorizontalScrollBar(double tableMinWidth) {
+    return Container(
+      height: 18,
+      decoration: const BoxDecoration(
+        color: Color(0xFFFAFAFA),
+        border: Border(top: BorderSide(color: Color(0xFFE4E4E7))),
+      ),
+      child: Scrollbar(
+        thumbVisibility: true,
+        controller: _desktopTableHScrollBody,
+        child: SingleChildScrollView(
+          controller: _desktopTableHScrollBody,
+          scrollDirection: Axis.horizontal,
+          child: SizedBox(width: tableMinWidth, height: 1),
+        ),
+      ),
+    );
   }
 
   static const _tableInnerScrollPhysics = ClampingScrollPhysics(
@@ -1426,6 +1443,26 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
         .fold<double>(0, (sum, w) => sum + w.value);
   }
 
+  Map<int, TableColumnWidth> _summaryColumnWidthsForTargetWidth(
+    int maxPunches,
+    int maxShifts,
+    double targetWidth,
+  ) {
+    final base = _summaryDesktopColumnWidths(maxPunches, maxShifts);
+    final keys = base.keys.toList()..sort();
+    final baseValues = keys
+        .map((k) => (base[k]! as FixedColumnWidth).value)
+        .toList();
+    final baseTotal = baseValues.fold<double>(0, (s, w) => s + w);
+    if (baseTotal <= 0 || targetWidth <= 0) return base;
+    final scale = targetWidth / baseTotal;
+    final result = <int, TableColumnWidth>{};
+    for (var i = 0; i < keys.length; i++) {
+      result[keys[i]] = FixedColumnWidth(baseValues[i] * scale);
+    }
+    return result;
+  }
+
   Widget _summaryTableCell(
     Widget child, {
     Alignment alignment = Alignment.center,
@@ -1443,6 +1480,152 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
         textAlign: TextAlign.center,
         style: _summaryHeaderTextStyle,
       );
+
+  String _dailySummaryRowKey(_DailySummary s) =>
+      '${s.employeeId}|${_summaryDateKeyFmt.format(s.date)}';
+
+  Map<String, _EmployeePeriodTotals> _employeeTotalsFrom(
+      List<_DailySummary> summaries) {
+    final map = <String, _EmployeePeriodTotals>{};
+    for (final s in summaries) {
+      map
+          .putIfAbsent(
+            s.employeeId,
+            () => _EmployeePeriodTotals(
+              employeeName: s.employeeName,
+              employeeCode: s.employeeCode,
+            ),
+          )
+          .add(s);
+    }
+    return map;
+  }
+
+  Map<String, String> _employeeLastRowKeys(List<_DailySummary> summaries) {
+    final last = <String, String>{};
+    for (final s in summaries) {
+      last[s.employeeId] = _dailySummaryRowKey(s);
+    }
+    return last;
+  }
+
+  TableRow _buildEmployeeSubtotalTableRow(
+    _EmployeePeriodTotals totals,
+    int maxPunches,
+    int maxShifts,
+    List<Color> shiftColors,
+  ) {
+    final workStr = totals.totalWork > 0
+        ? (totals.totalWork % 1 == 0
+            ? totals.totalWork.toInt().toString()
+            : totals.totalWork.toStringAsFixed(1))
+        : '-';
+    final cells = <Widget>[
+      _summaryTableCell(const SizedBox.shrink()),
+      _summaryTableCell(
+        Text(
+          'Σ ${totals.employeeName}',
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: HrmPageChrome.primaryNavy,
+          ),
+        ),
+      ),
+      _summaryTableCell(
+        Text(
+          totals.employeeCode,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF71717A),
+          ),
+        ),
+      ),
+      _summaryTableCell(
+        Text(
+          'Tổng',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            color: Colors.blue.shade700,
+          ),
+        ),
+      ),
+      _summaryTableCell(
+        Text(
+          '${totals.presentDays} ngày',
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF52525B),
+          ),
+        ),
+      ),
+    ];
+    for (var i = 0; i < maxPunches; i++) {
+      cells.add(_summaryTableCell(
+        const Text('—',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
+      ));
+    }
+    for (var i = 1; i <= maxShifts; i++) {
+      final h = totals.shiftAt(i);
+      cells.add(_summaryTableCell(
+        h > 0
+            ? _buildHoursBadge(h, shiftColors[i - 1], isBold: true)
+            : const Text('—',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
+      ));
+    }
+    cells.addAll([
+      _summaryTableCell(
+        totals.totalHours > 0
+            ? _buildHoursBadge(totals.totalHours, Colors.green, isBold: true)
+            : const Text('—',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
+      ),
+      _summaryTableCell(
+        Text(
+          workStr,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: totals.totalWork > 0
+                ? Colors.blue.shade700
+                : const Color(0xFFA1A1AA),
+          ),
+        ),
+      ),
+      _summaryTableCell(
+        Text(
+          totals.totalHours > 0
+              ? _formatDecimalHours(totals.totalHours)
+              : '—',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: totals.totalHours > 0
+                ? Colors.blue.shade700
+                : const Color(0xFFA1A1AA),
+          ),
+        ),
+      ),
+    ]);
+    return TableRow(
+      decoration: const BoxDecoration(color: Color(0xFFEFF6FF)),
+      children: cells,
+    );
+  }
 
   Widget _summarySortableHeader(String label, String sortKey) {
     final active = _sortColumn == sortKey;
@@ -1530,12 +1713,13 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
     final columnWidths = _summaryDesktopColumnWidths(maxPunches, maxShifts);
     final tableMinWidth = _summaryDesktopTableMinWidth(maxPunches, maxShifts);
     final headerRow = _buildSummaryHeaderTableRow(maxPunches, maxShifts);
+    final daySttMap = _employeeDaySttMap(allSummaries);
     final dataRows = _buildSummaryDataTableRows(
       pagedSummaries,
       allSummaries,
       maxPunches,
       maxShifts,
-      startIndex,
+      daySttMap,
     );
 
     Widget buildHeaderTable() {
@@ -1628,7 +1812,16 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
                       );
                     },
                   ),
-                  _buildPaginationBar(totalRows, totalPages),
+                  _buildPaginationBar(
+                    totalRows,
+                    totalPages,
+                    onOpenFullscreen: () => _openDetailTableFullscreen(
+                      allSummaries: allSummaries,
+                      maxPunches: maxPunches,
+                      maxShifts: maxShifts,
+                    ),
+                  ),
+                  _buildBottomHorizontalScrollBar(tableMinWidth),
                 ],
               ),
             ),
@@ -1787,8 +1980,152 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
     );
   }
 
+  void _openDetailTableFullscreen({
+    required List<_DailySummary> allSummaries,
+    required int maxPunches,
+    required int maxShifts,
+  }) {
+    if (allSummaries.isEmpty) return;
+
+    final vBody = ScrollController();
+    final hBody = ScrollController();
+    final daySttMap = _employeeDaySttMap(allSummaries);
+    final headerRow = _buildSummaryHeaderTableRow(maxPunches, maxShifts);
+    final dataRows = _buildSummaryDataTableRows(
+      allSummaries,
+      allSummaries,
+      maxPunches,
+      maxShifts,
+      daySttMap,
+    );
+    final columnWidths = _summaryDesktopColumnWidths(maxPunches, maxShifts);
+    final tableMinWidth = _summaryDesktopTableMinWidth(maxPunches, maxShifts);
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogCtx) {
+        return Dialog.fullscreen(
+          child: Scaffold(
+            backgroundColor: const Color(0xFFFAFAFA),
+            appBar: AppBar(
+              title: const Text(
+                'Bảng chấm công chi tiết',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+              leading: IconButton(
+                tooltip: 'Thoát chế độ toàn màn hình',
+                icon: const Icon(Icons.fullscreen_exit),
+                onPressed: () => Navigator.pop(dialogCtx),
+              ),
+              actions: [
+                TextButton.icon(
+                  onPressed: () => Navigator.pop(dialogCtx),
+                  icon: const Icon(Icons.close, size: 18),
+                  label: const Text('Thoát'),
+                ),
+              ],
+            ),
+            body: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Scrollbar(
+                  thumbVisibility: true,
+                  controller: hBody,
+                  child: SingleChildScrollView(
+                    controller: hBody,
+                    scrollDirection: Axis.horizontal,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(minWidth: tableMinWidth),
+                      child: Container(
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFFAFAFA),
+                          border: Border(
+                            bottom: BorderSide(color: Color(0xFFE4E4E7)),
+                          ),
+                        ),
+                        child: _buildSummaryDesktopTable(
+                          columnWidths: columnWidths,
+                          rows: [headerRow],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Scrollbar(
+                    thumbVisibility: true,
+                    controller: vBody,
+                    child: SingleChildScrollView(
+                      controller: vBody,
+                      primary: false,
+                      child: Scrollbar(
+                        thumbVisibility: true,
+                        controller: hBody,
+                        child: SingleChildScrollView(
+                          controller: hBody,
+                          scrollDirection: Axis.horizontal,
+                          child: ConstrainedBox(
+                            constraints:
+                                BoxConstraints(minWidth: tableMinWidth),
+                            child: _buildSummaryDesktopTable(
+                              columnWidths: columnWidths,
+                              rows: dataRows,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    border: Border(
+                      top: BorderSide(color: Color(0xFFE4E4E7)),
+                    ),
+                  ),
+                  child: Text(
+                    '${allSummaries.length} bản ghi · ${daySttMap.length} nhân viên',
+                    style:
+                        TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  ),
+                ),
+                Container(
+                  height: 18,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFFAFAFA),
+                    border: Border(top: BorderSide(color: Color(0xFFE4E4E7))),
+                  ),
+                  child: Scrollbar(
+                    thumbVisibility: true,
+                    controller: hBody,
+                    child: SingleChildScrollView(
+                      controller: hBody,
+                      scrollDirection: Axis.horizontal,
+                      child: SizedBox(width: tableMinWidth, height: 1),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    ).whenComplete(() {
+      vBody.dispose();
+      hBody.dispose();
+    });
+  }
+
   /// Pagination bar
-  Widget _buildPaginationBar(int totalRows, int totalPages) {
+  Widget _buildPaginationBar(
+    int totalRows,
+    int totalPages, {
+    VoidCallback? onOpenFullscreen,
+  }) {
     final startRow = totalRows == 0 ? 0 : _currentPage * _rowsPerPage + 1;
     final endRow = ((_currentPage + 1) * _rowsPerPage).clamp(0, totalRows);
 
@@ -1903,6 +2240,17 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [recordsInfo, rowsPerPage],
                 ),
+                if (onOpenFullscreen != null) ...[
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: onOpenFullscreen,
+                      icon: const Icon(Icons.fullscreen, size: 18),
+                      label: const Text('Toàn màn hình'),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 8),
                 pageNav,
               ],
@@ -1913,6 +2261,40 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
               recordsInfo,
               const SizedBox(width: 16),
               rowsPerPage,
+              if (onOpenFullscreen != null) ...[
+                const SizedBox(width: 8),
+                Tooltip(
+                  message: 'Xem toàn màn hình',
+                  child: Material(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(8),
+                    child: InkWell(
+                      onTap: onOpenFullscreen,
+                      borderRadius: BorderRadius.circular(8),
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 6),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.fullscreen,
+                                size: 18, color: Color(0xFF2563EB)),
+                            SizedBox(width: 6),
+                            Text(
+                              'Toàn màn hình',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF2563EB),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
               const Spacer(),
               pageNav,
             ],
@@ -1946,7 +2328,473 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
     );
   }
 
-  /// Export to Excel
+  Map<String, Map<String, dynamic>> _employeeInfoLookup() {
+    final map = <String, Map<String, dynamic>>{};
+    final list = widget.employeesList;
+    if (list == null) return map;
+    for (final emp in list) {
+      void reg(String? key) {
+        if (key != null && key.isNotEmpty) map[key] = emp;
+      }
+      reg(emp['employeeCode']?.toString());
+      reg(emp['pin']?.toString());
+      reg(emp['id']?.toString());
+      reg(emp['applicationUserId']?.toString());
+    }
+    return map;
+  }
+
+  Map<String, dynamic>? _employeeInfoFor(_DailySummary s) {
+    final lookup = _employeeInfoLookup();
+    return lookup[s.employeeId] ??
+        lookup[s.employeeCode] ??
+        (s.pin != null ? lookup[s.pin!] : null);
+  }
+
+  String _employeeDisplayName(Map<String, dynamic>? info, _DailySummary s) {
+    if (info == null) return s.employeeName;
+    final fn = info['firstName']?.toString() ?? '';
+    final ln = info['lastName']?.toString() ?? '';
+    final full = '$fn $ln'.trim();
+    return full.isNotEmpty ? full : s.employeeName;
+  }
+
+  List<String> _orderedUniqueEmployeeIds(List<_DailySummary> summaries) {
+    final seen = <String>{};
+    final order = <String>[];
+    for (final s in summaries) {
+      if (seen.add(s.employeeId)) order.add(s.employeeId);
+    }
+    return order;
+  }
+
+  void _excelMergedText(
+    excel_lib.Sheet sheet, {
+    required int row,
+    required int colStart,
+    required int colEnd,
+    required String text,
+    excel_lib.CellStyle? style,
+  }) {
+    final cell = sheet.cell(
+      excel_lib.CellIndex.indexByColumnRow(
+          columnIndex: colStart, rowIndex: row),
+    );
+    cell.value = excel_lib.TextCellValue(text);
+    if (style != null) cell.cellStyle = style;
+    if (colEnd > colStart) {
+      sheet.merge(
+        excel_lib.CellIndex.indexByColumnRow(
+            columnIndex: colStart, rowIndex: row),
+        excel_lib.CellIndex.indexByColumnRow(columnIndex: colEnd, rowIndex: row),
+      );
+    }
+  }
+
+  void _excelSetCell(
+    excel_lib.Sheet sheet,
+    int row,
+    int col,
+    excel_lib.CellValue value, {
+    excel_lib.CellStyle? style,
+  }) {
+    final cell = sheet.cell(
+      excel_lib.CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row),
+    );
+    cell.value = value;
+    if (style != null) cell.cellStyle = style;
+  }
+
+  List<String> _excelDetailHeaders(int maxPunches, int maxShifts) {
+    final headers = <String>['STT', 'Thứ', 'Ngày'];
+    for (var i = 1; i <= maxPunches; i++) {
+      headers.add('Lần $i');
+    }
+    for (var i = 1; i <= maxShifts; i++) {
+      headers.add('Giờ ca $i');
+    }
+    headers.addAll(['Tổng giờ', 'Số công', 'Giờ thập phân']);
+    return headers;
+  }
+
+  String _excelColLetter(int colIndex) {
+    var col = colIndex + 1;
+    final buf = StringBuffer();
+    while (col > 0) {
+      final rem = (col - 1) % 26;
+      buf.write(String.fromCharCode(65 + rem));
+      col = (col - 1) ~/ 26;
+    }
+    return buf.toString().split('').reversed.join();
+  }
+
+  String _excelRef(int col, int row) =>
+      '${_excelColLetter(col)}${row + 1}';
+
+  excel_lib.CellStyle _excelCenterStyle({
+    bool bold = false,
+    int fontSize = 11,
+    String? backgroundHex,
+    bool italic = false,
+    excel_lib.NumFormat? numberFormat,
+  }) {
+    return excel_lib.CellStyle(
+      bold: bold,
+      italic: italic,
+      fontSize: fontSize,
+      horizontalAlign: excel_lib.HorizontalAlign.Center,
+      verticalAlign: excel_lib.VerticalAlign.Center,
+      backgroundColorHex: backgroundHex != null
+          ? excel_lib.ExcelColor.fromHexString(backgroundHex)
+          : excel_lib.ExcelColor.none,
+      numberFormat: numberFormat ?? excel_lib.NumFormat.standard_0,
+    );
+  }
+
+  excel_lib.CellStyle _excelLeftStyle({
+    int fontSize = 11,
+    bool italic = false,
+  }) {
+    return excel_lib.CellStyle(
+      fontSize: fontSize,
+      italic: italic,
+      horizontalAlign: excel_lib.HorizontalAlign.Left,
+      verticalAlign: excel_lib.VerticalAlign.Center,
+    );
+  }
+
+  Map<String, Map<String, int>> _employeeDaySttMap(
+      List<_DailySummary> allSummaries) {
+    final map = <String, Map<String, int>>{};
+    final counters = <String, int>{};
+    for (final s in allSummaries) {
+      final n = (counters[s.employeeId] ?? 0) + 1;
+      counters[s.employeeId] = n;
+      map.putIfAbsent(s.employeeId, () => {})[_dailySummaryRowKey(s)] = n;
+    }
+    return map;
+  }
+
+  List<String> _attendanceExportInfoLines(
+    Map<String, dynamic>? empInfo,
+    List<_DailySummary> empRows,
+  ) {
+    final displayName = _employeeDisplayName(empInfo, empRows.first);
+    final empCode = empRows.first.employeeCode;
+    final department = empInfo?['department']?.toString() ??
+        empInfo?['departmentName']?.toString() ??
+        '';
+    final phone =
+        empInfo?['phoneNumber']?.toString() ?? empInfo?['phone']?.toString() ?? '';
+    final branch =
+        empInfo?['branchName']?.toString() ?? empRows.first.branchName;
+    final position = empInfo?['position']?.toString() ?? '';
+    final pin = empInfo?['pin']?.toString() ?? empRows.first.pin ?? '';
+
+    final lines = <String>[
+      'Họ và tên: ${displayName.isNotEmpty ? displayName : '—'}',
+      'Mã nhân viên: ${empCode.isNotEmpty ? empCode : '—'}',
+    ];
+    if (pin.isNotEmpty && pin != empCode) {
+      lines.add('Mã chấm công (PIN): $pin');
+    }
+    lines.addAll([
+      'Phòng ban: ${department.isNotEmpty ? department : '—'}',
+      'Số điện thoại: ${phone.isNotEmpty ? phone : '—'}',
+    ]);
+    if (branch.isNotEmpty) lines.add('Chi nhánh: $branch');
+    if (position.isNotEmpty) lines.add('Chức vụ: $position');
+    return lines;
+  }
+
+  int _excelWriteEmployeeAttendanceBlock({
+    required excel_lib.Sheet sheet,
+    required int startRow,
+    required List<_DailySummary> empRows,
+    required _EmployeePeriodTotals totals,
+    required Map<String, dynamic>? empInfo,
+    required int maxPunches,
+    required int maxShifts,
+    required DateTimeRange range,
+    required int colCount,
+    required bool isLastEmployee,
+  }) {
+    final titleStyle = ExcelReportBuilder.titleStyle();
+    final infoStyle = _excelLeftStyle();
+    final headerStyle = ExcelReportBuilder.headerStyle();
+    final dataStyle = _excelCenterStyle();
+    final numStyle =
+        _excelCenterStyle(numberFormat: excel_lib.NumFormat.standard_2);
+    final totalStyle = _excelCenterStyle(
+      bold: true,
+      backgroundHex: '#EFF6FF',
+    );
+    final sigTitleStyle = _excelCenterStyle(bold: true);
+    final sigHintStyle = _excelCenterStyle(fontSize: 10, italic: true);
+
+    final lastCol = colCount - 1;
+    final punchStartCol = 3;
+    final shiftStartCol = punchStartCol + maxPunches;
+    final totalHoursCol = shiftStartCol + maxShifts;
+    final workCountCol = totalHoursCol + 1;
+    final decimalHoursCol = workCountCol + 1;
+
+    var row = startRow;
+
+    _excelMergedText(
+      sheet,
+      row: row,
+      colStart: 0,
+      colEnd: lastCol,
+      text: 'BẢNG CHẤM CÔNG CHI TIẾT',
+      style: titleStyle,
+    );
+    row++;
+
+    _excelMergedText(
+      sheet,
+      row: row,
+      colStart: 0,
+      colEnd: lastCol,
+      text:
+          'Từ ngày ${DateFormat('dd/MM/yyyy').format(range.start)} đến ngày ${DateFormat('dd/MM/yyyy').format(range.end)}',
+      style: _excelCenterStyle(fontSize: 12),
+    );
+    row += 2;
+
+    for (final line in _attendanceExportInfoLines(empInfo, empRows)) {
+      _excelMergedText(
+        sheet,
+        row: row,
+        colStart: 0,
+        colEnd: lastCol,
+        text: line,
+        style: infoStyle,
+      );
+      row++;
+    }
+    row++;
+
+    final headerRow = row;
+    final headers = _excelDetailHeaders(maxPunches, maxShifts);
+    ExcelReportBuilder.applyHeaderRow(sheet, headerRow, headers,
+        style: headerStyle);
+    row++;
+
+    final firstDataRow = row;
+    for (var i = 0; i < empRows.length; i++) {
+      final s = empRows[i];
+      var col = 0;
+      _excelSetCell(
+        sheet,
+        row,
+        col++,
+        excel_lib.IntCellValue(i + 1),
+        style: dataStyle,
+      );
+      _excelSetCell(
+        sheet,
+        row,
+        col++,
+        excel_lib.TextCellValue(_getDayOfWeekVN(s.date.weekday)),
+        style: dataStyle,
+      );
+      _excelSetCell(
+        sheet,
+        row,
+        col++,
+        excel_lib.TextCellValue(DateFormat('dd/MM/yyyy').format(s.date)),
+        style: dataStyle,
+      );
+
+      for (var p = 1; p <= maxPunches; p++) {
+        final punch = s.getPunch(p);
+        _excelSetCell(
+          sheet,
+          row,
+          col++,
+          excel_lib.TextCellValue(
+              punch != null ? DateFormat('HH:mm').format(punch) : ''),
+          style: dataStyle,
+        );
+      }
+
+      for (var sh = 1; sh <= maxShifts; sh++) {
+        final h = s.getShiftHours(sh);
+        _excelSetCell(
+          sheet,
+          row,
+          col++,
+          excel_lib.DoubleCellValue(double.parse(h.toStringAsFixed(2))),
+          style: numStyle,
+        );
+      }
+
+      final shiftRange =
+          '${_excelRef(shiftStartCol, row)}:${_excelRef(shiftStartCol + maxShifts - 1, row)}';
+      _excelSetCell(
+        sheet,
+        row,
+        totalHoursCol,
+        excel_lib.FormulaCellValue('=SUM($shiftRange)'),
+        style: numStyle,
+      );
+      _excelSetCell(
+        sheet,
+        row,
+        workCountCol,
+        excel_lib.DoubleCellValue(
+            double.parse(s.workCount.toStringAsFixed(2))),
+        style: numStyle,
+      );
+      _excelSetCell(
+        sheet,
+        row,
+        decimalHoursCol,
+        excel_lib.FormulaCellValue('=${_excelRef(totalHoursCol, row)}'),
+        style: numStyle,
+      );
+      row++;
+    }
+
+    final lastDataRow = row - 1;
+    final totalRow = row;
+
+    _excelSetCell(sheet, totalRow, 0, excel_lib.TextCellValue(''),
+        style: totalStyle);
+    _excelSetCell(sheet, totalRow, 1, excel_lib.TextCellValue('TỔNG CỘNG'),
+        style: totalStyle);
+
+    if (empRows.isNotEmpty) {
+      final punchCol = _excelRef(punchStartCol, firstDataRow);
+      final punchEnd = _excelRef(punchStartCol, lastDataRow);
+      _excelSetCell(
+        sheet,
+        totalRow,
+        2,
+        excel_lib.FormulaCellValue(
+            '=COUNTIF($punchCol:$punchEnd,"<>")&" ngày"'),
+        style: totalStyle,
+      );
+
+      for (var sh = 0; sh < maxShifts; sh++) {
+        final c = shiftStartCol + sh;
+        final refStart = _excelRef(c, firstDataRow);
+        final refEnd = _excelRef(c, lastDataRow);
+        _excelSetCell(
+          sheet,
+          totalRow,
+          c,
+          excel_lib.FormulaCellValue('=SUM($refStart:$refEnd)'),
+          style: totalStyle,
+        );
+      }
+
+      final thStart = _excelRef(totalHoursCol, firstDataRow);
+      final thEnd = _excelRef(totalHoursCol, lastDataRow);
+      _excelSetCell(
+        sheet,
+        totalRow,
+        totalHoursCol,
+        excel_lib.FormulaCellValue('=SUM($thStart:$thEnd)'),
+        style: totalStyle,
+      );
+
+      final wcStart = _excelRef(workCountCol, firstDataRow);
+      final wcEnd = _excelRef(workCountCol, lastDataRow);
+      _excelSetCell(
+        sheet,
+        totalRow,
+        workCountCol,
+        excel_lib.FormulaCellValue('=SUM($wcStart:$wcEnd)'),
+        style: totalStyle,
+      );
+
+      final decStart = _excelRef(decimalHoursCol, firstDataRow);
+      final decEnd = _excelRef(decimalHoursCol, lastDataRow);
+      _excelSetCell(
+        sheet,
+        totalRow,
+        decimalHoursCol,
+        excel_lib.FormulaCellValue('=SUM($decStart:$decEnd)'),
+        style: totalStyle,
+      );
+    } else {
+      _excelSetCell(sheet, totalRow, 2,
+          excel_lib.TextCellValue('${totals.presentDays} ngày'),
+          style: totalStyle);
+    }
+
+    for (var p = 0; p < maxPunches; p++) {
+      _excelSetCell(sheet, totalRow, punchStartCol + p,
+          excel_lib.TextCellValue(''), style: totalStyle);
+    }
+
+    row = totalRow + 2;
+
+    final part = (colCount / 3).floor().clamp(1, colCount);
+    final sig1End = part - 1;
+    final sig2Start = part;
+    final sig2End = (part * 2 - 1).clamp(sig2Start, lastCol);
+    final sig3Start = part * 2;
+    _excelMergedText(sheet,
+        row: row,
+        colStart: 0,
+        colEnd: sig1End,
+        text: 'Người lập',
+        style: sigTitleStyle);
+    _excelMergedText(sheet,
+        row: row,
+        colStart: sig2Start,
+        colEnd: sig2End,
+        text: 'Nhân viên',
+        style: sigTitleStyle);
+    _excelMergedText(sheet,
+        row: row,
+        colStart: sig3Start,
+        colEnd: lastCol,
+        text: 'Giám đốc',
+        style: sigTitleStyle);
+    row += 4;
+    _excelMergedText(sheet,
+        row: row,
+        colStart: 0,
+        colEnd: sig1End,
+        text: '(Ký, ghi rõ họ tên)',
+        style: sigHintStyle);
+    _excelMergedText(sheet,
+        row: row,
+        colStart: sig2Start,
+        colEnd: sig2End,
+        text: '(Ký, ghi rõ họ tên)',
+        style: sigHintStyle);
+    _excelMergedText(sheet,
+        row: row,
+        colStart: sig3Start,
+        colEnd: lastCol,
+        text: '(Ký, ghi rõ họ tên)',
+        style: sigHintStyle);
+    row += 2;
+
+    if (!isLastEmployee) row += 3;
+
+    return row;
+  }
+
+  String? _excelFilterDescription() {
+    final parts = <String>[];
+    if (_selectedEmployeeIds.isNotEmpty) {
+      parts.add('${_selectedEmployeeIds.length} nhân viên được chọn');
+    }
+    if (_shiftFilter == 'missing') {
+      parts.add('Thiếu chấm công');
+    } else if (_shiftFilter == 'complete') {
+      parts.add('Chấm công đủ cặp');
+    }
+    return parts.isEmpty ? null : parts.join(' · ');
+  }
+
+  /// Export to Excel — mỗi nhân viên một khối: tiêu đề, thông tin, bảng chi tiết, ký.
   Future<void> exportToExcel() async {
     final summaries = _dailySummaryData;
     if (summaries.isEmpty || _isExporting) return;
@@ -1956,106 +2804,72 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
       final cols = _tableColumnLimits(summaries);
       final maxPunches = cols.maxPunches;
       final maxShifts = cols.maxShifts;
+      final colCount = _excelDetailHeaders(maxPunches, maxShifts).length;
+      final range = _selectedDateRange;
 
-      final excelFile = excel_lib.Excel.createExcel();
+      final excelFile =
+          ExcelReportBuilder.createWorkbook(sheetName: 'Chấm công');
       final sheet = excelFile['Chấm công'];
 
-      // Headers
-      final headers = <String>[
-        'STT',
-        'Tên nhân viên',
-        'Mã nhân viên',
-        'Thứ',
-        'Ngày'
-      ];
-      for (int i = 1; i <= maxPunches; i++) {
-        headers.add('Lần $i');
-      }
-      for (int i = 1; i <= maxShifts; i++) {
-        headers.add('Giờ ca $i');
-      }
-      headers.addAll(['Tổng giờ', 'Số công', 'Giờ thập phân']);
-
-      for (int i = 0; i < headers.length; i++) {
-        sheet
-            .cell(excel_lib.CellIndex.indexByColumnRow(
-                columnIndex: i, rowIndex: 0))
-            .value = excel_lib.TextCellValue(headers[i]);
+      sheet.setColumnWidth(0, 5);
+      sheet.setColumnWidth(1, 10);
+      sheet.setColumnWidth(2, 12);
+      for (var i = 3; i < colCount; i++) {
+        sheet.setColumnWidth(i, i < 3 + maxPunches ? 9 : 11);
       }
 
-      // Data rows
-      for (int idx = 0; idx < summaries.length; idx++) {
-        final s = summaries[idx];
-        int col = 0;
-        sheet
-            .cell(excel_lib.CellIndex.indexByColumnRow(
-                columnIndex: col++, rowIndex: idx + 1))
-            .value = excel_lib.IntCellValue(idx + 1);
-        sheet
-            .cell(excel_lib.CellIndex.indexByColumnRow(
-                columnIndex: col++, rowIndex: idx + 1))
-            .value = excel_lib.TextCellValue(s.employeeName);
-        sheet
-            .cell(excel_lib.CellIndex.indexByColumnRow(
-                columnIndex: col++, rowIndex: idx + 1))
-            .value = excel_lib.TextCellValue(s.employeeCode);
-        sheet
-            .cell(excel_lib.CellIndex.indexByColumnRow(
-                columnIndex: col++, rowIndex: idx + 1))
-            .value = excel_lib.TextCellValue(_getDayOfWeekVN(s.date.weekday));
-        sheet
-                .cell(excel_lib.CellIndex.indexByColumnRow(
-                    columnIndex: col++, rowIndex: idx + 1))
-                .value =
-            excel_lib.TextCellValue(DateFormat('dd/MM/yyyy').format(s.date));
+      final empTotals = _employeeTotalsFrom(summaries);
+      final byEmployee = <String, List<_DailySummary>>{};
+      for (final s in summaries) {
+        byEmployee.putIfAbsent(s.employeeId, () => []).add(s);
+      }
+      final orderedIds = _orderedUniqueEmployeeIds(summaries);
 
-        for (int i = 1; i <= maxPunches; i++) {
-          final punch = s.getPunch(i);
-          sheet
-                  .cell(excel_lib.CellIndex.indexByColumnRow(
-                      columnIndex: col++, rowIndex: idx + 1))
-                  .value =
-              excel_lib.TextCellValue(
-                  punch != null ? DateFormat('HH:mm').format(punch) : '');
-        }
+      var row = 0;
+      final filterDesc = _excelFilterDescription();
+      if (filterDesc != null) {
+        _excelMergedText(
+          sheet,
+          row: row,
+          colStart: 0,
+          colEnd: colCount - 1,
+          text: 'Bộ lọc: $filterDesc',
+          style: _excelCenterStyle(fontSize: 10, italic: true),
+        );
+        row += 2;
+      }
 
-        for (int i = 1; i <= maxShifts; i++) {
-          sheet
-                  .cell(excel_lib.CellIndex.indexByColumnRow(
-                      columnIndex: col++, rowIndex: idx + 1))
-                  .value =
-              excel_lib.TextCellValue(_formatHours(s.getShiftHours(i)));
-        }
-
-        sheet
-            .cell(excel_lib.CellIndex.indexByColumnRow(
-                columnIndex: col++, rowIndex: idx + 1))
-            .value = excel_lib.TextCellValue(_formatHours(s.totalHours));
-        sheet
-                .cell(excel_lib.CellIndex.indexByColumnRow(
-                    columnIndex: col++, rowIndex: idx + 1))
-                .value =
-            excel_lib.DoubleCellValue(
-                double.parse(s.workCount.toStringAsFixed(2)));
-        sheet
-                .cell(excel_lib.CellIndex.indexByColumnRow(
-                    columnIndex: col++, rowIndex: idx + 1))
-                .value =
-            excel_lib.DoubleCellValue(
-                double.parse(s.totalHours.toStringAsFixed(2)));
+      for (var i = 0; i < orderedIds.length; i++) {
+        final empId = orderedIds[i];
+        final empRows = byEmployee[empId] ?? [];
+        if (empRows.isEmpty) continue;
+        final totals = empTotals[empId];
+        if (totals == null) continue;
+        row = _excelWriteEmployeeAttendanceBlock(
+          sheet: sheet,
+          startRow: row,
+          empRows: empRows,
+          totals: totals,
+          empInfo: _employeeInfoFor(empRows.first),
+          maxPunches: maxPunches,
+          maxShifts: maxShifts,
+          range: range,
+          colCount: colCount,
+          isLastEmployee: i == orderedIds.length - 1,
+        );
       }
 
       final bytes = excelFile.encode();
       if (bytes != null) {
-        final range = _selectedDateRange;
         final fileName =
-            'Tong_hop_cham_cong_${DateFormat('ddMMyyyy').format(range.start)}_${DateFormat('ddMMyyyy').format(range.end)}.xlsx';
+            'Bang_cham_cong_chi_tiet_${DateFormat('ddMMyyyy').format(range.start)}_${DateFormat('ddMMyyyy').format(range.end)}.xlsx';
         await file_saver.saveAndOpenFileBytes(bytes, fileName,
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         if (mounted) {
           NotificationOverlayManager().showSuccess(
               title: 'Xuất Excel',
-              message: 'Đã lưu vào Tải về/SBOX HRM: $fileName');
+              message:
+                  'Đã lưu ${orderedIds.length} nhân viên vào Tải về/SBOX HRM: $fileName');
         }
       }
     } catch (e) {
@@ -2068,7 +2882,311 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
     }
   }
 
-  /// Export to PNG - vẽ toàn bộ dữ liệu bằng HTML Canvas (không phụ thuộc vào widget tree)
+  List<String> _pngDetailRowCells(_DailySummary s, int stt, int maxPunches,
+      int maxShifts) {
+    final cells = <String>[
+      '$stt',
+      _getDayOfWeekVN(s.date.weekday),
+      DateFormat('dd/MM/yyyy').format(s.date),
+    ];
+    for (var p = 1; p <= maxPunches; p++) {
+      final punch = s.getPunch(p);
+      cells.add(punch != null ? DateFormat('HH:mm').format(punch) : '');
+    }
+    for (var sh = 1; sh <= maxShifts; sh++) {
+      final h = s.getShiftHours(sh);
+      cells.add(h > 0 ? h.toStringAsFixed(2) : '');
+    }
+    cells.add(s.totalHours > 0 ? s.totalHours.toStringAsFixed(2) : '');
+    cells.add(s.workCount > 0 ? s.workCount.toStringAsFixed(2) : '');
+    cells.add(
+        s.totalHours > 0 ? s.totalHours.toStringAsFixed(2) : '');
+    return cells;
+  }
+
+  List<String> _pngTotalRowCells(
+      _EmployeePeriodTotals totals, int maxPunches, int maxShifts) {
+    final cells = <String>[
+      '',
+      'TỔNG CỘNG',
+      '${totals.presentDays} ngày',
+    ];
+    for (var p = 0; p < maxPunches; p++) {
+      cells.add('');
+    }
+    for (var sh = 1; sh <= maxShifts; sh++) {
+      final h = totals.shiftAt(sh);
+      cells.add(h > 0 ? h.toStringAsFixed(2) : '');
+    }
+    cells.addAll([
+      totals.totalHours > 0 ? totals.totalHours.toStringAsFixed(2) : '',
+      totals.totalWork > 0 ? totals.totalWork.toStringAsFixed(2) : '',
+      totals.totalHours > 0 ? totals.totalHours.toStringAsFixed(2) : '',
+    ]);
+    return cells;
+  }
+
+  double _pngEstimateColWidths(
+    List<String> headers,
+    List<List<String>> allRows,
+    double minW,
+    double maxW,
+  ) {
+    final widths = <double>[];
+    for (var c = 0; c < headers.length; c++) {
+      var w = headers[c].length * 8.0 + 20;
+      for (final row in allRows) {
+        if (c < row.length) {
+          final cw = row[c].length * 7.0 + 20;
+          if (cw > w) w = cw;
+        }
+      }
+      widths.add(w.clamp(minW, maxW));
+    }
+    return widths.fold(0.0, (sum, w) => sum + w);
+  }
+
+  double _pngEmployeeBlockHeight({
+    required int infoLineCount,
+    required int dataRowCount,
+    required bool addSpacer,
+  }) {
+    const titleH = 34.0;
+    const periodH = 26.0;
+    const infoH = 22.0;
+    const gap = 10.0;
+    const headerH = 34.0;
+    const rowH = 28.0;
+    const totalH = 30.0;
+    const sigBlockH = 88.0;
+    final spacerH = addSpacer ? 24.0 : 0.0;
+    return titleH +
+        periodH +
+        gap +
+        infoLineCount * infoH +
+        gap +
+        headerH +
+        dataRowCount * rowH +
+        totalH +
+        gap +
+        sigBlockH +
+        spacerH;
+  }
+
+  void _pngDrawCenteredText(
+    dynamic ctx,
+    String text,
+    double cx,
+    double cy, {
+    required String color,
+    required String font,
+  }) {
+    ctx.fillStyle = color;
+    ctx.font = font;
+    ctx.textAlign = 'center';
+    ctx.fillText(text, cx, cy);
+    ctx.textAlign = 'left';
+  }
+
+  void _pngDrawAttendanceExport(
+    dynamic ctx, {
+    required double width,
+    required double height,
+    required List<_DailySummary> summaries,
+    required Map<String, _EmployeePeriodTotals> empTotals,
+    required List<String> orderedIds,
+    required Map<String, List<_DailySummary>> byEmployee,
+    required int maxPunches,
+    required int maxShifts,
+    required DateTimeRange range,
+    String? filterDesc,
+  }) {
+    const rowH = 28.0;
+    const headerH = 34.0;
+    const infoH = 22.0;
+    const titleH = 34.0;
+    const periodH = 26.0;
+    const gap = 10.0;
+    const sigBlockH = 88.0;
+    const pad = 12.0;
+
+    final headers = _excelDetailHeaders(maxPunches, maxShifts);
+    final allSampleRows = <List<String>>[];
+    for (final id in orderedIds) {
+      final empRows = byEmployee[id] ?? [];
+      for (var i = 0; i < empRows.length; i++) {
+        allSampleRows
+            .add(_pngDetailRowCells(empRows[i], i + 1, maxPunches, maxShifts));
+      }
+      final totals = empTotals[id];
+      if (totals != null) {
+        allSampleRows.add(_pngTotalRowCells(totals, maxPunches, maxShifts));
+      }
+    }
+    final tableWidth =
+        _pngEstimateColWidths(headers, allSampleRows, 48, 120).clamp(600, 1400);
+    final colWidths = <double>[];
+    for (var c = 0; c < headers.length; c++) {
+      var w = headers[c].length * 8.0 + 20;
+      for (final row in allSampleRows) {
+        if (c < row.length) {
+          final cw = row[c].length * 7.0 + 20;
+          if (cw > w) w = cw;
+        }
+      }
+      colWidths.add(w.clamp(48, 120));
+    }
+    final scale = tableWidth / colWidths.fold(0.0, (s, w) => s + w);
+    for (var i = 0; i < colWidths.length; i++) {
+      colWidths[i] *= scale;
+    }
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, width, height);
+
+    var y = pad;
+    if (filterDesc != null) {
+      _pngDrawCenteredText(ctx, 'Bộ lọc: $filterDesc', width / 2, y + 12,
+          color: '#71717A', font: 'italic 11px Arial, sans-serif');
+      y += 24;
+    }
+
+    final tableLeft = (width - tableWidth) / 2;
+
+    for (var ei = 0; ei < orderedIds.length; ei++) {
+      final empId = orderedIds[ei];
+      final empRows = byEmployee[empId] ?? [];
+      final totals = empTotals[empId];
+      if (empRows.isEmpty || totals == null) continue;
+      final empInfo = _employeeInfoFor(empRows.first);
+      final infoLines = _attendanceExportInfoLines(empInfo, empRows);
+
+      _pngDrawCenteredText(
+          ctx, 'BẢNG CHẤM CÔNG CHI TIẾT', width / 2, y + 20,
+          color: '#0F172A', font: 'bold 16px Arial, sans-serif');
+      y += titleH;
+
+      _pngDrawCenteredText(
+        ctx,
+        'Từ ngày ${DateFormat('dd/MM/yyyy').format(range.start)} đến ngày ${DateFormat('dd/MM/yyyy').format(range.end)}',
+        width / 2,
+        y + 16,
+        color: '#334155',
+        font: '12px Arial, sans-serif',
+      );
+      y += periodH + gap;
+
+      for (final line in infoLines) {
+        ctx.fillStyle = '#334155';
+        ctx.font = '11px Arial, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(line, tableLeft + 8, y + 14);
+        ctx.textAlign = 'left';
+        y += infoH;
+      }
+      y += gap;
+
+      final tableTop = y;
+      ctx.fillStyle = '#6366F1';
+      ctx.fillRect(tableLeft, tableTop, tableWidth, headerH);
+      var x = tableLeft;
+      for (var c = 0; c < headers.length; c++) {
+        _pngDrawCenteredText(
+          ctx,
+          headers[c],
+          x + colWidths[c] / 2,
+          tableTop + headerH / 2 + 5,
+          color: '#FFFFFF',
+          font: 'bold 11px Arial, sans-serif',
+        );
+        x += colWidths[c];
+      }
+      y += headerH;
+
+      for (var ri = 0; ri < empRows.length; ri++) {
+        final cells =
+            _pngDetailRowCells(empRows[ri], ri + 1, maxPunches, maxShifts);
+        if (ri.isOdd) {
+          ctx.fillStyle = '#F8FAFC';
+          ctx.fillRect(tableLeft, y, tableWidth, rowH);
+        }
+        x = tableLeft;
+        for (var c = 0; c < cells.length; c++) {
+          final punchCol = c >= 3 && c < 3 + maxPunches;
+          String color = '#334155';
+          if (punchCol && cells[c].isNotEmpty) {
+            color = (c - 2).isOdd ? '#059669' : '#DC2626';
+          } else if (c >= 3 + maxPunches && c < 3 + maxPunches + maxShifts) {
+            color = cells[c].isNotEmpty ? '#0D9488' : '#334155';
+          } else if (c == cells.length - 3 && cells[c].isNotEmpty) {
+            color = '#16A34A';
+          } else if (c >= cells.length - 2 && cells[c].isNotEmpty) {
+            color = '#1D4ED8';
+          }
+          _pngDrawCenteredText(
+            ctx,
+            cells[c],
+            x + colWidths[c] / 2,
+            y + rowH / 2 + 5,
+            color: color,
+            font: '11px Arial, sans-serif',
+          );
+          x += colWidths[c];
+        }
+        ctx.strokeStyle = '#E2E8F0';
+        ctx.beginPath();
+        ctx.moveTo(tableLeft, y + rowH);
+        ctx.lineTo(tableLeft + tableWidth, y + rowH);
+        ctx.stroke();
+        y += rowH;
+      }
+
+      final totalCells = _pngTotalRowCells(totals, maxPunches, maxShifts);
+      ctx.fillStyle = '#EFF6FF';
+      ctx.fillRect(tableLeft, y, tableWidth, rowH + 2);
+      x = tableLeft;
+      for (var c = 0; c < totalCells.length; c++) {
+        _pngDrawCenteredText(
+          ctx,
+          totalCells[c],
+          x + colWidths[c] / 2,
+          y + rowH / 2 + 5,
+          color: '#1D4ED8',
+          font: 'bold 11px Arial, sans-serif',
+        );
+        x += colWidths[c];
+      }
+      ctx.strokeStyle = '#93C5FD';
+      ctx.beginPath();
+      ctx.moveTo(tableLeft, y + rowH);
+      ctx.lineTo(tableLeft + tableWidth, y + rowH);
+      ctx.stroke();
+      y += rowH + gap;
+
+      final sigW = tableWidth / 3;
+      final sigLabels = ['Người lập', 'Nhân viên', 'Giám đốc'];
+      for (var si = 0; si < 3; si++) {
+        final cx = tableLeft + sigW * si + sigW / 2;
+        _pngDrawCenteredText(ctx, sigLabels[si], cx, y + 14,
+            color: '#0F172A', font: 'bold 11px Arial, sans-serif');
+      }
+      y += 52;
+      for (var si = 0; si < 3; si++) {
+        final cx = tableLeft + sigW * si + sigW / 2;
+        _pngDrawCenteredText(ctx, '(Ký, ghi rõ họ tên)', cx, y + 12,
+            color: '#71717A', font: 'italic 10px Arial, sans-serif');
+      }
+      y += sigBlockH - 52;
+
+      ctx.strokeStyle = '#CBD5E1';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(tableLeft, tableTop, tableWidth, y - tableTop);
+
+      if (ei < orderedIds.length - 1) y += 24;
+    }
+  }
+
+  /// Export to PNG — cùng bố cục Excel: từng nhân viên, thông tin, bảng, ký.
   Future<void> exportToPng() async {
     final summaries = _dailySummaryData;
     if (summaries.isEmpty) {
@@ -2083,256 +3201,77 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
       final cols = _tableColumnLimits(summaries);
       final maxPunches = cols.maxPunches;
       final maxShifts = cols.maxShifts;
-
-      // Xây dựng headers
-      final headers = <String>[
-        'STT',
-        'Tên nhân viên',
-        'Mã nhân viên',
-        'Thứ',
-        'Ngày'
-      ];
-      for (int i = 1; i <= maxPunches; i++) {
-        headers.add('Lần $i');
+      final range = _selectedDateRange;
+      final empTotals = _employeeTotalsFrom(summaries);
+      final byEmployee = <String, List<_DailySummary>>{};
+      for (final s in summaries) {
+        byEmployee.putIfAbsent(s.employeeId, () => []).add(s);
       }
-      for (int i = 1; i <= maxShifts; i++) {
-        headers.add('Giờ ca $i');
+      final orderedIds = _orderedUniqueEmployeeIds(summaries);
+      final filterDesc = _excelFilterDescription();
+
+      var totalHeight = 24.0;
+      if (filterDesc != null) totalHeight += 24;
+      for (var i = 0; i < orderedIds.length; i++) {
+        final empRows = byEmployee[orderedIds[i]] ?? [];
+        if (empRows.isEmpty) continue;
+        final infoCount = _attendanceExportInfoLines(
+                _employeeInfoFor(empRows.first), empRows)
+            .length;
+        totalHeight += _pngEmployeeBlockHeight(
+          infoLineCount: infoCount,
+          dataRowCount: empRows.length,
+          addSpacer: i < orderedIds.length - 1,
+        );
       }
-      headers.addAll(['Tổng giờ', 'Số công', 'Giờ thập phân']);
+      totalHeight += 24;
 
-      // Xây dựng rows
-      final rows = <List<String>>[];
-      for (int idx = 0; idx < summaries.length; idx++) {
-        final s = summaries[idx];
-        final row = <String>[
-          '${idx + 1}',
-          s.employeeName,
-          s.employeeCode,
-          _getDayOfWeekVN(s.date.weekday),
-          DateFormat('dd/MM/yyyy').format(s.date),
-        ];
-        for (int i = 1; i <= maxPunches; i++) {
-          final punch = s.getPunch(i);
-          row.add(punch != null ? DateFormat('HH:mm').format(punch) : '');
-        }
-        for (int i = 1; i <= maxShifts; i++) {
-          row.add(_formatHours(s.getShiftHours(i)));
-        }
-        row.add(_formatHours(s.totalHours));
-        row.add(s.workCount > 0
-            ? (s.effectiveMultiplier != 1.0
-                ? '${s.workCount.toStringAsFixed(2)} (x${s.effectiveMultiplier.toStringAsFixed(s.effectiveMultiplier % 1 == 0 ? 0 : 1)})'
-                : s.workCount.toStringAsFixed(2))
-            : '-');
-        row.add(_formatDecimalHours(s.totalHours));
-        rows.add(row);
-      }
+      const totalWidth = 1100.0;
+      void drawFn(dynamic ctx) => _pngDrawAttendanceExport(
+            ctx,
+            width: totalWidth,
+            height: totalHeight,
+            summaries: summaries,
+            empTotals: empTotals,
+            orderedIds: orderedIds,
+            byEmployee: byEmployee,
+            maxPunches: maxPunches,
+            maxShifts: maxShifts,
+            range: range,
+            filterDesc: filterDesc,
+          );
 
-      // Tính kích thước canvas
-      const double cellPadding = 12;
-      const double fontSize = 13;
-      const double headerFontSize = 14;
-      const double rowHeight = 32;
-      const double headerHeight = 40;
-      const double titleHeight = 50;
+      final rangeLabel =
+          '${DateFormat('ddMMyyyy').format(range.start)}_${DateFormat('ddMMyyyy').format(range.end)}';
+      final fileName = 'Bang_cham_cong_chi_tiet_$rangeLabel.png';
 
-      // Tính chiều rộng mỗi cột
-      final colWidths = <double>[];
-      for (int c = 0; c < headers.length; c++) {
-        double maxW = headers[c].length * 9.0 + cellPadding * 2;
-        for (final row in rows) {
-          final w = row[c].length * 8.0 + cellPadding * 2;
-          if (w > maxW) maxW = w;
-        }
-        if (c == 1) maxW = maxW.clamp(150, 250); // Tên nhân viên
-        colWidths.add(maxW.clamp(60, 250));
-      }
-
-      final totalWidth = colWidths.fold(0.0, (sum, w) => sum + w) + 2;
-      final totalHeight =
-          titleHeight + headerHeight + rows.length * rowHeight + 2;
-
-      // Tạo canvas
       final dataUrl = web_canvas.renderToPngDataUrl(
         width: totalWidth.toInt(),
         height: totalHeight.toInt(),
-        draw: (ctx) {
-          // Background trắng
-          ctx.fillStyle = '#FFFFFF';
-          ctx.fillRect(0, 0, totalWidth, totalHeight);
-
-          // Tiêu đề
-          ctx.fillStyle = '#1a1a1a';
-          ctx.font = 'bold 16px Arial, sans-serif';
-          final range = _selectedDateRange;
-          final title =
-              'Tổng hợp chấm công - ${DateFormat('dd/MM/yyyy').format(range.start)} đến ${DateFormat('dd/MM/yyyy').format(range.end)}';
-          ctx.fillText(title, 10, 30);
-
-          // Vẽ header
-          double x = 1;
-          const headerY = titleHeight;
-          ctx.fillStyle = '#F0F4F8';
-          ctx.fillRect(1, headerY, totalWidth - 2, headerHeight);
-          ctx.strokeStyle = '#CBD5E1';
-          ctx.lineWidth = 1;
-          ctx.strokeRect(1, headerY, totalWidth - 2, headerHeight);
-
-          for (int c = 0; c < headers.length; c++) {
-            ctx.fillStyle = '#334155';
-            ctx.font = 'bold ${headerFontSize}px Arial, sans-serif';
-            ctx.fillText(
-                headers[c], x + cellPadding, headerY + headerHeight / 2 + 5);
-            // Vẽ đường kẻ cột
-            ctx.strokeStyle = '#E2E8F0';
-            ctx.beginPath();
-            ctx.moveTo(x + colWidths[c], headerY);
-            ctx.lineTo(x + colWidths[c], totalHeight);
-            ctx.stroke();
-            x += colWidths[c];
-          }
-
-          // Vẽ rows
-          for (int r = 0; r < rows.length; r++) {
-            final rowY = titleHeight + headerHeight + r * rowHeight;
-
-            // Alternate row color
-            if (r % 2 == 1) {
-              ctx.fillStyle = '#F8FAFC';
-              ctx.fillRect(1, rowY, totalWidth - 2, rowHeight);
-            }
-
-            // Border dưới mỗi hàng
-            ctx.strokeStyle = '#E2E8F0';
-            ctx.beginPath();
-            ctx.moveTo(1, rowY + rowHeight);
-            ctx.lineTo(totalWidth - 1, rowY + rowHeight);
-            ctx.stroke();
-
-            x = 1;
-            for (int c = 0; c < rows[r].length; c++) {
-              final cellText = rows[r][c];
-              // Màu cho lần chấm vào (lẻ) và ra (chẵn)
-              if (c >= 5 && c < 5 + maxPunches && cellText.isNotEmpty) {
-                final punchIndex = c - 4; // 1-based
-                ctx.fillStyle = punchIndex % 2 == 1
-                    ? '#059669'
-                    : '#DC2626'; // Xanh=vào, Đỏ=ra
-              } else if (c >= 5 + maxPunches &&
-                  c < 5 + maxPunches + maxShifts &&
-                  cellText != '-') {
-                ctx.fillStyle = '#0D9488'; // Teal cho ca
-              } else if (c == headers.length - 2 && cellText != '-') {
-                ctx.fillStyle = '#16A34A'; // Xanh lá cho tổng giờ
-              } else if (c == headers.length - 1 && cellText != '-') {
-                ctx.fillStyle = '#1D4ED8'; // Xanh dương cho giờ thập phân
-              } else {
-                ctx.fillStyle = '#334155';
-              }
-              ctx.font = '${fontSize}px Arial, sans-serif';
-              ctx.fillText(cellText, x + cellPadding, rowY + rowHeight / 2 + 5);
-              x += colWidths[c];
-            }
-          }
-
-          // Border ngoài
-          ctx.strokeStyle = '#CBD5E1';
-          ctx.lineWidth = 1;
-          ctx.strokeRect(
-              1, titleHeight, totalWidth - 2, totalHeight - titleHeight - 1);
-        },
+        draw: drawFn,
       );
 
       if (dataUrl != null) {
-        final fileName =
-            'Tong_hop_cham_cong_${DateFormat('ddMMyyyy_HHmm').format(DateTime.now())}.png';
         await file_saver.saveAndOpenDataUrl(dataUrl, fileName);
-
         if (mounted) {
           NotificationOverlayManager().showSuccess(
-              title: 'Xuất PNG', message: 'Đã lưu vào Ảnh/SBOX HRM: $fileName');
+              title: 'Xuất PNG',
+              message:
+                  'Đã lưu ${orderedIds.length} nhân viên vào Ảnh/SBOX HRM: $fileName');
         }
       } else {
-        // Mobile fallback: use async renderer with same draw callback
-        void drawFn(dynamic ctx) {
-          ctx.fillStyle = '#FFFFFF';
-          ctx.fillRect(0, 0, totalWidth, totalHeight);
-          ctx.fillStyle = '#1a1a1a';
-          ctx.font = 'bold 16px Arial, sans-serif';
-          final range = _selectedDateRange;
-          final title =
-              'Tổng hợp chấm công - ${DateFormat('dd/MM/yyyy').format(range.start)} đến ${DateFormat('dd/MM/yyyy').format(range.end)}';
-          ctx.fillText(title, 10, 30);
-          double x = 1;
-          const hdrY = titleHeight;
-          ctx.fillStyle = '#F0F4F8';
-          ctx.fillRect(1, hdrY, totalWidth - 2, headerHeight);
-          ctx.strokeStyle = '#CBD5E1';
-          ctx.lineWidth = 1;
-          ctx.strokeRect(1, hdrY, totalWidth - 2, headerHeight);
-          for (int c = 0; c < headers.length; c++) {
-            ctx.fillStyle = '#334155';
-            ctx.font = 'bold ${headerFontSize}px Arial, sans-serif';
-            ctx.fillText(
-                headers[c], x + cellPadding, hdrY + headerHeight / 2 + 5);
-            ctx.strokeStyle = '#E2E8F0';
-            ctx.beginPath();
-            ctx.moveTo(x + colWidths[c], hdrY);
-            ctx.lineTo(x + colWidths[c], totalHeight);
-            ctx.stroke();
-            x += colWidths[c];
-          }
-          for (int r = 0; r < rows.length; r++) {
-            final rowY = titleHeight + headerHeight + r * rowHeight;
-            if (r % 2 == 1) {
-              ctx.fillStyle = '#F8FAFC';
-              ctx.fillRect(1, rowY, totalWidth - 2, rowHeight);
-            }
-            ctx.strokeStyle = '#E2E8F0';
-            ctx.beginPath();
-            ctx.moveTo(1, rowY + rowHeight);
-            ctx.lineTo(totalWidth - 1, rowY + rowHeight);
-            ctx.stroke();
-            x = 1;
-            for (int c = 0; c < rows[r].length; c++) {
-              final cellText = rows[r][c];
-              if (c >= 5 && c < 5 + maxPunches && cellText.isNotEmpty) {
-                final punchIndex = c - 4;
-                ctx.fillStyle = punchIndex % 2 == 1 ? '#059669' : '#DC2626';
-              } else if (c >= 5 + maxPunches &&
-                  c < 5 + maxPunches + maxShifts &&
-                  cellText != '-') {
-                ctx.fillStyle = '#0D9488';
-              } else if (c == headers.length - 2 && cellText != '-') {
-                ctx.fillStyle = '#16A34A';
-              } else if (c == headers.length - 1 && cellText != '-') {
-                ctx.fillStyle = '#1D4ED8';
-              } else {
-                ctx.fillStyle = '#334155';
-              }
-              ctx.font = '${fontSize}px Arial, sans-serif';
-              ctx.fillText(cellText, x + cellPadding, rowY + rowHeight / 2 + 5);
-              x += colWidths[c];
-            }
-          }
-          ctx.strokeStyle = '#CBD5E1';
-          ctx.lineWidth = 1;
-          ctx.strokeRect(
-              1, titleHeight, totalWidth - 2, totalHeight - titleHeight - 1);
-        }
-
         final pngBytes = await web_canvas.renderToPngBytes(
           width: totalWidth.toInt(),
           height: totalHeight.toInt(),
           draw: drawFn,
         );
         if (pngBytes != null && mounted) {
-          final fileName =
-              'Tong_hop_cham_cong_${DateFormat('ddMMyyyy_HHmm').format(DateTime.now())}.png';
           await file_saver.saveAndOpenFileBytes(
               pngBytes, fileName, 'image/png');
           NotificationOverlayManager().showSuccess(
-              title: 'Xuất PNG', message: 'Đã lưu vào Ảnh/SBOX HRM: $fileName');
+              title: 'Xuất PNG',
+              message:
+                  'Đã lưu ${orderedIds.length} nhân viên vào Ảnh/SBOX HRM: $fileName');
         } else if (mounted) {
           NotificationOverlayManager()
               .showError(title: 'Lỗi', message: 'Không thể xuất PNG');
@@ -2432,7 +3371,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
                         e.code.toLowerCase().contains(searchText.toLowerCase()))
                     .toList();
 
-            return AlertDialog(
+            return ScrollableAlertDialog(
               title: Row(
                 children: [
                   const Icon(Icons.people, color: Colors.blue, size: 22),
@@ -3103,7 +4042,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
       required double rowHeight,
       required Widget Function(String empId, DateTime d, _DailySummary?) cellFn,
       required ScrollController horizScrollCtrl,
-      required ScrollController horizHeaderScrollCtrl,
+      required ScrollController vertScrollCtrl,
       String frozenLabel = 'Nhân viên',
       Color frozenHeaderBg = HrmPageChrome.primaryNavy,
       String? Function(String empId)? subtextFn,
@@ -3116,109 +4055,109 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
       Color totalFrozenSubtextColor = HrmPageChrome.primaryNavy,
     }) {
       final empCount = employees.length;
-      final pinnedH = ctTitleH + headerH;
       final showTotal = totalDayCellBuilder != null;
+      final listH = _mobileListViewportHeight(rowHeight);
+      final gridH = headerH + listH + (showTotal ? rowHeight : 0);
 
-      Widget pinnedHeaderBar() {
+      Widget buildDateGridSection(BuildContext sectionContext) {
         return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             ctSectionTitle(title, titleColor,
                 subtitle: subtitle, fullWidth: true),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ctFrozenHeader(frozenLabel, frozenHeaderBg),
-                Expanded(
-                  child: SingleChildScrollView(
-                    controller: horizHeaderScrollCtrl,
-                    scrollDirection: Axis.horizontal,
-                    physics: const ClampingScrollPhysics(),
-                    child: SizedBox(
-                      width: dateScrollWidth,
-                      child: ctDateHeaderRow(),
+            SizedBox(
+              height: gridH,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: empColW,
+                    child: Column(
+                      children: [
+                        ctFrozenHeader(frozenLabel, frozenHeaderBg),
+                        SizedBox(
+                          height: listH,
+                          child: ScrollConfiguration(
+                            behavior: ScrollConfiguration.of(sectionContext)
+                                .copyWith(scrollbars: false),
+                            child: ListView.builder(
+                              controller: vertScrollCtrl,
+                              primary: false,
+                              physics: _tableInnerScrollPhysics,
+                              itemCount: empCount,
+                              itemExtent: rowHeight,
+                              itemBuilder: (_, i) => ctFrozenEmpRow(
+                                i,
+                                rowHeight: rowHeight,
+                                maxPunches: maxPunches,
+                                maxShifts: maxShifts,
+                                subtextFn: subtextFn,
+                                subtextColor: subtextColor,
+                                workSubtextFn: workSubtextFn,
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (showTotal)
+                          ctFrozenTotalRow(
+                            rowHeight: rowHeight,
+                            subtext: totalFrozenSubtext,
+                            subtextColor: totalFrozenSubtextColor,
+                          ),
+                      ],
                     ),
                   ),
-                ),
-              ],
-            ),
-          ],
-        );
-      }
-
-      final rowCount = empCount + (showTotal ? 1 : 0);
-
-      Widget buildGridRow(BuildContext context, int index) {
-        final isTotal = showTotal && index == empCount;
-        return RepaintBoundary(
-          key: ValueKey(
-            isTotal ? '__total__' : employees[index].key,
-          ),
-          child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            isTotal
-                ? ctFrozenTotalRow(
-                    rowHeight: rowHeight,
-                    subtext: totalFrozenSubtext,
-                    subtextColor: totalFrozenSubtextColor,
-                  )
-                : ctFrozenEmpRow(
-                    index,
-                    rowHeight: rowHeight,
-                    maxPunches: maxPunches,
-                    maxShifts: maxShifts,
-                    subtextFn: subtextFn,
-                    subtextColor: subtextColor,
-                    workSubtextFn: workSubtextFn,
-                  ),
-            Container(width: 1, color: const Color(0xFFE4E4E7)),
-            Expanded(
-              child: HorizontallySyncedClip(
-                controller: horizScrollCtrl,
-                contentWidth: dateScrollWidth,
-                child: isTotal
-                    ? ctDateTotalRow(
-                        rowHeight: rowHeight,
-                        dayCell: totalDayCellBuilder!,
-                      )
-                    : ctDateBodyRow(
-                        index,
-                        rowHeight: rowHeight,
-                        cellFn: cellFn,
-                        evenRowColor: evenRowColor,
-                        oddRowColor: oddRowColor,
+                  Container(width: 1, color: const Color(0xFFE4E4E7)),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      controller: horizScrollCtrl,
+                      scrollDirection: Axis.horizontal,
+                      physics: const ClampingScrollPhysics(),
+                      child: SizedBox(
+                        width: dateScrollWidth,
+                        height: gridH,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ctDateHeaderRow(),
+                            SizedBox(
+                              height: listH,
+                              child: SyncedScrollListView(
+                                mainController: vertScrollCtrl,
+                                physics: _tableInnerScrollPhysics,
+                                itemCount: empCount,
+                                itemExtent: rowHeight,
+                                itemBuilder: (_, i) => ctDateBodyRow(
+                                  i,
+                                  rowHeight: rowHeight,
+                                  cellFn: cellFn,
+                                  evenRowColor: evenRowColor,
+                                  oddRowColor: oddRowColor,
+                                ),
+                              ),
+                            ),
+                            if (showTotal)
+                              ctDateTotalRow(
+                                rowHeight: rowHeight,
+                                dayCell: totalDayCellBuilder!,
+                              ),
+                          ],
+                        ),
                       ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
-        ),
         );
       }
 
       return [
-        SliverPersistentHeader(
-          pinned: true,
-          delegate: PinnedBoxHeaderDelegate(
-            extent: pinnedH,
-            backgroundColor: Colors.white,
-            child: pinnedHeaderBar(),
-          ),
-        ),
-        SliverList(
-          delegate: SliverChildBuilderDelegate(
-            buildGridRow,
-            childCount: rowCount,
-            addAutomaticKeepAlives: false,
-            addRepaintBoundaries: false,
-            findChildIndexCallback: (Key key) {
-              if (key is! ValueKey<String>) return null;
-              final v = key.value;
-              if (v == '__total__') return showTotal ? empCount : null;
-              final i = employees.indexWhere((e) => e.key == v);
-              return i >= 0 ? i : null;
-            },
+        SliverToBoxAdapter(
+          child: Builder(
+            builder: buildDateGridSection,
           ),
         ),
       ];
@@ -3426,7 +4365,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
             rowHeight: attRowH,
             cellFn: attCell,
             horizScrollCtrl: _ctAttScroll,
-            horizHeaderScrollCtrl: _ctAttScrollHeader,
+            vertScrollCtrl: _ctAttVertScroll,
             totalFrozenSubtext:
                 grandPresentDays > 0 ? '$grandPresentDays lượt có chấm' : null,
             totalFrozenSubtextColor: const Color(0xFF16A34A),
@@ -3453,7 +4392,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
             rowHeight: hrsRowH,
             cellFn: hrsCell,
             horizScrollCtrl: _ctHrsScroll,
-            horizHeaderScrollCtrl: _ctHrsScrollHeader,
+            vertScrollCtrl: _ctHrsVertScroll,
             subtextFn: (empId) {
               final total = dates.fold<double>(
                   0.0,
@@ -3491,7 +4430,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
             rowHeight: hrsRowH,
             cellFn: wrkDateCell,
             horizScrollCtrl: _ctWrkScroll,
-            horizHeaderScrollCtrl: _ctWrkScrollHeader,
+            vertScrollCtrl: _ctWrkVertScroll,
             frozenLabel: 'NV / Tổng công',
             frozenHeaderBg: const Color(0xFF4C1D95),
             subtextColor: const Color(0xFF7C3AED),
@@ -3587,7 +4526,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
           sliver: SliverToBoxAdapter(
             child: Text(
-              'Mỗi ô: C1/C2… = từng ca. Vuốt trang xem NV; vuốt ngang xem thêm ngày.',
+              'Mỗi ô: C1/C2… = từng ca. Vuốt dọc xem thêm NV; vuốt ngang xem thêm ngày.',
               style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
             ),
           ),
@@ -4061,7 +5000,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
     List<_DailySummary> allSummaries,
     int maxPunches,
     int maxShifts,
-    int startIndex,
+    Map<String, Map<String, int>> daySttMap,
   ) {
     final shiftColors = [
       Colors.teal,
@@ -4078,6 +5017,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
     final List<TableRow> rows = [];
     String? currentBranch;
     int dataRowIndex = 0;
+    final empTotals = _employeeTotalsFrom(allSummaries);
+    final empLastRowKeys = _employeeLastRowKeys(allSummaries);
 
     // Pre-compute branch employee counts
     final Map<String, int> branchEmpCounts = {};
@@ -4160,9 +5101,11 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
 
       // Regular data row
       final dayOfWeek = _getDayOfWeekVN(summary.date.weekday);
+      final stt = daySttMap[summary.employeeId]?[_dailySummaryRowKey(summary)] ??
+          1;
       final cells = <Widget>[
         _summaryTableCell(Text(
-          '${startIndex + dataRowIndex + 1}',
+          '$stt',
           textAlign: TextAlign.center,
           style: const TextStyle(fontSize: 12, color: Colors.grey),
         )),
@@ -4286,7 +5229,19 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
       rows.add(TableRow(
         children: cells,
       ));
-      dataRowIndex++;
+
+      final rowKey = _dailySummaryRowKey(summary);
+      if (empLastRowKeys[summary.employeeId] == rowKey) {
+        final totals = empTotals[summary.employeeId];
+        if (totals != null) {
+          rows.add(_buildEmployeeSubtotalTableRow(
+            totals,
+            maxPunches,
+            maxShifts,
+            shiftColors,
+          ));
+        }
+      }
     }
 
     return rows;
@@ -4531,65 +5486,85 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
     required BuildContext hostContext,
   }) {
     if (time == null) {
+      if (!widget.allowCorrection) {
+        return const Center(
+          child: Text('—',
+              style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
+        );
+      }
       return Center(
         child: InkWell(
-        onTap: () =>
-            _showAddPunchDialog(summary, punchIndex, isIn, hostContext),
-        borderRadius: BorderRadius.circular(4),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            border: Border.all(
-                color: Colors.grey.withValues(alpha: 0.3),
-                style: BorderStyle.solid),
-            borderRadius: BorderRadius.circular(4),
+          onTap: () =>
+              _showAddPunchDialog(summary, punchIndex, isIn, hostContext),
+          borderRadius: BorderRadius.circular(4),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              border: Border.all(
+                  color: Colors.grey.withValues(alpha: 0.3),
+                  style: BorderStyle.solid),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: const Icon(Icons.add, size: 14, color: Colors.grey),
           ),
-          child: const Icon(Icons.add, size: 14, color: Colors.grey),
         ),
-      ),
+      );
+    }
+
+    if (!widget.allowCorrection) {
+      return Center(
+        child: Text(
+          DateFormat('HH:mm').format(time),
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: isIn ? const Color(0xFF059669) : const Color(0xFFDC2626),
+          ),
+        ),
       );
     }
 
     return Center(
       child: InkWell(
-      onTap: () =>
-          _showEditPunchDialog(summary, punchIndex, time, isIn, hostContext),
-      borderRadius: BorderRadius.circular(4),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-        decoration: BoxDecoration(
-          color: (isIn ? Colors.green : Colors.red).withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(
-            color: (isIn ? Colors.green : Colors.red).withValues(alpha: 0.2),
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              isIn ? Icons.login : Icons.logout,
-              size: 12,
-              color: isIn ? Colors.green : Colors.red,
+        onTap: () =>
+            _showEditPunchDialog(summary, punchIndex, time, isIn, hostContext),
+        borderRadius: BorderRadius.circular(4),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          decoration: BoxDecoration(
+            color: (isIn ? Colors.green : Colors.red).withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(
+              color: (isIn ? Colors.green : Colors.red).withValues(alpha: 0.2),
             ),
-            const SizedBox(width: 3),
-            Text(
-              DateFormat('HH:mm').format(time),
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                isIn ? Icons.login : Icons.logout,
+                size: 12,
                 color: isIn ? Colors.green : Colors.red,
               ),
-            ),
-            const SizedBox(width: 2),
-            Icon(
-              Icons.edit,
-              size: 10,
-              color: (isIn ? Colors.green : Colors.red).withValues(alpha: 0.5),
-            ),
-          ],
+              const SizedBox(width: 3),
+              Text(
+                DateFormat('HH:mm').format(time),
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: isIn ? Colors.green : Colors.red,
+                ),
+              ),
+              const SizedBox(width: 2),
+              Icon(
+                Icons.edit,
+                size: 10,
+                color: (isIn ? Colors.green : Colors.red).withValues(alpha: 0.5),
+              ),
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
@@ -4621,7 +5596,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
     showDialog(
       context: hostContext,
       builder: (dialogCtx) => StatefulBuilder(
-        builder: (dialogCtx, setDialogState) => AlertDialog(
+        builder: (dialogCtx, setDialogState) => ScrollableAlertDialog(
           title: const Row(
             children: [
               Icon(Icons.add_circle, color: Colors.blue),
@@ -4837,7 +5812,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
     showDialog(
       context: hostContext,
       builder: (dialogCtx) => StatefulBuilder(
-        builder: (dialogCtx, setDialogState) => AlertDialog(
+        builder: (dialogCtx, setDialogState) => ScrollableAlertDialog(
           title: const Row(
             children: [
               Icon(Icons.edit, color: Colors.orange),
@@ -5299,6 +6274,36 @@ class _DailySummary {
       default:
         return 0;
     }
+  }
+}
+
+class _EmployeePeriodTotals {
+  final String employeeName;
+  final String employeeCode;
+  double totalHours = 0;
+  double totalWork = 0;
+  int presentDays = 0;
+  final List<double> _shiftHours = [0, 0, 0, 0, 0];
+
+  _EmployeePeriodTotals({
+    required this.employeeName,
+    required this.employeeCode,
+  });
+
+  void add(_DailySummary s) {
+    totalHours += s.totalHours;
+    totalWork += s.workCount;
+    if (s.totalPunches > 0) presentDays++;
+    _shiftHours[0] += s.shift1Hours;
+    _shiftHours[1] += s.shift2Hours;
+    _shiftHours[2] += s.shift3Hours;
+    _shiftHours[3] += s.shift4Hours;
+    _shiftHours[4] += s.shift5Hours;
+  }
+
+  double shiftAt(int index) {
+    if (index < 1 || index > 5) return 0;
+    return _shiftHours[index - 1];
   }
 }
 

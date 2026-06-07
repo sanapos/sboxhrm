@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -236,7 +237,7 @@ class AbsenceDayActions {
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Text('Nghỉ không phép'),
         content: Column(
           mainAxisSize: MainAxisSize.min,

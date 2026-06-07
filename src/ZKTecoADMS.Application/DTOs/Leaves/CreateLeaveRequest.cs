@@ -14,4 +14,10 @@ public class CreateLeaveRequest
     public bool IsHalfShift { get; set; }
     public string Reason { get; set; } = string.Empty;
     public Guid? ReplacementEmployeeId { get; set; }
+    /// <summary>Quản lý duyệt luôn khi tạo đơn (bỏ qua chờ duyệt).</summary>
+    public bool AutoApprove { get; set; }
+    /// <summary>Phép đã duyệt nhưng vẫn tính công trên bảng chấm công.</summary>
+    public bool CountAsWork { get; set; }
+    public SickLeaveMode? SickLeaveMode { get; set; }
+    public string? BhxhDocumentNote { get; set; }
 }

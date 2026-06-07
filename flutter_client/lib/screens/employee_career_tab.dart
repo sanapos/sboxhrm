@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/permission_provider.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../models/employee.dart';
@@ -71,7 +74,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
     setState(() => _loadingAwards = true);
     // HrDocumentType.Award = 9
     final res = await _apiService.getHrDocuments(
-        employeeId: widget.employee.id, type: '9');
+        employeeId: widget.employee.id, type: '9', page: 1, pageSize: 500);
     if (mounted) {
       setState(() {
         _loadingAwards = false;
@@ -91,7 +94,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
     setState(() => _loadingDisciplines = true);
     // HrDocumentType.Discipline = 8
     final res = await _apiService.getHrDocuments(
-        employeeId: widget.employee.id, type: '8');
+        employeeId: widget.employee.id, type: '8', page: 1, pageSize: 500);
     if (mounted) {
       setState(() {
         _loadingDisciplines = false;
@@ -442,7 +445,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
   Future<void> _deleteAssignment(String id) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Text('Xóa ghi nhận?'),
         content: const Text('Bạn có chắc muốn xóa ghi nhận này không?'),
         actions: [
@@ -473,7 +476,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
   Future<void> _deleteDocument(String id, bool isDiscipline) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: Text(isDiscipline ? 'Xóa kỷ luật?' : 'Xóa khen thưởng?'),
         content: const Text('Bạn có chắc muốn xóa bản ghi này không?'),
         actions: [
@@ -548,7 +551,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
         ),
       );
     }
-    return AlertDialog(
+    return ScrollableAlertDialog(
       title: Row(children: [
         Icon(icon, color: iconColor, size: 22),
         const SizedBox(width: 10),
@@ -612,14 +615,18 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
 
   // ── Tab 1: Chức vụ ────────────────────────────────────────────────────────
   Widget _buildPositionTab() {
+    final canEdit = Provider.of<PermissionProvider>(context, listen: false)
+        .canEdit('Employee');
     return Scaffold(
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showAddPositionDialog,
-        icon: const Icon(Icons.add),
-        label: const Text('Thêm chức vụ'),
-        backgroundColor: HrmPageChrome.primaryNavy,
-        foregroundColor: Colors.white,
-      ),
+      floatingActionButton: canEdit
+          ? FloatingActionButton.extended(
+              onPressed: _showAddPositionDialog,
+              icon: const Icon(Icons.add),
+              label: const Text('Thêm chức vụ'),
+              backgroundColor: HrmPageChrome.primaryNavy,
+              foregroundColor: Colors.white,
+            )
+          : null,
       body: _loadingAssignments
           ? const LoadingWidget()
           : _positionHistory.isEmpty
@@ -733,12 +740,14 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
                 ],
               ),
             ),
-            IconButton(
-              icon: const Icon(Icons.delete_outline,
-                  size: 18, color: Color(0xFFA1A1AA)),
-              onPressed: () => _deleteAssignment(a['id']?.toString() ?? ''),
-              tooltip: 'Xóa',
-            ),
+            if (Provider.of<PermissionProvider>(context, listen: false)
+                .canEdit('Employee'))
+              IconButton(
+                icon: const Icon(Icons.delete_outline,
+                    size: 18, color: Color(0xFFA1A1AA)),
+                onPressed: () => _deleteAssignment(a['id']?.toString() ?? ''),
+                tooltip: 'Xóa',
+              ),
           ],
         ),
       ),
@@ -747,14 +756,18 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
 
   // ── Tab 2: Phòng ban ──────────────────────────────────────────────────────
   Widget _buildDepartmentTab() {
+    final canEdit = Provider.of<PermissionProvider>(context, listen: false)
+        .canEdit('Employee');
     return Scaffold(
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showAddPositionDialog,
-        icon: const Icon(Icons.add),
-        label: const Text('Ghi nhận thay đổi'),
-        backgroundColor: const Color(0xFF0369A1),
-        foregroundColor: Colors.white,
-      ),
+      floatingActionButton: canEdit
+          ? FloatingActionButton.extended(
+              onPressed: _showAddPositionDialog,
+              icon: const Icon(Icons.add),
+              label: const Text('Ghi nhận thay đổi'),
+              backgroundColor: const Color(0xFF0369A1),
+              foregroundColor: Colors.white,
+            )
+          : null,
       body: _loadingAssignments
           ? const LoadingWidget()
           : _departmentHistory.isEmpty
@@ -844,12 +857,14 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
                 ],
               ),
             ),
-            IconButton(
-              icon: const Icon(Icons.delete_outline,
-                  size: 18, color: Color(0xFFA1A1AA)),
-              onPressed: () => _deleteAssignment(a['id']?.toString() ?? ''),
-              tooltip: 'Xóa',
-            ),
+            if (Provider.of<PermissionProvider>(context, listen: false)
+                .canEdit('Employee'))
+              IconButton(
+                icon: const Icon(Icons.delete_outline,
+                    size: 18, color: Color(0xFFA1A1AA)),
+                onPressed: () => _deleteAssignment(a['id']?.toString() ?? ''),
+                tooltip: 'Xóa',
+              ),
           ],
         ),
       ),
@@ -858,14 +873,18 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
 
   // ── Tab 3: Khen thưởng ────────────────────────────────────────────────────
   Widget _buildAwardsTab() {
+    final canEdit = Provider.of<PermissionProvider>(context, listen: false)
+        .canEdit('Employee');
     return Scaffold(
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddAwardDialog(isDiscipline: false),
-        icon: const Icon(Icons.add),
-        label: const Text('Thêm khen thưởng'),
-        backgroundColor: const Color(0xFFD97706),
-        foregroundColor: Colors.white,
-      ),
+      floatingActionButton: canEdit
+          ? FloatingActionButton.extended(
+              onPressed: () => _showAddAwardDialog(isDiscipline: false),
+              icon: const Icon(Icons.add),
+              label: const Text('Thêm khen thưởng'),
+              backgroundColor: const Color(0xFFD97706),
+              foregroundColor: Colors.white,
+            )
+          : null,
       body: _loadingAwards
           ? const LoadingWidget()
           : _awards.isEmpty
@@ -881,14 +900,18 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
 
   // ── Tab 4: Kỷ luật ────────────────────────────────────────────────────────
   Widget _buildDisciplineTab() {
+    final canEdit = Provider.of<PermissionProvider>(context, listen: false)
+        .canEdit('Employee');
     return Scaffold(
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddAwardDialog(isDiscipline: true),
-        icon: const Icon(Icons.add),
-        label: const Text('Thêm kỷ luật'),
-        backgroundColor: const Color(0xFFDC2626),
-        foregroundColor: Colors.white,
-      ),
+      floatingActionButton: canEdit
+          ? FloatingActionButton.extended(
+              onPressed: () => _showAddAwardDialog(isDiscipline: true),
+              icon: const Icon(Icons.add),
+              label: const Text('Thêm kỷ luật'),
+              backgroundColor: const Color(0xFFDC2626),
+              foregroundColor: Colors.white,
+            )
+          : null,
       body: _loadingDisciplines
           ? const LoadingWidget()
           : _disciplines.isEmpty

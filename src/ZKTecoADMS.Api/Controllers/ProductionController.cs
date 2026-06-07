@@ -692,6 +692,7 @@ public class ProductionController(
                 type: NotificationType.Success,
                 title: "Import sáº£n lÆ°á»£ng hoÃ n táº¥t",
                 message: $"ÄÃ£ import {created}/{dto.Rows.Count} dÃ²ng tá»« Excel",
+                relatedEntityType: "ProductionEntry",
                 categoryCode: "production",
                 storeId: storeId);
         }

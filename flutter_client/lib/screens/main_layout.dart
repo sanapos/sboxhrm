@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -33,6 +35,7 @@ import 'asset_management_screen.dart';
 import 'cash_transaction_screen.dart';
 import 'communication_screen.dart';
 import 'payroll_screen.dart';
+import 'payslip_screen.dart';
 import 'salary_settings_screen.dart';
 import 'bonus_penalty_screen.dart';
 import 'penalty_tickets_screen.dart';
@@ -40,17 +43,20 @@ import 'attendance_summary_screen.dart';
 import 'attendance_by_shift_screen.dart';
 import 'kpi_screen.dart';
 import 'dashboard_screen.dart';
+import 'overtime_screen.dart';
 
 import 'penalty_report_screen.dart';
 import 'cash_report_screen.dart';
 import 'advance_report_screen.dart';
 import 'leave_report_screen.dart';
 import 'asset_report_screen.dart';
+import 'downloaded_documents_screen.dart';
 import 'agent_license_keys_screen.dart';
 import 'production_output_screen.dart';
 import 'feedback_screen.dart';
 import 'mobile_attendance_screen.dart';
 import '../utils/notification_navigation.dart';
+import '../utils/pending_notification_launch.dart';
 import 'mobile_device_registration_screen.dart';
 import 'meal_tracking_screen.dart';
 import 'field_checkin_screen.dart';
@@ -151,6 +157,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    NavigationNotifier.mainLayoutReady.value = true;
     WidgetsBinding.instance.addObserver(this);
     _systemNotification.initialize();
     _loadNotificationCount();
@@ -159,8 +166,13 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
     // Listen for navigation requests from other screens
     NavigationNotifier.navigateTo.addListener(_onNavigationRequested);
+    NavigationNotifier.navigateToModule.addListener(_onModuleNavigationRequested);
     NavigationNotifier.goBackNotifier.addListener(_onGoBackRequested);
     ScreenRefreshNotifier.notifications.addListener(_loadNotificationCount);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      PendingNotificationLaunch.tryConsume();
+    });
   }
 
   /// Load quyền hiệu lực cho user hiện tại
@@ -193,14 +205,84 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   void _onNavigationRequested() {
     final targetIndex = NavigationNotifier.navigateTo.value;
     if (targetIndex != null && mounted) {
-      _navigateToIndex(targetIndex);
-      // Reset the value to allow same navigation again
+      final openOvertime = NavigationNotifier.pendingOpenOvertime.value;
+      if (openOvertime) {
+        NavigationNotifier.pendingOpenOvertime.value = false;
+      }
+      if (targetIndex != _selectedIndex) {
+        _navigateToIndex(targetIndex);
+      }
       NavigationNotifier.navigateTo.value = null;
+      if (openOvertime) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _openOvertimeScreen();
+        });
+      }
+    }
+  }
+
+  void _openOvertimeScreen() {
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    if (!perm.canView('Overtime')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bạn không có quyền xem Tăng ca')),
+      );
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const OvertimeScreen()),
+    );
+  }
+
+  void _onModuleNavigationRequested() {
+    final code = NavigationNotifier.navigateToModule.value;
+    if (code == null || code.isEmpty || !mounted) return;
+
+    final openOvertime = NavigationNotifier.pendingOpenOvertime.value;
+    if (openOvertime) {
+      NavigationNotifier.pendingOpenOvertime.value = false;
+    }
+
+    int? idx;
+    for (var i = 0; i < _navItems.length; i++) {
+      if (_navItems[i].moduleCode == code) {
+        idx = i;
+        break;
+      }
+    }
+    NavigationNotifier.navigateToModule.value = null;
+
+    if (idx != null) {
+      if (idx != _selectedIndex) {
+        _navigateToIndex(idx);
+      }
+    } else if (kDebugMode) {
+      debugPrint('📍 Module not found in nav: $code');
+    }
+
+    if (openOvertime) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _openOvertimeScreen();
+      });
     }
   }
 
   void _onGoBackRequested() {
     _goBack();
+  }
+
+  int? _navIndexForModule(String moduleCode) {
+    for (var i = 0; i < _navItems.length; i++) {
+      if (_navItems[i].moduleCode == moduleCode) return i;
+    }
+    return null;
+  }
+
+  void _navigateToModule(String moduleCode) {
+    final idx = _navIndexForModule(moduleCode);
+    if (idx != null) _navigateToIndex(idx);
   }
 
   void _navigateToIndex(int index) {
@@ -242,6 +324,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    NavigationNotifier.mainLayoutReady.value = false;
     WidgetsBinding.instance.removeObserver(this);
     _notificationSubscription?.cancel();
     _attendanceSubscription?.cancel();
@@ -250,6 +333,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     _currentPopupEntry?.remove();
     _currentPopupEntry = null;
     NavigationNotifier.navigateTo.removeListener(_onNavigationRequested);
+    NavigationNotifier.navigateToModule.removeListener(_onModuleNavigationRequested);
     NavigationNotifier.goBackNotifier.removeListener(_onGoBackRequested);
     ScreenRefreshNotifier.notifications.removeListener(_loadNotificationCount);
     super.dispose();
@@ -361,7 +445,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           onDismiss: onDismiss,
           onTap: () {
             onDismiss();
-            _navigateToIndex(NavigationNotifier.deviceUsers);
+            SettingsHubScreen.pendingSubIndex.value = 12;
+            _navigateToIndex(NavigationNotifier.settingsHub);
           },
         ));
   }
@@ -515,6 +600,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             message: message,
             relatedEntityType: relatedEntityType,
             notificationId: notificationId,
+            relatedEntityId: data['relatedEntityId']?.toString(),
           );
         } else if (!isAttendanceOrDevice) {
           // Desktop: chỉ hiện popup cho các loại không phải attendance/device
@@ -533,8 +619,12 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
               }
               navigateFromNotification(
                 relatedEntityType: relatedEntityType,
-                relatedEntityId: notificationId,
+                relatedEntityId: data['relatedEntityId']?.toString() ??
+                    notificationId,
                 title: title,
+                categoryCode: data['categoryCode']?.toString(),
+                actionUrl: data['actionUrl']?.toString() ??
+                    data['relatedUrl']?.toString(),
               );
             },
           );
@@ -592,8 +682,16 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           title: title,
           message: message,
           relatedEntityType: 'Communication',
+          notificationId: data['notificationId']?.toString() ??
+              data['id']?.toString(),
+          relatedEntityId: data['relatedEntityId']?.toString() ??
+              data['communicationId']?.toString(),
         );
       } else {
+        final commId = data['relatedEntityId']?.toString() ??
+            data['communicationId']?.toString();
+        final notifRowId =
+            data['notificationId']?.toString() ?? data['id']?.toString();
         _notificationManager.show(
           title: title,
           message: message,
@@ -601,7 +699,17 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           relatedEntityType: 'Communication',
           duration: const Duration(seconds: 3),
           onTap: () {
-            _navigateToIndex(_getIndexForEntityType('Communication'));
+            if (notifRowId != null) {
+              _apiService.markNotificationAsRead(notifRowId).then((_) {
+                _loadNotificationCount();
+              });
+            }
+            navigateFromNotification(
+              relatedEntityType: 'Communication',
+              relatedEntityId: commId,
+              title: title,
+              categoryCode: 'internal_comm',
+            );
           },
         );
       }
@@ -636,26 +744,6 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       if (_navItems[i].moduleCode == 'Notification') return i;
     }
     return 8; // Default index
-  }
-
-  // Chuyển đến màn hình phù hợp theo loại thông báo (popup desktop).
-  int _getIndexForEntityType(String? entityType, {String? title}) {
-    final target = resolveNotificationNavigation(entityType, title: title);
-    if (target == null) return _notificationsIndex;
-    if (target.settingsHubSubIndex != null) {
-      SettingsHubScreen.pendingSubIndex.value = target.settingsHubSubIndex;
-    }
-    if (target.scheduleApprovalTab != null) {
-      NavigationNotifier.scheduleApprovalTab.value = target.scheduleApprovalTab!;
-    }
-    if (target.attendanceApprovalTab != null) {
-      NavigationNotifier.attendanceApprovalTab.value = target.attendanceApprovalTab!;
-    }
-    if (target.attendanceApprovalStatusFilter != null) {
-      NavigationNotifier.attendanceApprovalStatusFilter.value =
-          target.attendanceApprovalStatusFilter!;
-    }
-    return target.screenIndex;
   }
 
   final List<NavItem> _navItems = [
@@ -811,6 +899,16 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       showInSidebar: false,
       themeColor: const Color(0xFF0284C7),
       moduleCode: 'ScheduleApproval',
+    ),
+    NavItem(
+      icon: Icons.receipt_long_outlined,
+      activeIcon: Icons.receipt_long,
+      label: 'Phiếu lương',
+      subtitle: 'Phiếu lương cá nhân',
+      screen: const PayslipScreen(),
+      group: 'Báo cáo',
+      themeColor: const Color(0xFF7C3AED),
+      moduleCode: 'Payslip',
     ),
     NavItem(
       icon: Icons.payments_outlined,
@@ -1027,6 +1125,17 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       themeColor: const Color(0xFF059669),
       moduleCode: 'AssetReport',
     ),
+    // Không moduleCode: chỉ mục file local trên máy, không API / không phân quyền.
+    NavItem(
+      icon: Icons.folder_special_outlined,
+      activeIcon: Icons.folder_special,
+      label: 'Quản lý tài liệu tải xuống',
+      subtitle: 'Chỉ trên máy này · Excel, ảnh — mở, chia sẻ',
+      screen: const DownloadedDocumentsScreen(),
+      group: 'Báo cáo',
+      showInSidebar: false,
+      themeColor: const Color(0xFF7C3AED),
+    ),
 
     // ══════════ ĐẠI LÝ ══════════
     NavItem(
@@ -1074,6 +1183,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       showInSidebar: true,
       themeColor: const Color(0xFF64748B),
       adminOnly: true,
+      moduleCode: 'SystemAdmin',
     ),
     // ══════════ TÀI CHÍNH (phiếu phạt tự động) ══════════
     NavItem(
@@ -1212,28 +1322,24 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   }
 
   // Mobile bottom nav: 4 key screens + "Thêm" (opens drawer)
-  // Each entry: (navIndex, icon, activeIcon, moduleCode)
+  // Index resolved at runtime via moduleCode (tránh lệch khi thêm màn mới).
   static const _mobileBottomNavDefs = [
     (
-      navIndex: 0,
       icon: Icons.home_outlined,
       activeIcon: Icons.home,
       moduleCode: 'Home'
     ),
     (
-      navIndex: 2,
       icon: Icons.dashboard_outlined,
       activeIcon: Icons.dashboard,
       moduleCode: 'Dashboard'
     ),
     (
-      navIndex: 16,
       icon: Icons.fingerprint_outlined,
       activeIcon: Icons.fingerprint,
       moduleCode: 'MobileAttendance'
     ),
     (
-      navIndex: 22,
       icon: Icons.task_alt_outlined,
       activeIcon: Icons.task_alt,
       moduleCode: 'Task'
@@ -1265,8 +1371,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final l = AppLocalizations.of(context);
 
     // Map _selectedIndex → bottom nav position; 4 = "Thêm" (drawer)
-    final bottomNavIndex =
-        _mobileBottomNavDefs.indexWhere((d) => d.navIndex == _selectedIndex);
+    final bottomNavIndex = _mobileBottomNavDefs.indexWhere(
+      (d) => _navIndexForModule(d.moduleCode) == _selectedIndex,
+    );
     final safeBottomIndex = bottomNavIndex == -1 ? 4 : bottomNavIndex;
 
     return PopScope(
@@ -1283,6 +1390,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       child: NotificationOverlay(
         child: Scaffold(
           key: _mobileScaffoldKey,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           appBar: AppBar(
             toolbarHeight: 44,
             leading: _canGoBack
@@ -1332,8 +1440,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   /// Mobile body: IndexedStack keeps bottom-nav screen states alive (scroll position preserved).
   /// Non-bottom-nav screens are overlaid on top so IndexedStack stays in tree.
   Widget _buildMobileBody() {
-    final bottomNavIndices =
-        _mobileBottomNavDefs.map((d) => d.navIndex).toList();
+    final bottomNavIndices = _mobileBottomNavDefs
+        .map((d) => _navIndexForModule(d.moduleCode))
+        .whereType<int>()
+        .toList();
     final isBottomNav = bottomNavIndices.contains(_selectedIndex);
     final stackIdx = isBottomNav ? bottomNavIndices.indexOf(_selectedIndex) : 0;
     return Stack(
@@ -1354,20 +1464,20 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final surfaceColor = isDark ? const Color(0xFF1E1E2E) : Colors.white;
     final unselectedColor = isDark ? Colors.white54 : Colors.grey.shade500;
 
-    // All items: 4 defs + "Thêm"
+    // All items: 4 defs + "Thêm" (điều hướng theo moduleCode khi bấm)
     final allItems = [
       ..._mobileBottomNavDefs.map((d) => (
             icon: d.icon,
             activeIcon: d.activeIcon,
             label: _mobileNavLabel(d.moduleCode, l),
-            navIndex: d.navIndex,
+            moduleCode: d.moduleCode,
             isCenterAction: d.moduleCode == 'MobileAttendance',
           )),
       (
         icon: Icons.grid_view_outlined,
         activeIcon: Icons.grid_view_rounded,
         label: l.more,
-        navIndex: -1, // special: drawer
+        moduleCode: null,
         isCenterAction: false,
       ),
     ];
@@ -1401,7 +1511,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                     isSelected: isSelected,
                     primaryColor: primaryColor,
                     surfaceColor: surfaceColor,
-                    onTap: () => _navigateToIndex(item.navIndex),
+                    onTap: () => _navigateToModule(item.moduleCode!),
                   ),
                 );
               }
@@ -1414,10 +1524,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                   selectedColor: primaryColor,
                   unselectedColor: unselectedColor,
                   onTap: () {
-                    if (item.navIndex == -1) {
+                    if (item.moduleCode == null) {
                       _mobileScaffoldKey.currentState?.openDrawer();
                     } else {
-                      _navigateToIndex(item.navIndex);
+                      _navigateToModule(item.moduleCode!);
                     }
                   },
                 ),
@@ -2202,7 +2312,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final l = AppLocalizations.of(context);
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => ScrollableAlertDialog(
         title: Text(l.logout),
         content: Text(l.logoutConfirm),
         actions: [

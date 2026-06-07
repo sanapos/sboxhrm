@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:intl/intl.dart';
 import '../../services/api_service.dart';
 import '../../widgets/notification_overlay.dart';
@@ -300,7 +301,7 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
   void _confirmDelete(Map<String, dynamic> promo) {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Text('Xác nhận xóa'),
         content: Text('Bạn có chắc muốn xóa chương trình "${promo['name']}"?'),
         actions: [
@@ -344,7 +345,7 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDlg) => AlertDialog(
+        builder: (ctx, setDlg) => ScrollableAlertDialog(
           title: Text(isEdit ? 'Sửa chương trình' : 'Tạo chương trình mới'),
           content: SizedBox(
             width: 500,

@@ -82,12 +82,72 @@ public class AttendancesController(
         var command = new GetAttsByDevicesQuery(paginationRequest, filter);
 
         var result = await bus.Send(command);
+        if (result.IsSuccess && result.Data?.Items != null)
+            result = await EnrichMobileSitePhotosFromDbAsync(result, RequiredStoreId);
+
         logger.LogWarning(
             "[AttendancesController] Result: IsSuccess={IsSuccess}, ItemCount={ItemCount}, Total={Total}",
             result.IsSuccess,
             result.Data?.Items?.Count() ?? 0,
             result.Data?.TotalCount ?? 0);
         return Ok(result);
+    }
+
+    /// <summary>Bổ sung GPS/ảnh hiện trường từ MobileAttendanceRecords (ảnh thường upload sau khi chấm).</summary>
+    private async Task<AppResponse<PagedResult<AttendanceDto>>> EnrichMobileSitePhotosFromDbAsync(
+        AppResponse<PagedResult<AttendanceDto>> result,
+        Guid storeId)
+    {
+        var list = result.Data!.Items.ToList();
+        var mobileIds = list
+            .Where(d => d.MobileAttendanceRecordId.HasValue)
+            .Select(d => d.MobileAttendanceRecordId!.Value)
+            .Distinct()
+            .ToList();
+        if (mobileIds.Count == 0)
+            return result;
+
+        var rows = await dbContext.MobileAttendanceRecords
+            .AsNoTracking()
+            .Where(r => mobileIds.Contains(r.Id) && r.StoreId == storeId && r.Deleted == null)
+            .Select(r => new { r.Id, r.Latitude, r.Longitude, r.LocationName, r.SitePhotoUrl, r.Status })
+            .ToListAsync();
+        var byId = rows.ToDictionary(r => r.Id);
+
+        for (var i = 0; i < list.Count; i++)
+        {
+            var dto = list[i];
+            if (!dto.MobileAttendanceRecordId.HasValue
+                || !byId.TryGetValue(dto.MobileAttendanceRecordId.Value, out var mob))
+                continue;
+
+            list[i] = dto with
+            {
+                Latitude = mob.Latitude ?? dto.Latitude,
+                Longitude = mob.Longitude ?? dto.Longitude,
+                LocationName = dto.LocationName ?? mob.LocationName,
+                SitePhotoUrl = string.Equals(mob.Status, "pending", StringComparison.OrdinalIgnoreCase)
+                    ? NormalizeSitePhotoPath(mob.SitePhotoUrl) ?? dto.SitePhotoUrl
+                    : null,
+            };
+        }
+
+        return AppResponse<PagedResult<AttendanceDto>>.Success(
+            new PagedResult<AttendanceDto>(list, result.Data));
+    }
+
+    private static string? NormalizeSitePhotoPath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return null;
+        var p = path.Trim();
+        if (p.StartsWith('/')) return p;
+        if (p.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+            || p.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            try { return new Uri(p).AbsolutePath; }
+            catch { return p; }
+        }
+        return "/" + p.TrimStart('/');
     }
 
     /// <summary>Đếm nhanh log chấm công trên server (không tải danh sách) — dùng khi theo dõi đồng bộ.</summary>

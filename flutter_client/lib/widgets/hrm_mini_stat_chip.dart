@@ -1,5 +1,96 @@
 import 'package:flutter/material.dart';
 
+/// Một mục thống kê nhanh dùng cho [HrmStatBar].
+class HrmStatItem {
+  const HrmStatItem({
+    required this.icon,
+    required this.value,
+    required this.label,
+    required this.color,
+    this.onTap,
+  });
+
+  final IconData icon;
+  final String value;
+  final String label;
+  final Color color;
+  final VoidCallback? onTap;
+}
+
+/// Thanh chip "tổng kết nhanh" THỐNG NHẤT cho mọi màn:
+/// - Màn rộng (>= [wideBreakpoint]): các chip chia ĐỀU theo [Expanded].
+/// - Màn hẹp: cuộn ngang, mỗi chip rộng tối thiểu [minCardWidth].
+/// Mỗi chip dùng [HrmStatSummaryCard] để đồng nhất kích thước/typography.
+class HrmStatBar extends StatelessWidget {
+  const HrmStatBar({
+    super.key,
+    required this.items,
+    this.padding = const EdgeInsets.fromLTRB(16, 12, 16, 4),
+    this.gap = 10,
+    this.minCardWidth = 124,
+    this.wideBreakpoint = 560,
+    this.valueFontSize = 20,
+  });
+
+  final List<HrmStatItem> items;
+  final EdgeInsetsGeometry padding;
+  final double gap;
+  final double minCardWidth;
+  final double wideBreakpoint;
+  final double valueFontSize;
+
+  Widget _card(HrmStatItem it) {
+    final card = HrmStatSummaryCard(
+      icon: it.icon,
+      value: it.value,
+      label: it.label,
+      color: it.color,
+      valueFontSize: valueFontSize,
+    );
+    if (it.onTap == null) return card;
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: it.onTap,
+      child: card,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: padding,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final wide = constraints.maxWidth >= wideBreakpoint;
+          if (wide) {
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (var i = 0; i < items.length; i++) ...[
+                  if (i > 0) SizedBox(width: gap),
+                  Expanded(child: _card(items[i])),
+                ],
+              ],
+            );
+          }
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (var i = 0; i < items.length; i++) ...[
+                  if (i > 0) SizedBox(width: gap),
+                  SizedBox(width: minCardWidth, child: _card(items[i])),
+                ],
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
 /// Compact stat chip for HRM setup toolbars: icon → value → label (vertical).
 class HrmMiniStatChip extends StatelessWidget {
   const HrmMiniStatChip({

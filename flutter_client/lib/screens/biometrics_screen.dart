@@ -153,8 +153,8 @@ class _BiometricsScreenState extends State<BiometricsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Quản lý sinh trắc học', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-                Text('Vân tay, khuôn mặt trên thiết bị', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                Text('Quản lý sinh trắc học', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                Text('Vân tay, khuôn mặt trên thiết bị', style: TextStyle(color: Colors.white70, fontSize: 13)),
               ],
             ),
           ),

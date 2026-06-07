@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import '../services/fcm_service_stub.dart'
     if (dart.library.io) '../services/fcm_service.dart';
+import '../utils/pending_notification_launch.dart';
 import '../services/global_location_reporter.dart';
 import '../models/user.dart';
 
@@ -118,47 +119,63 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  /// Giới hạn thời gian restore phiên — tránh màn boot kéo dài khi mạng chậm.
+  static const Duration _authInitTimeout = Duration(seconds: 12);
+
   Future<void> _checkAuthStatus() async {
     _isInitializing = true;
     notifyListeners();
 
     try {
-      final savedToken = await _apiService.getStoredToken();
-      if (savedToken != null) {
-        _token = savedToken;
-        _user = _decodeUserFromToken(savedToken);
-
-        // Auto-refresh if token is expired or expiring soon
-        if (_isTokenExpiringSoon(savedToken)) {
+      await _restoreSession().timeout(
+        _authInitTimeout,
+        onTimeout: () {
           debugPrint(
-              '🔄 AuthProvider: Stored token expired/expiring, refreshing...');
-          final refreshed = await _tryRefreshToken();
-          if (!refreshed) {
-            debugPrint(
-                '⚠️ AuthProvider: Token refresh failed, clearing session');
-            _token = null;
-            _user = null;
-          }
-        }
-
-        // Fetch allowed modules cho store user
-        if (_user != null) {
-          await _fetchAllowedModules();
-          // Resume global location reporting for persisted sessions.
-          GlobalLocationReporter.instance.start();
-          // Re-register FCM token (handles app updates / new install).
-          // ignore: discarded_futures
-          FcmService.instance.registerForCurrentUser();
-        }
-      }
+              '⚠️ [BOOT] Auth restore timed out after ${_authInitTimeout.inSeconds}s');
+        },
+      );
     } catch (e) {
+      debugPrint('❌ [BOOT] Auth restore error: $e');
       _token = null;
       _user = null;
     } finally {
       _isInitializing = false;
       _isLoading = false;
       notifyListeners();
+      _runPostAuthSideEffects();
     }
+  }
+
+  /// Chỉ khôi phục token/user — không gọi API phụ trước khi hiện UI.
+  Future<void> _restoreSession() async {
+    final savedToken = await _apiService.getStoredToken();
+    if (savedToken == null) return;
+
+    _token = savedToken;
+    _user = _decodeUserFromToken(savedToken);
+
+    if (_isTokenExpiringSoon(savedToken)) {
+      debugPrint(
+          '🔄 AuthProvider: Stored token expired/expiring, refreshing...');
+      final refreshed = await _tryRefreshToken();
+      if (!refreshed) {
+        debugPrint('⚠️ AuthProvider: Token refresh failed, clearing session');
+        _token = null;
+        _user = null;
+      }
+    }
+  }
+
+  /// Chạy sau khi UI đã thoát trạng thái initializing.
+  void _runPostAuthSideEffects() {
+    if (_token == null || _user == null) return;
+    // ignore: discarded_futures
+    _fetchAllowedModules().then((_) {
+      if (_user != null) notifyListeners();
+    });
+    GlobalLocationReporter.instance.start();
+    // ignore: discarded_futures
+    FcmService.instance.registerForCurrentUser();
   }
 
   // Decode user info từ JWT token
@@ -172,10 +189,14 @@ class AuthProvider extends ChangeNotifier {
       final decoded = utf8.decode(base64Url.decode(normalized));
       final Map<String, dynamic> claims = json.decode(decoded);
 
+      final employeeIdClaim = claims['employeeId']?.toString();
       return User(
         id: claims[
                 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] ??
             '',
+        employeeId: employeeIdClaim != null && employeeIdClaim.isNotEmpty
+            ? employeeIdClaim
+            : null,
         email: claims[
                 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress'] ??
             claims['userName'] ??
@@ -248,6 +269,7 @@ class AuthProvider extends ChangeNotifier {
           Future.delayed(const Duration(seconds: 35), () {
             FcmService.instance.registerForCurrentUser();
           });
+          PendingNotificationLaunch.scheduleConsume();
 
           _isLoading = false;
           notifyListeners();

@@ -1,3 +1,4 @@
+using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Domain.Enums;
 
 namespace ZKTecoADMS.Application.Commands.Leaves.UndoLeaveApproval;
@@ -9,7 +10,8 @@ public class UndoLeaveApprovalHandler(
     IRepository<ShiftTemplate> shiftTemplateRepository,
     IRepository<ScheduleRegistration> scheduleRegistrationRepository,
     IRepository<LeaveApprovalRecord> approvalRecordRepository,
-    ISystemNotificationService notificationService
+    ISystemNotificationService notificationService,
+    IAnnualLeaveBalanceService annualLeaveBalance
 ) : ICommandHandler<UndoLeaveApprovalCommand, AppResponse<bool>>
 {
     public async Task<AppResponse<bool>> Handle(UndoLeaveApprovalCommand request, CancellationToken cancellationToken)
@@ -32,6 +34,11 @@ public class UndoLeaveApprovalHandler(
             }
 
             var wasApproved = leave.Status == LeaveStatus.Approved;
+
+            if (wasApproved && leave.AnnualBalanceApplied)
+            {
+                await annualLeaveBalance.RestoreAsync(leave, cancellationToken);
+            }
 
             // Set back to Pending
             leave.Status = LeaveStatus.Pending;

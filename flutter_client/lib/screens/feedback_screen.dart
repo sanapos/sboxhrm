@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
@@ -683,7 +684,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
               ),
             );
           }
-          return AlertDialog(
+          return ScrollableAlertDialog(
             title: const Text('Gửi phản ánh / Ý kiến'),
             content: SizedBox(
               width: 500,
@@ -843,7 +844,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
               ),
             );
           }
-          return AlertDialog(
+          return ScrollableAlertDialog(
             title: const Text('Phản hồi ý kiến'),
             content: SizedBox(
               width: 500,
@@ -869,7 +870,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
   void _confirmDelete(Map<String, dynamic> fb) async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Text('Xác nhận xóa'),
         content: const Text('Xóa phản ánh này?'),
         actions: [

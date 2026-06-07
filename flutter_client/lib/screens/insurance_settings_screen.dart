@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
 import '../utils/number_formatter.dart';
@@ -15,6 +17,9 @@ class InsuranceSettingsScreen extends StatefulWidget {
 }
 
 class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
+  PermissionProvider get _perm =>
+      Provider.of<PermissionProvider>(context, listen: false);
+
   final ApiService _apiService = ApiService();
   final _scrollController = ScrollController();
   bool _isLoading = true;
@@ -184,6 +189,7 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
   }
 
   Widget _buildSaveSettingsButton() {
+    if (!_perm.canEdit('Insurance')) return const SizedBox.shrink();
     return SizedBox(
       width: double.infinity,
       height: 50,

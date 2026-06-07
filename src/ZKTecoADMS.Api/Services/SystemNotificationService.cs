@@ -1,10 +1,13 @@
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Hubs;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Domain.Repositories;
+using ZKTecoADMS.Infrastructure;
+using ZKTecoADMS.Infrastructure.Services.Push;
 
 namespace ZKTecoADMS.Api.Services;
 
@@ -17,19 +20,22 @@ public class SystemNotificationService : ISystemNotificationService
     private readonly ILogger<SystemNotificationService> _logger;
     private readonly IRepository<Notification> _notificationRepository;
     private readonly IRepository<NotificationPreference> _preferenceRepository;
-    private readonly ZKTecoADMS.Infrastructure.Services.Push.IPushNotificationService _push;
+    private readonly ZKTecoDbContext _dbContext;
+    private readonly IPushNotificationService _push;
 
     public SystemNotificationService(
         IHubContext<AttendanceHub> hubContext,
         ILogger<SystemNotificationService> logger,
         IRepository<Notification> notificationRepository,
         IRepository<NotificationPreference> preferenceRepository,
-        ZKTecoADMS.Infrastructure.Services.Push.IPushNotificationService push)
+        ZKTecoDbContext dbContext,
+        IPushNotificationService push)
     {
         _hubContext = hubContext;
         _logger = logger;
         _notificationRepository = notificationRepository;
         _preferenceRepository = preferenceRepository;
+        _dbContext = dbContext;
         _push = push;
     }
 
@@ -116,6 +122,39 @@ public class SystemNotificationService : ISystemNotificationService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to broadcast notification");
+        }
+
+        await PushFcmForBroadcastAsync(notification);
+    }
+
+    /// <summary>
+    /// FCM for store-wide broadcasts (single shared notification row, TargetUserId null).
+    /// </summary>
+    private async Task PushFcmForBroadcastAsync(Notification notification)
+    {
+        if (!notification.StoreId.HasValue) return;
+
+        try
+        {
+            var userIds = await _dbContext.Users
+                .AsNoTracking()
+                .Where(u => u.StoreId == notification.StoreId.Value && u.IsActive)
+                .Select(u => u.Id)
+                .ToListAsync();
+            if (userIds.Count == 0) return;
+
+            await _push.PushToUsersAsync(
+                userIds,
+                notification.Title ?? string.Empty,
+                notification.Message ?? string.Empty,
+                notification.RelatedUrl,
+                NotificationDtoMapper.ToFcmData(notification),
+                androidTag: notification.CategoryCode ?? "sbox_hrm");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "FCM broadcast push failed for notification {NotificationId}", notification.Id);
         }
     }
 
@@ -267,20 +306,26 @@ public class SystemNotificationService : ISystemNotificationService
                 }
             }
 
-            // Best-effort FCM batch (one payload, per-user badges computed inside push service).
-            try
+            // FCM per user so each device gets the correct notificationId in data payload.
+            foreach (var notification in notifications)
             {
-                var firstWithRelated = notifications.First();
-                await _push.PushToUsersAsync(
-                    notifications.Select(n => n.TargetUserId!.Value),
-                    title,
-                    message,
-                    relatedUrl,
-                    NotificationDtoMapper.ToFcmData(firstWithRelated));
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "FCM batch push failed for {Count} notifications", notifications.Count);
+                if (!notification.TargetUserId.HasValue) continue;
+                try
+                {
+                    await _push.PushToUserAsync(
+                        notification.TargetUserId.Value,
+                        title,
+                        message,
+                        relatedUrl,
+                        NotificationDtoMapper.ToFcmData(notification),
+                        androidTag: notification.CategoryCode ?? "sbox_hrm");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex,
+                        "FCM push failed for batch notification {NotificationId} user {UserId}",
+                        notification.Id, notification.TargetUserId.Value);
+                }
             }
 
             _logger.LogInformation("📢 Batch created and sent {Count} notifications: {Title}", notifications.Count, title);

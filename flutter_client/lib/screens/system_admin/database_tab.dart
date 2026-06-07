@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import '../../services/api_service.dart';
 import 'system_admin_helpers.dart';
 
@@ -214,7 +215,8 @@ class DatabaseTabState extends State<DatabaseTab> {
           ]),
           const SizedBox(height: 16),
           Wrap(spacing: 12, runSpacing: 12, children: [
-            FilledButton.icon(
+            if (context.systemAdminCanEdit)
+              FilledButton.icon(
               onPressed: _isBackingUp ? null : _performFullBackup,
               icon: _isBackingUp
                   ? const SizedBox(
@@ -231,15 +233,16 @@ class DatabaseTabState extends State<DatabaseTab> {
                   padding: const EdgeInsets.symmetric(
                       horizontal: 20, vertical: 12)),
             ),
-            OutlinedButton.icon(
-              onPressed: _isBackingUp ? null : _showBackupStoreDialog,
-              icon: const Icon(Icons.store, size: 18),
-              label: const Text('Backup theo cửa hàng'),
-              style: OutlinedButton.styleFrom(
-                  foregroundColor: AdminHelpers.success,
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 20, vertical: 12)),
-            ),
+            if (context.systemAdminCanEdit)
+              OutlinedButton.icon(
+                onPressed: _isBackingUp ? null : _showBackupStoreDialog,
+                icon: const Icon(Icons.store, size: 18),
+                label: const Text('Backup theo cửa hàng'),
+                style: OutlinedButton.styleFrom(
+                    foregroundColor: AdminHelpers.success,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 12)),
+              ),
           ]),
         ],
       ),
@@ -315,7 +318,7 @@ class DatabaseTabState extends State<DatabaseTab> {
                             ? AdminHelpers.success
                             : AdminHelpers.primary),
                     const SizedBox(width: 8),
-                    if (f['type'] == 'full')
+                    if (f['type'] == 'full' && context.systemAdminCanEdit)
                       IconButton(
                         icon: const Icon(Icons.restore,
                             size: 18, color: AdminHelpers.warning),
@@ -323,13 +326,14 @@ class DatabaseTabState extends State<DatabaseTab> {
                         onPressed: () =>
                             _showRestoreDialog(f['fileName']),
                       ),
-                    IconButton(
-                      icon: Icon(Icons.delete_outline,
-                          size: 18, color: Colors.red[300]),
-                      tooltip: 'Xóa',
-                      onPressed: () =>
-                          _deleteBackupFile(f['fileName']),
-                    ),
+                    if (context.systemAdminCanDelete)
+                      IconButton(
+                        icon: Icon(Icons.delete_outline,
+                            size: 18, color: Colors.red[300]),
+                        tooltip: 'Xóa',
+                        onPressed: () =>
+                            _deleteBackupFile(f['fileName']),
+                      ),
                   ]),
                 )),
         ],
@@ -367,28 +371,29 @@ class DatabaseTabState extends State<DatabaseTab> {
               style:
                   TextStyle(fontSize: 13, color: Colors.grey[600])),
           const SizedBox(height: 16),
-          Wrap(spacing: 12, runSpacing: 12, children: [
-            OutlinedButton.icon(
-              onPressed: _showDeleteStoreDataDialog,
-              icon: const Icon(Icons.delete_sweep, size: 18),
-              label: const Text('Xóa dữ liệu cửa hàng'),
-              style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.red,
-                  side: const BorderSide(color: Colors.red),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 20, vertical: 12)),
-            ),
-            OutlinedButton.icon(
-              onPressed: _showPurgeAllDialog,
-              icon: const Icon(Icons.delete_forever, size: 18),
-              label: const Text('Xóa dữ liệu vận hành'),
-              style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.red,
-                  side: const BorderSide(color: Colors.red),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 20, vertical: 12)),
-            ),
-          ]),
+          if (context.systemAdminCanDelete)
+            Wrap(spacing: 12, runSpacing: 12, children: [
+              OutlinedButton.icon(
+                onPressed: _showDeleteStoreDataDialog,
+                icon: const Icon(Icons.delete_sweep, size: 18),
+                label: const Text('Xóa dữ liệu cửa hàng'),
+                style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red,
+                    side: const BorderSide(color: Colors.red),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 12)),
+              ),
+              OutlinedButton.icon(
+                onPressed: _showPurgeAllDialog,
+                icon: const Icon(Icons.delete_forever, size: 18),
+                label: const Text('Xóa dữ liệu vận hành'),
+                style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red,
+                    side: const BorderSide(color: Colors.red),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 12)),
+              ),
+            ]),
         ],
       ),
     );
@@ -417,7 +422,7 @@ class DatabaseTabState extends State<DatabaseTab> {
   void _showBackupStoreDialog() {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Text('Backup dữ liệu cửa hàng'),
         content: SizedBox(
           width: 400,
@@ -471,7 +476,7 @@ class DatabaseTabState extends State<DatabaseTab> {
     if (fileName == null) return;
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: Row(children: [
           Icon(Icons.warning_amber, color: Colors.orange[700]),
           const SizedBox(width: 8),
@@ -546,7 +551,7 @@ class DatabaseTabState extends State<DatabaseTab> {
   void _showDeleteStoreDataDialog() {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Row(children: [
           Icon(Icons.delete_sweep, color: Colors.red),
           SizedBox(width: 8),
@@ -622,7 +627,7 @@ class DatabaseTabState extends State<DatabaseTab> {
     final confirmCtrl = TextEditingController();
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: Row(children: [
           const Icon(Icons.delete_forever, color: Colors.red),
           const SizedBox(width: 8),

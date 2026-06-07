@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
 import '../utils/number_formatter.dart';
@@ -14,6 +16,9 @@ class PenaltySettingsScreen extends StatefulWidget {
 }
 
 class _PenaltySettingsScreenState extends State<PenaltySettingsScreen> {
+  PermissionProvider get _perm =>
+      Provider.of<PermissionProvider>(context, listen: false);
+
   final ApiService _apiService = ApiService();
   final _scrollController = ScrollController();
   bool _isLoading = true;
@@ -350,6 +355,7 @@ class _PenaltySettingsScreenState extends State<PenaltySettingsScreen> {
   }
 
   Widget _buildSaveSettingsButton(BuildContext context) {
+    if (!_perm.canEdit('PenaltySetup')) return const SizedBox.shrink();
     final isNarrow = MediaQuery.sizeOf(context).width < 560;
     return SizedBox(
       width: isNarrow ? double.infinity : null,

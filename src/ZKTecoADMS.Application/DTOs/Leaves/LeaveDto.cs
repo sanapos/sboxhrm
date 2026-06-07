@@ -2,6 +2,8 @@ using ZKTecoADMS.Domain.Enums;
 
 namespace ZKTecoADMS.Application.DTOs.Leaves;
 
+// LeavePaymentSource, SickLeaveMode in Domain.Enums
+
 public class LeaveDto
 {
     public Guid Id { get; set; }
@@ -25,6 +27,14 @@ public class LeaveDto
     public Guid? ReplacementEmployeeId { get; set; }
     public int TotalApprovalLevels { get; set; } = 1;
     public int CurrentApprovalStep { get; set; } = 0;
+    public bool CountAsWork { get; set; }
+    public LeavePaymentSource PaymentSource { get; set; }
+    public SickLeaveMode SickLeaveMode { get; set; }
+    public string? BhxhDocumentNote { get; set; }
+    public string? PaymentSourceLabel { get; set; }
+    public decimal AnnualLeaveDaysDeducted { get; set; }
+    public bool AnnualBalanceApplied { get; set; }
+    public decimal? RemainingAnnualLeaveDays { get; set; }
     public List<LeaveApprovalRecordDto> ApprovalRecords { get; set; } = new();
 }
 

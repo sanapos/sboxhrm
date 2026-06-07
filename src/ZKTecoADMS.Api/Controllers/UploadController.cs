@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Hosting;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Infrastructure;
@@ -18,17 +19,20 @@ public class UploadController : AuthenticatedControllerBase
     private readonly IFileStorageService _fileStorageService;
     private readonly CccdOcrService _ocrService;
     private readonly ZKTecoDbContext _dbContext;
+    private readonly IWebHostEnvironment _env;
     private readonly ILogger<UploadController> _logger;
 
     public UploadController(
         IFileStorageService fileStorageService,
         CccdOcrService ocrService,
         ZKTecoDbContext dbContext,
+        IWebHostEnvironment env,
         ILogger<UploadController> logger)
     {
         _fileStorageService = fileStorageService;
         _ocrService = ocrService;
         _dbContext = dbContext;
+        _env = env;
         _logger = logger;
     }
 
@@ -306,6 +310,48 @@ public class UploadController : AuthenticatedControllerBase
             data = results,
             errors = errors.Count > 0 ? errors : null
         });
+    }
+
+    /// <summary>
+    /// Phục vụ file wwwroot (stores/uploads) qua API — nginx production không expose /stores trực tiếp.
+    /// </summary>
+    [HttpGet("serve")]
+    [Authorize]
+    [ResponseCache(Duration = 3600)]
+    public IActionResult ServeFile([FromQuery] string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return BadRequest(new { isSuccess = false, message = "Thiếu đường dẫn file" });
+
+        var normalized = path.Trim().Replace('\\', '/').TrimStart('/');
+        if (normalized.Contains("..", StringComparison.Ordinal))
+            return BadRequest(new { isSuccess = false, message = "Đường dẫn không hợp lệ" });
+
+        if (!normalized.StartsWith("stores/", StringComparison.OrdinalIgnoreCase)
+            && !normalized.StartsWith("uploads/", StringComparison.OrdinalIgnoreCase))
+            return BadRequest(new { isSuccess = false, message = "Chỉ cho phép stores/ hoặc uploads/" });
+
+        var fullPath = Path.GetFullPath(
+            Path.Combine(_env.ContentRootPath, "wwwroot", normalized.Replace('/', Path.DirectorySeparatorChar)));
+        var wwwroot = Path.GetFullPath(Path.Combine(_env.ContentRootPath, "wwwroot"));
+        if (!fullPath.StartsWith(wwwroot, StringComparison.OrdinalIgnoreCase))
+            return BadRequest(new { isSuccess = false, message = "Đường dẫn không hợp lệ" });
+
+        if (!System.IO.File.Exists(fullPath))
+            return NotFound(new { isSuccess = false, message = "Không tìm thấy file" });
+
+        var ext = Path.GetExtension(fullPath).ToLowerInvariant();
+        var contentType = ext switch
+        {
+            ".jpg" or ".jpeg" or ".jfif" => "image/jpeg",
+            ".png" => "image/png",
+            ".webp" => "image/webp",
+            ".gif" => "image/gif",
+            ".bmp" => "image/bmp",
+            _ => "application/octet-stream",
+        };
+
+        return PhysicalFile(fullPath, contentType, enableRangeProcessing: true);
     }
 
     /// <summary>

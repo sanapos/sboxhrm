@@ -1,3 +1,5 @@
+import '../utils/vietnamese_text_fix.dart';
+
 /// Enum loại giao dịch thu chi
 enum CashTransactionType {
   income(1, 'Thu'),
@@ -12,6 +14,17 @@ enum CashTransactionType {
       (e) => e.value == value,
       orElse: () => CashTransactionType.income,
     );
+  }
+
+  /// API trả enum dạng số (1/2) hoặc chuỗi ("income"/"expense").
+  static CashTransactionType parse(dynamic raw) {
+    if (raw is CashTransactionType) return raw;
+    if (raw is int) return fromValue(raw);
+    if (raw is num) return fromValue(raw.toInt());
+    final s = raw?.toString().trim().toLowerCase() ?? '';
+    if (s == 'expense' || s == '2') return CashTransactionType.expense;
+    if (s == 'income' || s == '1') return CashTransactionType.income;
+    return CashTransactionType.income;
   }
 }
 
@@ -32,6 +45,40 @@ enum CashTransactionStatus {
       orElse: () => CashTransactionStatus.pending,
     );
   }
+
+  static CashTransactionStatus parse(dynamic raw) {
+    if (raw is CashTransactionStatus) return raw;
+    if (raw is int) return fromValue(raw);
+    if (raw is num) return fromValue(raw.toInt());
+    final s = raw?.toString().trim().toLowerCase() ?? '';
+    if (s == 'completed' || s == '2') return CashTransactionStatus.completed;
+    if (s == 'cancelled' || s == '3') return CashTransactionStatus.cancelled;
+    if (s == 'waitingpayment' || s == 'waiting_payment' || s == '4') {
+      return CashTransactionStatus.waitingPayment;
+    }
+    if (s == 'pending' || s == '1') return CashTransactionStatus.pending;
+    if (s.contains('hoàn thành') || s.contains('hoan thanh')) {
+      return CashTransactionStatus.completed;
+    }
+    if (s.contains('chờ thanh toán') || s.contains('cho thanh toan')) {
+      return CashTransactionStatus.waitingPayment;
+    }
+    if (s.contains('đã hủy') || s.contains('da huy')) {
+      return CashTransactionStatus.cancelled;
+    }
+    if (s.contains('chờ xử lý') || s.contains('cho xu ly')) {
+      return CashTransactionStatus.pending;
+    }
+    return CashTransactionStatus.pending;
+  }
+
+  bool get isAwaitingPayment =>
+      this == pending || this == waitingPayment;
+}
+
+CashTransactionStatus resolveCashTransactionStatus(Map<String, dynamic> json) {
+  if (json['isPaid'] == true) return CashTransactionStatus.completed;
+  return CashTransactionStatus.parse(json['status'] ?? json['statusName'] ?? 1);
 }
 
 /// Enum phương thức thanh toán
@@ -54,6 +101,32 @@ enum PaymentMethodType {
       orElse: () => PaymentMethodType.cash,
     );
   }
+
+  static PaymentMethodType parse(dynamic raw) {
+    if (raw is PaymentMethodType) return raw;
+    if (raw is int) return fromValue(raw);
+    if (raw is num) return fromValue(raw.toInt());
+    final s = raw?.toString().trim().toLowerCase() ?? '';
+    if (s == 'banktransfer' || s == 'bank_transfer' || s == '2') {
+      return PaymentMethodType.bankTransfer;
+    }
+    if (s == 'vietqr' || s == 'qr' || s == '3') return PaymentMethodType.vietQR;
+    if (s == 'card' || s == '4') return PaymentMethodType.card;
+    if (s == 'ewallet' || s == 'e_wallet' || s == '5') {
+      return PaymentMethodType.eWallet;
+    }
+    if (s == 'other' || s == '99') return PaymentMethodType.other;
+    return PaymentMethodType.cash;
+  }
+
+  String get apiName => switch (this) {
+        PaymentMethodType.cash => 'Cash',
+        PaymentMethodType.bankTransfer => 'BankTransfer',
+        PaymentMethodType.vietQR => 'VietQR',
+        PaymentMethodType.card => 'Card',
+        PaymentMethodType.eWallet => 'EWallet',
+        PaymentMethodType.other => 'Other',
+      };
 }
 
 /// Model cho giao dịch thu chi
@@ -114,22 +187,27 @@ class CashTransaction {
     this.lastModified,
   });
 
+  CashTransactionStatus get displayStatus =>
+      isPaid ? CashTransactionStatus.completed : status;
+
+  bool get isAwaitingPayment => !isPaid && status.isAwaitingPayment;
+
   factory CashTransaction.fromJson(Map<String, dynamic> json) {
     return CashTransaction(
       id: json['id'] ?? '',
       transactionCode: json['transactionCode'] ?? '',
-      type: CashTransactionType.fromValue(json['type'] ?? 1),
+      type: CashTransactionType.parse(json['type']),
       categoryId: json['categoryId'] ?? '',
-      categoryName: json['categoryName'] ?? '',
+      categoryName: fixVietnameseMojibake(json['categoryName']?.toString() ?? ''),
       categoryIcon: json['categoryIcon'],
       categoryColor: json['categoryColor'],
       amount: (json['amount'] ?? 0).toDouble(),
       transactionDate: DateTime.parse(json['transactionDate'] ?? DateTime.now().toIso8601String()),
       description: json['description'] ?? '',
-      paymentMethod: PaymentMethodType.fromValue(json['paymentMethod'] ?? 1),
+      paymentMethod: PaymentMethodType.parse(json['paymentMethod'] ?? 1),
       bankAccountId: json['bankAccountId'],
       bankAccountName: json['bankAccountName'],
-      status: CashTransactionStatus.fromValue(json['status'] ?? 1),
+      status: resolveCashTransactionStatus(json),
       contactName: json['contactName'],
       contactPhone: json['contactphone'],
       paymentReference: json['paymentReference'],
@@ -202,14 +280,18 @@ class TransactionCategory {
   factory TransactionCategory.fromJson(Map<String, dynamic> json) {
     return TransactionCategory(
       id: json['id'] ?? '',
-      name: json['name'] ?? '',
-      description: json['description'],
-      type: CashTransactionType.fromValue(json['type'] ?? 1),
+      name: fixVietnameseMojibake(json['name']?.toString() ?? ''),
+      description: json['description'] != null
+          ? fixVietnameseMojibake(json['description'].toString())
+          : null,
+      type: CashTransactionType.parse(json['type']),
       icon: json['icon'],
       color: json['color'],
       sortOrder: json['sortOrder'] ?? 0,
       parentCategoryId: json['parentCategoryId'],
-      parentCategoryName: json['parentCategoryName'],
+      parentCategoryName: json['parentCategoryName'] != null
+          ? fixVietnameseMojibake(json['parentCategoryName'].toString())
+          : null,
       isSystem: json['isSystem'] ?? false,
       isActive: json['isActive'] ?? true,
       transactionCount: json['transactionCount'] ?? 0,
@@ -351,6 +433,10 @@ class CashTransactionSummary {
   final int incomeTransactions;
   final int expenseTransactions;
   final int pendingTransactions;
+  final double pendingIncomeAmount;
+  final double pendingExpenseAmount;
+  final int pendingIncomeCount;
+  final int pendingExpenseCount;
   final DateTime? fromDate;
   final DateTime? toDate;
   final List<CategorySummary> incomeByCategory;
@@ -365,6 +451,10 @@ class CashTransactionSummary {
     required this.incomeTransactions,
     required this.expenseTransactions,
     required this.pendingTransactions,
+    this.pendingIncomeAmount = 0,
+    this.pendingExpenseAmount = 0,
+    this.pendingIncomeCount = 0,
+    this.pendingExpenseCount = 0,
     this.fromDate,
     this.toDate,
     this.incomeByCategory = const [],
@@ -381,6 +471,10 @@ class CashTransactionSummary {
       incomeTransactions: json['incomeTransactions'] ?? 0,
       expenseTransactions: json['expenseTransactions'] ?? 0,
       pendingTransactions: json['pendingTransactions'] ?? 0,
+      pendingIncomeAmount: (json['pendingIncomeAmount'] ?? 0).toDouble(),
+      pendingExpenseAmount: (json['pendingExpenseAmount'] ?? 0).toDouble(),
+      pendingIncomeCount: json['pendingIncomeCount'] ?? 0,
+      pendingExpenseCount: json['pendingExpenseCount'] ?? 0,
       fromDate: json['fromDate'] != null ? DateTime.parse(json['fromDate']) : null,
       toDate: json['toDate'] != null ? DateTime.parse(json['toDate']) : null,
       incomeByCategory: json['incomeByCategory'] != null
@@ -418,7 +512,7 @@ class CategorySummary {
   factory CategorySummary.fromJson(Map<String, dynamic> json) {
     return CategorySummary(
       categoryId: json['categoryId'] ?? '',
-      categoryName: json['categoryName'] ?? '',
+      categoryName: fixVietnameseMojibake(json['categoryName']?.toString() ?? ''),
       icon: json['icon'],
       color: json['color'],
       amount: (json['amount'] ?? 0).toDouble(),

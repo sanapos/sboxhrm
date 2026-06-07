@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:intl/intl.dart';
 import '../../services/api_service.dart';
 import 'system_admin_helpers.dart';
@@ -95,14 +96,15 @@ class AnnouncementsTabState extends State<AnnouncementsTab> {
                   onPressed: _loading ? null : _load,
                   icon: const Icon(Icons.refresh)),
               const SizedBox(width: 8),
-              FilledButton.icon(
-                style: ElevatedButton.styleFrom(
-                    backgroundColor: AdminHelpers.primary,
-                    foregroundColor: Colors.white),
-                onPressed: () => _openCreateDialog(),
-                icon: const Icon(Icons.add),
-                label: const Text('Tạo thông báo'),
-              ),
+              if (context.systemAdminCanCreate)
+                FilledButton.icon(
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: AdminHelpers.primary,
+                      foregroundColor: Colors.white),
+                  onPressed: () => _openCreateDialog(),
+                  icon: const Icon(Icons.add),
+                  label: const Text('Tạo thông báo'),
+                ),
             ],
           ),
           const SizedBox(height: 12),
@@ -203,23 +205,28 @@ class AnnouncementsTabState extends State<AnnouncementsTab> {
                   ],
                 ),
               ),
-              PopupMenuButton<String>(
-                onSelected: (v) => _onAction(v, a),
-                itemBuilder: (_) => [
-                  if (status != 3 && status != 4)
+              if (context.systemAdminCanEdit || context.systemAdminCanDelete)
+                PopupMenuButton<String>(
+                  onSelected: (v) => _onAction(v, a),
+                  itemBuilder: (_) => [
+                    if (context.systemAdminCanEdit && status != 3 && status != 4)
+                      const PopupMenuItem(
+                          value: 'send', child: Text('📤 Gửi ngay')),
                     const PopupMenuItem(
-                        value: 'send', child: Text('📤 Gửi ngay')),
-                  const PopupMenuItem(
-                      value: 'stats', child: Text('📊 Thống kê')),
-                  const PopupMenuItem(
-                      value: 'resend', child: Text('🔁 Gửi lại lỗi')),
-                  const PopupMenuItem(value: 'cancel', child: Text('🚫 Huỷ')),
-                  const PopupMenuItem(
-                      value: 'delete',
-                      child:
-                          Text('🗑️ Xoá', style: TextStyle(color: Colors.red))),
-                ],
-              ),
+                        value: 'stats', child: Text('📊 Thống kê')),
+                    if (context.systemAdminCanEdit) ...[
+                      const PopupMenuItem(
+                          value: 'resend', child: Text('🔁 Gửi lại lỗi')),
+                      const PopupMenuItem(
+                          value: 'cancel', child: Text('🚫 Huỷ')),
+                    ],
+                    if (context.systemAdminCanDelete)
+                      const PopupMenuItem(
+                          value: 'delete',
+                          child: Text('🗑️ Xoá',
+                              style: TextStyle(color: Colors.red))),
+                  ],
+                ),
             ]),
             const SizedBox(height: 8),
             Text(a['content']?.toString() ?? '',
@@ -267,7 +274,7 @@ class AnnouncementsTabState extends State<AnnouncementsTab> {
       case 'delete':
         final ok = await showDialog<bool>(
                 context: context,
-                builder: (dlgCtx) => AlertDialog(
+                builder: (dlgCtx) => ScrollableAlertDialog(
                       title: const Text('Xoá thông báo?'),
                       content: const Text(
                           'Hành động không thể hoàn tác. Bạn có chắc?'),
@@ -307,7 +314,7 @@ class AnnouncementsTabState extends State<AnnouncementsTab> {
     final data = res['data'] as Map<String, dynamic>?;
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (_) => ScrollableAlertDialog(
         title: const Text('Thống kê delivery'),
         content: data == null
             ? const Text('Không có dữ liệu')
@@ -505,7 +512,7 @@ class _CreateAnnouncementDialogState extends State<_CreateAnnouncementDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
+    return ScrollableAlertDialog(
       title: const Text('Tạo thông báo hệ thống'),
       content: SizedBox(
         width: 560,

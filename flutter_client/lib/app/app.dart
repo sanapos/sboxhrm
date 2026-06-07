@@ -15,6 +15,7 @@ import '../screens/reset_password_screen.dart';
 import '../screens/system_admin_screen.dart';
 import '../screens/admin_login_screen.dart';
 import '../screens/landing_screen.dart';
+import '../widgets/app_boot_screen.dart';
 
 class ZKTecoApp extends StatelessWidget {
   const ZKTecoApp({super.key});
@@ -81,11 +82,7 @@ class ZKTecoApp extends StatelessWidget {
                 (isInit: auth.isInitializing, isAuth: auth.isAuthenticated),
             builder: (context, state, child) {
               if (state.isInit) {
-                return const Scaffold(
-                  body: Center(
-                    child: CircularProgressIndicator(),
-                  ),
-                );
+                return const AppBootScreen();
               }
               return state.isAuth
                   ? const MainLayout()

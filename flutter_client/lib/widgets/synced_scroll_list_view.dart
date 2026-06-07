@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart' show PointerScrollEvent;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 /// ListView theo dõi [mainController] (cuộn dọc đồng bộ hai vùng).
 class SyncedScrollListView extends StatefulWidget {
@@ -102,6 +103,97 @@ void linkHorizontalScrollControllers(
   b.addListener(() => sync(b, a));
 }
 
+/// Layout con theo [contentWidth] đầy đủ, báo cáo chiều cao thật cho cha (cuộn dọc).
+class _HorizontalClipRender extends SingleChildRenderObjectWidget {
+  final double contentWidth;
+  final double scrollOffset;
+
+  const _HorizontalClipRender({
+    required this.contentWidth,
+    required this.scrollOffset,
+    required Widget child,
+  }) : super(child: child);
+
+  @override
+  RenderObject createRenderObject(BuildContext context) {
+    return _RenderHorizontalClip(
+      contentWidth: contentWidth,
+      scrollOffset: scrollOffset,
+    );
+  }
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderHorizontalClip renderObject,
+  ) {
+    renderObject
+      ..contentWidth = contentWidth
+      ..scrollOffset = scrollOffset;
+  }
+}
+
+class _RenderHorizontalClip extends RenderProxyBox {
+  _RenderHorizontalClip({
+    required double contentWidth,
+    double scrollOffset = 0,
+  })  : _contentWidth = contentWidth,
+        _scrollOffset = scrollOffset;
+
+  double _contentWidth;
+  double get contentWidth => _contentWidth;
+  set contentWidth(double value) {
+    if (_contentWidth == value) return;
+    _contentWidth = value;
+    markNeedsLayout();
+  }
+
+  double _scrollOffset = 0;
+  double get scrollOffset => _scrollOffset;
+  set scrollOffset(double value) {
+    if (_scrollOffset == value) return;
+    _scrollOffset = value;
+    markNeedsPaint();
+  }
+
+  @override
+  void performLayout() {
+    if (child == null) {
+      size = constraints.smallest;
+      return;
+    }
+    child!.layout(
+      BoxConstraints(
+        minWidth: contentWidth,
+        maxWidth: contentWidth,
+        minHeight: 0,
+        maxHeight: constraints.maxHeight,
+      ),
+      parentUsesSize: true,
+    );
+    size = Size(
+      constraints.constrainWidth(constraints.maxWidth),
+      child!.size.height,
+    );
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    if (child == null) return;
+    context.pushClipRect(
+      needsCompositing,
+      offset,
+      Offset.zero & size,
+      (context, offset) {
+        context.paintChild(
+          child!,
+          offset + Offset(-scrollOffset, 0),
+        );
+      },
+    );
+  }
+}
+
 /// Cắt và dịch [child] theo [controller]; vuốt ngang trên vùng dữ liệu vẫn cuộn (đồng bộ header).
 class HorizontallySyncedClip extends StatelessWidget {
   final ScrollController controller;
@@ -137,17 +229,16 @@ class HorizontallySyncedClip extends StatelessWidget {
         behavior: HitTestBehavior.translucent,
         onHorizontalDragUpdate: (details) =>
             _applyHorizontalDelta(details.delta.dx),
-        child: ClipRect(
-          child: AnimatedBuilder(
-            animation: controller,
-            builder: (context, _) {
-              final offset = controller.hasClients ? controller.offset : 0.0;
-              return Transform.translate(
-                offset: Offset(-offset, 0),
-                child: SizedBox(width: contentWidth, child: child),
-              );
-            },
-          ),
+        child: AnimatedBuilder(
+          animation: controller,
+          builder: (context, _) {
+            final offset = controller.hasClients ? controller.offset : 0.0;
+            return _HorizontalClipRender(
+              contentWidth: contentWidth,
+              scrollOffset: offset,
+              child: child,
+            );
+          },
         ),
       ),
     );

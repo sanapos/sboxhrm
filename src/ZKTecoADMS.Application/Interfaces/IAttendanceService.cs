@@ -14,4 +14,10 @@ public interface IAttendanceService
     /// </summary>
     Task RecalculatePenaltiesForEmployeeDateAsync(
         Guid storeId, Guid employeeId, DateTime logicalWorkDate, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Quét lại chấm công trong khoảng ngày và tạo phiếu phạt còn thiếu (idempotent).
+    /// </summary>
+    Task<int> BackfillPenaltyTicketsAsync(
+        Guid storeId, DateTime fromDate, DateTime toDate, CancellationToken cancellationToken = default);
 }

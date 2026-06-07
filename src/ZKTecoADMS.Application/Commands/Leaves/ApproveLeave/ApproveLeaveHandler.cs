@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Identity;
+using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Domain.Enums;
 
 namespace ZKTecoADMS.Application.Commands.Leaves.ApproveLeave;
@@ -7,7 +8,8 @@ public class ApproveLeaveHandler(
     IRepository<Leave> leaveRepository,
     IRepository<LeaveApprovalRecord> approvalRecordRepository,
     UserManager<ApplicationUser> userManager,
-    ISystemNotificationService notificationService
+    ISystemNotificationService notificationService,
+    IAnnualLeaveBalanceService annualLeaveBalance
     )
     : ICommandHandler<ApproveLeaveCommand, AppResponse<bool>>
 {
@@ -23,6 +25,11 @@ public class ApproveLeaveHandler(
             if (leave == null)
             {
                 return AppResponse<bool>.Error("Leave not found");
+            }
+
+            if (request.CountAsWork.HasValue)
+            {
+                leave.CountAsWork = request.CountAsWork.Value;
             }
 
             if (leave.Status != LeaveStatus.Pending)
@@ -42,10 +49,10 @@ public class ApproveLeaveHandler(
 
             if (approvalRecords.Count == 0)
             {
-                // Legacy leave with no approval records - approve directly
-                leave.Status = LeaveStatus.Approved;
-                leave.UpdatedAt = DateTime.Now;
-                await leaveRepository.UpdateAsync(leave, cancellationToken);
+                var finalizeLegacy = await FinalizeApprovalAsync(
+                    leave, request, cancellationToken);
+                if (!finalizeLegacy.IsSuccess)
+                    return finalizeLegacy;
             }
             else
             {
@@ -84,22 +91,10 @@ public class ApproveLeaveHandler(
 
                 if (nextStep == null)
                 {
-                    // All steps approved - finalize
-                    leave.Status = LeaveStatus.Approved;
-                    await leaveRepository.UpdateAsync(leave, cancellationToken);
-
-                    // Notify employee - fully approved
-                    try
-                    {
-                        await notificationService.CreateAndSendAsync(
-                            leave.EmployeeUserId, NotificationType.Success,
-                            "Đơn nghỉ phép đã duyệt",
-                            $"Đơn nghỉ phép từ {leave.StartDate:dd/MM/yyyy} đến {leave.EndDate:dd/MM/yyyy} đã được phê duyệt hoàn tất" +
-                            (leave.TotalApprovalLevels > 1 ? $" ({leave.TotalApprovalLevels}/{leave.TotalApprovalLevels} cấp)" : ""),
-                            relatedEntityId: leave.Id, relatedEntityType: "Leave",
-                            fromUserId: request.ApprovedByUserId, categoryCode: "approval", storeId: request.StoreId);
-                    }
-                    catch { }
+                    var finalize = await FinalizeApprovalAsync(
+                        leave, request, cancellationToken);
+                    if (!finalize.IsSuccess)
+                        return finalize;
                 }
                 else
                 {
@@ -136,5 +131,41 @@ public class ApproveLeaveHandler(
         {
             return AppResponse<bool>.Error(ex.Message);
         }
+    }
+
+    private async Task<AppResponse<bool>> FinalizeApprovalAsync(
+        Leave leave,
+        ApproveLeaveCommand request,
+        CancellationToken cancellationToken)
+    {
+        var deduct = await annualLeaveBalance.TryApplyDeductionAsync(leave, cancellationToken);
+        if (!deduct.IsSuccess)
+            return AppResponse<bool>.Error(deduct.Message ?? "Không thể trừ phép năm.");
+
+        leave.Status = LeaveStatus.Approved;
+        leave.UpdatedAt = DateTime.Now;
+        await leaveRepository.UpdateAsync(leave, cancellationToken);
+
+        try
+        {
+            var daysUsed = leave.AnnualLeaveDaysDeducted;
+            var balanceNote = daysUsed > 0
+                ? $" Đã trừ {daysUsed:0.##} ngày phép năm. Còn lại: {deduct.Data:0.##} ngày."
+                : string.Empty;
+            await notificationService.CreateAndSendAsync(
+                leave.EmployeeUserId, NotificationType.Success,
+                "Đơn nghỉ phép đã duyệt",
+                $"Đơn nghỉ phép từ {leave.StartDate:dd/MM/yyyy} đến {leave.EndDate:dd/MM/yyyy} đã được phê duyệt hoàn tất" +
+                (leave.TotalApprovalLevels > 1
+                    ? $" ({leave.TotalApprovalLevels}/{leave.TotalApprovalLevels} cấp)"
+                    : "") +
+                balanceNote,
+                relatedEntityId: leave.Id, relatedEntityType: "Leave",
+                fromUserId: request.ApprovedByUserId, categoryCode: "approval",
+                storeId: request.StoreId);
+        }
+        catch { }
+
+        return AppResponse<bool>.Success(true);
     }
 }

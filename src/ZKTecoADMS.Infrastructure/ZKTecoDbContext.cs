@@ -148,6 +148,7 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     public DbSet<BankAccount> BankAccounts => Set<BankAccount>();
     public DbSet<TransactionCategory> TransactionCategories => Set<TransactionCategory>();
     public DbSet<CashTransaction> CashTransactions => Set<CashTransaction>();
+    public DbSet<FundTransfer> FundTransfers => Set<FundTransfer>();
     
     // Additional
     public DbSet<ShiftSalaryLevel> ShiftSalaryLevels => Set<ShiftSalaryLevel>();
@@ -174,6 +175,7 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     // Mobile Attendance
     public DbSet<MobileAttendanceSetting> MobileAttendanceSettings => Set<MobileAttendanceSetting>();
     public DbSet<MobileWorkLocation> MobileWorkLocations => Set<MobileWorkLocation>();
+    public DbSet<MobileLocationEmployee> MobileLocationEmployees => Set<MobileLocationEmployee>();
     public DbSet<MobileFaceRegistration> MobileFaceRegistrations => Set<MobileFaceRegistration>();
     public DbSet<AuthorizedMobileDevice> AuthorizedMobileDevices => Set<AuthorizedMobileDevice>();
     public DbSet<MobileAttendanceRecord> MobileAttendanceRecords => Set<MobileAttendanceRecord>();
@@ -202,6 +204,12 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
         
         // Apply entity-specific configurations first
         modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
+
+        // SitePhotoUrl: cột có trong DB (initializer) nhưng từng thiếu trong snapshot — map tường minh.
+        modelBuilder.Entity<MobileAttendanceRecord>(b =>
+        {
+            b.Property(x => x.SitePhotoUrl).HasMaxLength(500);
+        });
 
         // Apply multi-tenant query filters for all entities with StoreId
         // This replaces any HasQueryFilter set in individual configurations

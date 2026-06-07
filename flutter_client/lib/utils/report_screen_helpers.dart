@@ -249,6 +249,12 @@ class ReportBranchFilter {
       final emps = await api.getEmployees(pageSize: 500);
       employees =
           emps.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      if (employees.isEmpty) {
+        final me = await api.getMyEmployee();
+        if (me['isSuccess'] == true && me['data'] is Map) {
+          employees = [Map<String, dynamic>.from(me['data'] as Map)];
+        }
+      }
       employeesLoaded = true;
     } catch (_) {}
     employeesLoading = false;
@@ -372,6 +378,8 @@ class ClientExcelExport {
         bytes,
         fn,
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        category: 'Báo cáo',
+        sourceModule: filePrefix,
       );
       if (context.mounted) {
         NotificationOverlayManager()

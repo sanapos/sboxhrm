@@ -25,6 +25,7 @@ class PermissionRoleCatalog {
   PermissionRoleCatalog._();
 
   /// Module legacy trên DB — ẩn khỏi UI phân quyền.
+  /// Module alias thuần API — không hiện trên UI phân quyền.
   static const Set<String> legacyHiddenModules = {
     'Dashboard',
     'Salary',
@@ -34,18 +35,9 @@ class PermissionRoleCatalog {
     'Report',
     'Account',
     'Store',
-    'Geofence',
-    'OrgChart',
-    'Branch',
-    'BankAccount',
     'Transaction',
     'Benefit',
-    'HrDocument',
-    'HrReport',
-    'AttendanceReport',
-    'PayrollReport',
     'GoogleDrive',
-    'DepartmentPermission',
   };
 
   static const List<PermissionUiGroup> groups = [
@@ -78,6 +70,8 @@ class PermissionRoleCatalog {
         'SalarySettings',
         'Payslip',
         'DeviceUser',
+        'HrDocument',
+        'OrgChart',
       ],
     ),
     PermissionUiGroup(
@@ -91,7 +85,9 @@ class PermissionRoleCatalog {
         'WorkSchedule',
         'AttendanceSummary',
         'AttendanceByShift',
+        'AttendanceCorrection',
         'AttendanceApproval',
+        'MobileAttendanceApproval',
         'ScheduleApproval',
         'Payroll',
         'Overtime',
@@ -113,6 +109,7 @@ class PermissionRoleCatalog {
         'PenaltyTickets',
         'AdvanceRequests',
         'CashTransaction',
+        'BankAccount',
       ],
     ),
     PermissionUiGroup(
@@ -141,6 +138,10 @@ class PermissionRoleCatalog {
         'CashReport',
         'PenaltyReport',
         'AdvanceReport',
+        'AssetReport',
+        'AttendanceReport',
+        'HrReport',
+        'PayrollReport',
       ],
     ),
     PermissionUiGroup(
@@ -160,6 +161,8 @@ class PermissionRoleCatalog {
         'Insurance',
         'Tax',
         'ProductSalary',
+        'Branch',
+        'Geofence',
         'SystemSettings',
         'NotificationSettings',
         'AIGemini',
@@ -172,7 +175,7 @@ class PermissionRoleCatalog {
       description: 'Tài khoản, phân quyền',
       icon: Icons.admin_panel_settings_outlined,
       color: Color(0xFF475569),
-      moduleCodes: ['UserManagement', 'Role'],
+      moduleCodes: ['UserManagement', 'Role', 'DepartmentPermission'],
     ),
   ];
 

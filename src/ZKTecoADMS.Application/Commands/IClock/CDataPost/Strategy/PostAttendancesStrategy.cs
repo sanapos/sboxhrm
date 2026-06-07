@@ -75,6 +75,17 @@ public class PostAttendancesStrategy(IServiceProvider serviceProvider) : IPostSt
         await _attendanceService.CreateAttendancesAsync(attendances);
         _logger.LogInformation("Device-SN-{SN}: successfully saved {Count} attendance records from device {DeviceId}", device.SerialNumber, attendances.Count, device.Id);
 
+        // Luôn tạo phiếu phạt (đi trễ / về sớm / tái phạm) — kể cả khi đồng bộ log hàng loạt.
+        try
+        {
+            await _attendanceService.UpdateShiftAttendancesAsync(attendances, device);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Device-SN-{SN}: failed to process penalty tickets for {Count} attendance rows",
+                device.SerialNumber, attendances.Count);
+        }
+
         var cutoff = VietnamNow.Subtract(RealtimeNotifyWindow);
         var recentOnly = attendances
             .Where(a => a.AttendanceTime >= cutoff)
@@ -84,8 +95,6 @@ public class PostAttendancesStrategy(IServiceProvider serviceProvider) : IPostSt
 
         if (!bulkSyncInProgress)
         {
-            await _attendanceService.UpdateShiftAttendancesAsync(attendances, device);
-
             if (_googleSheetService != null)
             {
                 try

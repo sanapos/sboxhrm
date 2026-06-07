@@ -9,7 +9,7 @@ tar -xzf api_src.tar.gz -C api_src
 
 echo "=== 2. Build API docker image ==="
 cd api_src
-docker build -t zktecoadms-api:latest -f ZKTecoADMS.Api/Dockerfile . 2>&1 | tail -20
+docker build --no-cache -t zktecoadms-api:latest -f ZKTecoADMS.Api/Dockerfile . 2>&1 | tail -25
 
 echo "=== 3. Recreate API container ==="
 cd /opt/zkteco
@@ -23,6 +23,16 @@ if [ -f /root/apply_all_migrations.sql ]; then
   echo "--- apply_all_migrations.sql ---"
   docker cp /root/apply_all_migrations.sql zkteco_postgres:/tmp/apply_all_migrations.sql
   docker exec zkteco_postgres psql -U postgres -d ZKTecoADMS -f /tmp/apply_all_migrations.sql 2>&1 | tail -20
+fi
+if [ -f /root/apply_site_photo_ef_migration.sql ]; then
+  echo "--- apply_site_photo_ef_migration.sql ---"
+  docker cp /root/apply_site_photo_ef_migration.sql zkteco_postgres:/tmp/apply_site_photo_ef_migration.sql
+  docker exec zkteco_postgres psql -U postgres -d ZKTecoADMS -f /tmp/apply_site_photo_ef_migration.sql 2>&1 | tail -5
+fi
+if [ -f /root/apply_mobile_location_employees.sql ]; then
+  echo "--- apply_mobile_location_employees.sql ---"
+  docker cp /root/apply_mobile_location_employees.sql zkteco_postgres:/tmp/apply_mobile_location_employees.sql
+  docker exec zkteco_postgres psql -U postgres -d ZKTecoADMS -f /tmp/apply_mobile_location_employees.sql 2>&1 | tail -10
 fi
 # Legacy SQL scripts (kept for compatibility)
 if [ -f /root/fix_employee_unique_indexes.sql ]; then

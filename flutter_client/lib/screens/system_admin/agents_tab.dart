@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:flutter/services.dart';
 import '../../services/api_service.dart';
 import '../../utils/responsive_helper.dart';
@@ -154,14 +155,15 @@ class AgentsTabState extends State<AgentsTab> {
                   ),
                 ),
               ),
-              FilledButton.icon(
-                onPressed: _showCreateAgentDialog,
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Thêm đại lý'),
-                style: ElevatedButton.styleFrom(
-                    backgroundColor: AdminHelpers.warning,
-                    foregroundColor: Colors.white),
-              ),
+              if (context.systemAdminCanCreate)
+                FilledButton.icon(
+                  onPressed: _showCreateAgentDialog,
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Thêm đại lý'),
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: AdminHelpers.warning,
+                      foregroundColor: Colors.white),
+                ),
             ],
           ),
           const SizedBox(height: 8),
@@ -360,7 +362,7 @@ class AgentsTabState extends State<AgentsTab> {
           res['data']?['registrationToken'] ?? res['data']?['token'] ?? '';
       showDialog(
         context: context,
-        builder: (ctx) => AlertDialog(
+        builder: (ctx) => ScrollableAlertDialog(
           title: const Text('Token mới'),
           content:
               Column(mainAxisSize: MainAxisSize.min, children: [
@@ -407,7 +409,7 @@ class AgentsTabState extends State<AgentsTab> {
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSt) => AlertDialog(
+        builder: (ctx, setSt) => ScrollableAlertDialog(
         title: const Text('Thêm đại lý'),
         content: SizedBox(
           width: MediaQuery.of(context).size.width < 600 ? MediaQuery.of(context).size.width - 32 : 420,
@@ -504,7 +506,7 @@ class AgentsTabState extends State<AgentsTab> {
     final link = '$apiBase/#/register?agentCode=$agentCode';
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Text('Link đăng ký cửa hàng'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -552,7 +554,7 @@ class AgentsTabState extends State<AgentsTab> {
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Text('Sửa đại lý'),
         content: SizedBox(
           width: MediaQuery.of(context).size.width < 600 ? MediaQuery.of(context).size.width - 32 : 420,

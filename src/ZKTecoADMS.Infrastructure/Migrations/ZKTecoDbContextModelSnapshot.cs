@@ -1959,6 +1959,13 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
+                    b.Property<bool>("RequirePhotoProof")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("SelectedLocationIdsJson")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
                     b.Property<Guid>("StoreId")
                         .HasColumnType("uuid");
 
@@ -3197,6 +3204,10 @@ namespace ZKTecoADMS.Infrastructure.Migrations
 
                     b.Property<DateTime>("RequestedAt")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("SelectedLocationIdsJson")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
 
                     b.Property<int>("Status")
                         .HasColumnType("integer");
@@ -6407,6 +6418,10 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         .HasColumnType("integer");
 
                     b.Property<string>("RejectReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("SitePhotoUrl")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
@@ -12216,6 +12231,25 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Store");
+                });
+
+            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.MobileLocationEmployee", b =>
+                {
+                    b.HasOne("ZKTecoADMS.Domain.Entities.Store", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ZKTecoADMS.Domain.Entities.MobileWorkLocation", "WorkLocation")
+                        .WithMany()
+                        .HasForeignKey("WorkLocationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Store");
+
+                    b.Navigation("WorkLocation");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.MobileWorkLocation", b =>

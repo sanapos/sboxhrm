@@ -1,5 +1,9 @@
-﻿import 'dart:math' as math;
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/permission_provider.dart';
+import '../widgets/app_scroll_safe.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import '../services/api_service.dart';
 import '../utils/number_formatter.dart';
 import '../utils/responsive_helper.dart';
@@ -18,6 +22,9 @@ class ShiftSettingsScreen extends StatefulWidget {
 }
 
 class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
+  PermissionProvider get _perm =>
+      Provider.of<PermissionProvider>(context, listen: false);
+
   final ApiService _apiService = ApiService();
   List<Shift> _shifts = [];
   List<Employee> _employees = [];
@@ -214,6 +221,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
   }
 
   Widget _buildAddShiftButton({bool compact = false}) {
+    if (!_perm.canCreate('ShiftSetup')) return const SizedBox.shrink();
     return FilledButton.icon(
       onPressed: () => _showShiftDialog(),
       icon: const Icon(Icons.add, size: 18),
@@ -295,99 +303,20 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                 ),
                 const SizedBox(height: 12),
               ],
-              if (isMobile) ...[
-                // Stats as a scrollable row on mobile
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      _buildMiniStat(Icons.schedule, '${_shifts.length}',
-                          'Tổng ca', HrmPageChrome.primaryNavy),
-                      const SizedBox(width: 8),
-                      _buildMiniStat(
-                          Icons.check_circle,
-                          '${_shifts.where((s) => s.isActive).length}',
-                          'Kích hoạt',
-                          HrmPageChrome.primaryNavy),
-                      const SizedBox(width: 8),
-                      _buildMiniStat(
-                          Icons.more_time,
-                          '${_shifts.where((s) => _getShiftType(s) == 'Tăng ca').length}',
-                          'Tăng ca',
-                          const Color(0xFFF59E0B)),
-                      const SizedBox(width: 8),
-                      _buildMiniStat(
-                          Icons.nightlight_round,
-                          '${_shifts.where((s) => _getShiftType(s) == 'Qua đêm').length}',
-                          'Qua đêm',
-                          HrmPageChrome.primaryNavy),
-                    ],
-                  ),
-                ),
-                if (!HrmPageChrome.isEmbedded) ...[
-                  const SizedBox(height: 10),
-                  _buildShiftSearchField(),
-                ],
-              ] else ...[
+              if (HrmPageChrome.isEmbedded)
+                _buildShiftStatsBar()
+              else
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    _buildMiniStat(Icons.schedule, '${_shifts.length}',
-                        'Tổng ca', HrmPageChrome.primaryNavy),
+                    Expanded(child: _buildShiftStatsBar()),
                     const SizedBox(width: 16),
-                    _buildMiniStat(
-                        Icons.check_circle,
-                        '${_shifts.where((s) => s.isActive).length}',
-                        'Kích hoạt',
-                        HrmPageChrome.primaryNavy),
-                    const SizedBox(width: 16),
-                    _buildMiniStat(
-                        Icons.more_time,
-                        '${_shifts.where((s) => _getShiftType(s) == 'Tăng ca').length}',
-                        'Tăng ca',
-                        const Color(0xFFF59E0B)),
-                    const SizedBox(width: 16),
-                    _buildMiniStat(
-                        Icons.nightlight_round,
-                        '${_shifts.where((s) => _getShiftType(s) == 'Qua đêm').length}',
-                        'Qua đêm',
-                        HrmPageChrome.primaryNavy),
-                    const Spacer(),
                     SizedBox(
                       width: 280,
-                      child: TextField(
-                        decoration: InputDecoration(
-                          hintText: 'Tìm ca...',
-                          hintStyle:
-                              TextStyle(color: Colors.grey[400], fontSize: 13),
-                          prefixIcon: Icon(Icons.search,
-                              color: Colors.grey[400], size: 20),
-                          suffixIcon: _searchQuery.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(Icons.clear, size: 18),
-                                  onPressed: () =>
-                                      setState(() { _searchQuery = ''; _shiftPage = 1; }))
-                              : null,
-                          border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide:
-                                  const BorderSide(color: _borderColor)),
-                          enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide:
-                                  const BorderSide(color: _borderColor)),
-                          contentPadding:
-                              const EdgeInsets.symmetric(vertical: 10),
-                          isDense: true,
-                          filled: true,
-                          fillColor: _bgColor,
-                        ),
-                        style: const TextStyle(fontSize: 13),
-                        onChanged: (v) => setState(() { _searchQuery = v; _shiftPage = 1; }),
-                      ),
+                      child: _buildShiftSearchField(),
                     ),
                   ],
                 ),
-              ],
             ],
           ),
         ),
@@ -752,33 +681,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      _buildMiniStat(Icons.schedule, '${_shifts.length}',
-                          'Tổng ca', HrmPageChrome.primaryNavy),
-                      const SizedBox(width: 8),
-                      _buildMiniStat(
-                          Icons.check_circle,
-                          '${_shifts.where((s) => s.isActive).length}',
-                          'Kích hoạt',
-                          HrmPageChrome.primaryNavy),
-                      const SizedBox(width: 8),
-                      _buildMiniStat(
-                          Icons.more_time,
-                          '${_shifts.where((s) => _getShiftType(s) == 'Tăng ca').length}',
-                          'Tăng ca',
-                          const Color(0xFFF59E0B)),
-                      const SizedBox(width: 8),
-                      _buildMiniStat(
-                          Icons.nightlight_round,
-                          '${_shifts.where((s) => _getShiftType(s) == 'Qua đêm').length}',
-                          'Qua đêm',
-                          HrmPageChrome.primaryNavy),
-                    ],
-                  ),
-                ),
+                _buildShiftStatsBar(),
               ],
             ),
           ),
@@ -951,7 +854,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
   }
 
   void _showMobileDetailSheet(Shift shift) {
-    showModalBottomSheet(
+    showAppSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -1176,49 +1079,54 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                 border: Border(top: BorderSide(color: _borderColor))),
             child: Row(
               children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => _showShiftDialog(shift: shift),
-                    icon: const Icon(Icons.edit, size: 16),
-                    label: const Text('Sửa', style: TextStyle(fontSize: 13)),
+                if (_perm.canEdit('ShiftSetup'))
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _showShiftDialog(shift: shift),
+                      icon: const Icon(Icons.edit, size: 16),
+                      label: const Text('Sửa', style: TextStyle(fontSize: 13)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: _primaryColor,
+                        side: const BorderSide(color: _primaryColor),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ),
+                if (_perm.canEdit('ShiftSetup')) ...[
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _showShiftSalaryDialog(shift),
+                      icon: const Icon(Icons.payments, size: 16),
+                      label: const Text('Lương ca',
+                          style: TextStyle(fontSize: 13)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFFF59E0B),
+                        side: const BorderSide(color: Color(0xFFF59E0B)),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ),
+                ],
+                if (_perm.canDelete('ShiftSetup')) ...[
+                  const SizedBox(width: 8),
+                  OutlinedButton(
+                    onPressed: () => _deleteShift(shift),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: _primaryColor,
-                      side: const BorderSide(color: _primaryColor),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      foregroundColor: const Color(0xFFEF4444),
+                      side: const BorderSide(color: Color(0xFFEF4444)),
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 12, horizontal: 16),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8)),
                     ),
+                    child: const Icon(Icons.delete_outline, size: 18),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => _showShiftSalaryDialog(shift),
-                    icon: const Icon(Icons.payments, size: 16),
-                    label:
-                        const Text('Lương ca', style: TextStyle(fontSize: 13)),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFFF59E0B),
-                      side: const BorderSide(color: Color(0xFFF59E0B)),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8)),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                OutlinedButton(
-                  onPressed: () => _deleteShift(shift),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFFEF4444),
-                    side: const BorderSide(color: Color(0xFFEF4444)),
-                    padding: const EdgeInsets.symmetric(
-                        vertical: 12, horizontal: 16),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8)),
-                  ),
-                  child: const Icon(Icons.delete_outline, size: 18),
-                ),
+                ],
               ],
             ),
           ),
@@ -1295,9 +1203,35 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
     );
   }
 
-  Widget _buildMiniStat(
+  Widget _buildShiftStatsBar() {
+    return HrmPageChrome.horizontalStatCards(
+      cards: [
+        _buildStatCard(Icons.schedule, '${_shifts.length}', 'Tổng ca',
+            HrmPageChrome.primaryNavy),
+        _buildStatCard(
+            Icons.check_circle,
+            '${_shifts.where((s) => s.isActive).length}',
+            'Kích hoạt',
+            HrmPageChrome.primaryNavy),
+        _buildStatCard(
+            Icons.more_time,
+            '${_shifts.where((s) => _getShiftType(s) == 'Tăng ca').length}',
+            'Tăng ca',
+            const Color(0xFFF59E0B)),
+        _buildStatCard(
+            Icons.nightlight_round,
+            '${_shifts.where((s) => _getShiftType(s) == 'Qua đêm').length}',
+            'Qua đêm',
+            HrmPageChrome.primaryNavy),
+      ],
+      minCardWidth: 120,
+      gap: 10,
+    );
+  }
+
+  Widget _buildStatCard(
       IconData icon, String value, String label, Color color) {
-    return HrmMiniStatChip(
+    return HrmStatSummaryCard(
       icon: icon,
       value: value,
       label: label,
@@ -2244,24 +2178,28 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                                 color: Colors.red.shade700)),
                                       ),
                                     if (!isActive) const SizedBox(width: 6),
-                                    IconButton(
-                                      icon: const Icon(Icons.edit,
-                                          size: 18, color: _primaryColor),
-                                      visualDensity: VisualDensity.compact,
-                                      onPressed: () => _showAddEditSalaryLevel(
-                                          shift,
-                                          sl,
-                                          () =>
-                                              loadSalaryLevels(setDialogState)),
-                                    ),
-                                    IconButton(
-                                      icon: Icon(Icons.delete,
-                                          size: 18, color: Colors.red.shade400),
-                                      visualDensity: VisualDensity.compact,
-                                      onPressed: () async {
+                                    if (_perm.canEdit('ShiftSetup'))
+                                      IconButton(
+                                        icon: const Icon(Icons.edit,
+                                            size: 18, color: _primaryColor),
+                                        visualDensity: VisualDensity.compact,
+                                        onPressed: () =>
+                                            _showAddEditSalaryLevel(
+                                                shift,
+                                                sl,
+                                                () => loadSalaryLevels(
+                                                    setDialogState)),
+                                      ),
+                                    if (_perm.canDelete('ShiftSetup'))
+                                      IconButton(
+                                        icon: Icon(Icons.delete,
+                                            size: 18,
+                                            color: Colors.red.shade400),
+                                        visualDensity: VisualDensity.compact,
+                                        onPressed: () async {
                                         final confirm = await showDialog<bool>(
                                           context: context,
-                                          builder: (c) => AlertDialog(
+                                          builder: (c) => ScrollableAlertDialog(
                                             title: const Text('Xác nhận xóa'),
                                             content: Text(
                                                 'Xóa mức lương "${sl['levelName']}"?'),
@@ -2984,7 +2922,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
   void _deleteShift(Shift shift) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => ScrollableAlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: const Text('Xác nhận xóa', style: TextStyle(color: _textDark)),

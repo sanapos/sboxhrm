@@ -44,7 +44,7 @@ public class ShiftTemplatesController(IMediator mediator) : AuthenticatedControl
 
     [HttpGet]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
-    [RequireAnyModulePermission(ModulePermissionAction.View, "ShiftTemplate", "ShiftSetup")]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "ShiftTemplate", "ShiftSetup", "AttendanceSummary", "AttendanceByShift", "Attendance")]
     public async Task<ActionResult<AppResponse<List<ShiftTemplateDto>>>> GetShiftTemplates()
     {
         var query = new GetShiftTemplatesQuery(CurrentUserId, RequiredStoreId, IsManager, IsAdmin);

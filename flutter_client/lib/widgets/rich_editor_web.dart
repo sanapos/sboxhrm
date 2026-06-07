@@ -1,4 +1,4 @@
-﻿// Professional WYSIWYG Rich Text Editor for Flutter Web
+// Professional WYSIWYG Rich Text Editor for Flutter Web
 // Uses contentEditable div with a comprehensive formatting toolbar.
 // ignore_for_file: avoid_web_libraries_in_flutter, deprecated_member_use
 
@@ -6,7 +6,10 @@ import 'dart:async';
 import 'dart:html' as dom;
 import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../services/api_service.dart';
+import 'auth_cached_image.dart';
 import 'package:file_picker/file_picker.dart';
 
 // ══════════════════════════════════════════════════════════
@@ -633,7 +636,7 @@ class _RichEditorState extends State<RichEditor> {
     final textCtrl = TextEditingController();
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Row(
           children: [
@@ -714,7 +717,7 @@ class _RichEditorState extends State<RichEditor> {
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDlgState) => AlertDialog(
+        builder: (ctx, setDlgState) => ScrollableAlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Row(
             children: [
@@ -806,8 +809,9 @@ class _RichEditorState extends State<RichEditor> {
                   if (uploadedUrl != null) ...[
                     ClipRRect(
                       borderRadius: BorderRadius.circular(10),
-                      child: CachedNetworkImage(
-                        imageUrl: uploadedUrl!,
+                      child: AuthCachedImage(
+                        imagePath: uploadedUrl!,
+                        apiService: ApiService(),
                         height: 150,
                         width: double.infinity,
                         fit: BoxFit.cover,
@@ -1096,7 +1100,7 @@ class _RichEditorState extends State<RichEditor> {
             widget.onChanged?.call(widget.controller.html);
           }
 
-          return AlertDialog(
+          return ScrollableAlertDialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: Row(
               children: [
@@ -1126,8 +1130,9 @@ class _RichEditorState extends State<RichEditor> {
                     // Preview
                     ClipRRect(
                     borderRadius: BorderRadius.circular(8),
-                    child: CachedNetworkImage(
-                      imageUrl: img.src ?? '',
+                    child: AuthCachedImage(
+                      imagePath: img.src ?? '',
+                      apiService: ApiService(),
                       height: 160,
                       width: double.infinity,
                       fit: BoxFit.contain,
@@ -1321,7 +1326,7 @@ class _RichEditorState extends State<RichEditor> {
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
@@ -1612,7 +1617,7 @@ class _RichEditorState extends State<RichEditor> {
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDlgState) => AlertDialog(
+        builder: (ctx, setDlgState) => ScrollableAlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Row(
             children: [
@@ -1771,7 +1776,7 @@ class _RichEditorState extends State<RichEditor> {
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDlgState) => AlertDialog(
+        builder: (ctx, setDlgState) => ScrollableAlertDialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Row(
@@ -1890,7 +1895,7 @@ class _RichEditorState extends State<RichEditor> {
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDlgState) => AlertDialog(
+        builder: (ctx, setDlgState) => ScrollableAlertDialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Row(

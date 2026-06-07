@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 /// Centralized responsive breakpoints and helpers
@@ -8,6 +9,28 @@ class Responsive {
 
   static bool isMobile(BuildContext context) =>
       MediaQuery.of(context).size.width < mobileBreakpoint;
+
+  /// Màn hẹp / thấp (cửa sổ web nhỏ, tablet dọc, laptop 1366×768).
+  static bool isCompactViewport(BuildContext context) {
+    final s = MediaQuery.sizeOf(context);
+    return s.width < mobileBreakpoint || s.height < 720;
+  }
+
+  /// Một cột cuộn dọc (header + danh sách) — app mobile hoặc web viewport hẹp.
+  static bool useUnifiedPageScroll(BuildContext context) =>
+      isCompactViewport(context) || (!kIsWeb && isMobile(context));
+
+  /// Bảng DataTable chỉ khi đủ rộng; viewport hẹp dùng thẻ + cuộn dọc.
+  static bool preferTableListLayout(BuildContext context) =>
+      !isCompactViewport(context) && (kIsWeb || !isMobile(context));
+
+  static double dialogMaxHeight(BuildContext context) =>
+      MediaQuery.sizeOf(context).height * 0.72;
+
+  static double dialogContentWidth(BuildContext context, {double max = 560}) {
+    final w = MediaQuery.sizeOf(context).width - 64;
+    return max.clamp(280.0, w > 0 ? w : max);
+  }
 
   static bool isTablet(BuildContext context) {
     final w = MediaQuery.of(context).size.width;

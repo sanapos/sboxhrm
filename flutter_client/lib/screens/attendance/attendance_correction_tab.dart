@@ -1,5 +1,8 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../providers/permission_provider.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:intl/intl.dart';
 import '../../models/attendance.dart';
 import '../../models/device.dart';
@@ -103,6 +106,9 @@ class AttendanceCorrectionTab extends StatefulWidget {
 }
 
 class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
+  PermissionProvider get _perm =>
+      Provider.of<PermissionProvider>(context, listen: false);
+
   // Filters for processed requests
   String _filterEmployee = '';
   String _filterType = 'all'; // all, add, edit, delete
@@ -605,9 +611,17 @@ class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
                 style: const TextStyle(color: Color(0xFF71717A), fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
             ]),
           ),
-          InkWell(onTap: () => _approveRequest(request), child: const Icon(Icons.check_circle_outline, size: 22, color: Colors.green)),
-          const SizedBox(width: 6),
-          InkWell(onTap: () => _rejectRequest(request), child: const Icon(Icons.cancel_outlined, size: 22, color: Colors.red)),
+          if (_perm.canApprove('AttendanceCorrection'))
+            InkWell(
+                onTap: () => _approveRequest(request),
+                child: const Icon(Icons.check_circle_outline,
+                    size: 22, color: Colors.green)),
+          if (_perm.canApprove('AttendanceCorrection')) const SizedBox(width: 6),
+          if (_perm.canApprove('AttendanceCorrection'))
+            InkWell(
+                onTap: () => _rejectRequest(request),
+                child: const Icon(Icons.cancel_outlined,
+                    size: 22, color: Colors.red)),
         ]),
       ),
     );
@@ -740,30 +754,33 @@ class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
               ),
             ),
             // Action buttons
-            IconButton(
-              onPressed: () => _deleteRequest(request),
-              icon: const Icon(Icons.delete_outline, size: 18),
-              tooltip: 'Xóa',
-              visualDensity: VisualDensity.compact,
-              style: IconButton.styleFrom(foregroundColor: Colors.grey),
-            ),
-            IconButton(
-              onPressed: () => _rejectRequest(request),
-              icon: const Icon(Icons.close, size: 18),
-              tooltip: 'Từ chối',
-              visualDensity: VisualDensity.compact,
-              style: IconButton.styleFrom(foregroundColor: Colors.orange),
-            ),
-            IconButton(
-              onPressed: () => _approveRequest(request),
-              icon: const Icon(Icons.check, size: 18),
-              tooltip: 'Duyệt',
-              visualDensity: VisualDensity.compact,
-              style: IconButton.styleFrom(
-                foregroundColor: Colors.white,
-                backgroundColor: Colors.green,
+            if (_perm.canDelete('AttendanceCorrection'))
+              IconButton(
+                onPressed: () => _deleteRequest(request),
+                icon: const Icon(Icons.delete_outline, size: 18),
+                tooltip: 'Xóa',
+                visualDensity: VisualDensity.compact,
+                style: IconButton.styleFrom(foregroundColor: Colors.grey),
               ),
-            ),
+            if (_perm.canApprove('AttendanceCorrection')) ...[
+              IconButton(
+                onPressed: () => _rejectRequest(request),
+                icon: const Icon(Icons.close, size: 18),
+                tooltip: 'Từ chối',
+                visualDensity: VisualDensity.compact,
+                style: IconButton.styleFrom(foregroundColor: Colors.orange),
+              ),
+              IconButton(
+                onPressed: () => _approveRequest(request),
+                icon: const Icon(Icons.check, size: 18),
+                tooltip: 'Duyệt',
+                visualDensity: VisualDensity.compact,
+                style: IconButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  backgroundColor: Colors.green,
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -909,7 +926,7 @@ class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) {
-          return AlertDialog(
+          return ScrollableAlertDialog(
             title: const Row(
               children: [
                 Icon(Icons.edit_calendar, color: Colors.orange),
@@ -1090,7 +1107,7 @@ class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => ScrollableAlertDialog(
         title: const Text('Từ chối yêu cầu'),
         content: SingleChildScrollView(
           child: TextField(
@@ -1143,7 +1160,7 @@ class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
   void _deleteRequest(CorrectionRequestInternal request) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => ScrollableAlertDialog(
         title: const Row(
           children: [
             Icon(Icons.delete_forever, color: Colors.red),

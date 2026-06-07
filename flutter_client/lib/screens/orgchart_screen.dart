@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/permission_provider.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import '../models/orgchart.dart';
 import '../services/api_service.dart';
 import '../utils/number_formatter.dart';
@@ -17,6 +20,9 @@ class OrgChartScreen extends StatefulWidget {
 class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final _api = ApiService();
+
+  PermissionProvider get _perm =>
+      Provider.of<PermissionProvider>(context, listen: false);
 
   // Data
   List<OrgChartNode> _orgTree = [];
@@ -344,7 +350,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
             radius: 16,
             backgroundColor: posColor.withValues(alpha: 0.15),
             backgroundImage: member.employeePhoto != null && member.employeePhoto!.isNotEmpty
-                ? NetworkImage(member.employeePhoto!)
+                ? _api.storeImageProvider(member.employeePhoto!)
                 : null,
             onBackgroundImageError: member.employeePhoto != null && member.employeePhoto!.isNotEmpty ? (_, __) {} : null,
             child: member.employeePhoto == null || member.employeePhoto!.isEmpty
@@ -431,7 +437,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
                   radius: 24,
                   backgroundColor: Colors.amber.withValues(alpha: 0.2),
                   backgroundImage: manager.employeePhoto != null && manager.employeePhoto!.isNotEmpty
-                      ? NetworkImage(_api.getFileUrl(manager.employeePhoto!))
+                      ? _api.storeImageProvider(manager.employeePhoto!)
                       : null,
                   onBackgroundImageError: manager.employeePhoto != null && manager.employeePhoto!.isNotEmpty ? (_, __) {} : null,
                   child: manager.employeePhoto == null || manager.employeePhoto!.isEmpty
@@ -480,7 +486,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
                     radius: 18,
                     backgroundColor: posColor.withValues(alpha: 0.15),
                     backgroundImage: m.employeePhoto != null && m.employeePhoto!.isNotEmpty
-                        ? NetworkImage(_api.getFileUrl(m.employeePhoto!))
+                        ? _api.storeImageProvider(m.employeePhoto!)
                         : null,
                     onBackgroundImageError: m.employeePhoto != null && m.employeePhoto!.isNotEmpty ? (_, __) {} : null,
                     child: m.employeePhoto == null || m.employeePhoto!.isEmpty
@@ -564,7 +570,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
     } else {
       showDialog(
         context: context,
-        builder: (ctx) => AlertDialog(
+        builder: (ctx) => ScrollableAlertDialog(
           title: titleRow,
           content: SizedBox(
             width: 500,
@@ -695,14 +701,16 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
                 decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(4)),
                 child: Text('Tắt', style: TextStyle(fontSize: 10, color: Colors.red.shade700)),
               ),
-            IconButton(
-              icon: const Icon(Icons.edit, size: 18),
-              onPressed: () => _showEditPositionDialog(position),
-            ),
-            IconButton(
-              icon: const Icon(Icons.delete, size: 18, color: Colors.red),
-              onPressed: () => _confirmDeletePosition(position),
-            ),
+            if (_perm.canEdit('OrgChart'))
+              IconButton(
+                icon: const Icon(Icons.edit, size: 18),
+                onPressed: () => _showEditPositionDialog(position),
+              ),
+            if (_perm.canDelete('OrgChart'))
+              IconButton(
+                icon: const Icon(Icons.delete, size: 18, color: Colors.red),
+                onPressed: () => _confirmDeletePosition(position),
+              ),
           ],
         ),
       ),
@@ -723,11 +731,12 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
               Text('Gán chức vụ (${_assignments.length})',
                   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               const Spacer(),
-              FilledButton.icon(
-                onPressed: _showCreateAssignmentDialog,
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Gán mới'),
-              ),
+              if (_perm.canCreate('OrgChart'))
+                FilledButton.icon(
+                  onPressed: _showCreateAssignmentDialog,
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Gán mới'),
+                ),
             ],
           ),
         ),
@@ -773,7 +782,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
           CircleAvatar(
             radius: 18,
             backgroundColor: Colors.blue.shade50,
-            backgroundImage: assign.employeePhoto != null && assign.employeePhoto!.isNotEmpty ? NetworkImage(assign.employeePhoto!) : null,
+            backgroundImage: assign.employeePhoto != null && assign.employeePhoto!.isNotEmpty ? _api.storeImageProvider(assign.employeePhoto!) : null,
             onBackgroundImageError: assign.employeePhoto != null && assign.employeePhoto!.isNotEmpty ? (_, __) {} : null,
             child: assign.employeePhoto == null || assign.employeePhoto!.isEmpty ? const Icon(Icons.person, color: Colors.blue, size: 18) : null,
           ),
@@ -811,7 +820,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
               radius: 22,
               backgroundColor: Colors.blue.shade50,
               backgroundImage: assign.employeePhoto != null && assign.employeePhoto!.isNotEmpty
-                  ? NetworkImage(assign.employeePhoto!)
+                  ? _api.storeImageProvider(assign.employeePhoto!)
                   : null,
               onBackgroundImageError: assign.employeePhoto != null && assign.employeePhoto!.isNotEmpty ? (_, __) {} : null,
               child: assign.employeePhoto == null || assign.employeePhoto!.isEmpty
@@ -852,23 +861,28 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
                 ],
               ),
             ),
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.edit, size: 18),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                  onPressed: () => _showEditAssignmentDialog(assign),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.delete, size: 18, color: Colors.red),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                  onPressed: () => _confirmDeleteAssignment(assign),
-                ),
-              ],
-            ),
+            if (_perm.canEdit('OrgChart') || _perm.canDelete('OrgChart'))
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_perm.canEdit('OrgChart'))
+                    IconButton(
+                      icon: const Icon(Icons.edit, size: 18),
+                      padding: EdgeInsets.zero,
+                      constraints:
+                          const BoxConstraints(minWidth: 32, minHeight: 32),
+                      onPressed: () => _showEditAssignmentDialog(assign),
+                    ),
+                  if (_perm.canDelete('OrgChart'))
+                    IconButton(
+                      icon: const Icon(Icons.delete, size: 18, color: Colors.red),
+                      padding: EdgeInsets.zero,
+                      constraints:
+                          const BoxConstraints(minWidth: 32, minHeight: 32),
+                      onPressed: () => _confirmDeleteAssignment(assign),
+                    ),
+                ],
+              ),
           ],
         ),
       ),
@@ -889,11 +903,12 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
               Text('Luồng duyệt (${_approvalFlows.length})',
                   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               const Spacer(),
-              FilledButton.icon(
-                onPressed: _showCreateApprovalFlowDialog,
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Thêm luồng'),
-              ),
+              if (_perm.canCreate('OrgChart'))
+                FilledButton.icon(
+                  onPressed: _showCreateApprovalFlowDialog,
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Thêm luồng'),
+                ),
             ],
           ),
         ),
@@ -975,19 +990,23 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
           ' • ${flow.steps.length} bước',
           style: TextStyle(fontSize: 12, color: Colors.grey[600]),
         ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.edit, size: 18),
-              onPressed: () => _showEditApprovalFlowDialog(flow),
-            ),
-            IconButton(
-              icon: const Icon(Icons.delete, size: 18, color: Colors.red),
-              onPressed: () => _confirmDeleteApprovalFlow(flow),
-            ),
-          ],
-        ),
+        trailing: (_perm.canEdit('OrgChart') || _perm.canDelete('OrgChart'))
+            ? Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_perm.canEdit('OrgChart'))
+                    IconButton(
+                      icon: const Icon(Icons.edit, size: 18),
+                      onPressed: () => _showEditApprovalFlowDialog(flow),
+                    ),
+                  if (_perm.canDelete('OrgChart'))
+                    IconButton(
+                      icon: const Icon(Icons.delete, size: 18, color: Colors.red),
+                      onPressed: () => _confirmDeleteApprovalFlow(flow),
+                    ),
+                ],
+              )
+            : null,
         children: [
           if (flow.steps.isNotEmpty)
             Padding(
@@ -1109,7 +1128,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
           CircleAvatar(
             radius: 18,
             backgroundColor: Colors.orange.shade50,
-            backgroundImage: emp.photoUrl != null && emp.photoUrl!.isNotEmpty ? NetworkImage(emp.photoUrl!) : null,
+            backgroundImage: emp.photoUrl != null && emp.photoUrl!.isNotEmpty ? _api.storeImageProvider(emp.photoUrl!) : null,
             onBackgroundImageError: emp.photoUrl != null && emp.photoUrl!.isNotEmpty ? (_, __) {} : null,
             child: emp.photoUrl == null || emp.photoUrl!.isEmpty ? const Icon(Icons.person_off, color: Colors.orange, size: 18) : null,
           ),
@@ -1137,7 +1156,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: Colors.orange.shade50,
-          backgroundImage: emp.photoUrl != null && emp.photoUrl!.isNotEmpty ? NetworkImage(emp.photoUrl!) : null,
+          backgroundImage: emp.photoUrl != null && emp.photoUrl!.isNotEmpty ? _api.storeImageProvider(emp.photoUrl!) : null,
           onBackgroundImageError: emp.photoUrl != null && emp.photoUrl!.isNotEmpty ? (_, __) {} : null,
           child: emp.photoUrl == null || emp.photoUrl!.isEmpty
               ? const Icon(Icons.person_off, color: Colors.orange)
@@ -1149,14 +1168,17 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
           '${emp.position != null ? ' • ${emp.position}' : ''}',
           style: TextStyle(fontSize: 12, color: Colors.grey[600]),
         ),
-        trailing: FilledButton.icon(
-          style: ElevatedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          ),
-          onPressed: () => _showQuickAssignDialog(emp),
-          icon: const Icon(Icons.assignment_ind, size: 16),
-          label: const Text('Gán', style: TextStyle(fontSize: 12)),
-        ),
+        trailing: _perm.canCreate('OrgChart')
+            ? FilledButton.icon(
+                style: ElevatedButton.styleFrom(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                ),
+                onPressed: () => _showQuickAssignDialog(emp),
+                icon: const Icon(Icons.assignment_ind, size: 16),
+                label: const Text('Gán', style: TextStyle(fontSize: 12)),
+              )
+            : null,
       ),
     );
   }
@@ -1265,7 +1287,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
               ),
             );
           }
-          return AlertDialog(
+          return ScrollableAlertDialog(
             title: const Text('Sửa chức vụ'),
             content: formContent,
             actions: [
@@ -1281,7 +1303,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
   void _confirmDeletePosition(OrgPosition position) {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Text('Xóa chức vụ'),
         content: Text('Bạn có chắc muốn xóa chức vụ "${position.name}"?'),
         actions: [
@@ -1422,7 +1444,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
               ),
             );
           }
-          return AlertDialog(
+          return ScrollableAlertDialog(
             title: const Text('Gán chức vụ'),
             content: formContent,
             actions: [
@@ -1497,7 +1519,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
               ),
             );
           }
-          return AlertDialog(
+          return ScrollableAlertDialog(
             title: const Text('Sửa gán chức vụ'),
             content: formContent,
             actions: [
@@ -1513,7 +1535,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
   void _confirmDeleteAssignment(OrgAssignment assign) {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Text('Xóa gán chức vụ'),
         content: Text('Xóa "${assign.positionName}" của "${assign.employeeName}" tại "${assign.departmentName}"?'),
         actions: [
@@ -1698,7 +1720,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
               ),
             );
           }
-          return AlertDialog(
+          return ScrollableAlertDialog(
             title: const Text('Thêm luồng duyệt'),
             content: SizedBox(width: 500, child: formContent),
             actions: [
@@ -1867,7 +1889,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
               ),
             );
           }
-          return AlertDialog(
+          return ScrollableAlertDialog(
             title: const Text('Sửa luồng duyệt'),
             content: SizedBox(width: 500, child: formContent),
             actions: [
@@ -1883,7 +1905,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
   void _confirmDeleteApprovalFlow(ApprovalFlow flow) {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Text('Xóa luồng duyệt'),
         content: Text('Bạn có chắc muốn xóa luồng duyệt "${flow.name}"?'),
         actions: [

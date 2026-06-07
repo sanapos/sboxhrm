@@ -1,15 +1,18 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
+import '../widgets/auth_cached_image.dart';
 import '../models/task.dart';
 import '../models/employee.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/app_button.dart';
 import '../widgets/notification_overlay.dart';
+import '../widgets/app_scroll_safe.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../providers/auth_provider.dart';
@@ -180,7 +183,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
     final reasonCtrl = TextEditingController();
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Text('Từ chối nhận việc'),
         content: TextField(
           controller: reasonCtrl,
@@ -415,6 +418,10 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
 
   // ======================== HEADER ========================
   Widget _buildHeader() {
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    final canEditTask = perm.canEdit('Task');
+    final canDeleteTask = perm.canDelete('Task');
+
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -456,36 +463,43 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                             fontWeight: FontWeight.w600)),
                     const SizedBox(width: 8),
                     if (isNarrow) ...[
-                      IconButton(
-                        icon: const Icon(Icons.check_circle, size: 20),
-                        color: Colors.green,
-                        tooltip: 'Hoàn thành',
-                        onPressed: () => _batchStatus(WorkTaskStatus.completed),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.person_add, size: 20),
-                        color: Colors.blue,
-                        tooltip: 'Giao việc',
-                        onPressed: _showBatchAssign,
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.delete, size: 20),
-                        color: Colors.red,
-                        tooltip: 'Xóa',
-                        onPressed: _confirmBatchDelete,
-                      ),
+                      if (canEditTask)
+                        IconButton(
+                          icon: const Icon(Icons.check_circle, size: 20),
+                          color: Colors.green,
+                          tooltip: 'Hoàn thành',
+                          onPressed: () =>
+                              _batchStatus(WorkTaskStatus.completed),
+                        ),
+                      if (canEditTask)
+                        IconButton(
+                          icon: const Icon(Icons.person_add, size: 20),
+                          color: Colors.blue,
+                          tooltip: 'Giao việc',
+                          onPressed: _showBatchAssign,
+                        ),
+                      if (canDeleteTask)
+                        IconButton(
+                          icon: const Icon(Icons.delete, size: 20),
+                          color: Colors.red,
+                          tooltip: 'Xóa',
+                          onPressed: _confirmBatchDelete,
+                        ),
                     ] else ...[
-                      _buildBatchBtn(
-                          'Hoàn thành',
-                          Icons.check_circle,
-                          Colors.green,
-                          () => _batchStatus(WorkTaskStatus.completed)),
-                      const SizedBox(width: 4),
-                      _buildBatchBtn('Giao việc', Icons.person_add, Colors.blue,
-                          _showBatchAssign),
-                      const SizedBox(width: 4),
-                      _buildBatchBtn(
-                          'Xóa', Icons.delete, Colors.red, _confirmBatchDelete),
+                      if (canEditTask) ...[
+                        _buildBatchBtn(
+                            'Hoàn thành',
+                            Icons.check_circle,
+                            Colors.green,
+                            () => _batchStatus(WorkTaskStatus.completed)),
+                        const SizedBox(width: 4),
+                        _buildBatchBtn('Giao việc', Icons.person_add,
+                            Colors.blue, _showBatchAssign),
+                        const SizedBox(width: 4),
+                      ],
+                      if (canDeleteTask)
+                        _buildBatchBtn('Xóa', Icons.delete, Colors.red,
+                            _confirmBatchDelete),
                     ],
                     const SizedBox(width: 8),
                   ],
@@ -1023,7 +1037,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
             'Chi nhánh'
         : 'Chi nhánh';
     return GestureDetector(
-      onTap: () => showModalBottomSheet(
+      onTap: () => showAppSheet(
         context: context,
         builder: (_) => ListView(shrinkWrap: true, children: [
           ListTile(
@@ -1064,7 +1078,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
   }
 
   void _showAssigneeFilter() {
-    showModalBottomSheet(
+    showAppSheet(
         context: context,
         builder: (_) => ListView(
               shrinkWrap: true,
@@ -1107,7 +1121,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
       Color Function(T) color,
       T? current,
       void Function(T?) onSelect) {
-    showModalBottomSheet(
+    showAppSheet(
         context: context,
         builder: (_) => Column(mainAxisSize: MainAxisSize.min, children: [
               Padding(
@@ -1419,7 +1433,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
     final canEdit = _canManageTaskMetadata(t);
     final canDelete = Provider.of<PermissionProvider>(context, listen: false)
         .canDelete('Task');
-    showModalBottomSheet(
+    showAppSheet(
       context: context,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
@@ -1539,7 +1553,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
   }
 
   void _showStatusChangeSheet(WorkTask t) {
-    showModalBottomSheet(
+    showAppSheet(
       context: context,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
@@ -3014,12 +3028,13 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                         onTap: () => _showImageDialog(images[i]),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(8),
-                          child: Image.network(
-                            images[i],
+                          child: AuthCachedImage(
+                            imagePath: images[i],
+                            apiService: _api,
                             width: 100,
                             height: 100,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
+                            errorWidget: (_, __, ___) => Container(
                               width: 100,
                               height: 100,
                               color: const Color(0xFFE4E4E7),
@@ -3183,10 +3198,11 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                         ),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(5),
-                          child: Image.network(
-                            url,
+                          child: AuthCachedImage(
+                            imagePath: url,
+                            apiService: _api,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => const Center(
+                            errorWidget: (_, __, ___) => const Center(
                               child: Icon(Icons.broken_image,
                                   size: 20, color: Color(0xFFA1A1AA)),
                             ),
@@ -3280,10 +3296,11 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
             ConstrainedBox(
               constraints: BoxConstraints(
                   maxHeight: MediaQuery.of(ctx).size.height * 0.7),
-              child: Image.network(
-                url,
+              child: AuthCachedImage(
+                imagePath: url,
+                apiService: _api,
                 fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => const Padding(
+                errorWidget: (_, __, ___) => const Padding(
                   padding: EdgeInsets.all(40),
                   child: Icon(Icons.broken_image,
                       size: 60, color: Color(0xFFA1A1AA)),
@@ -3574,7 +3591,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                   ),
                 );
               }
-              return AlertDialog(
+              return ScrollableAlertDialog(
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16)),
                 title: const Row(children: [
@@ -3896,7 +3913,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                   ),
                 );
               }
-              return AlertDialog(
+              return ScrollableAlertDialog(
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16)),
                 title: Row(children: [
@@ -4082,7 +4099,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                   ),
                 );
               }
-              return AlertDialog(
+              return ScrollableAlertDialog(
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16)),
                 title: const Row(children: [
@@ -4239,7 +4256,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                   ),
                 );
               }
-              return AlertDialog(
+              return ScrollableAlertDialog(
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16)),
                 title: const Row(children: [
@@ -4493,7 +4510,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
               ),
             );
           }
-          return AlertDialog(
+          return ScrollableAlertDialog(
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: const Text('Giao việc hàng loạt'),
@@ -4512,7 +4529,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
   void _confirmBatchDelete() {
     showDialog(
         context: context,
-        builder: (ctx) => AlertDialog(
+        builder: (ctx) => ScrollableAlertDialog(
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16)),
               title: const Text('Xác nhận xóa'),
@@ -4642,7 +4659,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
   void _confirmDeleteTask(WorkTask task) {
     showDialog(
         context: context,
-        builder: (ctx) => AlertDialog(
+        builder: (ctx) => ScrollableAlertDialog(
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16)),
               title: const Row(children: [

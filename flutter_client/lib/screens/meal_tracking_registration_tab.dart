@@ -1,6 +1,8 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../widgets/app_scroll_safe.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import '../widgets/scrollable_dialog_body.dart';
 import 'package:intl/intl.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -130,7 +132,7 @@ class _MealRegistrationTabState extends State<MealRegistrationTab> {
           title: 'Quyền', message: 'Bạn không có quyền chấm cơm');
       return;
     }
-    showModalBottomSheet(
+    showAppSheet(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
@@ -151,7 +153,7 @@ class _MealRegistrationTabState extends State<MealRegistrationTab> {
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDlg) => AlertDialog(
+        builder: (ctx, setDlg) => ScrollableAlertDialog(
           title: const Text('Đăng ký ăn cho nhân viên'),
           content: ScrollableDialogBody.wrap(
             context,

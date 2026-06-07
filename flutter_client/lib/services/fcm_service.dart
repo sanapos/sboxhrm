@@ -6,7 +6,6 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -14,6 +13,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../firebase_options.dart';
 import '../screens/main_layout.dart' show ScreenRefreshNotifier;
 import '../utils/notification_navigation.dart';
+import '../utils/pending_notification_launch.dart';
 import 'api_config.dart';
 
 /// Background message handler. Must be a top-level function.
@@ -84,17 +84,9 @@ class FcmService {
       // Listeners
       FirebaseMessaging.onMessage.listen(_onForegroundMessage);
       FirebaseMessaging.onMessageOpenedApp.listen(_onMessageOpenedApp);
-      // Cold start: app launched from a notification tap. Defer routing
-      // until after first frame so MainLayout đã attach navigateTo listener.
+      // Cold start: queue navigation until MainLayout + auth are ready.
       FirebaseMessaging.instance.getInitialMessage().then((msg) {
-        if (msg != null) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            // Delay thêm để đảm bảo auth state đã load và MainLayout mounted.
-            Future.delayed(const Duration(milliseconds: 800), () {
-              _onMessageOpenedApp(msg);
-            });
-          });
-        }
+        if (msg != null) _queueNotificationLaunch(msg);
       });
       FirebaseMessaging.instance.onTokenRefresh.listen((t) {
         if (kDebugMode) debugPrint('FCM token refreshed');
@@ -232,36 +224,45 @@ class FcmService {
   /// terminated. Route to the right screen + refresh notification badge so
   /// the target screen does not show stale/empty data.
   void _onMessageOpenedApp(RemoteMessage msg) {
-    try {
-      final data = msg.data;
-      final entityType = (data['type'] ??
-              data['relatedEntityType'] ??
-              _entityFromActionUrl(data['actionUrl']?.toString()) ??
-              '')
-          .toString()
-          .toLowerCase();
-      final notificationId = data['notificationId']?.toString();
-      if (kDebugMode) {
-        debugPrint('FCM tap → entityType=$entityType notifId=$notificationId data=$data');
-      }
-      final title = msg.notification?.title ?? data['title']?.toString();
-      navigateFromNotification(
-        relatedEntityType: entityType.isEmpty ? null : entityType,
-        relatedEntityId: notificationId,
-        title: title,
-      );
-      // Always bump notification count so badge refreshes.
-      ScreenRefreshNotifier.refreshNotificationCount();
-    } catch (e) {
-      debugPrint('FcmService._onMessageOpenedApp failed: $e');
-    }
+    _queueNotificationLaunch(msg);
   }
 
-  String? _entityFromActionUrl(String? url) {
-    if (url == null || url.isEmpty) return null;
-    // e.g. "/attendance" → "attendance"
-    final segs = url.split('/').where((s) => s.isNotEmpty).toList();
-    return segs.isNotEmpty ? segs.first : null;
+  void _queueNotificationLaunch(RemoteMessage msg) {
+    try {
+      final raw = msg.data;
+      final data = raw.map((k, v) => MapEntry(k, v.toString()));
+      final entityType = resolveEntityTypeForNotification(
+        relatedEntityType: data['relatedEntityType'],
+        categoryCode: data['categoryCode'],
+        actionUrl: data['actionUrl'],
+        title: msg.notification?.title ?? data['title'],
+      );
+      final notificationRowId = data['notificationId'];
+      final highlightId =
+          data['relatedEntityId']?.isNotEmpty == true
+              ? data['relatedEntityId']
+              : notificationRowId;
+      final title = msg.notification?.title ?? data['title'];
+      if (kDebugMode) {
+        debugPrint(
+            'FCM tap → entity=$entityType row=$notificationRowId highlight=$highlightId');
+      }
+
+      PendingNotificationLaunch.store(
+        relatedEntityType: entityType,
+        notificationRowId: notificationRowId,
+        highlightEntityId: highlightId,
+        title: title,
+        categoryCode: data['categoryCode'],
+        actionUrl: data['actionUrl'],
+      );
+      if (!PendingNotificationLaunch.tryConsume()) {
+        PendingNotificationLaunch.scheduleConsume();
+      }
+      ScreenRefreshNotifier.refreshNotificationCount();
+    } catch (e) {
+      debugPrint('FcmService._queueNotificationLaunch failed: $e');
+    }
   }
 
 }

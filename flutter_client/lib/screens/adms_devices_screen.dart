@@ -1,5 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/permission_provider.dart';
+import '../widgets/app_scroll_safe.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import '../services/api_service.dart';
 import '../models/device.dart';
 import '../utils/responsive_helper.dart';
@@ -25,6 +29,9 @@ class AdmsDevicesScreen extends StatefulWidget {
 }
 
 class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
+  PermissionProvider get _perm =>
+      Provider.of<PermissionProvider>(context, listen: false);
+
   final ApiService _apiService = ApiService();
   List<Device> _allDevices = [];
   List<Device> _filteredDevices = [];
@@ -744,7 +751,7 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
   }
 
   void _showDeviceDetails(Device device) {
-    showModalBottomSheet(
+    showAppSheet(
       context: context,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
@@ -912,14 +919,15 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
                 const SizedBox(height: 16),
 
                 // Delete button
-                SizedBox(
+                if (_perm.canDelete('Device'))
+                  SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
                     onPressed: () async {
                       Navigator.pop(context);
                       final confirm = await showDialog<bool>(
                             context: this.context,
-                            builder: (ctx) => AlertDialog(
+                            builder: (ctx) => ScrollableAlertDialog(
                               title: const Text('Xóa thiết bị'),
                               content: Text(
                                   'Bạn có chắc muốn xóa thiết bị "${device.deviceName}" (SN: ${device.serialNumber}) khỏi hệ thống?\n\nHành động này không thể hoàn tác.'),

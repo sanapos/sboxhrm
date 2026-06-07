@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../models/hrm.dart';
@@ -135,7 +136,7 @@ class ShiftSwapPanelState extends State<ShiftSwapPanel>
   void _showFlowDialog(BuildContext context) {
     showDialog<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Text('Hướng dẫn đổi ca'),
         content: const SingleChildScrollView(
           child: Text(
@@ -345,7 +346,7 @@ class ShiftSwapPanelState extends State<ShiftSwapPanel>
     await showDialog<void>(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDlg) => AlertDialog(
+        builder: (ctx, setDlg) => ScrollableAlertDialog(
           title: const Row(
             children: [
               Icon(Icons.swap_horiz, color: HrmPageChrome.primaryNavy),

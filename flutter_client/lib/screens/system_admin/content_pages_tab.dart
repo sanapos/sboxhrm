@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:intl/intl.dart';
 import '../../services/api_service.dart';
 import 'system_admin_helpers.dart';
@@ -579,7 +580,7 @@ class _BugReportsSubTabState extends State<_BugReportsSubTab> {
   void _showDetail(Map<String, dynamic> r) {
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (_) => ScrollableAlertDialog(
         title: Text(r['title'] as String? ?? ''),
         content: SingleChildScrollView(
           child:

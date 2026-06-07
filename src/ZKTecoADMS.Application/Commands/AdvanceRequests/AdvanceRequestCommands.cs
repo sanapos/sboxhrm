@@ -483,18 +483,16 @@ public class DeleteAdvanceRequestHandler(
                 return AppResponse<bool>.Error("Advance request not found");
             }
 
-            if (advanceRequest.IsPaid)
+            var advanceMarker = advanceRequest.Id.ToString();
+            var linkedCashTx = await cashTransactionRepository.GetSingleAsync(
+                c => c.IsActive && c.Deleted == null && c.InternalNote != null && c.InternalNote.Contains(advanceMarker),
+                cancellationToken: cancellationToken);
+            if (linkedCashTx != null)
             {
-                var advanceIdStr = advanceRequest.Id.ToString();
-                var linkedCashTx = await cashTransactionRepository.GetSingleAsync(
-                    c => c.IsActive && c.InternalNote != null && c.InternalNote.Contains(advanceIdStr),
-                    cancellationToken: cancellationToken);
-                if (linkedCashTx != null)
-                {
-                    linkedCashTx.IsActive = false;
-                    linkedCashTx.Deleted = DateTime.UtcNow;
-                    await cashTransactionRepository.UpdateAsync(linkedCashTx, cancellationToken);
-                }
+                linkedCashTx.IsActive = false;
+                linkedCashTx.Deleted = DateTime.UtcNow;
+                linkedCashTx.Status = Domain.Enums.CashTransactionStatus.Cancelled;
+                await cashTransactionRepository.UpdateAsync(linkedCashTx, cancellationToken);
             }
 
             await advanceRequestRepository.DeleteAsync(advanceRequest, cancellationToken);
@@ -702,28 +700,20 @@ public class PayAdvanceRequestHandler(
 
             var paymentMethodEnum = ParsePaymentMethod(request.PaymentMethod);
             var paymentMethodLabel = GetPaymentMethodLabel(paymentMethodEnum);
-            // Lấy tên từ Employee (nhân viên) thay vì EmployeeUser (tài khoản đăng nhập)
             var employeeName = advanceRequest.Employee != null
                 ? $"{advanceRequest.Employee.LastName} {advanceRequest.Employee.FirstName}".Trim()
                 : $"{advanceRequest.EmployeeUser?.LastName} {advanceRequest.EmployeeUser?.FirstName}".Trim();
-            var internalNoteMarker = $"Tự động tạo từ thanh toán ứng lương #{advanceRequest.Id}";
+            var internalNoteMarker = $"Tự động tạo từ yêu cầu ứng lương #{advanceRequest.Id}";
 
-            // Nếu đã thanh toán, kiểm tra xem phiếu chi đã tồn tại chưa
             if (advanceRequest.IsPaid)
             {
-                var advanceIdStr = advanceRequest.Id.ToString();
                 var existingCashTx = await cashTransactionRepository.GetSingleAsync(
-                    c => c.IsActive && c.InternalNote != null && c.InternalNote.Contains(advanceIdStr),
+                    c => c.IsActive && c.Deleted == null && c.InternalNote != null && c.InternalNote.Contains(advanceRequest.Id.ToString()),
                     cancellationToken: cancellationToken);
-
                 if (existingCashTx != null)
-                {
                     return AppResponse<AdvanceRequestDto>.Success(advanceRequest.Adapt<AdvanceRequestDto>());
-                }
-                // Phiếu chi chưa tồn tại → tạo bù bên dưới
             }
 
-            // Create PaymentTransaction (chỉ khi chưa thanh toán)
             if (!advanceRequest.IsPaid)
             {
                 var paymentTransaction = new PaymentTransaction
@@ -741,34 +731,48 @@ public class PayAdvanceRequestHandler(
                     AdvanceRequestId = advanceRequest.Id,
                     Note = advanceRequest.Reason
                 };
-
                 await paymentTransactionRepository.AddAsync(paymentTransaction, cancellationToken);
             }
 
-            // Create CashTransaction (phiếu chi)
-            var advanceCategory = await categoryRepository.GetSingleAsync(
-                c => c.Name == "Ứng lương" && c.Type == Domain.Enums.CashTransactionType.Expense && c.StoreId == request.StoreId,
+            var pendingCashTx = await cashTransactionRepository.GetSingleAsync(
+                c => c.IsActive && c.Deleted == null && c.InternalNote != null
+                     && c.InternalNote.Contains(internalNoteMarker)
+                     && !c.IsPaid,
                 cancellationToken: cancellationToken);
 
-            // Tự động tạo category "Ứng lương" nếu chưa tồn tại
-            if (advanceCategory == null)
+            if (pendingCashTx != null)
             {
-                advanceCategory = new TransactionCategory
-                {
-                    Id = Guid.NewGuid(),
-                    Name = "Ứng lương",
-                    Description = "Chi ứng lương cho nhân viên",
-                    Type = Domain.Enums.CashTransactionType.Expense,
-                    Icon = "money_off",
-                    Color = "#FF9800",
-                    IsSystem = true,
-                    IsActive = true,
-                    StoreId = request.StoreId
-                };
-                await categoryRepository.AddAsync(advanceCategory, cancellationToken);
+                pendingCashTx.PaymentMethod = paymentMethodEnum;
+                pendingCashTx.Status = Domain.Enums.CashTransactionStatus.Completed;
+                pendingCashTx.IsPaid = true;
+                pendingCashTx.PaidDate = DateTime.UtcNow;
+                pendingCashTx.Description = $"Chi ứng lương ({paymentMethodLabel}) - {employeeName}";
+                pendingCashTx.UpdatedAt = DateTime.UtcNow;
+                await cashTransactionRepository.UpdateAsync(pendingCashTx, cancellationToken);
             }
-
+            else
             {
+                var advanceCategory = await categoryRepository.GetSingleAsync(
+                    c => c.Name == "Ứng lương" && c.Type == Domain.Enums.CashTransactionType.Expense && c.StoreId == request.StoreId,
+                    cancellationToken: cancellationToken);
+
+                if (advanceCategory == null)
+                {
+                    advanceCategory = new TransactionCategory
+                    {
+                        Id = Guid.NewGuid(),
+                        Name = "Ứng lương",
+                        Description = "Chi ứng lương cho nhân viên",
+                        Type = Domain.Enums.CashTransactionType.Expense,
+                        Icon = "money_off",
+                        Color = "#FF9800",
+                        IsSystem = true,
+                        IsActive = true,
+                        StoreId = request.StoreId
+                    };
+                    await categoryRepository.AddAsync(advanceCategory, cancellationToken);
+                }
+
                 var now = DateTime.UtcNow;
                 var cashTransaction = new CashTransaction
                 {
@@ -781,14 +785,13 @@ public class PayAdvanceRequestHandler(
                     PaymentMethod = paymentMethodEnum,
                     Status = Domain.Enums.CashTransactionStatus.Completed,
                     ContactName = employeeName,
-                    CreatedByUserId = advanceRequest.EmployeeUserId ?? request.PerformedById,
+                    CreatedByUserId = request.PerformedById,
                     IsPaid = true,
                     PaidDate = now,
                     InternalNote = internalNoteMarker,
                     IsActive = true,
                     StoreId = request.StoreId
                 };
-
                 await cashTransactionRepository.AddAsync(cashTransaction, cancellationToken);
             }
 

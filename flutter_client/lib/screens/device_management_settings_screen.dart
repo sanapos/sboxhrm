@@ -1,5 +1,8 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/permission_provider.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
@@ -14,6 +17,9 @@ class DeviceManagementSettingsScreen extends StatefulWidget {
 }
 
 class _DeviceManagementSettingsScreenState extends State<DeviceManagementSettingsScreen> {
+  PermissionProvider get _perm =>
+      Provider.of<PermissionProvider>(context, listen: false);
+
   final _apiService = ApiService();
   List<Map<String, dynamic>> _devices = [];
   bool _isLoading = true;
@@ -107,7 +113,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(isDangerous ? '⚠️ Cảnh báo nguy hiểm' : 'Xác nhận'),
         content: Text(isDangerous
@@ -197,7 +203,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
           );
         }
 
-        return AlertDialog(
+        return ScrollableAlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Row(
             children: [
@@ -493,7 +499,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
             );
           }
 
-          return AlertDialog(
+          return ScrollableAlertDialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: const Row(
               children: [
@@ -527,7 +533,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
   Future<void> _deleteDevice(Map<String, dynamic> device) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Xóa thiết bị'),
         content: Text('Bạn có chắc muốn xóa "${device['deviceName']}"?\nHành động này không thể hoàn tác.'),
@@ -653,26 +659,27 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
         child: Row(
           children: [
             const Spacer(),
-            if (isMobile)
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    onPressed: _showAddDeviceDialog,
-                    icon: const Icon(Icons.add_circle_outline,
-                        color: HrmPageChrome.primaryNavy),
+            if (_perm.canCreate('Device'))
+              if (isMobile)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      onPressed: _showAddDeviceDialog,
+                      icon: const Icon(Icons.add_circle_outline,
+                          color: HrmPageChrome.primaryNavy),
+                    ),
+                  ],
+                )
+              else
+                FilledButton.icon(
+                  onPressed: _showAddDeviceDialog,
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Thêm thiết bị'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: HrmPageChrome.primaryNavy,
                   ),
-                ],
-              )
-            else
-              FilledButton.icon(
-                onPressed: _showAddDeviceDialog,
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Thêm thiết bị'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: HrmPageChrome.primaryNavy,
                 ),
-              ),
           ],
         ),
       );
@@ -712,30 +719,33 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
             ),
           ),
           const SizedBox(width: 12),
-          Responsive.isMobile(context)
-            ? Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
+          if (_perm.canCreate('Device'))
+            Responsive.isMobile(context)
+                ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        onPressed: _showAddDeviceDialog,
+                        icon: const Icon(Icons.add_circle, size: 28),
+                        color: Colors.white,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  )
+                : FilledButton.icon(
                     onPressed: _showAddDeviceDialog,
-                    icon: const Icon(Icons.add_circle, size: 28),
-                    color: Colors.white,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Thêm thiết bị'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.white.withValues(alpha: 0.2),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 14),
+                    ),
                   ),
-                ],
-              )
-            : FilledButton.icon(
-                onPressed: _showAddDeviceDialog,
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Thêm thiết bị'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.white.withValues(alpha: 0.2),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                ),
-              ),
         ],
       ),
     );
@@ -1064,13 +1074,24 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
                       child: _buildQuickAction(Icons.info_outline, 'Chi tiết', HrmPageChrome.primaryNavy, () => _showDeviceDetail(device)),
                     ),
                     const SizedBox(width: 8),
-                    Expanded(
-                      child: _buildQuickAction(Icons.edit_outlined, 'Sửa', const Color(0xFFF59E0B), () => _showRenameDialog(device)),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _buildQuickAction(Icons.delete_outline, 'Xóa', const Color(0xFFEF4444), () => _deleteDevice(device)),
-                    ),
+                    if (_perm.canEdit('Device'))
+                      Expanded(
+                        child: _buildQuickAction(
+                            Icons.edit_outlined,
+                            'Sửa',
+                            const Color(0xFFF59E0B),
+                            () => _showRenameDialog(device)),
+                      ),
+                    if (_perm.canEdit('Device') && _perm.canDelete('Device'))
+                      const SizedBox(width: 8),
+                    if (_perm.canDelete('Device'))
+                      Expanded(
+                        child: _buildQuickAction(
+                            Icons.delete_outline,
+                            'Xóa',
+                            const Color(0xFFEF4444),
+                            () => _deleteDevice(device)),
+                      ),
                   ],
                 ),
               ],
@@ -1375,6 +1396,9 @@ class _DeviceDetailDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    final canEdit = perm.canEdit('Device');
+    final canDelete = perm.canDelete('Device');
     final statusColor = isOnline ? HrmPageChrome.primaryNavy : const Color(0xFFEF4444);
     final isMobile = Responsive.isMobile(context);
 
@@ -1472,53 +1496,79 @@ class _DeviceDetailDialog extends StatelessWidget {
           // Control buttons
           _buildSection('Điều khiển thiết bị', Icons.settings_remote, const Color(0xFFF59E0B), []),
           const SizedBox(height: 8),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            alignment: WrapAlignment.spaceBetween,
-            children: [
-              _buildCommandButton(context, Icons.restart_alt, 'Khởi động lại', const Color(0xFFF59E0B), () => onCommand(6, 'Khởi động lại')),
-              _buildCommandButton(context, Icons.delete_forever, 'Xóa toàn bộ dữ liệu', const Color(0xFFEF4444), () => onCommand(5, 'Xóa toàn bộ dữ liệu')),
-              _buildCommandButton(context, Icons.lock_open, 'Mở cửa', HrmPageChrome.primaryNavy, () => onCommand(15, 'Mở cửa')),
-              _buildCommandButton(context, Icons.lock, 'Đóng cửa', const Color(0xFFEF4444), () => onCommand(16, 'Đóng cửa')),
-              _buildCommandButton(context, Icons.sync, 'Đồng bộ user', HrmPageChrome.primaryNavy, () => onCommand(8, 'Đồng bộ user')),
-              _buildCommandButton(context, Icons.sync_alt, 'Đồng bộ chấm công', HrmPageChrome.primaryNavy, () => onCommand(7, 'Đồng bộ chấm công')),
-              _buildCommandButton(context, Icons.info, 'Lấy thông tin', const Color(0xFF71717A), () => onCommand(17, 'Lấy thông tin thiết bị')),
-            ],
-          ),
-          const SizedBox(height: 20),
-              // Bottom action row
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: onRename,
-                      icon: const Icon(Icons.edit, size: 16),
-                      label: const Text('Đổi tên / Sửa'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: HrmPageChrome.primaryNavy,
-                        side: const BorderSide(color: HrmPageChrome.primaryNavy),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+          if (canEdit)
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              alignment: WrapAlignment.spaceBetween,
+              children: [
+                _buildCommandButton(context, Icons.restart_alt, 'Khởi động lại',
+                    const Color(0xFFF59E0B), () => onCommand(6, 'Khởi động lại')),
+                if (canDelete)
+                  _buildCommandButton(
+                      context,
+                      Icons.delete_forever,
+                      'Xóa toàn bộ dữ liệu',
+                      const Color(0xFFEF4444),
+                      () => onCommand(5, 'Xóa toàn bộ dữ liệu')),
+                _buildCommandButton(context, Icons.lock_open, 'Mở cửa',
+                    HrmPageChrome.primaryNavy, () => onCommand(15, 'Mở cửa')),
+                _buildCommandButton(context, Icons.lock, 'Đóng cửa',
+                    const Color(0xFFEF4444), () => onCommand(16, 'Đóng cửa')),
+                _buildCommandButton(context, Icons.sync, 'Đồng bộ user',
+                    HrmPageChrome.primaryNavy, () => onCommand(8, 'Đồng bộ user')),
+                _buildCommandButton(
+                    context,
+                    Icons.sync_alt,
+                    'Đồng bộ chấm công',
+                    HrmPageChrome.primaryNavy,
+                    () => onCommand(7, 'Đồng bộ chấm công')),
+                _buildCommandButton(
+                    context,
+                    Icons.info,
+                    'Lấy thông tin',
+                    const Color(0xFF71717A),
+                    () => onCommand(17, 'Lấy thông tin thiết bị')),
+              ],
+            ),
+          if (canEdit || canDelete) const SizedBox(height: 20),
+              if (canEdit || canDelete)
+                Row(
+                  children: [
+                    if (canEdit)
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: onRename,
+                          icon: const Icon(Icons.edit, size: 16),
+                          label: const Text('Đổi tên / Sửa'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: HrmPageChrome.primaryNavy,
+                            side: const BorderSide(
+                                color: HrmPageChrome.primaryNavy),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: onDelete,
-                      icon: const Icon(Icons.delete, size: 16),
-                      label: const Text('Xóa thiết bị'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.red,
-                        side: const BorderSide(color: Colors.red),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+                    if (canEdit && canDelete) const SizedBox(width: 12),
+                    if (canDelete)
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: onDelete,
+                          icon: const Icon(Icons.delete, size: 16),
+                          label: const Text('Xóa thiết bị'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.red,
+                            side: const BorderSide(color: Colors.red),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
             ],
           );
         }

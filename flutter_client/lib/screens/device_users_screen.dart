@@ -2,6 +2,8 @@
 import 'dart:ui' as ui;
 import '../utils/file_saver.dart' as file_saver;
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/permission_provider.dart';
 import 'package:flutter/rendering.dart';
 import 'package:intl/intl.dart';
 import 'package:excel/excel.dart' as excel_lib;
@@ -16,6 +18,7 @@ import '../widgets/notification_overlay.dart';
 import '../widgets/app_button.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
+import '../widgets/app_responsive_dialog.dart';
 import '../utils/responsive_helper.dart';
 
 // Hàm chuyển đổi tiếng Việt có dấu sang không dấu
@@ -172,6 +175,9 @@ enum DeviceUsersOverviewFilter {
   onOnlineDevice,
 }
 
+/// Bộ lọc danh sách nhân viên khi gán/liên kết user máy chấm công.
+enum _EmployeeLinkFilter { all, unlinked }
+
 class DeviceUsersScreen extends StatefulWidget {
   const DeviceUsersScreen({super.key});
 
@@ -181,6 +187,8 @@ class DeviceUsersScreen extends StatefulWidget {
 
 class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
   AppLocalizations get _l10n => AppLocalizations.of(context);
+  PermissionProvider get _perm =>
+      Provider.of<PermissionProvider>(context, listen: false);
 
   final ApiService _apiService = ApiService();
   final GlobalKey _tableKey = GlobalKey();
@@ -265,7 +273,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
     // Show device selection dialog
     final selectedDevice = await showDialog<Device>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => ScrollableAlertDialog(
         title: Text(_l10n.selectDevice),
         content: SizedBox(
           width:
@@ -323,7 +331,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const AlertDialog(
+      builder: (context) => const ScrollableAlertDialog(
         content: Row(
           children: [
             CircularProgressIndicator(),
@@ -373,6 +381,11 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
     return diff.inMinutes <= 5;
   }
 
+  Set<String> get _linkedEmployeeIds => _deviceUsers
+      .where((u) => u.employeeId != null)
+      .map((u) => u.employeeId!)
+      .toSet();
+
   Future<void> _uploadEmployeesToDevice() async {
     if (_devices.isEmpty) {
       _showError('Chưa có thiết bị nào được kết nối');
@@ -420,7 +433,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                       (e.department?.toLowerCase().contains(q) ?? false);
                 }).toList();
 
-          return AlertDialog(
+          return ScrollableAlertDialog(
             title: const Row(
               children: [
                 Icon(Icons.upload, color: Colors.teal),
@@ -554,7 +567,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                 secondary: CircleAvatar(
                                   radius: 18,
                                   backgroundImage: emp.avatarUrl != null
-                                      ? NetworkImage(emp.avatarUrl!)
+                                      ? _apiService.storeImageProvider(emp.avatarUrl!)
                                       : null,
                                   onBackgroundImageError:
                                       emp.avatarUrl != null ? (_, __) {} : null,
@@ -604,7 +617,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
+      builder: (context) => ScrollableAlertDialog(
         content: Row(
           children: [
             const CircularProgressIndicator(),
@@ -663,7 +676,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
         if (!mounted) return;
         showDialog(
           context: context,
-          builder: (context) => AlertDialog(
+          builder: (context) => ScrollableAlertDialog(
             title: const Text('Nhân viên tải thất bại'),
             content: SizedBox(
               width: math
@@ -823,7 +836,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
           // Gradient header
           LayoutBuilder(
             builder: (context, constraints) {
-              final isMobile = constraints.maxWidth < 600;
+              final isMobile = constraints.maxWidth < Responsive.mobileBreakpoint;
               return Container(
                 padding: EdgeInsets.fromLTRB(
                     isMobile ? 16 : 24, 14, isMobile ? 16 : 24, 14),
@@ -886,11 +899,15 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                           _buildHeaderActionBtn(Icons.download,
                               _l10n.importFromDevice, _downloadUsersFromDevice),
                           const SizedBox(width: 6),
-                          _buildHeaderActionBtn(Icons.upload,
-                              _l10n.uploadHrProfiles, _uploadEmployeesToDevice),
-                          const SizedBox(width: 6),
-                          _buildHeaderActionBtn(Icons.person_add, _l10n.addUser,
-                              _showAddUserDialog),
+                          if (_perm.canCreate('DeviceUser') ||
+                              _perm.canEdit('DeviceUser')) ...[
+                            _buildHeaderActionBtn(Icons.upload,
+                                _l10n.uploadHrProfiles, _uploadEmployeesToDevice),
+                            const SizedBox(width: 6),
+                          ],
+                          if (_perm.canCreate('DeviceUser'))
+                            _buildHeaderActionBtn(Icons.person_add,
+                                _l10n.addUser, _showAddUserDialog),
                         ],
                       ],
                     ),
@@ -918,13 +935,17 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                       _l10n.importFromDevice,
                                       _downloadUsersFromDevice),
                                   const SizedBox(width: 6),
-                                  _buildHeaderActionBtn(
-                                      Icons.upload,
-                                      _l10n.uploadHrProfiles,
-                                      _uploadEmployeesToDevice),
-                                  const SizedBox(width: 6),
-                                  _buildHeaderActionBtn(Icons.person_add,
-                                      _l10n.addUser, _showAddUserDialog),
+                                  if (_perm.canCreate('DeviceUser') ||
+                                      _perm.canEdit('DeviceUser')) ...[
+                                    _buildHeaderActionBtn(
+                                        Icons.upload,
+                                        _l10n.uploadHrProfiles,
+                                        _uploadEmployeesToDevice),
+                                    const SizedBox(width: 6),
+                                  ],
+                                  if (_perm.canCreate('DeviceUser'))
+                                    _buildHeaderActionBtn(Icons.person_add,
+                                        _l10n.addUser, _showAddUserDialog),
                                 ],
                               ),
                             ),
@@ -1099,7 +1120,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final isFilterMobile = constraints.maxWidth < 600;
+          final isFilterMobile =
+              constraints.maxWidth < Responsive.mobileBreakpoint;
           if (isFilterMobile) {
             return Column(
               children: [
@@ -1671,7 +1693,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
             Expanded(
               child: LayoutBuilder(
                 builder: (context, constraints) {
-                  if (constraints.maxWidth < 600) {
+                  if (constraints.maxWidth < Responsive.mobileBreakpoint) {
                     return _buildMobileUserList(displayedUsers);
                   }
                   return RepaintBoundary(
@@ -1836,8 +1858,6 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
 
   Widget _buildMobileUserCard(DeviceUser user) {
     final avatarUrl = _getEmployeeAvatarUrl(user);
-    final avatarFullUrl =
-        avatarUrl != null ? _apiService.getFileUrl(avatarUrl) : null;
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Container(
@@ -1866,13 +1886,13 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                   children: [
                     CircleAvatar(
                       radius: 18,
-                      backgroundImage: avatarFullUrl != null
-                          ? NetworkImage(avatarFullUrl)
+                      backgroundImage: avatarUrl != null
+                          ? _apiService.storeImageProvider(avatarUrl)
                           : null,
                       onBackgroundImageError:
-                          avatarFullUrl != null ? (_, __) {} : null,
+                          avatarUrl != null ? (_, __) {} : null,
                       backgroundColor: Colors.grey[200],
-                      child: avatarFullUrl == null
+                      child: avatarUrl == null
                           ? Text(
                               user.name.isNotEmpty
                                   ? user.name[0].toUpperCase()
@@ -2113,8 +2133,6 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
   List<DataRow> _buildUserDataRows(List<DeviceUser> users) {
     return users.map((user) {
       final avatarUrl = _getEmployeeAvatarUrl(user);
-      final avatarFullUrl =
-          avatarUrl != null ? _apiService.getFileUrl(avatarUrl) : null;
       return DataRow(
         onSelectChanged: (_) => _showUserActionsDialog(user),
         cells: [
@@ -2122,10 +2140,12 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
             child: CircleAvatar(
               radius: 18,
               backgroundImage:
-                  avatarFullUrl != null ? NetworkImage(avatarFullUrl) : null,
-              onBackgroundImageError: avatarFullUrl != null ? (_, __) {} : null,
+                  avatarUrl != null
+                      ? _apiService.storeImageProvider(avatarUrl)
+                      : null,
+              onBackgroundImageError: avatarUrl != null ? (_, __) {} : null,
               backgroundColor: Colors.grey[200],
-              child: avatarFullUrl == null
+              child: avatarUrl == null
                   ? Text(
                       user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
                       style: TextStyle(
@@ -2289,41 +2309,6 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
   }
 
   void _showUserActionsDialog(DeviceUser user) {
-    final isMobile = MediaQuery.of(context).size.width < 600;
-
-    final headerWidget = Row(
-      children: [
-        CircleAvatar(
-          backgroundColor:
-              Theme.of(context).primaryColor.withValues(alpha: 0.2),
-          child: Text(
-            user.name.isNotEmpty ? user.name[0].toUpperCase() : user.pin,
-            style: TextStyle(
-                color: Theme.of(context).primaryColor,
-                fontWeight: FontWeight.bold),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(user.name.isNotEmpty ? user.name : 'User ${user.pin}',
-                  style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.bold)),
-              Text(
-                'PIN: ${user.pin} | ${user.privilegeText}',
-                style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                    fontWeight: FontWeight.normal),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-
     final infoCard = Card(
       color: Colors.grey.withValues(alpha: 0.1),
       child: Padding(
@@ -2345,129 +2330,118 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
       ),
     );
 
-    final actionsList = [
-      ListTile(
-        leading: const CircleAvatar(
-          backgroundColor: Colors.blue,
-          child: Icon(Icons.edit, color: Colors.white, size: 20),
+    final actionsList = <Widget>[
+      if (_perm.canEdit('DeviceUser')) ...[
+        ListTile(
+          leading: const CircleAvatar(
+            backgroundColor: Colors.blue,
+            child: Icon(Icons.edit, color: Colors.white, size: 20),
+          ),
+          title: Text(_l10n.editInfo),
+          subtitle: const Text('Sửa tên, mã thẻ, mật khẩu, quyền'),
+          onTap: () {
+            Navigator.pop(context);
+            _showEditUserDialog(user);
+          },
         ),
-        title: Text(_l10n.editInfo),
-        subtitle: const Text('Sửa tên, mã thẻ, mật khẩu, quyền'),
-        onTap: () {
-          Navigator.pop(context);
-          _showEditUserDialog(user);
-        },
-      ),
-      ListTile(
-        leading: const CircleAvatar(
-          backgroundColor: Colors.purple,
-          child: Icon(Icons.fingerprint, color: Colors.white, size: 20),
+        ListTile(
+          leading: const CircleAvatar(
+            backgroundColor: Colors.purple,
+            child: Icon(Icons.fingerprint, color: Colors.white, size: 20),
+          ),
+          title: const Text('Quản lý vân tay'),
+          subtitle: const Text('Thêm, xóa dấu vân tay'),
+          onTap: () {
+            Navigator.pop(context);
+            _showFingerprintDialog(user);
+          },
         ),
-        title: const Text('Quản lý vân tay'),
-        subtitle: const Text('Thêm, xóa dấu vân tay'),
-        onTap: () {
-          Navigator.pop(context);
-          _showFingerprintDialog(user);
-        },
-      ),
-      ListTile(
-        leading: const CircleAvatar(
-          backgroundColor: Colors.teal,
-          child: Icon(Icons.face, color: Colors.white, size: 20),
+        ListTile(
+          leading: const CircleAvatar(
+            backgroundColor: Colors.teal,
+            child: Icon(Icons.face, color: Colors.white, size: 20),
+          ),
+          title: const Text('Quản lý khuôn mặt'),
+          subtitle: const Text('Thêm, xóa khuôn mặt'),
+          onTap: () {
+            Navigator.pop(context);
+            _showFaceDialog(user);
+          },
         ),
-        title: const Text('Quản lý khuôn mặt'),
-        subtitle: const Text('Thêm, xóa khuôn mặt'),
-        onTap: () {
-          Navigator.pop(context);
-          _showFaceDialog(user);
-        },
-      ),
-      ListTile(
-        leading: CircleAvatar(
-          backgroundColor:
-              user.employeeId != null ? Colors.green : Colors.orange,
-          child: const Icon(Icons.link, color: Colors.white, size: 20),
+        ListTile(
+          leading: CircleAvatar(
+            backgroundColor:
+                user.employeeId != null ? Colors.green : Colors.orange,
+            child: const Icon(Icons.link, color: Colors.white, size: 20),
+          ),
+          title: Text(user.employeeId != null
+              ? 'Đổi liên kết nhân viên'
+              : 'Gán với nhân sự'),
+          subtitle: Text(user.employeeId != null
+              ? 'Đang liên kết: ${user.employeeName}'
+              : 'Liên kết với nhân viên trong hệ thống'),
+          onTap: () {
+            Navigator.pop(context);
+            _showLinkEmployeeDialog(user);
+          },
         ),
-        title: Text(user.employeeId != null
-            ? 'Đổi liên kết nhân viên'
-            : 'Gán với nhân sự'),
-        subtitle: Text(user.employeeId != null
-            ? 'Đang liên kết: ${user.employeeName}'
-            : 'Liên kết với nhân viên trong hệ thống'),
-        onTap: () {
-          Navigator.pop(context);
-          _showLinkEmployeeDialog(user);
-        },
-      ),
-      ListTile(
-        leading: const CircleAvatar(
-          backgroundColor: Colors.red,
-          child: Icon(Icons.delete, color: Colors.white, size: 20),
+      ],
+      if (_perm.canDelete('DeviceUser'))
+        ListTile(
+          leading: const CircleAvatar(
+            backgroundColor: Colors.red,
+            child: Icon(Icons.delete, color: Colors.white, size: 20),
+          ),
+          title:
+              const Text('Xóa người dùng', style: TextStyle(color: Colors.red)),
+          subtitle: const Text('Xóa khỏi máy chấm công'),
+          onTap: () {
+            Navigator.pop(context);
+            _confirmDeleteUser(user);
+          },
         ),
-        title:
-            const Text('Xóa người dùng', style: TextStyle(color: Colors.red)),
-        subtitle: const Text('Xóa khỏi máy chấm công'),
-        onTap: () {
-          Navigator.pop(context);
-          _confirmDeleteUser(user);
-        },
-      ),
     ];
 
-    if (isMobile) {
-      showDialog(
-        context: context,
-        builder: (dialogContext) => Dialog(
-          insetPadding: EdgeInsets.zero,
-          child: Scaffold(
-            appBar: AppBar(
-              title:
-                  Text(user.name.isNotEmpty ? user.name : 'User ${user.pin}'),
-              leading: IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: () => Navigator.pop(dialogContext),
+    // AppResponsiveDialog: mobile/tablet = full-screen + scroll; desktop = dialog scroll.
+    // Tránh AlertDialog Column không cuộn → màn hình thấp không bấm được "Xóa người dùng".
+    AppResponsiveDialog.show(
+      context: context,
+      title: user.name.isNotEmpty ? user.name : 'User ${user.pin}',
+      icon: Icons.person_outline,
+      maxWidth: 420,
+      scrollable: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                backgroundColor:
+                    Theme.of(context).primaryColor.withValues(alpha: 0.2),
+                child: Text(
+                  user.name.isNotEmpty ? user.name[0].toUpperCase() : user.pin,
+                  style: TextStyle(
+                      color: Theme.of(context).primaryColor,
+                      fontWeight: FontWeight.bold),
+                ),
               ),
-            ),
-            body: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                headerWidget,
-                const SizedBox(height: 16),
-                infoCard,
-                const SizedBox(height: 16),
-                ...actionsList,
-              ],
-            ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'PIN: ${user.pin} | ${user.privilegeText}',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
+              ),
+            ],
           ),
-        ),
-      );
-    } else {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: headerWidget,
-          content: SizedBox(
-            width: math
-                .min(400, MediaQuery.of(context).size.width - 32)
-                .toDouble(),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                infoCard,
-                const SizedBox(height: 16),
-                ...actionsList,
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(_l10n.cancel),
-            ),
-          ],
-        ),
-      );
-    }
+          const SizedBox(height: 12),
+          infoCard,
+          const SizedBox(height: 8),
+          ...actionsList,
+        ],
+      ),
+    );
   }
 
   Widget _buildInfoRow(IconData icon, String label, String value,
@@ -2780,7 +2754,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
             );
           }
 
-          final isMobile = MediaQuery.of(context).size.width < 600;
+          final isMobile = Responsive.isMobile(context);
 
           if (isMobile) {
             // ====== MOBILE: Full-screen dialog, tay trái trên - tay phải dưới ======
@@ -2956,7 +2930,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                     ),
                                   ),
                                   if (enrolledFingers
-                                      .contains(selectedFinger)) ...[
+                                          .contains(selectedFinger) &&
+                                      _perm.canEdit('DeviceUser')) ...[
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: OutlinedButton.icon(
@@ -2986,7 +2961,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                             ],
                             const SizedBox(height: 16),
                             // Nút xóa tất cả
-                            if (enrolledFingers.isNotEmpty)
+                            if (enrolledFingers.isNotEmpty &&
+                                _perm.canEdit('DeviceUser'))
                               TextButton.icon(
                                 onPressed: () => _deleteAllFingerprints(user),
                                 icon: const Icon(Icons.delete_sweep,
@@ -3003,7 +2979,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
           }
 
           // ====== DESKTOP: AlertDialog, 2 tay cạnh nhau ======
-          return AlertDialog(
+          return ScrollableAlertDialog(
             title: Row(
               children: [
                 const Icon(Icons.fingerprint, color: Colors.purple),
@@ -3166,7 +3142,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                   ),
                                 ),
                               ),
-                              if (enrolledFingers.contains(selectedFinger)) ...[
+                              if (enrolledFingers.contains(selectedFinger) &&
+                                  _perm.canEdit('DeviceUser')) ...[
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: OutlinedButton.icon(
@@ -3197,7 +3174,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            if (enrolledFingers.isNotEmpty) ...[
+                            if (enrolledFingers.isNotEmpty &&
+                                _perm.canEdit('DeviceUser')) ...[
                               const SizedBox(width: 16),
                               TextButton.icon(
                                 onPressed: () => _deleteAllFingerprints(user),
@@ -3242,7 +3220,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
 
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Text('Xác nhận xóa'),
         content: Text('Xóa vân tay ${fingerNames[fingerIndex]}?'),
         actions: [
@@ -3385,7 +3363,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
   Future<void> _deleteAllFingerprints(DeviceUser user) async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => ScrollableAlertDialog(
         title: const Text('Xác nhận xóa'),
         content: Text(
             'Bạn có chắc chắn muốn xóa tất cả vân tay của "${user.name}"?'),
@@ -3406,7 +3384,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const AlertDialog(
+      builder: (context) => const ScrollableAlertDialog(
         content: Row(
           children: [
             CircularProgressIndicator(),
@@ -3463,7 +3441,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
             });
           }
 
-          return AlertDialog(
+          return ScrollableAlertDialog(
             title: Row(
               children: [
                 const Icon(Icons.face, color: Colors.teal),
@@ -3600,7 +3578,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                             ),
                           ),
                         ),
-                        if (hasFace) ...[
+                        if (hasFace && _perm.canEdit('DeviceUser')) ...[
                           const SizedBox(height: 12),
                           SizedBox(
                             width: double.infinity,
@@ -3687,7 +3665,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
   Future<void> _showFaceNotSupportedMessage() async {
     await showDialog<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Row(
           children: [
             Icon(Icons.info_outline, color: Colors.orange),
@@ -3720,7 +3698,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
   }) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: Row(
           children: [
             const Icon(Icons.info_outline, color: Colors.teal),
@@ -3757,7 +3735,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => const AlertDialog(
+      builder: (ctx) => const ScrollableAlertDialog(
         content: Row(
           children: [
             CircularProgressIndicator(),
@@ -3816,7 +3794,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
   ) async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Text('Xác nhận xóa'),
         content: Text('Xóa khuôn mặt của "${user.name}"?'),
         actions: [
@@ -4145,56 +4123,60 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
             ),
 
             // Actions
-            PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert),
-              onSelected: (value) {
-                switch (value) {
-                  case 'edit':
-                    _showEditUserDialog(user);
-                    break;
-                  case 'link':
-                    _showLinkEmployeeDialog(user);
-                    break;
-                  case 'delete':
-                    _confirmDeleteUser(user);
-                    break;
-                }
-              },
-              itemBuilder: (context) => [
-                const PopupMenuItem(
-                  value: 'edit',
-                  child: Row(
-                    children: [
-                      Icon(Icons.edit, size: 20),
-                      SizedBox(width: 12),
-                      Text('Chỉnh sửa'),
-                    ],
-                  ),
-                ),
-                PopupMenuItem(
-                  value: 'link',
-                  child: Row(
-                    children: [
-                      const Icon(Icons.link, size: 20, color: Colors.blue),
-                      const SizedBox(width: 12),
-                      Text(user.employeeId != null
-                          ? 'Đổi liên kết NV'
-                          : 'Liên kết NV'),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'delete',
-                  child: Row(
-                    children: [
-                      Icon(Icons.delete, size: 20, color: Colors.red),
-                      SizedBox(width: 12),
-                      Text('Xóa', style: TextStyle(color: Colors.red)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+            if (_perm.canEdit('DeviceUser') || _perm.canDelete('DeviceUser'))
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert),
+                onSelected: (value) {
+                  switch (value) {
+                    case 'edit':
+                      _showEditUserDialog(user);
+                      break;
+                    case 'link':
+                      _showLinkEmployeeDialog(user);
+                      break;
+                    case 'delete':
+                      _confirmDeleteUser(user);
+                      break;
+                  }
+                },
+                itemBuilder: (context) => [
+                  if (_perm.canEdit('DeviceUser'))
+                    const PopupMenuItem(
+                      value: 'edit',
+                      child: Row(
+                        children: [
+                          Icon(Icons.edit, size: 20),
+                          SizedBox(width: 12),
+                          Text('Chỉnh sửa'),
+                        ],
+                      ),
+                    ),
+                  if (_perm.canEdit('DeviceUser'))
+                    PopupMenuItem(
+                      value: 'link',
+                      child: Row(
+                        children: [
+                          const Icon(Icons.link, size: 20, color: Colors.blue),
+                          const SizedBox(width: 12),
+                          Text(user.employeeId != null
+                              ? 'Đổi liên kết NV'
+                              : 'Liên kết NV'),
+                        ],
+                      ),
+                    ),
+                  if (_perm.canDelete('DeviceUser'))
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete, size: 20, color: Colors.red),
+                          SizedBox(width: 12),
+                          Text('Xóa', style: TextStyle(color: Colors.red)),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
           ],
         ),
       ),
@@ -4544,7 +4526,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
             );
           }
 
-          return AlertDialog(
+          return ScrollableAlertDialog(
             insetPadding:
                 const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
             title: Text(isEditing ? 'Chỉnh sửa user' : 'Thêm user mới'),
@@ -4593,7 +4575,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
+        builder: (context, setDialogState) => ScrollableAlertDialog(
           title: const Text('Đồng bộ nhân viên vào máy chấm công'),
           content: SingleChildScrollView(
             child: Column(
@@ -4741,103 +4723,534 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
       } catch (_) {}
     }
 
+    final isMobile = Responsive.isMobile(context);
+    final dialogWidth = math
+        .min(isMobile ? double.infinity : 520,
+            MediaQuery.of(context).size.width - 32)
+        .toDouble();
+
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Text('Liên kết ${user.name} với nhân viên'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Liên kết user máy chấm công với nhân viên trong hệ thống để theo dõi chấm công.',
-                style: TextStyle(color: Colors.grey),
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<Employee>(
-                initialValue: selectedEmployee,
-                decoration: const InputDecoration(
-                  labelText: 'Chọn nhân viên',
-                  prefixIcon: Icon(Icons.person),
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final picker = _EmployeeLinkPickerPanel(
+            employees: _employees,
+            linkedEmployeeIds: _linkedEmployeeIds,
+            initialSelection: selectedEmployee,
+            preserveEmployeeId: user.employeeId,
+            defaultFilter: user.employeeId != null
+                ? _EmployeeLinkFilter.all
+                : _EmployeeLinkFilter.unlinked,
+            onSelected: (emp) =>
+                setDialogState(() => selectedEmployee = emp),
+          );
+
+          Future<void> onLink() async {
+            if (selectedEmployee == null) {
+              _showError('Vui lòng chọn nhân viên');
+              return;
+            }
+            Navigator.pop(dialogCtx);
+            setState(() => _isLoading = true);
+            final success = await _apiService.mapDeviceUserToEmployee(
+              user.id,
+              selectedEmployee!.id,
+            );
+            if (!mounted) return;
+            if (success) {
+              _showSuccess('Đã liên kết với ${selectedEmployee!.fullName}');
+              await _loadDeviceUsers();
+            } else {
+              _showError('Không thể liên kết');
+            }
+            if (mounted) setState(() => _isLoading = false);
+          }
+
+          if (isMobile) {
+            return Dialog(
+              insetPadding: const EdgeInsets.all(12),
+              child: SizedBox(
+                width: dialogWidth,
+                height: MediaQuery.of(context).size.height * 0.85,
+                child: Scaffold(
+                  appBar: AppBar(
+                    title: Text(
+                      user.employeeId != null
+                          ? 'Đổi liên kết NV'
+                          : 'Gán nhân sự',
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                    leading: IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(dialogCtx),
+                    ),
+                  ),
+                  body: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                        child: _linkEmployeeDialogHeader(user),
+                      ),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                          child: picker,
+                        ),
+                      ),
+                    ],
+                  ),
+                  bottomNavigationBar: SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: FilledButton(
+                        onPressed: onLink,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: HrmPageChrome.primaryNavy,
+                          minimumSize: const Size.fromHeight(44),
+                        ),
+                        child: const Text('Liên kết'),
+                      ),
+                    ),
+                  ),
                 ),
-                items: _employees
-                    .map((e) => DropdownMenuItem(
-                          value: e,
-                          child: Text('${e.fullName} (${e.enrollNumber})'),
-                        ))
-                    .toList(),
-                onChanged: (value) =>
-                    setDialogState(() => selectedEmployee = value),
+              ),
+            );
+          }
+
+          return ScrollableAlertDialog(
+            title: Row(
+              children: [
+                Icon(Icons.link,
+                    color: user.employeeId != null
+                        ? Colors.green
+                        : Colors.orange,
+                    size: 22),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    user.employeeId != null
+                        ? 'Đổi liên kết nhân viên'
+                        : 'Gán nhân sự',
+                  ),
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: dialogWidth,
+              height: 480,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _linkEmployeeDialogHeader(user),
+                  const SizedBox(height: 12),
+                  Expanded(child: picker),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogCtx),
+                child: Text(_l10n.cancel),
+              ),
+              FilledButton(
+                onPressed: onLink,
+                style: FilledButton.styleFrom(
+                  backgroundColor: HrmPageChrome.primaryNavy,
+                ),
+                child: const Text('Liên kết'),
               ),
             ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(_l10n.cancel),
-            ),
-            FilledButton(
-              onPressed: () async {
-                if (selectedEmployee == null) {
-                  _showError('Vui lòng chọn nhân viên');
-                  return;
-                }
-
-                Navigator.pop(context);
-                setState(() => _isLoading = true);
-
-                final success = await _apiService.mapDeviceUserToEmployee(
-                  user.id,
-                  selectedEmployee!.id,
-                );
-
-                if (success) {
-                  _showSuccess('Đã liên kết với ${selectedEmployee!.fullName}');
-                  await _loadDeviceUsers();
-                } else {
-                  _showError('Không thể liên kết');
-                }
-                if (mounted) setState(() => _isLoading = false);
-              },
-              style: FilledButton.styleFrom(
-                backgroundColor: HrmPageChrome.primaryNavy,
-              ),
-              child: const Text('Liên kết'),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
 
+  Widget _linkEmployeeDialogHeader(DeviceUser user) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 18,
+                backgroundColor:
+                    Theme.of(context).primaryColor.withValues(alpha: 0.12),
+                child: Text(
+                  user.name.isNotEmpty
+                      ? user.name[0].toUpperCase()
+                      : user.pin,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).primaryColor,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      user.name.isNotEmpty ? user.name : 'PIN ${user.pin}',
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    Text(
+                      'PIN ${user.pin}'
+                      '${user.deviceName != null ? ' · ${user.deviceName}' : ''}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF64748B),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          user.employeeId != null
+              ? 'Đang liên kết: ${user.employeeName ?? '—'}. Chọn nhân viên khác để thay đổi.'
+              : 'Chọn nhân viên trong hệ thống để liên kết với user trên máy chấm công.',
+          style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+        ),
+      ],
+    );
+  }
+
   void _confirmDeleteUser(DeviceUser user) {
-    showDialog(
+    AppResponsiveDialog.confirmDelete(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Xác nhận xóa'),
-        content: Text(
+      itemName: user.name.isNotEmpty ? user.name : 'PIN ${user.pin}',
+      message:
           'Bạn có chắc muốn xóa "${user.name}" (PIN: ${user.pin})?\n\n'
           'User sẽ bị xóa khỏi máy chấm công.',
+      onConfirm: () async {
+        setState(() => _isLoading = true);
+        final success = await _apiService.deleteDeviceUser(user.id);
+        if (!mounted) return;
+        if (success) {
+          _showSuccess('Đã xóa user. Lệnh sẽ gửi đến máy chấm công.');
+          await _loadDeviceUsers();
+        } else {
+          _showError('Không thể xóa user');
+        }
+        if (mounted) setState(() => _isLoading = false);
+      },
+    );
+  }
+}
+
+/// Danh sách chọn nhân viên khi gán/liên kết (có tìm kiếm + lọc).
+class _EmployeeLinkPickerPanel extends StatefulWidget {
+  final List<Employee> employees;
+  final Set<String> linkedEmployeeIds;
+  final Employee? initialSelection;
+  final String? preserveEmployeeId;
+  final _EmployeeLinkFilter defaultFilter;
+  final ValueChanged<Employee?> onSelected;
+
+  const _EmployeeLinkPickerPanel({
+    required this.employees,
+    required this.linkedEmployeeIds,
+    required this.onSelected,
+    this.initialSelection,
+    this.preserveEmployeeId,
+    this.defaultFilter = _EmployeeLinkFilter.unlinked,
+  });
+
+  @override
+  State<_EmployeeLinkPickerPanel> createState() =>
+      _EmployeeLinkPickerPanelState();
+}
+
+class _EmployeeLinkPickerPanelState extends State<_EmployeeLinkPickerPanel> {
+  late final TextEditingController _searchController;
+  late _EmployeeLinkFilter _filter;
+  Employee? _selected;
+  String _query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController();
+    _filter = widget.defaultFilter;
+    _selected = widget.initialSelection;
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  bool _matchesQuery(Employee e, String q) {
+    if (q.isEmpty) return true;
+    final name = removeVietnameseAccents(e.fullName.toLowerCase());
+    final code = removeVietnameseAccents(e.employeeCode.toLowerCase());
+    final pin = removeVietnameseAccents((e.pin ?? '').toLowerCase());
+    final dept = removeVietnameseAccents((e.department ?? '').toLowerCase());
+    return name.contains(q) ||
+        code.contains(q) ||
+        pin.contains(q) ||
+        dept.contains(q);
+  }
+
+  bool _isUnlinked(Employee e) {
+    if (widget.preserveEmployeeId != null && e.id == widget.preserveEmployeeId) {
+      return true;
+    }
+    return !widget.linkedEmployeeIds.contains(e.id);
+  }
+
+  List<Employee> get _allSorted {
+    final list = List<Employee>.from(widget.employees);
+    list.sort((a, b) => a.fullName.compareTo(b.fullName));
+    return list;
+  }
+
+  List<Employee> get _unlinkedSorted =>
+      _allSorted.where(_isUnlinked).toList();
+
+  List<Employee> get _displayList {
+    final q = removeVietnameseAccents(_query.toLowerCase().trim());
+    final base =
+        _filter == _EmployeeLinkFilter.unlinked ? _unlinkedSorted : _allSorted;
+    return base.where((e) => _matchesQuery(e, q)).toList();
+  }
+
+  void _pick(Employee emp) {
+    setState(() => _selected = emp);
+    widget.onSelected(emp);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final display = _displayList;
+    final allCount = _allSorted.length;
+    final unlinkedCount = _unlinkedSorted.length;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextField(
+          controller: _searchController,
+          decoration: InputDecoration(
+            hintText: 'Tìm theo tên, mã NV, phòng ban...',
+            prefixIcon: const Icon(Icons.search, size: 20),
+            suffixIcon: _query.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.clear, size: 18),
+                    onPressed: () {
+                      _searchController.clear();
+                      setState(() => _query = '');
+                    },
+                  )
+                : null,
+            border: const OutlineInputBorder(),
+            isDense: true,
+          ),
+          onChanged: (v) => setState(() => _query = v),
         ),
-        actions: [
-          AppDialogActions.delete(
-            onConfirm: () async {
-              Navigator.pop(context);
-              setState(() => _isLoading = true);
-
-              final success = await _apiService.deleteDeviceUser(user.id);
-
-              if (success) {
-                _showSuccess('Đã xóa user. Lệnh sẽ gửi đến máy chấm công.');
-                await _loadDeviceUsers();
-              } else {
-                _showError('Không thể xóa user');
-              }
-              if (mounted) setState(() => _isLoading = false);
-            },
+        const SizedBox(height: 10),
+        SegmentedButton<_EmployeeLinkFilter>(
+          segments: [
+            ButtonSegment(
+              value: _EmployeeLinkFilter.all,
+              label: Text('Tất cả ($allCount)'),
+              icon: const Icon(Icons.people_outline, size: 16),
+            ),
+            ButtonSegment(
+              value: _EmployeeLinkFilter.unlinked,
+              label: Text('Chưa liên kết ($unlinkedCount)'),
+              icon: const Icon(Icons.person_add_alt_1_outlined, size: 16),
+            ),
+          ],
+          selected: {_filter},
+          onSelectionChanged: (values) {
+            if (values.isEmpty) return;
+            setState(() => _filter = values.first);
+          },
+          style: ButtonStyle(
+            visualDensity: VisualDensity.compact,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+        ),
+        if (_selected != null) ...[
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.green.shade50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.green.shade200),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.check_circle, size: 18, color: Colors.green.shade700),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Đã chọn: ${_selected!.fullName} (${_selected!.enrollNumber})',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.green.shade800,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 18),
+                  tooltip: 'Bỏ chọn',
+                  onPressed: () {
+                    setState(() => _selected = null);
+                    widget.onSelected(null);
+                  },
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
           ),
         ],
-      ),
+        const SizedBox(height: 8),
+        Text(
+          '${display.length} nhân viên',
+          style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+        ),
+        const SizedBox(height: 4),
+        Expanded(
+          child: display.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.person_search,
+                          size: 40, color: Colors.grey.shade300),
+                      const SizedBox(height: 8),
+                      Text(
+                        _query.isNotEmpty
+                            ? 'Không tìm thấy nhân viên phù hợp'
+                            : (_filter == _EmployeeLinkFilter.unlinked
+                                ? 'Không còn nhân viên chưa liên kết'
+                                : 'Chưa có nhân viên'),
+                        style: TextStyle(color: Colors.grey.shade600),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                )
+              : ListView.separated(
+                  itemCount: display.length,
+                  separatorBuilder: (_, __) =>
+                      const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                  itemBuilder: (context, index) {
+                    final emp = display[index];
+                    final isSelected = _selected?.id == emp.id;
+                    final isLinked = widget.linkedEmployeeIds.contains(emp.id) &&
+                        emp.id != widget.preserveEmployeeId;
+                    return Material(
+                      color: isSelected
+                          ? Theme.of(context)
+                              .primaryColor
+                              .withValues(alpha: 0.08)
+                          : Colors.transparent,
+                      child: InkWell(
+                        onTap: () => _pick(emp),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 4, vertical: 6),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 18,
+                                backgroundColor: isSelected
+                                    ? Theme.of(context).primaryColor
+                                    : const Color(0xFFE2E8F0),
+                                child: Text(
+                                  emp.fullName.isNotEmpty
+                                      ? emp.fullName[0].toUpperCase()
+                                      : '?',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: isSelected
+                                        ? Colors.white
+                                        : const Color(0xFF475569),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      emp.fullName,
+                                      style: TextStyle(
+                                        fontWeight: isSelected
+                                            ? FontWeight.w600
+                                            : FontWeight.w500,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      [
+                                        'Mã: ${emp.enrollNumber}',
+                                        if (emp.department != null &&
+                                            emp.department!.isNotEmpty)
+                                          emp.department!,
+                                      ].join(' · '),
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Color(0xFF64748B),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (isLinked)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.orange.shade50,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    'Đã liên kết',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: Colors.orange.shade800,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              if (isSelected)
+                                Icon(Icons.check_circle,
+                                    color: Theme.of(context).primaryColor,
+                                    size: 20),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
     );
   }
 }
@@ -5014,7 +5427,7 @@ class _EnrollmentProgressDialogState extends State<_EnrollmentProgressDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
+    return ScrollableAlertDialog(
       title: Row(
         children: [
           Icon(
@@ -5365,7 +5778,7 @@ class _FaceEnrollmentProgressDialogState
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
+    return ScrollableAlertDialog(
       title: Row(
         children: [
           Icon(

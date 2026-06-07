@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/permission_provider.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
@@ -15,6 +18,9 @@ class ProductSalarySettingsScreen extends StatefulWidget {
 class _ProductSalarySettingsScreenState
     extends State<ProductSalarySettingsScreen> {
   static const Color _bg = Color(0xFFFAFAFA);
+
+  PermissionProvider get _perm =>
+      Provider.of<PermissionProvider>(context, listen: false);
 
   final ApiService _apiService = ApiService();
   final _currencyFormat = NumberFormat('#,###', 'vi_VN');
@@ -82,18 +88,20 @@ class _ProductSalarySettingsScreenState
                 ),
               ),
               actions: [
-                IconButton(
-                  onPressed: _showAddGroupDialog,
-                  icon: const Icon(Icons.create_new_folder_outlined,
-                      color: HrmPageChrome.primaryNavy),
-                  tooltip: 'Thêm nhóm SP',
-                ),
-                IconButton(
-                  onPressed: _groups.isEmpty ? null : _showAddItemDialog,
-                  icon: const Icon(Icons.add_box_outlined,
-                      color: HrmPageChrome.primaryNavy),
-                  tooltip: 'Thêm sản phẩm',
-                ),
+                if (_perm.canCreate('ProductSalary')) ...[
+                  IconButton(
+                    onPressed: _showAddGroupDialog,
+                    icon: const Icon(Icons.create_new_folder_outlined,
+                        color: HrmPageChrome.primaryNavy),
+                    tooltip: 'Thêm nhóm SP',
+                  ),
+                  IconButton(
+                    onPressed: _groups.isEmpty ? null : _showAddItemDialog,
+                    icon: const Icon(Icons.add_box_outlined,
+                        color: HrmPageChrome.primaryNavy),
+                    tooltip: 'Thêm sản phẩm',
+                  ),
+                ],
               ],
             )
           : null,
@@ -108,36 +116,37 @@ class _ProductSalarySettingsScreenState
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                if (isMobile) ...[
-                  IconButton(
-                    onPressed: _showAddGroupDialog,
-                    icon: const Icon(Icons.create_new_folder_outlined,
-                        color: HrmPageChrome.primaryNavy),
-                  ),
-                  IconButton(
-                    onPressed: _groups.isEmpty ? null : _showAddItemDialog,
-                    icon: const Icon(Icons.add_box_outlined,
-                        color: HrmPageChrome.primaryNavy),
-                  ),
-                ] else ...[
-                  FilledButton.icon(
-                    onPressed: _showAddGroupDialog,
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Thêm nhóm SP'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: HrmPageChrome.primaryNavy,
+                if (_perm.canCreate('ProductSalary'))
+                  if (isMobile) ...[
+                    IconButton(
+                      onPressed: _showAddGroupDialog,
+                      icon: const Icon(Icons.create_new_folder_outlined,
+                          color: HrmPageChrome.primaryNavy),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton.icon(
-                    onPressed: _groups.isEmpty ? null : _showAddItemDialog,
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Thêm sản phẩm'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: HrmPageChrome.primaryNavy,
+                    IconButton(
+                      onPressed: _groups.isEmpty ? null : _showAddItemDialog,
+                      icon: const Icon(Icons.add_box_outlined,
+                          color: HrmPageChrome.primaryNavy),
                     ),
-                  ),
-                ],
+                  ] else ...[
+                    FilledButton.icon(
+                      onPressed: _showAddGroupDialog,
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('Thêm nhóm SP'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: HrmPageChrome.primaryNavy,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton.icon(
+                      onPressed: _groups.isEmpty ? null : _showAddItemDialog,
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('Thêm sản phẩm'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: HrmPageChrome.primaryNavy,
+                      ),
+                    ),
+                  ],
               ],
             ),
           ),
@@ -163,23 +172,25 @@ class _ProductSalarySettingsScreenState
                               fontWeight: FontWeight.w700,
                               color: Color(0xFF0F172A))),
                     ),
-                    FilledButton.icon(
-                      onPressed: _showAddGroupDialog,
-                      icon: const Icon(Icons.add, size: 18),
-                      label: const Text('Thêm nhóm SP'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: HrmPageChrome.primaryNavy,
+                    if (_perm.canCreate('ProductSalary')) ...[
+                      FilledButton.icon(
+                        onPressed: _showAddGroupDialog,
+                        icon: const Icon(Icons.add, size: 18),
+                        label: const Text('Thêm nhóm SP'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: HrmPageChrome.primaryNavy,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    FilledButton.icon(
-                      onPressed: _groups.isEmpty ? null : _showAddItemDialog,
-                      icon: const Icon(Icons.add, size: 18),
-                      label: const Text('Thêm sản phẩm'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: HrmPageChrome.primaryNavy,
+                      const SizedBox(width: 8),
+                      FilledButton.icon(
+                        onPressed: _groups.isEmpty ? null : _showAddItemDialog,
+                        icon: const Icon(Icons.add, size: 18),
+                        label: const Text('Thêm sản phẩm'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: HrmPageChrome.primaryNavy,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -255,11 +266,11 @@ class _ProductSalarySettingsScreenState
       onSelected: (_) => setState(() => _selectedGroupId = groupId),
       side: BorderSide(
           color: selected ? HrmPageChrome.primaryNavy : const Color(0xFFCBD5E1)),
-      onDeleted: groupId == null
+      onDeleted: groupId == null || !_perm.canEdit('ProductSalary')
           ? null
           : () => _showEditGroupDialog(
               _groups.firstWhere((g) => g['id']?.toString() == groupId)),
-      deleteIcon: groupId == null
+      deleteIcon: groupId == null || !_perm.canEdit('ProductSalary')
           ? null
           : const Icon(Icons.edit, size: 16, color: Color(0xFF71717A)),
     );
@@ -317,24 +328,28 @@ class _ProductSalarySettingsScreenState
                         style: const TextStyle(
                             fontSize: 11, color: Color(0xFF64748B))),
                   ),
-                const SizedBox(width: 4),
-                IconButton(
-                  icon: const Icon(Icons.edit_outlined, size: 18),
-                  color: const Color(0xFF64748B),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  onPressed: () => _showEditItemDialog(item),
-                  tooltip: 'Sửa',
-                ),
-                const SizedBox(width: 4),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline, size: 18),
-                  color: const Color(0xFFEF4444),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  onPressed: () => _confirmDeleteItem(item),
-                  tooltip: 'Xóa',
-                ),
+                if (_perm.canEdit('ProductSalary')) ...[
+                  const SizedBox(width: 4),
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined, size: 18),
+                    color: const Color(0xFF64748B),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () => _showEditItemDialog(item),
+                    tooltip: 'Sửa',
+                  ),
+                ],
+                if (_perm.canDelete('ProductSalary')) ...[
+                  const SizedBox(width: 4),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, size: 18),
+                    color: const Color(0xFFEF4444),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () => _confirmDeleteItem(item),
+                    tooltip: 'Xóa',
+                  ),
+                ],
               ],
             ),
             if (item['unit'] != null && (item['unit'] as String).isNotEmpty)
@@ -464,7 +479,7 @@ class _ProductSalarySettingsScreenState
     final descCtl = TextEditingController();
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Text('Thêm nhóm sản phẩm'),
         content: SizedBox(
           width: 400,
@@ -517,7 +532,7 @@ class _ProductSalarySettingsScreenState
     final descCtl = TextEditingController(text: group['description'] ?? '');
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Text('Sửa nhóm sản phẩm'),
         content: SizedBox(
           width: 400,
@@ -544,7 +559,7 @@ class _ProductSalarySettingsScreenState
               Navigator.pop(ctx);
               final confirm = await showDialog<bool>(
                 context: context,
-                builder: (c) => AlertDialog(
+                builder: (c) => ScrollableAlertDialog(
                   title: const Text('Xác nhận xóa'),
                   content: Text(
                       'Xóa nhóm "${group['name']}"? Các sản phẩm trong nhóm cũng sẽ bị xóa.'),
@@ -1002,7 +1017,7 @@ class _ProductSalarySettingsScreenState
               ),
             );
           }
-          return AlertDialog(
+          return ScrollableAlertDialog(
             title: Text(isEdit ? 'Sửa sản phẩm' : 'Thêm sản phẩm'),
             content: SizedBox(
               width: 500,
@@ -1028,7 +1043,7 @@ class _ProductSalarySettingsScreenState
   void _confirmDeleteItem(Map<String, dynamic> item) async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Text('Xác nhận xóa'),
         content: Text('Xóa sản phẩm "${item['name']}"?'),
         actions: [

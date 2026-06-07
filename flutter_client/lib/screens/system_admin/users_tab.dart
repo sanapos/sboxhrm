@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:flutter/services.dart';
 import '../../services/api_service.dart';
 import 'system_admin_helpers.dart';
@@ -208,14 +209,15 @@ class UsersTabState extends State<UsersTab> {
                   _applyFilters();
                 },
               ),
-              FilledButton.icon(
-                onPressed: _showCreateSuperAdminDialog,
-                icon: const Icon(Icons.person_add, size: 18),
-                label: const Text('Tạo SuperAdmin'),
-                style: ElevatedButton.styleFrom(
-                    backgroundColor: AdminHelpers.primaryDark,
-                    foregroundColor: Colors.white),
-              ),
+              if (context.systemAdminCanCreate)
+                FilledButton.icon(
+                  onPressed: _showCreateSuperAdminDialog,
+                  icon: const Icon(Icons.person_add, size: 18),
+                  label: const Text('Tạo SuperAdmin'),
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: AdminHelpers.primaryDark,
+                      foregroundColor: Colors.white),
+                ),
             ],
           ),
           const SizedBox(height: 8),
@@ -536,18 +538,21 @@ class UsersTabState extends State<UsersTab> {
                   spacing: 4,
                   runSpacing: 4,
                   children: [
-                    _actionBtn(Icons.lock_reset, 'Đặt lại MK',
-                        AdminHelpers.warning,
-                        () => _resetPassword(userId, email)),
-                    _actionBtn(Icons.edit, 'Sửa thông tin',
-                        AdminHelpers.primary,
-                        () => _showEditUserDialog(user)),
-                    _actionBtn(Icons.admin_panel_settings, 'Đổi quyền',
-                        AdminHelpers.info,
-                        () => _showChangeRoleDialog(user)),
-                    _actionBtn(Icons.delete_outline, 'Xóa TK',
-                        AdminHelpers.danger,
-                        () => _deleteUser(userId, email)),
+                    if (context.systemAdminCanEdit) ...[
+                      _actionBtn(Icons.lock_reset, 'Đặt lại MK',
+                          AdminHelpers.warning,
+                          () => _resetPassword(userId, email)),
+                      _actionBtn(Icons.edit, 'Sửa thông tin',
+                          AdminHelpers.primary,
+                          () => _showEditUserDialog(user)),
+                      _actionBtn(Icons.admin_panel_settings, 'Đổi quyền',
+                          AdminHelpers.info,
+                          () => _showChangeRoleDialog(user)),
+                    ],
+                    if (context.systemAdminCanDelete)
+                      _actionBtn(Icons.delete_outline, 'Xóa TK',
+                          AdminHelpers.danger,
+                          () => _deleteUser(userId, email)),
                   ],
                 ),
               ),
@@ -612,7 +617,7 @@ class UsersTabState extends State<UsersTab> {
   Future<void> _deleteUser(String userId, String email) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Text('Xác nhận xóa tài khoản'),
         content: Text('Bạn có chắc muốn xóa tài khoản "$email"?\n\nHành động này không thể hoàn tác.'),
         actions: [
@@ -650,7 +655,7 @@ class UsersTabState extends State<UsersTab> {
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDlgState) => AlertDialog(
+        builder: (ctx, setDlgState) => ScrollableAlertDialog(
           title: Row(children: [
             const Icon(Icons.admin_panel_settings,
                 color: AdminHelpers.info, size: 22),
@@ -766,7 +771,7 @@ class UsersTabState extends State<UsersTab> {
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Row(children: [
           Icon(Icons.edit, color: AdminHelpers.primary, size: 22),
           SizedBox(width: 8),
@@ -835,7 +840,7 @@ class UsersTabState extends State<UsersTab> {
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSt) => AlertDialog(
+        builder: (ctx, setSt) => ScrollableAlertDialog(
         title: const Row(children: [
           Icon(Icons.person_add,
               color: AdminHelpers.primaryDark, size: 22),

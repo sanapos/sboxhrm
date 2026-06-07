@@ -290,7 +290,7 @@ class _CompanyRulesScreenState extends State<CompanyRulesScreen> {
               color: HrmPageChrome.primaryNavy.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(8),
               image: thumb != null && thumb.isNotEmpty
-                  ? DecorationImage(image: NetworkImage(thumb), fit: BoxFit.cover, onError: (_, __) {}) : null,
+                  ? DecorationImage(image: _api.storeImageProvider(thumb), fit: BoxFit.cover, onError: (_, __) {}) : null,
             ),
             child: thumb == null || thumb.isEmpty
                 ? const Icon(Icons.article_outlined, color: Color(0xFF93C5FD), size: 18) : null,

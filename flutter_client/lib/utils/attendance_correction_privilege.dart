@@ -6,22 +6,55 @@ bool _isElevatedAttendanceRole(String? role) {
   return elevated.contains(role.toLowerCase());
 }
 
-/// Tài khoản có quyền **nhìn thấy và bấm** nút chỉnh công.
-/// = setting allow_manual_correction bật, HOẶC tài khoản quyền cao luôn được phép.
+/// Sửa trực tiếp bản ghi chấm công thô (module Attendance).
+bool canEditAttendanceRecord({
+  required String? role,
+  PermissionProvider? permissions,
+}) {
+  if (_isElevatedAttendanceRole(role)) return true;
+  if (permissions == null) return false;
+  return permissions.canEdit('Attendance');
+}
+
+/// Xóa trực tiếp bản ghi chấm công thô (module Attendance).
+bool canDeleteAttendanceRecord({
+  required String? role,
+  PermissionProvider? permissions,
+}) {
+  if (_isElevatedAttendanceRole(role)) return true;
+  if (permissions == null) return false;
+  return permissions.canDelete('Attendance');
+}
+
+/// Đồng bộ dữ liệu từ máy chấm công vào bảng chấm công thô.
+bool canSyncAttendanceFromDevice({
+  required String? role,
+  PermissionProvider? permissions,
+}) {
+  if (_isElevatedAttendanceRole(role)) return true;
+  if (permissions == null) return false;
+  return permissions.canCreate('Attendance');
+}
+
+/// Tài khoản có quyền **nhìn thấy và bấm** nút chỉnh công (tổng hợp / theo ca).
 bool canShowCorrectionButtons({
   required String? role,
   required bool allowManualSetting,
   PermissionProvider? permissions,
 }) {
   if (_isElevatedAttendanceRole(role)) return true;
-  if (permissions != null) {
-    if (permissions.canApprove('AttendanceCorrection') ||
-        permissions.canApprove('AttendanceApproval') ||
-        permissions.canCreate('AttendanceCorrection')) {
-      return true;
-    }
+  if (permissions == null) return false;
+  if (permissions.canApprove('AttendanceCorrection') ||
+      permissions.canApprove('AttendanceApproval')) {
+    return true;
   }
-  return allowManualSetting;
+  if (permissions.canEdit('Attendance') || permissions.canDelete('Attendance')) {
+    return true;
+  }
+  if (permissions.canCreate('AttendanceCorrection')) {
+    return allowManualSetting;
+  }
+  return false;
 }
 
 /// Tài khoản quyền cao / có quyền duyệt → backend tự động duyệt khi lưu.

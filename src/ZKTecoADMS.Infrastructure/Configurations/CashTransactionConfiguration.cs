@@ -169,3 +169,47 @@ public class BankAccountConfiguration : IEntityTypeConfiguration<BankAccount>
         builder.HasIndex(x => x.IsDefault);
     }
 }
+
+public class FundTransferConfiguration : IEntityTypeConfiguration<FundTransfer>
+{
+    public void Configure(EntityTypeBuilder<FundTransfer> builder)
+    {
+        builder.ToTable("FundTransfers");
+
+        builder.HasKey(x => x.Id);
+
+        builder.Property(x => x.TransferCode)
+            .IsRequired()
+            .HasMaxLength(50);
+
+        builder.Property(x => x.Amount)
+            .IsRequired()
+            .HasPrecision(18, 2);
+
+        builder.Property(x => x.Description)
+            .IsRequired()
+            .HasMaxLength(500);
+
+        builder.Property(x => x.InternalNote)
+            .HasMaxLength(1000);
+
+        builder.HasOne(x => x.FromBankAccount)
+            .WithMany()
+            .HasForeignKey(x => x.FromBankAccountId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.HasOne(x => x.ToBankAccount)
+            .WithMany()
+            .HasForeignKey(x => x.ToBankAccountId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.HasOne(x => x.CreatedByUser)
+            .WithMany()
+            .HasForeignKey(x => x.CreatedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasIndex(x => x.TransferCode).IsUnique();
+        builder.HasIndex(x => x.TransferDate);
+        builder.HasIndex(x => new { x.StoreId, x.TransferDate });
+    }
+}

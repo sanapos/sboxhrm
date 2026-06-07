@@ -2,6 +2,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import '../utils/file_saver.dart' as file_saver;
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:flutter/rendering.dart';
 import 'package:intl/intl.dart';
 import 'package:excel/excel.dart' as excel_lib;
@@ -13,6 +14,7 @@ import '../utils/responsive_helper.dart';
 import '../l10n/app_localizations.dart';
 
 import '../widgets/notification_overlay.dart';
+import '../widgets/app_scroll_safe.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../providers/auth_provider.dart';
@@ -29,6 +31,11 @@ class WorkScheduleScreen extends StatefulWidget {
 
 class _WorkScheduleScreenState extends State<WorkScheduleScreen>
     with SingleTickerProviderStateMixin {
+  PermissionProvider get _perm =>
+      Provider.of<PermissionProvider>(context, listen: false);
+  bool get _canCancelRegistration =>
+      _perm.canDelete('WorkSchedule') || _perm.canCreate('WorkSchedule');
+
   final ApiService _apiService = ApiService();
   bool _isEmployee = false;
   late TabController _tabController;
@@ -351,7 +358,9 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       return Scaffold(
         backgroundColor: HrmPageChrome.background,
         body: _buildEmployeeCalendarView(),
-        floatingActionButton: _pendingRegistrations.isNotEmpty
+        floatingActionButton: _pendingRegistrations.isNotEmpty &&
+                Provider.of<PermissionProvider>(context, listen: false)
+                    .canCreate('WorkSchedule')
             ? FloatingActionButton.extended(
                 onPressed: _submitAllRegistrations,
                 backgroundColor: HrmPageChrome.primaryNavy,
@@ -380,7 +389,9 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           ),
         ],
       ),
-      floatingActionButton: _pendingRegistrations.isNotEmpty
+      floatingActionButton: _pendingRegistrations.isNotEmpty &&
+              Provider.of<PermissionProvider>(context, listen: false)
+                  .canCreate('WorkSchedule')
           ? FloatingActionButton.extended(
               onPressed: _submitAllRegistrations,
               backgroundColor: HrmPageChrome.primaryNavy,
@@ -1085,7 +1096,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
   // === BOTTOM SHEET: Pending registration actions (delete) ===
   void _showPendingActionSheet(
       Shift shift, DateTime day, ScheduleRegistration reg) {
-    showModalBottomSheet(
+    showAppSheet(
       context: context,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
@@ -1120,12 +1131,14 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                         color: Color(0xFFD97706))),
               ),
             ]),
-            const SizedBox(height: 16),
-            _actionTile(Icons.delete_outline, 'Xóa đăng ký',
-                'Hủy đăng ký ca này', const Color(0xFFEF4444), () {
-              Navigator.pop(ctx);
-              _deleteMyRegistration(reg, shift, day);
-            }),
+            if (_canCancelRegistration) ...[
+              const SizedBox(height: 16),
+              _actionTile(Icons.delete_outline, 'Xóa đăng ký',
+                  'Hủy đăng ký ca này', const Color(0xFFEF4444), () {
+                Navigator.pop(ctx);
+                _deleteMyRegistration(reg, shift, day);
+              }),
+            ],
           ]),
         ),
       ),
@@ -1135,7 +1148,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
   // === BOTTOM SHEET: Rejected registration actions ===
   void _showRejectedActionSheet(
       Shift shift, DateTime day, ScheduleRegistration reg) {
-    showModalBottomSheet(
+    showAppSheet(
       context: context,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
@@ -1183,12 +1196,14 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                         fontSize: 12, color: Color(0xFFEF4444))),
               ),
             ],
-            const SizedBox(height: 16),
-            _actionTile(Icons.delete_outline, 'Xóa đăng ký',
-                'Xóa đăng ký bị từ chối', const Color(0xFFEF4444), () {
-              Navigator.pop(ctx);
-              _deleteMyRegistration(reg, shift, day);
-            }),
+            if (_canCancelRegistration) ...[
+              const SizedBox(height: 16),
+              _actionTile(Icons.delete_outline, 'Xóa đăng ký',
+                  'Xóa đăng ký bị từ chối', const Color(0xFFEF4444), () {
+                Navigator.pop(ctx);
+                _deleteMyRegistration(reg, shift, day);
+              }),
+            ],
           ]),
         ),
       ),
@@ -1200,7 +1215,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       {ScheduleRegistration? reg,
       bool isScheduled = false,
       bool isApproved = false}) {
-    showModalBottomSheet(
+    showAppSheet(
       context: context,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
@@ -1300,7 +1315,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       ScheduleRegistration reg, Shift shift, DateTime day) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: const Row(children: [
           Icon(Icons.delete_outline, color: Color(0xFFEF4444)),
@@ -1358,7 +1373,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(builder: (ctx, setDialogState) {
-        return AlertDialog(
+        return ScrollableAlertDialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Row(children: [
@@ -1527,7 +1542,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(builder: (ctx, setDialogState) {
-        return AlertDialog(
+        return ScrollableAlertDialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Row(children: [
@@ -1723,7 +1738,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     ),
                   ),
                   // Action buttons based on status
-                  if (reg.status == ScheduleRegistrationStatus.pending &&
+                  if (_canCancelRegistration &&
+                      reg.status == ScheduleRegistrationStatus.pending &&
                       shift != null) ...[
                     InkWell(
                       onTap: () => _deleteMyRegistration(reg, shift, reg.date),
@@ -1739,7 +1755,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     ),
                     const SizedBox(width: 4),
                   ],
-                  if (reg.status == ScheduleRegistrationStatus.rejected &&
+                  if (_canCancelRegistration &&
+                      reg.status == ScheduleRegistrationStatus.rejected &&
                       shift != null) ...[
                     InkWell(
                       onTap: () => _deleteMyRegistration(reg, shift, reg.date),
@@ -2222,7 +2239,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) {
-          return AlertDialog(
+          return ScrollableAlertDialog(
             backgroundColor: Colors.white,
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -2720,7 +2737,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) {
           final sourceWeekEnd = sourceWeekStart.add(const Duration(days: 6));
-          return AlertDialog(
+          return ScrollableAlertDialog(
             backgroundColor: Colors.white,
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -3095,7 +3112,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) {
-          return AlertDialog(
+          return ScrollableAlertDialog(
             backgroundColor: Colors.white,
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -3431,7 +3448,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
   void _showScheduleGuide() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => ScrollableAlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Row(
@@ -5389,7 +5406,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -5546,7 +5563,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               availableFiltered
                   .every((e) => selectedIds.contains(_effectiveUserId(e)));
 
-          return AlertDialog(
+          return ScrollableAlertDialog(
             backgroundColor: Colors.white,
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -6132,7 +6149,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
+        builder: (context, setDialogState) => ScrollableAlertDialog(
           backgroundColor: Colors.white,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -6336,21 +6353,24 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  OutlinedButton.icon(
-                    onPressed: _clearAllPendingRegistrations,
-                    icon: const Icon(Icons.delete_sweep, size: 18),
-                    label: const Text('Xóa tất cả'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF856404),
-                      side: const BorderSide(color: Color(0xFF856404)),
+                  if (_perm.canDelete('WorkSchedule'))
+                    OutlinedButton.icon(
+                      onPressed: _clearAllPendingRegistrations,
+                      icon: const Icon(Icons.delete_sweep, size: 18),
+                      label: const Text('Xóa tất cả'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF856404),
+                        side: const BorderSide(color: Color(0xFF856404)),
+                      ),
                     ),
-                  ),
-                  FilledButton.icon(
-                    onPressed: _submitAllRegistrations,
-                    icon: const Icon(Icons.send, size: 18),
-                    label: const Text('Gửi tất cả đăng ký'),
-                    style: FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
-                  ),
+                  if (_perm.canCreate('WorkSchedule'))
+                    FilledButton.icon(
+                      onPressed: _submitAllRegistrations,
+                      icon: const Icon(Icons.send, size: 18),
+                      label: const Text('Gửi tất cả đăng ký'),
+                      style: FilledButton.styleFrom(
+                          backgroundColor: HrmPageChrome.primaryNavy),
+                    ),
                 ],
               ),
             ],
@@ -8707,7 +8727,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
   Future<void> _deleteRegistration(String regId) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => ScrollableAlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Xác nhận xóa',
             style: TextStyle(
@@ -8768,7 +8788,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
+        builder: (ctx, setDialogState) => ScrollableAlertDialog(
           backgroundColor: Colors.white,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -8876,7 +8896,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
+        builder: (ctx, setDialogState) => ScrollableAlertDialog(
           backgroundColor: Colors.white,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -9057,7 +9077,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) {
-          return AlertDialog(
+          return ScrollableAlertDialog(
             backgroundColor: Colors.white,
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -9152,7 +9172,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
+        builder: (ctx, setDialogState) => ScrollableAlertDialog(
           backgroundColor: Colors.white,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),

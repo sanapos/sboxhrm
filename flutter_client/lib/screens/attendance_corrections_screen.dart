@@ -1,4 +1,6 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
+import '../widgets/app_scroll_safe.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
@@ -317,7 +319,7 @@ class _AttendanceCorrectionsScreenState
               ),
             );
           }
-          return AlertDialog(
+          return ScrollableAlertDialog(
             title: const Text('Yêu cầu sửa chấm công'),
             content: formContent,
             actions: [
@@ -401,7 +403,7 @@ class _AttendanceCorrectionsScreenState
   }
 
   void _showRequestDetail(AttendanceCorrectionRequest request) {
-    showModalBottomSheet(
+    showAppSheet(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
@@ -854,7 +856,14 @@ class _AttendanceCorrectionsScreenState
           _buildRequestsList(_requests),
         ],
       ),
-      floatingActionButton: _allowManualCorrection
+      floatingActionButton: _allowManualCorrection &&
+              canShowCorrectionButtons(
+                role: Provider.of<AuthProvider>(context, listen: false)
+                    .userRole,
+                allowManualSetting: _allowManualCorrection,
+                permissions:
+                    Provider.of<PermissionProvider>(context, listen: false),
+              )
           ? FloatingActionButton.extended(
               onPressed: _showCreateDialog,
               icon: const Icon(Icons.add),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:flutter/services.dart';
 import '../../services/api_service.dart';
 import '../../utils/responsive_helper.dart';
@@ -628,44 +629,46 @@ class StoresTabState extends State<StoresTab> {
                 runSpacing: 4,
                 alignment: WrapAlignment.end,
                 children: [
-                  _actionButton(
-                    icon: Icons.edit,
-                    label: 'Đổi tên',
-                    color: AdminHelpers.primary,
-                    onTap: () => _editStoreName(store),
-                  ),
-                  _actionButton(
-                    icon: Icons.inventory_2_outlined,
-                    label: 'Đổi gói',
-                    color: const Color(0xFF0891B2),
-                    onTap: () => _showAssignPackage(store),
-                  ),
+                  if (context.systemAdminCanEdit) ...[
+                    _actionButton(
+                      icon: Icons.edit,
+                      label: 'Đổi tên',
+                      color: AdminHelpers.primary,
+                      onTap: () => _editStoreName(store),
+                    ),
+                    _actionButton(
+                      icon: Icons.inventory_2_outlined,
+                      label: 'Đổi gói',
+                      color: const Color(0xFF0891B2),
+                      onTap: () => _showAssignPackage(store),
+                    ),
+                    _actionButton(
+                      icon: isActive ? Icons.pause : Icons.play_arrow,
+                      label: isActive ? 'Tắt' : 'Bật',
+                      color: isActive ? Colors.orange : AdminHelpers.success,
+                      onTap: () => _toggleStoreStatus(store),
+                    ),
+                    if (!isLocked)
+                      _actionButton(
+                        icon: Icons.lock,
+                        label: 'Khóa',
+                        color: AdminHelpers.danger,
+                        onTap: () => _lockStore(store),
+                      )
+                    else
+                      _actionButton(
+                        icon: Icons.lock_open,
+                        label: 'Mở khóa',
+                        color: AdminHelpers.success,
+                        onTap: () => _unlockStore(store),
+                      ),
+                  ],
                   _actionButton(
                     icon: Icons.info_outline,
                     label: 'Chi tiết',
                     color: AdminHelpers.info,
                     onTap: () => _showStoreDetail(store),
                   ),
-                  _actionButton(
-                    icon: isActive ? Icons.pause : Icons.play_arrow,
-                    label: isActive ? 'Tắt' : 'Bật',
-                    color: isActive ? Colors.orange : AdminHelpers.success,
-                    onTap: () => _toggleStoreStatus(store),
-                  ),
-                  if (!isLocked)
-                    _actionButton(
-                      icon: Icons.lock,
-                      label: 'Khóa',
-                      color: AdminHelpers.danger,
-                      onTap: () => _lockStore(store),
-                    )
-                  else
-                    _actionButton(
-                      icon: Icons.lock_open,
-                      label: 'Mở khóa',
-                      color: AdminHelpers.success,
-                      onTap: () => _unlockStore(store),
-                    ),
                 ],
               ),
               const SizedBox(height: 6),
@@ -675,30 +678,33 @@ class StoresTabState extends State<StoresTab> {
                 runSpacing: 4,
                 alignment: WrapAlignment.end,
                 children: [
-                  _actionButton(
-                    icon: Icons.vpn_key,
-                    label: 'Kích hoạt Key',
-                    color: AdminHelpers.success,
-                    onTap: () => _showActivateKey(store),
-                  ),
-                  _actionButton(
-                    icon: Icons.calendar_month,
-                    label: 'Gia hạn (${store['renewalCount'] ?? 0}/3)',
-                    color: const Color(0xFF7C3AED),
-                    onTap: () => _showExtendDays(store),
-                  ),
-                  _actionButton(
-                    icon: Icons.restart_alt,
-                    label: 'Khôi phục gốc',
-                    color: AdminHelpers.warning,
-                    onTap: () => _resetStoreData(store),
-                  ),
-                  _actionButton(
-                    icon: Icons.delete_forever,
-                    label: 'Xóa hoàn toàn',
-                    color: AdminHelpers.danger,
-                    onTap: () => _deleteStore(store),
-                  ),
+                  if (context.systemAdminCanEdit) ...[
+                    _actionButton(
+                      icon: Icons.vpn_key,
+                      label: 'Kích hoạt Key',
+                      color: AdminHelpers.success,
+                      onTap: () => _showActivateKey(store),
+                    ),
+                    _actionButton(
+                      icon: Icons.calendar_month,
+                      label: 'Gia hạn (${store['renewalCount'] ?? 0}/3)',
+                      color: const Color(0xFF7C3AED),
+                      onTap: () => _showExtendDays(store),
+                    ),
+                    _actionButton(
+                      icon: Icons.restart_alt,
+                      label: 'Khôi phục gốc',
+                      color: AdminHelpers.warning,
+                      onTap: () => _resetStoreData(store),
+                    ),
+                  ],
+                  if (context.systemAdminCanDelete)
+                    _actionButton(
+                      icon: Icons.delete_forever,
+                      label: 'Xóa hoàn toàn',
+                      color: AdminHelpers.danger,
+                      onTap: () => _deleteStore(store),
+                    ),
                 ],
               ),
             ]),
@@ -740,7 +746,7 @@ class StoresTabState extends State<StoresTab> {
 
     final result = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Row(children: [
           Icon(Icons.edit, color: AdminHelpers.primary, size: 22),
           SizedBox(width: 8),
@@ -910,7 +916,7 @@ class StoresTabState extends State<StoresTab> {
     } else {
       showDialog(
         context: context,
-        builder: (ctx) => AlertDialog(
+        builder: (ctx) => ScrollableAlertDialog(
           title: titleRow,
           content: SizedBox(
             width: 500,
@@ -1001,7 +1007,7 @@ class StoresTabState extends State<StoresTab> {
     final name = store['name'] ?? 'N/A';
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Row(children: [
           Icon(Icons.warning_amber, color: AdminHelpers.warning, size: 24),
           SizedBox(width: 8),
@@ -1081,7 +1087,7 @@ class StoresTabState extends State<StoresTab> {
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Row(children: [
           Icon(Icons.delete_forever, color: AdminHelpers.danger, size: 24),
           SizedBox(width: 8),
@@ -1217,7 +1223,7 @@ class StoresTabState extends State<StoresTab> {
 
     final result = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: Row(children: [
           const Icon(Icons.calendar_month,
               color: Color(0xFF7C3AED), size: 22),
@@ -1295,7 +1301,7 @@ class StoresTabState extends State<StoresTab> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDlgState) => AlertDialog(
+        builder: (ctx, setDlgState) => ScrollableAlertDialog(
           title: const Row(children: [
             Icon(Icons.inventory_2_outlined, color: Color(0xFF0891B2), size: 22),
             SizedBox(width: 8),
@@ -1399,7 +1405,7 @@ class StoresTabState extends State<StoresTab> {
     await showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDlgState) => AlertDialog(
+        builder: (ctx, setDlgState) => ScrollableAlertDialog(
           title: Row(children: [
             const Icon(Icons.vpn_key, color: AdminHelpers.success, size: 22),
             const SizedBox(width: 8),
@@ -1629,7 +1635,7 @@ class _StoreUsersDialogState extends State<_StoreUsersDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
+    return ScrollableAlertDialog(
       title: Row(children: [
         const Icon(Icons.people, color: AdminHelpers.info, size: 22),
         const SizedBox(width: 8),

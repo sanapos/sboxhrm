@@ -15,7 +15,8 @@ public record GetTransactionsQuery(
     int? ForMonth = null,
     int? ForYear = null,
     DateTime? FromDate = null,
-    DateTime? ToDate = null) : IQuery<AppResponse<PagedResult<PaymentTransactionDto>>>;
+    DateTime? ToDate = null,
+    Guid? StoreId = null) : IQuery<AppResponse<PagedResult<PaymentTransactionDto>>>;
 
 public class GetTransactionsHandler(
     IRepository<PaymentTransaction> transactionRepository
@@ -29,9 +30,10 @@ public class GetTransactionsHandler(
 
             if (request.EmployeeUserId.HasValue || !string.IsNullOrEmpty(request.Type) ||
                 !string.IsNullOrEmpty(request.Status) || request.ForMonth.HasValue || request.ForYear.HasValue ||
-                request.FromDate.HasValue || request.ToDate.HasValue)
+                request.FromDate.HasValue || request.ToDate.HasValue || request.StoreId.HasValue)
             {
                 filter = t =>
+                    (!request.StoreId.HasValue || (t.Employee != null && t.Employee.StoreId == request.StoreId.Value)) &&
                     (!request.EmployeeUserId.HasValue || t.EmployeeUserId == request.EmployeeUserId.Value) &&
                     (string.IsNullOrEmpty(request.Type) || t.Type == request.Type) &&
                     (string.IsNullOrEmpty(request.Status) || t.Status == request.Status) &&

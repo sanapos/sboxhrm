@@ -122,6 +122,8 @@ public static class DependencyInjectionExtensions
         // Register notification services
         services.AddScoped<IAttendanceNotificationService, AttendanceNotificationService>();
         services.AddScoped<ISystemNotificationService, SystemNotificationService>();
+        services.AddScoped<ZKTecoADMS.Application.Interfaces.IAnnualLeaveBalanceService,
+            ZKTecoADMS.Application.Leaves.AnnualLeaveBalanceService>();
         services.AddScoped<IDeviceStatusNotificationService, DeviceStatusNotificationService>();
 
         // FCM push notifications

@@ -2,7 +2,7 @@
 import '../utils/file_saver.dart' as file_saver;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:excel/excel.dart' as excel_lib;
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
@@ -12,6 +12,9 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../models/employee.dart';
 import '../models/department.dart';
 import '../services/api_service.dart';
+import '../widgets/auth_cached_image.dart';
+import '../widgets/app_scroll_safe.dart';
+import '../widgets/hrm_mini_stat_chip.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/loading_widget.dart';
@@ -57,8 +60,8 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
   List<Map<String, dynamic>> _branches = [];
   final bool _groupByBranch = true;
 
-  // Mobile UI state
-  bool _showMobileSummary = false;
+  // Tổng quan + bộ lọc (ẩn/hiện cùng nhau)
+  bool _showOverviewPanel = false;
   List<String> _departments = ['Tất cả'];
   List<String> _positions = [];
   List<Department> _departmentList = [];
@@ -545,7 +548,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     // Show format instructions dialog
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Row(
           children: [
             Icon(Icons.upload_file, color: HrmPageChrome.primaryNavy),
@@ -691,7 +694,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
         if (errors.isNotEmpty) {
           showDialog(
             context: context,
-            builder: (ctx) => AlertDialog(
+            builder: (ctx) => ScrollableAlertDialog(
               title: Text('Import: $imported thành công, $failed lỗi'),
               content: SizedBox(
                 width: MediaQuery.of(context).size.width < 600
@@ -795,18 +798,19 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                           ],
                         ),
                       ),
-                      IconButton(
-                        icon: Container(
-                          padding: const EdgeInsets.all(7),
-                          decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(8)),
-                          child: const Icon(Icons.person_add,
-                              size: 18, color: Colors.white),
+                      if (_perm.canCreate(_module))
+                        IconButton(
+                          icon: Container(
+                            padding: const EdgeInsets.all(7),
+                            decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(8)),
+                            child: const Icon(Icons.person_add,
+                                size: 18, color: Colors.white),
+                          ),
+                          onPressed: () => _showEmployeeForm(null),
+                          tooltip: _l10n.addEmployee,
                         ),
-                        onPressed: () => _showEmployeeForm(null),
-                        tooltip: _l10n.addEmployee,
-                      ),
                       const SizedBox(width: 2),
                       PopupMenuButton<String>(
                         icon: Container(
@@ -1239,7 +1243,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
               ),
             );
           }
-          return AlertDialog(
+          return ScrollableAlertDialog(
             title: const Row(
               children: [
                 Icon(Icons.business, color: HrmPageChrome.primaryNavy),
@@ -1293,561 +1297,340 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
 
   Widget _buildStatCard(
       String label, String value, IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: 0.10),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(8),
+    return HrmStatSummaryCard(
+      icon: icon,
+      value: value,
+      label: label,
+      color: color,
+    );
+  }
+
+  bool _hasActiveEmpFilters() {
+    return _searchQuery.isNotEmpty ||
+        _filterDepartment != 'Tất cả' ||
+        _filterStatus != 'Tất cả' ||
+        _filterBranchId != null;
+  }
+
+  void _clearEmpFilters() {
+    setState(() {
+      _searchQuery = '';
+      _filterDepartment = 'Tất cả';
+      _filterStatus = 'Tất cả';
+      _filterBranchId = null;
+      _applyFilters();
+    });
+  }
+
+  String _filterSearchLabel() {
+    final q = _searchQuery.trim();
+    if (q.isEmpty) return 'Tất cả';
+    return q.length > 22 ? '${q.substring(0, 22)}…' : q;
+  }
+
+  String _filterBranchLabel() {
+    if (_filterBranchId == null) return 'Tất cả CN';
+    for (final b in _branches) {
+      if (b['id']?.toString() == _filterBranchId) {
+        return b['name']?.toString() ?? 'Tất cả CN';
+      }
+    }
+    return 'Tất cả CN';
+  }
+
+  Future<void> _showEmpFilterSheet({
+    required String title,
+    required List<({String label, VoidCallback onPick})> options,
+  }) async {
+    await showAppSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+              child: Text(title,
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w700)),
             ),
-            child: Icon(icon, size: 16, color: color),
-          ),
-          const SizedBox(height: 4),
-          Text(value,
-              style: TextStyle(
-                  fontSize: 14, fontWeight: FontWeight.bold, color: color)),
-          Text(label,
-              style: const TextStyle(fontSize: 10, color: Color(0xFFA1A1AA)),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis),
+            ...options.map(
+              (o) => ListTile(
+                title: Text(o.label, style: const TextStyle(fontSize: 15)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  o.onPick();
+                },
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickSearchFilter() async {
+    final ctrl = TextEditingController(text: _searchQuery);
+    final result = await showAppSheet<String?>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          left: 16,
+          right: 16,
+          top: 8,
+          bottom: MediaQuery.viewInsetsOf(ctx).bottom + 16,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text('Tìm nhân viên',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: ctrl,
+              autofocus: true,
+              decoration: const InputDecoration(
+                hintText: 'Tên, mã NV, SĐT…',
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(ctx, ''),
+                    child: const Text('Xóa'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+                    child: const Text('Áp dụng'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+    ctrl.dispose();
+    if (!mounted || result == null) return;
+    setState(() {
+      _searchQuery = result;
+      _applyFilters();
+    });
+  }
+
+  Widget _buildEmpFilterChipRow(List<Widget> chips) {
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < chips.length; i++) ...[
+            if (i > 0) const SizedBox(width: 8),
+            Expanded(child: chips[i]),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildFilters() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
+  Widget _buildEmpFilterChip({
+    required String title,
+    required String value,
+    required IconData icon,
+    required VoidCallback? onTap,
+    bool active = false,
+    Color? accentColor,
+  }) {
+    final accent = accentColor ?? Theme.of(context).primaryColor;
+    return Material(
+      color: active ? accent.withValues(alpha: 0.08) : const Color(0xFFFAFAFA),
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+        child: Container(
+          width: double.infinity,
+          constraints: const BoxConstraints(minHeight: 58),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: active
+                  ? accent.withValues(alpha: 0.45)
+                  : const Color(0xFFE4E4E7),
+              width: active ? 1.5 : 1,
+            ),
           ),
-        ],
-      ),
-      child: MediaQuery.of(context).size.width < 600
-          ? Column(
-              children: [
-                // Search field
-                Container(
-                  height: 36,
-                  margin: const EdgeInsets.only(bottom: 8),
-                  child: TextField(
-                    decoration: InputDecoration(
-                      hintText: 'Tìm theo tên, mã NV, SĐT...',
-                      hintStyle:
-                          TextStyle(fontSize: 13, color: Colors.grey[400]),
-                      prefixIcon:
-                          Icon(Icons.search, size: 18, color: Colors.grey[500]),
-                      filled: true,
-                      fillColor: const Color(0xFFFAFAFA),
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 12),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide:
-                            BorderSide(color: Theme.of(context).primaryColor),
-                      ),
-                    ),
-                    style: const TextStyle(fontSize: 13),
-                    onChanged: (value) {
-                      setState(() {
-                        _searchQuery = value;
-                        _applyFilters();
-                      });
-                    },
-                  ),
-                ),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        height: 36,
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFAFAFA),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFFE4E4E7)),
-                        ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: _filterDepartment,
-                            isExpanded: true,
-                            isDense: true,
-                            icon:
-                                const Icon(Icons.keyboard_arrow_down, size: 18),
-                            style: TextStyle(
-                                fontSize: 13,
-                                color: Theme.of(context)
-                                    .textTheme
-                                    .bodyMedium
-                                    ?.color),
-                            items: _departments.map((dept) {
-                              return DropdownMenuItem(
-                                value: dept,
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.business,
-                                        size: 14, color: Colors.grey[500]),
-                                    const SizedBox(width: 6),
-                                    Expanded(
-                                        child: Text(dept,
-                                            overflow: TextOverflow.ellipsis)),
-                                  ],
-                                ),
-                              );
-                            }).toList(),
-                            selectedItemBuilder: (context) =>
-                                _departments.map((dept) {
-                              return Row(
-                                children: [
-                                  Icon(Icons.business,
-                                      size: 14,
-                                      color: Theme.of(context).primaryColor),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                      child: Text(dept,
-                                          overflow: TextOverflow.ellipsis,
-                                          style:
-                                              const TextStyle(fontSize: 13))),
-                                ],
-                              );
-                            }).toList(),
-                            onChanged: (value) {
-                              if (value != null) {
-                                setState(() {
-                                  _filterDepartment = value;
-                                  _applyFilters();
-                                });
-                              }
-                            },
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Container(
-                        height: 36,
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFAFAFA),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFFE4E4E7)),
-                        ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: _filterStatus,
-                            isExpanded: true,
-                            isDense: true,
-                            icon:
-                                const Icon(Icons.keyboard_arrow_down, size: 18),
-                            style: TextStyle(
-                                fontSize: 13,
-                                color: Theme.of(context)
-                                    .textTheme
-                                    .bodyMedium
-                                    ?.color),
-                            items: _statuses.map((status) {
-                              return DropdownMenuItem(
-                                value: status,
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.circle,
-                                        size: 10,
-                                        color: _getStatusColor(status)),
-                                    const SizedBox(width: 6),
-                                    Text(status),
-                                  ],
-                                ),
-                              );
-                            }).toList(),
-                            selectedItemBuilder: (context) =>
-                                _statuses.map((status) {
-                              return Row(
-                                children: [
-                                  Icon(Icons.filter_list,
-                                      size: 14,
-                                      color: Theme.of(context).primaryColor),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                      child: Text(status,
-                                          overflow: TextOverflow.ellipsis,
-                                          style:
-                                              const TextStyle(fontSize: 13))),
-                                ],
-                              );
-                            }).toList(),
-                            onChanged: (value) {
-                              if (value != null) {
-                                setState(() {
-                                  _filterStatus = value;
-                                  _applyFilters();
-                                });
-                              }
-                            },
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                if (_branches.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Container(
-                    height: 36,
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFAFAFA),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFE4E4E7)),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String?>(
-                        value: _filterBranchId,
-                        isExpanded: true,
-                        isDense: true,
-                        icon: const Icon(Icons.keyboard_arrow_down, size: 18),
-                        style: TextStyle(
-                            fontSize: 13,
-                            color:
-                                Theme.of(context).textTheme.bodyMedium?.color),
-                        items: [
-                          DropdownMenuItem<String?>(
-                            value: null,
-                            child: Row(children: [
-                              Icon(Icons.account_tree_outlined,
-                                  size: 14, color: Colors.grey[500]),
-                              const SizedBox(width: 6),
-                              const Text('T\u1ea5t c\u1ea3 chi nh\u00e1nh'),
-                            ]),
-                          ),
-                          ..._branches.map((b) => DropdownMenuItem<String?>(
-                                value: b['id']?.toString(),
-                                child: Row(children: [
-                                  Icon(Icons.account_tree_outlined,
-                                      size: 14, color: Colors.grey[500]),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                      child: Text(b['name']?.toString() ?? '',
-                                          overflow: TextOverflow.ellipsis)),
-                                ]),
-                              )),
-                        ],
-                        onChanged: (value) {
-                          setState(() {
-                            _filterBranchId = value;
-                            _applyFilters();
-                          });
-                        },
-                      ),
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 8),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color:
-                        Theme.of(context).primaryColor.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.people,
-                          color: Theme.of(context).primaryColor, size: 16),
-                      const SizedBox(width: 6),
-                      Text(
-                        '${_filteredEmployees.length} nh\u00e2n vi\u00ean',
-                        style: TextStyle(
-                          color: Theme.of(context).primaryColor,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            )
-          : Row(
-              children: [
-                // Search field
-                Expanded(
-                  child: SizedBox(
-                    height: 36,
-                    child: TextField(
-                      decoration: InputDecoration(
-                        hintText: 'Tìm theo tên, mã NV, SĐT...',
-                        hintStyle:
-                            TextStyle(fontSize: 13, color: Colors.grey[400]),
-                        prefixIcon: Icon(Icons.search,
-                            size: 18, color: Colors.grey[500]),
-                        filled: true,
-                        fillColor: const Color(0xFFFAFAFA),
-                        contentPadding:
-                            const EdgeInsets.symmetric(horizontal: 12),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide:
-                              const BorderSide(color: Color(0xFFE4E4E7)),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide:
-                              const BorderSide(color: Color(0xFFE4E4E7)),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide:
-                              BorderSide(color: Theme.of(context).primaryColor),
-                        ),
-                      ),
-                      style: const TextStyle(fontSize: 13),
-                      onChanged: (value) {
-                        setState(() {
-                          _searchQuery = value;
-                          _applyFilters();
-                        });
-                      },
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Container(
-                    height: 36,
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFAFAFA),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFE4E4E7)),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: _filterDepartment,
-                        isExpanded: true,
-                        isDense: true,
-                        icon: const Icon(Icons.keyboard_arrow_down, size: 18),
-                        style: TextStyle(
-                            fontSize: 13,
-                            color:
-                                Theme.of(context).textTheme.bodyMedium?.color),
-                        items: _departments.map((dept) {
-                          return DropdownMenuItem(
-                            value: dept,
-                            child: Row(
-                              children: [
-                                Icon(Icons.business,
-                                    size: 14, color: Colors.grey[500]),
-                                const SizedBox(width: 6),
-                                Expanded(
-                                    child: Text(dept,
-                                        overflow: TextOverflow.ellipsis)),
-                              ],
-                            ),
-                          );
-                        }).toList(),
-                        selectedItemBuilder: (context) =>
-                            _departments.map((dept) {
-                          return Row(
-                            children: [
-                              Icon(Icons.business,
-                                  size: 14,
-                                  color: Theme.of(context).primaryColor),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                  child: Text(dept,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(fontSize: 13))),
-                            ],
-                          );
-                        }).toList(),
-                        onChanged: (value) {
-                          if (value != null) {
-                            setState(() {
-                              _filterDepartment = value;
-                              _applyFilters();
-                            });
-                          }
-                        },
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Container(
-                    height: 36,
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFAFAFA),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFE4E4E7)),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: _filterStatus,
-                        isExpanded: true,
-                        isDense: true,
-                        icon: const Icon(Icons.keyboard_arrow_down, size: 18),
-                        style: TextStyle(
-                            fontSize: 13,
-                            color:
-                                Theme.of(context).textTheme.bodyMedium?.color),
-                        items: _statuses.map((status) {
-                          return DropdownMenuItem(
-                            value: status,
-                            child: Row(
-                              children: [
-                                Icon(Icons.circle,
-                                    size: 10, color: _getStatusColor(status)),
-                                const SizedBox(width: 6),
-                                Text(status),
-                              ],
-                            ),
-                          );
-                        }).toList(),
-                        selectedItemBuilder: (context) =>
-                            _statuses.map((status) {
-                          return Row(
-                            children: [
-                              Icon(Icons.filter_list,
-                                  size: 14,
-                                  color: Theme.of(context).primaryColor),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                  child: Text(status,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(fontSize: 13))),
-                            ],
-                          );
-                        }).toList(),
-                        onChanged: (value) {
-                          if (value != null) {
-                            setState(() {
-                              _filterStatus = value;
-                              _applyFilters();
-                            });
-                          }
-                        },
-                      ),
-                    ),
-                  ),
-                ),
-                if (_branches.isNotEmpty) ...[
-                  const SizedBox(width: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Row(
+                children: [
+                  Icon(icon, size: 15,
+                      color: active ? accent : Colors.grey[500]),
+                  const SizedBox(width: 5),
                   Expanded(
-                    child: Container(
-                      height: 36,
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFAFAFA),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFFE4E4E7)),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String?>(
-                          value: _filterBranchId,
-                          isExpanded: true,
-                          isDense: true,
-                          icon: const Icon(Icons.keyboard_arrow_down, size: 18),
-                          style: TextStyle(
-                              fontSize: 13,
-                              color: Theme.of(context)
-                                  .textTheme
-                                  .bodyMedium
-                                  ?.color),
-                          items: [
-                            DropdownMenuItem<String?>(
-                              value: null,
-                              child: Row(children: [
-                                Icon(Icons.account_tree_outlined,
-                                    size: 14, color: Colors.grey[500]),
-                                const SizedBox(width: 6),
-                                const Text('T\u1ea5t c\u1ea3 chi nh\u00e1nh'),
-                              ]),
-                            ),
-                            ..._branches.map((b) => DropdownMenuItem<String?>(
-                                  value: b['id']?.toString(),
-                                  child: Row(children: [
-                                    Icon(Icons.account_tree_outlined,
-                                        size: 14, color: Colors.grey[500]),
-                                    const SizedBox(width: 6),
-                                    Expanded(
-                                        child: Text(b['name']?.toString() ?? '',
-                                            overflow: TextOverflow.ellipsis)),
-                                  ]),
-                                )),
-                          ],
-                          onChanged: (value) {
-                            setState(() {
-                              _filterBranchId = value;
-                              _applyFilters();
-                            });
-                          },
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-                const Spacer(),
-
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color:
-                        Theme.of(context).primaryColor.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.people,
-                          color: Theme.of(context).primaryColor, size: 16),
-                      const SizedBox(width: 6),
-                      Text(
-                        '${_filteredEmployees.length} nhân viên',
+                    child: Text(title,
                         style: TextStyle(
-                          color: Theme.of(context).primaryColor,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey[600]),
+                        maxLines: 1),
+                  ),
+                  if (onTap != null)
+                    Icon(Icons.expand_more,
+                        size: 16, color: Colors.grey[500]),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  height: 1.35,
+                  color: active ? accent : const Color(0xFF18181B),
+                ),
+                maxLines: 2,
+                softWrap: true,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmployeeFilterBar() {
+    final hasFilters = _hasActiveEmpFilters();
+    final count = _filteredEmployees.length;
+
+    final chipDept = _buildEmpFilterChip(
+      title: 'Phòng ban',
+      value: _filterDepartment,
+      icon: Icons.business_rounded,
+      active: _filterDepartment != 'Tất cả',
+      onTap: () => _showEmpFilterSheet(
+        title: 'Phòng ban',
+        options: _departments
+            .map(
+              (d) => (
+                label: d,
+                onPick: () => setState(() {
+                  _filterDepartment = d;
+                  _applyFilters();
+                }),
+              ),
+            )
+            .toList(),
+      ),
+    );
+
+    final chipStatus = _buildEmpFilterChip(
+      title: 'Trạng thái',
+      value: _filterStatus,
+      icon: Icons.flag_rounded,
+      active: _filterStatus != 'Tất cả',
+      accentColor: _getStatusColor(_filterStatus),
+      onTap: () => _showEmpFilterSheet(
+        title: 'Trạng thái làm việc',
+        options: _statuses
+            .map(
+              (s) => (
+                label: s,
+                onPick: () => setState(() {
+                  _filterStatus = s;
+                  _applyFilters();
+                }),
+              ),
+            )
+            .toList(),
+      ),
+    );
+
+    final chipBranch = _branches.isNotEmpty
+        ? _buildEmpFilterChip(
+            title: 'Chi nhánh',
+            value: _filterBranchLabel(),
+            icon: Icons.account_tree_outlined,
+            active: _filterBranchId != null,
+            onTap: () => _showEmpFilterSheet(
+              title: 'Chi nhánh',
+              options: [
+                (
+                  label: 'Tất cả chi nhánh',
+                  onPick: () => setState(() {
+                    _filterBranchId = null;
+                    _applyFilters();
+                  }),
+                ),
+                ..._branches.map(
+                  (b) => (
+                    label: b['name']?.toString() ?? '',
+                    onPick: () => setState(() {
+                      _filterBranchId = b['id']?.toString();
+                      _applyFilters();
+                    }),
                   ),
                 ),
               ],
             ),
+          )
+        : _buildEmpFilterChip(
+            title: 'Số NV',
+            value: '$count nhân viên',
+            icon: Icons.people_outline,
+            onTap: null,
+          );
+
+    final chipSearch = _buildEmpFilterChip(
+      title: 'Tìm kiếm',
+      value: _filterSearchLabel(),
+      icon: Icons.search_rounded,
+      active: _searchQuery.isNotEmpty,
+      onTap: _pickSearchFilter,
+    );
+
+    final chipClear = _buildEmpFilterChip(
+      title: 'Bộ lọc',
+      value: hasFilters ? 'Xóa lọc' : 'Chưa lọc',
+      icon: Icons.filter_alt_off,
+      accentColor: Colors.red.shade700,
+      active: hasFilters,
+      onTap: hasFilters ? _clearEmpFilters : null,
+    );
+
+    return HrmFilterBar(
+      margin: EdgeInsets.zero,
+      padding: const EdgeInsets.all(10),
+      children: [
+        _buildEmpFilterChipRow([chipDept, chipStatus]),
+        const SizedBox(height: 8),
+        _buildEmpFilterChipRow([chipBranch, chipSearch]),
+        const SizedBox(height: 8),
+        _buildEmpFilterChipRow([
+          _buildEmpFilterChip(
+            title: 'Kết quả',
+            value: '$count / ${_employees.length} NV',
+            icon: Icons.groups_rounded,
+            onTap: null,
+          ),
+          chipClear,
+        ]),
+      ],
     );
   }
 
@@ -1866,14 +1649,41 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     }
   }
 
-  List<Widget> _buildEmployeesPageHeaderSections(
+  Widget _buildEmployeesStatsRow(
       int activeCount, int probationCount, int deptCount) {
-    final isMobile = Responsive.isMobile(context);
-    return [
-      if (isMobile) ...[
+    final cards = [
+      _buildStatCard('Tổng NV', '${_employees.length}', Icons.people_outline,
+          HrmPageChrome.primaryNavy),
+      _buildStatCard('Đang làm', '$activeCount', Icons.check_circle_outline,
+          HrmPageChrome.primaryNavy),
+      _buildStatCard('Thử việc', '$probationCount', Icons.hourglass_bottom,
+          const Color(0xFFF59E0B)),
+      _buildStatCard(_l10n.department, '$deptCount', Icons.business_outlined,
+          HrmPageChrome.primaryNavy),
+    ];
+    if (Responsive.isMobile(context)) {
+      return HrmPageChrome.horizontalStatCards(
+        cards: cards,
+        minCardWidth: 100,
+        gap: 8,
+      );
+    }
+    return Row(
+      children: cards
+          .expand((c) => [Expanded(child: c), const SizedBox(width: 8)])
+          .toList()
+        ..removeLast(),
+    );
+  }
+
+  Widget _buildEmployeesOverviewSection(
+      int activeCount, int probationCount, int deptCount) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
         InkWell(
           onTap: () =>
-              setState(() => _showMobileSummary = !_showMobileSummary),
+              setState(() => _showOverviewPanel = !_showOverviewPanel),
           borderRadius: BorderRadius.circular(8),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -1886,14 +1696,14 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                 Icon(Icons.analytics_outlined,
                     size: 16, color: Colors.blue.shade700),
                 const SizedBox(width: 6),
-                Text('Tổng quan',
+                Text('Tổng quan & bộ lọc',
                     style: TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 13,
                         color: Colors.blue.shade700)),
                 const Spacer(),
                 Icon(
-                    _showMobileSummary
+                    _showOverviewPanel
                         ? Icons.expand_less
                         : Icons.expand_more,
                     size: 20,
@@ -1902,82 +1712,21 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
             ),
           ),
         ),
-        if (_showMobileSummary) ...[
+        if (_showOverviewPanel) ...[
           const SizedBox(height: 8),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                SizedBox(
-                    width: 100,
-                    child: _buildStatCard(
-                        'Tổng NV',
-                        '${_employees.length}',
-                        Icons.people_outline,
-                        HrmPageChrome.primaryNavy)),
-                const SizedBox(width: 8),
-                SizedBox(
-                    width: 100,
-                    child: _buildStatCard(
-                        'Đang làm',
-                        '$activeCount',
-                        Icons.check_circle_outline,
-                        HrmPageChrome.primaryNavy)),
-                const SizedBox(width: 8),
-                SizedBox(
-                    width: 100,
-                    child: _buildStatCard(
-                        'Thử việc',
-                        '$probationCount',
-                        Icons.hourglass_bottom,
-                        const Color(0xFFF59E0B))),
-                const SizedBox(width: 8),
-                SizedBox(
-                    width: 100,
-                    child: _buildStatCard(
-                        _l10n.department,
-                        '$deptCount',
-                        Icons.business_outlined,
-                        HrmPageChrome.primaryNavy)),
-              ],
-            ),
-          ),
+          _buildEmployeesStatsRow(activeCount, probationCount, deptCount),
+          const SizedBox(height: 10),
+          _buildEmployeeFilterBar(),
         ],
-      ] else ...[
-        Row(
-          children: [
-            Expanded(
-                child: _buildStatCard(
-                    'Tổng NV',
-                    '${_employees.length}',
-                    Icons.people_outline,
-                    HrmPageChrome.primaryNavy)),
-            const SizedBox(width: 8),
-            Expanded(
-                child: _buildStatCard(
-                    'Đang làm',
-                    '$activeCount',
-                    Icons.check_circle_outline,
-                    HrmPageChrome.primaryNavy)),
-            const SizedBox(width: 8),
-            Expanded(
-                child: _buildStatCard(
-                    'Thử việc',
-                    '$probationCount',
-                    Icons.hourglass_bottom,
-                    const Color(0xFFF59E0B))),
-            const SizedBox(width: 8),
-            Expanded(
-                child: _buildStatCard(
-                    _l10n.department,
-                    '$deptCount',
-                    Icons.business_outlined,
-                    HrmPageChrome.primaryNavy)),
-          ],
-        ),
       ],
-      const SizedBox(height: 12),
-      _buildFilters(),
+    );
+  }
+
+  List<Widget> _buildEmployeesPageHeaderSections(
+      int activeCount, int probationCount, int deptCount) {
+    return [
+      _buildEmployeesOverviewSection(
+          activeCount, probationCount, deptCount),
       const SizedBox(height: 12),
     ];
   }
@@ -2093,233 +1842,303 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
   }
 
   Widget _buildEmployeesList() {
-    final isMobile = Responsive.isMobile(context);
-    if (isMobile) {
+    if (Responsive.useUnifiedPageScroll(context)) {
       return const SizedBox.shrink();
     }
+    return _buildEmployeesDataTable();
+  }
 
-    // ── Grouped mode ─────────────────────────────────────────────
-    if (_groupByBranch && _branches.isNotEmpty) {
-      // Build ordered map: branchId -> (branchName, [employees])
-      final Map<String, List<Employee>> groupMap = {};
-      for (final e in _filteredEmployees) {
-        final key = e.branchId ?? '__none__';
-        groupMap.putIfAbsent(key, () => []).add(e);
-      }
-      // Sort groups: named branches first (sorted by name), unnamed last
-      final branchOrder =
-          _branches.map((b) => b['id']?.toString() ?? '').toList();
-      final sortedKeys = groupMap.keys.toList()
-        ..sort((a, b) {
-          if (a == '__none__') return 1;
-          if (b == '__none__') return -1;
-          final ai = branchOrder.indexOf(a);
-          final bi = branchOrder.indexOf(b);
-          if (ai == -1 && bi == -1) return a.compareTo(b);
-          if (ai == -1) return 1;
-          if (bi == -1) return -1;
-          return ai.compareTo(bi);
-        });
+  static const _tableHeaderStyle = TextStyle(
+    fontWeight: FontWeight.w600,
+    fontSize: 13,
+    color: Color(0xFF71717A),
+  );
 
-      String branchName(String key) {
-        if (key == '__none__') return 'Ch\u01b0a c\u00f3 chi nh\u00e1nh';
-        return _branches
-                .firstWhere((b) => b['id']?.toString() == key,
-                    orElse: () => {'name': key})['name']
-                ?.toString() ??
-            key;
-      }
-
-      // Build flat item list: header + cards
-      final items = <_GroupItem>[];
-      for (final key in sortedKeys) {
-        final emps = groupMap[key]!;
-        items.add(_GroupItem.header(branchName(key), emps.length));
-        for (final emp in emps) {
-          items.add(_GroupItem.employee(emp));
-        }
-      }
-
-      return RefreshIndicator(
-        onRefresh: _loadEmployees,
-        child: ListView.builder(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          itemCount: items.length,
-          itemBuilder: (context, index) {
-            final item = items[index];
-            if (item.isHeader) {
-              return _buildBranchGroupHeader(
-                  item.headerName!, item.headerCount!);
-            }
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFE4E4E7)),
-                  boxShadow: [
-                    BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.05),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2))
-                  ],
-                ),
-                child: _buildEmployeeCard(item.employee!),
-              ),
-            );
-          },
-        ),
-      );
-    }
-
-    // ── Normal (flat) mode ────────────────────────────────────────
+  Widget _buildEmployeesDataTable() {
     final totalCount = _filteredEmployees.length;
     final totalPages = (totalCount / _pageSize).ceil().clamp(1, 99999);
+    if (_currentPage > totalPages) _currentPage = totalPages;
     final startIndex = (_currentPage - 1) * _pageSize;
-    final endIndex = (_currentPage * _pageSize).clamp(0, totalCount);
-    final displayList = isMobile
-        ? _filteredEmployees
-        : _filteredEmployees.sublist(startIndex.clamp(0, totalCount), endIndex);
+    final endIndex = (startIndex + _pageSize).clamp(0, totalCount);
+    final displayList =
+        _filteredEmployees.sublist(startIndex.clamp(0, totalCount), endIndex);
+    final showBranchCol = _branches.isNotEmpty;
+
+    DataColumn col(String label, {double? width}) => DataColumn(
+          label: SizedBox(
+            width: width,
+            child: Text(label, style: _tableHeaderStyle),
+          ),
+        );
 
     return Column(
       children: [
         Expanded(
           child: RefreshIndicator(
             onRefresh: _loadEmployees,
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              itemCount: displayList.length,
-              itemBuilder: (context, index) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFE4E4E7)),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
-                          blurRadius: 6,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: _buildEmployeeCard(displayList[index]),
+            child: Container(
+              margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE4E4E7)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
-                );
-              },
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    return SingleChildScrollView(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minWidth: constraints.maxWidth,
+                          ),
+                          child: DataTable(
+                            headingRowColor: WidgetStateProperty.all(
+                                const Color(0xFFFAFAFA)),
+                            dataRowColor:
+                                WidgetStateProperty.resolveWith<Color?>(
+                                    (states) {
+                              if (states.contains(WidgetState.hovered)) {
+                                return const Color(0xFFF1F5F9);
+                              }
+                              return null;
+                            }),
+                            dividerThickness: 0.5,
+                            showCheckboxColumn: false,
+                            headingRowHeight: 44,
+                            dataRowMinHeight: 44,
+                            dataRowMaxHeight: 52,
+                            columns: [
+                              col('Ảnh', width: 56),
+                              col('Mã NV', width: 88),
+                              col('Họ và tên', width: 180),
+                              if (showBranchCol) col('Chi nhánh', width: 140),
+                              col('Phòng ban', width: 140),
+                              col('Chức vụ', width: 120),
+                              col('SĐT', width: 110),
+                              col('Trạng thái', width: 120),
+                              const DataColumn(label: Text('')),
+                            ],
+                            rows: displayList.map((employee) {
+                              final branchLabel = employee.branchName
+                                      ?.trim()
+                                      .isNotEmpty ==
+                                  true
+                                  ? employee.branchName!
+                                  : (employee.branchId != null
+                                      ? '—'
+                                      : 'Chưa có CN');
+                              return DataRow(
+                                onSelectChanged: (_) =>
+                                    _showEmployeeDetails(employee),
+                                cells: [
+                                  DataCell(
+                                    Center(
+                                      child: _buildEmployeeAvatar(employee,
+                                          radius: 18),
+                                    ),
+                                  ),
+                                  DataCell(Text(
+                                    employee.employeeCode,
+                                    style: const TextStyle(
+                                      color: Color(0xFF3B82F6),
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 12,
+                                    ),
+                                  )),
+                                  DataCell(Text(
+                                    employee.fullName,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
+                                    ),
+                                  )),
+                                  if (showBranchCol)
+                                    DataCell(Text(
+                                      branchLabel,
+                                      style: const TextStyle(fontSize: 12),
+                                    )),
+                                  DataCell(Text(
+                                    _employeeDepartmentLabel(employee),
+                                    style: const TextStyle(fontSize: 12),
+                                  )),
+                                  DataCell(Text(
+                                    employee.position?.trim().isNotEmpty ==
+                                            true
+                                        ? employee.position!
+                                        : '—',
+                                    style: const TextStyle(fontSize: 12),
+                                  )),
+                                  DataCell(Text(
+                                    employee.phone?.trim().isNotEmpty == true
+                                        ? employee.phone!
+                                        : '—',
+                                    style: const TextStyle(fontSize: 12),
+                                  )),
+                                  DataCell(_buildStatusChip(
+                                      employee.workStatusDisplay)),
+                                  DataCell(
+                                      _buildEmployeeTableActions(employee)),
+                                ],
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
             ),
           ),
         ),
-        if (!isMobile)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border(top: BorderSide(color: Colors.grey.shade200)),
-            ),
-            child: Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 12,
-              runSpacing: 8,
-              children: [
-                Text(
-                  totalCount > 0
-                      ? 'Hiển thị ${startIndex + 1}-$endIndex / $totalCount'
-                      : 'Không có dữ liệu',
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text('Hiển thị:',
-                        style:
-                            TextStyle(fontSize: 12, color: Colors.grey[500])),
-                    const SizedBox(width: 8),
-                    Container(
-                      height: 34,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFAFAFA),
-                        border: Border.all(color: const Color(0xFFE4E4E7)),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<int>(
-                          value: _pageSize,
-                          isDense: true,
-                          style:
-                              TextStyle(fontSize: 13, color: Colors.grey[800]),
-                          items: _pageSizeOptions
-                              .map((s) =>
-                                  DropdownMenuItem(value: s, child: Text('$s')))
-                              .toList(),
-                          onChanged: (v) {
-                            if (v != null) {
-                              setState(() {
-                                _pageSize = v;
-                                _currentPage = 1;
-                              });
-                            }
-                          },
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.first_page, size: 20),
-                      onPressed: _currentPage > 1
-                          ? () => setState(() => _currentPage = 1)
-                          : null,
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.chevron_left, size: 20),
-                      onPressed: _currentPage > 1
-                          ? () => setState(() => _currentPage--)
-                          : null,
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).primaryColor,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text('$_currentPage / $totalPages',
-                          style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white)),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.chevron_right, size: 20),
-                      onPressed: _currentPage < totalPages
-                          ? () => setState(() => _currentPage++)
-                          : null,
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.last_page, size: 20),
-                      onPressed: _currentPage < totalPages
-                          ? () => setState(() => _currentPage = totalPages)
-                          : null,
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
+        _buildEmployeesPaginationBar(
+            totalCount, startIndex, endIndex, totalPages),
       ],
+    );
+  }
+
+  Widget _buildEmployeeTableActions(Employee employee) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          icon: const Icon(Icons.visibility_outlined,
+              size: 20, color: Color(0xFF71717A)),
+          tooltip: 'Xem',
+          onPressed: () => _showEmployeeDetails(employee),
+          visualDensity: VisualDensity.compact,
+        ),
+        if (_perm.canEdit(_module))
+          IconButton(
+            icon: const Icon(Icons.edit_outlined,
+                size: 20, color: HrmPageChrome.primaryNavy),
+            tooltip: _l10n.edit,
+            onPressed: () => _showEmployeeForm(employee),
+            visualDensity: VisualDensity.compact,
+          ),
+        _buildEmployeeCardMenu(employee),
+      ],
+    );
+  }
+
+  Widget _buildEmployeesPaginationBar(
+    int totalCount,
+    int startIndex,
+    int endIndex,
+    int totalPages,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: Colors.grey.shade200)),
+      ),
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 12,
+        runSpacing: 8,
+        children: [
+          Text(
+            totalCount > 0
+                ? 'Hiển thị ${startIndex + 1}-$endIndex / $totalCount'
+                : 'Không có dữ liệu',
+            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+          ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Hiển thị:',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+              const SizedBox(width: 8),
+              Container(
+                height: 34,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFAFAFA),
+                  border: Border.all(color: const Color(0xFFE4E4E7)),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<int>(
+                    value: _pageSize,
+                    isDense: true,
+                    style: TextStyle(fontSize: 13, color: Colors.grey[800]),
+                    items: _pageSizeOptions
+                        .map((s) =>
+                            DropdownMenuItem(value: s, child: Text('$s')))
+                        .toList(),
+                    onChanged: (v) {
+                      if (v != null) {
+                        setState(() {
+                          _pageSize = v;
+                          _currentPage = 1;
+                        });
+                      }
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.first_page, size: 20),
+                onPressed: _currentPage > 1
+                    ? () => setState(() => _currentPage = 1)
+                    : null,
+                visualDensity: VisualDensity.compact,
+              ),
+              IconButton(
+                icon: const Icon(Icons.chevron_left, size: 20),
+                onPressed: _currentPage > 1
+                    ? () => setState(() => _currentPage--)
+                    : null,
+                visualDensity: VisualDensity.compact,
+              ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).primaryColor,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text('$_currentPage / $totalPages',
+                    style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white)),
+              ),
+              IconButton(
+                icon: const Icon(Icons.chevron_right, size: 20),
+                onPressed: _currentPage < totalPages
+                    ? () => setState(() => _currentPage++)
+                    : null,
+                visualDensity: VisualDensity.compact,
+              ),
+              IconButton(
+                icon: const Icon(Icons.last_page, size: 20),
+                onPressed: _currentPage < totalPages
+                    ? () => setState(() => _currentPage = totalPages)
+                    : null,
+                visualDensity: VisualDensity.compact,
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -2377,33 +2196,151 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     );
   }
 
+  String _employeeDepartmentLabel(Employee employee) {
+    final dept = employee.department?.trim();
+    if (dept != null && dept.isNotEmpty) return dept;
+    return 'Chưa có phòng ban';
+  }
+
+  Widget _buildEmployeeAvatar(Employee employee, {double radius = 18}) {
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor:
+          Theme.of(context).primaryColor.withValues(alpha: 0.15),
+      backgroundImage: employee.avatarUrl != null
+          ? _apiService.storeImageProvider(employee.avatarUrl!)
+          : null,
+      onBackgroundImageError: employee.avatarUrl != null ? (_, __) {} : null,
+      child: employee.avatarUrl == null
+          ? Icon(
+              employee.gender?.toLowerCase() == 'female' ||
+                      employee.gender?.toLowerCase() == 'nữ'
+                  ? Icons.woman_rounded
+                  : Icons.man_rounded,
+              color: Theme.of(context).primaryColor,
+              size: radius,
+            )
+          : null,
+    );
+  }
+
   Widget _buildEmployeeCard(Employee employee) {
+    if (Responsive.isMobile(context)) {
+      return _buildEmployeeCardMobile(employee);
+    }
+    return _buildEmployeeCardDesktop(employee);
+  }
+
+  Widget _buildEmployeeCardMobile(Employee employee) {
+    final dept = _employeeDepartmentLabel(employee);
+    final hasDept = employee.department?.trim().isNotEmpty == true;
+    final position = employee.position?.trim();
+
+    return InkWell(
+      onTap: () => _showEmployeeDetails(employee),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildEmployeeAvatar(employee, radius: 22),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    employee.fullName,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      height: 1.25,
+                      color: Color(0xFF0F172A),
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    employee.employeeCode,
+                    style: const TextStyle(
+                      color: Color(0xFF3B82F6),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.business_outlined,
+                        size: 14,
+                        color: hasDept
+                            ? const Color(0xFF64748B)
+                            : const Color(0xFFCBD5E1),
+                      ),
+                      const SizedBox(width: 5),
+                      Expanded(
+                        child: Text(
+                          dept,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight:
+                                hasDept ? FontWeight.w500 : FontWeight.w400,
+                            color: hasDept
+                                ? const Color(0xFF475569)
+                                : const Color(0xFF94A3B8),
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (position != null && position.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(Icons.work_outline,
+                            size: 14, color: Color(0xFF94A3B8)),
+                        const SizedBox(width: 5),
+                        Expanded(
+                          child: Text(
+                            position,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF71717A),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            _buildEmployeeCardMenu(employee),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmployeeCardDesktop(Employee employee) {
+    final dept = _employeeDepartmentLabel(employee);
+    final hasDept = employee.department?.trim().isNotEmpty == true;
+
     return InkWell(
       onTap: () => _showEmployeeDetails(employee),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         child: Row(
           children: [
-            CircleAvatar(
-              radius: 18,
-              backgroundColor:
-                  Theme.of(context).primaryColor.withValues(alpha: 0.15),
-              backgroundImage: employee.avatarUrl != null
-                  ? NetworkImage(_apiService.getFileUrl(employee.avatarUrl!))
-                  : null,
-              onBackgroundImageError:
-                  employee.avatarUrl != null ? (_, __) {} : null,
-              child: employee.avatarUrl == null
-                  ? Icon(
-                      employee.gender?.toLowerCase() == 'female' ||
-                              employee.gender?.toLowerCase() == 'nữ'
-                          ? Icons.woman_rounded
-                          : Icons.man_rounded,
-                      color: Theme.of(context).primaryColor,
-                      size: 18,
-                    )
-                  : null,
-            ),
+            _buildEmployeeAvatar(employee),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -2414,29 +2351,41 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                           fontSize: 14, fontWeight: FontWeight.w600),
                       overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 3),
+                  Text(employee.employeeCode,
+                      style: const TextStyle(
+                          color: Color(0xFF3B82F6),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 3),
                   Row(
                     children: [
-                      Text(employee.employeeCode,
-                          style: const TextStyle(
-                              color: Color(0xFF3B82F6),
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500)),
-                      if (employee.department != null) ...[
-                        const Text(' · ',
-                            style: TextStyle(
-                                color: Color(0xFFA1A1AA), fontSize: 11)),
-                        Flexible(
-                            child: Text(employee.department!,
-                                style: const TextStyle(
-                                    color: Color(0xFF71717A), fontSize: 11),
-                                overflow: TextOverflow.ellipsis)),
-                      ],
+                      Icon(
+                        Icons.business_outlined,
+                        size: 12,
+                        color: hasDept
+                            ? const Color(0xFF64748B)
+                            : const Color(0xFFCBD5E1),
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          dept,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: hasDept
+                                ? const Color(0xFF475569)
+                                : const Color(0xFF94A3B8),
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 2),
                   Row(
                     children: [
-                      if (employee.position != null) ...[
+                      if (employee.position != null &&
+                          employee.position!.trim().isNotEmpty) ...[
                         const Icon(Icons.work_outline,
                             size: 11, color: Color(0xFFA1A1AA)),
                         const SizedBox(width: 3),
@@ -2447,6 +2396,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                                 overflow: TextOverflow.ellipsis)),
                       ],
                       if (employee.position != null &&
+                          employee.position!.trim().isNotEmpty &&
                           employee.phone != null &&
                           employee.phone!.isNotEmpty)
                         const Text(' · ',
@@ -2466,7 +2416,15 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                 ],
               ),
             ),
-            PopupMenuButton<String>(
+            _buildEmployeeCardMenu(employee),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmployeeCardMenu(Employee employee) {
+    return PopupMenuButton<String>(
               icon: Icon(Icons.more_vert, color: Colors.grey[400], size: 20),
               onSelected: (value) {
                 switch (value) {
@@ -2544,11 +2502,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                     ),
                   ),
               ],
-            ),
-          ],
-        ),
-      ),
-    );
+            );
   }
 
   void _callEmployee(Employee employee) {
@@ -2668,7 +2622,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                       radius: 55,
                       backgroundColor: Colors.grey[200],
                       backgroundImage: photoUrl != null
-                          ? NetworkImage(_apiService.getFileUrl(photoUrl!))
+                          ? _apiService.storeImageProvider(photoUrl!)
                           : null,
                       onBackgroundImageError:
                           photoUrl != null ? (_, __) {} : null,
@@ -3886,7 +3840,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
               ),
             );
           }
-          return AlertDialog(
+          return ScrollableAlertDialog(
             title: Text(isEditing ? _l10n.editEmployee : _l10n.addNewEmployee),
             content: SizedBox(
               width: MediaQuery.of(context).size.width < 600
@@ -3943,8 +3897,9 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
           child: imageUrl != null
               ? ClipRRect(
                   borderRadius: BorderRadius.circular(10),
-                  child: CachedNetworkImage(
-                      imageUrl: _apiService.getFileUrl(imageUrl),
+                  child: AuthCachedImage(
+                      imagePath: imageUrl,
+                      apiService: _apiService,
                       fit: BoxFit.cover,
                       width: double.infinity,
                       placeholder: (_, __) => const Center(
@@ -4065,7 +4020,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
             ),
           );
         }
-        return AlertDialog(
+        return ScrollableAlertDialog(
           backgroundColor: Colors.white,
           title: Row(
             children: [
@@ -4209,7 +4164,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
             ),
           );
         }
-        return AlertDialog(
+        return ScrollableAlertDialog(
           title: Text(title),
           content: field,
           actions: [
@@ -4233,7 +4188,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
           backgroundColor:
               Theme.of(context).primaryColor.withValues(alpha: 0.2),
           backgroundImage: employee.avatarUrl != null
-              ? NetworkImage(_apiService.getFileUrl(employee.avatarUrl!))
+              ? _apiService.storeImageProvider(employee.avatarUrl!)
               : null,
           onBackgroundImageError:
               employee.avatarUrl != null ? (_, __) {} : null,
@@ -4368,8 +4323,9 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
             if (employee.idCardFrontUrl != null) ...[
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: CachedNetworkImage(
-                  imageUrl: _apiService.getFileUrl(employee.idCardFrontUrl!),
+                child: AuthCachedImage(
+                  imagePath: employee.idCardFrontUrl!,
+                  apiService: _apiService,
                   width: double.infinity,
                   fit: BoxFit.fitWidth,
                   placeholder: (_, __) => const Center(
@@ -4385,8 +4341,9 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
             if (employee.idCardBackUrl != null)
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: CachedNetworkImage(
-                  imageUrl: _apiService.getFileUrl(employee.idCardBackUrl!),
+                child: AuthCachedImage(
+                  imagePath: employee.idCardBackUrl!,
+                  apiService: _apiService,
                   width: double.infinity,
                   fit: BoxFit.fitWidth,
                   placeholder: (_, __) => const Center(
@@ -4480,7 +4437,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     } else {
       showDialog(
         context: context,
-        builder: (context) => AlertDialog(
+        builder: (context) => ScrollableAlertDialog(
           title: titleRow,
           content: SizedBox(
             width: 650,
@@ -4545,7 +4502,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
   void _confirmDeleteEmployee(Employee employee) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => ScrollableAlertDialog(
         title: const Text('Xác nhận xóa'),
         content:
             Text('Bạn có chắc chắn muốn xóa nhân viên "${employee.fullName}"?'),

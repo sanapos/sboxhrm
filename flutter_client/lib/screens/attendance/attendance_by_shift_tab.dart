@@ -4,8 +4,13 @@ import 'dart:math' as math;
 import '../../utils/file_saver.dart' as file_saver;
 import '../../utils/web_canvas.dart' as web_canvas;
 import 'package:flutter/material.dart';
+import '../../widgets/app_scroll_safe.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:intl/intl.dart';
+import 'package:excel/excel.dart' as excel_lib;
 import 'package:provider/provider.dart';
+import '../../utils/excel_report_builder.dart';
+import '../../widgets/pinned_box_header_delegate.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/permission_provider.dart';
 import '../../utils/attendance_correction_privilege.dart';
@@ -16,7 +21,6 @@ import '../../widgets/notification_overlay.dart';
 import '../../widgets/hrm_page_chrome.dart';
 import '../../widgets/attendance_correction_reason_field.dart';
 import '../../widgets/attendance_delete_confirm_dialog.dart';
-import '../../utils/report_screen_helpers.dart';
 import '../../utils/attendance_date_range_presets.dart';
 import '../../utils/attendance_leave_lookup.dart';
 import '../../utils/absence_day_actions.dart';
@@ -24,6 +28,7 @@ import '../../utils/attendance_correction_submit.dart';
 import '../../utils/attendance_record_resolver.dart';
 import '../../utils/attendance_correction_dates.dart';
 import '../../utils/attendance_viewport_preserve.dart';
+import '../../utils/shift_records_calculator.dart';
 import '../../widgets/synced_scroll_list_view.dart'
     show SyncedScrollListView, linkHorizontalScrollControllers;
 
@@ -47,6 +52,12 @@ class AttendanceByShiftTab extends StatefulWidget {
   /// Preset đang tải ở màn cha — giữ đồng bộ khi tab bị recreate sau loading.
   final String? dateRangePreset;
 
+  /// Nếu false, ẩn nút thêm/sửa giờ chấm công.
+  final bool allowCorrection;
+
+  /// Admin / có quyền duyệt → backend tự động duyệt khi lưu.
+  final bool directApplyCorrections;
+
   const AttendanceByShiftTab({
     super.key,
     required this.attendances,
@@ -65,6 +76,8 @@ class AttendanceByShiftTab extends StatefulWidget {
     this.mobileLeadingSections,
     this.onDateRangeChanged,
     this.dateRangePreset,
+    this.allowCorrection = true,
+    this.directApplyCorrections = false,
   });
 
   @override
@@ -75,7 +88,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
     with SingleTickerProviderStateMixin {
   late String _selectedPreset;
   Set<String> _selectedEmployeeIds = {};
-  String _shiftFilter = 'all'; // 'all' | 'missing' | 'complete'
+  // 'all' | 'valid' | 'late' | 'early' | 'late_early' | 'missing' | 'complete' | 'ot'
+  String _shiftFilter = 'all';
   bool _showMobileSummary = false;
 
   // Sorting
@@ -98,9 +112,12 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
   final ScrollController _ctLateVertScroll = ScrollController();
   final ScrollController _ctWrkVertScroll = ScrollController();
   final ScrollController _listScrollController = ScrollController();
+  final ScrollController _desktopTableHScrollHeader = ScrollController();
+  final ScrollController _desktopTableHScrollBody = ScrollController();
   final AttendanceViewportPreserve _viewportPreserve =
       AttendanceViewportPreserve();
   bool _ctScrollLinked = false;
+  bool _desktopScrollLinked = false;
   late final TabController _mobileTableTabController;
 
   static const _tableInnerScrollPhysics = ClampingScrollPhysics(
@@ -130,6 +147,22 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
     linkHorizontalScrollControllers(_ctAttScroll, _ctHrsScroll);
     linkHorizontalScrollControllers(_ctHrsScroll, _ctLateScroll);
     linkHorizontalScrollControllers(_ctLateScroll, _ctWrkScroll);
+  }
+
+  void _ensureDesktopTableScrollLinked() {
+    if (_desktopScrollLinked) return;
+    _desktopScrollLinked = true;
+    linkHorizontalScrollControllers(
+      _desktopTableHScrollHeader,
+      _desktopTableHScrollBody,
+    );
+  }
+
+  double _tableBodyViewportHeight(BuildContext context) {
+    final mq = MediaQuery.sizeOf(context);
+    final pad = MediaQuery.paddingOf(context);
+    final reserved = pad.top + pad.bottom + 240;
+    return (mq.height - reserved).clamp(260.0, 520.0);
   }
 
   BoxDecoration get _tableCardDecoration => BoxDecoration(
@@ -185,8 +218,55 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
     _ctHrsVertScroll.dispose();
     _ctLateVertScroll.dispose();
     _ctWrkVertScroll.dispose();
+    _desktopTableHScrollHeader.dispose();
+    _desktopTableHScrollBody.dispose();
     _mobileTableTabController.dispose();
     super.dispose();
+  }
+
+  bool _recordMatchesShiftStatusFilter(_DailyShiftRecord r) {
+    switch (_shiftFilter) {
+      case 'valid':
+        return r.status == 'Hợp lệ';
+      case 'late':
+        return r.lateMinutes > 0;
+      case 'early':
+        return r.earlyMinutes > 0;
+      case 'late_early':
+        return r.lateMinutes > 0 && r.earlyMinutes > 0;
+      case 'ot':
+        return r.overtimeMinutes > 0;
+      case 'missing':
+        return r.status.contains('Thiếu chấm') ||
+            r.punchTimes.length % 2 != 0;
+      case 'complete':
+        return !r.status.contains('Thiếu chấm') &&
+            r.punchTimes.length >= 2 &&
+            r.punchTimes.length % 2 == 0;
+      default:
+        return true;
+    }
+  }
+
+  String _shiftStatusFilterLabel() {
+    switch (_shiftFilter) {
+      case 'valid':
+        return 'Hợp lệ';
+      case 'late':
+        return 'Đi trễ';
+      case 'early':
+        return 'Về sớm';
+      case 'late_early':
+        return 'Đi trễ & Về sớm';
+      case 'ot':
+        return 'Tăng ca';
+      case 'missing':
+        return 'Thiếu chấm';
+      case 'complete':
+        return 'Đủ chấm công';
+      default:
+        return 'Tất cả trạng thái';
+    }
   }
 
   int get _shiftFp => Object.hash(
@@ -362,59 +442,222 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
     return dt.hour * 60 + dt.minute;
   }
 
-  /// Find the best matching shift template for a punch-in time
+  /// Find the best matching shift for a punch pair among assigned templates.
   Map<String, dynamic>? _findMatchingShift(
     int punchInMinutes,
     List<String> assignedShiftIds, {
-    bool hasExplicitAssignment = false,
+    int? punchOutMinutes,
+    Set<String> usedShiftIds = const {},
+    int pairIndex = 0,
   }) {
     if (assignedShiftIds.isEmpty) return null;
+    return findBestMatchingShift(
+      punchInMinutes: punchInMinutes,
+      punchOutMinutes: punchOutMinutes,
+      candidateIds: assignedShiftIds,
+      shiftTemplateMap: _shiftTemplateMap,
+      usedShiftIds: usedShiftIds,
+      pairIndex: pairIndex,
+    );
+  }
 
-    Map<String, dynamic>? bestMatch;
-    int bestDistance = 999999;
+  void _addMissingPunchHint(
+    List<_MissingPunchHint> hints,
+    _MissingPunchHint hint,
+  ) {
+    final exists = hints.any((h) =>
+        h.shiftName == hint.shiftName && h.isCheckIn == hint.isCheckIn);
+    if (!exists) hints.add(hint);
+  }
 
-    for (final stId in assignedShiftIds) {
-      final st = _shiftTemplateMap[stId];
-      if (st == null) continue;
-      if (st['isActive'] == false) continue;
+  Map<String, dynamic>? _shiftTemplateForName(String name) {
+    final key = name.toLowerCase().trim();
+    for (final st in _shiftTemplateMap.values) {
+      final n = (st['name']?.toString() ?? '').toLowerCase().trim();
+      if (n == key || key.contains(n) || n.contains(key)) return st;
+    }
+    return null;
+  }
 
-      final startMinutes = _parseTimeSpanToMinutes(st['startTime']?.toString());
+  void _enrichMissingPunchHints({
+    required List<_MissingPunchHint> hints,
+    required bool hasMissingPunch,
+    required List<String> missingOutShiftNames,
+    required List<DateTime> punchTimes,
+    required List<String> candidateIds,
+    required int shiftsPerDay,
+  }) {
+    if (!hasMissingPunch) return;
 
-      // Distance calculation considering cross-midnight
-      int dist = (punchInMinutes - startMinutes).abs();
-      if (dist > 720) dist = 1440 - dist; // wrap around midnight
-
-      if (dist < bestDistance) {
-        bestDistance = dist;
-        bestMatch = st;
+    for (final name in missingOutShiftNames) {
+      final st = _shiftTemplateForName(name);
+      if (st != null) {
+        final endMin = _parseTimeSpanToMinutes(st['endTime']?.toString());
+        _addMissingPunchHint(
+          hints,
+          _MissingPunchHint(
+            shiftName: st['name']?.toString() ?? name,
+            isCheckIn: false,
+            suggestedTime:
+                TimeOfDay(hour: endMin ~/ 60, minute: endMin % 60),
+          ),
+        );
       }
     }
 
-    // Fallback: nếu match tốt nhất vẫn cách > 180 phút (3h) — có thể do
-    // assignedShiftIds bị stale (template đã xoá/đổi store), hoặc NV chấm
-    // ngoài ca được gán — thì search TẤT CẢ template active trong store.
-    // Trước đây fallback chỉ chạy khi !hasExplicitAssignment khiến NV có gán
-    // ca lệch bị bỏ qua hoàn toàn (trễ = 0). Bỏ guard để bắt buộc thử match
-    // toàn bộ template trước khi đầu hàng.
-    if (bestDistance > 180) {
-      for (final st in _shiftTemplateMap.values) {
-        if (st['isActive'] == false) continue;
-        final startMinutes =
-            _parseTimeSpanToMinutes(st['startTime']?.toString());
-        int dist = (punchInMinutes - startMinutes).abs();
-        if (dist > 720) dist = 1440 - dist;
-        if (dist < bestDistance) {
-          bestDistance = dist;
-          bestMatch = st;
-        }
+    if (punchTimes.isEmpty && hints.isEmpty && candidateIds.isNotEmpty) {
+      final ordered = candidateIds.toList()
+        ..sort((a, b) {
+          final sa = _parseTimeSpanToMinutes(
+              _shiftTemplateMap[a]?['startTime']?.toString());
+          final sb = _parseTimeSpanToMinutes(
+              _shiftTemplateMap[b]?['startTime']?.toString());
+          return sa.compareTo(sb);
+        });
+      final limit = shiftsPerDay.clamp(1, ordered.length);
+      for (var i = 0; i < limit; i++) {
+        final st = _shiftTemplateMap[ordered[i]];
+        if (st == null) continue;
+        final startMin = _parseTimeSpanToMinutes(st['startTime']?.toString());
+        _addMissingPunchHint(
+          hints,
+          _MissingPunchHint(
+            shiftName: st['name']?.toString() ?? 'Ca ${i + 1}',
+            isCheckIn: true,
+            suggestedTime:
+                TimeOfDay(hour: startMin ~/ 60, minute: startMin % 60),
+          ),
+        );
       }
     }
 
-    // Nếu sau cùng best match vẫn > 180 phút (NV ca đêm chấm vào ban ngày,
-    // punch lạc, v.v.) → trả null để caller bỏ qua pair, không tính trễ/sớm.
-    if (bestDistance > 180) return null;
+    if (punchTimes.length.isOdd && hints.isEmpty) {
+      final isIn = punchTimes.length.isEven;
+      final last = punchTimes.last;
+      _addMissingPunchHint(
+        hints,
+        _MissingPunchHint(
+          shiftName: 'Ca hiện tại',
+          isCheckIn: isIn,
+          suggestedTime: TimeOfDay(hour: last.hour, minute: last.minute),
+        ),
+      );
+    }
+  }
 
-    return bestMatch;
+  bool _statusHasMissingPunch(String status) =>
+      status.contains('Thiếu chấm') || status.contains('Thiếu ra');
+
+  void _onMissingStatusTap(_DailyShiftRecord record) {
+    if (!widget.allowCorrection) return;
+    if (!_statusHasMissingPunch(record.status)) return;
+
+    if (record.missingPunchHints.isEmpty) {
+      _showManualPunchDialog(record);
+      return;
+    }
+    if (record.missingPunchHints.length == 1) {
+      final h = record.missingPunchHints.first;
+      _showManualPunchDialog(
+        record,
+        isIn: h.isCheckIn,
+        initialTime: h.suggestedTime,
+        initialReason:
+            'Bổ sung chấm ${h.isCheckIn ? "vào" : "ra"} ca ${h.shiftName}',
+        shiftContextLabel: h.shiftName,
+      );
+      return;
+    }
+    _showMissingPunchQuickAddDialog(record);
+  }
+
+  void _showMissingPunchQuickAddDialog(_DailyShiftRecord record) {
+    if (!widget.allowCorrection) return;
+    showDialog(
+      context: context,
+      builder: (ctx) => ScrollableAlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.playlist_add, color: Colors.orange),
+            SizedBox(width: 8),
+            Expanded(child: Text('Bổ sung chấm công thiếu')),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                '${record.employeeName} · ${DateFormat('dd/MM/yyyy').format(record.date)}',
+                style: const TextStyle(
+                    fontWeight: FontWeight.w600, fontSize: 13),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                record.status,
+                style: TextStyle(fontSize: 12, color: Colors.orange.shade800),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Chọn gợi ý để thêm nhanh:',
+                style: TextStyle(fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: 10),
+              ...record.missingPunchHints.map((h) {
+                final timeStr =
+                    '${h.suggestedTime.hour.toString().padLeft(2, '0')}:${h.suggestedTime.minute.toString().padLeft(2, '0')}';
+                final label =
+                    '${h.isCheckIn ? "Vào" : "Ra"} $timeStr — ${h.shiftName}';
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      _showManualPunchDialog(
+                        record,
+                        isIn: h.isCheckIn,
+                        initialTime: h.suggestedTime,
+                        initialReason:
+                            'Bổ sung chấm ${h.isCheckIn ? "vào" : "ra"} ca ${h.shiftName}',
+                        shiftContextLabel: h.shiftName,
+                      );
+                    },
+                    icon: Icon(
+                      h.isCheckIn ? Icons.login : Icons.logout,
+                      size: 18,
+                      color: h.isCheckIn ? Colors.green : Colors.red,
+                    ),
+                    label: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(label),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      alignment: Alignment.centerLeft,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 12),
+                    ),
+                  ),
+                );
+              }),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Đóng'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _showManualPunchDialog(record);
+            },
+            child: const Text('Tùy chỉnh khác'),
+          ),
+        ],
+      ),
+    );
   }
 
   /// Check if a date is a weekly off day for a given employee
@@ -549,9 +792,9 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
 
         // Collect all punch times and attendance IDs for display/edit
         final punchTimes = dayAttendances.map((a) => a.punchTime).toList();
-        // displayPunchTimes mirrors punchTimes but with check-in/check-out snapped
-        // to shift start/end when within tolerance settings (lateGrace, maxAllowedLate,
-        // earlyGrace, maxAllowedEarlyLeave, overtimeThreshold). Populated in pair loop.
+        // displayPunchTimes mirrors punchTimes but may snap to shift start/end only
+        // when within grace windows (earlyCheckInMinutes, lateGrace, earlyGrace,
+        // OT threshold). Beyond grace → keep actual punch time for display.
         final displayPunchTimes = List<DateTime>.from(punchTimes);
         final attendanceIds = dayAttendances.map((a) => a.id).toList();
 
@@ -574,21 +817,108 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
         bool hasMissingPunch = false;
         final shiftNames = <String>[];
         final missingOutShiftNames = <String>[];
+        final missingPunchHints = <_MissingPunchHint>[];
+        final usedShiftIds = <String>{};
+        final dayPairs = buildDayAttendancePairs(dayAttendances);
 
-        for (int i = 0; i < dayAttendances.length; i += 2) {
-          final punchIn = dayAttendances[i].punchTime;
-          final punchOut = (i + 1 < dayAttendances.length)
-              ? dayAttendances[i + 1].punchTime
-              : null;
+        int? _punchIdx(DateTime? t) {
+          if (t == null) return null;
+          for (var j = 0; j < dayAttendances.length; j++) {
+            if (dayAttendances[j].punchTime == t) return j;
+          }
+          return null;
+        }
+
+        for (var pairIndex = 0; pairIndex < dayPairs.length; pairIndex++) {
+          final pair = dayPairs[pairIndex];
+          DateTime? punchIn = pair.checkIn;
+          final punchOut = pair.checkOut;
+          final punchInIdx = _punchIdx(pair.checkIn);
+          final punchOutIdx = _punchIdx(punchOut);
+
+          Map<String, dynamic>? matchedShift;
+          if (pair.isOrphanOut && punchOut != null) {
+            final outMin = _dateTimeToMinutes(punchOut);
+            matchedShift = matchShiftForOrphanCheckOut(
+              checkOutMinutes: outMin,
+              candidateIds: candidateIds,
+              shiftTemplateMap: _shiftTemplateMap,
+              usedShiftIds: usedShiftIds,
+              pairIndex: pairIndex,
+            );
+            if (matchedShift != null) {
+              final prevOut = pairIndex > 0
+                  ? dayPairs[pairIndex - 1].checkOut
+                  : null;
+              punchIn = inferAdminCheckInForOrphanOut(
+                checkOut: punchOut,
+                matchedShift: matchedShift,
+                previousCheckOut: prevOut,
+              );
+            }
+          }
+
+          if (punchIn == null) {
+            if (pair.isOrphanOut) {
+              hasMissingPunch = true;
+              if (punchOut != null) {
+                final outMin = _dateTimeToMinutes(punchOut);
+                final orphanShift = matchShiftForOrphanCheckOut(
+                  checkOutMinutes: outMin,
+                  candidateIds: candidateIds,
+                  shiftTemplateMap: _shiftTemplateMap,
+                  usedShiftIds: usedShiftIds,
+                  pairIndex: pairIndex,
+                );
+                if (orphanShift != null) {
+                  final prevOut = pairIndex > 0
+                      ? dayPairs[pairIndex - 1].checkOut
+                      : null;
+                  final startMin = _parseTimeSpanToMinutes(
+                      orphanShift['startTime']?.toString());
+                  DateTime suggestedIn = DateTime(
+                    punchOut.year,
+                    punchOut.month,
+                    punchOut.day,
+                    startMin ~/ 60,
+                    startMin % 60,
+                  );
+                  if (prevOut != null &&
+                      prevOut.isAfter(suggestedIn)) {
+                    suggestedIn = prevOut;
+                  }
+                  _addMissingPunchHint(
+                    missingPunchHints,
+                    _MissingPunchHint(
+                      shiftName:
+                          orphanShift['name']?.toString() ?? 'Ca hành chính',
+                      isCheckIn: true,
+                      suggestedTime: TimeOfDay(
+                        hour: suggestedIn.hour,
+                        minute: suggestedIn.minute,
+                      ),
+                    ),
+                  );
+                }
+              }
+            }
+            continue;
+          }
 
           final punchInMinutes = _dateTimeToMinutes(punchIn);
-          final matchedShift = _findMatchingShift(
+          final punchOutMinutes =
+              punchOut != null ? _dateTimeToMinutes(punchOut) : null;
+          matchedShift ??= _findMatchingShift(
             punchInMinutes,
             candidateIds,
-            hasExplicitAssignment: assignedShiftIds.isNotEmpty,
+            punchOutMinutes: punchOutMinutes,
+            usedShiftIds: usedShiftIds,
+            pairIndex: pairIndex,
           );
 
           if (matchedShift != null) {
+            final shiftId = matchedShift['id']?.toString() ?? '';
+            if (shiftId.isNotEmpty) usedShiftIds.add(shiftId);
             final name = matchedShift['name']?.toString() ?? '';
             if (name.isNotEmpty && !shiftNames.contains(name)) {
               shiftNames.add(name);
@@ -598,6 +928,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
           // Compute late once we know the matched shift, regardless of whether
           // punchOut is missing (otherwise NV vào ca chiều mà chưa ra cũng bị
           // tính 0P trễ, sai logic).
+          final isOtShift = isOvertimeShiftTemplate(matchedShift);
           int lateCalc = 0;
           int lateGrace = 5;
           int earlyGrace = 5;
@@ -608,56 +939,72 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
           int overtimeThreshold = 0;
           int maxAllowedLate = 0;
           int maxAllowedEarlyLeave = 0;
+          int earlyCheckInMinutes = 30;
+          int rawEarlyForSnapIn = 0;
           if (matchedShift != null) {
             shiftStartMin =
                 _parseTimeSpanToMinutes(matchedShift['startTime']?.toString());
             shiftEndMin =
                 _parseTimeSpanToMinutes(matchedShift['endTime']?.toString());
             isCrossMidnight = shiftStartMin > shiftEndMin;
-            shiftDurationMin = isCrossMidnight
-                ? (1440 - shiftStartMin + shiftEndMin)
-                : (shiftEndMin - shiftStartMin);
-            lateGrace =
-                (matchedShift['lateGraceMinutes'] as num?)?.toInt() ?? 5;
-            earlyGrace =
-                (matchedShift['earlyLeaveGraceMinutes'] as num?)?.toInt() ?? 5;
-            overtimeThreshold =
-                (matchedShift['breakTimeMinutes'] as num?)?.toInt() ?? 0;
-            maxAllowedLate =
-                (matchedShift['maximumAllowedLateMinutes'] as num?)?.toInt() ??
-                    0;
-            maxAllowedEarlyLeave =
-                (matchedShift['maximumAllowedEarlyLeaveMinutes'] as num?)
-                        ?.toInt() ??
-                    0;
+            if (!isOtShift) {
+              shiftDurationMin = isCrossMidnight
+                  ? (1440 - shiftStartMin + shiftEndMin)
+                  : (shiftEndMin - shiftStartMin);
+              lateGrace =
+                  (matchedShift['lateGraceMinutes'] as num?)?.toInt() ?? 5;
+              earlyGrace =
+                  (matchedShift['earlyLeaveGraceMinutes'] as num?)?.toInt() ??
+                      5;
+              overtimeThreshold =
+                  (matchedShift['overtimeMinutesThreshold'] as num?)
+                          ?.toInt() ??
+                      30;
+              maxAllowedLate =
+                  (matchedShift['maximumAllowedLateMinutes'] as num?)
+                          ?.toInt() ??
+                      0;
+              maxAllowedEarlyLeave =
+                  (matchedShift['maximumAllowedEarlyLeaveMinutes'] as num?)
+                          ?.toInt() ??
+                      0;
+              earlyCheckInMinutes =
+                  (matchedShift['earlyCheckInMinutes'] as num?)?.toInt() ?? 30;
 
-            if (isCrossMidnight) {
-              if (punchInMinutes >= shiftStartMin) {
+              if (isCrossMidnight) {
+                if (punchInMinutes >= shiftStartMin) {
+                  lateCalc = punchInMinutes - shiftStartMin;
+                } else if (punchInMinutes < shiftEndMin) {
+                  lateCalc = (1440 - shiftStartMin) + punchInMinutes;
+                }
+              } else if (punchInMinutes > shiftStartMin) {
                 lateCalc = punchInMinutes - shiftStartMin;
-              } else if (punchInMinutes < shiftEndMin) {
-                lateCalc = (1440 - shiftStartMin) + punchInMinutes;
               }
-            } else if (punchInMinutes > shiftStartMin) {
-              lateCalc = punchInMinutes - shiftStartMin;
-            }
-            if (lateCalc > 0 && lateCalc <= lateGrace) lateCalc = 0;
-            if (lateCalc > 0) totalLate += lateCalc;
+              if (lateCalc > 0 && lateCalc <= lateGrace) lateCalc = 0;
+              if (lateCalc > 0) totalLate += lateCalc;
 
-            // Snap displayed check-in to shift start when within tolerance.
-            // Applies for both grace-period cases (rawLate <= lateGrace)
-            // and maximumAllowedLate cases.
-            final rawLateForSnap = isCrossMidnight
-                ? (punchInMinutes >= shiftStartMin
-                    ? punchInMinutes - shiftStartMin
-                    : 0)
-                : (punchInMinutes > shiftStartMin
-                    ? punchInMinutes - shiftStartMin
-                    : 0);
-            if (rawLateForSnap > 0 &&
-                (rawLateForSnap <= lateGrace ||
-                    (maxAllowedLate > 0 && rawLateForSnap <= maxAllowedLate))) {
-              displayPunchTimes[i] = DateTime(punchIn.year, punchIn.month,
-                  punchIn.day, shiftStartMin ~/ 60, shiftStartMin % 60);
+              rawEarlyForSnapIn = isCrossMidnight
+                  ? (punchInMinutes < shiftStartMin &&
+                          punchInMinutes > shiftEndMin
+                      ? shiftStartMin - punchInMinutes
+                      : 0)
+                  : (punchInMinutes < shiftStartMin
+                      ? shiftStartMin - punchInMinutes
+                      : 0);
+              final rawLateForSnap = isCrossMidnight
+                  ? (punchInMinutes >= shiftStartMin
+                      ? punchInMinutes - shiftStartMin
+                      : 0)
+                  : (punchInMinutes > shiftStartMin
+                      ? punchInMinutes - shiftStartMin
+                      : 0);
+              final snapIn = (rawEarlyForSnapIn > 0 &&
+                      rawEarlyForSnapIn <= earlyCheckInMinutes) ||
+                  (rawLateForSnap > 0 && rawLateForSnap <= lateGrace);
+              if (snapIn && punchInIdx != null) {
+                displayPunchTimes[punchInIdx] = DateTime(punchIn.year, punchIn.month,
+                    punchIn.day, shiftStartMin ~/ 60, shiftStartMin % 60);
+              }
             }
           }
 
@@ -674,36 +1021,69 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
             if (!missingOutShiftNames.contains(name)) {
               missingOutShiftNames.add(name);
             }
+            if (matchedShift != null && shiftEndMin > 0) {
+              _addMissingPunchHint(
+                missingPunchHints,
+                _MissingPunchHint(
+                  shiftName: name,
+                  isCheckIn: false,
+                  suggestedTime: TimeOfDay(
+                    hour: shiftEndMin ~/ 60,
+                    minute: shiftEndMin % 60,
+                  ),
+                ),
+              );
+            } else if (punchIn != null) {
+              _addMissingPunchHint(
+                missingPunchHints,
+                _MissingPunchHint(
+                  shiftName: name,
+                  isCheckIn: false,
+                  suggestedTime: TimeOfDay(
+                    hour: punchIn.hour,
+                    minute: punchIn.minute,
+                  ),
+                ),
+              );
+            }
             // KHÔNG cộng workCount khi thiếu ra để tránh tính công nửa vời.
             continue;
           }
 
-          final punchOutMinutes = _dateTimeToMinutes(punchOut);
+          final outMinutes = punchOutMinutes!;
           final actualWorkedMinutes = punchOut.difference(punchIn).inMinutes;
+
+          if (matchedShift != null && isOtShift) {
+            if (actualWorkedMinutes > 0) {
+              totalOT += actualWorkedMinutes;
+              totalWorkHours += actualWorkedMinutes / 60.0;
+              totalDecimalHours += actualWorkedMinutes / 60.0;
+            }
+            continue;
+          }
 
           if (matchedShift != null) {
             // Early
             int earlyCalc = 0;
             if (isCrossMidnight) {
-              if (punchOutMinutes <= shiftEndMin) {
-                earlyCalc = shiftEndMin - punchOutMinutes;
-              } else if (punchOutMinutes >= shiftStartMin) {
-                earlyCalc = (1440 - punchOutMinutes) + shiftEndMin;
+              if (outMinutes <= shiftEndMin) {
+                earlyCalc = shiftEndMin - outMinutes;
+              } else if (outMinutes >= shiftStartMin) {
+                earlyCalc = (1440 - outMinutes) + shiftEndMin;
               }
-            } else if (punchOutMinutes < shiftEndMin) {
-              earlyCalc = shiftEndMin - punchOutMinutes;
+            } else if (outMinutes < shiftEndMin) {
+              earlyCalc = shiftEndMin - outMinutes;
             }
             if (earlyCalc > 0 && earlyCalc <= earlyGrace) earlyCalc = 0;
 
             // Overtime – only count if extra minutes exceed shift's "Tính tăng ca" threshold
             int extraMin = 0;
             if (isCrossMidnight) {
-              if (punchOutMinutes > shiftEndMin &&
-                  punchOutMinutes < shiftStartMin) {
-                extraMin = punchOutMinutes - shiftEndMin;
+              if (outMinutes > shiftEndMin && outMinutes < shiftStartMin) {
+                extraMin = outMinutes - shiftEndMin;
               }
-            } else if (punchOutMinutes > shiftEndMin) {
-              extraMin = punchOutMinutes - shiftEndMin;
+            } else if (outMinutes > shiftEndMin) {
+              extraMin = outMinutes - shiftEndMin;
             }
             if (extraMin > overtimeThreshold) {
               totalOT += extraMin;
@@ -713,37 +1093,33 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
             }
             if (earlyCalc > 0) totalEarly += earlyCalc;
 
-            // Snap displayed check-out to shift end when within tolerance.
-            // Covers: early leave within grace/maxAllowedEarlyLeave, and
-            // stayed late but extra minutes don't qualify as OT.
+            // Snap displayed check-out to shift end when within grace only,
+            // or stayed late but extra minutes don't qualify as OT.
             {
               int rawEarlyForSnap;
               int rawExtraForSnap;
               if (isCrossMidnight) {
-                rawEarlyForSnap = punchOutMinutes <= shiftEndMin
-                    ? shiftEndMin - punchOutMinutes
+                rawEarlyForSnap = outMinutes <= shiftEndMin
+                    ? shiftEndMin - outMinutes
                     : 0;
-                rawExtraForSnap = (punchOutMinutes > shiftEndMin &&
-                        punchOutMinutes < shiftStartMin)
-                    ? punchOutMinutes - shiftEndMin
+                rawExtraForSnap = (outMinutes > shiftEndMin &&
+                        outMinutes < shiftStartMin)
+                    ? outMinutes - shiftEndMin
                     : 0;
               } else {
-                rawEarlyForSnap = punchOutMinutes < shiftEndMin
-                    ? shiftEndMin - punchOutMinutes
+                rawEarlyForSnap = outMinutes < shiftEndMin
+                    ? shiftEndMin - outMinutes
                     : 0;
-                rawExtraForSnap = punchOutMinutes > shiftEndMin
-                    ? punchOutMinutes - shiftEndMin
-                    : 0;
+                rawExtraForSnap =
+                    outMinutes > shiftEndMin ? outMinutes - shiftEndMin : 0;
               }
               final snapOut = (rawEarlyForSnap > 0 &&
-                      (rawEarlyForSnap <= earlyGrace ||
-                          (maxAllowedEarlyLeave > 0 &&
-                              rawEarlyForSnap <= maxAllowedEarlyLeave))) ||
+                      rawEarlyForSnap <= earlyGrace) ||
                   (rawExtraForSnap > 0 &&
                       overtimeThreshold > 0 &&
                       rawExtraForSnap <= overtimeThreshold);
-              if (snapOut) {
-                displayPunchTimes[i + 1] = DateTime(
+              if (snapOut && punchOutIdx != null) {
+                displayPunchTimes[punchOutIdx] = DateTime(
                     punchOut.year,
                     punchOut.month,
                     punchOut.day,
@@ -761,14 +1137,16 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
             } else {
               final effIn = (lateCalc > 0 &&
                       maxAllowedLate > 0 &&
-                      lateCalc <= maxAllowedLate)
+                      lateCalc <= maxAllowedLate) ||
+                  (rawEarlyForSnapIn > 0 &&
+                      rawEarlyForSnapIn <= earlyCheckInMinutes)
                   ? shiftStartMin
                   : punchInMinutes;
               final effOut = (earlyCalc > 0 &&
                       maxAllowedEarlyLeave > 0 &&
                       earlyCalc <= maxAllowedEarlyLeave)
                   ? shiftEndMin
-                  : punchOutMinutes;
+                  : outMinutes;
               effectiveWorkedMin = isCrossMidnight
                   ? ((1440 - effIn) + effOut).clamp(0, shiftDurationMin)
                   : (effOut - effIn).clamp(0, shiftDurationMin);
@@ -844,6 +1222,9 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
         } else if (totalEarly > 0) {
           status = 'Về sớm';
           statusColor = Colors.red;
+        } else if (totalOT > 0 && totalWorkCount == 0) {
+          status = 'Tăng ca';
+          statusColor = Colors.amber;
         } else if (totalWorkCount > 0) {
           status = 'Hợp lệ';
           statusColor = Colors.green;
@@ -867,6 +1248,15 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
           statusColor = Colors.orange;
         }
 
+        _enrichMissingPunchHints(
+          hints: missingPunchHints,
+          hasMissingPunch: hasMissingPunch,
+          missingOutShiftNames: missingOutShiftNames,
+          punchTimes: punchTimes,
+          candidateIds: candidateIds,
+          shiftsPerDay: shiftsPerDay,
+        );
+
         records.add(_DailyShiftRecord(
           employeeId: employeeCode,
           employeeName: first.employeeName?.isNotEmpty == true
@@ -889,6 +1279,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
           status: status,
           statusColor: statusColor,
           workCount: totalWorkCount,
+          missingPunchHints: missingPunchHints,
         ));
       });
     });
@@ -901,23 +1292,9 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
       return _sortAscending ? cmp : -cmp;
     });
 
-    // Filter by shift status
-    List<_DailyShiftRecord> result;
-    if (_shiftFilter == 'missing') {
-      result = records
-          .where((r) =>
-              r.status.contains('Thiếu chấm') || r.punchTimes.length % 2 != 0)
-          .toList();
-    } else if (_shiftFilter == 'complete') {
-      result = records
-          .where((r) =>
-              !r.status.contains('Thiếu chấm') &&
-              r.punchTimes.length >= 2 &&
-              r.punchTimes.length % 2 == 0)
-          .toList();
-    } else {
-      result = records;
-    }
+    final result = _shiftFilter == 'all'
+        ? records
+        : records.where(_recordMatchesShiftStatusFilter).toList();
     _cachedShiftData = result;
     _cachedShiftFp = fp;
     return result;
@@ -1097,8 +1474,14 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
     final shiftFilter = _buildDropdown<String>(
       value: _shiftFilter,
       items: const [
-        DropdownMenuItem(value: 'all', child: Text('Tất cả ca')),
-        DropdownMenuItem(value: 'missing', child: Text('Thiếu chấm công')),
+        DropdownMenuItem(value: 'all', child: Text('Tất cả trạng thái')),
+        DropdownMenuItem(value: 'valid', child: Text('Hợp lệ')),
+        DropdownMenuItem(value: 'late', child: Text('Đi trễ')),
+        DropdownMenuItem(value: 'early', child: Text('Về sớm')),
+        DropdownMenuItem(
+            value: 'late_early', child: Text('Đi trễ & Về sớm')),
+        DropdownMenuItem(value: 'ot', child: Text('Tăng ca')),
+        DropdownMenuItem(value: 'missing', child: Text('Thiếu chấm')),
         DropdownMenuItem(value: 'complete', child: Text('Đủ chấm công')),
       ],
       onChanged: (v) {
@@ -1109,8 +1492,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
           });
         }
       },
-      icon: Icons.warning_amber_rounded,
-      width: isMobile ? 150 : null,
+      icon: Icons.filter_list_rounded,
+      width: isMobile ? 168 : null,
     );
 
     final summaryChip = Container(
@@ -1376,7 +1759,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
                         e.code.toLowerCase().contains(searchText.toLowerCase()))
                     .toList();
 
-            return AlertDialog(
+            return ScrollableAlertDialog(
               title: Row(
                 children: [
                   const Icon(Icons.people, color: Colors.blue, size: 22),
@@ -1548,17 +1931,26 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
     );
   }
 
-  void _showManualPunchDialog(_DailyShiftRecord record) {
+  void _showManualPunchDialog(
+    _DailyShiftRecord record, {
+    bool? isIn,
+    TimeOfDay? initialTime,
+    String? initialReason,
+    String? shiftContextLabel,
+  }) {
+    if (!widget.allowCorrection) return;
     DateTime selectedDate = record.date;
-    TimeOfDay selectedTime = TimeOfDay.now();
+    final resolvedIsIn =
+        isIn ?? (record.punchTimes.length).isEven;
+    TimeOfDay selectedTime = initialTime ?? TimeOfDay.now();
     final int punchIndex = record.punchTimes.length + 1;
-    final bool isIn = (record.punchTimes.length).isEven;
-    final reasonController = TextEditingController();
+    final reasonController =
+        TextEditingController(text: initialReason ?? '');
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
+        builder: (ctx, setDialogState) => ScrollableAlertDialog(
           title: const Row(
             children: [
               Icon(Icons.add_circle, color: Colors.blue),
@@ -1585,7 +1977,14 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
                         Text('Mã NV: ${record.employeeCode}'),
                         Text(
                             'Ngày: ${DateFormat('dd/MM/yyyy').format(selectedDate)}'),
-                        Text('Lần chấm: $punchIndex (${isIn ? "Vào" : "Ra"})'),
+                        if (shiftContextLabel != null &&
+                            shiftContextLabel.isNotEmpty)
+                          Text('Ca: $shiftContextLabel',
+                              style: TextStyle(
+                                  color: Colors.blue.shade700,
+                                  fontWeight: FontWeight.w500)),
+                        Text(
+                            'Lần chấm: $punchIndex (${resolvedIsIn ? "Vào" : "Ra"})'),
                       ],
                     ),
                   ),
@@ -1666,8 +2065,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
                     ),
                     child: Row(
                       children: [
-                        Icon(isIn ? Icons.login : Icons.logout,
-                            color: isIn ? Colors.green : Colors.red),
+                        Icon(resolvedIsIn ? Icons.login : Icons.logout,
+                            color: resolvedIsIn ? Colors.green : Colors.red),
                         const SizedBox(width: 8),
                         Text(
                           '${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}',
@@ -1689,7 +2088,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
                   date: selectedDate,
                   timeText:
                       '${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}',
-                  punchLabel: isIn ? 'Vào' : 'Ra',
+                  punchLabel: resolvedIsIn ? 'Vào' : 'Ra',
                 ),
               ],
             ),
@@ -1720,7 +2119,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
                     selectedDate.day,
                   ),
                   newTime: '$timeStr:00',
-                  newType: isIn ? 'CheckIn' : 'CheckOut',
+                  newType: resolvedIsIn ? 'CheckIn' : 'CheckOut',
                   reason: reasonController.text.trim(),
                 );
                 if (ctx.mounted) Navigator.pop(ctx);
@@ -1890,7 +2289,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
     final dateStr = DateFormat('dd/MM/yyyy').format(record.date);
     final dayOfWeek = _getDayOfWeekVN(record.date.weekday);
 
-    showModalBottomSheet(
+    showAppSheet(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
@@ -1947,13 +2346,45 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
                 // ra Ca chiều", "Đi trễ • Thiếu ra Ca sáng") sẽ xuống dòng
                 // riêng phía dưới để không chèn ép tên + ngày.
                 if (record.status.length <= 14)
-                  _buildStatusBadge(record.status, record.statusColor),
+                  _buildStatusBadge(record.status, record.statusColor,
+                      record: record),
               ]),
               if (record.status.length > 14) ...[
                 const SizedBox(height: 10),
                 Align(
                   alignment: Alignment.centerLeft,
-                  child: _buildStatusBadge(record.status, record.statusColor),
+                  child: _buildStatusBadge(record.status, record.statusColor,
+                      record: record),
+                ),
+              ],
+              if (_statusHasMissingPunch(record.status) &&
+                  widget.allowCorrection &&
+                  record.missingPunchHints.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: record.missingPunchHints.map((h) {
+                    final t =
+                        '${h.suggestedTime.hour.toString().padLeft(2, '0')}:${h.suggestedTime.minute.toString().padLeft(2, '0')}';
+                    return ActionChip(
+                      avatar: Icon(
+                        h.isCheckIn ? Icons.login : Icons.logout,
+                        size: 16,
+                        color: h.isCheckIn ? Colors.green : Colors.red,
+                      ),
+                      label: Text(
+                          'Thêm ${h.isCheckIn ? "vào" : "ra"} $t — ${h.shiftName}'),
+                      onPressed: () => _showManualPunchDialog(
+                        record,
+                        isIn: h.isCheckIn,
+                        initialTime: h.suggestedTime,
+                        initialReason:
+                            'Bổ sung chấm ${h.isCheckIn ? "vào" : "ra"} ca ${h.shiftName}',
+                        shiftContextLabel: h.shiftName,
+                      ),
+                    );
+                  }).toList(),
                 ),
               ],
               const SizedBox(height: 16),
@@ -1967,47 +2398,76 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
               // Punch times
               _detailLabel('Giờ chấm công'),
               const SizedBox(height: 6),
-              if (record.punchTimes.isEmpty)
+              if (record.punchTimes.isEmpty && !widget.allowCorrection)
                 const Text('Không có dữ liệu',
                     style: TextStyle(color: Color(0xFFA1A1AA), fontSize: 13))
-              else
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 6,
-                  children: record.displayPunchTimes.asMap().entries.map((e) {
-                    final isIn = e.key.isEven;
-                    return Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: isIn
-                            ? const Color(0xFFEFF6FF)
-                            : const Color(0xFFFEF2F2),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                            color: isIn
-                                ? const Color(0xFF3B82F6).withValues(alpha: 0.3)
-                                : const Color(0xFFEF4444)
-                                    .withValues(alpha: 0.3)),
-                      ),
-                      child: Row(mainAxisSize: MainAxisSize.min, children: [
-                        Icon(isIn ? Icons.login : Icons.logout,
-                            size: 14,
-                            color: isIn
-                                ? const Color(0xFF3B82F6)
-                                : const Color(0xFFEF4444)),
-                        const SizedBox(width: 4),
-                        Text(DateFormat('HH:mm:ss').format(e.value),
+              else ...[
+                ...List.generate(
+                  record.punchTimes.isEmpty ? 1 : record.punchTimes.length,
+                  (i) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 28,
+                          height: 28,
+                          decoration: BoxDecoration(
+                            color: (i.isEven ? Colors.green : Colors.orange)
+                                .withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Icon(
+                            i.isEven ? Icons.login : Icons.logout,
+                            size: 15,
+                            color: i.isEven ? Colors.green : Colors.orange,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Lần ${i + 1} (${i.isEven ? "Vào" : "Ra"})',
                             style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: isIn
-                                    ? const Color(0xFF3B82F6)
-                                    : const Color(0xFFEF4444))),
-                      ]),
-                    );
-                  }).toList(),
+                                fontSize: 13, color: Colors.grey.shade700),
+                          ),
+                        ),
+                        _buildPunchTimeCell(record, i),
+                      ],
+                    ),
+                  ),
                 ),
+                if (widget.allowCorrection)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 28,
+                          height: 28,
+                          decoration: BoxDecoration(
+                            color: Colors.blue.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Icon(
+                            record.punchTimes.length.isEven
+                                ? Icons.login
+                                : Icons.logout,
+                            size: 15,
+                            color: Colors.blue,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Lần ${record.punchTimes.length + 1} (${record.punchTimes.length.isEven ? "Vào" : "Ra"})',
+                            style: TextStyle(
+                                fontSize: 13, color: Colors.grey.shade700),
+                          ),
+                        ),
+                        _buildPunchTimeCell(record, record.punchTimes.length),
+                      ],
+                    ),
+                  ),
+              ],
               const SizedBox(height: 16),
               const Divider(height: 1),
               const SizedBox(height: 16),
@@ -2097,16 +2557,10 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
     // sẽ xuống dòng riêng bên dưới để không chèn ép tên + chevron.
     final isLongStatus = record.status.length > 14;
 
-    final statusBadge = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-          color: record.statusColor.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(8)),
-      child: Text(record.status,
-          style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              color: record.statusColor)),
+    final statusBadge = _buildStatusBadge(
+      record.status,
+      record.statusColor,
+      record: record,
     );
 
     return InkWell(
@@ -2164,7 +2618,11 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
   }
 
   /// Pagination bar
-  Widget _buildPaginationBar(int totalRows, int totalPages) {
+  Widget _buildPaginationBar(
+    int totalRows,
+    int totalPages, {
+    VoidCallback? onOpenFullscreen,
+  }) {
     final startRow = totalRows == 0 ? 0 : _currentPage * _rowsPerPage + 1;
     final endRow = ((_currentPage + 1) * _rowsPerPage).clamp(0, totalRows);
     final primary = Theme.of(context).primaryColor;
@@ -2282,6 +2740,40 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
                 infoWidget,
                 const SizedBox(width: 16),
                 rowsPerPageWidget,
+                if (onOpenFullscreen != null) ...[
+                  const SizedBox(width: 8),
+                  Tooltip(
+                    message: 'Xem toàn màn hình',
+                    child: Material(
+                      color: const Color(0xFFEFF6FF),
+                      borderRadius: BorderRadius.circular(8),
+                      child: InkWell(
+                        onTap: onOpenFullscreen,
+                        borderRadius: BorderRadius.circular(8),
+                        child: const Padding(
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 6),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.fullscreen,
+                                  size: 18, color: Color(0xFF2563EB)),
+                              SizedBox(width: 6),
+                              Text(
+                                'Toàn màn hình',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF2563EB),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
                 const Spacer(),
                 navWidget,
               ],
@@ -2309,6 +2801,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
 
   /// Dialog sửa giờ chấm công
   void _showEditPunchDialog(_DailyShiftRecord record, int punchIndex) {
+    if (!widget.allowCorrection) return;
     if (punchIndex >= record.punchTimes.length) return;
     final originalTime = record.punchTimes[punchIndex];
     final preferredId = punchIndex < record.attendanceIds.length
@@ -2333,7 +2826,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
+        builder: (ctx, setDialogState) => ScrollableAlertDialog(
           title: const Row(
             children: [
               Icon(Icons.edit, color: Colors.orange),
@@ -2699,113 +3192,813 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
     }
   }
 
-  /// Export to Excel
+  void _excelMergedText(
+    excel_lib.Sheet sheet, {
+    required int row,
+    required int colStart,
+    required int colEnd,
+    required String text,
+    excel_lib.CellStyle? style,
+  }) {
+    final cell = sheet.cell(
+      excel_lib.CellIndex.indexByColumnRow(
+          columnIndex: colStart, rowIndex: row),
+    );
+    cell.value = excel_lib.TextCellValue(text);
+    if (style != null) cell.cellStyle = style;
+    if (colEnd > colStart) {
+      sheet.merge(
+        excel_lib.CellIndex.indexByColumnRow(
+            columnIndex: colStart, rowIndex: row),
+        excel_lib.CellIndex.indexByColumnRow(columnIndex: colEnd, rowIndex: row),
+      );
+    }
+  }
+
+  void _excelSetCell(
+    excel_lib.Sheet sheet,
+    int row,
+    int col,
+    excel_lib.CellValue value, {
+    excel_lib.CellStyle? style,
+  }) {
+    final cell = sheet.cell(
+      excel_lib.CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row),
+    );
+    cell.value = value;
+    if (style != null) cell.cellStyle = style;
+  }
+
+  List<String> _shiftExcelDetailHeaders(int punchCols) {
+    final headers = <String>['STT', 'Thứ', 'Ngày'];
+    for (var i = 1; i <= punchCols; i++) {
+      headers.add('Lần $i');
+    }
+    headers.addAll([
+      'Đi trễ',
+      'Về sớm',
+      'Tăng ca',
+      'Tổng giờ',
+      'Giờ thập phân',
+      'Công',
+      'Tên ca',
+      'Trạng thái',
+    ]);
+    return headers;
+  }
+
+  String _excelColLetter(int colIndex) {
+    var col = colIndex + 1;
+    final buf = StringBuffer();
+    while (col > 0) {
+      final rem = (col - 1) % 26;
+      buf.write(String.fromCharCode(65 + rem));
+      col = (col - 1) ~/ 26;
+    }
+    return buf.toString().split('').reversed.join();
+  }
+
+  String _excelRef(int col, int row) => '${_excelColLetter(col)}${row + 1}';
+
+  excel_lib.CellStyle _excelCenterStyle({
+    bool bold = false,
+    int fontSize = 11,
+    String? backgroundHex,
+    bool italic = false,
+    excel_lib.NumFormat? numberFormat,
+  }) {
+    return excel_lib.CellStyle(
+      bold: bold,
+      italic: italic,
+      fontSize: fontSize,
+      horizontalAlign: excel_lib.HorizontalAlign.Center,
+      verticalAlign: excel_lib.VerticalAlign.Center,
+      backgroundColorHex: backgroundHex != null
+          ? excel_lib.ExcelColor.fromHexString(backgroundHex)
+          : excel_lib.ExcelColor.none,
+      numberFormat: numberFormat ?? excel_lib.NumFormat.standard_0,
+    );
+  }
+
+  excel_lib.CellStyle _excelLeftStyle({
+    int fontSize = 11,
+    bool italic = false,
+  }) {
+    return excel_lib.CellStyle(
+      fontSize: fontSize,
+      italic: italic,
+      horizontalAlign: excel_lib.HorizontalAlign.Left,
+      verticalAlign: excel_lib.VerticalAlign.Center,
+    );
+  }
+
+  int _excelWriteEmployeeShiftBlock({
+    required excel_lib.Sheet sheet,
+    required int startRow,
+    required List<_DailyShiftRecord> empRows,
+    required _ShiftEmployeePeriodTotals totals,
+    required Map<String, dynamic>? empInfo,
+    required int punchCols,
+    required DateTimeRange range,
+    required int colCount,
+    required bool isLastEmployee,
+  }) {
+    final titleStyle = ExcelReportBuilder.titleStyle();
+    final infoStyle = _excelLeftStyle();
+    final headerStyle = ExcelReportBuilder.headerStyle();
+    final dataStyle = _excelCenterStyle();
+    final numStyle =
+        _excelCenterStyle(numberFormat: excel_lib.NumFormat.standard_2);
+    final totalStyle = _excelCenterStyle(
+      bold: true,
+      backgroundHex: '#EFF6FF',
+    );
+    final sigTitleStyle = _excelCenterStyle(bold: true);
+    final sigHintStyle = _excelCenterStyle(fontSize: 10, italic: true);
+
+    final lastCol = colCount - 1;
+    final punchStartCol = 3;
+    final lateCol = punchStartCol + punchCols;
+    final earlyCol = lateCol + 1;
+    final otCol = earlyCol + 1;
+    final totalHoursCol = otCol + 1;
+    final decimalCol = totalHoursCol + 1;
+    final workCol = decimalCol + 1;
+    final shiftNameCol = workCol + 1;
+
+    var row = startRow;
+
+    _excelMergedText(
+      sheet,
+      row: row,
+      colStart: 0,
+      colEnd: lastCol,
+      text: 'BẢNG CHẤM CÔNG THEO CA',
+      style: titleStyle,
+    );
+    row++;
+
+    _excelMergedText(
+      sheet,
+      row: row,
+      colStart: 0,
+      colEnd: lastCol,
+      text:
+          'Từ ngày ${DateFormat('dd/MM/yyyy').format(range.start)} đến ngày ${DateFormat('dd/MM/yyyy').format(range.end)}',
+      style: _excelCenterStyle(fontSize: 12),
+    );
+    row += 2;
+
+    for (final line in _shiftExportInfoLines(empInfo, empRows.first)) {
+      _excelMergedText(
+        sheet,
+        row: row,
+        colStart: 0,
+        colEnd: lastCol,
+        text: line,
+        style: infoStyle,
+      );
+      row++;
+    }
+    row++;
+
+    final headerRow = row;
+    final headers = _shiftExcelDetailHeaders(punchCols);
+    ExcelReportBuilder.applyHeaderRow(sheet, headerRow, headers,
+        style: headerStyle);
+    row++;
+
+    final firstDataRow = row;
+    for (var i = 0; i < empRows.length; i++) {
+      final r = empRows[i];
+      var col = 0;
+      _excelSetCell(
+        sheet,
+        row,
+        col++,
+        excel_lib.IntCellValue(i + 1),
+        style: dataStyle,
+      );
+      _excelSetCell(
+        sheet,
+        row,
+        col++,
+        excel_lib.TextCellValue(r.dayOfWeek),
+        style: dataStyle,
+      );
+      _excelSetCell(
+        sheet,
+        row,
+        col++,
+        excel_lib.TextCellValue(DateFormat('dd/MM/yyyy').format(r.date)),
+        style: dataStyle,
+      );
+
+      for (var p = 0; p < punchCols; p++) {
+        final punch = p < r.displayPunchTimes.length
+            ? DateFormat('HH:mm').format(r.displayPunchTimes[p])
+            : '';
+        _excelSetCell(
+          sheet,
+          row,
+          col++,
+          excel_lib.TextCellValue(punch),
+          style: dataStyle,
+        );
+      }
+
+      _excelSetCell(
+        sheet,
+        row,
+        col++,
+        r.lateMinutes > 0
+            ? excel_lib.IntCellValue(r.lateMinutes)
+            : excel_lib.TextCellValue(''),
+        style: dataStyle,
+      );
+      _excelSetCell(
+        sheet,
+        row,
+        col++,
+        r.earlyMinutes > 0
+            ? excel_lib.IntCellValue(r.earlyMinutes)
+            : excel_lib.TextCellValue(''),
+        style: dataStyle,
+      );
+      _excelSetCell(
+        sheet,
+        row,
+        col++,
+        r.overtimeMinutes > 0
+            ? excel_lib.IntCellValue(r.overtimeMinutes)
+            : excel_lib.TextCellValue(''),
+        style: dataStyle,
+      );
+      _excelSetCell(
+        sheet,
+        row,
+        col++,
+        excel_lib.TextCellValue(
+            r.workHours > 0 ? _formatHoursMinutes(r.workHours) : ''),
+        style: dataStyle,
+      );
+      _excelSetCell(
+        sheet,
+        row,
+        col++,
+        excel_lib.DoubleCellValue(
+            double.parse(r.decimalHours.toStringAsFixed(2))),
+        style: numStyle,
+      );
+      _excelSetCell(
+        sheet,
+        row,
+        col++,
+        excel_lib.DoubleCellValue(double.parse(r.workCount.toStringAsFixed(2))),
+        style: numStyle,
+      );
+      _excelSetCell(
+        sheet,
+        row,
+        col++,
+        excel_lib.TextCellValue(r.shiftNames.join(', ')),
+        style: _excelLeftStyle(),
+      );
+      _excelSetCell(
+        sheet,
+        row,
+        col++,
+        excel_lib.TextCellValue(r.status),
+        style: dataStyle,
+      );
+      row++;
+    }
+
+    final lastDataRow = row - 1;
+    final totalRow = row;
+
+    _excelSetCell(sheet, totalRow, 0, excel_lib.TextCellValue(''),
+        style: totalStyle);
+    _excelSetCell(sheet, totalRow, 1, excel_lib.TextCellValue('TỔNG CỘNG'),
+        style: totalStyle);
+
+    if (empRows.isNotEmpty) {
+      final punchCol = _excelRef(punchStartCol, firstDataRow);
+      final punchEnd = _excelRef(punchStartCol, lastDataRow);
+      _excelSetCell(
+        sheet,
+        totalRow,
+        2,
+        excel_lib.FormulaCellValue(
+            '=COUNTIF($punchCol:$punchEnd,"<>")&" ngày"'),
+        style: totalStyle,
+      );
+
+      for (final c in [lateCol, earlyCol, otCol, decimalCol, workCol]) {
+        final refStart = _excelRef(c, firstDataRow);
+        final refEnd = _excelRef(c, lastDataRow);
+        _excelSetCell(
+          sheet,
+          totalRow,
+          c,
+          excel_lib.FormulaCellValue('=SUM($refStart:$refEnd)'),
+          style: totalStyle,
+        );
+      }
+
+      _excelSetCell(
+        sheet,
+        totalRow,
+        totalHoursCol,
+        excel_lib.TextCellValue(
+            totals.workHours > 0 ? _formatHoursMinutes(totals.workHours) : ''),
+        style: totalStyle,
+      );
+    } else {
+      _excelSetCell(sheet, totalRow, 2,
+          excel_lib.TextCellValue('${totals.presentDays} ngày'),
+          style: totalStyle);
+    }
+
+    for (var p = 0; p < punchCols; p++) {
+      _excelSetCell(sheet, totalRow, punchStartCol + p,
+          excel_lib.TextCellValue(''), style: totalStyle);
+    }
+    _excelSetCell(sheet, totalRow, shiftNameCol, excel_lib.TextCellValue(''),
+        style: totalStyle);
+    _excelSetCell(sheet, totalRow, shiftNameCol + 1,
+        excel_lib.TextCellValue(''), style: totalStyle);
+
+    row = totalRow + 2;
+
+    final part = (colCount / 3).floor().clamp(1, colCount);
+    final sig1End = part - 1;
+    final sig2Start = part;
+    final sig2End = (part * 2 - 1).clamp(sig2Start, lastCol);
+    final sig3Start = part * 2;
+    _excelMergedText(sheet,
+        row: row,
+        colStart: 0,
+        colEnd: sig1End,
+        text: 'Người lập',
+        style: sigTitleStyle);
+    _excelMergedText(sheet,
+        row: row,
+        colStart: sig2Start,
+        colEnd: sig2End,
+        text: 'Nhân viên',
+        style: sigTitleStyle);
+    _excelMergedText(sheet,
+        row: row,
+        colStart: sig3Start,
+        colEnd: lastCol,
+        text: 'Giám đốc',
+        style: sigTitleStyle);
+    row += 4;
+    _excelMergedText(sheet,
+        row: row,
+        colStart: 0,
+        colEnd: sig1End,
+        text: '(Ký, ghi rõ họ tên)',
+        style: sigHintStyle);
+    _excelMergedText(sheet,
+        row: row,
+        colStart: sig2Start,
+        colEnd: sig2End,
+        text: '(Ký, ghi rõ họ tên)',
+        style: sigHintStyle);
+    _excelMergedText(sheet,
+        row: row,
+        colStart: sig3Start,
+        colEnd: lastCol,
+        text: '(Ký, ghi rõ họ tên)',
+        style: sigHintStyle);
+    row += 2;
+
+    if (!isLastEmployee) row += 3;
+
+    return row;
+  }
+
+  String? _excelFilterDescription() {
+    final parts = <String>[];
+    if (_selectedEmployeeIds.isNotEmpty) {
+      parts.add('${_selectedEmployeeIds.length} nhân viên được chọn');
+    }
+    if (_shiftFilter != 'all') {
+      parts.add(_shiftStatusFilterLabel());
+    }
+    return parts.isEmpty ? null : parts.join(' · ');
+  }
+
+  List<String> _shiftPngDetailRowCells(
+      _DailyShiftRecord r, int stt, int punchCols) {
+    final cells = <String>[
+      '$stt',
+      r.dayOfWeek,
+      DateFormat('dd/MM/yyyy').format(r.date),
+    ];
+    for (var p = 0; p < punchCols; p++) {
+      cells.add(p < r.displayPunchTimes.length
+          ? DateFormat('HH:mm').format(r.displayPunchTimes[p])
+          : '');
+    }
+    cells.addAll([
+      r.lateMinutes > 0 ? '${r.lateMinutes}P' : '',
+      r.earlyMinutes > 0 ? '${r.earlyMinutes}P' : '',
+      r.overtimeMinutes > 0 ? '${r.overtimeMinutes}P' : '',
+      r.workHours > 0 ? _formatHoursMinutes(r.workHours) : '',
+      r.decimalHours > 0 ? r.decimalHours.toStringAsFixed(2) : '',
+      r.workCount > 0 ? r.workCount.toStringAsFixed(2) : '',
+      r.shiftNames.join(', '),
+      r.status,
+    ]);
+    return cells;
+  }
+
+  List<String> _shiftPngTotalRowCells(
+      _ShiftEmployeePeriodTotals totals, int punchCols) {
+    final cells = <String>['', 'TỔNG CỘNG', '${totals.presentDays} ngày'];
+    for (var p = 0; p < punchCols; p++) {
+      cells.add('');
+    }
+    cells.addAll([
+      totals.lateMinutes > 0 ? '${totals.lateMinutes}P' : '',
+      totals.earlyMinutes > 0 ? '${totals.earlyMinutes}P' : '',
+      totals.overtimeMinutes > 0 ? '${totals.overtimeMinutes}P' : '',
+      totals.workHours > 0 ? _formatHoursMinutes(totals.workHours) : '',
+      totals.decimalHours > 0 ? totals.decimalHours.toStringAsFixed(2) : '',
+      totals.totalWork > 0 ? totals.totalWork.toStringAsFixed(2) : '',
+      '',
+      '',
+    ]);
+    return cells;
+  }
+
+  static const double _pngPad = 12.0;
+
+  List<List<String>> _pngShiftBuildSampleRows({
+    required List<String> orderedIds,
+    required Map<String, List<_DailyShiftRecord>> byEmployee,
+    required Map<String, _ShiftEmployeePeriodTotals> empTotals,
+    required int punchCols,
+  }) {
+    final rows = <List<String>>[];
+    for (final id in orderedIds) {
+      final empRows = byEmployee[id] ?? [];
+      for (var i = 0; i < empRows.length; i++) {
+        rows.add(_shiftPngDetailRowCells(empRows[i], i + 1, punchCols));
+      }
+      final totals = empTotals[id];
+      if (totals != null) {
+        rows.add(_shiftPngTotalRowCells(totals, punchCols));
+      }
+    }
+    return rows;
+  }
+
+  List<double> _pngShiftRawColWidths(
+    List<String> headers,
+    List<List<String>> allRows,
+  ) {
+    final widths = <double>[];
+    for (var c = 0; c < headers.length; c++) {
+      var w = headers[c].length * 8.0 + 20;
+      for (final row in allRows) {
+        if (c < row.length) {
+          final cw = row[c].length * 7.0 + 20;
+          if (cw > w) w = cw;
+        }
+      }
+      // Cột trạng thái / tên ca cần rộng hơn để không đè chữ.
+      final maxW = c >= headers.length - 2 ? 180.0 : 130.0;
+      widths.add(w.clamp(52, maxW));
+    }
+    return widths;
+  }
+
+  String _pngFitText(
+    dynamic ctx,
+    String text,
+    double maxWidth,
+    String font,
+  ) {
+    if (text.isEmpty || maxWidth <= 8) return text;
+    ctx.font = font;
+    try {
+      if (ctx.measureText(text).width <= maxWidth - 8) return text;
+      var s = text;
+      while (s.length > 1 && ctx.measureText('$s…').width > maxWidth - 8) {
+        s = s.substring(0, s.length - 1);
+      }
+      return '$s…';
+    } catch (_) {
+      return text.length > 18 ? '${text.substring(0, 17)}…' : text;
+    }
+  }
+
+  double _pngEmployeeBlockHeight({
+    required int infoLineCount,
+    required int dataRowCount,
+    required bool addSpacer,
+  }) {
+    const titleH = 34.0;
+    const periodH = 26.0;
+    const infoH = 22.0;
+    const gap = 10.0;
+    const headerH = 34.0;
+    const rowH = 28.0;
+    const totalH = 30.0;
+    const sigBlockH = 88.0;
+    final spacerH = addSpacer ? 24.0 : 0.0;
+    return titleH +
+        periodH +
+        gap +
+        infoLineCount * infoH +
+        gap +
+        headerH +
+        dataRowCount * rowH +
+        totalH +
+        gap +
+        sigBlockH +
+        spacerH;
+  }
+
+  void _pngDrawCenteredText(
+    dynamic ctx,
+    String text,
+    double cx,
+    double cy, {
+    required String color,
+    required String font,
+    double maxWidth = 0,
+  }) {
+    final display = maxWidth > 0 ? _pngFitText(ctx, text, maxWidth, font) : text;
+    ctx.fillStyle = color;
+    ctx.font = font;
+    ctx.textAlign = 'center';
+    ctx.fillText(display, cx, cy);
+    ctx.textAlign = 'left';
+  }
+
+  void _pngDrawShiftExport(
+    dynamic ctx, {
+    required double width,
+    required double height,
+    required Map<String, _ShiftEmployeePeriodTotals> empTotals,
+    required List<String> orderedIds,
+    required Map<String, List<_DailyShiftRecord>> byEmployee,
+    required int punchCols,
+    required DateTimeRange range,
+    required List<double> colWidths,
+    required double tableWidth,
+    String? filterDesc,
+  }) {
+    const rowH = 28.0;
+    const headerH = 34.0;
+    const infoH = 22.0;
+    const titleH = 34.0;
+    const periodH = 26.0;
+    const gap = 10.0;
+    const sigBlockH = 88.0;
+    const pad = _pngPad;
+
+    final headers = _shiftExcelDetailHeaders(punchCols);
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, width, height);
+
+    var y = pad;
+    if (filterDesc != null) {
+      _pngDrawCenteredText(ctx, 'Bộ lọc: $filterDesc', width / 2, y + 12,
+          color: '#71717A', font: 'italic 11px Arial, sans-serif');
+      y += 24;
+    }
+
+    final tableLeft = pad;
+    final shiftNameCol = 3 + punchCols + 6;
+    const cellFont = '11px Arial, sans-serif';
+    const cellFontBold = 'bold 11px Arial, sans-serif';
+
+    for (var ei = 0; ei < orderedIds.length; ei++) {
+      final empId = orderedIds[ei];
+      final empRows = byEmployee[empId] ?? [];
+      final totals = empTotals[empId];
+      if (empRows.isEmpty || totals == null) continue;
+      final empInfo = _employeeInfoFor(empRows.first);
+      final infoLines = _shiftExportInfoLines(empInfo, empRows.first);
+
+      _pngDrawCenteredText(
+          ctx, 'BẢNG CHẤM CÔNG THEO CA', width / 2, y + 20,
+          color: '#0F172A', font: 'bold 16px Arial, sans-serif');
+      y += titleH;
+
+      _pngDrawCenteredText(
+        ctx,
+        'Từ ngày ${DateFormat('dd/MM/yyyy').format(range.start)} đến ngày ${DateFormat('dd/MM/yyyy').format(range.end)}',
+        width / 2,
+        y + 16,
+        color: '#334155',
+        font: '12px Arial, sans-serif',
+      );
+      y += periodH + gap;
+
+      for (final line in infoLines) {
+        ctx.fillStyle = '#334155';
+        ctx.font = '11px Arial, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(line, tableLeft + 8, y + 14);
+        y += infoH;
+      }
+      y += gap;
+
+      final tableTop = y;
+      ctx.fillStyle = '#6366F1';
+      ctx.fillRect(tableLeft, tableTop, tableWidth, headerH);
+      var x = tableLeft;
+      for (var c = 0; c < headers.length; c++) {
+        _pngDrawCenteredText(
+          ctx,
+          headers[c],
+          x + colWidths[c] / 2,
+          tableTop + headerH / 2 + 5,
+          color: '#FFFFFF',
+          font: cellFontBold,
+          maxWidth: colWidths[c],
+        );
+        x += colWidths[c];
+      }
+      y += headerH;
+
+      for (var ri = 0; ri < empRows.length; ri++) {
+        final cells =
+            _shiftPngDetailRowCells(empRows[ri], ri + 1, punchCols);
+        if (ri.isOdd) {
+          ctx.fillStyle = '#F8FAFC';
+          ctx.fillRect(tableLeft, y, tableWidth, rowH);
+        }
+        x = tableLeft;
+        for (var c = 0; c < cells.length; c++) {
+          final punchCol = c >= 3 && c < 3 + punchCols;
+          String color = '#334155';
+          if (punchCol && cells[c].isNotEmpty) {
+            color = (c - 2).isOdd ? '#059669' : '#DC2626';
+          } else if (c == cells.length - 4 && cells[c].isNotEmpty) {
+            color = '#16A34A';
+          } else if (c >= cells.length - 3 && cells[c].isNotEmpty) {
+            color = '#1D4ED8';
+          }
+          if (c == shiftNameCol && cells[c].isNotEmpty) {
+            ctx.fillStyle = color;
+            ctx.font = cellFont;
+            ctx.textAlign = 'left';
+            ctx.fillText(
+              _pngFitText(ctx, cells[c], colWidths[c] - 8, cellFont),
+              x + 6,
+              y + rowH / 2 + 5,
+            );
+            ctx.textAlign = 'left';
+          } else {
+            _pngDrawCenteredText(
+              ctx,
+              cells[c],
+              x + colWidths[c] / 2,
+              y + rowH / 2 + 5,
+              color: color,
+              font: cellFont,
+              maxWidth: colWidths[c],
+            );
+          }
+          x += colWidths[c];
+        }
+        ctx.strokeStyle = '#E2E8F0';
+        ctx.beginPath();
+        ctx.moveTo(tableLeft, y + rowH);
+        ctx.lineTo(tableLeft + tableWidth, y + rowH);
+        ctx.stroke();
+        y += rowH;
+      }
+
+      final totalCells = _shiftPngTotalRowCells(totals, punchCols);
+      ctx.fillStyle = '#EFF6FF';
+      ctx.fillRect(tableLeft, y, tableWidth, rowH + 2);
+      x = tableLeft;
+      for (var c = 0; c < totalCells.length; c++) {
+        _pngDrawCenteredText(
+          ctx,
+          totalCells[c],
+          x + colWidths[c] / 2,
+          y + rowH / 2 + 5,
+          color: '#1D4ED8',
+          font: cellFontBold,
+          maxWidth: colWidths[c],
+        );
+        x += colWidths[c];
+      }
+      ctx.strokeStyle = '#93C5FD';
+      ctx.beginPath();
+      ctx.moveTo(tableLeft, y + rowH);
+      ctx.lineTo(tableLeft + tableWidth, y + rowH);
+      ctx.stroke();
+      y += rowH + gap;
+
+      final sigW = tableWidth / 3;
+      final sigLabels = ['Người lập', 'Nhân viên', 'Giám đốc'];
+      for (var si = 0; si < 3; si++) {
+        final cx = tableLeft + sigW * si + sigW / 2;
+        _pngDrawCenteredText(ctx, sigLabels[si], cx, y + 14,
+            color: '#0F172A', font: 'bold 11px Arial, sans-serif');
+      }
+      y += 52;
+      for (var si = 0; si < 3; si++) {
+        final cx = tableLeft + sigW * si + sigW / 2;
+        _pngDrawCenteredText(ctx, '(Ký, ghi rõ họ tên)', cx, y + 12,
+            color: '#71717A', font: 'italic 10px Arial, sans-serif');
+      }
+      y += sigBlockH - 52;
+
+      ctx.strokeStyle = '#CBD5E1';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(tableLeft, tableTop, tableWidth, y - tableTop);
+
+      if (ei < orderedIds.length - 1) y += 24;
+    }
+  }
+
+  /// Export to Excel — mỗi nhân viên một khối: tiêu đề, thông tin, bảng chi tiết, ký.
   Future<void> exportToExcel() async {
     final records = _shiftData;
     if (records.isEmpty || _isExporting) return;
     setState(() => _isExporting = true);
 
     try {
-      int maxPunches = records.fold(
-          0, (m, r) => r.punchTimes.length > m ? r.punchTimes.length : m);
-      if (maxPunches < 4) maxPunches = 4;
-      final punchColCount = maxPunches.isEven ? maxPunches : maxPunches + 1;
-
-      final headers = <String>[
-        'STT',
-        'Tên nhân viên',
-        'Mã nhân viên',
-        'Thứ',
-        'Ngày',
-      ];
-      for (int i = 1; i <= punchColCount; i++) {
-        headers.add('Lần $i');
-      }
-      headers.addAll([
-        'Đi trễ',
-        'Về sớm',
-        'Tăng ca',
-        'Tổng giờ',
-        'Giờ (thập phân)',
-        'Công',
-        'Tên ca',
-        'Trạng thái',
-      ]);
-
-      final rows = <List<dynamic>>[];
-      for (int idx = 0; idx < records.length; idx++) {
-        final r = records[idx];
-        final row = <dynamic>[
-          idx + 1,
-          r.employeeName,
-          r.employeeCode,
-          r.dayOfWeek,
-          DateFormat('dd/MM/yyyy').format(r.date),
-        ];
-        for (int i = 0; i < punchColCount; i++) {
-          row.add(i < r.displayPunchTimes.length
-              ? DateFormat('HH:mm').format(r.displayPunchTimes[i])
-              : '');
-        }
-        final h = r.workHours.floor();
-        final m = ((r.workHours - h) * 60).round();
-        row.addAll([
-          r.lateMinutes > 0 ? '${r.lateMinutes}P' : '',
-          r.earlyMinutes > 0 ? '${r.earlyMinutes}P' : '',
-          r.overtimeMinutes > 0 ? '${r.overtimeMinutes}P' : '',
-          r.workHours > 0 ? '${h}h${m > 0 ? '${m}p' : ''}' : '',
-          double.parse(r.decimalHours.toStringAsFixed(2)),
-          r.workCount == r.workCount.roundToDouble()
-              ? r.workCount.toInt()
-              : double.parse(r.workCount.toStringAsFixed(2)),
-          r.shiftNames.join(', '),
-          r.status,
-        ]);
-        rows.add(row);
-      }
-
-      int sumLate = records.fold(0, (s, r) => s + r.lateMinutes);
-      int sumEarly = records.fold(0, (s, r) => s + r.earlyMinutes);
-      int sumOT = records.fold(0, (s, r) => s + r.overtimeMinutes);
-      double sumHours = records.fold(0.0, (s, r) => s + r.workHours);
-      double sumDecimal = records.fold(0.0, (s, r) => s + r.decimalHours);
-      double sumWork = records.fold(0.0, (s, r) => s + r.workCount);
-
-      final totalRow = List<dynamic>.filled(headers.length, '');
-      totalRow[0] = 'TỔNG';
-      final tCol = 5 + punchColCount;
-      totalRow[tCol] = '${sumLate}P';
-      totalRow[tCol + 1] = '${sumEarly}P';
-      totalRow[tCol + 2] = '${sumOT}P';
-      totalRow[tCol + 3] = _formatHoursMinutes(sumHours);
-      totalRow[tCol + 4] = double.parse(sumDecimal.toStringAsFixed(2));
-      totalRow[tCol + 5] = sumWork == sumWork.roundToDouble()
-          ? sumWork.toInt()
-          : double.parse(sumWork.toStringAsFixed(2));
-      rows.add(totalRow);
-
+      final punchCols = _shiftPunchColCount(records);
+      final colCount = 3 + punchCols + 8;
       final range = _selectedDateRange;
-      final period =
-          '${DateFormat('dd/MM/yyyy').format(range.start)} - ${DateFormat('dd/MM/yyyy').format(range.end)}';
-      if (mounted) {
-        await ClientExcelExport.export(
-          context: context,
-          title: 'Tổng hợp chấm công theo ca',
-          sheetName: 'Theo ca',
-          filePrefix: 'Tong_hop_theo_ca',
-          headers: headers,
-          rows: rows,
-          periodLabel: period,
-          filterLabel: _shiftFilter == 'all'
-              ? 'Tất cả ca'
-              : (_shiftFilter == 'missing'
-                  ? 'Thiếu chấm công'
-                  : 'Đủ chấm công'),
-          summaryLines: [
-            'Số bản ghi: ${records.length}',
-            'Đi trễ: ${sumLate}P | Về sớm: ${sumEarly}P | Tăng ca: ${sumOT}P',
-          ],
+
+      final excelFile =
+          ExcelReportBuilder.createWorkbook(sheetName: 'Theo ca');
+      final sheet = excelFile['Theo ca'];
+
+      sheet.setColumnWidth(0, 5);
+      sheet.setColumnWidth(1, 10);
+      sheet.setColumnWidth(2, 12);
+      for (var i = 3; i < colCount; i++) {
+        sheet.setColumnWidth(i, i < 3 + punchCols ? 9 : 11);
+      }
+
+      final empTotals = _employeeTotalsFrom(records);
+      final byEmployee = <String, List<_DailyShiftRecord>>{};
+      for (final r in records) {
+        byEmployee.putIfAbsent(r.employeeId, () => []).add(r);
+      }
+      final orderedIds = _orderedUniqueEmployeeIds(records);
+
+      var row = 0;
+      final filterDesc = _excelFilterDescription();
+      if (filterDesc != null) {
+        _excelMergedText(
+          sheet,
+          row: row,
+          colStart: 0,
+          colEnd: colCount - 1,
+          text: 'Bộ lọc: $filterDesc',
+          style: _excelCenterStyle(fontSize: 10, italic: true),
         );
+        row += 2;
+      }
+
+      for (var i = 0; i < orderedIds.length; i++) {
+        final empId = orderedIds[i];
+        final empRows = byEmployee[empId] ?? [];
+        if (empRows.isEmpty) continue;
+        final totals = empTotals[empId];
+        if (totals == null) continue;
+        row = _excelWriteEmployeeShiftBlock(
+          sheet: sheet,
+          startRow: row,
+          empRows: empRows,
+          totals: totals,
+          empInfo: _employeeInfoFor(empRows.first),
+          punchCols: punchCols,
+          range: range,
+          colCount: colCount,
+          isLastEmployee: i == orderedIds.length - 1,
+        );
+      }
+
+      final bytes = excelFile.encode();
+      if (bytes != null) {
+        final fileName =
+            'Bang_cham_cong_theo_ca_${DateFormat('ddMMyyyy').format(range.start)}_${DateFormat('ddMMyyyy').format(range.end)}.xlsx';
+        await file_saver.saveAndOpenFileBytes(bytes, fileName,
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        if (mounted) {
+          NotificationOverlayManager().showSuccess(
+              title: 'Xuất Excel',
+              message:
+                  'Đã lưu ${orderedIds.length} nhân viên vào Tải về/SBOX HRM: $fileName');
+        }
       }
     } catch (e) {
       debugPrint('Error exporting Excel: $e');
@@ -2818,7 +4011,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
     }
   }
 
-  /// Export to PNG
+  /// Export to PNG — cùng bố cục Excel: từng nhân viên, thông tin, bảng, ký.
   Future<void> exportToPng() async {
     final records = _shiftData;
     if (records.isEmpty) {
@@ -2829,279 +4022,92 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
     setState(() => _isExporting = true);
 
     try {
-      int maxPunches = records.fold(
-          0, (m, r) => r.punchTimes.length > m ? r.punchTimes.length : m);
-      if (maxPunches < 4) maxPunches = 4;
-      final punchColCount = maxPunches.isEven ? maxPunches : maxPunches + 1;
-
-      final headers = <String>[
-        'STT',
-        'Tên nhân viên',
-        'Mã nhân viên',
-        'Thứ',
-        'Ngày'
-      ];
-      for (int i = 1; i <= punchColCount; i++) {
-        headers.add('Lần $i');
+      final punchCols = _shiftPunchColCount(records);
+      final range = _selectedDateRange;
+      final empTotals = _employeeTotalsFrom(records);
+      final byEmployee = <String, List<_DailyShiftRecord>>{};
+      for (final r in records) {
+        byEmployee.putIfAbsent(r.employeeId, () => []).add(r);
       }
-      headers.addAll([
-        'Đi trễ',
-        'Về sớm',
-        'Tăng ca',
-        'Tổng giờ',
-        'Giờ (thập phân)',
-        'Công',
-        'Tên ca',
-        'Trạng thái'
-      ]);
+      final orderedIds = _orderedUniqueEmployeeIds(records);
+      final filterDesc = _excelFilterDescription();
 
-      final rows = <List<String>>[];
-      for (int idx = 0; idx < records.length; idx++) {
-        final r = records[idx];
-        final row = <String>[
-          '${idx + 1}',
-          r.employeeName,
-          r.employeeCode,
-          r.dayOfWeek,
-          DateFormat('dd/MM/yyyy').format(r.date)
-        ];
-        for (int i = 0; i < punchColCount; i++) {
-          row.add(i < r.displayPunchTimes.length
-              ? DateFormat('HH:mm').format(r.displayPunchTimes[i])
-              : '');
-        }
-        final h = r.workHours.floor();
-        final m = ((r.workHours - h) * 60).round();
-        row.add(r.lateMinutes > 0 ? '${r.lateMinutes}P' : '');
-        row.add(r.earlyMinutes > 0 ? '${r.earlyMinutes}P' : '');
-        row.add(r.overtimeMinutes > 0 ? '${r.overtimeMinutes}P' : '');
-        row.add(r.workHours > 0 ? '${h}h${m > 0 ? '${m}p' : ''}' : '');
-        row.add(r.decimalHours > 0 ? r.decimalHours.toStringAsFixed(2) : '');
-        row.add(r.workCount == r.workCount.roundToDouble()
-            ? '${r.workCount.toInt()}'
-            : r.workCount.toStringAsFixed(2));
-        row.add(r.shiftNames.join(', '));
-        row.add(r.status);
-        rows.add(row);
+      final headers = _shiftExcelDetailHeaders(punchCols);
+      final sampleRows = _pngShiftBuildSampleRows(
+        orderedIds: orderedIds,
+        byEmployee: byEmployee,
+        empTotals: empTotals,
+        punchCols: punchCols,
+      );
+      final rawColWidths = _pngShiftRawColWidths(headers, sampleRows);
+      final naturalTableW =
+          rawColWidths.fold<double>(0, (sum, w) => sum + w);
+      final totalWidth = math.max(1100.0, naturalTableW + 2 * _pngPad);
+      final tableWidth = totalWidth - 2 * _pngPad;
+      final scale = tableWidth / naturalTableW;
+      final colWidths = rawColWidths.map((w) => w * scale).toList();
+
+      var totalHeight = _pngPad;
+      if (filterDesc != null) totalHeight += 24;
+      for (var i = 0; i < orderedIds.length; i++) {
+        final empRows = byEmployee[orderedIds[i]] ?? [];
+        if (empRows.isEmpty) continue;
+        final infoCount = _shiftExportInfoLines(
+                _employeeInfoFor(empRows.first), empRows.first)
+            .length;
+        totalHeight += _pngEmployeeBlockHeight(
+          infoLineCount: infoCount,
+          dataRowCount: empRows.length + 1,
+          addSpacer: i < orderedIds.length - 1,
+        );
       }
+      totalHeight += _pngPad + 16;
 
-      // Add summary totals row
-      int pngSumLate = records.fold(0, (s, r) => s + r.lateMinutes);
-      int pngSumEarly = records.fold(0, (s, r) => s + r.earlyMinutes);
-      int pngSumOT = records.fold(0, (s, r) => s + r.overtimeMinutes);
-      double pngSumHours = records.fold(0.0, (s, r) => s + r.workHours);
-      double pngSumDecimal = records.fold(0.0, (s, r) => s + r.decimalHours);
-      double pngSumWork = records.fold(0.0, (s, r) => s + r.workCount);
-      final totalRow = List.filled(headers.length, '');
-      totalRow[0] = 'TỔNG';
-      final tColStart = 5 + punchColCount;
-      totalRow[tColStart] = '${pngSumLate}P';
-      totalRow[tColStart + 1] = '${pngSumEarly}P';
-      totalRow[tColStart + 2] = '${pngSumOT}P';
-      totalRow[tColStart + 3] = _formatHoursMinutes(pngSumHours);
-      totalRow[tColStart + 4] = pngSumDecimal.toStringAsFixed(2);
-      totalRow[tColStart + 5] = pngSumWork == pngSumWork.roundToDouble()
-          ? '${pngSumWork.toInt()}'
-          : pngSumWork.toStringAsFixed(2);
-      rows.add(totalRow);
+      void drawFn(dynamic ctx) => _pngDrawShiftExport(
+            ctx,
+            width: totalWidth,
+            height: totalHeight,
+            empTotals: empTotals,
+            orderedIds: orderedIds,
+            byEmployee: byEmployee,
+            punchCols: punchCols,
+            range: range,
+            colWidths: colWidths,
+            tableWidth: tableWidth,
+            filterDesc: filterDesc,
+          );
 
-      const double cellPadding = 12;
-      const double fontSize = 13;
-      const double headerFontSize = 14;
-      const double rowHeight = 32;
-      const double headerHeight = 40;
-      const double titleHeight = 50;
-
-      final colWidths = <double>[];
-      for (int c = 0; c < headers.length; c++) {
-        double maxW = headers[c].length * 9.0 + cellPadding * 2;
-        for (final row in rows) {
-          if (c < row.length) {
-            final w = row[c].length * 8.0 + cellPadding * 2;
-            if (w > maxW) maxW = w;
-          }
-        }
-        if (c == 1) maxW = maxW.clamp(150, 250);
-        colWidths.add(maxW.clamp(60, 250));
-      }
-
-      final totalWidth = colWidths.fold(0.0, (sum, w) => sum + w) + 2;
-      final totalHeight =
-          titleHeight + headerHeight + rows.length * rowHeight + 2;
+      final rangeLabel =
+          '${DateFormat('ddMMyyyy').format(range.start)}_${DateFormat('ddMMyyyy').format(range.end)}';
+      final fileName = 'Bang_cham_cong_theo_ca_$rangeLabel.png';
 
       final dataUrl = web_canvas.renderToPngDataUrl(
         width: totalWidth.toInt(),
         height: totalHeight.toInt(),
-        draw: (ctx) {
-          ctx.fillStyle = '#FFFFFF';
-          ctx.fillRect(0, 0, totalWidth, totalHeight);
-
-          ctx.fillStyle = '#1a1a1a';
-          ctx.font = 'bold 16px BeVietnamPro, "Be Vietnam Pro", Arial, sans-serif';
-          final range = _selectedDateRange;
-          final title =
-              'Tổng hợp chấm công theo ca - ${DateFormat('dd/MM/yyyy').format(range.start)} đến ${DateFormat('dd/MM/yyyy').format(range.end)}';
-          ctx.fillText(title, 10, 30);
-
-          double x = 1;
-          const headerY = titleHeight;
-          ctx.fillStyle = '#F0F4F8';
-          ctx.fillRect(1, headerY, totalWidth - 2, headerHeight);
-          ctx.strokeStyle = '#CBD5E1';
-          ctx.lineWidth = 1;
-          ctx.strokeRect(1, headerY, totalWidth - 2, headerHeight);
-
-          for (int c = 0; c < headers.length; c++) {
-            ctx.fillStyle = '#334155';
-            ctx.font = 'bold ${headerFontSize}px BeVietnamPro, "Be Vietnam Pro", Arial, sans-serif';
-            ctx.fillText(
-                headers[c], x + cellPadding, headerY + headerHeight / 2 + 5);
-            ctx.strokeStyle = '#E2E8F0';
-            ctx.beginPath();
-            ctx.moveTo(x + colWidths[c], headerY);
-            ctx.lineTo(x + colWidths[c], totalHeight);
-            ctx.stroke();
-            x += colWidths[c];
-          }
-
-          for (int r = 0; r < rows.length; r++) {
-            final rowY = titleHeight + headerHeight + r * rowHeight;
-            final isLastRow = r == rows.length - 1; // Summary totals row
-            if (isLastRow) {
-              ctx.fillStyle = '#EBF5FF';
-              ctx.fillRect(1, rowY, totalWidth - 2, rowHeight);
-            } else if (r % 2 == 1) {
-              ctx.fillStyle = '#F8FAFC';
-              ctx.fillRect(1, rowY, totalWidth - 2, rowHeight);
-            }
-            ctx.strokeStyle = '#E2E8F0';
-            ctx.beginPath();
-            ctx.moveTo(1, rowY + rowHeight);
-            ctx.lineTo(totalWidth - 1, rowY + rowHeight);
-            ctx.stroke();
-
-            x = 1;
-            for (int c = 0; c < rows[r].length && c < colWidths.length; c++) {
-              final cellText = rows[r][c];
-              if (isLastRow) {
-                ctx.fillStyle = '#1E40AF';
-                ctx.font = 'bold ${fontSize}px BeVietnamPro, "Be Vietnam Pro", Arial, sans-serif';
-              } else if (c >= 5 &&
-                  c < 5 + punchColCount &&
-                  cellText.isNotEmpty) {
-                final punchIdx = c - 5;
-                ctx.fillStyle = punchIdx % 2 == 0
-                    ? '#059669'
-                    : '#DC2626'; // Xanh=vào, Đỏ=ra
-                ctx.font = '${fontSize}px BeVietnamPro, "Be Vietnam Pro", Arial, sans-serif';
-              } else {
-                ctx.fillStyle = '#334155';
-                ctx.font = '${fontSize}px BeVietnamPro, "Be Vietnam Pro", Arial, sans-serif';
-              }
-              ctx.fillText(cellText, x + cellPadding, rowY + rowHeight / 2 + 5);
-              x += colWidths[c];
-            }
-          }
-
-          ctx.strokeStyle = '#CBD5E1';
-          ctx.lineWidth = 1;
-          ctx.strokeRect(
-              1, titleHeight, totalWidth - 2, totalHeight - titleHeight - 1);
-        },
+        draw: drawFn,
       );
 
       if (dataUrl != null) {
-        final fileName =
-            'Tong_hop_theo_ca_${DateFormat('ddMMyyyy_HHmm').format(DateTime.now())}.png';
         await file_saver.saveAndOpenDataUrl(dataUrl, fileName);
-
         if (mounted) {
           NotificationOverlayManager().showSuccess(
-              title: 'Xuất PNG', message: 'Đã lưu vào Ảnh/SBOX HRM: $fileName');
+              title: 'Xuất PNG',
+              message:
+                  'Đã lưu ${orderedIds.length} nhân viên vào Ảnh/SBOX HRM: $fileName');
         }
       } else {
-        // Mobile fallback: use async renderer with same draw callback
-        void drawFn(dynamic ctx) {
-          ctx.fillStyle = '#FFFFFF';
-          ctx.fillRect(0, 0, totalWidth, totalHeight);
-          ctx.fillStyle = '#1a1a1a';
-          ctx.font = 'bold 16px BeVietnamPro, "Be Vietnam Pro", Arial, sans-serif';
-          final range = _selectedDateRange;
-          final title =
-              'Tổng hợp chấm công theo ca - ${DateFormat('dd/MM/yyyy').format(range.start)} đến ${DateFormat('dd/MM/yyyy').format(range.end)}';
-          ctx.fillText(title, 10, 30);
-          double x = 1;
-          const hdrY = titleHeight;
-          ctx.fillStyle = '#F0F4F8';
-          ctx.fillRect(1, hdrY, totalWidth - 2, headerHeight);
-          ctx.strokeStyle = '#CBD5E1';
-          ctx.lineWidth = 1;
-          ctx.strokeRect(1, hdrY, totalWidth - 2, headerHeight);
-          for (int c = 0; c < headers.length; c++) {
-            ctx.fillStyle = '#334155';
-            ctx.font = 'bold ${headerFontSize}px BeVietnamPro, "Be Vietnam Pro", Arial, sans-serif';
-            ctx.fillText(
-                headers[c], x + cellPadding, hdrY + headerHeight / 2 + 5);
-            ctx.strokeStyle = '#E2E8F0';
-            ctx.beginPath();
-            ctx.moveTo(x + colWidths[c], hdrY);
-            ctx.lineTo(x + colWidths[c], totalHeight);
-            ctx.stroke();
-            x += colWidths[c];
-          }
-          for (int r = 0; r < rows.length; r++) {
-            final rowY = titleHeight + headerHeight + r * rowHeight;
-            final isLastRow = r == rows.length - 1;
-            if (isLastRow) {
-              ctx.fillStyle = '#EBF5FF';
-              ctx.fillRect(1, rowY, totalWidth - 2, rowHeight);
-            } else if (r % 2 == 1) {
-              ctx.fillStyle = '#F8FAFC';
-              ctx.fillRect(1, rowY, totalWidth - 2, rowHeight);
-            }
-            ctx.strokeStyle = '#E2E8F0';
-            ctx.beginPath();
-            ctx.moveTo(1, rowY + rowHeight);
-            ctx.lineTo(totalWidth - 1, rowY + rowHeight);
-            ctx.stroke();
-            x = 1;
-            for (int c = 0; c < rows[r].length && c < colWidths.length; c++) {
-              final cellText = rows[r][c];
-              if (isLastRow) {
-                ctx.fillStyle = '#1E40AF';
-                ctx.font = 'bold ${fontSize}px BeVietnamPro, "Be Vietnam Pro", Arial, sans-serif';
-              } else if (c >= 5 &&
-                  c < 5 + punchColCount &&
-                  cellText.isNotEmpty) {
-                final punchIdx = c - 5;
-                ctx.fillStyle = punchIdx % 2 == 0 ? '#059669' : '#DC2626';
-                ctx.font = '${fontSize}px BeVietnamPro, "Be Vietnam Pro", Arial, sans-serif';
-              } else {
-                ctx.fillStyle = '#334155';
-                ctx.font = '${fontSize}px BeVietnamPro, "Be Vietnam Pro", Arial, sans-serif';
-              }
-              ctx.fillText(cellText, x + cellPadding, rowY + rowHeight / 2 + 5);
-              x += colWidths[c];
-            }
-          }
-          ctx.strokeStyle = '#CBD5E1';
-          ctx.lineWidth = 1;
-          ctx.strokeRect(
-              1, titleHeight, totalWidth - 2, totalHeight - titleHeight - 1);
-        }
-
         final pngBytes = await web_canvas.renderToPngBytes(
           width: totalWidth.toInt(),
           height: totalHeight.toInt(),
           draw: drawFn,
         );
         if (pngBytes != null && mounted) {
-          final fileName =
-              'Tong_hop_theo_ca_${DateFormat('ddMMyyyy_HHmm').format(DateTime.now())}.png';
           await file_saver.saveAndOpenFileBytes(
               pngBytes, fileName, 'image/png');
           NotificationOverlayManager().showSuccess(
-              title: 'Xuất PNG', message: 'Đã lưu vào Ảnh/SBOX HRM: $fileName');
+              title: 'Xuất PNG',
+              message:
+                  'Đã lưu ${orderedIds.length} nhân viên vào Ảnh/SBOX HRM: $fileName');
         } else if (mounted) {
           NotificationOverlayManager()
               .showError(title: 'Lỗi', message: 'Không thể xuất PNG');
@@ -3157,7 +4163,552 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
     );
   }
 
+  static final DateFormat _shiftDateKeyFmt = DateFormat('yyyy-MM-dd');
+
+  String _shiftRecordRowKey(_DailyShiftRecord r) =>
+      '${r.employeeId}|${_shiftDateKeyFmt.format(r.date)}';
+
+  int _shiftPunchColCount(List<_DailyShiftRecord> records) {
+    var maxPunches = records.fold(
+        0, (m, r) => r.punchTimes.length > m ? r.punchTimes.length : m);
+    if (maxPunches < 4) maxPunches = 4;
+    return maxPunches.isEven ? maxPunches : maxPunches + 1;
+  }
+
+  int _shiftTableColumnCount(int punchCols) => 5 + punchCols + 8;
+
+  Map<int, TableColumnWidth> _shiftDesktopColumnWidths(int punchCols) {
+    final widths = <int, TableColumnWidth>{
+      0: const FixedColumnWidth(44),
+      1: const FixedColumnWidth(150),
+      2: const FixedColumnWidth(90),
+      3: const FixedColumnWidth(56),
+      4: const FixedColumnWidth(96),
+    };
+    for (var i = 0; i < punchCols; i++) {
+      widths[5 + i] = const FixedColumnWidth(64);
+    }
+    final base = 5 + punchCols;
+    widths[base] = const FixedColumnWidth(64);
+    widths[base + 1] = const FixedColumnWidth(64);
+    widths[base + 2] = const FixedColumnWidth(64);
+    widths[base + 3] = const FixedColumnWidth(72);
+    widths[base + 4] = const FixedColumnWidth(72);
+    widths[base + 5] = const FixedColumnWidth(56);
+    widths[base + 6] = const FixedColumnWidth(120);
+    widths[base + 7] = const FixedColumnWidth(140);
+    return widths;
+  }
+
+  double _shiftDesktopTableMinWidth(int punchCols) {
+    var w = 44.0 + 150 + 90 + 56 + 96 + punchCols * 64.0;
+    w += 64 * 3 + 72 * 2 + 56 + 120 + 140;
+    return w;
+  }
+
+  /// Co giãn tỷ lệ từng cột để bảng khớp [targetWidth] (fullscreen).
+  Map<int, TableColumnWidth> _shiftColumnWidthsForTargetWidth(
+    int punchCols,
+    double targetWidth,
+  ) {
+    final base = _shiftDesktopColumnWidths(punchCols);
+    final keys = base.keys.toList()..sort();
+    final baseValues = keys
+        .map((k) => (base[k]! as FixedColumnWidth).value)
+        .toList();
+    final baseTotal = baseValues.fold<double>(0, (s, w) => s + w);
+    if (baseTotal <= 0 || targetWidth <= 0) return base;
+    final scale = targetWidth / baseTotal;
+    final result = <int, TableColumnWidth>{};
+    for (var i = 0; i < keys.length; i++) {
+      result[keys[i]] = FixedColumnWidth(baseValues[i] * scale);
+    }
+    return result;
+  }
+
+  Widget _shiftTableCell(Widget child, {Alignment alignment = Alignment.center}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+      child: Align(alignment: alignment, child: child),
+    );
+  }
+
+  Widget _shiftHeaderText(String text) => Text(
+        text,
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+          color: Color(0xFF52525B),
+        ),
+      );
+
+  List<String> _shiftDetailHeaders(int punchCols) {
+    final headers = <String>['STT', 'Tên nhân viên', 'Mã nhân viên', 'Thứ', 'Ngày'];
+    for (var i = 1; i <= punchCols; i++) {
+      headers.add('Lần $i');
+    }
+    headers.addAll([
+      'Đi trễ',
+      'Về sớm',
+      'Tăng ca',
+      'Tổng giờ',
+      'Giờ thập phân',
+      'Công',
+      'Tên ca',
+      'Trạng thái',
+    ]);
+    return headers;
+  }
+
+  Map<String, Map<String, int>> _employeeDaySttMap(
+      List<_DailyShiftRecord> records) {
+    final map = <String, Map<String, int>>{};
+    final counters = <String, int>{};
+    for (final r in records) {
+      final n = (counters[r.employeeId] ?? 0) + 1;
+      counters[r.employeeId] = n;
+      map.putIfAbsent(r.employeeId, () => {})[_shiftRecordRowKey(r)] = n;
+    }
+    return map;
+  }
+
+  Map<String, _ShiftEmployeePeriodTotals> _employeeTotalsFrom(
+      List<_DailyShiftRecord> records) {
+    final map = <String, _ShiftEmployeePeriodTotals>{};
+    for (final r in records) {
+      map
+          .putIfAbsent(
+            r.employeeId,
+            () => _ShiftEmployeePeriodTotals(
+              employeeName: r.employeeName,
+              employeeCode: r.employeeCode,
+            ),
+          )
+          .add(r);
+    }
+    return map;
+  }
+
+  Map<String, String> _employeeLastRowKeys(List<_DailyShiftRecord> records) {
+    final last = <String, String>{};
+    for (final r in records) {
+      last[r.employeeId] = _shiftRecordRowKey(r);
+    }
+    return last;
+  }
+
+  Map<String, Map<String, dynamic>> _employeeInfoLookup() {
+    final map = <String, Map<String, dynamic>>{};
+    final list = widget.employeesList;
+    if (list == null) return map;
+    for (final emp in list) {
+      void reg(String? key) {
+        if (key != null && key.isNotEmpty) map[key] = emp;
+      }
+      reg(emp['employeeCode']?.toString());
+      reg(emp['pin']?.toString());
+      reg(emp['id']?.toString());
+      reg(emp['applicationUserId']?.toString());
+    }
+    return map;
+  }
+
+  Map<String, dynamic>? _employeeInfoFor(_DailyShiftRecord r) {
+    final lookup = _employeeInfoLookup();
+    return lookup[r.employeeId] ??
+        lookup[r.employeeCode] ??
+        lookup[r.employeeId];
+  }
+
+  String _employeeDisplayName(Map<String, dynamic>? info, _DailyShiftRecord r) {
+    if (info == null) return r.employeeName;
+    final fn = info['firstName']?.toString() ?? '';
+    final ln = info['lastName']?.toString() ?? '';
+    final full = '$fn $ln'.trim();
+    return full.isNotEmpty ? full : r.employeeName;
+  }
+
+  List<String> _shiftExportInfoLines(
+    Map<String, dynamic>? empInfo,
+    _DailyShiftRecord sample,
+  ) {
+    final displayName = _employeeDisplayName(empInfo, sample);
+    final department = empInfo?['department']?.toString() ??
+        empInfo?['departmentName']?.toString() ??
+        '';
+    final phone =
+        empInfo?['phoneNumber']?.toString() ?? empInfo?['phone']?.toString() ?? '';
+    final branch = empInfo?['branchName']?.toString() ?? '';
+    final position = empInfo?['position']?.toString() ?? '';
+    final pin = empInfo?['pin']?.toString() ?? '';
+    final lines = <String>[
+      'Họ và tên: ${displayName.isNotEmpty ? displayName : '—'}',
+      'Mã nhân viên: ${sample.employeeCode.isNotEmpty ? sample.employeeCode : '—'}',
+    ];
+    if (pin.isNotEmpty && pin != sample.employeeCode) {
+      lines.add('Mã chấm công (PIN): $pin');
+    }
+    lines.addAll([
+      'Phòng ban: ${department.isNotEmpty ? department : '—'}',
+      'Số điện thoại: ${phone.isNotEmpty ? phone : '—'}',
+    ]);
+    if (branch.isNotEmpty) lines.add('Chi nhánh: $branch');
+    if (position.isNotEmpty) lines.add('Chức vụ: $position');
+    return lines;
+  }
+
+  List<String> _orderedUniqueEmployeeIds(List<_DailyShiftRecord> records) {
+    final seen = <String>{};
+    final order = <String>[];
+    for (final r in records) {
+      if (seen.add(r.employeeId)) order.add(r.employeeId);
+    }
+    return order;
+  }
+
+  TableRow _buildShiftHeaderTableRow(int punchCols) {
+    final cells = _shiftDetailHeaders(punchCols)
+        .map((h) => _shiftTableCell(_shiftHeaderText(h)))
+        .toList();
+    return TableRow(
+      decoration: const BoxDecoration(color: Color(0xFFFAFAFA)),
+      children: cells,
+    );
+  }
+
+  Widget _buildShiftPunchCell(_DailyShiftRecord r, int punchIndex) {
+    return Center(child: _buildPunchTimeCell(r, punchIndex));
+  }
+
+  /// Ô giờ chấm — click để thêm (ô trống kế tiếp) hoặc sửa/xóa (đã có giờ).
+  Widget _buildPunchTimeCell(_DailyShiftRecord record, int punchIndex) {
+    final isIn = punchIndex.isEven;
+
+    if (punchIndex < record.punchTimes.length) {
+      final displayTime = punchIndex < record.displayPunchTimes.length
+          ? record.displayPunchTimes[punchIndex]
+          : record.punchTimes[punchIndex];
+      if (!widget.allowCorrection) {
+        return Text(
+          DateFormat('HH:mm').format(displayTime),
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: isIn ? const Color(0xFF059669) : const Color(0xFFDC2626),
+          ),
+        );
+      }
+      return InkWell(
+        onTap: () => _showEditPunchDialog(record, punchIndex),
+        borderRadius: BorderRadius.circular(4),
+        child: _buildPunchTimeBadge(displayTime, isIn),
+      );
+    }
+
+    if (widget.allowCorrection && punchIndex == record.punchTimes.length) {
+      return InkWell(
+        onTap: () => _showManualPunchDialog(record),
+        borderRadius: BorderRadius.circular(4),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            border: Border.all(
+                color: Colors.grey.withValues(alpha: 0.3),
+                style: BorderStyle.solid),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: const Icon(Icons.add, size: 14, color: Colors.grey),
+        ),
+      );
+    }
+
+    return const Text('—',
+        textAlign: TextAlign.center,
+        style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA)));
+  }
+
+  TableRow _buildShiftEmployeeSubtotalRow(
+    _ShiftEmployeePeriodTotals totals,
+    int punchCols,
+  ) {
+    final cells = <Widget>[
+      _shiftTableCell(const SizedBox.shrink()),
+      _shiftTableCell(
+        Text('Σ ${totals.employeeName}',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+                fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF0F172A))),
+      ),
+      _shiftTableCell(Text(totals.employeeCode,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 11, color: Color(0xFF71717A)))),
+      _shiftTableCell(Text('Tổng',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+              fontSize: 11, fontWeight: FontWeight.w700, color: Colors.blue.shade700))),
+      _shiftTableCell(Text('${totals.presentDays} ngày',
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600))),
+    ];
+    for (var i = 0; i < punchCols; i++) {
+      cells.add(_shiftTableCell(const Text('—',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA)))));
+    }
+    cells.addAll([
+      _shiftTableCell(Text(totals.lateMinutes > 0 ? '${totals.lateMinutes}P' : '—',
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600))),
+      _shiftTableCell(Text(totals.earlyMinutes > 0 ? '${totals.earlyMinutes}P' : '—',
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600))),
+      _shiftTableCell(Text(totals.overtimeMinutes > 0 ? '${totals.overtimeMinutes}P' : '—',
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600))),
+      _shiftTableCell(Text(
+          totals.workHours > 0 ? _formatHoursMinutes(totals.workHours) : '—',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: totals.workHours > 0 ? Colors.green : const Color(0xFFA1A1AA)))),
+      _shiftTableCell(Text(
+          totals.decimalHours > 0 ? totals.decimalHours.toStringAsFixed(2) : '—',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: totals.decimalHours > 0
+                  ? Colors.blue.shade700
+                  : const Color(0xFFA1A1AA)))),
+      _shiftTableCell(Text(
+          totals.totalWork > 0 ? totals.totalWork.toStringAsFixed(2) : '—',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: totals.totalWork > 0
+                  ? Colors.blue.shade700
+                  : const Color(0xFFA1A1AA)))),
+      _shiftTableCell(const Text('—',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA)))),
+      _shiftTableCell(const Text('—',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA)))),
+    ]);
+    return TableRow(
+      decoration: const BoxDecoration(color: Color(0xFFEFF6FF)),
+      children: cells,
+    );
+  }
+
+  List<TableRow> _buildShiftDataTableRows(
+    List<_DailyShiftRecord> paged,
+    List<_DailyShiftRecord> allRecords,
+    int punchCols,
+    Map<String, Map<String, int>> daySttMap,
+  ) {
+    final empTotals = _employeeTotalsFrom(allRecords);
+    final empLastKeys = _employeeLastRowKeys(allRecords);
+    final rows = <TableRow>[];
+
+    for (final r in paged) {
+      final stt = daySttMap[r.employeeId]?[_shiftRecordRowKey(r)] ?? 1;
+      final cells = <Widget>[
+        _shiftTableCell(Text('$stt',
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)))),
+        _shiftTableCell(
+          InkWell(
+            onTap: () => _showRecordDetail(r),
+            child: Text(r.employeeName,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                    fontSize: 12, fontWeight: FontWeight.w500)),
+          ),
+        ),
+        _shiftTableCell(Text(r.employeeCode,
+            textAlign: TextAlign.center, style: const TextStyle(fontSize: 12))),
+        _shiftTableCell(Text(r.dayOfWeek,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600))),
+        _shiftTableCell(Text(DateFormat('dd/MM/yyyy').format(r.date),
+            textAlign: TextAlign.center, style: const TextStyle(fontSize: 12))),
+      ];
+      for (var i = 0; i < punchCols; i++) {
+        cells.add(_shiftTableCell(_buildShiftPunchCell(r, i)));
+      }
+      cells.addAll([
+        _shiftTableCell(Text(r.lateMinutes > 0 ? '${r.lateMinutes}P' : '—',
+            textAlign: TextAlign.center, style: const TextStyle(fontSize: 11))),
+        _shiftTableCell(Text(r.earlyMinutes > 0 ? '${r.earlyMinutes}P' : '—',
+            textAlign: TextAlign.center, style: const TextStyle(fontSize: 11))),
+        _shiftTableCell(Text(r.overtimeMinutes > 0 ? '${r.overtimeMinutes}P' : '—',
+            textAlign: TextAlign.center, style: const TextStyle(fontSize: 11))),
+        _shiftTableCell(Text(
+            r.workHours > 0 ? _formatHoursMinutes(r.workHours) : '—',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: r.workHours > 0 ? Colors.green : Colors.grey))),
+        _shiftTableCell(Text(
+            r.decimalHours > 0 ? r.decimalHours.toStringAsFixed(2) : '—',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+                fontSize: 12,
+                color: r.decimalHours > 0
+                    ? Colors.blue.shade700
+                    : Colors.grey))),
+        _shiftTableCell(Text(
+            r.workCount > 0 ? r.workCount.toStringAsFixed(2) : '—',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: r.workCount > 0 ? Colors.blue.shade700 : Colors.grey))),
+        _shiftTableCell(
+          Text(r.shiftNames.join(', '),
+              textAlign: TextAlign.left,
+              style: const TextStyle(fontSize: 10)),
+          alignment: Alignment.centerLeft,
+        ),
+        _shiftTableCell(
+          Center(
+            child: _buildStatusBadge(r.status, r.statusColor, record: r),
+          ),
+        ),
+      ]);
+      rows.add(TableRow(children: cells));
+
+      if (empLastKeys[r.employeeId] == _shiftRecordRowKey(r)) {
+        final totals = empTotals[r.employeeId];
+        if (totals != null) {
+          rows.add(_buildShiftEmployeeSubtotalRow(totals, punchCols));
+        }
+      }
+    }
+    return rows;
+  }
+
+  Widget _buildShiftDesktopTable({
+    required Map<int, TableColumnWidth> columnWidths,
+    required List<TableRow> rows,
+  }) {
+    return Table(
+      columnWidths: columnWidths,
+      defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+      border: TableBorder(
+        horizontalInside: BorderSide(color: Colors.grey.shade200, width: 0.5),
+        verticalInside: BorderSide(color: Colors.grey.shade200, width: 0.5),
+      ),
+      children: rows,
+    );
+  }
+
+  void _openDetailTableFullscreen({
+    required List<_DailyShiftRecord> allRecords,
+    required int punchCols,
+  }) {
+    if (allRecords.isEmpty) return;
+    final vBody = ScrollController();
+    final daySttMap = _employeeDaySttMap(allRecords);
+    final headerRow = _buildShiftHeaderTableRow(punchCols);
+    final dataRows = _buildShiftDataTableRows(
+      allRecords,
+      allRecords,
+      punchCols,
+      daySttMap,
+    );
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogCtx) => Dialog.fullscreen(
+        child: Scaffold(
+          backgroundColor: const Color(0xFFFAFAFA),
+          appBar: AppBar(
+            title: const Text('Bảng chấm công theo ca',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+            leading: IconButton(
+              tooltip: 'Thoát chế độ toàn màn hình',
+              icon: const Icon(Icons.fullscreen_exit),
+              onPressed: () => Navigator.pop(dialogCtx),
+            ),
+            actions: [
+              TextButton.icon(
+                onPressed: () => Navigator.pop(dialogCtx),
+                icon: const Icon(Icons.close, size: 18),
+                label: const Text('Thoát'),
+              ),
+            ],
+          ),
+          body: LayoutBuilder(
+            builder: (context, constraints) {
+              final viewportWidth = constraints.maxWidth;
+              final columnWidths =
+                  _shiftColumnWidthsForTargetWidth(punchCols, viewportWidth);
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    width: viewportWidth,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFFAFAFA),
+                      border: Border(
+                          bottom: BorderSide(color: Color(0xFFE4E4E7))),
+                    ),
+                    child: _buildShiftDesktopTable(
+                      columnWidths: columnWidths,
+                      rows: [headerRow],
+                    ),
+                  ),
+                  Expanded(
+                    child: Scrollbar(
+                      thumbVisibility: true,
+                      controller: vBody,
+                      child: SingleChildScrollView(
+                        controller: vBody,
+                        primary: false,
+                        child: SizedBox(
+                          width: viewportWidth,
+                          child: _buildShiftDesktopTable(
+                            columnWidths: columnWidths,
+                            rows: dataRows,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 8),
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      border:
+                          Border(top: BorderSide(color: Color(0xFFE4E4E7))),
+                    ),
+                    child: Text(
+                      '${allRecords.length} bản ghi · ${daySttMap.length} nhân viên',
+                      style: TextStyle(
+                          fontSize: 12, color: Colors.grey.shade600),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    ).whenComplete(vBody.dispose);
+  }
+
   List<Widget> _buildDesktopShiftSlivers(List<_DailyShiftRecord> records) {
+    _ensureDesktopTableScrollLinked();
     final totalRows = records.length;
     final totalPages = (totalRows / _rowsPerPage).ceil();
     if (_currentPage >= totalPages && totalPages > 0) {
@@ -3168,36 +4719,114 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
     final paged = totalRows > 0
         ? records.sublist(startIndex, endIndex)
         : <_DailyShiftRecord>[];
+    final punchCols = _shiftPunchColCount(records);
+    final columnWidths = _shiftDesktopColumnWidths(punchCols);
+    final tableMinWidth = _shiftDesktopTableMinWidth(punchCols);
+    final daySttMap = _employeeDaySttMap(records);
+    final headerRow = _buildShiftHeaderTableRow(punchCols);
+    final dataRows = _buildShiftDataTableRows(
+      paged,
+      records,
+      punchCols,
+      daySttMap,
+    );
+    const headerH = 44.0;
+
+    Widget buildHeaderTable() => _buildShiftDesktopTable(
+          columnWidths: columnWidths,
+          rows: [headerRow],
+        );
+    Widget buildBodyTable() => _buildShiftDesktopTable(
+          columnWidths: columnWidths,
+          rows: dataRows,
+        );
 
     return [
       SliverPadding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        sliver: SliverList(
-          delegate: SliverChildBuilderDelegate(
-            (context, index) {
-              if (index > 0) {
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Divider(height: 1, color: Colors.grey.shade200),
-                    _buildShiftDeckItem(paged[index]),
-                  ],
-                );
-              }
-              return _buildShiftDeckItem(paged[index]);
-            },
-            childCount: paged.length,
+        sliver: SliverPersistentHeader(
+          pinned: true,
+          delegate: PinnedBoxHeaderDelegate(
+            extent: headerH,
+            backgroundColor: const Color(0xFFFAFAFA),
+            child: LayoutBuilder(
+              builder: (context, constraints) => Scrollbar(
+                thumbVisibility: true,
+                controller: _desktopTableHScrollHeader,
+                child: SingleChildScrollView(
+                  controller: _desktopTableHScrollHeader,
+                  scrollDirection: Axis.horizontal,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minWidth: math.max(constraints.maxWidth, tableMinWidth),
+                    ),
+                    child: buildHeaderTable(),
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
       ),
       SliverPadding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         sliver: SliverToBoxAdapter(
-          child: Container(
-            decoration: _tableCardDecoration,
-            child: _buildPaginationBar(totalRows, totalPages),
+          child: ClipRRect(
+            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
+            child: Container(
+              decoration: _tableCardDecoration,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final bodyH = _tableBodyViewportHeight(context);
+                      return SizedBox(
+                        height: bodyH,
+                        child: Scrollbar(
+                          thumbVisibility: true,
+                          child: SingleChildScrollView(
+                            primary: false,
+                            physics: _tableInnerScrollPhysics,
+                            child: Scrollbar(
+                              thumbVisibility: true,
+                              controller: _desktopTableHScrollBody,
+                              notificationPredicate: (n) =>
+                                  n.depth == 1 && n is ScrollUpdateNotification,
+                              child: SingleChildScrollView(
+                                controller: _desktopTableHScrollBody,
+                                scrollDirection: Axis.horizontal,
+                                child: ConstrainedBox(
+                                  constraints: BoxConstraints(
+                                    minWidth: math.max(
+                                        constraints.maxWidth, tableMinWidth),
+                                  ),
+                                  child: buildBodyTable(),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  _buildPaginationBar(
+                    totalRows,
+                    totalPages,
+                    onOpenFullscreen: () => _openDetailTableFullscreen(
+                      allRecords: records,
+                      punchCols: punchCols,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
+      ),
+      const SliverPadding(
+        padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
+        sliver: SliverToBoxAdapter(child: SizedBox(height: 8)),
       ),
     ];
   }
@@ -4153,9 +5782,15 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
     );
   }
 
-  Widget _buildStatusBadge(String status, Color color) {
+  Widget _buildStatusBadge(
+    String status,
+    Color color, {
+    _DailyShiftRecord? record,
+  }) {
     IconData icon = Icons.check_circle;
-    if (status.contains('Thiếu chấm')) icon = Icons.help;
+    if (status.contains('Thiếu chấm') || status.contains('Thiếu ra')) {
+      icon = Icons.touch_app;
+    }
     if (status.contains('Đi trễ')) icon = Icons.timer_off;
     if (status.contains('Về sớm')) icon = Icons.exit_to_app;
     if (status.contains('Đi trễ') && status.contains('Về sớm')) {
@@ -4164,7 +5799,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
     if (status.contains('Tăng ca ngày nghỉ')) icon = Icons.event_busy;
     if (status.contains('Tăng ca ngày lễ')) icon = Icons.celebration;
 
-    return Container(
+    final badge = Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
@@ -4176,10 +5811,26 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
         children: [
           Icon(icon, size: 12, color: color),
           const SizedBox(width: 4),
-          Text(status,
-              style: TextStyle(
-                  color: color, fontWeight: FontWeight.w600, fontSize: 11)),
+          Flexible(
+            child: Text(status,
+                style: TextStyle(
+                    color: color, fontWeight: FontWeight.w600, fontSize: 11)),
+          ),
         ],
+      ),
+    );
+
+    final tappable = record != null &&
+        widget.allowCorrection &&
+        _statusHasMissingPunch(status);
+    if (!tappable) return badge;
+
+    return Tooltip(
+      message: 'Bấm để bổ sung chấm công thiếu',
+      child: InkWell(
+        onTap: () => _onMissingStatusTap(record),
+        borderRadius: BorderRadius.circular(4),
+        child: badge,
       ),
     );
   }
@@ -4219,6 +5870,33 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
   }
 }
 
+class _ShiftEmployeePeriodTotals {
+  final String employeeName;
+  final String employeeCode;
+  int lateMinutes = 0;
+  int earlyMinutes = 0;
+  int overtimeMinutes = 0;
+  double workHours = 0;
+  double decimalHours = 0;
+  double totalWork = 0;
+  int presentDays = 0;
+
+  _ShiftEmployeePeriodTotals({
+    required this.employeeName,
+    required this.employeeCode,
+  });
+
+  void add(_DailyShiftRecord r) {
+    lateMinutes += r.lateMinutes;
+    earlyMinutes += r.earlyMinutes;
+    overtimeMinutes += r.overtimeMinutes;
+    workHours += r.workHours;
+    decimalHours += r.decimalHours;
+    totalWork += r.workCount;
+    if (r.punchTimes.isNotEmpty) presentDays++;
+  }
+}
+
 class _DailyShiftRecord {
   final String employeeId;
   final String employeeName;
@@ -4237,6 +5915,7 @@ class _DailyShiftRecord {
   final String status;
   final Color statusColor;
   final double workCount;
+  final List<_MissingPunchHint> missingPunchHints;
 
   _DailyShiftRecord({
     required this.employeeId,
@@ -4256,6 +5935,19 @@ class _DailyShiftRecord {
     required this.status,
     required this.statusColor,
     required this.workCount,
+    this.missingPunchHints = const [],
+  });
+}
+
+class _MissingPunchHint {
+  final String shiftName;
+  final bool isCheckIn;
+  final TimeOfDay suggestedTime;
+
+  const _MissingPunchHint({
+    required this.shiftName,
+    required this.isCheckIn,
+    required this.suggestedTime,
   });
 }
 

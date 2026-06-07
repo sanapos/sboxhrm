@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 import '../utils/responsive_helper.dart';
 import '../models/communication.dart';
 import '../services/api_service.dart';
+import '../widgets/auth_cached_image.dart';
 import '../services/signalr_service.dart';
 import '../widgets/rich_editor.dart';
 import '../widgets/app_button.dart';
@@ -238,7 +240,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
   Future<void> _deletePost(InternalCommunication comm) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Text('Xóa bài viết'),
         content: Text('Bạn có chắc muốn xóa "${comm.title}"?'),
         actions: [
@@ -268,7 +270,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
     if (comm.status == CommunicationStatus.published) return;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Text('Xuất bản bài viết'),
         content: Text(
             'Bạn có chắc muốn xuất bản "${comm.title}"?\nBài viết sẽ hiển thị cho toàn bộ nhân viên.'),
@@ -1193,13 +1195,15 @@ class _CommunicationScreenState extends State<CommunicationScreen>
             const Text('Hãy tạo bài viết đầu tiên',
                 style: TextStyle(fontSize: 13, color: Color(0xFFA1A1AA))),
             const SizedBox(height: 20),
-            FilledButton.icon(
-              onPressed: () => _openCreateDialog(),
-              icon: const Icon(Icons.add),
-              label: const Text('Tạo bài mới'),
-              style: FilledButton.styleFrom(
-                  backgroundColor: HrmPageChrome.primaryNavy),
-            ),
+            if (Provider.of<PermissionProvider>(context, listen: false)
+                .canCreate('Communication'))
+              FilledButton.icon(
+                onPressed: () => _openCreateDialog(),
+                icon: const Icon(Icons.add),
+                label: const Text('Tạo bài mới'),
+                style: FilledButton.styleFrom(
+                    backgroundColor: HrmPageChrome.primaryNavy),
+              ),
           ],
         ),
       );
@@ -1328,10 +1332,8 @@ class _CommunicationScreenState extends State<CommunicationScreen>
 
   // ─── GRID CARD ───────────────────────────────────────────
   Widget _buildGridCard(InternalCommunication c) {
-    final imageUrl = c.thumbnailUrl != null && c.thumbnailUrl!.isNotEmpty
-        ? (c.thumbnailUrl!.startsWith('http')
-            ? c.thumbnailUrl!
-            : '${ApiService.baseUrl}${c.thumbnailUrl}')
+    final thumbPath = c.thumbnailUrl != null && c.thumbnailUrl!.isNotEmpty
+        ? c.thumbnailUrl!
         : null;
 
     return InkWell(
@@ -1358,9 +1360,10 @@ class _CommunicationScreenState extends State<CommunicationScreen>
             ClipRRect(
               borderRadius:
                   const BorderRadius.vertical(top: Radius.circular(15)),
-              child: imageUrl != null
-                  ? CachedNetworkImage(
-                      imageUrl: imageUrl,
+              child: thumbPath != null
+                  ? AuthCachedImage(
+                      imagePath: thumbPath!,
+                      apiService: _api,
                       height: 90,
                       width: double.infinity,
                       fit: BoxFit.cover,
@@ -1467,10 +1470,8 @@ class _CommunicationScreenState extends State<CommunicationScreen>
 
   // ─── LIST CARD ───────────────────────────────────────────
   Widget _buildListCard(InternalCommunication c) {
-    final imageUrl = c.thumbnailUrl != null && c.thumbnailUrl!.isNotEmpty
-        ? (c.thumbnailUrl!.startsWith('http')
-            ? c.thumbnailUrl!
-            : '${ApiService.baseUrl}${c.thumbnailUrl}')
+    final thumbPath = c.thumbnailUrl != null && c.thumbnailUrl!.isNotEmpty
+        ? c.thumbnailUrl!
         : null;
 
     return InkWell(
@@ -1497,9 +1498,10 @@ class _CommunicationScreenState extends State<CommunicationScreen>
             // Thumbnail
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: imageUrl != null
-                  ? CachedNetworkImage(
-                      imageUrl: imageUrl,
+              child: thumbPath != null
+                  ? AuthCachedImage(
+                      imagePath: thumbPath!,
+                      apiService: _api,
                       width: 160,
                       height: 140,
                       fit: BoxFit.cover,
@@ -2024,10 +2026,12 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
   @override
   Widget build(BuildContext context) {
     final c = _communication;
-    final imageUrl = c.thumbnailUrl != null && c.thumbnailUrl!.isNotEmpty
-        ? (c.thumbnailUrl!.startsWith('http')
-            ? c.thumbnailUrl!
-            : '${ApiService.baseUrl}${c.thumbnailUrl}')
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    final canEdit = perm.canEdit('Communication');
+    final canDelete = perm.canDelete('Communication');
+    final canPublish = perm.canApprove('Communication');
+    final thumbPath = c.thumbnailUrl != null && c.thumbnailUrl!.isNotEmpty
+        ? c.thumbnailUrl!
         : null;
 
     return Scaffold(
@@ -2066,14 +2070,15 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
                               color: Color(0xFF18181B)))),
-                  IconButton(
-                    onPressed: widget.onEdit,
-                    icon: const Icon(Icons.edit_outlined, size: 18),
-                    tooltip: 'Chỉnh sửa',
-                    style: IconButton.styleFrom(
-                        foregroundColor: HrmPageChrome.primaryNavy),
-                  ),
-                  if (c.status != CommunicationStatus.published)
+                  if (canEdit)
+                    IconButton(
+                      onPressed: widget.onEdit,
+                      icon: const Icon(Icons.edit_outlined, size: 18),
+                      tooltip: 'Chỉnh sửa',
+                      style: IconButton.styleFrom(
+                          foregroundColor: HrmPageChrome.primaryNavy),
+                    ),
+                  if (canPublish && c.status != CommunicationStatus.published)
                     IconButton(
                       onPressed: widget.onPublish,
                       icon: const Icon(Icons.send_outlined, size: 18),
@@ -2081,13 +2086,14 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                       style: IconButton.styleFrom(
                           foregroundColor: const Color(0xFF22C55E)),
                     ),
-                  IconButton(
-                    onPressed: widget.onDelete,
-                    icon: const Icon(Icons.delete_outline, size: 18),
-                    tooltip: 'Xóa',
-                    style: IconButton.styleFrom(
-                        foregroundColor: const Color(0xFFEF4444)),
-                  ),
+                  if (canDelete)
+                    IconButton(
+                      onPressed: widget.onDelete,
+                      icon: const Icon(Icons.delete_outline, size: 18),
+                      tooltip: 'Xóa',
+                      style: IconButton.styleFrom(
+                          foregroundColor: const Color(0xFFEF4444)),
+                    ),
                   IconButton(
                     onPressed: widget.onClose,
                     icon: const Icon(Icons.close, size: 18),
@@ -2105,13 +2111,14 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Cover image
-                      if (imageUrl != null)
+                      if (thumbPath != null)
                         ClipRRect(
                           borderRadius: BorderRadius.circular(12),
                           child: ConstrainedBox(
                             constraints: const BoxConstraints(maxHeight: 400),
-                            child: CachedNetworkImage(
-                                imageUrl: imageUrl,
+                            child: AuthCachedImage(
+                                imagePath: thumbPath!,
+                                apiService: _api,
                                 width: double.infinity,
                                 fit: BoxFit.cover,
                                 placeholder: (_, __) => const Center(
@@ -2124,7 +2131,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                                     const SizedBox.shrink()),
                           ),
                         ),
-                      if (imageUrl != null) const SizedBox(height: 24),
+                      if (thumbPath != null) const SizedBox(height: 24),
 
                       // Type + Status badges
                       Wrap(
@@ -2317,9 +2324,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                             separatorBuilder: (_, __) =>
                                 const SizedBox(width: 8),
                             itemBuilder: (_, i) {
-                              final url = c.attachedImages[i].startsWith('http')
-                                  ? c.attachedImages[i]
-                                  : '${ApiService.baseUrl}${c.attachedImages[i]}';
+                              final attachPath = c.attachedImages[i];
                               return GestureDetector(
                                 onTap: () => showDialog(
                                     context: context,
@@ -2332,8 +2337,9 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                                                     borderRadius:
                                                         BorderRadius.circular(
                                                             12),
-                                                    child: CachedNetworkImage(
-                                                        imageUrl: url,
+                                                    child: AuthCachedImage(
+                                                        imagePath: attachPath,
+                                                        apiService: _api,
                                                         fit: BoxFit.contain)),
                                                 IconButton(
                                                     onPressed: () =>
@@ -2349,8 +2355,9 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                                         )),
                                 child: ClipRRect(
                                   borderRadius: BorderRadius.circular(8),
-                                  child: CachedNetworkImage(
-                                      imageUrl: url,
+                                  child: AuthCachedImage(
+                                      imagePath: attachPath,
+                                      apiService: _api,
                                       width: 80,
                                       height: 80,
                                       fit: BoxFit.cover,
@@ -3091,8 +3098,9 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
                       Stack(children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(10),
-                          child: CachedNetworkImage(
-                              imageUrl: '${ApiService.baseUrl}$_thumbnailUrl',
+                          child: AuthCachedImage(
+                              imagePath: _thumbnailUrl!,
+                              apiService: _api,
                               height: 100,
                               width: double.infinity,
                               fit: BoxFit.cover,
@@ -3136,9 +3144,9 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
                                 (e) => Stack(children: [
                                   ClipRRect(
                                       borderRadius: BorderRadius.circular(8),
-                                      child: CachedNetworkImage(
-                                          imageUrl:
-                                              '${ApiService.baseUrl}${e.value}',
+                                      child: AuthCachedImage(
+                                          imagePath: e.value,
+                                          apiService: _api,
                                           width: 70,
                                           height: 70,
                                           fit: BoxFit.cover,

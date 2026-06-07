@@ -168,21 +168,19 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
       }
 
       // Log + metadata song song (log có tiến trình từng trang)
-      final attendancesFuture = deviceIds.isEmpty
-          ? Future.value(const AttendanceLoadResult(items: []))
-          : loadAttendancesForPeriodResult(
-              _apiService,
-              deviceIds: deviceIds,
-              fromDate: _fromDate,
-              toDate: _toDate,
-              dayEndHour: deh,
-              dayEndMinute: dem,
-              pageSize: 1000,
-              parallelPages: 6,
-              onProgress: (msg) {
-                if (mounted) setState(() => _loadMessage = msg);
-              },
-            );
+      final attendancesFuture = loadAttendancesForPeriodResult(
+        _apiService,
+        deviceIds: deviceIds,
+        fromDate: _fromDate,
+        toDate: _toDate,
+        dayEndHour: deh,
+        dayEndMinute: dem,
+        pageSize: 1000,
+        parallelPages: 6,
+        onProgress: (msg) {
+          if (mounted) setState(() => _loadMessage = msg);
+        },
+      );
 
       final metadataFuture = Future.wait([
         _apiService.getShifts().catchError((_) => <dynamic>[]),
@@ -195,20 +193,18 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
         _apiService
             .getSalaryProfiles()
             .catchError((_) => <dynamic>[]),
-        _apiService
-            .getAllLeaves(
-                fromDate: fromStr,
-                toDate: toStr,
-                status: 'Approved',
-                pageSize: 1000)
-            .catchError((_) => <String, dynamic>{}),
-        _apiService
-            .getAllLeaves(
-                fromDate: fromStr,
-                toDate: toStr,
-                status: 'Pending',
-                pageSize: 1000)
-            .catchError((_) => <String, dynamic>{}),
+        loadLeavesForPeriod(
+          _apiService,
+          fromDate: fromStr,
+          toDate: toStr,
+          status: 'Approved',
+        ).catchError((_) => <dynamic>[]),
+        loadLeavesForPeriod(
+          _apiService,
+          fromDate: fromStr,
+          toDate: toStr,
+          status: 'Pending',
+        ).catchError((_) => <dynamic>[]),
       ]);
 
       final phase2 = await Future.wait([attendancesFuture, metadataFuture]);
@@ -230,9 +226,9 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
       final holidays = results[2] as List<dynamic>;
       final salaryProfiles = results[3] as List<dynamic>;
 
-      List<dynamic> approvedLeaves = [
-        ..._parseLeaveItems(results[4] as Map<String, dynamic>),
-        ..._parseLeaveItems(results[5] as Map<String, dynamic>),
+      final approvedLeaves = [
+        ...(results[4] as List<dynamic>),
+        ...(results[5] as List<dynamic>),
       ];
 
       if (mounted) {
@@ -251,10 +247,13 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
           if (!silent) _isLoading = false;
         });
         if (attLoad.truncated && mounted) {
+          final tc = attLoad.totalCount;
+          final msg = tc != null && tc > attendances.length
+              ? 'Đã tải ${attendances.length} / $tc log chấm công.'
+              : 'Đã tải ${attendances.length} log (giới hạn tải).';
           appNotification.showWarning(
             title: 'Dữ liệu có thể chưa đủ',
-            message:
-                'Đã tải ${attendances.length} log. Thu hẹp khoảng ngày hoặc liên hệ quản trị nếu thiếu ngày gần đây.',
+            message: '$msg Thu hẹp khoảng ngày nếu thiếu ngày cuối tháng.',
           );
         }
       }

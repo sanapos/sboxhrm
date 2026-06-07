@@ -5,6 +5,7 @@ import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import '../models/cash_transaction.dart';
 import '../utils/report_screen_helpers.dart';
+import '../utils/vietnamese_text_fix.dart';
 
 const _cRowH = 54.0;
 const _cHdrH = 44.0;
@@ -123,7 +124,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
       rows.add([
         i + 1,
         t['transactionCode']?.toString() ?? '',
-        t['categoryName']?.toString() ?? '',
+        fixVietnameseMojibake(t['categoryName']?.toString() ?? ''),
         typeVal == 1 ? 'Thu' : 'Chi',
         date != null ? _fmtDate.format(date) : '',
         _safeDouble(t['amount']),
@@ -520,7 +521,8 @@ class _CashReportScreenState extends State<CashReportScreen> {
                     ...List.generate(rows.length, (i) {
                       final t = rows[i];
                       final typeVal = _safeInt(t['type']);
-                      final catName = t['categoryName']?.toString() ?? '—';
+                      final catName = fixVietnameseMojibake(
+                          t['categoryName']?.toString() ?? '—');
                       final typeColor = _typeColor(typeVal);
                       return Container(
                         width: _cStickyW,

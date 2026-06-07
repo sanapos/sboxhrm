@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../models/hrm.dart';
@@ -11,6 +12,7 @@ import '../widgets/notification_overlay.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/app_scroll_safe.dart';
 import '../widgets/shift_swap_panel.dart';
 import '../widgets/shift_swap_ui.dart';
 import 'main_layout.dart';
@@ -466,7 +468,9 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                 ),
               ],
             ),
-      floatingActionButton: _tabController.index == 2
+      floatingActionButton: _tabController.index == 2 &&
+              Provider.of<PermissionProvider>(context, listen: false)
+                  .canCreate('ShiftSwap')
           ? FloatingActionButton.extended(
               onPressed: () {
                 _swapPanelKey.currentState?.showCreateDialog();
@@ -2406,7 +2410,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
         ? values.map((s) => s.scheduledShifts).reduce(max)
         : 1;
 
-    return SingleChildScrollView(
+    return AppTableScroll(
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
@@ -2661,7 +2665,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
     final reasonController = TextEditingController();
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => ScrollableAlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Từ chối đăng ký',
             style: TextStyle(
@@ -2872,7 +2876,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
       String title, String content, String confirmText, Color confirmColor) {
     return showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => ScrollableAlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(title,
             style: const TextStyle(

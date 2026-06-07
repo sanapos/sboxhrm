@@ -72,18 +72,53 @@ public class SmsChannelProvider : INotificationChannelProvider
     }
 }
 
-/// <summary>Push (FCM) channel — stub cho P3. Tích hợp Firebase Admin SDK sẽ làm ở giai đoạn sau.</summary>
+/// <summary>Push (FCM) channel — dùng <see cref="Push.IPushNotificationService"/> (Firebase Admin).</summary>
 public class PushChannelProvider : INotificationChannelProvider
 {
+    private readonly Push.IPushNotificationService _push;
+    private readonly Push.FirebaseInitializer _firebase;
     private readonly ILogger<PushChannelProvider> _logger;
-    public PushChannelProvider(ILogger<PushChannelProvider> logger) { _logger = logger; }
+
+    public PushChannelProvider(
+        Push.IPushNotificationService push,
+        Push.FirebaseInitializer firebase,
+        ILogger<PushChannelProvider> logger)
+    {
+        _push = push;
+        _firebase = firebase;
+        _logger = logger;
+    }
 
     public NotificationChannel Channel => NotificationChannel.Push;
-    public bool IsConfigured => false;
+    public bool IsConfigured => _firebase.IsAvailable;
 
-    public Task<ChannelSendResult> SendAsync(ChannelRecipient r, string title, string body, string? actionUrl, CancellationToken ct = default)
+    public async Task<ChannelSendResult> SendAsync(
+        ChannelRecipient r, string title, string body, string? actionUrl, CancellationToken ct = default)
     {
-        _logger.LogInformation("🔔 [PUSH-STUB] To={Token} | {Title}", r.FcmToken, title);
-        return Task.FromResult(new ChannelSendResult(false, "Push (FCM) provider chưa được cấu hình (TODO)"));
+        if (!IsConfigured)
+            return new ChannelSendResult(false, "Firebase chưa được cấu hình");
+
+        try
+        {
+            var data = new Dictionary<string, string>
+            {
+                ["relatedEntityType"] = "SystemAnnouncement",
+            };
+            if (!string.IsNullOrEmpty(actionUrl))
+                data["actionUrl"] = actionUrl;
+
+            var sent = await _push.PushToUserAsync(r.UserId, title, body, actionUrl, data, ct: ct);
+            if (sent > 0)
+                return new ChannelSendResult(true, null);
+
+            _logger.LogInformation(
+                "🔔 Announcement FCM: no active tokens for user {UserId}", r.UserId);
+            return new ChannelSendResult(false, "Người nhận chưa đăng ký thiết bị push");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Announcement FCM failed for user {UserId}", r.UserId);
+            return new ChannelSendResult(false, ex.Message);
+        }
     }
 }

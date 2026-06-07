@@ -12,12 +12,17 @@ using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Infrastructure;
+using ZKTecoADMS.Infrastructure.Services;
 
 namespace ZKTecoADMS.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class TransactionsController(IMediator mediator, ZKTecoDbContext context, ISystemNotificationService notificationService) : AuthenticatedControllerBase
+public class TransactionsController(
+    IMediator mediator,
+    ZKTecoDbContext context,
+    IModulePermissionService modulePermissionService,
+    ISystemNotificationService notificationService) : AuthenticatedControllerBase
 {
     [HttpGet]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -33,7 +38,7 @@ public class TransactionsController(IMediator mediator, ZKTecoDbContext context,
         [FromQuery] DateTime? fromDate = null,
         [FromQuery] DateTime? toDate = null)
     {
-        var query = new GetTransactionsQuery(page, pageSize, employeeUserId, type, status, forMonth, forYear, fromDate, toDate);
+        var query = new GetTransactionsQuery(page, pageSize, employeeUserId, type, status, forMonth, forYear, fromDate, toDate, RequiredStoreId);
         var result = await mediator.Send(query);
         return Ok(result);
     }
@@ -80,25 +85,24 @@ public class TransactionsController(IMediator mediator, ZKTecoDbContext context,
             request.AdvanceRequestId,
             request.PayslipId,
             CurrentUserId);
-        
+
         var result = await mediator.Send(command);
 
-        // Notify the target employee about the new bonus/penalty
         try
         {
-            var empUserId = request.EmployeeUserId;
-            if (empUserId != Guid.Empty && empUserId != CurrentUserId)
+            if (result.IsSuccess && result.Data != null)
             {
-                var typeLabel = request.Type == "Bonus" ? "thÆ°á»Ÿng" : request.Type == "Penalty" ? "pháº¡t" : request.Type;
-                await notificationService.CreateAndSendAsync(
-                    empUserId, NotificationType.Info,
-                    $"Phiáº¿u {typeLabel} má»›i",
-                    $"Báº¡n cÃ³ phiáº¿u {typeLabel}: {request.Amount:N0}Ä‘ - {request.Description}",
-                    relatedEntityType: "PaymentTransaction",
-                    fromUserId: CurrentUserId, categoryCode: "transaction", storeId: RequiredStoreId);
+                var tx = await context.PaymentTransactions.AsNoTracking()
+                    .FirstOrDefaultAsync(t => t.Id == result.Data.Id);
+                if (tx != null)
+                {
+                    await PaymentTransactionNotificationHelper.NotifyCreatedAsync(
+                        context, modulePermissionService, notificationService,
+                        tx, CurrentUserId, RequiredStoreId);
+                }
             }
         }
-        catch { /* Notification failure should not affect main operation */ }
+        catch { /* notification is best-effort */ }
 
         return Ok(result);
     }
@@ -107,33 +111,52 @@ public class TransactionsController(IMediator mediator, ZKTecoDbContext context,
     [Authorize(Policy = PolicyNames.AtLeastManager)]
     [RequireAnyModulePermission(ModulePermissionAction.Edit, "Transaction", "CashTransaction", "BonusPenalty")]
     public async Task<ActionResult<AppResponse<PaymentTransactionDto>>> UpdateTransactionStatus(
-        Guid id, 
+        Guid id,
         [FromBody] UpdateTransactionStatusDto request)
     {
+        var storeId = RequiredStoreId;
         var command = new UpdateTransactionStatusCommand(id, request.Status, CurrentUserId);
         var result = await mediator.Send(command);
 
-        // Notify the target employee about status change
         try
         {
-            var tx = await context.PaymentTransactions.AsNoTracking().FirstOrDefaultAsync(t => t.Id == id);
-            if (tx != null && tx.EmployeeUserId != Guid.Empty && tx.EmployeeUserId != CurrentUserId)
+            if (result.IsSuccess)
             {
-                var statusLabel = request.Status switch
+                var tx = await context.PaymentTransactions
+                    .Include(t => t.Employee)
+                    .FirstOrDefaultAsync(t => t.Id == id);
+                if (tx != null)
                 {
-                    "Completed" => "Ä‘Ã£ duyá»‡t",
-                    "Cancelled" => "Ä‘Ã£ há»§y",
-                    _ => $"cáº­p nháº­t: {request.Status}"
-                };
-                await notificationService.CreateAndSendAsync(
-                    tx.EmployeeUserId, NotificationType.Info,
-                    "Phiáº¿u thÆ°á»Ÿng/pháº¡t cáº­p nháº­t",
-                    $"Phiáº¿u {tx.Type} {statusLabel}",
-                    relatedEntityType: "PaymentTransaction", relatedEntityId: id,
-                    fromUserId: CurrentUserId, categoryCode: "transaction", storeId: RequiredStoreId);
+                    if (request.Status == "Completed")
+                    {
+                        var cashTx = await PaymentFinanceHelper.ApplyBonusPenaltyDisbursementOnApproveAsync(
+                            context, tx, storeId, CurrentUserId, request.DisbursementMode);
+                        if (cashTx != null)
+                        {
+                            await CashTransactionNotificationHelper.NotifyOnCreatedAsync(
+                                context, modulePermissionService, notificationService,
+                                cashTx, CurrentUserId, storeId);
+                        }
+                    }
+                    else if (request.Status is "Pending" or "Cancelled")
+                    {
+                        PaymentFinanceHelper.ClearSalaryDisbursementOnUnapprove(tx);
+                        var linked = await PaymentFinanceHelper.ResolveLinkedAsync(
+                            context, storeId, PaymentFinanceHelper.BonusPenaltyNote(id));
+                        if (linked != null && !linked.IsPaid)
+                        {
+                            PaymentFinanceHelper.CancelLinkedCashTransaction(
+                                linked, request.Status == "Cancelled" ? "Hủy theo phiếu thưởng/phạt" : "Hoàn duyệt phiếu thưởng/phạt");
+                        }
+                        await context.SaveChangesAsync();
+                    }
+
+                    await PaymentTransactionNotificationHelper.NotifyStatusChangedAsync(
+                        notificationService, tx, request.Status, CurrentUserId, storeId);
+                }
             }
         }
-        catch { /* Notification failure should not affect main operation */ }
+        catch { /* notification is best-effort */ }
 
         return Ok(result);
     }
@@ -163,45 +186,37 @@ public class TransactionsController(IMediator mediator, ZKTecoDbContext context,
     [RequireAnyModulePermission(ModulePermissionAction.Delete, "Transaction", "CashTransaction", "BonusPenalty")]
     public async Task<ActionResult<AppResponse<bool>>> DeleteTransaction(Guid id)
     {
-        // Load transaction info before deletion for notification
+        var storeId = RequiredStoreId;
         var txInfo = await context.PaymentTransactions.AsNoTracking()
             .Where(t => t.Id == id)
             .Select(t => new { t.EmployeeUserId, t.Type, t.Amount })
             .FirstOrDefaultAsync();
 
-        // If the transaction was paid, also delete the corresponding CashTransaction
-        var tx = await context.PaymentTransactions.FirstOrDefaultAsync(t => t.Id == id);
-        if (tx != null && !string.IsNullOrEmpty(tx.PaymentMethod))
+        var linked = await PaymentFinanceHelper.ResolveLinkedAsync(
+            context, storeId, PaymentFinanceHelper.BonusPenaltyNote(id));
+        if (linked != null)
         {
-            var searchNote = $"#{id}";
-            var cashTx = await context.CashTransactions
-                .Where(c => c.InternalNote != null && c.InternalNote.Contains(searchNote))
-                .FirstOrDefaultAsync();
-            if (cashTx != null)
-            {
-                context.CashTransactions.Remove(cashTx);
-                await context.SaveChangesAsync();
-            }
+            PaymentFinanceHelper.SoftDeleteLinkedCashTransaction(linked, "Xóa theo phiếu thưởng/phạt");
+            await context.SaveChangesAsync();
         }
 
         var command = new DeletePaymentTransactionCommand(id);
         var result = await mediator.Send(command);
 
-        // Notify the target employee about deletion
         try
         {
-            if (txInfo != null && txInfo.EmployeeUserId != Guid.Empty && txInfo.EmployeeUserId != CurrentUserId)
+            if (result.IsSuccess && txInfo != null)
             {
-                var typeLabel = txInfo.Type == "Bonus" ? "thÆ°á»Ÿng" : txInfo.Type == "Penalty" ? "pháº¡t" : txInfo.Type;
-                await notificationService.CreateAndSendAsync(
-                    txInfo.EmployeeUserId, NotificationType.Warning,
-                    $"Phiáº¿u {typeLabel} Ä‘Ã£ xÃ³a",
-                    $"Phiáº¿u {typeLabel} {txInfo.Amount:N0}Ä‘ Ä‘Ã£ bá»‹ xÃ³a",
-                    relatedEntityType: "PaymentTransaction",
-                    fromUserId: CurrentUserId, categoryCode: "transaction", storeId: RequiredStoreId);
+                await PaymentTransactionNotificationHelper.NotifyDeletedAsync(
+                    notificationService,
+                    txInfo.EmployeeUserId,
+                    txInfo.Type,
+                    txInfo.Amount,
+                    CurrentUserId,
+                    storeId);
             }
         }
-        catch { /* Notification failure should not affect main operation */ }
+        catch { /* notification is best-effort */ }
 
         return Ok(result);
     }
@@ -211,8 +226,10 @@ public class TransactionsController(IMediator mediator, ZKTecoDbContext context,
     [RequireAnyModulePermission(ModulePermissionAction.Approve, "Transaction", "CashTransaction", "BonusPenalty")]
     public async Task<ActionResult<AppResponse<BulkTransactionResultDto>>> BulkApprove([FromBody] BulkTransactionApproveDto request)
     {
+        var storeId = RequiredStoreId;
         int success = 0, failed = 0;
         var approvedIds = new List<Guid>();
+
         foreach (var id in request.Ids)
         {
             try
@@ -224,31 +241,32 @@ public class TransactionsController(IMediator mediator, ZKTecoDbContext context,
             catch { failed++; }
         }
 
-        // Notify all affected employees about bulk approval
         try
         {
             if (approvedIds.Count > 0)
             {
-                var txInfos = await context.PaymentTransactions.AsNoTracking()
+                var txs = await context.PaymentTransactions
+                    .Include(t => t.Employee)
                     .Where(t => approvedIds.Contains(t.Id))
-                    .Select(t => new { t.Id, t.EmployeeUserId, t.Type, t.Amount })
                     .ToListAsync();
-                foreach (var t in txInfos)
+
+                foreach (var tx in txs)
                 {
-                    if (t.EmployeeUserId != Guid.Empty && t.EmployeeUserId != CurrentUserId)
+                    var cashTx = await PaymentFinanceHelper.ApplyBonusPenaltyDisbursementOnApproveAsync(
+                        context, tx, storeId, CurrentUserId, request.DisbursementMode);
+                    if (cashTx != null)
                     {
-                        var typeLabel = t.Type == "Bonus" ? "thÆ°á»Ÿng" : t.Type == "Penalty" ? "pháº¡t" : t.Type;
-                        await notificationService.CreateAndSendAsync(
-                            t.EmployeeUserId, NotificationType.Success,
-                            $"Phiáº¿u {typeLabel} Ä‘Ã£ duyá»‡t",
-                            $"Phiáº¿u {typeLabel} {Math.Abs(t.Amount):N0}Ä‘ Ä‘Ã£ Ä‘Æ°á»£c duyá»‡t",
-                            relatedEntityType: "PaymentTransaction", relatedEntityId: t.Id,
-                            fromUserId: CurrentUserId, categoryCode: "transaction", storeId: RequiredStoreId);
+                        await CashTransactionNotificationHelper.NotifyOnCreatedAsync(
+                            context, modulePermissionService, notificationService,
+                            cashTx, CurrentUserId, storeId);
                     }
+
+                    await PaymentTransactionNotificationHelper.NotifyStatusChangedAsync(
+                        notificationService, tx, "Completed", CurrentUserId, storeId);
                 }
             }
         }
-        catch { /* Notification failure should not affect main operation */ }
+        catch { /* notification is best-effort */ }
 
         return Ok(AppResponse<BulkTransactionResultDto>.Success(new BulkTransactionResultDto(success, failed)));
     }
@@ -260,8 +278,8 @@ public class TransactionsController(IMediator mediator, ZKTecoDbContext context,
     {
         var storeId = RequiredStoreId;
         int success = 0, failed = 0;
+        var paidTransactions = new List<PaymentTransaction>();
 
-        // Parse payment method
         var paymentMethod = PaymentMethodType.Cash;
         if (!string.IsNullOrEmpty(request.PaymentMethod))
         {
@@ -269,24 +287,11 @@ public class TransactionsController(IMediator mediator, ZKTecoDbContext context,
                 paymentMethod = parsed;
         }
 
-        // Pre-load all transactions and categories to avoid N+1
         var transactions = await context.PaymentTransactions
             .AsTracking()
             .Include(t => t.Employee)
             .Where(t => request.Ids.Contains(t.Id) && t.Status == "Completed")
             .ToDictionaryAsync(t => t.Id);
-
-        var categories = await context.TransactionCategories
-            .Where(c => c.IsActive)
-            .ToListAsync();
-
-        // Get current max count for transaction codes
-        var today = DateTime.UtcNow;
-        var dateStr = today.ToString("yyyyMMdd");
-        var thCount = await context.CashTransactions
-            .CountAsync(x => x.TransactionCode.StartsWith($"TH-{dateStr}"));
-        var chCount = await context.CashTransactions
-            .CountAsync(x => x.TransactionCode.StartsWith($"CH-{dateStr}"));
 
         foreach (var id in request.Ids)
         {
@@ -295,50 +300,61 @@ public class TransactionsController(IMediator mediator, ZKTecoDbContext context,
                 if (!transactions.TryGetValue(id, out var transaction))
                 { failed++; continue; }
 
-                // Penalty => Income (Thu), Bonus => Expense (Chi)
-                var isPenalty = transaction.Type == "Penalty";
-                var cashType = isPenalty ? CashTransactionType.Income : CashTransactionType.Expense;
-                var codePrefix = isPenalty ? "TH" : "CH";
-                var categoryName = isPenalty ? "Pháº¡t nhÃ¢n viÃªn" : "ThÆ°á»Ÿng nhÃ¢n viÃªn";
-
-                var category = categories.FirstOrDefault(c => c.Name == categoryName && c.Type == cashType);
-                if (category == null)
-                    category = categories.FirstOrDefault(c => c.Type == cashType);
-                if (category == null) { failed++; continue; }
-
-                // Update payment method on the transaction
                 transaction.PaymentMethod = request.PaymentMethod ?? "Cash";
 
-                // Create CashTransaction
-                var count = (isPenalty ? ++thCount : ++chCount) + success;
-                var transactionCode = $"{codePrefix}-{dateStr}-{count:D4}";
+                var marker = PaymentFinanceHelper.BonusPenaltyNote(transaction.Id);
+                var linked = await PaymentFinanceHelper.ResolveLinkedAsync(context, storeId, marker);
 
-                var empName = transaction.Employee != null
-                    ? $"{transaction.Employee.LastName} {transaction.Employee.FirstName}".Trim()
-                    : "N/A";
-
-                var cashTx = new CashTransaction
+                if (linked != null && !linked.IsPaid)
                 {
-                    Id = Guid.NewGuid(),
-                    TransactionCode = transactionCode,
-                    Type = cashType,
-                    CategoryId = category.Id,
-                    Amount = Math.Abs(transaction.Amount),
-                    TransactionDate = today,
-                    Description = $"{(isPenalty ? "Thu tiá»n pháº¡t" : "ThÆ°á»Ÿng")} - {empName} - {transaction.Description}",
-                    PaymentMethod = paymentMethod,
-                    Status = CashTransactionStatus.Completed,
-                    IsPaid = true,
-                    PaidDate = today,
-                    CreatedByUserId = CurrentUserId,
-                    StoreId = storeId,
-                    InternalNote = !string.IsNullOrEmpty(transaction.Note)
-                        ? $"{transaction.Note} | Tá»± Ä‘á»™ng táº¡o tá»« phiáº¿u thÆ°á»Ÿng/pháº¡t #{transaction.Id}"
-                        : $"Tá»± Ä‘á»™ng táº¡o tá»« phiáº¿u thÆ°á»Ÿng/pháº¡t #{transaction.Id}",
-                    IsActive = true
-                };
+                    PaymentFinanceHelper.CompleteCashTransaction(linked, paymentMethod, CurrentUserId);
+                }
+                else if (linked == null)
+                {
+                    // Legacy: chưa có phiếu chờ → tạo bù đã thanh toán
+                    var isPenalty = transaction.Type == "Penalty";
+                    var cashType = isPenalty ? CashTransactionType.Income : CashTransactionType.Expense;
+                    var categoryName = isPenalty ? "Phạt nhân viên" : "Thưởng nhân viên";
+                    var categories = await context.TransactionCategories
+                        .Where(c => c.IsActive && c.StoreId == storeId && c.Type == cashType)
+                        .ToListAsync();
+                    var category = categories.FirstOrDefault(c => c.Name == categoryName)
+                        ?? categories.FirstOrDefault();
+                    if (category == null) { failed++; continue; }
 
-                context.CashTransactions.Add(cashTx);
+                    var empName = transaction.Employee != null
+                        ? $"{transaction.Employee.LastName} {transaction.Employee.FirstName}".Trim()
+                        : "N/A";
+                    var today = DateTime.UtcNow;
+                    var prefix = isPenalty ? "TH" : "CH";
+                    var dateStr = today.ToString("yyyyMMdd");
+                    var count = await context.CashTransactions
+                        .CountAsync(x => x.StoreId == storeId && x.TransactionCode.StartsWith($"{prefix}-{dateStr}")) + success + 1;
+
+                    var cashTx = new CashTransaction
+                    {
+                        Id = Guid.NewGuid(),
+                        TransactionCode = $"{prefix}-{dateStr}-{count:D4}",
+                        Type = cashType,
+                        CategoryId = category.Id,
+                        Amount = Math.Abs(transaction.Amount),
+                        TransactionDate = today,
+                        Description = $"{(isPenalty ? "Thu tiền phạt" : "Thưởng")} - {empName} - {transaction.Description}",
+                        PaymentMethod = paymentMethod,
+                        Status = CashTransactionStatus.Completed,
+                        IsPaid = true,
+                        PaidDate = today,
+                        CreatedByUserId = CurrentUserId,
+                        StoreId = storeId,
+                        InternalNote = !string.IsNullOrEmpty(transaction.Note)
+                            ? $"{transaction.Note} | {marker}"
+                            : marker,
+                        IsActive = true
+                    };
+                    context.CashTransactions.Add(cashTx);
+                }
+
+                paidTransactions.Add(transaction);
                 success++;
             }
             catch (Exception ex)
@@ -348,31 +364,19 @@ public class TransactionsController(IMediator mediator, ZKTecoDbContext context,
             }
         }
 
-        // Batch save all changes once instead of per-iteration
         if (success > 0)
             await context.SaveChangesAsync();
 
-        // Notify all affected employees about bulk payment
         try
         {
-            foreach (var kvp in transactions)
+            foreach (var tx in paidTransactions)
             {
-                var t = kvp.Value;
-                if (t.EmployeeUserId != Guid.Empty && t.EmployeeUserId != CurrentUserId)
-                {
-                    var typeLabel = t.Type == "Bonus" ? "thÆ°á»Ÿng" : t.Type == "Penalty" ? "pháº¡t" : t.Type;
-                    await notificationService.CreateAndSendAsync(
-                        t.EmployeeUserId, NotificationType.Success,
-                        $"Phiáº¿u {typeLabel} Ä‘Ã£ thanh toÃ¡n",
-                        $"Phiáº¿u {typeLabel} {Math.Abs(t.Amount):N0}Ä‘ Ä‘Ã£ Ä‘Æ°á»£c thanh toÃ¡n",
-                        relatedEntityType: "PaymentTransaction", relatedEntityId: t.Id,
-                        fromUserId: CurrentUserId, categoryCode: "transaction", storeId: storeId);
-                }
+                await PaymentTransactionNotificationHelper.NotifyPaidAsync(
+                    notificationService, tx, CurrentUserId, storeId);
             }
         }
-        catch { /* Notification failure should not affect main operation */ }
+        catch { /* notification is best-effort */ }
 
         return Ok(AppResponse<BulkTransactionResultDto>.Success(new BulkTransactionResultDto(success, failed)));
     }
 }
-

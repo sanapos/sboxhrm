@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import '../../services/api_service.dart';
 import 'system_admin_helpers.dart';
 
@@ -409,49 +410,52 @@ class DevicesTabState extends State<DevicesTab> {
             runSpacing: 4,
             alignment: WrapAlignment.center,
             children: [
-              if (hasStore)
+              if (context.systemAdminCanEdit) ...[
+                if (hasStore)
+                  _deviceAction(
+                    icon: Icons.link_off,
+                    label: 'Gỡ khỏi CH',
+                    color: AdminHelpers.warning,
+                    onTap: () => _unassignDevice(device),
+                  ),
                 _deviceAction(
-                  icon: Icons.link_off,
-                  label: 'Gỡ khỏi CH',
-                  color: AdminHelpers.warning,
-                  onTap: () => _unassignDevice(device),
+                  icon: Icons.swap_horiz,
+                  label: 'Chuyển CH',
+                  color: AdminHelpers.info,
+                  onTap: () => _transferDevice(device),
                 ),
-              _deviceAction(
-                icon: Icons.swap_horiz,
-                label: 'Chuyển CH',
-                color: AdminHelpers.info,
-                onTap: () => _transferDevice(device),
-              ),
-              _deviceAction(
-                icon: Icons.restart_alt,
-                label: 'Khởi động lại',
-                color: AdminHelpers.primary,
-                onTap: () => _restartDevice(device),
-              ),
-              _deviceAction(
-                icon: Icons.cleaning_services,
-                label: 'Xóa dữ liệu',
-                color: AdminHelpers.danger,
-                onTap: () => _clearDeviceData(device),
-              ),
-              _deviceAction(
-                icon: Icons.person_add,
-                label: 'Thêm user',
-                color: AdminHelpers.success,
-                onTap: () => _addUserToDevice(device),
-              ),
-              _deviceAction(
-                icon: Icons.sync,
-                label: 'Đồng bộ CC',
-                color: Colors.teal,
-                onTap: () => _syncAttendance(device),
-              ),
-              _deviceAction(
-                icon: Icons.delete_forever,
-                label: 'Xóa thiết bị',
-                color: AdminHelpers.danger,
-                onTap: () => _deleteDevice(device),
-              ),
+                _deviceAction(
+                  icon: Icons.restart_alt,
+                  label: 'Khởi động lại',
+                  color: AdminHelpers.primary,
+                  onTap: () => _restartDevice(device),
+                ),
+                _deviceAction(
+                  icon: Icons.cleaning_services,
+                  label: 'Xóa dữ liệu',
+                  color: AdminHelpers.danger,
+                  onTap: () => _clearDeviceData(device),
+                ),
+                _deviceAction(
+                  icon: Icons.person_add,
+                  label: 'Thêm user',
+                  color: AdminHelpers.success,
+                  onTap: () => _addUserToDevice(device),
+                ),
+                _deviceAction(
+                  icon: Icons.sync,
+                  label: 'Đồng bộ CC',
+                  color: Colors.teal,
+                  onTap: () => _syncAttendance(device),
+                ),
+              ],
+              if (context.systemAdminCanDelete)
+                _deviceAction(
+                  icon: Icons.delete_forever,
+                  label: 'Xóa thiết bị',
+                  color: AdminHelpers.danger,
+                  onTap: () => _deleteDevice(device),
+                ),
             ],
           ),
         ],
@@ -521,7 +525,7 @@ class DevicesTabState extends State<DevicesTab> {
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
+        builder: (ctx, setDialogState) => ScrollableAlertDialog(
           title: Row(children: [
             const Icon(Icons.swap_horiz, color: AdminHelpers.info, size: 22),
             const SizedBox(width: 8),
@@ -661,7 +665,7 @@ class DevicesTabState extends State<DevicesTab> {
 
     final result = await showDialog<int>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Row(children: [
           Icon(Icons.cleaning_services,
               color: AdminHelpers.danger, size: 22),
@@ -749,7 +753,7 @@ class DevicesTabState extends State<DevicesTab> {
 
     final result = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: Row(children: [
           const Icon(Icons.person_add,
               color: AdminHelpers.success, size: 22),

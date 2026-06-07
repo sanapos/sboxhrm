@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using ZKTecoADMS.Application.DTOs.Leaves;
+using ZKTecoADMS.Application.Interfaces;
+using ZKTecoADMS.Application.Leaves;
 using ZKTecoADMS.Domain.Enums;
 
 namespace ZKTecoADMS.Application.Commands.Leaves.CreateLeave;
@@ -15,6 +17,7 @@ public class CreateLeaveHandler(
     IRepository<AppSettings> appSettingsRepository,
     UserManager<ApplicationUser> userManager,
     ISystemNotificationService notificationService,
+    IAnnualLeaveBalanceService annualLeaveBalance,
     ILogger<CreateLeaveHandler> logger,
     DbContext dbContext
     ) : ICommandHandler<CreateLeaveCommand, AppResponse<LeaveDto>>
@@ -23,6 +26,13 @@ public class CreateLeaveHandler(
     {
         try
         {
+            var legalError = LeaveLegalDefaults.Validate(
+                request.Type,
+                LeaveLegalDefaults.ResolveSickLeaveMode(request.Type, request.SickLeaveMode),
+                request.BhxhDocumentNote);
+            if (legalError != null)
+                return AppResponse<LeaveDto>.Error(legalError);
+
             if (request.StartDate > request.EndDate)
             {
                 return AppResponse<LeaveDto>.Error("Ngày bắt đầu phải trước ngày kết thúc");
@@ -45,6 +55,10 @@ public class CreateLeaveHandler(
                 return AppResponse<LeaveDto>.Error("Ca làm việc đã bị vô hiệu hóa, không thể tạo đơn nghỉ phép");
             }
 
+            var shiftIds = request.ShiftIds != null && request.ShiftIds.Count > 0
+                ? new List<Guid>(request.ShiftIds)
+                : new List<Guid> { shiftTemplate.Id };
+
             var overlapping = await leaveRepository.GetAllAsync(
                 filter: l => l.EmployeeUserId == request.EmployeeUserId &&
                              l.StoreId == request.StoreId &&
@@ -53,11 +67,12 @@ public class CreateLeaveHandler(
                              l.EndDate >= request.StartDate,
                 cancellationToken: cancellationToken);
 
-            if (overlapping != null && overlapping.Any())
+            if (overlapping != null && overlapping.Any(l =>
+                    LeaveShiftOverlap.ConflictsWith(l, request.StartDate, request.EndDate, shiftIds)))
             {
                 return AppResponse<LeaveDto>.Error(
-                    "Đã có đơn nghỉ phép trùng lịch trong khoảng thời gian này. " +
-                    "Vui lòng chọn ngày khác hoặc hủy đơn cũ.");
+                    "Đã có đơn nghỉ phép trùng ngày và ca trong khoảng thời gian này. " +
+                    "Vui lòng chọn ngày/ca khác hoặc hủy đơn cũ.");
             }
 
             // Read approval levels from settings
@@ -71,10 +86,6 @@ public class CreateLeaveHandler(
                     totalLevels = lvl;
             }
             catch { /* fallback to 1 */ }
-
-            var shiftIds = request.ShiftIds != null && request.ShiftIds.Count > 0
-                ? new List<Guid>(request.ShiftIds)
-                : new List<Guid> { shiftTemplate.Id };
 
             logger.LogWarning("[CreateLeave] request.ShiftIds={ReqShiftIds}, resolved shiftIds={ShiftIds}",
                 request.ShiftIds != null ? string.Join(",", request.ShiftIds) : "null",
@@ -97,7 +108,12 @@ public class CreateLeaveHandler(
                 EmployeeId = request.EmployeeId,
                 TotalApprovalLevels = totalLevels,
                 CurrentApprovalStep = 0,
+                CountAsWork = request.CountAsWork,
+                BhxhDocumentNote = string.IsNullOrWhiteSpace(request.BhxhDocumentNote)
+                    ? null
+                    : request.BhxhDocumentNote.Trim(),
             };
+            LeaveLegalDefaults.Apply(leave, request.SickLeaveMode);
 
             logger.LogWarning("[CreateLeave] Before AddAsync: leave.ShiftIds.Count={Count}, values={Values}",
                 leave.ShiftIds.Count, string.Join(",", leave.ShiftIds));
@@ -126,7 +142,31 @@ public class CreateLeaveHandler(
                 await approvalRecordRepository.AddAsync(record, cancellationToken);
             }
 
-            var leaveDto = leave.Adapt<LeaveDto>();
+            if (request.AutoApprove)
+            {
+                var deduct = await annualLeaveBalance.TryApplyDeductionAsync(
+                    createdLeave, cancellationToken);
+                if (!deduct.IsSuccess)
+                    return AppResponse<LeaveDto>.Error(deduct.Message ?? "Không thể trừ phép năm.");
+
+                createdLeave.Status = LeaveStatus.Approved;
+                createdLeave.CurrentApprovalStep = totalLevels;
+                createdLeave.UpdatedAt = DateTime.Now;
+                await leaveRepository.UpdateAsync(createdLeave, cancellationToken);
+
+                var savedRecords = (await approvalRecordRepository.GetAllAsync(
+                    filter: r => r.LeaveId == createdLeave.Id,
+                    cancellationToken: cancellationToken)).ToList();
+                foreach (var record in savedRecords)
+                {
+                    record.Status = ApprovalStatus.Approved;
+                    record.ActionDate = DateTime.Now;
+                    record.Note = "Duyệt luôn khi tạo";
+                    await approvalRecordRepository.UpdateAsync(record, cancellationToken);
+                }
+            }
+
+            var leaveDto = createdLeave.Adapt<LeaveDto>();
 
             // Notify all approvers + Admin in the chain
             try
@@ -148,7 +188,7 @@ public class CreateLeaveHandler(
                         allApproverIds.Add(adminId);
                 }
 
-                if (allApproverIds.Any())
+                if (!request.AutoApprove && allApproverIds.Any())
                 {
                     await notificationService.CreateAndSendToUsersAsync(
                         allApproverIds, NotificationType.ApprovalRequired,

@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/permission_provider.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import '../services/api_service.dart';
 import '../utils/number_formatter.dart';
 import '../utils/responsive_helper.dart';
@@ -13,6 +16,9 @@ class TaxSettingsScreen extends StatefulWidget {
 }
 
 class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
+  PermissionProvider get _perm =>
+      Provider.of<PermissionProvider>(context, listen: false);
+
   final ApiService _apiService = ApiService();
   bool _isLoading = true;
 
@@ -149,6 +155,7 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
   }
 
   Widget _buildSaveSettingsButton() {
+    if (!_perm.canEdit('Tax')) return const SizedBox.shrink();
     return SizedBox(
       width: double.infinity,
       height: 50,
@@ -562,7 +569,7 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
           final total = personalDeduction + depDeduction + ins + other;
 
           final isMobile = Responsive.isMobile(ctx);
-          return AlertDialog(
+          return ScrollableAlertDialog(
             insetPadding: isMobile ? EdgeInsets.zero : const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(isMobile ? 0 : 16)),
             title: Row(

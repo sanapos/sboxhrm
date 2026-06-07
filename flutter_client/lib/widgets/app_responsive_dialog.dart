@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/responsive_helper.dart';
 import 'app_button.dart';
 
 /// Helper mở dialog responsive: full-screen trên mobile, dialog trên desktop.
@@ -34,8 +35,7 @@ class AppResponsiveDialog {
     bool barrierDismissible = true,
     Color? iconColor,
   }) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isMobile = screenWidth < mobileBreakpoint;
+    final isMobile = Responsive.isCompactViewport(context);
 
     if (isMobile) {
       return _showMobileFullScreen<T>(
@@ -181,7 +181,12 @@ class AppResponsiveDialog {
             MediaQuery.of(ctx).size.width - 64,
           ),
           child: scrollable
-              ? SingleChildScrollView(child: child)
+              ? ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: Responsive.dialogMaxHeight(ctx),
+                  ),
+                  child: SingleChildScrollView(child: child),
+                )
               : child,
         ),
         actions: actions != null ? [actions] : null,
@@ -246,6 +251,76 @@ class AppResponsiveDialog {
           onConfirm?.call();
         },
       ),
+    );
+  }
+}
+
+/// Thay [AlertDialog] — luôn giới hạn chiều cao + [SingleChildScrollView] (tránh nút dưới không bấm được).
+class ScrollableAlertDialog extends StatelessWidget {
+  final Widget? title;
+  final Widget? content;
+  final List<Widget>? actions;
+  final EdgeInsetsGeometry? actionsPadding;
+  final EdgeInsetsGeometry? contentPadding;
+  final EdgeInsetsGeometry? titlePadding;
+  final EdgeInsets? insetPadding;
+  final ShapeBorder? shape;
+  final AlignmentGeometry? alignment;
+  final bool scrollable;
+  final double? maxContentWidth;
+  final Color? backgroundColor;
+  final double? elevation;
+  final Clip? clipBehavior;
+
+  const ScrollableAlertDialog({
+    super.key,
+    this.title,
+    this.content,
+    this.actions,
+    this.actionsPadding,
+    this.contentPadding,
+    this.titlePadding,
+    this.insetPadding,
+    this.shape,
+    this.alignment,
+    this.scrollable = true,
+    this.maxContentWidth,
+    this.backgroundColor,
+    this.elevation,
+    this.clipBehavior,
+  });
+
+  Widget? _buildContent(BuildContext context) {
+    final child = content;
+    if (child == null) return null;
+    if (!scrollable) return child;
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight: Responsive.dialogMaxHeight(context),
+        maxWidth: Responsive.dialogContentWidth(
+          context,
+          max: maxContentWidth ?? 560,
+        ),
+      ),
+      child: SingleChildScrollView(child: child),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: title,
+      content: _buildContent(context),
+      actions: actions,
+      actionsPadding: actionsPadding,
+      contentPadding: contentPadding,
+      titlePadding: titlePadding,
+      insetPadding: insetPadding,
+      shape: shape,
+      alignment: alignment,
+      backgroundColor: backgroundColor,
+      elevation: elevation,
+      clipBehavior: clipBehavior,
     );
   }
 }

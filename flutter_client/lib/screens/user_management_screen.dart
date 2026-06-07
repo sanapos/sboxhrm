@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/permission_provider.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/notification_overlay.dart';
@@ -13,6 +16,9 @@ class UserManagementScreen extends StatefulWidget {
 }
 
 class _UserManagementScreenState extends State<UserManagementScreen> {
+  PermissionProvider get _perm =>
+      Provider.of<PermissionProvider>(context, listen: false);
+
   final ApiService _apiService = ApiService();
   bool _isLoading = false;
   List<Map<String, dynamic>> _users = [];
@@ -174,8 +180,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Quản lý tài khoản', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-                    Text('Phân quyền, khóa/mở khóa tài khoản', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                    Text('Quản lý tài khoản', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                    Text('Phân quyền, khóa/mở khóa tài khoản', style: TextStyle(color: Colors.white70, fontSize: 13)),
                   ],
                 ),
               ),
@@ -363,23 +369,48 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 ],
               ),
             ),
-            PopupMenuButton<String>(
-              icon: Icon(Icons.more_vert, color: Colors.grey[400], size: 18),
-              itemBuilder: (_) => [
-                const PopupMenuItem(value: 'role', child: Row(children: [Icon(Icons.security, size: 16), SizedBox(width: 8), Text('Đổi vai trò')])),
-                PopupMenuItem(
-                  value: isLocked ? 'unlock' : 'lock',
-                  child: Row(children: [
-                    Icon(isLocked ? Icons.lock_open : Icons.lock, size: 16, color: isLocked ? Colors.green : Colors.orange),
-                    const SizedBox(width: 8),
-                    Text(isLocked ? 'Mở khóa' : 'Khóa'),
-                  ]),
-                ),
-                const PopupMenuItem(value: 'reset', child: Row(children: [Icon(Icons.password, size: 16, color: Colors.blue), SizedBox(width: 8), Text('Đặt lại mật khẩu')])),
-                const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete, size: 16, color: Colors.red), SizedBox(width: 8), Text('Xóa', style: TextStyle(color: Colors.red))])),
-              ],
-              onSelected: (v) => _handleAction(v, user),
-            ),
+            if (_perm.canEdit('UserManagement') || _perm.canDelete('UserManagement'))
+              PopupMenuButton<String>(
+                icon: Icon(Icons.more_vert, color: Colors.grey[400], size: 18),
+                itemBuilder: (_) => [
+                  if (_perm.canEdit('UserManagement'))
+                    const PopupMenuItem(
+                        value: 'role',
+                        child: Row(children: [
+                          Icon(Icons.security, size: 16),
+                          SizedBox(width: 8),
+                          Text('Đổi vai trò')
+                        ])),
+                  if (_perm.canEdit('UserManagement'))
+                    PopupMenuItem(
+                      value: isLocked ? 'unlock' : 'lock',
+                      child: Row(children: [
+                        Icon(isLocked ? Icons.lock_open : Icons.lock,
+                            size: 16,
+                            color: isLocked ? Colors.green : Colors.orange),
+                        const SizedBox(width: 8),
+                        Text(isLocked ? 'Mở khóa' : 'Khóa'),
+                      ]),
+                    ),
+                  if (_perm.canEdit('UserManagement'))
+                    const PopupMenuItem(
+                        value: 'reset',
+                        child: Row(children: [
+                          Icon(Icons.password, size: 16, color: Colors.blue),
+                          SizedBox(width: 8),
+                          Text('Đặt lại mật khẩu')
+                        ])),
+                  if (_perm.canDelete('UserManagement'))
+                    const PopupMenuItem(
+                        value: 'delete',
+                        child: Row(children: [
+                          Icon(Icons.delete, size: 16, color: Colors.red),
+                          SizedBox(width: 8),
+                          Text('Xóa', style: TextStyle(color: Colors.red))
+                        ])),
+                ],
+                onSelected: (v) => _handleAction(v, user),
+              ),
           ],
         ),
       ),
@@ -430,7 +461,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   Future<bool> _confirmAction(String title, String content) async {
     return await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: Text(title),
         content: Text(content),
         actions: [
@@ -445,7 +476,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     String? selectedRole = user['role'] ?? user['roles']?.toString();
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Text('Đổi vai trò'),
         content: SizedBox(
           width: 350,
@@ -487,7 +518,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
+        builder: (ctx, setDialogState) => ScrollableAlertDialog(
           title: const Text('Đặt lại mật khẩu'),
           content: SizedBox(
             width: 350,

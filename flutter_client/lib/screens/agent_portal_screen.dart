@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import 'agent_license_keys_screen.dart';
@@ -10,7 +11,7 @@ class AgentPortalScreen extends StatelessWidget {
   Future<void> _handleLogout(BuildContext context) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Text('Đăng xuất?'),
         content: const Text('Bạn có chắc muốn đăng xuất khỏi cổng đại lý?'),
         actions: [

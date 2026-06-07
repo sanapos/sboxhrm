@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../services/api_service.dart';
@@ -378,7 +379,7 @@ class SettingsTabState extends State<SettingsTab> {
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: Text('Cập nhật ${setting['key']}'),
         content: SizedBox(
           width: 460,

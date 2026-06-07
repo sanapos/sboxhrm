@@ -1,6 +1,7 @@
-﻿import 'package:excel/excel.dart' as excel_lib;
+import 'package:excel/excel.dart' as excel_lib;
 import '../utils/file_saver.dart' as file_saver;
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:intl/intl.dart';
 import '../l10n/app_localizations.dart';
 import '../models/hrm.dart';
@@ -327,7 +328,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
     if (isApproved) {
       final confirmed = await showDialog<bool>(
         context: context,
-        builder: (ctx) => AlertDialog(
+        builder: (ctx) => ScrollableAlertDialog(
           title: const Text('Xác nhận duyệt'),
           content: Text(
               'Bạn có chắc muốn duyệt yêu cầu ứng lương ${_currencyFormat.format(request.amount)} của ${request.employeeName}?'),
@@ -367,7 +368,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
   Future<void> _undoApprove(AdvanceRequest request) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: Text(_l10n.reverseApproval),
         content: const Text(
             'Bạn có chắc muốn hoàn duyệt yêu cầu này? Trạng thái sẽ quay lại "Chờ duyệt".'),
@@ -539,7 +540,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
             );
           }
 
-          return AlertDialog(
+          return ScrollableAlertDialog(
             title: Text(_l10n.payAdvance),
             content: formContent,
             actions: [
@@ -595,7 +596,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
     final reasonController = TextEditingController();
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: Text(_l10n.rejectRequest),
         content: SingleChildScrollView(
           child: TextField(
@@ -627,7 +628,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
   Future<void> _deleteRequest(AdvanceRequest request) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: Text(_l10n.deleteRequest),
         content: Text(
           request.isPaid
@@ -663,7 +664,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
   Future<void> _cancelRequest(AdvanceRequest request) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Text('Hủy yêu cầu'),
         content: const Text('Bạn có chắc muốn hủy yêu cầu ứng lương này?'),
         actions: [
@@ -1114,7 +1115,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
             );
           }
 
-          return AlertDialog(
+          return ScrollableAlertDialog(
             title: const Text('Yêu cầu ứng lương'),
             content: SizedBox(
               width: Responsive.dialogWidth(context),
@@ -1446,7 +1447,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
     } else {
       showDialog(
         context: context,
-        builder: (ctx) => AlertDialog(
+        builder: (ctx) => ScrollableAlertDialog(
           title: titleRow,
           content: SizedBox(
             width: Responsive.dialogWidth(context),
@@ -1699,7 +1700,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
               );
             }
 
-            return AlertDialog(
+            return ScrollableAlertDialog(
               title:
                   const Text('Chọn nhân viên', style: TextStyle(fontSize: 16)),
               contentPadding: const EdgeInsets.fromLTRB(0, 12, 0, 0),
@@ -2181,21 +2182,10 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
     );
 
     if (isMobile) {
-      return Container(
+      return HrmFilterBar(
+        margin: EdgeInsets.zero,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 8,
-                offset: const Offset(0, 2))
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+        children: [
             Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -2212,42 +2202,34 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                 countChip,
               ],
             ),
-          ],
-        ),
+        ],
       );
     }
 
-    return Container(
+    return HrmFilterBar(
+      margin: EdgeInsets.zero,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2))
-        ],
-      ),
-      child: Row(
-        children: [
-          timePreset,
-          const SizedBox(width: 8),
-          if (_fromDate != null && _toDate != null) ...[
-            _buildDateRangeChip(),
+      children: [
+        Row(
+          children: [
+            timePreset,
             const SizedBox(width: 8),
+            if (_fromDate != null && _toDate != null) ...[
+              _buildDateRangeChip(),
+              const SizedBox(width: 8),
+            ],
+            statusDropdown,
+            const SizedBox(width: 8),
+            branchDropdown,
+            const SizedBox(width: 8),
+            _buildEmployeeChip(),
+            const SizedBox(width: 8),
+            searchField,
+            const Spacer(),
+            countChip,
           ],
-          statusDropdown,
-          const SizedBox(width: 8),
-          branchDropdown,
-          const SizedBox(width: 8),
-          _buildEmployeeChip(),
-          const SizedBox(width: 8),
-          searchField,
-          const Spacer(),
-          countChip,
-        ],
-      ),
+        ),
+      ],
     );
   }
 

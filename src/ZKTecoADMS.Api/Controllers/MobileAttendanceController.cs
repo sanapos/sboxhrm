@@ -59,7 +59,7 @@ namespace ZKTecoADMS.Api.Controllers;
 [EnableRateLimiting("device")]
 
 
-public class MobileAttendanceController : AuthenticatedControllerBase
+public partial class MobileAttendanceController : AuthenticatedControllerBase
 
 
 {
@@ -86,6 +86,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
     private readonly IAttendanceNotificationService _attendanceNotificationService;
 
+    private readonly IAttendanceService _attendanceService;
 
     private readonly ISystemNotificationService _systemNotificationService;
 
@@ -207,6 +208,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
         IAttendanceNotificationService attendanceNotificationService,
 
+        IAttendanceService attendanceService,
 
         ISystemNotificationService systemNotificationService,
 
@@ -236,6 +238,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
         _attendanceNotificationService = attendanceNotificationService;
 
+        _attendanceService = attendanceService;
 
         _systemNotificationService = systemNotificationService;
 
@@ -518,6 +521,15 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
             gpsRadiusMeters = settings?.GpsRadiusMeters ?? 100,
+
+
+            requirePhotoProof = settings?.RequirePhotoProof ?? false,
+
+
+            requireLivenessDetection = settings?.EnableLivenessDetection ?? true,
+
+
+            minPunchIntervalMinutes = settings?.MinPunchIntervalMinutes ?? 5,
 
 
         }));
@@ -1575,7 +1587,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
     [Authorize]
 
 
-    [RequireModulePermission("MobileDeviceRegistration", ModulePermissionAction.View)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "MobileAttendance", "MobileDeviceRegistration")]
     public async Task<ActionResult> GetDevices()
 
 
@@ -1621,99 +1633,53 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
-        var faceRegMap = faceRegs.ToDictionary(f => f.OdooEmployeeId, f => f);
+        var faceRegMap = faceRegs
+            .GroupBy(f => f.OdooEmployeeId)
+            .ToDictionary(g => g.Key, g => g.First());
 
+        var employees = await _dbContext.Employees
+            .AsNoTracking()
+            .Where(e => e.StoreId == storeId)
+            .ToListAsync();
 
-
-
-
-        var result = devices.Select(d =>
-
-
+        var result = new List<object>();
+        foreach (var d in devices)
         {
-
-
             FaceRegistrationInfo? faceInfo = null;
-
-
-            if (!string.IsNullOrEmpty(d.EmployeeId) && faceRegMap.TryGetValue(d.EmployeeId, out var faceReg))
-
-
+            var faceReg = ResolveFaceRegistrationForDevice(d.EmployeeId, faceRegMap, employees);
+            if (faceReg != null)
             {
-
-
                 faceInfo = new FaceRegistrationInfo
-
-
                 {
-
-
-                    FaceImages = JsonSerializer.Deserialize<List<string>>(faceReg.FaceImagesJson ?? "[]") ?? new List<string>(),
-
-
+                    FaceImages = (JsonSerializer.Deserialize<List<string>>(faceReg.FaceImagesJson ?? "[]") ?? new List<string>())
+                        .Select(NormalizeImagePath)
+                        .ToList(),
                     IsVerified = faceReg.IsVerified,
-
-
                     RegisteredAt = faceReg.RegisteredAt,
-
-
                 };
-
-
             }
 
+            var selectedWorkLocations = await BuildSelectedLocationsDtoAsync(storeId, d.SelectedLocationIdsJson);
 
-
-
-
-            return new
-
-
+            result.Add(new
             {
-
-
                 id = d.Id.ToString(),
-
-
                 deviceId = d.DeviceId,
-
-
                 deviceName = d.DeviceName,
-
-
                 deviceModel = d.DeviceModel,
-
-
                 osVersion = d.OsVersion,
-
-
                 employeeId = d.EmployeeId,
-
-
                 employeeName = d.EmployeeName,
-
-
                 isAuthorized = d.IsAuthorized,
-
-
                 canUseFaceId = d.CanUseFaceId,
-
-
                 canUseGps = d.CanUseGps,
-
-
                 allowOutsideCheckIn = d.AllowOutsideCheckIn,
-
-
+                requirePhotoProof = d.RequirePhotoProof,
                 wifiBssid = d.WifiBssid,
-
-
                 authorizedAt = d.AuthorizedAt,
-
-
                 lastUsedAt = d.LastUsedAt,
-
-
+                selectedWorkLocationIds = d.SelectedLocationIdsJson,
+                selectedWorkLocations,
                 faceImages = faceInfo?.FaceImages ?? new List<string>(),
 
 
@@ -1723,10 +1689,8 @@ public class MobileAttendanceController : AuthenticatedControllerBase
                 faceRegisteredAt = faceInfo?.RegisteredAt,
 
 
-            };
-
-
-        }).ToList();
+            });
+        }
 
 
 
@@ -1814,6 +1778,9 @@ public class MobileAttendanceController : AuthenticatedControllerBase
             existing.AllowOutsideCheckIn = request.AllowOutsideCheckIn;
 
 
+            existing.RequirePhotoProof = request.RequirePhotoProof;
+
+
             existing.UpdatedAt = DateTime.UtcNow;
 
 
@@ -1869,6 +1836,9 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
                 AllowOutsideCheckIn = request.AllowOutsideCheckIn,
+
+
+                RequirePhotoProof = request.RequirePhotoProof,
 
 
                 AuthorizedAt = DateTime.UtcNow,
@@ -1937,6 +1907,9 @@ public class MobileAttendanceController : AuthenticatedControllerBase
             allowOutsideCheckIn = existing.AllowOutsideCheckIn,
 
 
+            requirePhotoProof = existing.RequirePhotoProof,
+
+
             authorizedAt = existing.AuthorizedAt,
 
 
@@ -1947,6 +1920,46 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
+
+
+    /// <summary>Chỉ cập nhật cờ chụp ảnh hiện trường cho thiết bị (tránh ghi đè các field khác).</summary>
+    [HttpPatch("devices/{id}/require-photo-proof")]
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireAnyModulePermission(ModulePermissionAction.Edit, "MobileAttendance", "MobileDeviceRegistration")]
+    public async Task<ActionResult> SetDeviceRequirePhotoProof(Guid id, [FromBody] SetDeviceRequirePhotoProofRequest request)
+    {
+        var storeId = RequiredStoreId;
+        var device = await _dbContext.AuthorizedMobileDevices
+            .AsTracking()
+            .FirstOrDefaultAsync(d => d.Id == id && d.StoreId == storeId && d.Deleted == null);
+
+        if (device == null)
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy thiết bị"));
+
+        device.RequirePhotoProof = request.RequirePhotoProof;
+        device.UpdatedAt = DateTime.UtcNow;
+        device.UpdatedBy = CurrentUserEmail;
+        await _dbContext.SaveChangesAsync();
+
+        return Ok(AppResponse<object>.Success(new
+        {
+            id = device.Id.ToString(),
+            deviceId = device.DeviceId,
+            deviceName = device.DeviceName,
+            deviceModel = device.DeviceModel,
+            osVersion = device.OsVersion,
+            employeeId = device.EmployeeId,
+            employeeName = device.EmployeeName,
+            isAuthorized = device.IsAuthorized,
+            canUseFaceId = device.CanUseFaceId,
+            canUseGps = device.CanUseGps,
+            allowOutsideCheckIn = device.AllowOutsideCheckIn,
+            requirePhotoProof = device.RequirePhotoProof,
+            wifiBssid = device.WifiBssid,
+            authorizedAt = device.AuthorizedAt,
+            lastUsedAt = device.LastUsedAt,
+        }));
+    }
 
 
     [HttpDelete("devices/{id}")]
@@ -2102,6 +2115,12 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
             return regSelfErr;
+
+
+        var (locOk, locErr, validLocIds) = await ValidateSelectedWorkLocationIdsAsync(
+            storeId, request.SelectedWorkLocationIds);
+        if (!locOk)
+            return BadRequest(AppResponse<object>.Fail(locErr ?? "Vị trí chấm công không hợp lệ"));
 
 
 
@@ -2437,6 +2456,9 @@ public class MobileAttendanceController : AuthenticatedControllerBase
                 WifiBssid = request.WifiBssid,
 
 
+                SelectedLocationIdsJson = SerializeLocationIdList(validLocIds),
+
+
                 AuthorizedAt = DateTime.UtcNow,
 
 
@@ -2670,21 +2692,24 @@ public class MobileAttendanceController : AuthenticatedControllerBase
         var empId = employeeId ?? CurrentUserId.ToString();
 
 
+        var currentId = currentDeviceId?.Trim();
 
 
+        // Ưu tiên đúng thiết bị đang chấm (theo hardware id), sau đó mới theo nhân viên.
+        AuthorizedMobileDevice? device = null;
+        if (!string.IsNullOrEmpty(currentId))
+        {
+            device = await _dbContext.AuthorizedMobileDevices
+                .AsNoTracking()
+                .Where(d => d.DeviceId == currentId && d.StoreId == storeId && d.Deleted == null)
+                .OrderByDescending(d => d.AuthorizedAt)
+                .FirstOrDefaultAsync();
+        }
 
-        var device = await _dbContext.AuthorizedMobileDevices
-
-
+        device ??= await _dbContext.AuthorizedMobileDevices
             .AsNoTracking()
-
-
             .Where(d => d.EmployeeId == empId && d.StoreId == storeId && d.Deleted == null)
-
-
             .OrderByDescending(d => d.AuthorizedAt)
-
-
             .FirstOrDefaultAsync();
 
 
@@ -2721,12 +2746,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
-        var currentId = currentDeviceId?.Trim();
-
-
         var deviceMatchesCurrent = string.IsNullOrEmpty(currentId)
-
-
             || string.Equals(device.DeviceId, currentId, StringComparison.OrdinalIgnoreCase);
 
 
@@ -2775,6 +2795,28 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
+        var mobileSettings = await _dbContext.MobileAttendanceSettings
+
+
+            .AsNoTracking()
+
+
+            .FirstOrDefaultAsync(s => s.StoreId == storeId && s.Deleted == null);
+
+
+        var storePhotoOn = mobileSettings?.RequirePhotoProof ?? false;
+
+
+        var devicePhotoOn = device.RequirePhotoProof;
+
+
+        // Bật cửa hàng hoặc thiết bị → cho phép chụp ảnh hiện trường (khớp app).
+        var photoProofEffective = (storePhotoOn || devicePhotoOn) && deviceMatchesCurrent && device.IsAuthorized;
+
+
+
+
+
         return Ok(AppResponse<object>.Success(new
 
 
@@ -2800,6 +2842,15 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
             allowOutsideCheckIn = device.AllowOutsideCheckIn,
+
+
+            requirePhotoProof = photoProofEffective,
+
+
+            requirePhotoProofStore = storePhotoOn,
+
+
+            requirePhotoProofDevice = devicePhotoOn,
 
 
             wifiBssid = device.WifiBssid,
@@ -2879,6 +2930,10 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
         device.UpdatedBy = CurrentUserEmail;
+
+
+        if (request.Approved)
+            await SyncEmployeeLocationsFromDeviceAsync(storeId, device, approved: true);
 
 
 
@@ -3131,9 +3186,6 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
     [RequestSizeLimit(20_000_000)]
-
-
-    [RequireModulePermission("MobileDeviceRegistration", ModulePermissionAction.View)]
     public async Task<ActionResult> RequestDeviceChange([FromBody] DeviceChangeRequestDto request)
 
 
@@ -3269,6 +3321,31 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
+
+        List<Guid> validLocIds;
+        if (request.SelectedWorkLocationIds != null && request.SelectedWorkLocationIds.Count > 0)
+        {
+            var (locOk, locErr, ids) = await ValidateSelectedWorkLocationIdsAsync(
+                storeId, request.SelectedWorkLocationIds);
+            if (!locOk)
+                return BadRequest(AppResponse<object>.Fail(locErr ?? "Vị trí chấm công không hợp lệ"));
+            validLocIds = ids;
+        }
+        else if (!string.IsNullOrWhiteSpace(existingDevice.SelectedLocationIdsJson))
+        {
+            validLocIds = ParseLocationIdList(
+                JsonSerializer.Deserialize<List<string>>(existingDevice.SelectedLocationIdsJson));
+            if (validLocIds.Count == 0)
+                return BadRequest(AppResponse<object>.Fail("Chọn ít nhất một vị trí chấm công"));
+        }
+        else
+        {
+            return BadRequest(AppResponse<object>.Fail("Chọn ít nhất một vị trí chấm công"));
+        }
+
+
+
+
         try
 
 
@@ -3318,6 +3395,9 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
                 NewFaceImagesJson = JsonSerializer.Serialize(request.FaceImages),
+
+
+                SelectedLocationIdsJson = SerializeLocationIdList(validLocIds),
 
 
                 Status = 0,
@@ -3572,6 +3652,9 @@ public class MobileAttendanceController : AuthenticatedControllerBase
             requestedAt = request.RequestedAt,
 
 
+            selectedWorkLocations = await BuildSelectedLocationsDtoAsync(storeId, request.SelectedLocationIdsJson),
+
+
         }));
 
 
@@ -3596,7 +3679,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
     [Authorize(Policy = PolicyNames.AtLeastManager)]
 
 
-    [RequireModulePermission("MobileDeviceRegistration", ModulePermissionAction.View)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "MobileAttendance", "MobileDeviceRegistration")]
     public async Task<ActionResult> GetDeviceChangeRequests([FromQuery] int? status)
 
 
@@ -3627,13 +3710,28 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
-        var requests = await query
+        var rows = await query
 
 
             .OrderByDescending(r => r.RequestedAt)
 
 
-            .Select(r => new
+            .ToListAsync();
+
+
+
+
+
+        var requests = new List<object>();
+
+
+        foreach (var r in rows)
+
+
+        {
+
+
+            requests.Add(new
 
 
             {
@@ -3678,10 +3776,13 @@ public class MobileAttendanceController : AuthenticatedControllerBase
                 rejectReason = r.RejectReason,
 
 
-            })
+                selectedWorkLocations = await BuildSelectedLocationsDtoAsync(storeId, r.SelectedLocationIdsJson),
 
 
-            .ToListAsync();
+            });
+
+
+        }
 
 
 
@@ -4120,6 +4221,15 @@ public class MobileAttendanceController : AuthenticatedControllerBase
                 WifiBssid = changeReq.NewWifiBssid,
 
 
+                SelectedLocationIdsJson = !string.IsNullOrWhiteSpace(changeReq.SelectedLocationIdsJson)
+
+
+                    ? changeReq.SelectedLocationIdsJson
+
+
+                    : oldDevice?.SelectedLocationIdsJson,
+
+
                 AuthorizedAt = DateTime.UtcNow,
 
 
@@ -4148,6 +4258,12 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
             changeReq.ApprovedAt = DateTime.UtcNow;
+
+
+
+
+
+            await SyncEmployeeLocationsFromDeviceAsync(storeId, newDevice, approved: true);
 
 
 
@@ -5051,31 +5167,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
-        var locations = await _cache.GetOrCreateAsync($"work_locations_{storeId}", async entry =>
-
-
-        {
-
-
-            entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5);
-
-
-            entry.Size = 1;
-
-
-            return await _dbContext.MobileWorkLocations
-
-
-                .AsNoTracking()
-
-
-                .Where(l => l.StoreId == storeId && l.Deleted == null && l.IsActive)
-
-
-                .ToListAsync();
-
-
-        }) ?? new List<MobileWorkLocation>();
+        var locations = await GetPunchWorkLocationsForEmployeeAsync(storeId, request.EmployeeId);
 
 
 
@@ -5264,10 +5356,8 @@ public class MobileAttendanceController : AuthenticatedControllerBase
         var autoApproveInRange = settings?.AutoApproveInRange ?? true;
 
 
-        // Only persist punch face photos when the record needs manager approval.
-
-
-        var keepPunchFaceImage = ShouldKeepPunchFaceImage(isInRange, isWifiVerified, allowOutside, autoApproveInRange);
+        // Ảnh mặt chỉ dùng khi xác thực — không lưu sau khi xác thực xong.
+        var persistPunchFaceImage = false;
 
 
 
@@ -5436,7 +5526,6 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
                         imageExt = (decoded[0] == 0xFF) ? ".jpg" : ".png";
 
-
                     }
 
 
@@ -5524,73 +5613,9 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
-                if (keepPunchFaceImage)
-
-
-                {
-
-
-                    var empId = request.EmployeeId;
-
-
-                    var imageBytesCopy = imageBytes;
-
-
-                    var extCopy = imageExt ?? ".jpg";
-
-
-                    var faceFileName = $"punch_{empId}_{DateTime.UtcNow:yyyyMMdd_HHmmss}_{Guid.NewGuid():N}{extCopy}";
-
-
-                    var uploadFolderForBg = await GetStoreFolderAsync("uploads/face-verifications");
-
-
-                    faceImageStoredPath = $"{uploadFolderForBg.TrimEnd('/')}/{faceFileName}";
-
-
-                    var storageSvc = _fileStorageService;
-
-
-                    var logger = _logger;
-
-
-                    _ = Task.Run(async () =>
-
-
-                    {
-
-
-                        try
-
-
-                        {
-
-
-                            using var ms = new MemoryStream(imageBytesCopy);
-
-
-                            await storageSvc.UploadAsync(ms, faceFileName, uploadFolderForBg);
-
-
-                        }
-
-
-                        catch (Exception ex)
-
-
-                        {
-
-
-                            logger.LogWarning(ex, "Background save of punch face image failed for {EmployeeId}", empId);
-
-
-                        }
-
-
-                    });
-
-
-                }
+                if (persistPunchFaceImage)
+                    faceImageStoredPath = await SavePunchFaceImageAsync(
+                        imageBytes, request.EmployeeId, imageExt);
 
 
 
@@ -5599,10 +5624,10 @@ public class MobileAttendanceController : AuthenticatedControllerBase
                 _logger.LogInformation(
 
 
-                    "Trusting client face score for employee {EmpId}: clientScore={Score}, threshold={Threshold}, keepFaceImage={Keep}",
+                    "Trusting client face score for employee {EmpId}: clientScore={Score}, threshold={Threshold}, persistFace={Persist}",
 
 
-                    request.EmployeeId, clientFaceScore, minFaceScore, keepPunchFaceImage);
+                    request.EmployeeId, clientFaceScore, minFaceScore, persistPunchFaceImage);
 
 
             }
@@ -5680,28 +5705,9 @@ public class MobileAttendanceController : AuthenticatedControllerBase
                     verificationDone = isFaceVerified;
 
 
-                    if (isFaceVerified && keepPunchFaceImage)
-
-
-                    {
-
-
-                        var uploadFolderMem = await GetStoreFolderAsync("uploads/face-verifications");
-
-
-                        var extMem = imageExt ?? ".jpg";
-
-
-                        var faceFileNameMem = $"punch_{request.EmployeeId}_{DateTime.UtcNow:yyyyMMdd_HHmmss}_{Guid.NewGuid():N}{extMem}";
-
-
-                        faceImageStoredPath = $"{uploadFolderMem.TrimEnd('/')}/{faceFileNameMem}";
-
-
-                        QueuePunchFaceImageUpload(imageBytes, faceFileNameMem, uploadFolderMem);
-
-
-                    }
+                    if (isFaceVerified && persistPunchFaceImage)
+                        faceImageStoredPath = await SavePunchFaceImageAsync(
+                            imageBytes, request.EmployeeId, imageExt);
 
 
                     _logger.LogWarning(
@@ -5988,21 +5994,6 @@ public class MobileAttendanceController : AuthenticatedControllerBase
                         request.EmployeeId, onnxUsed ? "ONNX" : "gradient", compScore, isFaceVerified, strictMin, request.LivenessPassed, liveProb, clientFaceScore, compDetails);
 
 
-                    if (!keepPunchFaceImage && !string.IsNullOrWhiteSpace(faceImageStoredPath))
-
-
-                    {
-
-
-                        await TryDeletePunchFaceImageAsync(faceImageStoredPath);
-
-
-                        faceImageStoredPath = null;
-
-
-                    }
-
-
                 }
 
 
@@ -6230,10 +6221,27 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
-        // Determine status — Admin/Director/SuperAdmin: luôn auto để ghi ngay dữ liệu thô
-        var status = keepPunchFaceImage ? "pending" : "auto_approved";
-        if (IsAdmin)
+        // Ảnh công trình: bắt buộc khi bật tính năng và chấm NGOÀI công ty (không trong GPS/WiFi công ty).
+        var atCompany = isInRange || isWifiVerified;
+        var photoProofRequired = ((settings?.RequirePhotoProof ?? false) || registeredDevice.RequirePhotoProof) && !atCompany;
+        if (photoProofRequired)
+        {
+            if (string.IsNullOrWhiteSpace(request.SitePhotoBase64) || request.SitePhotoBase64.Length <= 100)
+            {
+                _logger.LogWarning("❌ PUNCH REJECT: missing mandatory site photo for {EmpId} (outside company)", request.EmployeeId);
+                return BadRequest(AppResponse<object>.Fail(
+                    "Bắt buộc chụp ảnh hiện trường (công trình) khi chấm ngoài công ty. Vui lòng chụp ảnh rồi chấm lại."));
+            }
+        }
+
+        // Chấm ngoài công ty/công trình: luôn chờ duyệt mobile — chỉ ghi chấm công thô sau khi duyệt.
+        string status;
+        if (!atCompany)
+            status = "pending";
+        else if (IsAdmin)
             status = "auto_approved";
+        else
+            status = autoApproveInRange ? "auto_approved" : "pending";
 
 
         // Resolve employee name from device registration if not provided
@@ -6299,7 +6307,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
             // Never persist raw base64 payload into DB (column is varchar(500)).
 
 
-            FaceImageUrl = keepPunchFaceImage ? faceImageStoredPath : null,
+            FaceImageUrl = NormalizeImagePathOrNull(faceImageStoredPath),
 
 
             FaceMatchScore = serverFaceScore,
@@ -6352,9 +6360,50 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
         _logger.LogWarning("✅ PUNCH SAVED: Id={Id}", record.Id);
 
+        if (!string.IsNullOrWhiteSpace(request.SitePhotoBase64) && request.SitePhotoBase64.Length > 100)
+        {
+            try
+            {
+                var sitePath = await TrySaveSitePhotoBytesAsync(record, request.SitePhotoBase64);
+                if (!string.IsNullOrWhiteSpace(sitePath))
+                {
+                    record.SitePhotoUrl = sitePath;
+                    record.UpdatedAt = DateTime.UtcNow;
+                    record.UpdatedBy = CurrentUserEmail;
+                    await _dbContext.SaveChangesAsync();
+                    await PersistSitePhotoUrlAsync(record.Id, storeId, sitePath, CurrentUserEmail);
+                }
+                else if (photoProofRequired)
+                {
+                    _dbContext.MobileAttendanceRecords.Remove(record);
+                    await _dbContext.SaveChangesAsync();
+                    return BadRequest(AppResponse<object>.Fail(
+                        "Không lưu được ảnh hiện trường. Vui lòng chụp lại và chấm công lại."));
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Site photo on punch failed for record {RecordId}", record.Id);
+                if (photoProofRequired)
+                {
+                    _dbContext.MobileAttendanceRecords.Remove(record);
+                    await _dbContext.SaveChangesAsync();
+                    return BadRequest(AppResponse<object>.Fail(
+                        "Không lưu được ảnh hiện trường. Vui lòng chụp lại và chấm công lại."));
+                }
+            }
+        }
+        else if (photoProofRequired)
+        {
+            _dbContext.MobileAttendanceRecords.Remove(record);
+            await _dbContext.SaveChangesAsync();
+            return BadRequest(AppResponse<object>.Fail(
+                "Bắt buộc chụp ảnh hiện trường (công trình) sau khi xác thực."));
+        }
 
-
-
+        // Ảnh hiện trường chỉ phục vụ duyệt thủ công — tự động duyệt thì xóa ngay.
+        if (status != "pending")
+            await TryPurgeSitePhotoAsync(record, CurrentUserEmail);
 
         // Äá»“ng bá»™ vÃ o báº£ng cháº¥m cÃ´ng chÃ­nh náº¿u auto_approved
 
@@ -6541,6 +6590,10 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
             syncedToAttendanceLog = syncedToRaw,
 
+            faceImageUrl = PunchFaceUrlForApi(record.Status, record.FaceImageUrl),
+
+            sitePhotoUrl = SitePhotoUrlForApi(record.Status, record.SitePhotoUrl),
+
 
         }));
 
@@ -6569,13 +6622,157 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
+    /// <summary>Chi tiết một bản ghi chấm công mobile (GPS, điểm chấm, ảnh…).</summary>
+    [HttpGet("records/{recordId:guid}")]
+    [Authorize]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "MobileAttendance", "MobileAttendanceApproval", "AttendanceApproval")]
+    public async Task<ActionResult> GetRecord(Guid recordId)
+    {
+        var storeId = RequiredStoreId;
+        var r = await _dbContext.MobileAttendanceRecords
+            .AsNoTracking()
+            .Where(x => x.Id == recordId && x.StoreId == storeId && x.Deleted == null)
+            .Select(x => new
+            {
+                id = x.Id.ToString(),
+                odooEmployeeId = x.OdooEmployeeId,
+                employeeName = x.EmployeeName,
+                punchTime = x.PunchTime,
+                punchType = x.PunchType,
+                latitude = x.Latitude,
+                longitude = x.Longitude,
+                locationName = x.LocationName,
+                distanceFromLocation = x.DistanceFromLocation,
+                faceImageUrl = x.FaceImageUrl,
+                sitePhotoUrl = x.SitePhotoUrl,
+                faceMatchScore = x.FaceMatchScore,
+                verifyMethod = x.VerifyMethod,
+                status = x.Status,
+                approvedBy = x.ApprovedBy,
+                approvedAt = x.ApprovedAt,
+                rejectReason = x.RejectReason,
+                deviceId = x.DeviceId,
+                deviceName = x.DeviceName,
+                note = x.Note,
+                wifiSsid = x.WifiSsid,
+                wifiIpAddress = x.WifiIpAddress,
+            })
+            .FirstOrDefaultAsync();
+
+        if (r == null)
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy bản ghi chấm công"));
+
+        var photoMap = await GetEmployeePhotoMapAsync(storeId, new[] { r.odooEmployeeId });
+        return Ok(AppResponse<object>.Success(new
+        {
+            r.id,
+            r.odooEmployeeId,
+            r.employeeName,
+            r.punchTime,
+            r.punchType,
+            r.latitude,
+            r.longitude,
+            r.locationName,
+            r.distanceFromLocation,
+            faceImageUrl = PunchFaceUrlForApi(r.status, r.faceImageUrl),
+            sitePhotoUrl = SitePhotoUrlForApi(r.status, r.sitePhotoUrl),
+            employeePhotoUrl = photoMap.GetValueOrDefault(r.odooEmployeeId),
+            r.faceMatchScore,
+            r.verifyMethod,
+            r.status,
+            r.approvedBy,
+            r.approvedAt,
+            r.rejectReason,
+            r.deviceId,
+            r.deviceName,
+            r.note,
+            r.wifiSsid,
+            r.wifiIpAddress,
+        }));
+    }
+
+    /// <summary>Upload ảnh hiện trường (route trong body — tương thích proxy cũ).</summary>
+    [HttpPost("upload-site-photo")]
+    [Authorize]
+    [RequestSizeLimit(10_000_000)]
+    public async Task<ActionResult> UploadSitePhotoBody([FromBody] MobileSitePhotoUploadRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.RecordId) ||
+            !Guid.TryParse(request.RecordId.Trim(), out var recordId))
+            return BadRequest(AppResponse<object>.Fail("Mã bản ghi chấm công không hợp lệ"));
+
+        return await UploadSitePhotoCoreAsync(recordId, request.SitePhotoBase64);
+    }
+
+    /// <summary>Upload ảnh hiện trường sau khi chấm công thành công (khi bật RequirePhotoProof).</summary>
+    [HttpPost("records/{recordId}/site-photo")]
+    [Authorize]
+    [RequestSizeLimit(10_000_000)]
+    public async Task<ActionResult> UploadSitePhoto(string recordId, [FromBody] MobileSitePhotoRequest request)
+    {
+        if (!Guid.TryParse(recordId?.Trim(), out var id))
+            return BadRequest(AppResponse<object>.Fail("Mã bản ghi chấm công không hợp lệ"));
+
+        return await UploadSitePhotoCoreAsync(id, request.SitePhotoBase64);
+    }
+
+    private async Task<ActionResult> UploadSitePhotoCoreAsync(Guid recordId, string? sitePhotoBase64)
+    {
+        if (string.IsNullOrWhiteSpace(sitePhotoBase64) || sitePhotoBase64.Length < 100)
+            return BadRequest(AppResponse<object>.Fail("Thiếu ảnh hiện trường"));
+
+        var storeId = RequiredStoreId;
+        var record = await _dbContext.MobileAttendanceRecords
+            .FirstOrDefaultAsync(r => r.Id == recordId && r.StoreId == storeId && r.Deleted == null);
+        if (record == null)
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy bản ghi chấm công"));
+
+        try
+        {
+            var storedPath = await TrySaveSitePhotoBytesAsync(record, sitePhotoBase64);
+            if (string.IsNullOrWhiteSpace(storedPath))
+                return BadRequest(AppResponse<object>.Fail("Không lưu được ảnh hiện trường"));
+
+            if (!string.IsNullOrWhiteSpace(record.SitePhotoUrl))
+                await TryDeletePunchFaceImageAsync(record.SitePhotoUrl);
+
+            var persistedPath = await PersistSitePhotoUrlAsync(
+                record.Id, storeId, storedPath, CurrentUserEmail);
+            record.SitePhotoUrl = persistedPath;
+
+            await EnsureMobileRecordLinkedToRawAttendanceAsync(record);
+
+            _logger.LogInformation(
+                "Site photo saved for record {RecordId}: {Path}",
+                recordId, persistedPath);
+
+            return Ok(AppResponse<object>.Success(new
+            {
+                id = record.Id.ToString(),
+                sitePhotoUrl = NormalizeImagePathOrNull(persistedPath),
+                syncedToAttendanceLog = await _dbContext.AttendanceLogs
+                    .AnyAsync(a => a.MobileAttendanceRecordId == record.Id),
+            }));
+        }
+        catch (FormatException)
+        {
+            return BadRequest(AppResponse<object>.Fail("Định dạng ảnh không hợp lệ"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "UploadSitePhoto failed for {RecordId}", recordId);
+            return BadRequest(AppResponse<object>.Fail("Không thể lưu ảnh hiện trường"));
+        }
+    }
+
+
     [HttpGet("history")]
 
 
     [Authorize]
 
 
-    [RequireModulePermission("MobileAttendance", ModulePermissionAction.View)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "MobileAttendance", "MobileAttendanceApproval", "AttendanceApproval")]
     public async Task<ActionResult> GetHistory(
 
 
@@ -6687,6 +6884,9 @@ public class MobileAttendanceController : AuthenticatedControllerBase
                 faceImageUrl = r.FaceImageUrl,
 
 
+                sitePhotoUrl = r.SitePhotoUrl,
+
+
                 faceMatchScore = r.FaceMatchScore,
 
 
@@ -6732,7 +6932,8 @@ public class MobileAttendanceController : AuthenticatedControllerBase
             r.longitude,
             r.locationName,
             r.distanceFromLocation,
-            r.faceImageUrl,
+            faceImageUrl = PunchFaceUrlForApi(r.status, r.faceImageUrl),
+            sitePhotoUrl = SitePhotoUrlForApi(r.status, r.sitePhotoUrl),
             employeePhotoUrl = photoMap.GetValueOrDefault(r.odooEmployeeId),
             r.faceMatchScore,
             r.verifyMethod,
@@ -6808,7 +7009,7 @@ public class MobileAttendanceController : AuthenticatedControllerBase
     [Authorize(Policy = PolicyNames.AtLeastManager)]
 
 
-    [RequireModulePermission("MobileAttendance", ModulePermissionAction.View)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "MobileAttendance", "MobileAttendanceApproval", "AttendanceApproval")]
     public async Task<ActionResult> GetPending()
 
 
@@ -6869,6 +7070,9 @@ public class MobileAttendanceController : AuthenticatedControllerBase
                 faceImageUrl = r.FaceImageUrl,
 
 
+                sitePhotoUrl = r.SitePhotoUrl,
+
+
                 verifyMethod = r.VerifyMethod,
 
 
@@ -6897,7 +7101,8 @@ public class MobileAttendanceController : AuthenticatedControllerBase
             r.locationName,
             r.distanceFromLocation,
             r.faceMatchScore,
-            r.faceImageUrl,
+            faceImageUrl = PunchFaceUrlForApi(r.status, r.faceImageUrl),
+            sitePhotoUrl = SitePhotoUrlForApi(r.status, r.sitePhotoUrl),
             employeePhotoUrl = photoMapPending.GetValueOrDefault(r.odooEmployeeId),
             r.verifyMethod,
             r.status,
@@ -6979,30 +7184,20 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
 
         var punchFacePathToDelete = record.FaceImageUrl;
-
+        var sitePhotoPathToDelete = record.SitePhotoUrl;
 
         record.FaceImageUrl = null;
-
-
-
-
+        record.SitePhotoUrl = null;
 
         await _dbContext.SaveChangesAsync();
 
-
-
-
-
         if (!string.IsNullOrWhiteSpace(punchFacePathToDelete))
-
-
-        {
-
-
             await TryDeletePunchFaceImageAsync(punchFacePathToDelete);
 
+        if (!string.IsNullOrWhiteSpace(sitePhotoPathToDelete))
+            await TryDeletePunchFaceImageAsync(sitePhotoPathToDelete);
 
-        }
+        await ClearSitePhotoUrlAsync(record.Id, storeId, CurrentUserEmail);
 
 
 
@@ -7473,6 +7668,50 @@ public class MobileAttendanceController : AuthenticatedControllerBase
     /// </summary>
 
 
+    private static string? NormalizeImagePathOrNull(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return null;
+        return NormalizeImagePath(path.Trim());
+    }
+
+    private static MobileFaceRegistration? ResolveFaceRegistrationForDevice(
+        string? deviceEmployeeId,
+        IReadOnlyDictionary<string, MobileFaceRegistration> faceRegMap,
+        List<Employee> employees)
+    {
+        if (string.IsNullOrWhiteSpace(deviceEmployeeId)) return null;
+        var key = deviceEmployeeId.Trim();
+        if (faceRegMap.TryGetValue(key, out var direct)) return direct;
+
+        if (Guid.TryParse(key, out var gid))
+        {
+            var byEmpId = employees.FirstOrDefault(e => e.Id == gid);
+            if (byEmpId != null)
+            {
+                if (faceRegMap.TryGetValue(byEmpId.Id.ToString(), out var r)) return r;
+                if (byEmpId.ApplicationUserId is Guid uid && faceRegMap.TryGetValue(uid.ToString(), out r)) return r;
+                if (!string.IsNullOrEmpty(byEmpId.EmployeeCode) && faceRegMap.TryGetValue(byEmpId.EmployeeCode, out r)) return r;
+            }
+
+            var byUserId = employees.FirstOrDefault(e => e.ApplicationUserId == gid);
+            if (byUserId != null)
+            {
+                if (faceRegMap.TryGetValue(byUserId.Id.ToString(), out var r)) return r;
+                if (faceRegMap.TryGetValue(gid.ToString(), out r)) return r;
+            }
+        }
+
+        var byCode = employees.FirstOrDefault(e =>
+            string.Equals(e.EmployeeCode, key, StringComparison.OrdinalIgnoreCase));
+        if (byCode != null)
+        {
+            if (faceRegMap.TryGetValue(byCode.Id.ToString(), out var r)) return r;
+            if (faceRegMap.TryGetValue(key, out r)) return r;
+        }
+
+        return null;
+    }
+
     private static string NormalizeImagePath(string path)
 
 
@@ -7481,8 +7720,9 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
         if (string.IsNullOrEmpty(path)) return path;
 
-
-
+        path = path.Trim().Replace('\\', '/');
+        if (path.StartsWith("wwwroot/", StringComparison.OrdinalIgnoreCase))
+            path = path["wwwroot/".Length..];
 
 
         // Already relative
@@ -7746,17 +7986,52 @@ public class MobileAttendanceController : AuthenticatedControllerBase
         {
             if (string.IsNullOrWhiteSpace(e.PhotoUrl))
                 continue;
-            map[e.Id.ToString()] = e.PhotoUrl;
+            var normalized = NormalizeImagePathOrNull(e.PhotoUrl);
+            map[e.Id.ToString()] = normalized;
             if (!string.IsNullOrEmpty(e.EmployeeCode))
-                map[e.EmployeeCode] = e.PhotoUrl;
+                map[e.EmployeeCode] = normalized;
         }
 
         return map;
     }
 
 
-    private static bool ShouldKeepPunchFaceImage(bool isInRange, bool isWifiVerified, bool allowOutside, bool autoApproveInRange)
-        => !((isInRange || isWifiVerified || allowOutside) && autoApproveInRange);
+    /// <summary>Ảnh hiện trường chỉ trả về API khi bản ghi chờ duyệt.</summary>
+    private static string? SitePhotoUrlForApi(string? status, string? url)
+    {
+        if (!string.Equals(status, "pending", StringComparison.OrdinalIgnoreCase))
+            return null;
+        return NormalizeImagePathOrNull(url);
+    }
+
+    /// <summary>Ảnh mặt lúc chấm không lưu sau xác thực — không trả về client.</summary>
+    private static string? PunchFaceUrlForApi(string? status, string? url) => null;
+
+    private async Task TryPurgeSitePhotoAsync(MobileAttendanceRecord record, string? updatedBy)
+    {
+        var path = record.SitePhotoUrl;
+        if (string.IsNullOrWhiteSpace(path))
+            return;
+
+        record.SitePhotoUrl = null;
+        record.UpdatedAt = DateTime.UtcNow;
+        if (!string.IsNullOrWhiteSpace(updatedBy))
+            record.UpdatedBy = updatedBy;
+        await _dbContext.SaveChangesAsync();
+        await TryDeletePunchFaceImageAsync(path);
+        await ClearSitePhotoUrlAsync(record.Id, record.StoreId, updatedBy);
+    }
+
+    private async Task ClearSitePhotoUrlAsync(Guid recordId, Guid storeId, string? updatedBy)
+    {
+        await _dbContext.Database.ExecuteSqlInterpolatedAsync($"""
+            UPDATE "MobileAttendanceRecords"
+            SET "SitePhotoUrl" = NULL,
+                "UpdatedAt" = {DateTime.UtcNow},
+                "UpdatedBy" = {updatedBy}
+            WHERE "Id" = {recordId} AND "StoreId" = {storeId} AND "Deleted" IS NULL
+            """);
+    }
 
     /// <summary>Serial MOBILE theo cửa hàng — tránh trùng IX_Devices_SerialNumber toàn hệ thống.</summary>
     private static string MobileDeviceSerialForStore(Guid storeId) =>
@@ -7827,22 +8102,80 @@ public class MobileAttendanceController : AuthenticatedControllerBase
     }
 
 
-    private void QueuePunchFaceImageUpload(byte[] imageBytes, string faceFileName, string uploadFolder)
+    private async Task<string?> SavePunchFaceImageAsync(byte[] imageBytes, string employeeId, string? imageExt)
     {
-        var storageSvc = _fileStorageService;
-        var logger = _logger;
-        _ = Task.Run(async () =>
+        try
         {
-            try
-            {
-                using var ms = new MemoryStream(imageBytes);
-                await storageSvc.UploadAsync(ms, faceFileName, uploadFolder);
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Background save of punch face image failed for {FileName}", faceFileName);
-            }
-        });
+            var ext = string.IsNullOrWhiteSpace(imageExt) ? ".jpg" : imageExt;
+            var fileName =
+                $"punch_{employeeId}_{DateTime.UtcNow:yyyyMMdd_HHmmss}_{Guid.NewGuid():N}{ext}";
+            var uploadFolder = await GetStoreFolderAsync("uploads/face-verifications");
+            using var ms = new MemoryStream(imageBytes);
+            return await _fileStorageService.UploadAsync(ms, fileName, uploadFolder);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to save punch face image for {EmployeeId}", employeeId);
+            return null;
+        }
+    }
+
+    /// <summary>Ghi SitePhotoUrl trực tiếp SQL — EF từng không persist cột này dù file đã upload.</summary>
+    private async Task<string> PersistSitePhotoUrlAsync(
+        Guid recordId,
+        Guid storeId,
+        string storedPath,
+        string? updatedBy)
+    {
+        var path = (NormalizeImagePathOrNull(storedPath) ?? storedPath.Trim()).Trim();
+        if (path.Length > 500)
+            path = path.Substring(path.Length - 500, 500);
+
+        var rows = await _dbContext.Database.ExecuteSqlInterpolatedAsync($"""
+            UPDATE "MobileAttendanceRecords"
+            SET "SitePhotoUrl" = {path},
+                "UpdatedAt" = {DateTime.UtcNow},
+                "UpdatedBy" = {updatedBy}
+            WHERE "Id" = {recordId} AND "StoreId" = {storeId} AND "Deleted" IS NULL
+            """);
+
+        if (rows == 0)
+            _logger.LogWarning(
+                "PersistSitePhotoUrl: no row updated for {RecordId} store {StoreId}",
+                recordId, storeId);
+
+        return path;
+    }
+
+    private async Task<string?> TrySaveSitePhotoBytesAsync(
+        MobileAttendanceRecord record,
+        string sitePhotoBase64)
+    {
+        var base64Data = sitePhotoBase64;
+        if (base64Data.Contains(','))
+            base64Data = base64Data.Split(',', 2)[1];
+
+        var imageBytes = Convert.FromBase64String(base64Data);
+        if (imageBytes.Length < 500)
+            return null;
+
+        var fileName =
+            $"site_{record.OdooEmployeeId}_{DateTime.UtcNow:yyyyMMdd_HHmmss}_{Guid.NewGuid():N}.jpg";
+        var uploadFolder = await GetStoreFolderAsync("uploads/mobile-site-photos");
+        using var ms = new MemoryStream(imageBytes);
+        return await _fileStorageService.UploadAsync(ms, fileName, uploadFolder);
+    }
+
+    /// <summary>Ảnh hiện trường chụp sau chấm — tạo/đảm bảo dòng chấm công thô liên kết MobileAttendanceRecordId.</summary>
+    private async Task EnsureMobileRecordLinkedToRawAttendanceAsync(MobileAttendanceRecord record)
+    {
+        var linked = await _dbContext.AttendanceLogs
+            .AnyAsync(a => a.MobileAttendanceRecordId == record.Id);
+        if (linked)
+            return;
+
+        if (string.Equals(record.Status, "auto_approved", StringComparison.OrdinalIgnoreCase))
+            await SyncMobileRecordToAttendanceLog(record);
     }
 
     /// <summary>
@@ -8225,6 +8558,18 @@ public class MobileAttendanceController : AuthenticatedControllerBase
 
                 record.Id, attendance.Id);
 
+            // Tự tạo phiếu phạt đi trễ / về sớm / tái phạm từ chấm công mobile.
+            try
+            {
+                await _attendanceService.UpdateShiftAttendancesAsync(
+                    new[] { attendance }, mobileDevice);
+            }
+            catch (Exception penaltyEx)
+            {
+                _logger.LogError(penaltyEx,
+                    "Failed to auto-create penalty ticket for mobile attendance {AttendanceId}",
+                    attendance.Id);
+            }
 
             return true;
 
@@ -8397,11 +8742,19 @@ public class AuthorizeDeviceRequest
     public bool AllowOutsideCheckIn { get; set; } = false;
 
 
+    public bool RequirePhotoProof { get; set; } = false;
+
+
 }
 
 
 
 
+
+public class SetDeviceRequirePhotoProofRequest
+{
+    public bool RequirePhotoProof { get; set; }
+}
 
 public class MobilePunchRequest
 
@@ -8451,7 +8804,22 @@ public class MobilePunchRequest
     /// <summary>On-device matcher: "tflite" (trusted fast path), "mlkit", "server", etc.</summary>
     public string? ClientFaceEngine { get; set; }
 
+    /// <summary>Ảnh hiện trường (tùy chọn) gửi kèm punch hoặc upload sau.</summary>
+    public string? SitePhotoBase64 { get; set; }
 
+
+}
+
+
+public class MobileSitePhotoRequest
+{
+    public string? SitePhotoBase64 { get; set; }
+}
+
+public class MobileSitePhotoUploadRequest
+{
+    public string? RecordId { get; set; }
+    public string? SitePhotoBase64 { get; set; }
 }
 
 
@@ -8524,6 +8892,10 @@ public class RegisterDeviceWithFaceRequest
     public string? WifiBssid { get; set; }
 
 
+    /// <summary>Danh sách Id vị trí/chi nhánh (Guid string) NV chọn khi đăng ký.</summary>
+    public List<string>? SelectedWorkLocationIds { get; set; }
+
+
 }
 
 
@@ -8561,6 +8933,10 @@ public class DeviceChangeRequestDto
 
 
     public string? Reason { get; set; }
+
+
+    /// <summary>Danh sách Id vị trí/chi nhánh (Guid string) NV chọn khi đổi máy.</summary>
+    public List<string>? SelectedWorkLocationIds { get; set; }
 
 
 }

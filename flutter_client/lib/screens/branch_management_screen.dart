@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:provider/provider.dart';
 import '../models/branch.dart';
 import '../services/api_service.dart';
 import '../providers/auth_provider.dart';
+import '../providers/permission_provider.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/hrm_mini_stat_chip.dart';
 import '../widgets/hrm_page_chrome.dart';
@@ -33,6 +35,10 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
   String _searchQuery = '';
   bool? _filterActive;
   bool _isManager = false;
+
+  PermissionProvider get _perm =>
+      Provider.of<PermissionProvider>(context, listen: false);
+
   @override
   void initState() {
     super.initState();
@@ -239,7 +245,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                     style: theme.textTheme.bodyMedium
                         ?.copyWith(color: Colors.grey)),
               const Spacer(),
-              if (_isManager)
+              if (_perm.canCreate('Branch'))
                 FilledButton.icon(
                   onPressed: () => _showBranchDialog(),
                   icon: const Icon(Icons.add, size: 18),
@@ -346,33 +352,36 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
             ),
             const SizedBox(width: 8),
             _buildStatusBadge(isActive, branch.isHeadquarter),
-            if (_isManager)
+            if (_perm.canEdit('Branch') || _perm.canDelete('Branch'))
               PopupMenuButton<String>(
                 icon: const Icon(Icons.more_vert, size: 18),
                 itemBuilder: (context) => [
-                  const PopupMenuItem(
-                      value: 'edit',
+                  if (_perm.canEdit('Branch')) ...[
+                    const PopupMenuItem(
+                        value: 'edit',
+                        child: Row(children: [
+                          Icon(Icons.edit, size: 16),
+                          SizedBox(width: 8),
+                          Text('Sửa')
+                        ])),
+                    PopupMenuItem(
+                      value: 'toggle',
                       child: Row(children: [
-                        Icon(Icons.edit, size: 16),
-                        SizedBox(width: 8),
-                        Text('Sửa')
-                      ])),
-                  PopupMenuItem(
-                    value: 'toggle',
-                    child: Row(children: [
-                      Icon(isActive ? Icons.block : Icons.check_circle,
-                          size: 16),
-                      const SizedBox(width: 8),
-                      Text(isActive ? 'Ngừng hoạt động' : 'Kích hoạt'),
-                    ]),
-                  ),
-                  const PopupMenuItem(
-                      value: 'delete',
-                      child: Row(children: [
-                        Icon(Icons.delete, size: 16, color: Colors.red),
-                        SizedBox(width: 8),
-                        Text('Xóa', style: TextStyle(color: Colors.red))
-                      ])),
+                        Icon(isActive ? Icons.block : Icons.check_circle,
+                            size: 16),
+                        const SizedBox(width: 8),
+                        Text(isActive ? 'Ngừng hoạt động' : 'Kích hoạt'),
+                      ]),
+                    ),
+                  ],
+                  if (_perm.canDelete('Branch'))
+                    const PopupMenuItem(
+                        value: 'delete',
+                        child: Row(children: [
+                          Icon(Icons.delete, size: 16, color: Colors.red),
+                          SizedBox(width: 8),
+                          Text('Xóa', style: TextStyle(color: Colors.red))
+                        ])),
                 ],
                 onSelected: (action) {
                   switch (action) {
@@ -605,7 +614,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                         child: CircleAvatar(
                           radius: 16,
                           backgroundImage: node.managerPhoto != null
-                              ? NetworkImage(node.managerPhoto!)
+                              ? _api.storeImageProvider(node.managerPhoto!)
                               : null,
                           onBackgroundImageError:
                               node.managerPhoto != null ? (_, __) {} : null,
@@ -952,29 +961,33 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
             ],
           ),
         );
-        final actionButtons = _isManager
+        final actionButtons = (_perm.canEdit('Branch') ||
+                _perm.canDelete('Branch'))
             ? Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  OutlinedButton.icon(
-                    onPressed: () {
-                      Navigator.pop(ctx);
-                      _showBranchDialog(branch: branch);
-                    },
-                    icon: const Icon(Icons.edit, size: 16),
-                    label: const Text('Sửa'),
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton.icon(
-                    onPressed: () {
-                      Navigator.pop(ctx);
-                      _toggleBranchActive(branch);
-                    },
-                    icon: Icon(
-                        branch.isActive ? Icons.block : Icons.check_circle,
-                        size: 16),
-                    label: Text(branch.isActive ? 'Ngừng HĐ' : 'Kích hoạt'),
-                  ),
+                  if (_perm.canEdit('Branch')) ...[
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _showBranchDialog(branch: branch);
+                      },
+                      icon: const Icon(Icons.edit, size: 16),
+                      label: const Text('Sửa'),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton.icon(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _toggleBranchActive(branch);
+                      },
+                      icon: Icon(
+                          branch.isActive ? Icons.block : Icons.check_circle,
+                          size: 16),
+                      label:
+                          Text(branch.isActive ? 'Ngừng HĐ' : 'Kích hoạt'),
+                    ),
+                  ],
                 ],
               )
             : null;
@@ -1089,7 +1102,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                       _detailRow(Icons.group_add, 'Sức chứa',
                           '${branch.maxEmployees}'),
                     const SizedBox(height: 16),
-                    if (_isManager)
+                    if (_perm.canEdit('Branch'))
                       Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
@@ -1569,7 +1582,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
   void _confirmDeleteBranch(Branch branch) {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
@@ -1626,7 +1639,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
           Text(subtitle,
               style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
               textAlign: TextAlign.center),
-          if (_isManager) ...[
+          if (_perm.canCreate('Branch')) ...[
             const SizedBox(height: 16),
             FilledButton.icon(
               onPressed: () => _showBranchDialog(),

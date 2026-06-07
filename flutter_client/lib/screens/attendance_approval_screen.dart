@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../widgets/app_scroll_safe.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../utils/file_saver.dart' as file_saver;
 import '../utils/web_canvas.dart' as web_canvas;
@@ -34,8 +36,10 @@ class AttendanceApprovalScreen extends StatefulWidget {
       _AttendanceApprovalScreenState();
 }
 
-class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
+class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
+    with SingleTickerProviderStateMixin {
   final ApiService _apiService = ApiService();
+  TabController? _topTabController;
 
   // Data
   List<Map<String, dynamic>> _requests = [];
@@ -43,8 +47,8 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
   int _totalCount = 0;
   bool _isLoading = true;
 
-  // Filters
-  late int _statusFilter; // -1 = all, 0 = pending, 1 = approved, 2 = rejected
+  // Filters (-1 = all, 0 = pending, 1 = approved, 2 = rejected)
+  int _statusFilter = -1;
   int _actionFilter = -1; // -1 = all, 0 = add, 1 = edit, 2 = delete
   Set<String> _selectedEmployeeIds = {};
   String _selectedDatePreset = 'all';
@@ -95,6 +99,26 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
     NavigationNotifier.notificationHighlightId.value = null;
     _loadEmployees();
     _loadData();
+  }
+
+  @override
+  void dispose() {
+    _topTabController?.dispose();
+    super.dispose();
+  }
+
+  void _ensureTopTabController() {
+    if (_topTabController != null) return;
+    var initial = NavigationNotifier.attendanceApprovalTab.value.clamp(0, 1);
+    NavigationNotifier.attendanceApprovalTab.value = 0;
+    _topTabController = TabController(
+      length: 2,
+      vsync: this,
+      initialIndex: initial,
+    );
+    _topTabController!.addListener(() {
+      if (mounted) setState(() {});
+    });
   }
 
   Future<void> _loadEmployees() async {
@@ -178,12 +202,20 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
           } else {
             _requests = [];
             _totalCount = 0;
+            final msg = result['message']?.toString();
+            if (msg != null && msg.isNotEmpty) {
+              appNotification.showError(title: 'Lỗi', message: msg);
+            }
           }
         });
       }
     } catch (e) {
       debugPrint('Error loading correction requests: $e');
       if (mounted) {
+        setState(() {
+          _requests = [];
+          _totalCount = 0;
+        });
         appNotification.showError(
             title: 'Lỗi', message: 'Không thể tải dữ liệu');
       }
@@ -286,7 +318,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
     final noteController = TextEditingController();
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Text('Duyệt yêu cầu'),
         content: SingleChildScrollView(
           child: Column(
@@ -347,7 +379,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
     final noteController = TextEditingController();
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Text('Từ chối yêu cầu'),
         content: SingleChildScrollView(
           child: Column(
@@ -412,7 +444,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
   Future<void> _undoApproval(Map<String, dynamic> req) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Text('Hoàn duyệt'),
         content: Text(
             'Bạn có chắc muốn hoàn duyệt yêu cầu của ${req['employeeName'] ?? ''}?\n\nThay đổi chấm công đã áp dụng sẽ được hoàn tác.'),
@@ -451,7 +483,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
     }
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Text('Xóa yêu cầu'),
         content: Text(
             'Bạn có chắc muốn xóa yêu cầu của ${req['employeeName'] ?? ''}?'),
@@ -775,7 +807,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
     final totalLevels = req['totalApprovalLevels'] ?? 1;
     final records = req['approvalRecords'] as List? ?? [];
 
-    showModalBottomSheet(
+    showAppSheet(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
@@ -1062,6 +1094,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
   Widget build(BuildContext context) {
     final perm = Provider.of<PermissionProvider>(context);
     final showMobileTab = canViewMobileAttendanceApprovalTab(perm);
+    final isMobile = Responsive.isMobile(context);
 
     final correctionPane = Column(
       children: [
@@ -1070,60 +1103,73 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
       ],
     );
 
+    Widget body = correctionPane;
+    if (showMobileTab) {
+      _ensureTopTabController();
+      final topTab = _topTabController!;
+      body = Column(
+        children: [
+          Material(
+            color: Theme.of(context).cardColor,
+            child: TabBar(
+              controller: topTab,
+              labelColor: Theme.of(context).primaryColor,
+              unselectedLabelColor: Colors.grey[600],
+              indicatorColor: Theme.of(context).primaryColor,
+              labelStyle: vietnameseTextStyle(const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              )),
+              unselectedLabelStyle: vietnameseTextStyle(const TextStyle(
+                fontSize: 14,
+              )),
+              tabs: const [
+                Tab(
+                  icon: Icon(Icons.fact_check_outlined, size: 16),
+                  text: 'Duyệt chấm công',
+                ),
+                Tab(
+                  icon: Icon(Icons.how_to_reg_outlined, size: 16),
+                  text: 'Chấm công Mobile',
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: isMobile
+                ? IndexedStack(
+                    index: topTab.index,
+                    sizing: StackFit.expand,
+                    children: [
+                      correctionPane,
+                      topTab.index == 1
+                          ? const MobileAttendanceApprovalScreen(
+                              embeddedInParentTab: true,
+                            )
+                          : const SizedBox.shrink(),
+                    ],
+                  )
+                : TabBarView(
+                    controller: topTab,
+                    children: [
+                      correctionPane,
+                      const MobileAttendanceApprovalScreen(
+                        embeddedInParentTab: true,
+                      ),
+                    ],
+                  ),
+          ),
+        ],
+      );
+    }
+
     return Scaffold(
       backgroundColor: HrmPageChrome.background,
       body: Theme(
         data: vietnameseThemeOverlay(context),
         child: DefaultTextStyle(
           style: kDefaultVietnameseTextStyle,
-          child: showMobileTab
-            ? DefaultTabController(
-                length: 2,
-                initialIndex: () {
-                  final t = NavigationNotifier.attendanceApprovalTab.value
-                      .clamp(0, 1);
-                  NavigationNotifier.attendanceApprovalTab.value = 0;
-                  return t;
-                }(),
-                child: Column(
-                  children: [
-                    Material(
-                      color: Theme.of(context).cardColor,
-                      child: TabBar(
-                        labelColor: Theme.of(context).primaryColor,
-                        unselectedLabelColor: Colors.grey[600],
-                        indicatorColor: Theme.of(context).primaryColor,
-                        labelStyle: vietnameseTextStyle(const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                        )),
-                        unselectedLabelStyle: vietnameseTextStyle(const TextStyle(
-                          fontSize: 14,
-                        )),
-                        tabs: const [
-                          Tab(
-                            icon: Icon(Icons.fact_check_outlined, size: 16),
-                            text: 'Duyệt chấm công',
-                          ),
-                          Tab(
-                            icon: Icon(Icons.how_to_reg_outlined, size: 16),
-                            text: 'Chấm công Mobile',
-                          ),
-                        ],
-                      ),
-                    ),
-                    Expanded(
-                      child: TabBarView(
-                        children: [
-                          correctionPane,
-                          const MobileAttendanceApprovalScreen(),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              )
-            : correctionPane,
+          child: body,
         ),
       ),
     );
@@ -1290,9 +1336,17 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
       ];
     }
     return [
-      SliverFillRemaining(
-        hasScrollBody: true,
-        child: _buildTable(),
+      SliverPadding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        sliver: SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (context, index) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _buildMobileApprovalCard(_filteredRequests[index]),
+            ),
+            childCount: _filteredRequests.length,
+          ),
+        ),
       ),
     ];
   }
@@ -1355,9 +1409,16 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey[300]!),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFEEEEF0)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0A000000),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
       ),
       child: Wrap(
         spacing: 12,
@@ -1550,7 +1611,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
                 code.contains(searchQuery.toLowerCase());
           }).toList();
 
-          return AlertDialog(
+          return ScrollableAlertDialog(
             title: Row(
               children: [
                 const Icon(Icons.people, size: 20),
@@ -1936,109 +1997,104 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen> {
     );
   }
 
+  Widget _buildMobileApprovalCard(Map<String, dynamic> req) {
+    final status = _parseStatus(req['status']);
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE4E4E7)),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 6,
+              offset: const Offset(0, 2))
+        ],
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => _showRequestDetail(req),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          child: Column(
+            children: [
+              Row(children: [
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor: _getStatusColor(req['status'])
+                      .withValues(alpha: 0.15),
+                  child: Icon(Icons.access_time,
+                      color: _getStatusColor(req['status']), size: 18),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(req['employeeName'] ?? '',
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w600, fontSize: 14),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis),
+                        const SizedBox(height: 2),
+                        Text(
+                          [
+                            req['employeeCode'] ?? '',
+                            '${_formatDate(req['oldDate'])} → ${_formatDate(req['newDate'])}',
+                          ].where((s) => s.isNotEmpty).join(' • '),
+                          style: const TextStyle(
+                              color: Color(0xFF71717A), fontSize: 12),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ]),
+                ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                      color: _getStatusColor(req['status'])
+                          .withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8)),
+                  child: Text(_getStatusLabel(req['status']),
+                      style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: _getStatusColor(req['status']))),
+                ),
+                if (status == 0) ...[
+                  const SizedBox(width: 6),
+                  if (Provider.of<PermissionProvider>(context, listen: false)
+                      .canApprove('AttendanceApproval'))
+                    InkWell(
+                        onTap: () => _approveRequest(req),
+                        child: const Icon(Icons.check_circle_outline,
+                            size: 22, color: Colors.green)),
+                  const SizedBox(width: 4),
+                  if (Provider.of<PermissionProvider>(context, listen: false)
+                      .canApprove('AttendanceApproval'))
+                    InkWell(
+                        onTap: () => _rejectRequest(req),
+                        child: const Icon(Icons.cancel_outlined,
+                            size: 22, color: Colors.red)),
+                ],
+              ]),
+              if ((req['totalApprovalLevels'] ?? 1) > 1) ...[
+                const SizedBox(height: 8),
+                _buildApprovalProgress(req),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildMobileCardList(int startIndex) {
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       itemCount: _filteredRequests.length,
-      itemBuilder: (_, index) {
-        final req = _filteredRequests[index];
-        final status = _parseStatus(req['status']);
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE4E4E7)),
-              boxShadow: [
-                BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2))
-              ],
-            ),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(12),
-              onTap: () => _showRequestDetail(req),
-              child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                child: Column(
-                  children: [
-                    Row(children: [
-                      CircleAvatar(
-                        radius: 18,
-                        backgroundColor: _getStatusColor(req['status'])
-                            .withValues(alpha: 0.15),
-                        child: Icon(Icons.access_time,
-                            color: _getStatusColor(req['status']), size: 18),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(req['employeeName'] ?? '',
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 14),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis),
-                              const SizedBox(height: 2),
-                              Text(
-                                  [
-                                    req['employeeCode'] ?? '',
-                    '${_formatDate(req['oldDate'])} → ${_formatDate(req['newDate'])}'
-                  ].where((s) => s.isNotEmpty).join(' • '),
-                                  style: const TextStyle(
-                                      color: Color(0xFF71717A), fontSize: 12),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis),
-                            ]),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                            color: _getStatusColor(req['status'])
-                                .withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8)),
-                        child: Text(_getStatusLabel(req['status']),
-                            style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                                color: _getStatusColor(req['status']))),
-                      ),
-                      if (status == 0) ...[
-                        const SizedBox(width: 6),
-                        if (Provider.of<PermissionProvider>(context,
-                                listen: false)
-                            .canApprove('AttendanceApproval'))
-                          InkWell(
-                              onTap: () => _approveRequest(req),
-                              child: const Icon(Icons.check_circle_outline,
-                                  size: 22, color: Colors.green)),
-                        const SizedBox(width: 4),
-                        if (Provider.of<PermissionProvider>(context,
-                                listen: false)
-                            .canApprove('AttendanceApproval'))
-                          InkWell(
-                              onTap: () => _rejectRequest(req),
-                              child: const Icon(Icons.cancel_outlined,
-                                  size: 22, color: Colors.red)),
-                      ],
-                    ]),
-                    if ((req['totalApprovalLevels'] ?? 1) > 1) ...[
-                      const SizedBox(height: 8),
-                      _buildApprovalProgress(req),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
+      itemBuilder: (_, index) => _buildMobileApprovalCard(_filteredRequests[index]),
     );
   }
 

@@ -3,6 +3,9 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/permission_provider.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:vsc_quill_delta_to_html/vsc_quill_delta_to_html.dart';
 import '../services/api_service.dart';
@@ -33,6 +36,9 @@ class ContentManagementScreen extends StatefulWidget {
 
 class _ContentManagementScreenState extends State<ContentManagementScreen>
     with SingleTickerProviderStateMixin {
+  PermissionProvider get _perm =>
+      Provider.of<PermissionProvider>(context, listen: false);
+
   final ApiService _api = ApiService();
   late TabController _tabController;
 
@@ -159,19 +165,20 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
                   fontSize: 17)),
         ]),
         actions: [
-          TextButton.icon(
-            onPressed: () => _openEditor(),
-            icon: const Icon(Icons.add, size: 18),
-            label: Text(isMobile ? '' : 'Tạo bài viết'),
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.white,
-              backgroundColor: widget.themeColor,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
-              padding: EdgeInsets.symmetric(
-                  horizontal: isMobile ? 10 : 16, vertical: 8),
+          if (_perm.canCreate('Communication'))
+            TextButton.icon(
+              onPressed: () => _openEditor(),
+              icon: const Icon(Icons.add, size: 18),
+              label: Text(isMobile ? '' : 'Tạo bài viết'),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.white,
+                backgroundColor: widget.themeColor,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
+                padding: EdgeInsets.symmetric(
+                    horizontal: isMobile ? 10 : 16, vertical: 8),
+              ),
             ),
-          ),
           const SizedBox(width: 12),
         ],
         bottom: TabBar(
@@ -385,21 +392,29 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
             ]),
           ),
           _statusBadge(pub, draft),
-          PopupMenuButton<String>(
-            padding: EdgeInsets.zero,
-            iconSize: 18,
-            icon: const Icon(Icons.more_vert, size: 18, color: Color(0xFFA1A1AA)),
-            onSelected: (v) {
-              if (v == 'edit') _openEditor(article: a);
-              if (v == 'publish') _publishArticle(a);
-              if (v == 'delete') _deleteArticle(a);
-            },
-            itemBuilder: (_) => [
-              const PopupMenuItem(value: 'edit', child: Text('Sửa')),
-              if (draft) const PopupMenuItem(value: 'publish', child: Text('Xuất bản')),
-              const PopupMenuItem(value: 'delete', child: Text('Xóa', style: TextStyle(color: Colors.red))),
-            ],
-          ),
+          if (_perm.canEdit('Communication') || _perm.canDelete('Communication'))
+            PopupMenuButton<String>(
+              padding: EdgeInsets.zero,
+              iconSize: 18,
+              icon: const Icon(Icons.more_vert,
+                  size: 18, color: Color(0xFFA1A1AA)),
+              onSelected: (v) {
+                if (v == 'edit') _openEditor(article: a);
+                if (v == 'publish') _publishArticle(a);
+                if (v == 'delete') _deleteArticle(a);
+              },
+              itemBuilder: (_) => [
+                if (_perm.canEdit('Communication'))
+                  const PopupMenuItem(value: 'edit', child: Text('Sửa')),
+                if (draft && _perm.canEdit('Communication'))
+                  const PopupMenuItem(
+                      value: 'publish', child: Text('Xuất bản')),
+                if (_perm.canDelete('Communication'))
+                  const PopupMenuItem(
+                      value: 'delete',
+                      child: Text('Xóa', style: TextStyle(color: Colors.red))),
+              ],
+            ),
         ]),
       ),
     );
@@ -429,12 +444,13 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
           const Text('Chưa có bài viết nào',
               style: TextStyle(color: Color(0xFFA1A1AA), fontSize: 14)),
           const SizedBox(height: 8),
-          TextButton.icon(
-            onPressed: () => _openEditor(),
-            icon: const Icon(Icons.add, size: 16),
-            label: const Text('Tạo bài viết đầu tiên'),
-            style: TextButton.styleFrom(foregroundColor: widget.themeColor),
-          ),
+          if (_perm.canCreate('Communication'))
+            TextButton.icon(
+              onPressed: () => _openEditor(),
+              icon: const Icon(Icons.add, size: 16),
+              label: const Text('Tạo bài viết đầu tiên'),
+              style: TextButton.styleFrom(foregroundColor: widget.themeColor),
+            ),
         ]),
       );
 
@@ -453,12 +469,13 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
               style: TextStyle(
                   fontWeight: FontWeight.w600, color: widget.themeColor)),
           const Spacer(),
-          TextButton.icon(
-            onPressed: () => _showCategoryDialog(),
-            icon: const Icon(Icons.create_new_folder, size: 16),
-            label: const Text('Tạo thư mục'),
-            style: TextButton.styleFrom(foregroundColor: widget.themeColor),
-          ),
+          if (_perm.canCreate('Communication'))
+            TextButton.icon(
+              onPressed: () => _showCategoryDialog(),
+              icon: const Icon(Icons.create_new_folder, size: 16),
+              label: const Text('Tạo thư mục'),
+              style: TextButton.styleFrom(foregroundColor: widget.themeColor),
+            ),
         ]),
       ),
       const Divider(height: 24),
@@ -471,11 +488,12 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
                 const Text('Chưa có thư mục',
                     style: TextStyle(color: Color(0xFFA1A1AA))),
                 const SizedBox(height: 8),
-                TextButton.icon(
-                  onPressed: () => _showCategoryDialog(),
-                  icon: const Icon(Icons.add, size: 16),
-                  label: const Text('Tạo thư mục đầu tiên'),
-                ),
+                if (_perm.canCreate('Communication'))
+                  TextButton.icon(
+                    onPressed: () => _showCategoryDialog(),
+                    icon: const Icon(Icons.add, size: 16),
+                    label: const Text('Tạo thư mục đầu tiên'),
+                  ),
               ]))
             : RefreshIndicator(
                 onRefresh: _loadCategories,
@@ -541,8 +559,10 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
             child: Text('$count', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFF71717A))),
           ),
           const SizedBox(width: 4),
-          IconButton(icon: const Icon(Icons.edit, size: 16, color: Color(0xFFA1A1AA)), onPressed: () => _showCategoryDialog(category: c), padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 28, minHeight: 28)),
-          IconButton(icon: const Icon(Icons.delete, size: 16, color: Color(0xFFA1A1AA)), onPressed: () => _deleteCategory(c), padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 28, minHeight: 28)),
+          if (_perm.canEdit('Communication'))
+            IconButton(icon: const Icon(Icons.edit, size: 16, color: Color(0xFFA1A1AA)), onPressed: () => _showCategoryDialog(category: c), padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 28, minHeight: 28)),
+          if (_perm.canDelete('Communication'))
+            IconButton(icon: const Icon(Icons.delete, size: 16, color: Color(0xFFA1A1AA)), onPressed: () => _deleteCategory(c), padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 28, minHeight: 28)),
         ]),
       ),
     );
@@ -559,7 +579,7 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         backgroundColor: Colors.white,
         shape:
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -657,7 +677,7 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
   Future<void> _deleteCategory(Map<String, dynamic> c) async {
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Text('Xác nhận xóa'),
         content: Text('Xóa thư mục "${c['name']}"?'),
         actions: [
@@ -702,7 +722,7 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
   Future<void> _deleteArticle(Map<String, dynamic> a) async {
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Text('Xác nhận xóa'),
         content: Text('Xóa bài viết "${a['title']}"?'),
         actions: [
@@ -1468,7 +1488,7 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
                 image: _thumbnailUrl != null &&
                         _thumbnailUrl!.isNotEmpty
                     ? DecorationImage(
-                        image: NetworkImage(_thumbnailUrl!),
+                        image: _api.storeImageProvider(_thumbnailUrl!),
                         fit: BoxFit.cover,
                         onError: (_, __) {})
                     : null,

@@ -3894,18 +3894,18 @@ public class SystemAdminController : AuthenticatedControllerBase
             new("SalarySettings", "Thiết lập lương", "Cấu hình bảng lương", "Hồ sơ nhân sự"),
 
             // ══════════ CHẤM CÔNG ══════════
-            new("Attendance", "Chấm công", "Dữ liệu chấm công", "Chấm công"),
+            new("Attendance", "Chấm công thô", "Dữ liệu chấm công thô", "Chấm công"),
             new("WorkSchedule", "Lịch làm việc", "Phân lịch làm việc", "Chấm công"),
-            new("AttendanceSummary", "Tổng hợp chấm công thô", "Bảng tổng hợp chấm công thô", "Chấm công"),
-            new("AttendanceByShift", "Tổng hợp theo ca", "Chấm công theo ca làm việc", "Chấm công"),
+            new("AttendanceSummary", "Tổng hợp chấm công", "Bảng tổng hợp công theo tháng", "Chấm công"),
+            new("AttendanceByShift", "Tổng hợp chấm công theo ca", "Thống kê giờ công theo ca làm", "Chấm công"),
             new("AttendanceApproval", "Duyệt chấm công", "Duyệt điều chỉnh chấm công", "Chấm công"),
             new("ScheduleApproval", "Duyệt lịch làm việc", "Duyệt lịch làm việc đăng ký", "Chấm công"),
             new("Payroll", "Tổng hợp lương", "Bảng lương nhân viên", "Chấm công"),
-            new("MobileDeviceRegistration", "Đăng ký CC Mobile", "Quản lý đăng ký thiết bị chấm công mobile", "Chấm công"),
-            new("MobileAttendanceApproval", "Duyệt CC Mobile", "Duyệt yêu cầu chấm công mobile", "Chấm công"),
+            new("MobileDeviceRegistration", "Đăng ký chấm công Mobile", "Đăng ký thiết bị & khuôn mặt", "Chấm công"),
+            new("MobileAttendanceApproval", "Duyệt chấm công Mobile", "Duyệt yêu cầu chấm công mobile", "Chấm công"),
 
             // ══════════ TÀI CHÍNH ══════════
-            new("BonusPenalty", "Thưởng / Phạt", "Quản lý thưởng phạt", "Tài chính"),
+            new("BonusPenalty", "Phiếu thưởng", "Quản lý phiếu thưởng nhân viên", "Tài chính"),
             new("PenaltyTickets", "Phiếu phạt", "Phiếu phạt tự động từ chấm công", "Tài chính"),
             new("AdvanceRequests", "Ứng lương", "Quản lý ứng lương", "Tài chính"),
             new("CashTransaction", "Thu chi", "Quản lý thu chi", "Tài chính"),
@@ -3933,7 +3933,7 @@ public class SystemAdminController : AuthenticatedControllerBase
             // ══════════ CÀI ĐẶT ══════════
             new("SettingsHub", "Thiết lập HRM", "Trung tâm cài đặt HRM", "Cài đặt"),
             new("ShiftSetup", "Thiết lập ca", "Ca làm việc, vào sớm, đi trễ, về sớm, tăng ca", "Cài đặt"),
-            new("MobileAttendance", "Chấm công mobile", "Face ID, GPS, vùng chấm công", "Cài đặt"),
+            new("MobileAttendance", "Chấm công Mobile", "Chấm công bằng điện thoại", "Cài đặt"),
             new("Holiday", "Ngày lễ", "Ngày nghỉ lễ, hệ số công", "Cài đặt"),
             new("Device", "Máy chấm công", "Kết nối, quản lý, điều khiển máy chấm công", "Cài đặt"),
             new("Allowance", "Phụ cấp", "Phụ cấp cố định, phụ cấp ngày công", "Cài đặt"),
@@ -3945,9 +3945,9 @@ public class SystemAdminController : AuthenticatedControllerBase
             new("DepartmentPermission", "PQ Phòng ban", "Phân quyền theo sơ đồ cây phòng ban", "Cài đặt"),
             new("SystemSettings", "Hệ thống", "Giờ kết thúc ngày, tham số vận hành", "Cài đặt"),
             new("NotificationSettings", "Thiết lập thông báo", "Nhóm thông báo, bật/tắt nhận thông báo", "Cài đặt"),
-            new("AIGemini", "AI Gemini", "API key, model, tham số AI", "Cài đặt"),
+            new("AIGemini", "Thiết lập AI", "API key, model, tham số AI", "Cài đặt"),
             new("ProductSalary", "Lương sản phẩm", "Nhóm sản phẩm, sản phẩm, đơn giá theo bậc", "Cài đặt"),
-            new("Settings", "Cài đặt chung", "Cài đặt hệ thống", "Cài đặt"),
+            new("Settings", "Cài đặt", "Giao diện, ngôn ngữ, kết nối", "Cài đặt"),
         };
 
         return Ok(AppResponse<List<FeatureModuleDto>>.Success(modules));

@@ -151,6 +151,7 @@ public class ZKTecoDbInitializer(
                         ""CanUseFaceId"" boolean NOT NULL DEFAULT true,
                         ""CanUseGps"" boolean NOT NULL DEFAULT true,
                         ""AllowOutsideCheckIn"" boolean NOT NULL DEFAULT false,
+                        ""RequirePhotoProof"" boolean NOT NULL DEFAULT false,
                         ""WifiBssid"" character varying(50),
                         ""AuthorizedAt"" timestamp without time zone,
                         ""LastUsedAt"" timestamp without time zone,
@@ -215,11 +216,15 @@ public class ZKTecoDbInitializer(
                     DO $$ BEGIN
                         IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'MobileAttendanceRecords') THEN
                             ALTER TABLE ""MobileAttendanceRecords"" ADD COLUMN IF NOT EXISTS ""WifiBssid"" VARCHAR(50);
+                            ALTER TABLE ""MobileAttendanceRecords"" ADD COLUMN IF NOT EXISTS ""SitePhotoUrl"" VARCHAR(500);
                         END IF;
                         IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'MobileAttendanceSettings') THEN
                             ALTER TABLE ""MobileAttendanceSettings"" ADD COLUMN IF NOT EXISTS ""MinPunchIntervalMinutes"" INTEGER NOT NULL DEFAULT 5;
                             ALTER TABLE ""MobileAttendanceSettings"" ADD COLUMN IF NOT EXISTS ""EnableWifi"" BOOLEAN NOT NULL DEFAULT false;
                             ALTER TABLE ""MobileAttendanceSettings"" ADD COLUMN IF NOT EXISTS ""VerificationMode"" VARCHAR(10) NOT NULL DEFAULT 'all';
+                        END IF;
+                        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'AuthorizedMobileDevices') THEN
+                            ALTER TABLE ""AuthorizedMobileDevices"" ADD COLUMN IF NOT EXISTS ""RequirePhotoProof"" BOOLEAN NOT NULL DEFAULT false;
                         END IF;
                     END $$;");
 
@@ -276,6 +281,12 @@ public class ZKTecoDbInitializer(
                         -- Leaves approval columns
                         ALTER TABLE ""Leaves"" ADD COLUMN IF NOT EXISTS ""CurrentApprovalStep"" integer NOT NULL DEFAULT 0;
                         ALTER TABLE ""Leaves"" ADD COLUMN IF NOT EXISTS ""TotalApprovalLevels"" integer NOT NULL DEFAULT 0;
+                        ALTER TABLE ""Leaves"" ADD COLUMN IF NOT EXISTS ""CountAsWork"" boolean NOT NULL DEFAULT FALSE;
+                        ALTER TABLE ""Leaves"" ADD COLUMN IF NOT EXISTS ""PaymentSource"" integer NOT NULL DEFAULT 0;
+                        ALTER TABLE ""Leaves"" ADD COLUMN IF NOT EXISTS ""SickLeaveMode"" integer NOT NULL DEFAULT 0;
+                        ALTER TABLE ""Leaves"" ADD COLUMN IF NOT EXISTS ""BhxhDocumentNote"" text NULL;
+                        ALTER TABLE ""Leaves"" ADD COLUMN IF NOT EXISTS ""AnnualLeaveDaysDeducted"" numeric NOT NULL DEFAULT 0;
+                        ALTER TABLE ""Leaves"" ADD COLUMN IF NOT EXISTS ""AnnualBalanceApplied"" boolean NOT NULL DEFAULT FALSE;
 
                         -- AttendanceCorrectionRequests approval columns
                         ALTER TABLE ""AttendanceCorrectionRequests"" ADD COLUMN IF NOT EXISTS ""CurrentApprovalStep"" integer NOT NULL DEFAULT 0;
@@ -1343,15 +1354,19 @@ public class ZKTecoDbInitializer(
             ("Leave", "Nghỉ phép", "Quản lý nghỉ phép", 7),
             ("SalarySettings", "Thiết lập lương", "Cấu hình bảng lương", 8),
             // ══════════ CHẤM CÔNG ══════════
-            ("Attendance", "Chấm công", "Dữ liệu chấm công", 9),
+            ("Attendance", "Chấm công thô", "Dữ liệu chấm công thô", 9),
             ("WorkSchedule", "Lịch làm việc", "Phân lịch làm việc", 10),
-            ("AttendanceSummary", "Tổng hợp chấm công thô", "Bảng tổng hợp chấm công thô", 11),
-            ("AttendanceByShift", "Tổng hợp theo ca", "Chấm công theo ca làm việc", 12),
+            ("AttendanceSummary", "Tổng hợp chấm công", "Bảng tổng hợp công theo tháng", 11),
+            ("AttendanceByShift", "Tổng hợp chấm công theo ca", "Thống kê giờ công theo ca làm", 12),
             ("AttendanceApproval", "Duyệt chấm công", "Duyệt điều chỉnh chấm công", 13),
             ("ScheduleApproval", "Duyệt lịch làm việc", "Duyệt lịch làm việc đăng ký", 14),
             ("Payroll", "Tổng hợp lương", "Bảng lương nhân viên", 15),
+            ("Payslip", "Phiếu lương", "Phiếu lương cá nhân", 15),
+            ("Overtime", "Tăng ca", "Đăng ký và duyệt tăng ca", 16),
+            ("ShiftSwap", "Đổi ca", "Đổi / đăng ký đổi ca", 17),
+            ("AttendanceCorrection", "Chỉnh sửa chấm công", "Yêu cầu chỉnh sửa log chấm công", 18),
             // ══════════ TÀI CHÍNH ══════════
-            ("BonusPenalty", "Thưởng / Phạt", "Quản lý thưởng phạt", 16),
+            ("BonusPenalty", "Phiếu thưởng", "Quản lý phiếu thưởng nhân viên", 16),
             ("PenaltyTickets", "Phiếu phạt", "Phiếu phạt tự động từ chấm công", 27),
             ("AdvanceRequests", "Ứng lương", "Quản lý ứng lương", 17),
             ("CashTransaction", "Thu chi", "Quản lý thu chi", 18),
@@ -1372,7 +1387,7 @@ public class ZKTecoDbInitializer(
             // ══════════ CÀI ĐẶT ══════════
             ("SettingsHub", "Thiết lập HRM", "Trung tâm cài đặt HRM", 26),
             ("ShiftSetup", "Thiết lập ca", "Ca làm việc, vào sớm, đi trễ, về sớm, tăng ca", 27),
-            ("MobileAttendance", "Chấm công mobile", "Face ID, GPS, vùng chấm công", 28),
+            ("MobileAttendance", "Chấm công Mobile", "Chấm công bằng điện thoại", 28),
             ("Holiday", "Ngày lễ", "Ngày nghỉ lễ, hệ số công", 29),
             ("Device", "Máy chấm công", "Kết nối, quản lý, điều khiển máy chấm công", 30),
             ("Allowance", "Phụ cấp", "Phụ cấp cố định, phụ cấp ngày công", 31),
@@ -1396,6 +1411,18 @@ public class ZKTecoDbInitializer(
             ("AssetReport", "Báo cáo tài sản", "Danh mục, cấp phát, lịch sử chuyển giao", 55),
             // ══════════ CÀI ĐẶT (bổ sung) ══════════
             ("DepartmentPermission", "PQ Phòng ban", "Phân quyền theo sơ đồ cây phòng ban", 54),
+            // ══════════ API / legacy aliases (ẩn UI Flutter, giữ cho controller) ══════════
+            ("Shift", "Ca làm việc (API)", "Đăng ký ca nhân viên", 901),
+            ("ShiftTemplate", "Mẫu ca (API)", "Mẫu ca làm việc", 902),
+            ("ShiftSalaryLevel", "Bậc lương ca (API)", "Bậc lương theo ca", 903),
+            ("Benefit", "Phúc lợi (API)", "Alias Thưởng/Phạt", 904),
+            ("Transaction", "Giao dịch (API)", "Alias Thu chi", 905),
+            ("BankAccount", "Tài khoản ngân hàng", "Tài khoản ngân hàng thu chi", 906),
+            ("Report", "Báo cáo (cũ)", "Alias báo cáo hiện đại", 907),
+            ("HrDocument", "Tài liệu HR", "Quản lý tài liệu nhân sự", 908),
+            ("OrgChart", "Sơ đồ tổ chức", "Sơ đồ tổ chức công ty", 909),
+            ("Geofence", "Vùng chấm công", "Geofence chấm công mobile", 910),
+            ("Branch", "Chi nhánh", "Quản lý chi nhánh", 911),
         };
 
         var existingModules = await context.Permissions.ToListAsync();

@@ -38,6 +38,10 @@ public class MobileAttendanceRecord : AuditableEntity<Guid>
     [MaxLength(500)]
     public string? FaceImageUrl { get; set; }
 
+    /// <summary>Ảnh hiện trường sau chấm công (GPS + timestamp watermark).</summary>
+    [MaxLength(500)]
+    public string? SitePhotoUrl { get; set; }
+
     public double? FaceMatchScore { get; set; }
 
     /// <summary>

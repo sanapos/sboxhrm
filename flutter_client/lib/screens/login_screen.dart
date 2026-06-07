@@ -184,6 +184,8 @@ class _LoginScreenState extends State<LoginScreen>
     final isDesktop = size.width >= 900;
 
     return Scaffold(
+      backgroundColor:
+          isDesktop ? null : const Color(0xFFF8F9FA),
       body: isDesktop ? _buildDesktopLayout(size) : _buildMobileLayout(size),
     );
   }

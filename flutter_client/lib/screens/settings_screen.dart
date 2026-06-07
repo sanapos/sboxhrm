@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import '../widgets/hrm_page_chrome.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/auth_provider.dart';
+import '../providers/permission_provider.dart';
 import '../providers/theme_provider.dart';
 import '../services/api_service.dart';
 import '../widgets/notification_overlay.dart';
@@ -34,6 +36,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
+    final canManageData =
+        Provider.of<PermissionProvider>(context, listen: false)
+            .canEdit('SystemSettings');
     return Scaffold(
       backgroundColor: HrmPageChrome.background,
       body: SingleChildScrollView(
@@ -136,46 +141,50 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 24),
 
             // Data management
-            _buildSection(
-              context,
-              title: l.dataManagement,
-              icon: Icons.storage,
-              children: [
-                _buildSettingTile(
-                  context,
-                  icon: Icons.dataset,
-                  title: l.seedSampleData,
-                  subtitle: l.seedSampleDataDesc,
-                  trailing: _isSeedingSampleData
-                      ? const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : null,
-                  onTap: _isSeedingSampleData
-                      ? null
-                      : () => _showSeedSampleDataDialog(context),
-                ),
-                _buildSettingTile(
-                  context,
-                  icon: Icons.delete_sweep,
-                  title: l.deleteSampleData,
-                  subtitle: l.deleteSampleDataDesc,
-                  trailing: _isDeletingSampleData
-                      ? const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : null,
-                  onTap: _isDeletingSampleData
-                      ? null
-                      : () => _showDeleteSampleDataDialog(context),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
+            if (canManageData) ...[
+              _buildSection(
+                context,
+                title: l.dataManagement,
+                icon: Icons.storage,
+                children: [
+                  _buildSettingTile(
+                    context,
+                    icon: Icons.dataset,
+                    title: l.seedSampleData,
+                    subtitle: l.seedSampleDataDesc,
+                    trailing: _isSeedingSampleData
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child:
+                                CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : null,
+                    onTap: _isSeedingSampleData
+                        ? null
+                        : () => _showSeedSampleDataDialog(context),
+                  ),
+                  _buildSettingTile(
+                    context,
+                    icon: Icons.delete_sweep,
+                    title: l.deleteSampleData,
+                    subtitle: l.deleteSampleDataDesc,
+                    trailing: _isDeletingSampleData
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child:
+                                CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : null,
+                    onTap: _isDeletingSampleData
+                        ? null
+                        : () => _showDeleteSampleDataDialog(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+            ],
 
             // About
             _buildSection(
@@ -392,7 +401,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => ScrollableAlertDialog(
         title: Text(l.selectLanguage),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -431,7 +440,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => ScrollableAlertDialog(
         title: Text(l.serverConfig),
         content: SingleChildScrollView(
           child: TextField(
@@ -468,7 +477,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final l = AppLocalizations.of(context);
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: Text(l.autoSync),
         content: const Text(
             'Hệ thống tự động đồng bộ dữ liệu chấm công mỗi 5 phút.\nDữ liệu sẽ được cập nhật khi có kết nối mạng.'),
@@ -489,7 +498,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Text('Thông tin tài khoản'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -538,7 +547,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final l = AppLocalizations.of(context);
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => ScrollableAlertDialog(
         title: Text(l.seedSampleData),
         content: Text(l.seedSampleDataConfirm),
         actions: [
@@ -609,7 +618,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final l = AppLocalizations.of(context);
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => ScrollableAlertDialog(
         title: Text(l.deleteSampleData),
         content: Text(l.deleteSampleDataConfirm),
         actions: [
@@ -686,7 +695,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final l = AppLocalizations.of(context);
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => ScrollableAlertDialog(
         title: Text(l.logout),
         content: Text(l.logoutConfirm),
         actions: [

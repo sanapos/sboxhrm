@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
@@ -6,8 +7,6 @@ import 'app/app.dart';
 import 'providers/auth_provider.dart';
 import 'providers/permission_provider.dart';
 import 'providers/theme_provider.dart';
-import 'services/face_embedding_service_stub.dart'
-    if (dart.library.io) 'services/face_embedding_service.dart';
 import 'services/fcm_service_stub.dart'
     if (dart.library.io) 'services/fcm_service.dart';
 
@@ -35,22 +34,29 @@ void main() async {
     originalOnError?.call(details);
   };
 
-  // Eagerly initialize the on-device face embedding model (MobileFaceNet via
-  // TFLite). Without this the very first face-verification attempt uses the
-  // weak HOG/LBP fallback which can false-positive — especially on iOS where
-  // the model was historically assumed to be unavailable.
-  // Fire-and-forget: any failure is logged; verification code will re-check.
-  FaceEmbeddingService.initialize().then((_) {
-    debugPrint(
-        'FaceEmbeddingService init: ready=${FaceEmbeddingService.isReady}');
-  }).catchError((e) {
-    debugPrint('FaceEmbeddingService init failed: $e');
-  });
-
-  // Initialize Firebase Cloud Messaging (push notifications). Best-effort:
-  // failures are swallowed so the app still launches without Firebase.
-  // ignore: discarded_futures
-  FcmService.instance.initialize();
+  // Tránh màn trắng trống khi một widget build lỗi (đặc biệt release iOS).
+  ErrorWidget.builder = (FlutterErrorDetails details) {
+    if (kDebugMode) {
+      return ErrorWidget(details.exception);
+    }
+    return Material(
+      color: ThemeProvider.primaryColor,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'Đã xảy ra lỗi hiển thị.\nVui lòng đóng và mở lại ứng dụng.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.95),
+              fontSize: 15,
+              height: 1.45,
+            ),
+          ),
+        ),
+      ),
+    );
+  };
 
   await preloadVietnameseFonts();
 
@@ -64,5 +70,12 @@ void main() async {
       child: const ZKTecoApp(),
     ),
   );
+
+  // FCM sau frame đầu — giảm tranh CPU với paint đầu tiên trên iOS cold start.
+  // Face model: khởi tạo lazy khi vào chấm công khuôn mặt (mobile_attendance / camera).
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    // ignore: discarded_futures
+    FcmService.instance.initialize();
+  });
 }
 

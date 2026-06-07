@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Constants;
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.DTOs.Commons;
 using ZKTecoADMS.Application.DTOs.Transactions;
 using ZKTecoADMS.Application.Interfaces;
@@ -17,7 +18,10 @@ namespace ZKTecoADMS.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class CashTransactionsController(ZKTecoDbContext context, ISystemNotificationService notificationService) : AuthenticatedControllerBase
+public class CashTransactionsController(
+    ZKTecoDbContext context,
+    ISystemNotificationService notificationService,
+    IModulePermissionService modulePermissionService) : AuthenticatedControllerBase
 {
     // ═══════════════════════════════════════════════════════════════════════════
     // GIAO DỊCH THU CHI - CASH TRANSACTIONS
@@ -42,7 +46,15 @@ public class CashTransactionsController(ZKTecoDbContext context, ISystemNotifica
         [FromQuery] bool? isPaid = null)
     {
         var storeId = RequiredStoreId;
-        
+
+        // Sửa bản ghi đã thanh toán nhưng status còn Pending/WaitingPayment
+        await context.CashTransactions
+            .Where(x => x.StoreId == storeId && x.IsActive && x.IsPaid
+                && x.Status != CashTransactionStatus.Completed)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(x => x.Status, CashTransactionStatus.Completed)
+                .SetProperty(x => x.LastModified, DateTime.UtcNow));
+
         var query = context.CashTransactions
             .Include(x => x.Category)
             .Include(x => x.BankAccount)
@@ -101,7 +113,7 @@ public class CashTransactionsController(ZKTecoDbContext context, ISystemNotifica
                 PaymentMethod = x.PaymentMethod,
                 BankAccountId = x.BankAccountId,
                 BankAccountName = x.BankAccount != null ? x.BankAccount.AccountName : null,
-                Status = x.Status,
+                Status = x.IsPaid ? CashTransactionStatus.Completed : x.Status,
                 ContactName = x.ContactName,
                 ContactPhone = x.ContactPhone,
                 PaymentReference = x.PaymentReference,
@@ -116,6 +128,9 @@ public class CashTransactionsController(ZKTecoDbContext context, ISystemNotifica
                 LastModified = x.LastModified
             })
             .ToListAsync();
+
+        for (var i = 0; i < items.Count; i++)
+            items[i] = FixTransactionDtoEncoding(items[i]);
 
         var result = new PagedResult<CashTransactionDto>
         {
@@ -158,7 +173,7 @@ public class CashTransactionsController(ZKTecoDbContext context, ISystemNotifica
                 PaymentMethod = x.PaymentMethod,
                 BankAccountId = x.BankAccountId,
                 BankAccountName = x.BankAccount != null ? x.BankAccount.AccountName : null,
-                Status = x.Status,
+                Status = x.IsPaid ? CashTransactionStatus.Completed : x.Status,
                 ContactName = x.ContactName,
                 ContactPhone = x.ContactPhone,
                 PaymentReference = x.PaymentReference,
@@ -177,6 +192,7 @@ public class CashTransactionsController(ZKTecoDbContext context, ISystemNotifica
         if (transaction == null)
             return NotFound(AppResponse<CashTransactionDto>.Error("Không tìm thấy giao dịch"));
 
+        FixTransactionDtoEncoding(transaction);
         return Ok(AppResponse<CashTransactionDto>.Success(transaction));
     }
 
@@ -252,6 +268,18 @@ public class CashTransactionsController(ZKTecoDbContext context, ISystemNotifica
 
         context.CashTransactions.Add(transaction);
         await context.SaveChangesAsync();
+
+        try
+        {
+            await CashTransactionNotificationHelper.NotifyOnCreatedAsync(
+                context,
+                modulePermissionService,
+                notificationService,
+                transaction,
+                CurrentUserId,
+                storeId);
+        }
+        catch { /* notification is best-effort */ }
 
         // Return with full info
         return await GetTransaction(transaction.Id);
@@ -355,6 +383,35 @@ public class CashTransactionsController(ZKTecoDbContext context, ISystemNotifica
 
         transaction.Status = request.Status;
         transaction.LastModified = DateTime.UtcNow;
+
+        if (request.Status == CashTransactionStatus.Completed)
+        {
+            transaction.IsPaid = true;
+            transaction.PaidDate ??= DateTime.UtcNow;
+        }
+
+        if (request.PaymentMethod.HasValue)
+        {
+            transaction.PaymentMethod = request.PaymentMethod.Value;
+            if (request.PaymentMethod == PaymentMethodType.VietQR && request.BankAccountId.HasValue)
+            {
+                var bankAccount = await context.BankAccounts.FindAsync(request.BankAccountId.Value);
+                if (bankAccount != null)
+                {
+                    transaction.BankAccountId = bankAccount.Id;
+                    transaction.VietQRUrl = VietQRBanks.GenerateVietQRUrl(
+                        bankAccount.BankCode,
+                        bankAccount.AccountNumber,
+                        transaction.Amount,
+                        $"{transaction.TransactionCode} - {transaction.Description}",
+                        bankAccount.VietQRTemplate);
+                }
+            }
+            else if (request.PaymentMethod == PaymentMethodType.BankTransfer && request.BankAccountId.HasValue)
+            {
+                transaction.BankAccountId = request.BankAccountId;
+            }
+        }
 
         if (request.IsPaid.HasValue)
         {
@@ -535,6 +592,9 @@ public class CashTransactionsController(ZKTecoDbContext context, ISystemNotifica
             .OrderByDescending(x => x.Amount)
             .ToList();
 
+        incomeByCategory = incomeByCategory.Select(FixCategorySummaryEncoding).ToList();
+        expenseByCategory = expenseByCategory.Select(FixCategorySummaryEncoding).ToList();
+
         // Daily summary
         var dailySummary = transactions
             .GroupBy(x => x.TransactionDate.Date)
@@ -548,10 +608,19 @@ public class CashTransactionsController(ZKTecoDbContext context, ISystemNotifica
             .Take(30)
             .ToList();
 
-        var pendingCount = await context.CashTransactions
-            .CountAsync(x => x.StoreId == storeId && 
-                            x.IsActive && 
-                            x.Status == CashTransactionStatus.Pending);
+        var pendingQuery = context.CashTransactions
+            .Where(x => x.StoreId == storeId
+                && x.IsActive
+                && !x.IsPaid
+                && (x.Status == CashTransactionStatus.Pending
+                    || x.Status == CashTransactionStatus.WaitingPayment));
+
+        if (branchScope != null)
+            pendingQuery = pendingQuery.Where(x => branchScope.ApplicationUserIds.Contains(x.CreatedByUserId));
+
+        var pendingList = await pendingQuery.ToListAsync();
+        var pendingIncome = pendingList.Where(x => x.Type == CashTransactionType.Income).ToList();
+        var pendingExpense = pendingList.Where(x => x.Type == CashTransactionType.Expense).ToList();
 
         var summary = new CashTransactionSummaryDto
         {
@@ -560,7 +629,11 @@ public class CashTransactionsController(ZKTecoDbContext context, ISystemNotifica
             TotalTransactions = transactions.Count,
             IncomeTransactions = transactions.Count(x => x.Type == CashTransactionType.Income),
             ExpenseTransactions = transactions.Count(x => x.Type == CashTransactionType.Expense),
-            PendingTransactions = pendingCount,
+            PendingTransactions = pendingList.Count,
+            PendingIncomeAmount = pendingIncome.Sum(x => x.Amount),
+            PendingExpenseAmount = pendingExpense.Sum(x => x.Amount),
+            PendingIncomeCount = pendingIncome.Count,
+            PendingExpenseCount = pendingExpense.Count,
             FromDate = fromDate,
             ToDate = toDate,
             IncomeByCategory = incomeByCategory,
@@ -663,4 +736,231 @@ public class CashTransactionsController(ZKTecoDbContext context, ISystemNotifica
 
         return Ok(AppResponse<List<VietQRBankDto>>.Success(banks));
     }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CHUYỂN QUỸ - FUND TRANSFERS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    [HttpGet("fund-transfers")]
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("CashTransaction", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<PagedResult<FundTransferDto>>>> GetFundTransfers(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] DateTime? fromDate = null,
+        [FromQuery] DateTime? toDate = null)
+    {
+        var storeId = RequiredStoreId;
+        var query = context.FundTransfers
+            .Include(x => x.FromBankAccount)
+            .Include(x => x.ToBankAccount)
+            .Include(x => x.CreatedByUser)
+            .Where(x => x.StoreId == storeId && x.IsActive);
+
+        if (fromDate.HasValue)
+            query = query.Where(x => x.TransferDate >= fromDate.Value);
+        if (toDate.HasValue)
+            query = query.Where(x => x.TransferDate <= toDate.Value);
+
+        var total = await query.CountAsync();
+        var entities = await query
+            .OrderByDescending(x => x.TransferDate)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+        var items = entities.Select(MapFundTransferDto).ToList();
+
+        return Ok(AppResponse<PagedResult<FundTransferDto>>.Success(new PagedResult<FundTransferDto>
+        {
+            Items = items,
+            TotalCount = total,
+            PageNumber = page,
+            PageSize = pageSize
+        }));
+    }
+
+    [HttpGet("fund-balances")]
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("CashTransaction", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<List<FundBalanceDto>>>> GetFundBalances()
+    {
+        var storeId = RequiredStoreId;
+        var balances = await BuildFundBalancesAsync(storeId);
+        return Ok(AppResponse<List<FundBalanceDto>>.Success(balances));
+    }
+
+    [HttpPost("fund-transfers")]
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("CashTransaction", ModulePermissionAction.Create)]
+    public async Task<ActionResult<AppResponse<FundTransferDto>>> CreateFundTransfer(
+        [FromBody] CreateFundTransferDto request)
+    {
+        var storeId = RequiredStoreId;
+
+        if (request.Amount <= 0)
+            return BadRequest(AppResponse<FundTransferDto>.Error("Số tiền phải lớn hơn 0"));
+
+        if (request.FromBankAccountId == request.ToBankAccountId)
+            return BadRequest(AppResponse<FundTransferDto>.Error("Quỹ nguồn và quỹ đích phải khác nhau"));
+
+        if (!await ValidateBankAccountAsync(storeId, request.FromBankAccountId))
+            return BadRequest(AppResponse<FundTransferDto>.Error("Tài khoản nguồn không hợp lệ"));
+
+        if (!await ValidateBankAccountAsync(storeId, request.ToBankAccountId))
+            return BadRequest(AppResponse<FundTransferDto>.Error("Tài khoản đích không hợp lệ"));
+
+        var today = DateTime.UtcNow;
+        var dateStr = today.ToString("yyyyMMdd");
+        var count = await context.FundTransfers
+            .CountAsync(x => x.StoreId == storeId && x.TransferCode.StartsWith($"CQ-{dateStr}")) + 1;
+        var transferCode = $"CQ-{dateStr}-{count:D4}";
+
+        var transfer = new FundTransfer
+        {
+            Id = Guid.NewGuid(),
+            TransferCode = transferCode,
+            FromBankAccountId = request.FromBankAccountId,
+            ToBankAccountId = request.ToBankAccountId,
+            Amount = request.Amount,
+            TransferDate = request.TransferDate,
+            Description = request.Description,
+            InternalNote = request.InternalNote,
+            CreatedByUserId = CurrentUserId,
+            StoreId = storeId,
+            IsActive = true
+        };
+
+        context.FundTransfers.Add(transfer);
+        await context.SaveChangesAsync();
+
+        var created = await context.FundTransfers
+            .Include(x => x.FromBankAccount)
+            .Include(x => x.ToBankAccount)
+            .Include(x => x.CreatedByUser)
+            .FirstAsync(x => x.Id == transfer.Id);
+
+        return Ok(AppResponse<FundTransferDto>.Success(MapFundTransferDto(created)));
+    }
+
+    [HttpDelete("fund-transfers/{id}")]
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("CashTransaction", ModulePermissionAction.Delete)]
+    public async Task<ActionResult<AppResponse<bool>>> DeleteFundTransfer(Guid id)
+    {
+        var storeId = RequiredStoreId;
+        var transfer = await context.FundTransfers.AsTracking()
+            .FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId && x.IsActive);
+        if (transfer == null)
+            return NotFound(AppResponse<bool>.Error("Không tìm thấy phiếu chuyển quỹ"));
+
+        transfer.IsActive = false;
+        transfer.LastModified = DateTime.UtcNow;
+        await context.SaveChangesAsync();
+        return Ok(AppResponse<bool>.Success(true));
+    }
+
+    private async Task<bool> ValidateBankAccountAsync(Guid storeId, Guid? bankAccountId)
+    {
+        if (!bankAccountId.HasValue) return true;
+        return await context.BankAccounts.AnyAsync(x =>
+            x.Id == bankAccountId.Value && x.StoreId == storeId && x.IsActive);
+    }
+
+    private static FundTransferDto MapFundTransferDto(FundTransfer x) => new()
+    {
+        Id = x.Id,
+        TransferCode = x.TransferCode,
+        FromBankAccountId = x.FromBankAccountId,
+        FromFundLabel = FormatFundLabel(x.FromBankAccount),
+        ToBankAccountId = x.ToBankAccountId,
+        ToFundLabel = FormatFundLabel(x.ToBankAccount),
+        Amount = x.Amount,
+        TransferDate = x.TransferDate,
+        Description = x.Description,
+        InternalNote = x.InternalNote,
+        CreatedByUserId = x.CreatedByUserId,
+        CreatedByUserName = x.CreatedByUser?.UserName ?? "",
+        CreatedAt = x.CreatedAt
+    };
+
+    private static string FormatFundLabel(BankAccount? account)
+        => account == null
+            ? "Tiền mặt"
+            : $"{account.BankShortName ?? account.BankName} - {account.AccountNumber}";
+
+    private async Task<List<FundBalanceDto>> BuildFundBalancesAsync(Guid storeId)
+    {
+        var completed = CashTransactionStatus.Completed;
+
+        var cashIncome = await context.CashTransactions
+            .Where(x => x.StoreId == storeId && x.IsActive && x.Status == completed
+                        && x.Type == CashTransactionType.Income
+                        && x.PaymentMethod == PaymentMethodType.Cash)
+            .SumAsync(x => (decimal?)x.Amount) ?? 0m;
+
+        var cashExpense = await context.CashTransactions
+            .Where(x => x.StoreId == storeId && x.IsActive && x.Status == completed
+                        && x.Type == CashTransactionType.Expense
+                        && x.PaymentMethod == PaymentMethodType.Cash)
+            .SumAsync(x => (decimal?)x.Amount) ?? 0m;
+
+        var transferInCash = await context.FundTransfers
+            .Where(x => x.StoreId == storeId && x.IsActive && x.ToBankAccountId == null)
+            .SumAsync(x => (decimal?)x.Amount) ?? 0m;
+
+        var transferOutCash = await context.FundTransfers
+            .Where(x => x.StoreId == storeId && x.IsActive && x.FromBankAccountId == null)
+            .SumAsync(x => (decimal?)x.Amount) ?? 0m;
+
+        var cashBalance = cashIncome - cashExpense + transferInCash - transferOutCash;
+
+        var result = new List<FundBalanceDto>
+        {
+            new() { BankAccountId = null, Label = "Tiền mặt", IsCash = true, Balance = cashBalance }
+        };
+
+        var bankAccounts = await context.BankAccounts
+            .Where(x => x.StoreId == storeId && x.IsActive)
+            .OrderByDescending(x => x.IsDefault)
+            .ThenBy(x => x.BankName)
+            .ToListAsync();
+
+        foreach (var bank in bankAccounts)
+        {
+            var bankIncome = await context.CashTransactions
+                .Where(x => x.StoreId == storeId && x.IsActive && x.Status == completed
+                            && x.Type == CashTransactionType.Income && x.BankAccountId == bank.Id)
+                .SumAsync(x => (decimal?)x.Amount) ?? 0m;
+
+            var bankExpense = await context.CashTransactions
+                .Where(x => x.StoreId == storeId && x.IsActive && x.Status == completed
+                            && x.Type == CashTransactionType.Expense && x.BankAccountId == bank.Id)
+                .SumAsync(x => (decimal?)x.Amount) ?? 0m;
+
+            var inTransfer = await context.FundTransfers
+                .Where(x => x.StoreId == storeId && x.IsActive && x.ToBankAccountId == bank.Id)
+                .SumAsync(x => (decimal?)x.Amount) ?? 0m;
+
+            var outTransfer = await context.FundTransfers
+                .Where(x => x.StoreId == storeId && x.IsActive && x.FromBankAccountId == bank.Id)
+                .SumAsync(x => (decimal?)x.Amount) ?? 0m;
+
+            result.Add(new FundBalanceDto
+            {
+                BankAccountId = bank.Id,
+                Label = $"{bank.AccountName} ({bank.AccountNumber})",
+                BankShortName = bank.BankShortName ?? bank.BankName,
+                IsCash = false,
+                Balance = bankIncome - bankExpense + inTransfer - outTransfer
+            });
+        }
+
+        return result;
+    }
+
+    private static CashTransactionDto FixTransactionDtoEncoding(CashTransactionDto dto)
+        => dto with { CategoryName = VietnameseEncodingFix.TryFix(dto.CategoryName) };
+
+    private static CategorySummaryDto FixCategorySummaryEncoding(CategorySummaryDto dto)
+        => dto with { CategoryName = VietnameseEncodingFix.TryFix(dto.CategoryName) };
 }

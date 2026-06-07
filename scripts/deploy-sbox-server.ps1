@@ -64,6 +64,12 @@ Invoke-PuttyScp -Pscp $pscp -Password $Password -LocalPath "$RepoRoot\restore_mu
 Invoke-PuttyScp -Pscp $pscp -Password $Password -LocalPath "$RepoRoot\scripts\ensure_employee_live_locations.sql" -RemotePath "${User}@${Server}:/root/ensure_employee_live_locations.sql"
 Invoke-PuttyScp -Pscp $pscp -Password $Password -LocalPath "$RepoRoot\scripts\fix_employee_unique_indexes.sql" -RemotePath "${User}@${Server}:/root/fix_employee_unique_indexes.sql"
 Invoke-PuttyScp -Pscp $pscp -Password $Password -LocalPath "$RepoRoot\scripts\cleanup_duplicate_attendance_logs.sql" -RemotePath "${User}@${Server}:/root/cleanup_duplicate_attendance_logs.sql"
+if (Test-Path "$RepoRoot\apply_all_migrations.sql") {
+    Invoke-PuttyScp -Pscp $pscp -Password $Password -LocalPath "$RepoRoot\apply_all_migrations.sql" -RemotePath "${User}@${Server}:/root/apply_all_migrations.sql"
+}
+if (Test-Path "$RepoRoot\scripts\apply_site_photo_ef_migration.sql") {
+    Invoke-PuttyScp -Pscp $pscp -Password $Password -LocalPath "$RepoRoot\scripts\apply_site_photo_ef_migration.sql" -RemotePath "${User}@${Server}:/root/apply_site_photo_ef_migration.sql"
+}
 
 $deploySh = Join-Path $RepoRoot "_deploy_p123.sh"
 $deployLf = Join-Path $env:TEMP "deploy_sbox_lf.sh"

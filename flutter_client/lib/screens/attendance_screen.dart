@@ -4,6 +4,9 @@ import 'dart:math' as math;
 import '../utils/file_saver.dart' as file_saver;
 import '../utils/platform_storage.dart' as platform_storage;
 import 'package:flutter/material.dart';
+import '../widgets/app_scroll_safe.dart';
+import '../widgets/hrm_mini_stat_chip.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:excel/excel.dart' as excel_lib;
@@ -18,7 +21,9 @@ import '../widgets/loading_widget.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/notification_overlay.dart';
 import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
+import '../utils/attendance_correction_privilege.dart';
 import '../widgets/app_button.dart';
 import 'attendance/attendance_correction_tab.dart'
     show CorrectionRequestInternal, CorrectionStatus;
@@ -26,6 +31,13 @@ import 'main_layout.dart' show ScreenRefreshNotifier;
 import '../l10n/app_localizations.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
+import '../widgets/employee_search_picker.dart';
+import '../models/mobile_attendance.dart';
+import '../widgets/map_location_picker.dart';
+import '../widgets/mobile_attendance_record_detail_sheet.dart';
+import '../widgets/punch_location_preview.dart';
+import '../widgets/punch_photo_preview.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class AttendanceScreen extends StatefulWidget {
   const AttendanceScreen({super.key});
@@ -60,9 +72,12 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   int _dayEndHour = 0;
   int _dayEndMinute = 0;
   List<String> _selectedDevices = [];
-  String _searchPin = ''; // Filter theo ID/PIN nhân viên
+  String _searchPin = ''; // Tìm nhanh ID/tên (header)
+  String? _filterEmployeeCode; // Mã NV trên máy chấm công
   String _selectedDatePreset =
       'week'; // Preset: today, yesterday, week, lastWeek, month, lastMonth, custom
+  bool _attendanceLoadTruncated = false;
+  int? _attendanceServerTotalCount;
   int?
       _selectedVerifyType; // null = all, 0 = password, 1 = fingerprint, 2 = card, 15 = face
   String? _selectedBranchId;
@@ -75,7 +90,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
   // Mobile UI state
   bool _showMobileSearch = false;
-  bool _showMobileSummary = false;
+  bool _showOverviewPanel = false;
 
   // Pagination
   int _currentPage = 1;
@@ -408,19 +423,21 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         }
       }
 
-      var attendanceList = _selectedDevices.isEmpty
-          ? <Attendance>[]
-          : await loadAttendancesForPeriod(
-              _apiService,
-              deviceIds: _selectedDevices,
-              fromDate: _fromDate,
-              toDate: _toDate,
-              dayEndHour: _dayEndHour,
-              dayEndMinute: _dayEndMinute,
-              pageSize: 1000,
-            );
+      final attLoad = await loadAttendancesForPeriodResult(
+        _apiService,
+        deviceIds: _selectedDevices,
+        fromDate: _fromDate,
+        toDate: _toDate,
+        dayEndHour: _dayEndHour,
+        dayEndMinute: _dayEndMinute,
+        pageSize: 1000,
+        parallelPages: 6,
+      );
+      var attendanceList = attLoad.items;
 
       if (mounted) {
+        _attendanceLoadTruncated = attLoad.truncated;
+        _attendanceServerTotalCount = attLoad.totalCount;
         // Sắp xếp theo thời gian mới nhất trước (hiển thị danh sách)
         attendanceList
             .sort((a, b) => b.attendanceTime.compareTo(a.attendanceTime));
@@ -447,6 +464,17 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         setState(() {
           _attendances = attendanceList;
         });
+        if (_attendanceLoadTruncated) {
+          final serverTotal = _attendanceServerTotalCount;
+          final msg = serverTotal != null && serverTotal > attendanceList.length
+              ? 'Đã tải ${attendanceList.length} / $serverTotal log.'
+              : 'Đã tải ${attendanceList.length} log (giới hạn tải).';
+          appNotification.showWarning(
+            title: 'Dữ liệu có thể chưa đủ',
+            message:
+                '$msg Có thể thiếu ngày cuối tháng — thu hẹp thiết bị hoặc khoảng ngày.',
+          );
+        }
       }
     } catch (e) {
       debugPrint('Error loading attendances: $e');
@@ -848,7 +876,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     await showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
+        builder: (context, setDialogState) => ScrollableAlertDialog(
           title: Row(
             children: [
               Icon(Icons.add_circle, color: Colors.orange[400]),
@@ -1059,7 +1087,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       // Show import instructions dialog first
       final confirmed = await showDialog<bool>(
         context: context,
-        builder: (context) => AlertDialog(
+        builder: (context) => ScrollableAlertDialog(
           title: Row(
             children: [
               Icon(Icons.upload_file, color: Colors.blue[400]),
@@ -1331,14 +1359,23 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                 if (v == 'export') _exportToExcel();
                               },
                               itemBuilder: (_) => [
-                                PopupMenuItem(
-                                    value: 'sync',
-                                    child: Row(children: [
-                                      const Icon(Icons.sync,
-                                          size: 18, color: Colors.blue),
-                                      const SizedBox(width: 10),
-                                      Text(_l10n.syncData)
-                                    ])),
+                                if (canSyncAttendanceFromDevice(
+                                  role: Provider.of<AuthProvider>(context,
+                                          listen: false)
+                                      .user
+                                      ?.role,
+                                  permissions: Provider.of<PermissionProvider>(
+                                      context,
+                                      listen: false),
+                                ))
+                                  PopupMenuItem(
+                                      value: 'sync',
+                                      child: Row(children: [
+                                        const Icon(Icons.sync,
+                                            size: 18, color: Colors.blue),
+                                        const SizedBox(width: 10),
+                                        Text(_l10n.syncData)
+                                      ])),
                                 if (Provider.of<PermissionProvider>(context,
                                         listen: false)
                                     .canCreate('Attendance'))
@@ -1598,54 +1635,55 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }
 
   List<Widget> _detailTabHeaderSections(bool isMobile) => [
-        if (isMobile) ...[
-          InkWell(
-            onTap: () =>
-                setState(() => _showMobileSummary = !_showMobileSummary),
-            borderRadius: BorderRadius.circular(8),
-            child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.analytics_outlined,
-                      size: 16, color: Colors.blue.shade700),
-                  const SizedBox(width: 6),
-                  Text('Tổng quan',
-                      style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                          color: Colors.blue.shade700)),
-                  const Spacer(),
-                  Icon(
-                      _showMobileSummary
-                          ? Icons.expand_less
-                          : Icons.expand_more,
-                      size: 20,
-                      color: Colors.blue.shade700),
-                ],
-              ),
+        _buildOverviewSection(isMobile),
+        const SizedBox(height: 12),
+      ];
+
+  Widget _buildOverviewSection(bool isMobile) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        InkWell(
+          onTap: () =>
+              setState(() => _showOverviewPanel = !_showOverviewPanel),
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.analytics_outlined,
+                    size: 16, color: Colors.blue.shade700),
+                const SizedBox(width: 6),
+                Text('Tổng quan & bộ lọc',
+                    style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                        color: Colors.blue.shade700)),
+                const Spacer(),
+                Icon(
+                    _showOverviewPanel
+                        ? Icons.expand_less
+                        : Icons.expand_more,
+                    size: 20,
+                    color: Colors.blue.shade700),
+              ],
             ),
           ),
-          if (_showMobileSummary) ...[
-            const SizedBox(height: 8),
-            _buildStatsRow(),
-          ],
-        ] else
+        ),
+        if (_showOverviewPanel) ...[
+          const SizedBox(height: 8),
           _buildStatsRow(),
-        const SizedBox(height: 12),
-        if (!isMobile) ...[
-          _buildFilters(),
-          const SizedBox(height: 12),
-        ] else ...[
-          _buildMobileFilterPanel(),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
+          _buildAttendanceFilterBar(),
         ],
-      ];
+      ],
+    );
+  }
 
   List<Widget> _detailTabMobileSlivers() {
     if (_isLoading) {
@@ -1685,58 +1723,47 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         _filteredAttendances.where((a) => a.verifyType == 100).length;
     final card = _filteredAttendances.where((a) => a.verifyType == 2).length;
 
-    final stats = [
-      ('Tổng bản ghi', '$total', Icons.list_alt, HrmPageChrome.primaryNavy),
-      ('Vân tay', '$fingerprint', Icons.fingerprint, HrmPageChrome.primaryNavy),
-      ('Khuôn mặt', '$face', Icons.face, HrmPageChrome.primaryNavy),
-      ('Thẻ từ', '$card', Icons.credit_card, const Color(0xFFF59E0B)),
-      ('Thủ công', '$manual', Icons.edit_note, const Color(0xFFEF4444)),
+    final totalLabel = _attendanceLoadTruncated &&
+            _attendanceServerTotalCount != null &&
+            _attendanceServerTotalCount! > total
+        ? '$total/${_attendanceServerTotalCount}'
+        : '$total';
+    final cards = [
+      _buildStatCard('Tổng bản ghi', totalLabel, Icons.list_alt,
+          _attendanceLoadTruncated ? const Color(0xFFF59E0B) : HrmPageChrome.primaryNavy),
+      _buildStatCard('Vân tay', '$fingerprint', Icons.fingerprint,
+          HrmPageChrome.primaryNavy),
+      _buildStatCard(
+          'Khuôn mặt', '$face', Icons.face, HrmPageChrome.primaryNavy),
+      _buildStatCard(
+          'Thẻ từ', '$card', Icons.credit_card, const Color(0xFFF59E0B)),
+      _buildStatCard(
+          'Thủ công', '$manual', Icons.edit_note, const Color(0xFFEF4444)),
     ];
 
+    if (Responsive.isMobile(context)) {
+      return HrmPageChrome.horizontalStatCards(
+        cards: cards,
+        minCardWidth: 100,
+        gap: 8,
+      );
+    }
+
     return Row(
-      children: stats.fold<List<Widget>>([], (acc, s) {
-        if (acc.isNotEmpty) acc.add(const SizedBox(width: 8));
-        acc.add(Expanded(child: _buildStatCard(s.$1, s.$2, s.$3, s.$4)));
-        return acc;
-      }),
+      children: cards
+          .expand((c) => [Expanded(child: c), const SizedBox(width: 8)])
+          .toList()
+        ..removeLast(),
     );
   }
 
   Widget _buildStatCard(
       String label, String value, IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: 0.10),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, size: 16, color: color),
-          ),
-          const SizedBox(height: 4),
-          Text(value,
-              style: TextStyle(
-                  fontSize: 14, fontWeight: FontWeight.bold, color: color)),
-          Text(label,
-              style: const TextStyle(fontSize: 10, color: Color(0xFFA1A1AA)),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis),
-        ],
-      ),
+    return HrmStatSummaryCard(
+      icon: icon,
+      value: value,
+      label: label,
+      color: color,
     );
   }
 
@@ -2004,7 +2031,17 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       }
     }
 
-    // Filter by search
+    // Filter by selected employee (mã chấm công)
+    if (_filterEmployeeCode != null && _filterEmployeeCode!.isNotEmpty) {
+      final code = _filterEmployeeCode!.toLowerCase();
+      result = result
+          .where((a) =>
+              (a.employeeId?.toLowerCase() == code) ||
+              (a.enrollNumber?.toLowerCase() == code))
+          .toList();
+    }
+
+    // Filter by quick search (header)
     if (_searchPin.isNotEmpty) {
       final search = _searchPin.toLowerCase();
       result = result.where((a) {
@@ -2066,590 +2103,421 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
   bool _hasActiveFilters() {
     return _selectedVerifyType != null ||
+        (_filterEmployeeCode != null && _filterEmployeeCode!.isNotEmpty) ||
+        _searchPin.isNotEmpty ||
         (_selectedDevices.isNotEmpty &&
             _selectedDevices.length != _devices.length) ||
         _selectedDatePreset != 'week' ||
         _selectedBranchId != null;
   }
 
-  Widget _buildMobileFilterPanel() {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Row header
-          Row(
-            children: [
-              Icon(Icons.filter_alt,
-                  size: 16, color: Theme.of(context).primaryColor),
-              const SizedBox(width: 6),
-              Text('Bộ lọc',
-                  style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context).primaryColor)),
-              const Spacer(),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.analytics_outlined,
-                        size: 13, color: Theme.of(context).primaryColor),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${_filteredAttendances.length} bản ghi',
-                      style: TextStyle(
-                          color: Theme.of(context).primaryColor,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          // Date preset
-          Row(
-            children: [
-              const Icon(Icons.calendar_today,
-                  size: 14, color: Color(0xFF71717A)),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildDropdown<String>(
-                  value: _selectedDatePreset,
-                  icon: null,
-                  items: const [
-                    DropdownMenuItem(value: 'today', child: Text('Hôm nay')),
-                    DropdownMenuItem(
-                        value: 'yesterday', child: Text('Hôm qua')),
-                    DropdownMenuItem(value: 'week', child: Text('Tuần này')),
-                    DropdownMenuItem(
-                        value: 'lastWeek', child: Text('Tuần trước')),
-                    DropdownMenuItem(value: 'month', child: Text('Tháng này')),
-                    DropdownMenuItem(
-                        value: 'lastMonth', child: Text('Tháng trước')),
-                    DropdownMenuItem(
-                        value: 'custom', child: Text('Tùy chọn...')),
-                  ],
-                  onChanged: (v) {
-                    if (v != null) _applyDatePreset(v);
-                  },
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(child: _buildDateRangeSelector()),
-            ],
-          ),
-          const SizedBox(height: 8),
-          // Device + Verify type
-          Row(
-            children: [
-              const Icon(Icons.router, size: 14, color: Color(0xFF71717A)),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildDropdown<String>(
-                  value: _selectedDevices.length == _devices.length ||
-                          _selectedDevices.isEmpty
-                      ? 'all'
-                      : _selectedDevices.first,
-                  icon: null,
-                  items: [
-                    const DropdownMenuItem(
-                        value: 'all', child: Text('Tất cả TB')),
-                    ..._devices.map((d) => DropdownMenuItem(
-                        value: d.id,
-                        child: Text(d.deviceName,
-                            overflow: TextOverflow.ellipsis))),
-                  ],
-                  onChanged: (v) {
-                    setState(() {
-                      _selectedDevices = v == 'all'
-                          ? _devices.map((d) => d.id).toList()
-                          : [v!];
-                      _currentPage = 1;
-                    });
-                    _loadAttendances();
-                  },
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildDropdown<int?>(
-                  value: _selectedVerifyType,
-                  icon: null,
-                  items: const [
-                    DropdownMenuItem(value: null, child: Text('Tất cả loại')),
-                    DropdownMenuItem(value: 1, child: Text('Vân tay')),
-                    DropdownMenuItem(value: 15, child: Text('Khuôn mặt')),
-                    DropdownMenuItem(value: 2, child: Text('Thẻ')),
-                    DropdownMenuItem(value: 100, child: Text('Thủ công')),
-                  ],
-                  onChanged: (v) => setState(() {
-                    _selectedVerifyType = v;
-                    _currentPage = 1;
-                  }),
-                ),
-              ),
-              if (_branches.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String?>(
-                  key: ValueKey('branch_$_selectedBranchId'),
-                  initialValue: _selectedBranchId,
-                  isExpanded: true,
-                  decoration: InputDecoration(
-                    labelText: 'Chi nh\u00e1nh',
-                    isDense: true,
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8)),
-                    contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  ),
-                  items: [
-                    const DropdownMenuItem<String?>(
-                        value: null,
-                        child: Text('T\u1ea5t c\u1ea3 chi nh\u00e1nh')),
-                    ..._branches.map((b) => DropdownMenuItem<String?>(
-                        value: b['id']?.toString(),
-                        child: Text(b['name']?.toString() ?? '',
-                            overflow: TextOverflow.ellipsis))),
-                  ],
-                  onChanged: (v) => setState(() {
-                    _selectedBranchId = v;
-                    _currentPage = 1;
-                  }),
-                ),
-              ],
-            ],
-          ),
-        ],
-      ),
-    );
+  void _clearAttFilters() {
+    setState(() {
+      _selectedVerifyType = null;
+      _filterEmployeeCode = null;
+      _searchPin = '';
+      _selectedBranchId = null;
+      _selectedDevices = _devices.map((d) => d.id).toList();
+      _currentPage = 1;
+    });
+    _applyDatePreset('week');
   }
 
-  Widget _buildFilters() {
-    final isMobile = Responsive.isMobile(context);
-    final countChip = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.analytics_outlined,
-              size: 14, color: Theme.of(context).primaryColor),
-          const SizedBox(width: 6),
-          Text(
-            '${_filteredAttendances.length} bản ghi',
-            style: TextStyle(
-                color: Theme.of(context).primaryColor,
-                fontSize: 12,
-                fontWeight: FontWeight.w600),
-          ),
-        ],
-      ),
-    );
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: isMobile
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Row 1: Search + count
-                Row(
-                  children: [
-                    Expanded(
-                      child: SizedBox(
-                        height: 36,
-                        child: TextField(
-                          decoration: InputDecoration(
-                            hintText: 'Tìm ID/Tên...',
-                            hintStyle: TextStyle(
-                                fontSize: 13, color: Colors.grey[400]),
-                            prefixIcon: Icon(Icons.search,
-                                size: 18, color: Colors.grey[400]),
-                            isDense: true,
-                            filled: true,
-                            fillColor: const Color(0xFFFAFAFA),
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 10),
-                            border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                borderSide:
-                                    const BorderSide(color: Color(0xFFE4E4E7))),
-                            enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                borderSide:
-                                    const BorderSide(color: Color(0xFFE4E4E7))),
-                            focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                borderSide: BorderSide(
-                                    color: Theme.of(context).primaryColor,
-                                    width: 1.5)),
-                          ),
-                          style: const TextStyle(fontSize: 13),
-                          onChanged: (v) => setState(() {
-                            _searchPin = v;
-                            _currentPage = 1;
-                          }),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    countChip,
-                  ],
-                ),
-                const SizedBox(height: 8),
-                // Row 2: Date preset + date range
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      _buildDropdown<String>(
-                        value: _selectedDatePreset,
-                        width: 110,
-                        icon: Icons.calendar_today,
-                        items: const [
-                          DropdownMenuItem(
-                              value: 'today', child: Text('Hôm nay')),
-                          DropdownMenuItem(
-                              value: 'yesterday', child: Text('Hôm qua')),
-                          DropdownMenuItem(
-                              value: 'week', child: Text('Tuần này')),
-                          DropdownMenuItem(
-                              value: 'lastWeek', child: Text('Tuần trước')),
-                          DropdownMenuItem(
-                              value: 'month', child: Text('Tháng này')),
-                          DropdownMenuItem(
-                              value: 'lastMonth', child: Text('Tháng trước')),
-                          DropdownMenuItem(
-                              value: 'custom', child: Text('Tùy chọn...')),
-                        ],
-                        onChanged: (v) {
-                          if (v != null) _applyDatePreset(v);
-                        },
-                      ),
-                      const SizedBox(width: 8),
-                      _buildDateRangeSelector(),
-                      const SizedBox(width: 8),
-                      _buildDropdown<String>(
-                        value: _selectedDevices.length == _devices.length ||
-                                _selectedDevices.isEmpty
-                            ? 'all'
-                            : _selectedDevices.first,
-                        width: 110,
-                        icon: Icons.router,
-                        items: [
-                          const DropdownMenuItem(
-                              value: 'all', child: Text('Tất cả TB')),
-                          ..._devices.map((d) => DropdownMenuItem(
-                              value: d.id,
-                              child: Text(d.deviceName,
-                                  overflow: TextOverflow.ellipsis))),
-                        ],
-                        onChanged: (v) {
-                          setState(() {
-                            _selectedDevices = v == 'all'
-                                ? _devices.map((d) => d.id).toList()
-                                : [v!];
-                            _currentPage = 1;
-                          });
-                          _loadAttendances();
-                        },
-                      ),
-                      const SizedBox(width: 8),
-                      _buildDropdown<int?>(
-                        value: _selectedVerifyType,
-                        width: 100,
-                        icon: Icons.fingerprint,
-                        items: const [
-                          DropdownMenuItem(value: null, child: Text('Tất cả')),
-                          DropdownMenuItem(value: 1, child: Text('Vân tay')),
-                          DropdownMenuItem(value: 15, child: Text('Mặt')),
-                          DropdownMenuItem(value: 2, child: Text('Thẻ')),
-                          DropdownMenuItem(value: 100, child: Text('Thủ công')),
-                        ],
-                        onChanged: (v) => setState(() {
-                          _selectedVerifyType = v;
-                          _currentPage = 1;
-                        }),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            )
-          : Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                _buildDropdown<String>(
-                  value: _selectedDatePreset,
-                  width: 120,
-                  icon: Icons.calendar_today,
-                  items: const [
-                    DropdownMenuItem(value: 'today', child: Text('Hôm nay')),
-                    DropdownMenuItem(
-                        value: 'yesterday', child: Text('Hôm qua')),
-                    DropdownMenuItem(value: 'week', child: Text('Tuần này')),
-                    DropdownMenuItem(
-                        value: 'lastWeek', child: Text('Tuần trước')),
-                    DropdownMenuItem(value: 'month', child: Text('Tháng này')),
-                    DropdownMenuItem(
-                        value: 'lastMonth', child: Text('Tháng trước')),
-                    DropdownMenuItem(
-                        value: 'custom', child: Text('Tùy chọn...')),
-                  ],
-                  onChanged: (v) {
-                    if (v != null) _applyDatePreset(v);
-                  },
-                ),
-                _buildDateRangeSelector(),
-                _buildDropdown<String>(
-                  value: _selectedDevices.length == _devices.length ||
-                          _selectedDevices.isEmpty
-                      ? 'all'
-                      : _selectedDevices.first,
-                  width: 120,
-                  icon: Icons.router,
-                  items: [
-                    const DropdownMenuItem(
-                        value: 'all', child: Text('Tất cả TB')),
-                    ..._devices.map((d) => DropdownMenuItem(
-                          value: d.id,
-                          child: Text(d.deviceName,
-                              overflow: TextOverflow.ellipsis),
-                        )),
-                  ],
-                  onChanged: (v) {
-                    setState(() {
-                      _selectedDevices = v == 'all'
-                          ? _devices.map((d) => d.id).toList()
-                          : [v!];
-                      _currentPage = 1;
-                    });
-                    _loadAttendances();
-                  },
-                ),
-                _buildDropdown<int?>(
-                  value: _selectedVerifyType,
-                  width: 110,
-                  icon: Icons.fingerprint,
-                  items: const [
-                    DropdownMenuItem(value: null, child: Text('Tất cả')),
-                    DropdownMenuItem(value: 1, child: Text('Vân tay')),
-                    DropdownMenuItem(value: 15, child: Text('Khuôn mặt')),
-                    DropdownMenuItem(value: 2, child: Text('Thẻ')),
-                    DropdownMenuItem(value: 0, child: Text('Mật khẩu')),
-                    DropdownMenuItem(value: 100, child: Text('Thủ công')),
-                  ],
-                  onChanged: (v) => setState(() {
-                    _selectedVerifyType = v;
-                    _currentPage = 1;
-                  }),
-                ),
-                SizedBox(
-                  width: 200,
-                  height: 36,
-                  child: TextField(
-                    decoration: InputDecoration(
-                      hintText: 'Tìm ID/Tên...',
-                      hintStyle:
-                          TextStyle(fontSize: 13, color: Colors.grey[400]),
-                      prefixIcon:
-                          Icon(Icons.search, size: 18, color: Colors.grey[400]),
-                      isDense: true,
-                      filled: true,
-                      fillColor: const Color(0xFFFAFAFA),
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 10),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(
-                            color: Theme.of(context).primaryColor, width: 1.5),
-                      ),
-                    ),
-                    style: const TextStyle(fontSize: 13),
-                    onChanged: (v) => setState(() {
-                      _searchPin = v;
-                      _currentPage = 1;
-                    }),
-                  ),
-                ),
-                if (_branches.isNotEmpty)
-                  _buildDropdown<String?>(
-                    value: _selectedBranchId,
-                    width: 160,
-                    icon: Icons.account_tree_outlined,
-                    items: [
-                      const DropdownMenuItem<String?>(
-                          value: null, child: Text('T\u1ea5t c\u1ea3 CN')),
-                      ..._branches.map((b) => DropdownMenuItem<String?>(
-                          value: b['id']?.toString(),
-                          child: Text(b['name']?.toString() ?? '',
-                              overflow: TextOverflow.ellipsis))),
-                    ],
-                    onChanged: (v) => setState(() {
-                      _selectedBranchId = v;
-                      _currentPage = 1;
-                    }),
-                  ),
-                countChip,
-              ],
-            ),
-    );
+  String _filterDateLabel() {
+    switch (_selectedDatePreset) {
+      case 'today':
+        return 'Hôm nay';
+      case 'yesterday':
+        return 'Hôm qua';
+      case 'week':
+        return 'Tuần này';
+      case 'lastWeek':
+        return 'Tuần trước';
+      case 'month':
+        return 'Tháng này';
+      case 'lastMonth':
+        return 'Tháng trước';
+      case 'custom':
+        final f = DateFormat('dd/MM/yyyy');
+        return '${f.format(_fromDate)} → ${f.format(_toDate)}';
+      default:
+        return 'Tuần này';
+    }
   }
 
-  Widget _buildDropdown<T>({
-    required T value,
-    double? width,
-    IconData? icon,
-    required List<DropdownMenuItem<T>> items,
-    required ValueChanged<T?> onChanged,
-  }) {
-    return Container(
-      width: width,
-      height: 36,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFAFAFA),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<T>(
-          value: value,
-          isExpanded: true,
-          icon: Icon(Icons.keyboard_arrow_down,
-              size: 18, color: Colors.grey[500]),
-          style: TextStyle(
-              fontSize: 13,
-              color: Theme.of(context).textTheme.bodyMedium?.color),
-          dropdownColor: Colors.white,
-          items: items
-              .map((item) => DropdownMenuItem<T>(
-                    value: item.value,
-                    child: Row(
-                      children: [
-                        if (icon != null) ...[
-                          Icon(icon,
-                              size: 15,
-                              color: Theme.of(context)
-                                  .primaryColor
-                                  .withValues(alpha: 0.7)),
-                          const SizedBox(width: 8),
-                        ],
-                        Expanded(
-                            child: DefaultTextStyle(
-                          style: TextStyle(
-                              fontSize: 13,
-                              color: Theme.of(context)
-                                  .textTheme
-                                  .bodyMedium
-                                  ?.color),
-                          overflow: TextOverflow.ellipsis,
-                          child: item.child,
-                        )),
-                      ],
-                    ),
-                  ))
-              .toList(),
-          selectedItemBuilder: (context) => items
-              .map((item) => Row(
-                    children: [
-                      if (icon != null) ...[
-                        Icon(icon,
-                            size: 15, color: Theme.of(context).primaryColor),
-                        const SizedBox(width: 8),
-                      ],
-                      Expanded(
-                          child: DefaultTextStyle(
-                        style: TextStyle(
-                            fontSize: 13,
-                            color:
-                                Theme.of(context).textTheme.bodyMedium?.color),
-                        overflow: TextOverflow.ellipsis,
-                        child: item.child,
-                      )),
-                    ],
-                  ))
-              .toList(),
-          onChanged: onChanged,
-        ),
-      ),
-    );
+  String _filterDeviceLabel() {
+    if (_devices.isEmpty) return 'Chưa có TB';
+    if (_selectedDevices.isEmpty ||
+        _selectedDevices.length == _devices.length) {
+      return 'Tất cả thiết bị';
+    }
+    final id = _selectedDevices.first;
+    for (final d in _devices) {
+      if (d.id == id) return d.deviceName;
+    }
+    return '1 thiết bị';
   }
 
-  Widget _buildDateRangeSelector() {
-    return InkWell(
-      onTap: () => _applyDatePreset('custom'),
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        height: 36,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFAFAFA),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color(0xFFE4E4E7)),
-        ),
-        child: Row(
+  String _filterVerifyLabel() {
+    if (_selectedVerifyType == null) return 'Tất cả kiểu';
+    return _getVerifyTypeName(_selectedVerifyType!);
+  }
+
+  String _filterBranchLabel() {
+    if (_selectedBranchId == null) return 'Tất cả CN';
+    for (final b in _branches) {
+      if (b['id']?.toString() == _selectedBranchId) {
+        return b['name']?.toString() ?? 'Tất cả CN';
+      }
+    }
+    return 'Tất cả CN';
+  }
+
+  String _filterEmployeeLabel() {
+    if (_filterEmployeeCode == null || _filterEmployeeCode!.isEmpty) {
+      return 'Tất cả NV';
+    }
+    for (final e in _employeesList) {
+      if (e['employeeCode']?.toString() == _filterEmployeeCode) {
+        final name =
+            '${e['lastName'] ?? ''} ${e['firstName'] ?? ''}'.trim();
+        if (name.isNotEmpty) {
+          return name.length > 20 ? '${name.substring(0, 20)}…' : name;
+        }
+      }
+    }
+    return _filterEmployeeCode!;
+  }
+
+  Future<void> _showAttFilterSheet({
+    required String title,
+    required List<({String label, VoidCallback onPick})> options,
+  }) async {
+    await showAppSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Icon(Icons.date_range,
-                size: 15, color: Theme.of(context).primaryColor),
-            const SizedBox(width: 8),
-            Text(
-              '${DateFormat('dd/MM/yyyy').format(_fromDate)} - ${DateFormat('dd/MM/yyyy').format(_toDate)}',
-              style: const TextStyle(fontSize: 13),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+              child: Text(title,
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w700)),
             ),
-            if (_selectedDatePreset == 'custom') ...[
-              const SizedBox(width: 4),
-              Icon(Icons.edit, size: 12, color: Colors.grey[500]),
-            ],
+            ...options.map(
+              (o) => ListTile(
+                title: Text(o.label, style: const TextStyle(fontSize: 15)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  o.onPick();
+                },
+              ),
+            ),
+            const SizedBox(height: 8),
           ],
         ),
       ),
+    );
+  }
+
+  Future<void> _pickFilterEmployee() async {
+    String? selectedEmpId;
+    for (final e in _employeesList) {
+      if (e['employeeCode']?.toString() == _filterEmployeeCode) {
+        selectedEmpId = e['id']?.toString();
+        break;
+      }
+    }
+    final picked = await EmployeeSearchPicker.pickId(
+      context,
+      items: EmployeePickerItem.fromMaps(_employeesList),
+      selectedId: selectedEmpId,
+      title: 'Chọn nhân viên',
+      allowClear: true,
+    );
+    if (!mounted) return;
+    setState(() {
+      if (picked == null) {
+        _filterEmployeeCode = null;
+      } else {
+        for (final e in _employeesList) {
+          if (e['id']?.toString() == picked) {
+            _filterEmployeeCode = e['employeeCode']?.toString();
+            break;
+          }
+        }
+      }
+      _currentPage = 1;
+    });
+  }
+
+  Widget _buildAttFilterChipRow(List<Widget> chips) {
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < chips.length; i++) ...[
+            if (i > 0) const SizedBox(width: 8),
+            Expanded(child: chips[i]),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAttFilterChip({
+    required String title,
+    required String value,
+    required IconData icon,
+    required VoidCallback? onTap,
+    bool active = false,
+  }) {
+    final accent = Theme.of(context).primaryColor;
+    return Material(
+      color: active ? accent.withValues(alpha: 0.08) : const Color(0xFFFAFAFA),
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: double.infinity,
+          constraints: const BoxConstraints(minHeight: 58),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: active
+                  ? accent.withValues(alpha: 0.45)
+                  : const Color(0xFFE4E4E7),
+              width: active ? 1.5 : 1,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Row(
+                children: [
+                  Icon(icon, size: 15,
+                      color: active ? accent : Colors.grey[500]),
+                  const SizedBox(width: 5),
+                  Expanded(
+                    child: Text(title,
+                        style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey[600]),
+                        maxLines: 1),
+                  ),
+                  if (onTap != null)
+                    Icon(Icons.expand_more,
+                        size: 16, color: Colors.grey[500]),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  height: 1.35,
+                  color: active ? accent : const Color(0xFF18181B),
+                ),
+                maxLines: 2,
+                softWrap: true,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAttendanceFilterBar() {
+    final hasFilters = _hasActiveFilters();
+    final recordCount = _filteredAttendances.length;
+
+    final chipTime = _buildAttFilterChip(
+      title: 'Thời gian',
+      value: _filterDateLabel(),
+      icon: Icons.date_range_rounded,
+      active: _selectedDatePreset != 'week',
+      onTap: () => _showAttFilterSheet(
+        title: 'Khoảng thời gian',
+        options: [
+          (label: 'Hôm nay', onPick: () => _applyDatePreset('today')),
+          (label: 'Hôm qua', onPick: () => _applyDatePreset('yesterday')),
+          (label: 'Tuần này', onPick: () => _applyDatePreset('week')),
+          (label: 'Tuần trước', onPick: () => _applyDatePreset('lastWeek')),
+          (label: 'Tháng này', onPick: () => _applyDatePreset('month')),
+          (label: 'Tháng trước', onPick: () => _applyDatePreset('lastMonth')),
+          (label: 'Tùy chọn ngày…', onPick: () => _applyDatePreset('custom')),
+        ],
+      ),
+    );
+
+    final chipDevice = _buildAttFilterChip(
+      title: 'Thiết bị',
+      value: _filterDeviceLabel(),
+      icon: Icons.router_rounded,
+      active: _selectedDevices.isNotEmpty &&
+          _selectedDevices.length != _devices.length,
+      onTap: _devices.isEmpty
+          ? null
+          : () => _showAttFilterSheet(
+                title: 'Thiết bị chấm công',
+                options: [
+                  (
+                    label: 'Tất cả thiết bị',
+                    onPick: () {
+                      setState(() {
+                        _selectedDevices =
+                            _devices.map((d) => d.id).toList();
+                        _currentPage = 1;
+                      });
+                      _loadAttendances();
+                    }
+                  ),
+                  ..._devices.map(
+                    (d) => (
+                      label: d.deviceName,
+                      onPick: () {
+                        setState(() {
+                          _selectedDevices = [d.id];
+                          _currentPage = 1;
+                        });
+                        _loadAttendances();
+                      },
+                    ),
+                  ),
+                ],
+              ),
+    );
+
+    final chipVerify = _buildAttFilterChip(
+      title: 'Kiểu xác thực',
+      value: _filterVerifyLabel(),
+      icon: Icons.fingerprint_rounded,
+      active: _selectedVerifyType != null,
+      onTap: () => _showAttFilterSheet(
+        title: 'Kiểu xác thực',
+        options: [
+          (
+            label: 'Tất cả kiểu',
+            onPick: () => setState(() {
+              _selectedVerifyType = null;
+              _currentPage = 1;
+            })
+          ),
+          (
+            label: 'Vân tay',
+            onPick: () => setState(() {
+              _selectedVerifyType = 1;
+              _currentPage = 1;
+            })
+          ),
+          (
+            label: 'Khuôn mặt',
+            onPick: () => setState(() {
+              _selectedVerifyType = 15;
+              _currentPage = 1;
+            })
+          ),
+          (
+            label: 'Thẻ từ',
+            onPick: () => setState(() {
+              _selectedVerifyType = 2;
+              _currentPage = 1;
+            })
+          ),
+          (
+            label: 'Mật khẩu',
+            onPick: () => setState(() {
+              _selectedVerifyType = 0;
+              _currentPage = 1;
+            })
+          ),
+          (
+            label: 'Thủ công',
+            onPick: () => setState(() {
+              _selectedVerifyType = 100;
+              _currentPage = 1;
+            })
+          ),
+        ],
+      ),
+    );
+
+    final chipBranch = _branches.isNotEmpty
+        ? _buildAttFilterChip(
+            title: 'Chi nhánh',
+            value: _filterBranchLabel(),
+            icon: Icons.account_tree_outlined,
+            active: _selectedBranchId != null,
+            onTap: () => _showAttFilterSheet(
+              title: 'Chi nhánh',
+              options: [
+                (
+                  label: 'Tất cả chi nhánh',
+                  onPick: () => setState(() {
+                    _selectedBranchId = null;
+                    _currentPage = 1;
+                  })
+                ),
+                ..._branches.map(
+                  (b) => (
+                    label: b['name']?.toString() ?? '',
+                    onPick: () => setState(() {
+                      _selectedBranchId = b['id']?.toString();
+                      _currentPage = 1;
+                    }),
+                  ),
+                ),
+              ],
+            ),
+          )
+        : _buildAttFilterChip(
+            title: 'Bản ghi',
+            value: _attendanceLoadTruncated &&
+                    _attendanceServerTotalCount != null &&
+                    _attendanceServerTotalCount! > recordCount
+                ? '$recordCount / ${_attendanceServerTotalCount} log'
+                : '$recordCount bản ghi',
+            icon: Icons.analytics_outlined,
+            active: _attendanceLoadTruncated,
+            onTap: null,
+          );
+
+    final chipEmployee = _buildAttFilterChip(
+      title: 'Nhân viên',
+      value: _filterEmployeeLabel(),
+      icon: Icons.person_search_rounded,
+      active:
+          _filterEmployeeCode != null && _filterEmployeeCode!.isNotEmpty,
+      onTap: _employeesList.isEmpty ? null : _pickFilterEmployee,
+    );
+
+    final chipClear = _buildAttFilterChip(
+      title: 'Bộ lọc',
+      value: hasFilters ? 'Xóa lọc' : 'Chưa lọc',
+      icon: Icons.filter_alt_off,
+      active: hasFilters,
+      onTap: hasFilters ? _clearAttFilters : null,
+    );
+
+    return HrmFilterBar(
+      margin: EdgeInsets.zero,
+      padding: const EdgeInsets.all(10),
+      children: [
+        _buildAttFilterChipRow([chipTime, chipDevice]),
+        const SizedBox(height: 8),
+        _buildAttFilterChipRow([chipVerify, chipBranch]),
+        const SizedBox(height: 8),
+        _buildAttFilterChipRow([chipEmployee, chipClear]),
+      ],
     );
   }
 
@@ -3106,7 +2974,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         } else {
           showDialog(
             context: context,
-            builder: (ctx) => AlertDialog(
+            builder: (ctx) => ScrollableAlertDialog(
               title: titleRow,
               content: SizedBox(
                 width: math
@@ -3342,8 +3210,30 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }
 
   /// Show attendance detail dialog when row is clicked
-  void _showAttendanceDetailDialog(Attendance att, int index) {
-    final dateStr = DateFormat('dd/MM/yyyy').format(att.punchTime);
+  Future<void> _showAttendanceDetailDialog(Attendance att, int index) async {
+    var detailAtt = att;
+    MobileAttendanceRecord? mobileDetail;
+    final mobileId = att.mobileAttendanceRecordId?.trim();
+    if (mobileId != null && mobileId.isNotEmpty) {
+      try {
+        final res = await _apiService.getMobileAttendanceRecord(mobileId);
+        if (res['isSuccess'] == true && res['data'] is Map) {
+          final data = Map<String, dynamic>.from(res['data'] as Map);
+          mobileDetail = MobileAttendanceRecord.fromJson(data);
+          if (mobileDetail.status == 'pending') {
+            final url = mobileDetail.sitePhotoUrl?.trim();
+            if (url != null && url.isNotEmpty) {
+              detailAtt = att.copyWith(sitePhotoUrl: url);
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('Load mobile detail for raw attendance: $e');
+      }
+    }
+    if (!mounted) return;
+
+    final dateStr = DateFormat('dd/MM/yyyy').format(detailAtt.punchTime);
     final timeStr = DateFormat('HH:mm:ss').format(att.punchTime);
     final dayOfWeek = _getDayOfWeekVN(att.punchTime.weekday);
     final isMobile = MediaQuery.of(context).size.width < 600;
@@ -3420,9 +3310,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                     Text(timeStr,
                         style: const TextStyle(
                             fontSize: 16, fontWeight: FontWeight.bold)),
-                    Text(att.punchTypeText,
+                    Text(detailAtt.punchTypeText,
                         style: TextStyle(
-                          color: att.attendanceState == 0
+                          color: detailAtt.attendanceState == 0
                               ? Colors.green
                               : Colors.orange,
                           fontSize: 12,
@@ -3435,30 +3325,32 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           ),
         ),
         const SizedBox(height: 16),
-        _buildDetailRow('ID chấm công', att.id, Icons.fingerprint),
-        _buildDetailRow('UID (Mã máy)', att.enrollNumber ?? '-', Icons.badge),
-        _buildDetailRow('Mã nhân viên', att.employeeId ?? '-', Icons.numbers),
-        _buildDetailRow('Tên nhân viên', att.employeeName ?? '-', Icons.person),
+        _buildDetailRow('ID chấm công', detailAtt.id, Icons.fingerprint),
+        _buildDetailRow('UID (Mã máy)', detailAtt.enrollNumber ?? '-', Icons.badge),
+        _buildDetailRow('Mã nhân viên', detailAtt.employeeId ?? '-', Icons.numbers),
+        _buildDetailRow('Tên nhân viên', detailAtt.employeeName ?? '-', Icons.person),
         _buildDetailRow(
-            'Tên trong máy', att.deviceUserName ?? '-', Icons.text_fields),
+            'Tên trong máy', detailAtt.deviceUserName ?? '-', Icons.text_fields),
         _buildDetailRow(
-            'Quyền hạn', att.privilegeText, Icons.admin_panel_settings),
+            'Quyền hạn', detailAtt.privilegeText, Icons.admin_panel_settings),
         _buildDetailRow(
-            'Thiết bị', att.deviceName ?? att.deviceId ?? '-', Icons.router),
-        _buildDetailRow('Loại xác thực', _getVerifyTypeName(att.verifyType),
+            'Thiết bị', detailAtt.deviceName ?? detailAtt.deviceId ?? '-', Icons.router),
+        _buildDetailRow('Loại xác thực', _getVerifyTypeName(detailAtt.verifyType),
             Icons.verified_user),
-        if (att.workCode != null && att.workCode!.isNotEmpty)
-          _buildDetailRow('Mã công việc', att.workCode!, Icons.work),
-        if (att.note != null &&
-            _getDisplayNote(att.note).isNotEmpty &&
-            _getDisplayNote(att.note) != '-')
-          _buildDetailRow('Ghi chú', _getDisplayNote(att.note), Icons.note),
-        if (att.createdAt != null)
+        if (detailAtt.workCode != null && detailAtt.workCode!.isNotEmpty)
+          _buildDetailRow('Mã công việc', detailAtt.workCode!, Icons.work),
+        if (detailAtt.note != null &&
+            _getDisplayNote(detailAtt.note).isNotEmpty &&
+            _getDisplayNote(detailAtt.note) != '-')
+          _buildDetailRow('Ghi chú', _getDisplayNote(detailAtt.note), Icons.note),
+        ..._buildAttendanceLocationDetailWidgets(detailAtt,
+            mobile: mobileDetail),
+        if (detailAtt.createdAt != null)
           _buildDetailRow(
               'Thời gian tạo',
-              DateFormat('dd/MM/yyyy HH:mm:ss').format(att.createdAt!),
+              DateFormat('dd/MM/yyyy HH:mm:ss').format(detailAtt.createdAt!),
               Icons.create),
-        if (_extractCorrectionRequestId(att.note) != null) ...[
+        if (_extractCorrectionRequestId(detailAtt.note) != null) ...[
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.all(12),
@@ -3484,7 +3376,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   onPressed: () {
                     Navigator.of(context).pop();
                     _showCorrectionRequestDetail(
-                        _extractCorrectionRequestId(att.note)!);
+                        _extractCorrectionRequestId(detailAtt.note)!);
                   },
                   icon: const Icon(Icons.open_in_new, size: 16),
                   label: const Text('Xem', style: TextStyle(fontSize: 12)),
@@ -3496,24 +3388,33 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       ],
     );
 
-    final actionButtons = [
-      TextButton.icon(
-        onPressed: () {
-          Navigator.of(context).pop();
-          _confirmDeleteAttendance(att);
-        },
-        icon: const Icon(Icons.delete, color: Colors.red, size: 18),
-        label: const Text('Xóa', style: TextStyle(color: Colors.red)),
-      ),
-      TextButton.icon(
-        onPressed: () {
-          Navigator.of(context).pop();
-          _showEditAttendanceDialog(att);
-        },
-        icon: Icon(Icons.edit, color: Theme.of(context).primaryColor, size: 18),
-        label: Text('Sửa',
-            style: TextStyle(color: Theme.of(context).primaryColor)),
-      ),
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    final canEdit = canEditAttendanceRecord(role: auth.user?.role, permissions: perm);
+    final canDelete =
+        canDeleteAttendanceRecord(role: auth.user?.role, permissions: perm);
+
+    final actionButtons = <Widget>[
+      if (canDelete)
+        TextButton.icon(
+          onPressed: () {
+            Navigator.of(context).pop();
+            _confirmDeleteAttendance(detailAtt);
+          },
+          icon: const Icon(Icons.delete, color: Colors.red, size: 18),
+          label: const Text('Xóa', style: TextStyle(color: Colors.red)),
+        ),
+      if (canEdit)
+        TextButton.icon(
+          onPressed: () {
+            Navigator.of(context).pop();
+            _showEditAttendanceDialog(detailAtt);
+          },
+          icon:
+              Icon(Icons.edit, color: Theme.of(context).primaryColor, size: 18),
+          label: Text('Sửa',
+              style: TextStyle(color: Theme.of(context).primaryColor)),
+        ),
       FilledButton.icon(
         onPressed: () => Navigator.of(context).pop(),
         icon: const Icon(Icons.close, size: 18),
@@ -3608,6 +3509,171 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     }
   }
 
+  static String? _nonEmptyPhotoPath(String? path) {
+    final s = path?.trim();
+    return (s == null || s.isEmpty) ? null : s;
+  }
+
+  List<Widget> _buildAttendanceLocationDetailWidgets(
+    Attendance att, {
+    MobileAttendanceRecord? mobile,
+  }) {
+    final widgets = <Widget>[];
+    if (att.isFromMobile) {
+      widgets.add(_buildDetailRow(
+          'Nguồn', 'Chấm công mobile', Icons.phone_android_outlined));
+    }
+    if (att.locationName != null && att.locationName!.trim().isNotEmpty) {
+      widgets.add(_buildDetailRow(
+          'Điểm chấm', att.locationName!.trim(), Icons.place_outlined));
+    }
+    if (att.hasGpsLocation) {
+      widgets.add(const SizedBox(height: 12));
+      widgets.add(const Text(
+        'Vị trí GPS lúc chấm',
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: Color(0xFF18181B),
+        ),
+      ));
+      widgets.add(const SizedBox(height: 8));
+      widgets.add(PunchLocationPreview(
+        latitude: att.latitude!,
+        longitude: att.longitude!,
+        onTap: () => _openAttendanceGpsMap(att),
+      ));
+      widgets.add(const SizedBox(height: 8));
+      widgets.add(Text(
+        '${att.latitude!.toStringAsFixed(6)}, ${att.longitude!.toStringAsFixed(6)}',
+        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+      ));
+      widgets.add(const SizedBox(height: 8));
+      widgets.add(SizedBox(
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          onPressed: () => _openAttendanceGpsMap(att),
+          icon: const Icon(Icons.map_outlined, size: 18),
+          label: const Text('Xem trên bản đồ'),
+        ),
+      ));
+    }
+    final showPendingSitePhoto = mobile?.status == 'pending';
+    if (showPendingSitePhoto) {
+      widgets.add(const SizedBox(height: 12));
+      widgets.add(const Text(
+        'Ảnh hiện trường (check-in CT)',
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: Color(0xFF18181B),
+        ),
+      ));
+      widgets.add(const SizedBox(height: 8));
+      final sitePhotoPath = _nonEmptyPhotoPath(mobile?.sitePhotoUrl) ??
+          _nonEmptyPhotoPath(att.sitePhotoUrl);
+      widgets.add(PunchPhotoPreview(
+        imagePath: sitePhotoPath,
+        apiService: _apiService,
+        emptyHint: sitePhotoPath == null
+            ? 'Chưa có ảnh hiện trường — chụp khi chấm công (bản ghi chờ duyệt)'
+            : null,
+      ));
+    }
+    if (!att.hasGpsLocation &&
+        !(mobile?.sitePhotoUrl?.trim().isNotEmpty == true || att.hasSitePhoto) &&
+        att.isFromMobile &&
+        att.mobileAttendanceRecordId != null &&
+        att.mobileAttendanceRecordId!.isNotEmpty) {
+      widgets.add(const SizedBox(height: 8));
+      widgets.add(Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFEFF6FF),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFFBFDBFE)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Vị trí GPS nằm trong bản ghi chấm công mobile.',
+              style: TextStyle(fontSize: 12, color: Color(0xFF1E40AF)),
+            ),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: () => _openMobileDetailFromRaw(att),
+              icon: const Icon(Icons.open_in_new, size: 16),
+              label: const Text('Xem chi tiết mobile'),
+            ),
+          ],
+        ),
+      ));
+    }
+    return widgets;
+  }
+
+  Future<void> _openAttendanceGpsMap(Attendance att) async {
+    if (!att.hasGpsLocation) return;
+    final lat = att.latitude!;
+    final lng = att.longitude!;
+    final title = att.locationName?.trim().isNotEmpty == true
+        ? att.locationName!.trim()
+        : (att.employeeName ?? 'Vị trí chấm');
+
+    if (MediaQuery.of(context).size.width < 600) {
+      final uri = Uri.parse(
+          'https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+        return;
+      }
+    }
+
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogCtx) => MapLocationPicker(
+        initialLatitude: lat,
+        initialLongitude: lng,
+        initialZoom: 17,
+        title: title,
+        readOnly: true,
+      ),
+    );
+  }
+
+  Future<void> _openMobileDetailFromRaw(Attendance att) async {
+    final id = att.mobileAttendanceRecordId?.trim();
+    if (id == null || id.isEmpty) return;
+    try {
+      final res = await _apiService.getMobileAttendanceRecord(id);
+      if (!mounted) return;
+      if (res['isSuccess'] == true && res['data'] is Map) {
+        final record = MobileAttendanceRecord.fromJson(
+            Map<String, dynamic>.from(res['data'] as Map));
+        await showMobileAttendanceRecordDetailSheet(
+          context,
+          record: record,
+          apiService: _apiService,
+        );
+      } else {
+        appNotification.showError(
+          title: 'Lỗi',
+          message: res['message']?.toString() ??
+              'Không tải được chi tiết chấm công mobile',
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      appNotification.showError(
+        title: 'Lỗi',
+        message: 'Không tải được chi tiết: $e',
+      );
+    }
+  }
+
   Widget _buildDetailRow(String label, String value, IconData icon) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
@@ -3642,9 +3708,14 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
   /// Confirm delete attendance
   void _confirmDeleteAttendance(Attendance att) {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    if (!canDeleteAttendanceRecord(role: auth.user?.role, permissions: perm)) {
+      return;
+    }
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => ScrollableAlertDialog(
         title: const Row(
           children: [
             Icon(Icons.warning, color: Colors.orange),
@@ -3721,6 +3792,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
   /// Show edit attendance dialog
   void _showEditAttendanceDialog(Attendance att) {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    if (!canEditAttendanceRecord(role: auth.user?.role, permissions: perm)) {
+      return;
+    }
     final dateController = TextEditingController(
       text: DateFormat('dd/MM/yyyy').format(att.punchTime),
     );
@@ -3731,7 +3807,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
+        builder: (context, setDialogState) => ScrollableAlertDialog(
           title: const Row(
             children: [
               Icon(Icons.edit, color: Colors.blue),

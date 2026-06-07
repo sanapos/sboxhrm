@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/hrm_page_chrome.dart';
@@ -11,6 +13,9 @@ class AiSettingsScreen extends StatefulWidget {
 }
 
 class _AiSettingsScreenState extends State<AiSettingsScreen> {
+  PermissionProvider get _perm =>
+      Provider.of<PermissionProvider>(context, listen: false);
+
   final _apiService = ApiService();
 
   // Gemini
@@ -706,6 +711,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
   }
 
   Widget _buildSaveButton(VoidCallback onSave) {
+    if (!_perm.canEdit('AIGemini')) return const SizedBox.shrink();
     return SizedBox(
       width: double.infinity,
       height: 50,

@@ -8,6 +8,20 @@ public static class AttendanceLogResolveHelper
 {
     public const int NearDuplicateWindowSeconds = 60;
 
+    /// <summary>
+    /// Attendance.EmployeeId stores DeviceUser.Id; resolve linked device users for an HR employee.
+    /// </summary>
+    public static async Task<List<Guid>> GetDeviceUserIdsForHrEmployeeAsync(
+        IRepository<DeviceUser> deviceUserRepository,
+        Guid hrEmployeeId,
+        CancellationToken cancellationToken = default)
+    {
+        var rows = await deviceUserRepository.GetAllAsync(
+            du => du.EmployeeId == hrEmployeeId,
+            cancellationToken: cancellationToken);
+        return rows.Select(du => du.Id).Distinct().ToList();
+    }
+
     /// <summary>Device PIN for an employee (device user PIN, else employee code).</summary>
     public static async Task<string?> ResolvePinAsync(
         IRepository<DeviceUser> deviceUserRepository,

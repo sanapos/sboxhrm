@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
+import '../providers/permission_provider.dart';
 import '../widgets/hrm_page_chrome.dart';
 import 'package:intl/intl.dart';
 import '../models/attendance.dart';
@@ -137,19 +140,16 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
       final fromStr = fetchFrom.toIso8601String().substring(0, 10);
       final toStr = _toDate.toIso8601String().substring(0, 10);
 
-      AttendanceLoadResult? attLoad;
-      if (deviceIds.isNotEmpty) {
-        attLoad = await loadAttendancesForPeriodResult(
-          _apiService,
-          deviceIds: deviceIds,
-          fromDate: _fromDate,
-          toDate: _toDate,
-          dayEndHour: deh,
-          dayEndMinute: dem,
-          pageSize: 1000,
-        );
-      }
-      final attendances = attLoad?.items ?? <Attendance>[];
+      final attLoad = await loadAttendancesForPeriodResult(
+        _apiService,
+        deviceIds: deviceIds,
+        fromDate: _fromDate,
+        toDate: _toDate,
+        dayEndHour: deh,
+        dayEndMinute: dem,
+        pageSize: 1000,
+      );
+      final attendances = attLoad.items;
 
       final p2 = await Future.wait([
         _apiService.getShifts().catchError((_) => <dynamic>[]),
@@ -161,20 +161,18 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
         _apiService
             .getAppSetting('allow_manual_correction')
             .catchError((_) => <String, dynamic>{}),
-        _apiService
-            .getAllLeaves(
-                fromDate: fromStr,
-                toDate: toStr,
-                status: 'Approved',
-                pageSize: 1000)
-            .catchError((_) => <String, dynamic>{}),
-        _apiService
-            .getAllLeaves(
-                fromDate: fromStr,
-                toDate: toStr,
-                status: 'Pending',
-                pageSize: 1000)
-            .catchError((_) => <String, dynamic>{}),
+        loadLeavesForPeriod(
+          _apiService,
+          fromDate: fromStr,
+          toDate: toStr,
+          status: 'Approved',
+        ).catchError((_) => <dynamic>[]),
+        loadLeavesForPeriod(
+          _apiService,
+          fromDate: fromStr,
+          toDate: toStr,
+          status: 'Pending',
+        ).catchError((_) => <dynamic>[]),
       ]);
 
       final shiftsRaw = p2[0] as List;
@@ -202,9 +200,9 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
             (allowManualResult['data'] as Map)['value']?.toString() != 'false';
       }
 
-      List<dynamic> approvedLeaves = [
-        ..._parseLeaveItems(p2[5] as Map<String, dynamic>),
-        ..._parseLeaveItems(p2[6] as Map<String, dynamic>),
+      final approvedLeaves = [
+        ...(p2[5] as List<dynamic>),
+        ...(p2[6] as List<dynamic>),
       ];
 
       if (mounted) {
@@ -423,6 +421,18 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
     final primary = Theme.of(context).primaryColor;
     final isMobile = Responsive.isMobile(context);
     final chrome = _byShiftPageChromeSections(isMobile, primary);
+    final auth = context.watch<AuthProvider>();
+    final perm = context.watch<PermissionProvider>();
+    final canShowButtons = canShowCorrectionButtons(
+      role: auth.user?.role,
+      allowManualSetting: _allowManualCorrection,
+      permissions: perm,
+    );
+    final canDirectCorrection = canDirectAttendanceCorrection(
+      role: auth.user?.role,
+      allowManualSetting: _allowManualCorrection,
+      permissions: perm,
+    );
 
     return Scaffold(
       backgroundColor: HrmPageChrome.background,
@@ -449,6 +459,8 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
                     employeesList: _branchFilter.employees,
                     dayEndHour: _dayEndHour,
                     dayEndMinute: _dayEndMinute,
+                    allowCorrection: canShowButtons,
+                    directApplyCorrections: canDirectCorrection,
                     onDataChanged: () => _loadData(silent: true),
                     onDateRangeChanged: _onDatePresetChanged,
                   ),

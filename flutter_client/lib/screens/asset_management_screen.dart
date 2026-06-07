@@ -1,10 +1,12 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:intl/intl.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/api_service.dart';
+import '../widgets/auth_cached_image.dart';
 import '../utils/number_formatter.dart';
 import '../models/asset.dart';
 import '../models/employee.dart';
@@ -13,6 +15,8 @@ import '../widgets/loading_widget.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
+import '../widgets/app_scroll_safe.dart';
+import '../widgets/hrm_mini_stat_chip.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../widgets/hrm_page_chrome.dart';
@@ -269,7 +273,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
 
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
         content: Text(message),
@@ -893,7 +897,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) {
-          return AlertDialog(
+          return ScrollableAlertDialog(
             title: Row(
               children: [
                 Icon(isStockIn ? Icons.add_box : Icons.outbox, color: isStockIn ? const Color(0xFF059669) : const Color(0xFFEF4444)),
@@ -1020,7 +1024,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
   void _showStockDetailDialog(Asset asset) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => ScrollableAlertDialog(
         title: Row(
           children: [
             const Icon(Icons.inventory_2, color: HrmPageChrome.primaryNavy, size: 22),
@@ -1480,27 +1484,11 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
   }
 
   Widget _buildStatChip(String label, int count, Color color, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 18, color: color),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
-              Text('$count', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color)),
-            ],
-          ),
-        ],
-      ),
+    return HrmStatSummaryCard(
+      icon: icon,
+      value: '$count',
+      label: label,
+      color: color,
     );
   }
 
@@ -1724,7 +1712,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
-        child: SingleChildScrollView(
+        child: AppTableScroll(
           child: _buildDataTable(),
         ),
       ),
@@ -4249,7 +4237,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
   Future<void> _confirmDeleteAsset(Asset asset) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => ScrollableAlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Xác nhận xóa'),
         content: Text('Bạn có chắc muốn xóa tài sản "${asset.name}"?'),
@@ -4278,7 +4266,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
   Future<void> _confirmDeleteCategory(AssetCategory category) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => ScrollableAlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Xác nhận xóa'),
         content: Text('Bạn có chắc muốn xóa danh mục "${category.name}"?'),
@@ -4307,7 +4295,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
   Future<void> _confirmTransfer(AssetTransfer transfer) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => ScrollableAlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Xác nhận nhận tài sản'),
         content: Text('Bạn xác nhận đã nhận tài sản "${transfer.assetName ?? 'Tài sản'}"?'),
@@ -4715,7 +4703,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
           final diffColor = diff == null ? const Color(0xFF94A3B8) : diff < 0 ? const Color(0xFFEF4444) : diff > 0 ? const Color(0xFFF59E0B) : const Color(0xFF059669);
           final diffText = diff == null ? 'Chưa nhập' : diff < 0 ? 'Hao hụt: ${diff.abs()}' : diff > 0 ? 'Thừa: +$diff' : 'Khớp';
 
-          return AlertDialog(
+          return ScrollableAlertDialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             titlePadding: EdgeInsets.zero,
             title: Container(
@@ -4941,7 +4929,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
     if (unchecked > 0) {
       final ok = await showDialog<bool>(
         context: context,
-        builder: (ctx) => AlertDialog(
+        builder: (ctx) => ScrollableAlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Text('Hoàn thành kiểm kê?'),
           content: Text('Còn $unchecked hàng hóa chưa kiểm. Bạn có chắc muốn hoàn thành?'),
@@ -5475,7 +5463,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
                           onTap: () => showDialog(context: context, builder: (_) => Dialog(
                             child: Column(mainAxisSize: MainAxisSize.min, children: [
                               AppBar(title: Text(item.assetName ?? ''), leading: const CloseButton()),
-                              Image.network(imageUrl!, fit: BoxFit.contain),
+                              AuthCachedImage(imagePath: imageUrl!, apiService: widget.apiService, fit: BoxFit.contain),
                             ]),
                           )),
                           child: const Row(children: [
@@ -5606,13 +5594,24 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
                       onTap: () => showDialog(context: context, builder: (_) => Dialog(
                         child: Column(mainAxisSize: MainAxisSize.min, children: [
                           AppBar(title: Text(item.assetName ?? 'Ảnh kiểm kê'), leading: const CloseButton()),
-                          Image.network(imageUrl!, fit: BoxFit.contain),
+                          AuthCachedImage(imagePath: imageUrl!, apiService: widget.apiService, fit: BoxFit.contain),
                         ]),
                       )),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(6),
-                        child: Image.network(imageUrl, height: 60, width: 80, fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(height: 60, width: 80, color: const Color(0xFFF4F4F5), child: const Icon(Icons.broken_image, size: 20, color: Color(0xFFA1A1AA)))),
+                        child: AuthCachedImage(
+                          imagePath: imageUrl,
+                          apiService: widget.apiService,
+                          height: 60,
+                          width: 80,
+                          fit: BoxFit.cover,
+                          errorWidget: (_, __, ___) => Container(
+                            height: 60,
+                            width: 80,
+                            color: const Color(0xFFF4F4F5),
+                            child: const Icon(Icons.broken_image, size: 20, color: Color(0xFFA1A1AA)),
+                          ),
+                        ),
                       ),
                     ),
                   ),

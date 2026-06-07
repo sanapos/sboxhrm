@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Application.DTOs.Dashboard;
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
@@ -15,6 +17,7 @@ namespace ZKTecoADMS.Application.Queries.Dashboard.GetCurrentAttendance;
 /// </summary>
 public class GetCurrentAttendanceHandler(
     IRepository<Attendance> attendanceRepository,
+    IRepository<DeviceUser> deviceUserRepository,
     UserManager<ApplicationUser> userManager,
     IShiftService shiftService
 ) : IQueryHandler<GetCurrentAttendanceQuery, AppResponse<AttendanceInfoDto>>
@@ -25,10 +28,24 @@ public class GetCurrentAttendanceHandler(
         GetCurrentAttendanceQuery request,
         CancellationToken cancellationToken)
     {
-        var user = await userManager.FindByIdAsync(request.UserId.ToString());
+        var user = await userManager.Users
+            .Where(u => u.Id == request.UserId)
+            .Include(u => u.Employee)
+            .FirstOrDefaultAsync(cancellationToken);
         if (user?.Employee == null)
         {
             return AppResponse<AttendanceInfoDto>.Success(null);
+        }
+
+        var deviceUserIds = await AttendanceLogResolveHelper.GetDeviceUserIdsForHrEmployeeAsync(
+            deviceUserRepository, user.Employee.Id, cancellationToken);
+        if (deviceUserIds.Count == 0)
+        {
+            return AppResponse<AttendanceInfoDto>.Success(new AttendanceInfoDto
+            {
+                Id = Guid.NewGuid(),
+                Status = "not-started"
+            });
         }
 
         // VN-local "today" window converted back to UTC for filtering.
@@ -37,9 +54,9 @@ public class GetCurrentAttendanceHandler(
         var utcStart = todayLocal.AddHours(-VnOffsetHours);
         var utcEnd = todayLocal.AddDays(1).AddHours(-VnOffsetHours);
 
-        var employeeId = user.Employee.Id;
         var todayPunches = await attendanceRepository.GetAllAsync(
-            filter: a => a.EmployeeId == employeeId
+            filter: a => a.EmployeeId != null
+                && deviceUserIds.Contains(a.EmployeeId.Value)
                 && a.AttendanceTime >= utcStart
                 && a.AttendanceTime < utcEnd,
             orderBy: q => q.OrderBy(a => a.AttendanceTime),

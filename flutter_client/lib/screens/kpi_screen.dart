@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 import '../utils/file_saver.dart' as file_saver;
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:flutter/rendering.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
@@ -1400,7 +1401,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(children: [
           Icon(icon, color: color, size: 22),
@@ -1516,7 +1517,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           );
         }
 
-        return AlertDialog(
+        return ScrollableAlertDialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Row(children: [
@@ -1630,7 +1631,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           );
         }
 
-        return AlertDialog(
+        return ScrollableAlertDialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Text(dialogTitle, style: const TextStyle(fontSize: 16)),
@@ -2167,7 +2168,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           );
         }
 
-        return AlertDialog(
+        return ScrollableAlertDialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Text('Tạo chu kỳ đánh giá'),
@@ -3202,7 +3203,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           );
         }
 
-        return AlertDialog(
+        return ScrollableAlertDialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Text('Giao chỉ tiêu cho nhân viên'),
@@ -3329,7 +3330,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           );
         }
 
-        return AlertDialog(
+        return ScrollableAlertDialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Text(dialogTitle),
@@ -3474,7 +3475,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           );
         }
 
-        return AlertDialog(
+        return ScrollableAlertDialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Text('Cập nhật doanh số hàng loạt'),
@@ -4252,7 +4253,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       Future<Map<String, dynamic>> Function() apiCall) async {
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Text('Xác nhận xóa'),
         content: const Text('Bạn có chắc muốn xóa?'),
         actions: [
@@ -5192,7 +5193,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           );
         }
 
-        return AlertDialog(
+        return ScrollableAlertDialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Text('Thiết lập kết nối Google Sheet'),
@@ -5426,7 +5427,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           );
         }
 
-        return AlertDialog(
+        return ScrollableAlertDialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Text('Copy cấu hình từ chu kỳ khác'),
@@ -5602,7 +5603,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           );
         }
 
-        return AlertDialog(
+        return ScrollableAlertDialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Text('Thiết lập vị trí ô cho tất cả nhân viên'),
@@ -5635,7 +5636,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text('Vị trí ô: ${target['employeeName'] ?? ''}',
             style: const TextStyle(fontSize: 16)),
@@ -5725,7 +5726,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-          builder: (ctx, ss) => AlertDialog(
+          builder: (ctx, ss) => ScrollableAlertDialog(
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16)),
                 title: const Text('Thêm mốc giờ đồng bộ',

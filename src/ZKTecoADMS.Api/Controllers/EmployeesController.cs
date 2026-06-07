@@ -27,7 +27,7 @@ namespace ZKTecoADMS.Api.Controllers;
 public class EmployeesController(IMediator mediator, IDataScopeService dataScopeService, ZKTecoDbContext dbContext) : AuthenticatedControllerBase
 {
     [HttpGet]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
     [RequireModulePermission("Employee", ModulePermissionAction.View)]
     public async Task<IActionResult> GetEmployees(
         [FromQuery] PaginationRequest request,
@@ -37,10 +37,19 @@ public class EmployeesController(IMediator mediator, IDataScopeService dataScope
         [FromQuery] Guid? branchId,
         [FromQuery] bool includeChildBranches = true)
     {
-        // Admin xem tất cả, Manager/Employee xem theo phạm vi quản lý
+        // Admin: tất cả. Manager: phạm vi quản lý. Employee: chỉ hồ sơ của mình.
         List<Guid>? subordinateIds = null;
         if (!IsAdmin)
-            subordinateIds = await dataScopeService.GetSubordinateEmployeeIdsAsync(CurrentUserId, RequiredStoreId);
+        {
+            if (IsEmployee && !IsManager)
+            {
+                subordinateIds = EmployeeId.HasValue ? [EmployeeId.Value] : [];
+            }
+            else
+            {
+                subordinateIds = await dataScopeService.GetSubordinateEmployeeIdsAsync(CurrentUserId, RequiredStoreId);
+            }
+        }
 
         List<Guid>? branchIds = null;
         if (branchId.HasValue)

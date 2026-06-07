@@ -65,32 +65,34 @@ class SystemNotificationService {
 
     debugPrint('🔔 System notification tapped, payload: $payload');
 
-    // payload = "relatedEntityType|notificationId"
-    String entityType;
-    String? notificationId;
+    // payload = "relatedEntityType|notificationRowId|highlightEntityId" (phần 3 tùy chọn)
     final parts = payload.split('|');
-    entityType = parts[0];
+    final entityType = parts.isNotEmpty ? parts[0] : '';
+    String? notificationRowId;
+    String? highlightId;
     if (parts.length > 1 && parts[1].isNotEmpty) {
-      notificationId = parts[1];
+      notificationRowId = parts[1];
+      highlightId = notificationRowId;
+    }
+    if (parts.length > 2 && parts[2].isNotEmpty) {
+      highlightId = parts[2];
     }
 
-    // Đánh dấu đã đọc trước khi navigate
-    if (notificationId != null) {
+    if (notificationRowId != null) {
       try {
-        // Đảm bảo token đã được load (trường hợp app khởi động từ notification)
         await _apiService.getStoredToken();
-        final result = await _apiService.markNotificationAsRead(notificationId);
+        final result =
+            await _apiService.markNotificationAsRead(notificationRowId);
         debugPrint('🔔 Mark as read result: $result');
       } catch (e) {
         debugPrint('🔔 Error marking notification as read: $e');
       }
     }
-    // Luôn refresh count sau khi tap
     ScreenRefreshNotifier.refreshNotificationCount();
 
     navigateFromNotification(
-      relatedEntityType: entityType,
-      relatedEntityId: notificationId,
+      relatedEntityType: entityType.isEmpty ? null : entityType,
+      relatedEntityId: highlightId,
     );
   }
 
@@ -155,9 +157,20 @@ class SystemNotificationService {
     );
   }
 
-  /// Tạo payload chung: "entityType|notificationId"
-  String _makePayload(String entityType, [String? notificationId]) {
-    return notificationId != null ? '$entityType|$notificationId' : entityType;
+  /// payload: entityType|notificationRowId|highlightEntityId (phần 3 tùy chọn)
+  String _makePayload(
+    String entityType, {
+    String? notificationRowId,
+    String? highlightEntityId,
+  }) {
+    if (notificationRowId == null) return entityType;
+    final highlight = highlightEntityId;
+    if (highlight != null &&
+        highlight.isNotEmpty &&
+        highlight != notificationRowId) {
+      return '$entityType|$notificationRowId|$highlight';
+    }
+    return '$entityType|$notificationRowId';
   }
 
   /// Thông báo thiết bị kết nối/ngắt kết nối
@@ -173,7 +186,7 @@ class SystemNotificationService {
           : "Máy chấm công '$deviceName' đã ngắt kết nối",
       channelId: 'sbox_hrm_device',
       channelName: 'Thiết bị',
-      payload: _makePayload('Device', notificationId),
+      payload: _makePayload('Device', notificationRowId: notificationId),
     );
   }
 
@@ -189,7 +202,7 @@ class SystemNotificationService {
       body: '$time · $deviceName',
       channelId: 'sbox_hrm_attendance',
       channelName: 'Chấm công',
-      payload: _makePayload('Attendance', notificationId),
+      payload: _makePayload('Attendance', notificationRowId: notificationId),
     );
   }
 
@@ -199,14 +212,18 @@ class SystemNotificationService {
     required String message,
     String? relatedEntityType,
     String? notificationId,
+    String? relatedEntityId,
   }) async {
     await show(
       title: title,
       body: message,
       channelId: 'sbox_hrm_general',
       channelName: 'Thông báo chung',
-      payload:
-          _makePayload(relatedEntityType ?? 'Notification', notificationId),
+      payload: _makePayload(
+        relatedEntityType ?? 'Notification',
+        notificationRowId: notificationId,
+        highlightEntityId: relatedEntityId,
+      ),
     );
   }
 }

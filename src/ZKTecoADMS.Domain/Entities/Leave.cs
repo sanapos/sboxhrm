@@ -57,6 +57,27 @@ public class Leave : AuditableEntity<Guid>
     /// </summary>
     public int CurrentApprovalStep { get; set; } = 0;
 
+    /// <summary>
+    /// Đơn đã duyệt nhưng vẫn tính công (không đánh dấu vắng/phép trên chấm công).
+    /// </summary>
+    public bool CountAsWork { get; set; }
+
+    /// <summary>DN trả lương / không lương / BHXH / thai sản đối soát.</summary>
+    public LeavePaymentSource PaymentSource { get; set; }
+
+    /// <summary>Ốm: dùng phép năm hay hưởng BHXH.</summary>
+    public SickLeaveMode SickLeaveMode { get; set; }
+
+    /// <summary>Số giấy nghỉ BHXH hoặc ghi chú hồ sơ (ốm BHXH, thai sản).</summary>
+    [MaxLength(500)]
+    public string? BhxhDocumentNote { get; set; }
+
+    /// <summary>Số ngày phép năm đã trừ khi duyệt (để hoàn lại).</summary>
+    public decimal AnnualLeaveDaysDeducted { get; set; }
+
+    /// <summary>Đã trừ vào quỹ phép năm (EmployeeBenefit).</summary>
+    public bool AnnualBalanceApplied { get; set; }
+
     // Navigation Properties
     public virtual ApplicationUser EmployeeUser { get; set; } = null!;
     public virtual ApplicationUser Manager { get; set; } = null!;

@@ -1,10 +1,18 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/painting.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart' show MediaType;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api_config.dart';
 import '../utils/attendance_correction_dates.dart';
+
+/// Query phân trang cho API dùng [PaginationRequest] (pageNumber + alias page).
+Map<String, String> paginationQueryParams(int page, int pageSize) => {
+      'pageNumber': page.toString(),
+      'pageSize': pageSize.toString(),
+      'page': page.toString(),
+    };
 
 class ApiService {
   static final String baseUrl = getApiBaseUrl();
@@ -33,6 +41,18 @@ class ApiService {
       headers['Authorization'] = 'Bearer $_token';
     }
     return headers;
+  }
+
+  /// Header cho CachedNetworkImage (ảnh stores/uploads qua /api/upload/serve).
+  Map<String, String>? get imageAuthHeaders =>
+      _token != null ? {'Authorization': 'Bearer $_token'} : null;
+
+  /// CircleAvatar / DecorationImage — có Bearer token.
+  ImageProvider storeImageProvider(String pathOrUrl) {
+    return NetworkImage(
+      getFileUrl(pathOrUrl),
+      headers: imageAuthHeaders,
+    );
   }
 
   // Lưu token
@@ -760,32 +780,49 @@ class ApiService {
   }
 
   // ==================== EMPLOYEES ====================
-  Future<List<dynamic>> getEmployees({int? pageSize, String? branchId}) async {
+  /// [page] null = tải hết các trang (tránh chỉ 200–1000 NV đầu).
+  Future<List<dynamic>> getEmployees({
+    int? page,
+    int? pageSize,
+    String? branchId,
+  }) async {
+    final size = pageSize ?? 500;
+    if (page != null) {
+      return _getEmployeesPage(page, size, branchId);
+    }
+    final all = <dynamic>[];
+    for (var p = 1; p <= 50; p++) {
+      final items = await _getEmployeesPage(p, size, branchId);
+      if (items.isEmpty) break;
+      all.addAll(items);
+      if (items.length < size) break;
+    }
+    return all;
+  }
+
+  Future<List<dynamic>> _getEmployeesPage(
+    int page,
+    int pageSize,
+    String? branchId,
+  ) async {
     try {
-      final params = <String, String>{};
-      if (pageSize != null) params['pageSize'] = pageSize.toString();
+      final params = paginationQueryParams(page, pageSize);
       if (branchId != null) params['branchId'] = branchId;
       final uri = Uri.parse('$baseUrl/api/employees')
-          .replace(queryParameters: params.isNotEmpty ? params : null);
+          .replace(queryParameters: params);
       final response = await http
-          .get(
-            uri,
-            headers: _headers,
-          )
-          .timeout(const Duration(seconds: 10));
+          .get(uri, headers: _headers)
+          .timeout(const Duration(seconds: 15));
       final data = _handleResponse(response);
       if (data['isSuccess'] == true) {
-        // API returns PagedResult: {items, totalCount, pageNumber, pageSize}
         final responseData = data['data'];
-        if (responseData is List) {
-          return responseData;
-        } else if (responseData is Map && responseData['items'] != null) {
+        if (responseData is List) return responseData;
+        if (responseData is Map && responseData['items'] != null) {
           return responseData['items'] as List<dynamic>;
         }
-        return [];
       }
     } catch (e) {
-      debugPrint('Error getting employees: $e');
+      debugPrint('Error getting employees page $page: $e');
     }
     return [];
   }
@@ -963,10 +1000,7 @@ class ApiService {
     int pageSize = 20,
   }) async {
     try {
-      final queryParams = <String, String>{
-        'page': page.toString(),
-        'pageSize': pageSize.toString(),
-      };
+      final queryParams = paginationQueryParams(page, pageSize);
 
       // Sử dụng POST endpoint với body
       final body = <String, dynamic>{
@@ -3241,6 +3275,87 @@ class ApiService {
     }
   }
 
+  /// Vị trí active để NV chọn khi đăng ký / đổi thiết bị.
+  Future<Map<String, dynamic>> getLocationsForRegistration() async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse(
+                '$baseUrl/api/mobile-attendance/locations/active-for-registration'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 10));
+      return _handleResponse(response);
+    } catch (e) {
+      debugPrint('Error getting registration locations: $e');
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  /// Vị trí chấm được phép của một nhân viên (lọc theo gán vị trí).
+  Future<Map<String, dynamic>> getPunchWorkLocations({String? employeeId}) async {
+    try {
+      final params = <String, String>{};
+      if (employeeId != null && employeeId.isNotEmpty) {
+        params['employeeId'] = employeeId;
+      }
+      final uri = Uri.parse('$baseUrl/api/mobile-attendance/punch-locations')
+          .replace(queryParameters: params.isEmpty ? null : params);
+      final response = await http
+          .get(uri, headers: _headers)
+          .timeout(const Duration(seconds: 10));
+      return _handleResponse(response);
+    } catch (e) {
+      debugPrint('Error getting punch work locations: $e');
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  /// Danh sách nhân viên được gán cho một vị trí chấm.
+  Future<Map<String, dynamic>> getLocationEmployees(String locationId) async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse(
+                '$baseUrl/api/mobile-attendance/locations/$locationId/employees'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 15));
+      return _handleResponse(response);
+    } catch (e) {
+      debugPrint('Error getting location employees: $e');
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  /// Gán danh sách nhân viên cho một vị trí chấm (thay thế toàn bộ).
+  Future<Map<String, dynamic>> setLocationEmployees({
+    required String locationId,
+    required List<Map<String, String>> employees,
+  }) async {
+    try {
+      final response = await http
+          .put(
+            Uri.parse(
+                '$baseUrl/api/mobile-attendance/locations/$locationId/employees'),
+            headers: _headers,
+            body: json.encode({
+              'employees': employees
+                  .map((e) => {
+                        'employeeId': e['employeeId'],
+                        'employeeName': e['employeeName'],
+                      })
+                  .toList(),
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      debugPrint('Error setting location employees: $e');
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
   /// Thêm địa điểm làm việc
   Future<Map<String, dynamic>> addWorkLocation({
     required String name,
@@ -3421,6 +3536,7 @@ class ApiService {
     required String employeeId,
     required String employeeName,
     required List<String> faceImages,
+    required List<String> selectedWorkLocationIds,
     String? wifiBssid,
   }) async {
     try {
@@ -3432,6 +3548,7 @@ class ApiService {
         'employeeId': employeeId,
         'employeeName': employeeName,
         'faceImages': faceImages,
+        'selectedWorkLocationIds': selectedWorkLocationIds,
       };
       if (wifiBssid != null) body['wifiBssid'] = wifiBssid;
 
@@ -3477,6 +3594,7 @@ class ApiService {
     String? newOsVersion,
     String? newWifiBssid,
     required List<String> faceImages,
+    required List<String> selectedWorkLocationIds,
     String? reason,
   }) async {
     try {
@@ -3489,6 +3607,7 @@ class ApiService {
         'newOsVersion': newOsVersion,
         'newWifiBssid': newWifiBssid,
         'faceImages': faceImages,
+        'selectedWorkLocationIds': selectedWorkLocationIds,
         'reason': reason,
       };
 
@@ -3625,6 +3744,27 @@ class ApiService {
     }
   }
 
+  /// Bật/tắt chụp ảnh hiện trường cho một thiết bị (theo id bản ghi).
+  Future<Map<String, dynamic>> setDeviceRequirePhotoProof({
+    required String deviceRecordId,
+    required bool requirePhotoProof,
+  }) async {
+    try {
+      final response = await http
+          .patch(
+            Uri.parse(
+                '$baseUrl/api/mobile-attendance/devices/$deviceRecordId/require-photo-proof'),
+            headers: _headers,
+            body: json.encode({'requirePhotoProof': requirePhotoProof}),
+          )
+          .timeout(const Duration(seconds: 10));
+      return _handleResponse(response);
+    } catch (e) {
+      debugPrint('Error setDeviceRequirePhotoProof: $e');
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
   /// Cấp phép thiết bị
   Future<Map<String, dynamic>> authorizeDevice({
     required String deviceId,
@@ -3635,6 +3775,7 @@ class ApiService {
     bool canUseFaceId = true,
     bool canUseGps = true,
     bool allowOutsideCheckIn = false,
+    bool requirePhotoProof = false,
   }) async {
     try {
       final body = {
@@ -3646,6 +3787,7 @@ class ApiService {
         'canUseFaceId': canUseFaceId,
         'canUseGps': canUseGps,
         'allowOutsideCheckIn': allowOutsideCheckIn,
+        'requirePhotoProof': requirePhotoProof,
       };
 
       final response = await http
@@ -3693,6 +3835,7 @@ class ApiService {
     String? wifiBssid,
     bool livenessPassed = false,
     String? clientFaceEngine,
+    String? sitePhotoBase64,
   }) async {
     try {
       final body = {
@@ -3707,6 +3850,9 @@ class ApiService {
         'deviceId': deviceId,
         'livenessPassed': livenessPassed,
       };
+      if (sitePhotoBase64 != null && sitePhotoBase64.trim().length > 100) {
+        body['sitePhotoBase64'] = sitePhotoBase64.trim();
+      }
       if (clientFaceEngine != null && clientFaceEngine.isNotEmpty) {
         body['clientFaceEngine'] = clientFaceEngine;
       }
@@ -3723,6 +3869,84 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error submitting mobile attendance: $e');
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  /// GUID từ response punch (bỏ ngoặc, kiểm tra định dạng).
+  static String? normalizeMobileRecordIdForUpload(String recordId) {
+    var s = recordId.trim();
+    if (s.startsWith('{') && s.endsWith('}')) {
+      s = s.substring(1, s.length - 1).trim();
+    }
+    final guid = RegExp(
+      r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+    );
+    return guid.hasMatch(s) ? s : null;
+  }
+
+  /// Upload ảnh hiện trường sau chấm công (khi bật requirePhotoProof).
+  Future<Map<String, dynamic>> uploadMobileAttendanceSitePhoto({
+    required String recordId,
+    required String photoBase64,
+  }) async {
+    final id = normalizeMobileRecordIdForUpload(recordId);
+    if (id == null) {
+      return {
+        'isSuccess': false,
+        'message': 'Mã bản ghi chấm công không hợp lệ ($recordId)',
+      };
+    }
+
+    final body = json.encode({'sitePhotoBase64': photoBase64});
+
+    Future<http.Response> postTo(String path) => http
+        .post(
+          Uri.parse('$baseUrl/api/mobile-attendance/$path'),
+          headers: _headers,
+          body: body,
+        )
+        .timeout(const Duration(seconds: 60));
+
+    try {
+      var response = await postTo('records/$id/site-photo');
+      if (response.statusCode == 404) {
+        response = await http
+            .post(
+              Uri.parse('$baseUrl/api/mobile-attendance/upload-site-photo'),
+              headers: _headers,
+              body: json.encode({
+                'recordId': id,
+                'sitePhotoBase64': photoBase64,
+              }),
+            )
+            .timeout(const Duration(seconds: 60));
+      }
+
+      final result = _handleResponse(response);
+      if (response.statusCode == 404 && result['isSuccess'] != true) {
+        result['message'] =
+            'Máy chủ chưa có API lưu ảnh hiện trường (404). Cần cập nhật backend SBOX lên bản mới nhất.';
+      }
+      return result;
+    } catch (e) {
+      debugPrint('Error uploading site photo: $e');
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  /// Chi tiết một bản ghi chấm công mobile (đủ GPS, ảnh, WiFi…).
+  Future<Map<String, dynamic>> getMobileAttendanceRecord(String recordId) async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/api/mobile-attendance/records/$recordId'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 10));
+      return _handleResponse(response);
+    } catch (e) {
+      debugPrint('Error getting mobile attendance record: $e');
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
     }
   }
@@ -5043,12 +5267,19 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> updateTransactionStatus(
-      String id, String status) async {
+    String id,
+    String status, {
+    String? disbursementMode,
+  }) async {
     try {
+      final body = <String, dynamic>{'status': status};
+      if (disbursementMode != null && disbursementMode.isNotEmpty) {
+        body['disbursementMode'] = disbursementMode;
+      }
       final response = await http.put(
         Uri.parse('$baseUrl/api/Transactions/$id/status'),
         headers: _headers,
-        body: json.encode({'status': status}),
+        body: json.encode(body),
       );
       return _handleResponse(response);
     } catch (e) {
@@ -5057,12 +5288,19 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> bulkApproveTransactions(List<String> ids) async {
+  Future<Map<String, dynamic>> bulkApproveTransactions(
+    List<String> ids, {
+    String? disbursementMode,
+  }) async {
     try {
+      final body = <String, dynamic>{'ids': ids};
+      if (disbursementMode != null && disbursementMode.isNotEmpty) {
+        body['disbursementMode'] = disbursementMode;
+      }
       final response = await http.post(
         Uri.parse('$baseUrl/api/Transactions/bulk-approve'),
         headers: _headers,
-        body: json.encode({'ids': ids}),
+        body: json.encode(body),
       );
       return _handleResponse(response);
     } catch (e) {
@@ -5306,13 +5544,18 @@ class ApiService {
   // ==================== DEPARTMENTS ====================
   Future<Map<String, dynamic>> getDepartments(
       {int? pageNumber,
+      int? page,
       int? pageSize,
       String? searchTerm,
       bool? isActive}) async {
     try {
       final params = <String, String>{};
-      if (pageNumber != null) params['pageNumber'] = pageNumber.toString();
-      if (pageSize != null) params['pageSize'] = pageSize.toString();
+      final p = pageNumber ?? page;
+      if (p != null) {
+        params.addAll(paginationQueryParams(p, pageSize ?? 20));
+      } else if (pageSize != null) {
+        params['pageSize'] = pageSize.toString();
+      }
       if (searchTerm != null) params['searchTerm'] = searchTerm;
       if (isActive != null) params['isActive'] = isActive.toString();
       final uri = Uri.parse('$baseUrl/api/Departments')
@@ -5574,8 +5817,11 @@ class ApiService {
       String? toDate}) async {
     try {
       final params = <String, String>{};
-      if (page != null) params['pageNumber'] = page.toString();
-      if (pageSize != null) params['pageSize'] = pageSize.toString();
+      if (page != null) {
+        params.addAll(paginationQueryParams(page, pageSize ?? 20));
+      } else if (pageSize != null) {
+        params['pageSize'] = pageSize.toString();
+      }
       if (status != null) params['status'] = status;
       if (fromDate != null) params['fromDate'] = fromDate;
       if (toDate != null) params['toDate'] = toDate;
@@ -5597,8 +5843,11 @@ class ApiService {
       String? employeeId}) async {
     try {
       final params = <String, String>{};
-      if (page != null) params['pageNumber'] = page.toString();
-      if (pageSize != null) params['pageSize'] = pageSize.toString();
+      if (page != null) {
+        params.addAll(paginationQueryParams(page, pageSize ?? 20));
+      } else if (pageSize != null) {
+        params['pageSize'] = pageSize.toString();
+      }
       if (status != null) params['status'] = status;
       if (fromDate != null) params['fromDate'] = fromDate;
       if (toDate != null) params['toDate'] = toDate;
@@ -5616,8 +5865,11 @@ class ApiService {
       {int? page, int? pageSize}) async {
     try {
       final params = <String, String>{};
-      if (page != null) params['pageNumber'] = page.toString();
-      if (pageSize != null) params['pageSize'] = pageSize.toString();
+      if (page != null) {
+        params.addAll(paginationQueryParams(page, pageSize ?? 20));
+      } else if (pageSize != null) {
+        params['pageSize'] = pageSize.toString();
+      }
       final uri = Uri.parse('$baseUrl/api/Leaves/pending')
           .replace(queryParameters: params.isNotEmpty ? params : null);
       final response = await http.get(uri, headers: _headers);
@@ -5636,7 +5888,11 @@ class ApiService {
       String? reason,
       String? replacementEmployeeId,
       String? employeeUserId,
-      String? employeeId}) async {
+      String? employeeId,
+      bool? countAsWork,
+      bool? autoApprove,
+      int? sickLeaveMode,
+      String? bhxhDocumentNote}) async {
     try {
       if (shiftIds == null || shiftIds.isEmpty) {
         return {'isSuccess': false, 'message': 'Vui lòng chọn ca làm việc'};
@@ -5653,6 +5909,11 @@ class ApiService {
           'replacementEmployeeId': replacementEmployeeId,
         if (employeeUserId != null) 'employeeUserId': employeeUserId,
         if (employeeId != null) 'employeeId': employeeId,
+        if (countAsWork == true) 'countAsWork': true,
+        if (autoApprove == true) 'autoApprove': true,
+        if (sickLeaveMode != null) 'sickLeaveMode': sickLeaveMode,
+        if (bhxhDocumentNote != null && bhxhDocumentNote.isNotEmpty)
+          'bhxhDocumentNote': bhxhDocumentNote,
       };
       final response = await http.post(Uri.parse('$baseUrl/api/Leaves'),
           headers: _headers, body: json.encode(data));
@@ -5672,7 +5933,10 @@ class ApiService {
       String? reason,
       String? replacementEmployeeId,
       String? employeeUserId,
-      String? employeeId}) async {
+      String? employeeId,
+      bool? countAsWork,
+      int? sickLeaveMode,
+      String? bhxhDocumentNote}) async {
     try {
       if (shiftIds == null || shiftIds.isEmpty) {
         return {'isSuccess': false, 'message': 'Vui lòng chọn ca làm việc'};
@@ -5689,6 +5953,9 @@ class ApiService {
           'replacementEmployeeId': replacementEmployeeId,
         if (employeeUserId != null) 'employeeUserId': employeeUserId,
         if (employeeId != null) 'employeeId': employeeId,
+        if (countAsWork != null) 'countAsWork': countAsWork,
+        if (sickLeaveMode != null) 'sickLeaveMode': sickLeaveMode,
+        if (bhxhDocumentNote != null) 'bhxhDocumentNote': bhxhDocumentNote,
       };
       final response = await http.put(Uri.parse('$baseUrl/api/Leaves/$leaveId'),
           headers: _headers, body: json.encode(data));
@@ -5708,11 +5975,27 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> approveLeave(String id) async {
+  Future<Map<String, dynamic>> getAnnualLeaveBalance(String employeeId) async {
     try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/Leaves/annual-balance/$employeeId'),
+        headers: _headers,
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> approveLeave(String id, {bool? countAsWork}) async {
+    try {
+      final body = countAsWork != null
+          ? json.encode({'countAsWork': countAsWork})
+          : null;
       final response = await http.post(
           Uri.parse('$baseUrl/api/Leaves/$id/approve'),
-          headers: _headers);
+          headers: _headers,
+          body: body);
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
@@ -5758,8 +6041,11 @@ class ApiService {
       {int? page, int? pageSize, dynamic status}) async {
     try {
       final params = <String, String>{};
-      if (page != null) params['pageNumber'] = page.toString();
-      if (pageSize != null) params['pageSize'] = pageSize.toString();
+      if (page != null) {
+        params.addAll(paginationQueryParams(page, pageSize ?? 20));
+      } else if (pageSize != null) {
+        params['pageSize'] = pageSize.toString();
+      }
       if (status != null) params['status'] = status.toString();
       final uri = Uri.parse('$baseUrl/api/AttendanceCorrections/my')
           .replace(queryParameters: params.isNotEmpty ? params : null);
@@ -5779,8 +6065,11 @@ class ApiService {
       String? employeeUserId}) async {
     try {
       final params = <String, String>{};
-      if (page != null) params['pageNumber'] = page.toString();
-      if (pageSize != null) params['pageSize'] = pageSize.toString();
+      if (page != null) {
+        params.addAll(paginationQueryParams(page, pageSize ?? 20));
+      } else if (pageSize != null) {
+        params['pageSize'] = pageSize.toString();
+      }
       if (status != null) params['status'] = status.toString();
       if (fromDate != null) {
         params['fromDate'] = fromDate is DateTime
@@ -5924,8 +6213,11 @@ class ApiService {
     try {
       final params = <String, String>{};
       final p = pageNumber ?? page;
-      if (p != null) params['pageNumber'] = p.toString();
-      if (pageSize != null) params['pageSize'] = pageSize.toString();
+      if (p != null) {
+        params.addAll(paginationQueryParams(p, pageSize ?? 20));
+      } else if (pageSize != null) {
+        params['pageSize'] = pageSize.toString();
+      }
       if (type != null) params['type'] = type.toString();
       if (status != null) params['status'] = status.toString();
       if (fromDate != null) {
@@ -5975,6 +6267,60 @@ class ApiService {
     try {
       final response =
           await _delete(Uri.parse('$baseUrl/api/CashTransactions/$id'));
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> getFundTransfers({
+    DateTime? fromDate,
+    DateTime? toDate,
+    int page = 1,
+    int pageSize = 50,
+  }) async {
+    try {
+      final params = <String, String>{
+        'page': '$page',
+        'pageSize': '$pageSize',
+      };
+      if (fromDate != null) params['fromDate'] = fromDate.toIso8601String();
+      if (toDate != null) params['toDate'] = toDate.toIso8601String();
+      final uri = Uri.parse('$baseUrl/api/CashTransactions/fund-transfers')
+          .replace(queryParameters: params);
+      final response = await _get(uri);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> getFundBalances() async {
+    try {
+      final response =
+          await _get(Uri.parse('$baseUrl/api/CashTransactions/fund-balances'));
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> createFundTransfer(
+      Map<String, dynamic> data) async {
+    try {
+      final response = await _post(
+          Uri.parse('$baseUrl/api/CashTransactions/fund-transfers'),
+          body: json.encode(data));
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteFundTransfer(String id) async {
+    try {
+      final response = await _delete(
+          Uri.parse('$baseUrl/api/CashTransactions/fund-transfers/$id'));
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
@@ -6054,10 +6400,31 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> deleteTransactionCategory(String id) async {
+    try {
+      final response = await _delete(
+          Uri.parse('$baseUrl/api/TransactionCategories/$id'));
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
   Future<Map<String, dynamic>> initDefaultTransactionCategories() async {
     try {
       final response = await _post(
           Uri.parse('$baseUrl/api/TransactionCategories/init-default'));
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  /// Sửa tên danh mục thu chi bị lỗi encoding trong DB (một lần / khi mở màn hình).
+  Future<Map<String, dynamic>> repairTransactionCategoryEncoding() async {
+    try {
+      final response = await _post(
+          Uri.parse('$baseUrl/api/TransactionCategories/repair-encoding'));
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
@@ -7209,8 +7576,11 @@ class ApiService {
       bool? isLocked}) async {
     try {
       final params = <String, String>{};
-      if (page != null) params['pageNumber'] = page.toString();
-      if (pageSize != null) params['pageSize'] = pageSize.toString();
+      if (page != null) {
+        params.addAll(paginationQueryParams(page, pageSize ?? 20));
+      } else if (pageSize != null) {
+        params['pageSize'] = pageSize.toString();
+      }
       if (search != null) params['search'] = search;
       if (phone != null) params['phone'] = phone;
       if (agentId != null) params['agentId'] = agentId;
@@ -7547,8 +7917,11 @@ class ApiService {
       String? role}) async {
     try {
       final params = <String, String>{};
-      if (page != null) params['pageNumber'] = page.toString();
-      if (pageSize != null) params['pageSize'] = pageSize.toString();
+      if (page != null) {
+        params.addAll(paginationQueryParams(page, pageSize ?? 20));
+      } else if (pageSize != null) {
+        params['pageSize'] = pageSize.toString();
+      }
       if (search != null) params['search'] = search;
       if (storeId != null) params['storeId'] = storeId;
       if (role != null) params['role'] = role;
@@ -7644,8 +8017,11 @@ class ApiService {
       String? storeId}) async {
     try {
       final params = <String, String>{};
-      if (page != null) params['pageNumber'] = page.toString();
-      if (pageSize != null) params['pageSize'] = pageSize.toString();
+      if (page != null) {
+        params.addAll(paginationQueryParams(page, pageSize ?? 20));
+      } else if (pageSize != null) {
+        params['pageSize'] = pageSize.toString();
+      }
       if (isOnline != null) params['isOnline'] = isOnline.toString();
       if (isClaimed != null) params['isClaimed'] = isClaimed.toString();
       if (search != null) params['search'] = search;
@@ -7736,8 +8112,11 @@ class ApiService {
       String? search}) async {
     try {
       final params = <String, String>{};
-      if (page != null) params['pageNumber'] = page.toString();
-      if (pageSize != null) params['pageSize'] = pageSize.toString();
+      if (page != null) {
+        params.addAll(paginationQueryParams(page, pageSize ?? 20));
+      } else if (pageSize != null) {
+        params['pageSize'] = pageSize.toString();
+      }
       if (status != null) params['status'] = status;
       if (isUsed != null) params['isUsed'] = isUsed.toString();
       if (agentId != null) params['agentId'] = agentId;
@@ -7928,8 +8307,11 @@ class ApiService {
       String? licenseStatus}) async {
     try {
       final params = <String, String>{};
-      if (page != null) params['pageNumber'] = page.toString();
-      if (pageSize != null) params['pageSize'] = pageSize.toString();
+      if (page != null) {
+        params.addAll(paginationQueryParams(page, pageSize ?? 20));
+      } else if (pageSize != null) {
+        params['pageSize'] = pageSize.toString();
+      }
       if (search != null) params['search'] = search;
       if (isActive != null) params['isActive'] = isActive.toString();
       if (hasStores != null) params['hasStores'] = hasStores.toString();
@@ -8117,8 +8499,11 @@ class ApiService {
       String? search}) async {
     try {
       final params = <String, String>{};
-      if (page != null) params['pageNumber'] = page.toString();
-      if (pageSize != null) params['pageSize'] = pageSize.toString();
+      if (page != null) {
+        params.addAll(paginationQueryParams(page, pageSize ?? 20));
+      } else if (pageSize != null) {
+        params['pageSize'] = pageSize.toString();
+      }
       if (fromDate != null) {
         params['fromDate'] = fromDate is DateTime
             ? fromDate.toIso8601String()
@@ -8658,8 +9043,44 @@ class ApiService {
   }
 
   String getFileUrl(String path) {
-    if (path.startsWith('http')) return path;
-    final cleanPath = path.startsWith('/') ? path.substring(1) : path;
+    var trimmed = path.trim().replaceAll('\\', '/');
+    if (trimmed.isEmpty) return '';
+
+    if (trimmed.startsWith('http')) {
+      try {
+        final uri = Uri.parse(trimmed);
+        final p = uri.path;
+        if (p.startsWith('/stores/') || p.startsWith('/uploads/')) {
+          final rel = p.startsWith('/') ? p.substring(1) : p;
+          return '$baseUrl/api/upload/serve?path=${Uri.encodeQueryComponent(rel)}';
+        }
+      } catch (_) {}
+      return trimmed;
+    }
+
+    var cleanPath = trimmed.startsWith('/') ? trimmed.substring(1) : trimmed;
+    if (cleanPath.startsWith('wwwroot/')) {
+      cleanPath = cleanPath.substring('wwwroot/'.length);
+    }
+    final storesIdx = cleanPath.indexOf('stores/');
+    final uploadsIdx = cleanPath.indexOf('uploads/');
+    if (storesIdx > 0) cleanPath = cleanPath.substring(storesIdx);
+    if (uploadsIdx > 0 && (storesIdx < 0 || uploadsIdx < storesIdx)) {
+      cleanPath = cleanPath.substring(uploadsIdx);
+    }
+    if (cleanPath.startsWith('stores/') || cleanPath.startsWith('uploads/')) {
+      return '$baseUrl/api/upload/serve?path=${Uri.encodeQueryComponent(cleanPath)}';
+    }
+    // Legacy face paths: uploads/face-registrations/... under store folder prefix
+    if (cleanPath.contains('face-registrations/')) {
+      final idx = cleanPath.indexOf('stores/');
+      if (idx >= 0) {
+        return '$baseUrl/api/upload/serve?path=${Uri.encodeQueryComponent(cleanPath.substring(idx))}';
+      }
+      if (cleanPath.startsWith('face-registrations/')) {
+        return '$baseUrl/api/upload/serve?path=${Uri.encodeQueryComponent('uploads/$cleanPath')}';
+      }
+    }
     return '$baseUrl/$cleanPath';
   }
 
@@ -9086,13 +9507,27 @@ class ApiService {
   }
 
   // ==================== OVERTIMES ====================
-  Future<Map<String, dynamic>> getOvertimes(
-      {String? status, DateTime? fromDate, DateTime? toDate}) async {
+  Future<Map<String, dynamic>> getOvertimes({
+    String? status,
+    DateTime? fromDate,
+    DateTime? toDate,
+    int? month,
+    int? year,
+    int? page,
+    int? pageSize,
+  }) async {
     try {
       final params = <String, String>{};
+      if (page != null) {
+        params.addAll(paginationQueryParams(page, pageSize ?? 20));
+      } else if (pageSize != null) {
+        params['pageSize'] = pageSize.toString();
+      }
       if (status != null) params['status'] = status;
       if (fromDate != null) params['fromDate'] = fromDate.toIso8601String();
       if (toDate != null) params['toDate'] = toDate.toIso8601String();
+      if (month != null) params['month'] = month.toString();
+      if (year != null) params['year'] = year.toString();
       final uri = Uri.parse('$baseUrl/api/overtimes')
           .replace(queryParameters: params.isNotEmpty ? params : null);
       final response = await http.get(uri, headers: _headers);
@@ -9632,12 +10067,25 @@ class ApiService {
   }
 
   // ==================== HR DOCUMENTS ====================
-  Future<Map<String, dynamic>> getHrDocuments(
-      {String? employeeId, String? type}) async {
+  Future<Map<String, dynamic>> getHrDocuments({
+    String? employeeId,
+    String? type,
+    int? page,
+    int? pageSize,
+    String? searchTerm,
+  }) async {
     try {
       final params = <String, String>{};
+      if (page != null) {
+        params.addAll(paginationQueryParams(page, pageSize ?? 20));
+      } else if (pageSize != null) {
+        params['pageSize'] = pageSize.toString();
+      }
       if (employeeId != null) params['employeeUserId'] = employeeId;
       if (type != null) params['type'] = type;
+      if (searchTerm != null && searchTerm.isNotEmpty) {
+        params['searchTerm'] = searchTerm;
+      }
       final uri = Uri.parse('$baseUrl/api/hr-documents')
           .replace(queryParameters: params.isNotEmpty ? params : null);
       final response = await http.get(uri, headers: _headers);
@@ -10013,6 +10461,27 @@ class ApiService {
   }
 
   // ==================== PENALTY TICKETS ====================
+
+  /// Quét lại chấm công và tạo phiếu phạt còn thiếu trong khoảng ngày (tối đa 62 ngày).
+  Future<Map<String, dynamic>> backfillPenaltyTicketsFromAttendance({
+    required DateTime from,
+    required DateTime to,
+  }) async {
+    try {
+      String fmt(DateTime d) =>
+          '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+      final response = await http
+          .post(
+            Uri.parse(
+                '$baseUrl/api/PenaltyTickets/backfill-from-attendance?from=${fmt(from)}&to=${fmt(to)}'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 120));
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
 
   /// Lấy danh sách phiếu phạt
   Future<Map<String, dynamic>> getPenaltyTickets({
@@ -10714,10 +11183,7 @@ class ApiService {
     int pageSize = 20,
   }) async {
     try {
-      final queryParams = <String, String>{
-        'page': page.toString(),
-        'pageSize': pageSize.toString(),
-      };
+      final queryParams = paginationQueryParams(page, pageSize);
       if (date != null) queryParams['date'] = date;
       if (mealSessionId != null) queryParams['mealSessionId'] = mealSessionId;
       final uri = Uri.parse('$baseUrl/api/meals/records')

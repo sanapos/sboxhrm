@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:intl/intl.dart';
 import 'package:excel/excel.dart' as excel_pkg;
 import 'package:url_launcher/url_launcher.dart';
@@ -263,23 +264,37 @@ class ConsultationRequestsTabState extends State<ConsultationRequestsTab> {
           ),
         ],
       ),
-      trailing: PopupMenuButton<String>(
-        onSelected: (value) async {
-          if (value == 'delete') {
-            await _delete(item);
-            return;
-          }
-          await _quickUpdateStatus(item['id'] as String, value);
-        },
-        itemBuilder: (_) => const [
-          PopupMenuItem(value: 'Contacted', child: Text('Đã liên hệ')),
-          PopupMenuItem(value: 'Qualified', child: Text('Tiềm năng')),
-          PopupMenuItem(value: 'Closed', child: Text('Đã đóng')),
-          PopupMenuItem(value: 'Spam', child: Text('Đánh dấu spam')),
-          PopupMenuDivider(),
-          PopupMenuItem(value: 'delete', child: Text('Xoá lead')),
-        ],
-      ),
+      trailing: (context.systemAdminCanEdit || context.systemAdminCanDelete)
+          ? PopupMenuButton<String>(
+              onSelected: (value) async {
+                if (value == 'delete') {
+                  if (context.systemAdminCanDelete) await _delete(item);
+                  return;
+                }
+                if (context.systemAdminCanEdit) {
+                  await _quickUpdateStatus(item['id'] as String, value);
+                }
+              },
+              itemBuilder: (_) => [
+                if (context.systemAdminCanEdit) ...[
+                  const PopupMenuItem(
+                      value: 'Contacted', child: Text('Đã liên hệ')),
+                  const PopupMenuItem(
+                      value: 'Qualified', child: Text('Tiềm năng')),
+                  const PopupMenuItem(
+                      value: 'Closed', child: Text('Đã đóng')),
+                  const PopupMenuItem(
+                      value: 'Spam', child: Text('Đánh dấu spam')),
+                ],
+                if (context.systemAdminCanEdit &&
+                    context.systemAdminCanDelete)
+                  const PopupMenuDivider(),
+                if (context.systemAdminCanDelete)
+                  const PopupMenuItem(
+                      value: 'delete', child: Text('Xoá lead')),
+              ],
+            )
+          : null,
       onTap: () => _showDetail(item),
     );
   }
@@ -391,7 +406,7 @@ class ConsultationRequestsTabState extends State<ConsultationRequestsTab> {
   Future<void> _delete(Map<String, dynamic> item) async {
     final ok = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (_) => ScrollableAlertDialog(
         title: const Text('Xoá lead?'),
         content: Text('Xoá yêu cầu tư vấn của ${item['name'] ?? ''}?'),
         actions: [
@@ -427,7 +442,7 @@ class ConsultationRequestsTabState extends State<ConsultationRequestsTab> {
     showDialog(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
-        builder: (_, setDialogState) => AlertDialog(
+        builder: (_, setDialogState) => ScrollableAlertDialog(
           title: Text(item['name'] as String? ?? 'Chi tiết lead'),
           content: SizedBox(
             width: 620,

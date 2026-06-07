@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:intl/intl.dart';
 import '../l10n/app_localizations.dart';
 import '../services/api_service.dart';
@@ -57,7 +58,22 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
 
   final _currencyFormat = NumberFormat('#,###', 'vi_VN');
 
+  static const _salaryDisbursement = 'Salary';
+
   bool get _bonusOnly => widget.bonusOnly;
+
+  bool _isCashPaid(String? paymentMethod) {
+    final m = paymentMethod?.trim() ?? '';
+    return m.isNotEmpty && m != _salaryDisbursement;
+  }
+
+  bool _isSalaryDisbursement(String? paymentMethod) =>
+      paymentMethod == _salaryDisbursement;
+
+  bool _awaitingCashPayment(Map<String, dynamic> tx) =>
+      tx['status'] == 'Completed' &&
+      (tx['paymentMethod'] == null ||
+          tx['paymentMethod'].toString().isEmpty);
 
   @override
   void initState() {
@@ -267,11 +283,9 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
   List<Map<String, dynamic>> get _pendingInCurrentTab =>
       _currentTabItems.where((t) => t['status'] == 'Pending').toList();
 
-  // Approved (Completed) but not paid transactions for batch pay
+  // Approved, chờ chi tiền mặt (không gồm thưởng chi vào lương)
   List<Map<String, dynamic>> get _approvedUnpaidInCurrentTab => _currentTabItems
-      .where((t) =>
-          t['status'] == 'Completed' &&
-          (t['paymentMethod'] == null || t['paymentMethod'].toString().isEmpty))
+      .where(_awaitingCashPayment)
       .toList();
 
   @override
@@ -669,9 +683,11 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
       ),
     );
 
-    return Container(
+    return HrmFilterBar(
+      margin: EdgeInsets.zero,
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
-      child: isMobile
+      children: [
+        isMobile
           ? Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -767,7 +783,8 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                 ),
               ],
             ),
-    );
+        ],
+      );
   }
 
   Widget _buildBatchActionBar() {
@@ -843,7 +860,9 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
               style: FilledButton.styleFrom(backgroundColor: Colors.green),
             ),
           // Batch pay
-          if (approvedSelected.isNotEmpty)
+          if (approvedSelected.isNotEmpty &&
+              Provider.of<PermissionProvider>(context, listen: false)
+                  .canApprove('BonusPenalty'))
             FilledButton.icon(
               onPressed: () => _showPaymentDialog(approvedSelected),
               icon: Icon(
@@ -868,7 +887,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
   double get _paidBonusAmount => _bonusTransactions
       .where((t) =>
           t['status'] == 'Completed' &&
-          (t['paymentMethod']?.toString() ?? '').isNotEmpty)
+          _isCashPaid(t['paymentMethod']?.toString()))
       .fold(0.0, (s, t) => s + ((t['amount'] as num?)?.toDouble() ?? 0));
 
   double get _unpaidBonusAmount => _totalBonus - _paidBonusAmount;
@@ -1199,7 +1218,8 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
             DateTime.tryParse(tx['transactionDate']?.toString() ?? '') ??
                 DateTime.now();
         final paymentMethod = tx['paymentMethod']?.toString() ?? '';
-        final isPaid = paymentMethod.isNotEmpty;
+        final isPaid = _isCashPaid(paymentMethod);
+        final isSalary = _isSalaryDisbursement(paymentMethod);
 
         Color statusColor;
         String statusLabel;
@@ -1208,6 +1228,9 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
             if (isPaid) {
               statusColor = Colors.blue;
               statusLabel = isBonus ? _l10n.paid : _l10n.penaltyCollected;
+            } else if (isSalary) {
+              statusColor = Colors.purple;
+              statusLabel = 'Chi vào lương';
             } else {
               statusColor = Colors.green;
               statusLabel = _l10n.approved;
@@ -1327,19 +1350,26 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                                   color: statusColor,
                                   fontWeight: FontWeight.w600)),
                         ),
-                        if (isPaid) ...[
+                        if (isPaid || isSalary) ...[
                           const SizedBox(width: 6),
                           Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: Colors.indigo.shade50,
+                              color: isSalary
+                                  ? Colors.purple.shade50
+                                  : Colors.indigo.shade50,
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
-                              _paymentMethodLabel(paymentMethod),
+                              _paymentMethodLabel(
+                                  isSalary ? _salaryDisbursement : paymentMethod),
                               style: TextStyle(
-                                  fontSize: 10, color: Colors.indigo.shade700),
+                                fontSize: 10,
+                                color: isSalary
+                                    ? Colors.purple.shade700
+                                    : Colors.indigo.shade700,
+                              ),
                             ),
                           ),
                         ],
@@ -1374,7 +1404,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                               onTap: () => _handleAction('approve', tx)),
                           const SizedBox(width: 6),
                         ],
-                        if (status == 'Completed' && !isPaid) ...[
+                        if (status == 'Completed' && _awaitingCashPayment(tx)) ...[
                           _ActionBtn(
                             icon: isBonus ? Icons.payment : Icons.receipt_long,
                             label:
@@ -1460,7 +1490,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                     ? _selectedIds.remove(txId)
                     : _selectedIds.add(txId);
               })
-          : null,
+          : () => _showMobileTxActions(tx, isBonus: isBonus),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         child: Row(children: [
@@ -1541,36 +1571,196 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
         return 'Thẻ';
       case 'ewallet':
         return _l10n.eWallet;
+      case 'salary':
+        return 'Chi vào lương';
       default:
         return method;
     }
+  }
+
+  Future<String?> _showBonusDisbursementDialog({required int count}) async {
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => ScrollableAlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.account_balance_wallet, color: Colors.green),
+            SizedBox(width: 8),
+            Text('Hình thức chi thưởng'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              count == 1
+                  ? 'Chọn cách chi thưởng cho phiếu này:'
+                  : 'Chọn cách chi thưởng cho $count phiếu đã chọn:',
+              style: TextStyle(color: Colors.grey.shade700),
+            ),
+            const SizedBox(height: 12),
+            Card(
+              elevation: 0,
+              color: Colors.blue.shade50,
+              child: ListTile(
+                leading: Icon(Icons.payments, color: Colors.blue.shade700),
+                title: const Text('Chi tiền ngay',
+                    style: TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: const Text(
+                    'Tạo phiếu chi trong Thu chi để chi trả trực tiếp'),
+                onTap: () => Navigator.pop(ctx, 'Cash'),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Card(
+              elevation: 0,
+              color: Colors.purple.shade50,
+              child: ListTile(
+                leading: Icon(Icons.calendar_month, color: Colors.purple.shade700),
+                title: const Text('Chi thưởng vào lương',
+                    style: TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: const Text(
+                    'Cộng vào bảng Tổng hợp lương, không tạo phiếu chi'),
+                onTap: () => Navigator.pop(ctx, 'Salary'),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(_l10n.cancel),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showMobileTxActions(Map<String, dynamic> tx, {required bool isBonus}) {
+    final status = tx['status']?.toString() ?? 'Pending';
+    final paymentMethod = tx['paymentMethod']?.toString() ?? '';
+    final isPaid = _isCashPaid(paymentMethod);
+    final txId = tx['id']?.toString() ?? '';
+    final perms = Provider.of<PermissionProvider>(context, listen: false);
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: Text(
+                  tx['employeeName']?.toString() ??
+                      tx['employeeCode']?.toString() ??
+                      'Chi tiết phiếu',
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                ),
+              ),
+              if (status != 'Completed' && perms.canEdit('BonusPenalty'))
+                ListTile(
+                  leading: const Icon(Icons.edit, color: Colors.blue),
+                  title: Text(_l10n.edit),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _handleAction('edit', tx);
+                  },
+                ),
+              if (status == 'Pending' && perms.canApprove('BonusPenalty'))
+                ListTile(
+                  leading: const Icon(Icons.check_circle, color: Colors.green),
+                  title: Text(_l10n.approveLabel),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _handleAction('approve', tx);
+                  },
+                ),
+              if (status == 'Completed' && _awaitingCashPayment(tx))
+                ListTile(
+                  leading: Icon(
+                    isBonus ? Icons.payment : Icons.receipt_long,
+                    color: isBonus ? Colors.blue : Colors.teal,
+                  ),
+                  title: Text(isBonus ? _l10n.payment : _l10n.collectPenalty),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _showPaymentDialog([txId]);
+                  },
+                ),
+              if (status == 'Completed' && !isPaid && perms.canApprove('BonusPenalty'))
+                ListTile(
+                  leading: const Icon(Icons.undo, color: Colors.orange),
+                  title: Text(_l10n.reverseApproval),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _handleAction('unapprove', tx);
+                  },
+                ),
+              if (status == 'Pending' && perms.canApprove('BonusPenalty'))
+                ListTile(
+                  leading: const Icon(Icons.cancel, color: Colors.orange),
+                  title: Text(_l10n.cancel),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _handleAction('cancel', tx);
+                  },
+                ),
+              if (perms.canDelete('BonusPenalty'))
+                ListTile(
+                  leading: Icon(Icons.delete, color: Colors.red.shade700),
+                  title: Text(_l10n.delete, style: TextStyle(color: Colors.red.shade700)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _handleAction('delete', tx);
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   // ══════════════════════════════════════════════════
   // BATCH OPERATIONS
   // ══════════════════════════════════════════════════
   Future<void> _batchApprove(List<String> ids) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(_l10n.batchApprove),
-        content: Text('Bạn có chắc muốn duyệt ${ids.length} phiếu đã chọn?'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: Text(_l10n.cancel)),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.green),
-            child: Text(_l10n.approveAll),
-          ),
-        ],
-      ),
-    );
-    if (confirm != true) return;
+    final isBonusTab = _bonusOnly || _tabController.index == 0;
+    String? disbursementMode;
+    if (isBonusTab) {
+      disbursementMode = await _showBonusDisbursementDialog(count: ids.length);
+      if (disbursementMode == null) return;
+    } else {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => ScrollableAlertDialog(
+          title: Text(_l10n.batchApprove),
+          content: Text('Bạn có chắc muốn duyệt ${ids.length} phiếu đã chọn?'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text(_l10n.cancel)),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: FilledButton.styleFrom(backgroundColor: Colors.green),
+              child: Text(_l10n.approveAll),
+            ),
+          ],
+        ),
+      );
+      if (confirm != true) return;
+    }
 
     setState(() => _isLoading = true);
-    final result = await _apiService.bulkApproveTransactions(ids);
+    final result = await _apiService.bulkApproveTransactions(ids,
+        disbursementMode: disbursementMode);
     if (!mounted) return;
     setState(() => _isLoading = false);
 
@@ -1578,8 +1768,11 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
       final data = result['data'];
       final s = data?['success'] ?? ids.length;
       final f = data?['failed'] ?? 0;
+      final suffix = disbursementMode == 'Salary'
+          ? ' (chi vào lương)'
+          : (isBonusTab ? ' (tạo phiếu chi)' : '');
       _showSnackBar(
-          'Đã duyệt $s/${ids.length} phiếu${f > 0 ? ' ($f lỗi)' : ''}',
+          'Đã duyệt $s/${ids.length} phiếu$suffix${f > 0 ? ' ($f lỗi)' : ''}',
           f > 0 ? Colors.orange : Colors.green);
       _loadData();
     } else {
@@ -1719,7 +1912,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
               ),
             );
           }
-          return AlertDialog(
+          return ScrollableAlertDialog(
             title: Row(
               children: [
                 Icon(isPenaltyTab ? Icons.receipt_long : Icons.payment,
@@ -1801,38 +1994,52 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
         _showCreateEditDialog(editTx: tx);
         break;
       case 'approve':
-        final confirmApprove = await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('Xác nhận duyệt'),
-            content: const Text('Bạn có chắc muốn duyệt phiếu này?'),
-            actions: [
-              TextButton(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  child: Text(_l10n.cancel)),
-              FilledButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                style: FilledButton.styleFrom(backgroundColor: Colors.green),
-                child: Text(_l10n.approveLabel),
-              ),
-            ],
-          ),
+        final isBonusTx = (tx['type']?.toString() ?? 'Bonus') == 'Bonus';
+        String? disbursementMode;
+        if (isBonusTx) {
+          disbursementMode = await _showBonusDisbursementDialog(count: 1);
+          if (disbursementMode == null) break;
+        } else {
+          final confirmApprove = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => ScrollableAlertDialog(
+              title: const Text('Xác nhận duyệt'),
+              content: const Text('Bạn có chắc muốn duyệt phiếu này?'),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: Text(_l10n.cancel)),
+                FilledButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  style: FilledButton.styleFrom(backgroundColor: Colors.green),
+                  child: Text(_l10n.approveLabel),
+                ),
+              ],
+            ),
+          );
+          if (confirmApprove != true) break;
+        }
+        final result = await _apiService.updateTransactionStatus(
+          id,
+          'Completed',
+          disbursementMode: disbursementMode,
         );
-        if (confirmApprove == true) {
-          final result =
-              await _apiService.updateTransactionStatus(id, 'Completed');
-          if (result['isSuccess'] == true) {
-            _showSnackBar('Đã duyệt thành công', Colors.green);
-            _loadData();
-          } else {
-            _showSnackBar('Lỗi: ${result['message']}', Colors.red);
-          }
+        if (result['isSuccess'] == true) {
+          final msg = disbursementMode == 'Salary'
+              ? 'Đã duyệt — thưởng sẽ cộng vào lương'
+              : (isBonusTx
+                  ? 'Đã duyệt — phiếu chi đã được tạo'
+                  : 'Đã duyệt thành công');
+          _showSnackBar(msg, Colors.green);
+          _loadData();
+        } else {
+          _showSnackBar('Lỗi: ${result['message']}', Colors.red);
         }
         break;
       case 'unapprove':
         final confirm = await showDialog<bool>(
           context: context,
-          builder: (ctx) => AlertDialog(
+          builder: (ctx) => ScrollableAlertDialog(
             title: const Text('Xác nhận hoàn duyệt'),
             content: const Text(
                 'Phiếu sẽ chuyển về trạng thái "Chờ duyệt". Bạn có chắc?'),
@@ -1862,7 +2069,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
       case 'cancel':
         final confirmCancel = await showDialog<bool>(
           context: context,
-          builder: (ctx) => AlertDialog(
+          builder: (ctx) => ScrollableAlertDialog(
             title: const Text('Xác nhận hủy'),
             content: const Text('Bạn có chắc muốn hủy phiếu này?'),
             actions: [
@@ -1891,7 +2098,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
       case 'delete':
         final confirm = await showDialog<bool>(
           context: context,
-          builder: (ctx) => AlertDialog(
+          builder: (ctx) => ScrollableAlertDialog(
             title: const Text('Xác nhận xóa'),
             content: const Text('Bạn có chắc muốn xóa khoản này?'),
             actions: [
@@ -2379,7 +2586,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
             );
           }
 
-          return AlertDialog(
+          return ScrollableAlertDialog(
             title: Row(
               children: [
                 Icon(

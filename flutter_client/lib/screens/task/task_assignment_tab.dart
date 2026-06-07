@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import '../../models/task.dart';
 import '../../services/api_service.dart';
 import '../../widgets/app_button.dart';
@@ -78,7 +79,7 @@ class _TaskAssignmentTabState extends State<TaskAssignmentTab> {
     final reasonCtrl = TextEditingController();
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Text('Từ chối nhận việc'),
         content: TextField(
           controller: reasonCtrl,

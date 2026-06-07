@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../utils/platform_geolocation.dart';
@@ -340,7 +341,7 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
       );
     }
 
-    return AlertDialog(
+    return ScrollableAlertDialog(
       backgroundColor: Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       title: Row(

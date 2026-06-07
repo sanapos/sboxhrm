@@ -11,6 +11,7 @@ using ZKTecoADMS.Application.Commands.Leaves.UndoLeaveApproval;
 using ZKTecoADMS.Application.Queries.Leaves.GetMyLeaves;
 using ZKTecoADMS.Application.Queries.Leaves.GetPendingLeaves;
 using ZKTecoADMS.Application.Queries.Leaves.GetAllLeaves;
+using ZKTecoADMS.Application.Queries.Leaves.GetAnnualLeaveBalance;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.DTOs.Leaves;
 using ZKTecoADMS.Application.Interfaces;
@@ -34,6 +35,16 @@ public class LeavesController(IMediator mediator, IDataScopeService dataScopeSer
         return Ok(result);
     }
 
+    /// <summary>Quỹ phép năm còn lại (từ hồ sơ lương đang hiệu lực).</summary>
+    [HttpGet("annual-balance/{employeeId:guid}")]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Leave", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<AnnualLeaveBalanceDto>>> GetAnnualLeaveBalance(Guid employeeId)
+    {
+        var result = await mediator.Send(new GetAnnualLeaveBalanceQuery(employeeId));
+        return result.IsSuccess ? Ok(result) : BadRequest(result);
+    }
+
     [HttpPost]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
     [RequireModulePermission("Leave", ModulePermissionAction.Create)]
@@ -42,6 +53,7 @@ public class LeavesController(IMediator mediator, IDataScopeService dataScopeSer
         var managerId = request.EmployeeUserId.HasValue ? CurrentUserId : (ManagerId ?? CurrentUserId);
         var employeeUserId = request.EmployeeUserId ?? CurrentUserId;
 
+        var managerCanSetFlags = IsManager;
         var command = new CreateLeaveCommand(
             RequiredStoreId,
             employeeUserId,
@@ -54,7 +66,11 @@ public class LeavesController(IMediator mediator, IDataScopeService dataScopeSer
             request.IsHalfShift,
             request.Reason,
             request.ReplacementEmployeeId,
-            request.EmployeeId);
+            request.EmployeeId,
+            AutoApprove: managerCanSetFlags && request.AutoApprove,
+            CountAsWork: managerCanSetFlags && request.CountAsWork,
+            SickLeaveMode: request.SickLeaveMode,
+            BhxhDocumentNote: request.BhxhDocumentNote);
         
         var result = await mediator.Send(command);
         return Ok(result);
@@ -99,7 +115,10 @@ public class LeavesController(IMediator mediator, IDataScopeService dataScopeSer
             request.Reason,
             request.Status,
             request.ReplacementEmployeeId,
-            request.EmployeeId);
+            request.EmployeeId,
+            CountAsWork: IsManager ? request.CountAsWork : null,
+            SickLeaveMode: request.SickLeaveMode,
+            BhxhDocumentNote: request.BhxhDocumentNote);
         
         var result = await mediator.Send(command);
         return Ok(result);
@@ -139,9 +158,13 @@ public class LeavesController(IMediator mediator, IDataScopeService dataScopeSer
     [HttpPost("{id}/approve")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
     [RequireModulePermission("Leave", ModulePermissionAction.Approve)]
-    public async Task<ActionResult<AppResponse<bool>>> ApproveLeave(Guid id)
+    public async Task<ActionResult<AppResponse<bool>>> ApproveLeave(Guid id, [FromBody] ApproveLeaveRequest? request = null)
     {
-        var command = new ApproveLeaveCommand(RequiredStoreId, id, CurrentUserId);
+        var command = new ApproveLeaveCommand(
+            RequiredStoreId,
+            id,
+            CurrentUserId,
+            IsManager ? request?.CountAsWork : null);
         var result = await mediator.Send(command);
         return Ok(result);
     }

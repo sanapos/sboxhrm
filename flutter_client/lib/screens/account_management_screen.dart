@@ -1,7 +1,10 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import '../widgets/app_scroll_safe.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/hrm_mini_stat_chip.dart';
@@ -19,6 +22,9 @@ class AccountManagementScreen extends StatefulWidget {
 }
 
 class _AccountManagementScreenState extends State<AccountManagementScreen> {
+  PermissionProvider get _perm =>
+      Provider.of<PermissionProvider>(context, listen: false);
+
   final ApiService _apiService = ApiService();
   List<Map<String, dynamic>> _accounts = [];
   List<Map<String, dynamic>> _employees = [];
@@ -217,24 +223,25 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                         ),
                       ] else
                         const Spacer(),
-                      if (Responsive.isMobile(context))
-                        IconButton(
-                          onPressed: () => _showAccountDialog(),
-                          icon: const Icon(Icons.person_add,
-                              color: HrmPageChrome.primaryNavy, size: 22),
-                          tooltip: 'Thêm tài khoản',
-                        )
-                      else
-                        FilledButton.icon(
-                          onPressed: () => _showAccountDialog(),
-                          icon: const Icon(Icons.person_add, size: 18),
-                          label: const Text('Thêm tài khoản'),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: HrmPageChrome.primaryNavy,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 20, vertical: 12),
+                      if (_perm.canCreate('UserManagement'))
+                        if (Responsive.isMobile(context))
+                          IconButton(
+                            onPressed: () => _showAccountDialog(),
+                            icon: const Icon(Icons.person_add,
+                                color: HrmPageChrome.primaryNavy, size: 22),
+                            tooltip: 'Thêm tài khoản',
+                          )
+                        else
+                          FilledButton.icon(
+                            onPressed: () => _showAccountDialog(),
+                            icon: const Icon(Icons.person_add, size: 18),
+                            label: const Text('Thêm tài khoản'),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: HrmPageChrome.primaryNavy,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 20, vertical: 12),
+                            ),
                           ),
-                        ),
                     ],
                   ),
                   const SizedBox(height: 24),
@@ -598,30 +605,33 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
         DataCell(Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            IconButton(
-              onPressed: () => _showChangePasswordDialog(account),
-              icon: const Icon(Icons.lock_reset, size: 18),
-              color: HrmPageChrome.primaryNavy,
-              tooltip: 'Đổi mật khẩu',
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-            ),
-            IconButton(
-              onPressed: () => _showAccountDialog(account: account),
-              icon: const Icon(Icons.edit_outlined, size: 18),
-              color: const Color(0xFF71717A),
-              tooltip: 'Sửa',
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-            ),
-            IconButton(
-              onPressed: () => _deleteAccount(account),
-              icon: const Icon(Icons.delete_outline, size: 18),
-              color: const Color(0xFFEF4444),
-              tooltip: 'Xóa',
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-            ),
+            if (_perm.canEdit('UserManagement'))
+              IconButton(
+                onPressed: () => _showChangePasswordDialog(account),
+                icon: const Icon(Icons.lock_reset, size: 18),
+                color: HrmPageChrome.primaryNavy,
+                tooltip: 'Đổi mật khẩu',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              ),
+            if (_perm.canEdit('UserManagement'))
+              IconButton(
+                onPressed: () => _showAccountDialog(account: account),
+                icon: const Icon(Icons.edit_outlined, size: 18),
+                color: const Color(0xFF71717A),
+                tooltip: 'Sửa',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              ),
+            if (_perm.canDelete('UserManagement'))
+              IconButton(
+                onPressed: () => _deleteAccount(account),
+                icon: const Icon(Icons.delete_outline, size: 18),
+                color: const Color(0xFFEF4444),
+                tooltip: 'Xóa',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              ),
           ],
         )),
       ],
@@ -801,7 +811,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
         .join();
     final roleInfo = _getRoleDisplayInfo(role);
 
-    showModalBottomSheet(
+    showAppSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.white,
@@ -907,59 +917,65 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
               // Action buttons
               Row(
                 children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        _showChangePasswordDialog(account);
-                      },
-                      icon: const Icon(Icons.lock_reset, size: 18),
-                      label: const Text('Đổi MK'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: HrmPageChrome.primaryNavy,
-                        side: const BorderSide(color: HrmPageChrome.primaryNavy),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10)),
+                  if (_perm.canEdit('UserManagement')) ...[
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _showChangePasswordDialog(account);
+                        },
+                        icon: const Icon(Icons.lock_reset, size: 18),
+                        label: const Text('Đổi MK'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: HrmPageChrome.primaryNavy,
+                          side:
+                              const BorderSide(color: HrmPageChrome.primaryNavy),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        _showAccountDialog(account: account);
-                      },
-                      icon: const Icon(Icons.edit_outlined, size: 18),
-                      label: const Text('Sửa'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF71717A),
-                        side: const BorderSide(color: Color(0xFFE4E4E7)),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _showAccountDialog(account: account);
+                        },
+                        icon: const Icon(Icons.edit_outlined, size: 18),
+                        label: const Text('Sửa'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF71717A),
+                          side: const BorderSide(color: Color(0xFFE4E4E7)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        _deleteAccount(account);
-                      },
-                      icon: const Icon(Icons.delete_outline, size: 18),
-                      label: const Text('Xóa'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFFEF4444),
-                        side: const BorderSide(color: Color(0xFFEF4444)),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10)),
+                  ],
+                  if (_perm.canDelete('UserManagement')) ...[
+                    if (_perm.canEdit('UserManagement'))
+                      const SizedBox(width: 10),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _deleteAccount(account);
+                        },
+                        icon: const Icon(Icons.delete_outline, size: 18),
+                        label: const Text('Xóa'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFFEF4444),
+                          side: const BorderSide(color: Color(0xFFEF4444)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ],
@@ -1942,7 +1958,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => ScrollableAlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Xác nhận xóa',

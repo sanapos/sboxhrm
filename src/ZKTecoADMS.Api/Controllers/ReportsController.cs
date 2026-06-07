@@ -84,7 +84,7 @@ public class ReportsController(
     /// Get daily attendance report
     /// </summary>
     [HttpGet("attendance/daily")]
-    [RequireModulePermission("AttendanceReport", ModulePermissionAction.View)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "AttendanceReport", "AttendanceSummary", "AttendanceByShift", "Attendance")]
     public async Task<ActionResult<AppResponse<DailyAttendanceReportDto>>> GetDailyAttendanceReport(
         [FromQuery] DateTime? date = null,
         [FromQuery] string? department = null,
@@ -157,6 +157,7 @@ public class ReportsController(
                     && l.StartDate <= targetDate 
                     && l.EndDate >= targetDate
                     && l.Status == LeaveStatus.Approved
+                    && !l.CountAsWork
                     && employeeUserIds.Contains(l.EmployeeUserId))
                 .Select(l => l.EmployeeUserId)
                 .ToListAsync();
@@ -634,7 +635,7 @@ public class ReportsController(
     /// Get monthly attendance summary report
     /// </summary>
     [HttpGet("attendance/monthly")]
-    [RequireModulePermission("AttendanceReport", ModulePermissionAction.View)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "AttendanceReport", "AttendanceSummary", "AttendanceByShift", "Attendance")]
     public async Task<ActionResult<AppResponse<MonthlyAttendanceReportDto>>> GetMonthlyAttendanceReport(
         [FromQuery] int? year = null,
         [FromQuery] int? month = null,
@@ -693,6 +694,7 @@ public class ReportsController(
                     && l.StartDate <= endDate 
                     && l.EndDate >= startDate
                     && l.Status == LeaveStatus.Approved
+                    && !l.CountAsWork
                     && employeeUserIds.Contains(l.EmployeeUserId))
                 .Select(l => new { l.EmployeeUserId, l.StartDate, l.EndDate })
                 .ToListAsync();
@@ -833,7 +835,7 @@ public class ReportsController(
     /// Get individual employee attendance report
     /// </summary>
     [HttpGet("attendance/employee/{employeeId}")]
-    [RequireModulePermission("AttendanceReport", ModulePermissionAction.View)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "AttendanceReport", "AttendanceSummary", "AttendanceByShift", "Attendance")]
     public async Task<ActionResult<AppResponse<EmployeeAttendanceReportDto>>> GetEmployeeAttendanceReport(
         Guid employeeId,
         [FromQuery] DateTime? startDate = null,
@@ -870,7 +872,8 @@ public class ReportsController(
                     .Where(l => l.EmployeeUserId == employee.ApplicationUserId.Value
                         && l.StartDate <= end 
                         && l.EndDate >= start
-                        && l.Status == LeaveStatus.Approved)
+                        && l.Status == LeaveStatus.Approved
+                        && !l.CountAsWork)
                     .Select(l => new ValueTuple<DateTime, DateTime>(l.StartDate, l.EndDate))
                     .ToListAsync();
             }
@@ -1016,7 +1019,7 @@ public class ReportsController(
     /// Get late arrival and early leaving report
     /// </summary>
     [HttpGet("late-early")]
-    [RequireModulePermission("AttendanceReport", ModulePermissionAction.View)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "AttendanceReport", "AttendanceSummary", "AttendanceByShift", "Attendance")]
     public async Task<ActionResult<AppResponse<LateEarlyReportDto>>> GetLateEarlyReport(
         [FromQuery] DateTime? startDate = null,
         [FromQuery] DateTime? endDate = null,
@@ -1304,7 +1307,7 @@ public class ReportsController(
     /// Get department summary report
     /// </summary>
     [HttpGet("department-summary")]
-    [RequireModulePermission("AttendanceReport", ModulePermissionAction.View)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "AttendanceReport", "AttendanceSummary", "AttendanceByShift", "Attendance")]
     public async Task<ActionResult<AppResponse<DepartmentSummaryReportDto>>> GetDepartmentSummaryReport(
         [FromQuery] int? year = null,
         [FromQuery] int? month = null)
@@ -1440,7 +1443,7 @@ public class ReportsController(
     /// Get overtime report
     /// </summary>
     [HttpGet("overtime")]
-    [RequireModulePermission("AttendanceReport", ModulePermissionAction.View)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "AttendanceReport", "AttendanceSummary", "AttendanceByShift", "Attendance")]
     public async Task<ActionResult<AppResponse<OvertimeReportDto>>> GetOvertimeReport(
         [FromQuery] DateTime? startDate = null,
         [FromQuery] DateTime? endDate = null,
@@ -1691,7 +1694,7 @@ public class ReportsController(
     /// Export daily attendance report to CSV
     /// </summary>
     [HttpGet("export/daily")]
-    [RequireModulePermission("AttendanceReport", ModulePermissionAction.Export)]
+    [RequireAnyModulePermission(ModulePermissionAction.Export, "AttendanceReport", "AttendanceSummary", "AttendanceByShift", "Attendance")]
     public async Task<IActionResult> ExportDailyReport(
         [FromQuery] DateTime? date = null,
         [FromQuery] string format = "csv",
@@ -1744,7 +1747,7 @@ public class ReportsController(
     /// Export monthly attendance report to CSV
     /// </summary>
     [HttpGet("export/monthly")]
-    [RequireModulePermission("AttendanceReport", ModulePermissionAction.Export)]
+    [RequireAnyModulePermission(ModulePermissionAction.Export, "AttendanceReport", "AttendanceSummary", "AttendanceByShift", "Attendance")]
     public async Task<IActionResult> ExportMonthlyReport(
         [FromQuery] int? year = null,
         [FromQuery] int? month = null,
@@ -1798,7 +1801,7 @@ public class ReportsController(
     /// Export late/early report to CSV
     /// </summary>
     [HttpGet("export/late-early")]
-    [RequireModulePermission("AttendanceReport", ModulePermissionAction.Export)]
+    [RequireAnyModulePermission(ModulePermissionAction.Export, "AttendanceReport", "AttendanceSummary", "AttendanceByShift", "Attendance")]
     public async Task<IActionResult> ExportLateEarlyReport(
         [FromQuery] DateTime? startDate = null,
         [FromQuery] DateTime? endDate = null,
@@ -1845,7 +1848,7 @@ public class ReportsController(
     /// Export daily attendance report to Excel
     /// </summary>
     [HttpGet("export/excel/daily")]
-    [RequireModulePermission("AttendanceReport", ModulePermissionAction.Export)]
+    [RequireAnyModulePermission(ModulePermissionAction.Export, "AttendanceReport", "AttendanceSummary", "AttendanceByShift", "Attendance")]
     public async Task<IActionResult> ExportDailyReportExcel(
         [FromQuery] DateTime? date = null,
         [FromQuery] string? department = null,
@@ -1921,7 +1924,7 @@ public class ReportsController(
     /// Export monthly attendance report to Excel
     /// </summary>
     [HttpGet("export/excel/monthly")]
-    [RequireModulePermission("AttendanceReport", ModulePermissionAction.Export)]
+    [RequireAnyModulePermission(ModulePermissionAction.Export, "AttendanceReport", "AttendanceSummary", "AttendanceByShift", "Attendance")]
     public async Task<IActionResult> ExportMonthlyReportExcel(
         [FromQuery] int? year = null,
         [FromQuery] int? month = null,
@@ -2014,7 +2017,7 @@ public class ReportsController(
     /// Export employee attendance report to Excel
     /// </summary>
     [HttpGet("export/excel/employee/{employeeId}")]
-    [RequireModulePermission("AttendanceReport", ModulePermissionAction.Export)]
+    [RequireAnyModulePermission(ModulePermissionAction.Export, "AttendanceReport", "AttendanceSummary", "AttendanceByShift", "Attendance")]
     public async Task<IActionResult> ExportEmployeeReportExcel(
         Guid employeeId,
         [FromQuery] DateTime? startDate = null,
@@ -2101,7 +2104,7 @@ public class ReportsController(
     /// Export late/early report to Excel
     /// </summary>
     [HttpGet("export/excel/late-early")]
-    [RequireModulePermission("AttendanceReport", ModulePermissionAction.Export)]
+    [RequireAnyModulePermission(ModulePermissionAction.Export, "AttendanceReport", "AttendanceSummary", "AttendanceByShift", "Attendance")]
     public async Task<IActionResult> ExportLateEarlyReportExcel(
         [FromQuery] DateTime? startDate = null,
         [FromQuery] DateTime? endDate = null,
@@ -2181,7 +2184,7 @@ public class ReportsController(
     /// Export department summary report to Excel
     /// </summary>
     [HttpGet("export/excel/department")]
-    [RequireModulePermission("AttendanceReport", ModulePermissionAction.Export)]
+    [RequireAnyModulePermission(ModulePermissionAction.Export, "AttendanceReport", "AttendanceSummary", "AttendanceByShift", "Attendance")]
     public async Task<IActionResult> ExportDepartmentSummaryExcel(
         [FromQuery] int? year = null,
         [FromQuery] int? month = null)
@@ -2244,7 +2247,7 @@ public class ReportsController(
     /// Export overtime report to Excel
     /// </summary>
     [HttpGet("export/excel/overtime")]
-    [RequireModulePermission("AttendanceReport", ModulePermissionAction.Export)]
+    [RequireAnyModulePermission(ModulePermissionAction.Export, "AttendanceReport", "AttendanceSummary", "AttendanceByShift", "Attendance")]
     public async Task<IActionResult> ExportOvertimeReportExcel(
         [FromQuery] DateTime? startDate = null,
         [FromQuery] DateTime? endDate = null)

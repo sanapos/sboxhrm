@@ -1,4 +1,5 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
@@ -1340,7 +1341,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                               backgroundColor: Colors.blue[100],
                               backgroundImage:
                                   photo != null && photo.isNotEmpty
-                                      ? NetworkImage(photo)
+                                      ? _apiService.storeImageProvider(photo)
                                       : null,
                               onBackgroundImageError: photo != null && photo.isNotEmpty ? (_, __) {} : null,
                               child: photo == null || photo.isEmpty
@@ -2294,7 +2295,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
               ),
             );
           }
-          return AlertDialog(
+          return ScrollableAlertDialog(
             title: Row(
               children: [
                 Icon(
@@ -2324,7 +2325,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
   void _confirmDelete(Department dept) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => ScrollableAlertDialog(
         title: const Row(
           children: [
             Icon(Icons.warning, color: Colors.red),

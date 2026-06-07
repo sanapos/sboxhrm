@@ -1,13 +1,13 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
+import 'app_scroll_safe.dart';
 import 'package:intl/intl.dart';
-import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/mobile_attendance.dart';
 import '../services/api_service.dart';
 import 'map_location_picker.dart';
+import 'punch_location_preview.dart';
+import 'punch_photo_preview.dart';
 
 /// Chi tiết bản ghi chấm công mobile — vị trí GPS, ảnh mặt, duyệt (tuỳ chọn).
 Future<void> showMobileAttendanceRecordDetailSheet(
@@ -19,7 +19,7 @@ Future<void> showMobileAttendanceRecordDetailSheet(
   VoidCallback? onApprove,
   VoidCallback? onReject,
 }) {
-  return showModalBottomSheet<void>(
+  return showAppSheet<void>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
@@ -40,7 +40,7 @@ Future<void> showMobileAttendanceRecordDetailSheet(
   );
 }
 
-class _MobileAttendanceRecordDetailBody extends StatelessWidget {
+class _MobileAttendanceRecordDetailBody extends StatefulWidget {
   const _MobileAttendanceRecordDetailBody({
     required this.record,
     required this.scrollController,
@@ -57,8 +57,46 @@ class _MobileAttendanceRecordDetailBody extends StatelessWidget {
   final VoidCallback? onApprove;
   final VoidCallback? onReject;
 
+  @override
+  State<_MobileAttendanceRecordDetailBody> createState() =>
+      _MobileAttendanceRecordDetailBodyState();
+}
+
+class _MobileAttendanceRecordDetailBodyState
+    extends State<_MobileAttendanceRecordDetailBody> {
+  late MobileAttendanceRecord _record;
+  bool _loadingDetail = false;
+
+  bool get _isPending => _record.status == 'pending';
+
+  @override
+  void initState() {
+    super.initState();
+    _record = widget.record;
+    _loadRecordDetail();
+  }
+
+  Future<void> _loadRecordDetail() async {
+    final id = widget.record.id.trim();
+    if (id.isEmpty) return;
+    setState(() => _loadingDetail = true);
+    try {
+      final res = await widget.apiService.getMobileAttendanceRecord(id);
+      if (!mounted) return;
+      if (res['isSuccess'] == true && res['data'] is Map) {
+        setState(() {
+          _record = MobileAttendanceRecord.fromJson(
+            Map<String, dynamic>.from(res['data'] as Map),
+          );
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _loadingDetail = false);
+    }
+  }
+
   String _statusLabel() {
-    switch (record.status) {
+    switch (_record.status) {
       case 'auto_approved':
         return 'Tự động duyệt';
       case 'approved':
@@ -71,7 +109,7 @@ class _MobileAttendanceRecordDetailBody extends StatelessWidget {
   }
 
   String _verifyLabel() {
-    switch (record.verifyMethod) {
+    switch (_record.verifyMethod) {
       case 'face_gps':
         return 'Face ID + GPS';
       case 'face':
@@ -81,17 +119,17 @@ class _MobileAttendanceRecordDetailBody extends StatelessWidget {
       case 'wifi':
         return 'WiFi';
       default:
-        return record.verifyMethod;
+        return _record.verifyMethod;
     }
   }
 
   Future<void> _openFullMap(BuildContext context) async {
-    if (!record.hasGpsLocation) return;
-    final lat = record.latitude!;
-    final lng = record.longitude!;
-    final title = record.locationName?.isNotEmpty == true
-        ? record.locationName!
-        : record.employeeName;
+    if (!_record.hasGpsLocation) return;
+    final lat = _record.latitude!;
+    final lng = _record.longitude!;
+    final title = _record.locationName?.isNotEmpty == true
+        ? _record.locationName!
+        : _record.employeeName;
 
     final isMobile = MediaQuery.of(context).size.width < 600;
     if (isMobile) {
@@ -118,6 +156,7 @@ class _MobileAttendanceRecordDetailBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final record = _record;
     final isCheckIn = record.punchType == 0;
     final punchColor =
         isCheckIn ? const Color(0xFF1E3A5F) : const Color(0xFFEF4444);
@@ -141,7 +180,7 @@ class _MobileAttendanceRecordDetailBody extends StatelessWidget {
           ),
           Expanded(
             child: ListView(
-              controller: scrollController,
+              controller: widget.scrollController,
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
               children: [
                 Row(
@@ -188,18 +227,35 @@ class _MobileAttendanceRecordDetailBody extends StatelessWidget {
                   style: const TextStyle(
                       fontSize: 13, color: Color(0xFF71717A)),
                 ),
-                _PunchPhotoSection(
-                  punchFacePath: record.faceImageUrl,
-                  avatarPath: employeeAvatarUrl ?? record.employeePhotoUrl,
-                  apiService: apiService,
-                ),
-                const SizedBox(height: 16),
+                if (_isPending) ...[
+                  const SizedBox(height: 16),
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Ảnh hiện trường (check-in CT)',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF18181B),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  PunchPhotoPreview(
+                    imagePath: _record.sitePhotoUrl?.trim().isNotEmpty == true
+                        ? _record.sitePhotoUrl!.trim()
+                        : null,
+                    apiService: widget.apiService,
+                    emptyHint: 'Chưa có ảnh hiện trường — chụp khi chấm công',
+                  ),
+                  const SizedBox(height: 16),
+                ],
                 _DetailRow(
                   icon: Icons.place_outlined,
                   label: 'Điểm chấm công',
-                  value: record.locationName?.isNotEmpty == true
-                      ? record.locationName!
-                      : '—',
+                  value: record.locationName?.trim().isNotEmpty == true
+                      ? record.locationName!.trim()
+                      : (record.hasGpsLocation ? 'Tọa độ GPS' : '—'),
                 ),
                 _DetailRow(
                   icon: Icons.straighten,
@@ -256,7 +312,7 @@ class _MobileAttendanceRecordDetailBody extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 if (record.hasGpsLocation) ...[
-                  _PunchLocationPreview(
+                  PunchLocationPreview(
                     latitude: record.latitude!,
                     longitude: record.longitude!,
                     onTap: () => _openFullMap(context),
@@ -308,19 +364,19 @@ class _MobileAttendanceRecordDetailBody extends StatelessWidget {
               ],
             ),
           ),
-          if (onApprove != null || onReject != null)
+          if (widget.onApprove != null || widget.onReject != null)
             SafeArea(
               top: false,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
                 child: Row(
                   children: [
-                    if (onReject != null)
+                    if (widget.onReject != null)
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: () {
                             Navigator.pop(context);
-                            onReject!();
+                            widget.onReject!();
                           },
                           icon: const Icon(Icons.close, size: 18),
                           label: const Text('Từ chối'),
@@ -331,14 +387,14 @@ class _MobileAttendanceRecordDetailBody extends StatelessWidget {
                           ),
                         ),
                       ),
-                    if (onReject != null && onApprove != null)
+                    if (widget.onReject != null && widget.onApprove != null)
                       const SizedBox(width: 12),
-                    if (onApprove != null)
+                    if (widget.onApprove != null)
                       Expanded(
                         child: FilledButton.icon(
                           onPressed: () {
                             Navigator.pop(context);
-                            onApprove!();
+                            widget.onApprove!();
                           },
                           icon: const Icon(Icons.check, size: 18),
                           label: const Text('Duyệt'),
@@ -354,84 +410,6 @@ class _MobileAttendanceRecordDetailBody extends StatelessWidget {
             ),
         ],
       ),
-    );
-  }
-}
-
-/// Ảnh chấm công; nếu không còn file thì dùng ảnh đại diện; không có cả hai thì ẩn.
-class _PunchPhotoSection extends StatefulWidget {
-  const _PunchPhotoSection({
-    required this.punchFacePath,
-    required this.avatarPath,
-    required this.apiService,
-  });
-
-  final String? punchFacePath;
-  final String? avatarPath;
-  final ApiService apiService;
-
-  @override
-  State<_PunchPhotoSection> createState() => _PunchPhotoSectionState();
-}
-
-class _PunchPhotoSectionState extends State<_PunchPhotoSection> {
-  String? _resolvedPath;
-  bool _hidden = false;
-
-  static String? _trimmed(String? v) {
-    final t = v?.trim();
-    return (t == null || t.isEmpty) ? null : t;
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _resolvedPath = _pickInitial();
-  }
-
-  String? _pickInitial() {
-    return _trimmed(widget.punchFacePath) ?? _trimmed(widget.avatarPath);
-  }
-
-  void _onLoadFailed() {
-    final punch = _trimmed(widget.punchFacePath);
-    final avatar = _trimmed(widget.avatarPath);
-    if (_resolvedPath == punch && avatar != null) {
-      setState(() => _resolvedPath = avatar);
-      return;
-    }
-    setState(() => _hidden = true);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_hidden || _resolvedPath == null) return const SizedBox.shrink();
-
-    return Column(
-      children: [
-        const SizedBox(height: 16),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: AspectRatio(
-            aspectRatio: 4 / 3,
-            child: CachedNetworkImage(
-              key: ValueKey(_resolvedPath),
-              imageUrl: widget.apiService.getFileUrl(_resolvedPath!),
-              fit: BoxFit.cover,
-              placeholder: (_, __) => const Center(
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-              errorWidget: (_, __, ___) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (!mounted) return;
-                  _onLoadFailed();
-                });
-                return const SizedBox.shrink();
-              },
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
@@ -474,93 +452,6 @@ class _DetailRow extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _PunchLocationPreview extends StatelessWidget {
-  const _PunchLocationPreview({
-    required this.latitude,
-    required this.longitude,
-    required this.onTap,
-  });
-
-  final double latitude;
-  final double longitude;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final point = LatLng(latitude, longitude);
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: SizedBox(
-            height: 180,
-            child: Stack(
-              children: [
-                FlutterMap(
-                  options: MapOptions(
-                    initialCenter: point,
-                    initialZoom: 16,
-                    interactionOptions: const InteractionOptions(
-                      flags: InteractiveFlag.none,
-                    ),
-                  ),
-                  children: [
-                    TileLayer(
-                      urlTemplate:
-                          'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-                      subdomains: const ['a', 'b', 'c', 'd'],
-                      userAgentPackageName: 'com.zktecoadms.app',
-                    ),
-                    MarkerLayer(
-                      markers: [
-                        Marker(
-                          point: point,
-                          width: 36,
-                          height: 36,
-                          child: const Icon(
-                            Icons.location_on,
-                            color: Color(0xFFDC2626),
-                            size: 36,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                Positioned(
-                  right: 8,
-                  top: 8,
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.92),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.touch_app, size: 14, color: Color(0xFF1E3A5F)),
-                        SizedBox(width: 4),
-                        Text('Chạm để phóng to',
-                            style: TextStyle(
-                                fontSize: 11, color: Color(0xFF1E3A5F))),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }

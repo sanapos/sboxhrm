@@ -1,5 +1,7 @@
 class User {
   final String id;
+  /// Mã nhân viên HR (claim JWT `employeeId`) — dùng cho mobile/face, khác `id` (tài khoản).
+  final String? employeeId;
   final String email;
   final String fullName;
   final String role;
@@ -12,6 +14,7 @@ class User {
 
   User({
     required this.id,
+    this.employeeId,
     required this.email,
     required this.fullName,
     required this.role,
@@ -27,6 +30,7 @@ class User {
   User copyWith({List<String>? allowedModules}) {
     return User(
       id: id,
+      employeeId: employeeId,
       email: email,
       fullName: fullName,
       role: role,
@@ -42,6 +46,7 @@ class User {
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
       id: json['id'] ?? '',
+      employeeId: json['employeeId']?.toString(),
       email: json['email'] ?? '',
       fullName: json['fullName'] ?? json['userName'] ?? '',
       role: json['role'] ?? 'Employee',

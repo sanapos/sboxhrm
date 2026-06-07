@@ -45,6 +45,11 @@ public class AuthorizedMobileDevice : AuditableEntity<Guid>
     public bool AllowOutsideCheckIn { get; set; } = false;
 
     /// <summary>
+    /// Bắt chụp ảnh hiện trường sau khi chấm công (cần bật RequirePhotoProof ở cài đặt cửa hàng).
+    /// </summary>
+    public bool RequirePhotoProof { get; set; } = false;
+
+    /// <summary>
     /// MAC address của WiFi router khi đăng ký thiết bị (BSSID).
     /// </summary>
     [MaxLength(50)]
@@ -53,4 +58,8 @@ public class AuthorizedMobileDevice : AuditableEntity<Guid>
     public DateTime? AuthorizedAt { get; set; }
 
     public DateTime? LastUsedAt { get; set; }
+
+    /// <summary>JSON mảng Guid — chi nhánh NV chọn lúc đăng ký thiết bị (chờ duyệt).</summary>
+    [MaxLength(4000)]
+    public string? SelectedLocationIdsJson { get; set; }
 }

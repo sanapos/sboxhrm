@@ -1,6 +1,7 @@
-﻿import 'dart:io';
+import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:flutter/rendering.dart';
 import 'package:intl/intl.dart';
 import 'package:excel/excel.dart' hide Border, BorderStyle;
@@ -312,7 +313,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
     final noteCtl = TextEditingController();
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: Text('Thu tiền - ${debt.employeeName}'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -487,7 +488,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             );
           }
 
-          return AlertDialog(
+          return ScrollableAlertDialog(
             title: const Text('Thêm buổi ăn'),
             content: SingleChildScrollView(child: formBody),
             actions: [
@@ -505,7 +506,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
   void _showDeleteSessionDialog(MealSession session) {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Text('Xóa buổi ăn'),
         content: Text('Bạn có chắc muốn xóa "${session.name}"?'),
         actions: [
@@ -820,7 +821,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             );
           }
 
-          return AlertDialog(
+          return ScrollableAlertDialog(
             title: const Text('Tạo thực đơn'),
             content: SizedBox(
               width: 400,
@@ -1102,7 +1103,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
               ),
             );
           }
-          return AlertDialog(
+          return ScrollableAlertDialog(
             title: const Text('Sửa thực đơn'),
             content: SizedBox(
                 width: 400, child: SingleChildScrollView(child: formBody)),
@@ -1121,7 +1122,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
   Future<void> _deleteMenu(MealMenu menu) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Text('Xoá thực đơn'),
         content: Text(
             'Bạn có chắc muốn xoá thực đơn ${menu.mealSessionName ?? ''} ngày ${DateFormat('dd/MM/yyyy').format(menu.date)}?'),
@@ -1286,32 +1287,38 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
               : grouped;
 
           Widget buildContent() {
+            final perm = Provider.of<PermissionProvider>(ctx, listen: false);
+            final canCreateMeal = perm.canCreate('Meal');
+            final canEditMeal = perm.canEdit('Meal');
+            final canDeleteMeal = perm.canDelete('Meal');
             return Column(
               children: [
                 // Action buttons
-                Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: FilledButton.icon(
-                          onPressed: () => _showAddDishDialog(ctx, setDlgState),
-                          icon: const Icon(Icons.add, size: 18),
-                          label: const Text('Thêm món'),
+                if (canCreateMeal)
+                  Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: FilledButton.icon(
+                            onPressed: () =>
+                                _showAddDishDialog(ctx, setDlgState),
+                            icon: const Icon(Icons.add, size: 18),
+                            label: const Text('Thêm món'),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () =>
-                              _showCategoryManagementDialog(ctx, setDlgState),
-                          icon: const Icon(Icons.category, size: 18),
-                          label: const Text('Nhóm món'),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => _showCategoryManagementDialog(
+                                ctx, setDlgState),
+                            icon: const Icon(Icons.category, size: 18),
+                            label: const Text('Nhóm món'),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
                 // Category filter chips
                 if (categories.isNotEmpty)
                   Padding(
@@ -1379,33 +1386,45 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                 ),
                                 ...catEntry.value.map((dish) => ListTile(
                                       title: Text(dish.name),
-                                      trailing: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          IconButton(
-                                            icon: const Icon(Icons.edit,
-                                                size: 20,
-                                                color: Color(0xFF3B82F6)),
-                                            onPressed: () =>
-                                                _showEditDishDialog(
-                                                    ctx, setDlgState, dish),
-                                          ),
-                                          IconButton(
-                                            icon: const Icon(Icons.delete,
-                                                size: 20, color: Colors.red),
-                                            onPressed: () async {
-                                              final res = await _apiService
-                                                  .deleteMealDish(dish.id);
-                                              if (res['isSuccess'] == true) {
-                                                await _loadMasterDishes();
-                                                if (ctx.mounted) {
-                                                  setDlgState(() {});
-                                                }
-                                              }
-                                            },
-                                          ),
-                                        ],
-                                      ),
+                                      trailing: (canEditMeal || canDeleteMeal)
+                                          ? Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                if (canEditMeal)
+                                                  IconButton(
+                                                    icon: const Icon(Icons.edit,
+                                                        size: 20,
+                                                        color: Color(
+                                                            0xFF3B82F6)),
+                                                    onPressed: () =>
+                                                        _showEditDishDialog(
+                                                            ctx,
+                                                            setDlgState,
+                                                            dish),
+                                                  ),
+                                                if (canDeleteMeal)
+                                                  IconButton(
+                                                    icon: const Icon(
+                                                        Icons.delete,
+                                                        size: 20,
+                                                        color: Colors.red),
+                                                    onPressed: () async {
+                                                      final res =
+                                                          await _apiService
+                                                              .deleteMealDish(
+                                                                  dish.id);
+                                                      if (res['isSuccess'] ==
+                                                          true) {
+                                                        await _loadMasterDishes();
+                                                        if (ctx.mounted) {
+                                                          setDlgState(() {});
+                                                        }
+                                                      }
+                                                    },
+                                                  ),
+                                              ],
+                                            )
+                                          : null,
                                     )),
                               ],
                             );
@@ -1429,7 +1448,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
               ),
             );
           }
-          return AlertDialog(
+          return ScrollableAlertDialog(
             title: const Text('Quản lý danh sách món'),
             content: SizedBox(width: 450, height: 500, child: buildContent()),
             actions: [
@@ -1450,7 +1469,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlgState) {
           final categories = _getDistinctCategories();
-          return AlertDialog(
+          return ScrollableAlertDialog(
             title: const Text('Nhóm món hiện có'),
             content: SizedBox(
               width: 350,
@@ -1499,7 +1518,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
     showDialog(
       context: parentCtx,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDlgState) => AlertDialog(
+        builder: (ctx, setDlgState) => ScrollableAlertDialog(
           title: const Text('Thêm món mới'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1614,7 +1633,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
     showDialog(
       context: parentCtx,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDlgState) => AlertDialog(
+        builder: (ctx, setDlgState) => ScrollableAlertDialog(
           title: const Text('Sửa món'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -2708,7 +2727,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
           );
         }
 
-        return AlertDialog(
+        return ScrollableAlertDialog(
           title: Text(emp.employeeName),
           content: SizedBox(
             width: 400,
@@ -3110,7 +3129,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                     onPressed: () {
                       showDialog(
                         context: context,
-                        builder: (ctx) => AlertDialog(
+                        builder: (ctx) => ScrollableAlertDialog(
                           title: const Text('Tính tiền cơm'),
                           content: Text(
                               'Tự động tính tiền cơm cho tất cả nhân viên tháng $_debtPeriod dựa trên số suất ăn thực tế?'),
@@ -3448,7 +3467,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             ),
           );
         }
-        return AlertDialog(
+        return ScrollableAlertDialog(
           title: Text('Công nợ - ${debt.employeeName}'),
           content: SizedBox(width: 400, height: 400, child: buildList()),
           actions: [
@@ -3471,7 +3490,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDlgState) => AlertDialog(
+        builder: (ctx, setDlgState) => ScrollableAlertDialog(
           title: const Text('Thêm chấm cơm thủ công'),
           content: SizedBox(
             width: 380,
@@ -3583,7 +3602,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDlgState) => AlertDialog(
+        builder: (ctx, setDlgState) => ScrollableAlertDialog(
           title: Text('Sửa chấm cơm - ${record.employeeName}'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -3651,7 +3670,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
   Future<void> _deleteRecord(MealRecord record) async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Text('Xác nhận xóa'),
         content: Text('Xóa chấm cơm của ${record.employeeName}?'),
         actions: [
@@ -3740,7 +3759,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
           );
         }
 
-        return AlertDialog(
+        return ScrollableAlertDialog(
           title: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [

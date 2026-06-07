@@ -6,6 +6,16 @@ public class PaginationRequest
 {
     public int PageNumber { get; set; } = 1;
 
+    /// <summary>Alias ?page= (Flutter/web) — gán vào <see cref="PageNumber"/>.</summary>
+    public int Page
+    {
+        get => PageNumber;
+        set
+        {
+            if (value > 0) PageNumber = value;
+        }
+    }
+
     public int PageSize { get; set; } = 20;
 
     public string? SortBy { get; set; } = nameof(Entity<Guid>.CreatedAt);

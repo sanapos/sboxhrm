@@ -59,10 +59,17 @@ class _MobileDeviceRegistrationScreenState
   String? _changeRequestReason;
   StreamSubscription<Map<String, dynamic>>? _notificationSubscription;
 
+  // Work locations for registration / device change
+  List<Map<String, dynamic>> _registrationLocations = [];
+  final Set<String> _selectedLocationIds = {};
+  bool _loadingLocations = false;
+  String? _locationsError;
+
   @override
   void initState() {
     super.initState();
     _loadDeviceInfo();
+    _loadRegistrationLocations();
     _checkRegistrationStatus();
     ScreenRefreshNotifier.mobileDeviceRegistration.addListener(_onExternalRefresh);
     _notificationSubscription =
@@ -166,6 +173,180 @@ class _MobileDeviceRegistrationScreenState
     await _detectBssid();
   }
 
+  Future<void> _loadRegistrationLocations({List<String>? preselectIds}) async {
+    setState(() {
+      _loadingLocations = true;
+      _locationsError = null;
+    });
+    try {
+      final response = await _apiService.getLocationsForRegistration();
+      if (!mounted) return;
+      if (response['isSuccess'] == true && response['data'] is List) {
+        final list = (response['data'] as List)
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
+        final preselect = <String>{};
+        if (preselectIds != null) {
+          preselect.addAll(preselectIds.where((e) => e.isNotEmpty));
+        }
+        setState(() {
+          _registrationLocations = list;
+          _selectedLocationIds
+            ..clear()
+            ..addAll(preselect);
+          _loadingLocations = false;
+        });
+      } else {
+        setState(() {
+          _registrationLocations = [];
+          _loadingLocations = false;
+          _locationsError =
+              response['message']?.toString() ?? 'Không tải được danh sách vị trí';
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _registrationLocations = [];
+        _loadingLocations = false;
+        _locationsError = 'Lỗi tải vị trí: $e';
+      });
+    }
+  }
+
+  void _toggleLocationSelection(String locationId) {
+    setState(() {
+      if (_selectedLocationIds.contains(locationId)) {
+        _selectedLocationIds.remove(locationId);
+      } else {
+        _selectedLocationIds.add(locationId);
+      }
+    });
+  }
+
+  List<String> get _selectedLocationIdList =>
+      _selectedLocationIds.where((e) => e.isNotEmpty).toList();
+
+  bool get _hasValidLocationSelection => _selectedLocationIdList.isNotEmpty;
+
+  Widget _buildLocationPicker({required int step}) {
+    return _buildStepCard(
+      step: step,
+      title: 'Vị trí chấm công',
+      subtitle: _selectedLocationIds.isEmpty
+          ? 'Chọn ít nhất 1 vị trí'
+          : 'Đã chọn ${_selectedLocationIds.length} vị trí',
+      icon: Icons.location_on_outlined,
+      isCompleted: _hasValidLocationSelection,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Chọn các chi nhánh/vị trí bạn sẽ chấm công. '
+            'Sau khi được duyệt, hệ thống tự gán bạn vào các vị trí này.',
+            style: TextStyle(
+              color: Color(0xFF71717A),
+              fontSize: 13,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (_loadingLocations)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(12),
+                child: CircularProgressIndicator(),
+              ),
+            )
+          else if (_locationsError != null)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _locationsError!,
+                  style: const TextStyle(color: Color(0xFFEF4444), fontSize: 13),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: () => _loadRegistrationLocations(),
+                  icon: const Icon(Icons.refresh, size: 18),
+                  label: const Text('Tải lại'),
+                ),
+              ],
+            )
+          else if (_registrationLocations.isEmpty)
+            const Text(
+              'Chưa có vị trí chấm công active. Liên hệ quản trị thiết lập tab Vị trí.',
+              style: TextStyle(color: Color(0xFFF59E0B), fontSize: 13),
+            )
+          else
+            ..._registrationLocations.map((loc) {
+              final id = loc['id']?.toString() ?? '';
+              final name = loc['name']?.toString() ?? 'Vị trí';
+              final address = loc['address']?.toString();
+              final selected = _selectedLocationIds.contains(id);
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Material(
+                  color: selected
+                      ? HrmPageChrome.primaryNavy.withValues(alpha: 0.06)
+                      : const Color(0xFFF4F4F5),
+                  borderRadius: BorderRadius.circular(10),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(10),
+                    onTap: id.isEmpty ? null : () => _toggleLocationSelection(id),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
+                      child: Row(
+                        children: [
+                          Icon(
+                            selected
+                                ? Icons.check_circle
+                                : Icons.radio_button_unchecked,
+                            size: 20,
+                            color: selected
+                                ? HrmPageChrome.primaryNavy
+                                : const Color(0xFFA1A1AA),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  name,
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF18181B),
+                                  ),
+                                ),
+                                if (address != null && address.isNotEmpty)
+                                  Text(
+                                    address,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF71717A),
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }),
+        ],
+      ),
+    );
+  }
+
   Future<void> _detectBssid() async {
     try {
       if (!kIsWeb) {
@@ -190,7 +371,7 @@ class _MobileDeviceRegistrationScreenState
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final user = authProvider.currentUser;
-      final employeeId = user?.id ?? '';
+      final employeeId = user?.employeeId ?? user?.id ?? '';
 
       final response = await _apiService.getMyDeviceStatus(
         employeeId: employeeId,
@@ -222,6 +403,28 @@ class _MobileDeviceRegistrationScreenState
                   changeReqResponse['data']?['newDeviceName'];
             });
           } else {
+            final preselect = <String>[];
+            final swl = data['selectedWorkLocations'];
+            if (swl is Map<String, dynamic>) {
+              final ids = swl['ids'];
+              if (ids is List) {
+                preselect.addAll(ids.map((e) => e.toString()));
+              }
+            }
+            if (preselect.isEmpty) {
+              final raw = data['selectedWorkLocationIds']?.toString();
+              if (raw != null && raw.isNotEmpty) {
+                try {
+                  final decoded = jsonDecode(raw);
+                  if (decoded is List) {
+                    preselect.addAll(decoded.map((e) => e.toString()));
+                  }
+                } catch (_) {}
+              }
+            }
+            if (preselect.isNotEmpty) {
+              _loadRegistrationLocations(preselectIds: preselect);
+            }
             setState(() {
               _status = _RegStatus.alreadyRegisteredOnOtherDevice;
               _existingDeviceName = data['deviceName'];
@@ -265,9 +468,15 @@ class _MobileDeviceRegistrationScreenState
           });
         }
       } else {
+        final code = response['statusCode'];
+        var msg = response['message']?.toString() ?? 'Không thể kiểm tra trạng thái';
+        if (code == 403) {
+          msg =
+              'Tài khoản chưa có quyền đăng ký chấm công mobile. Liên hệ quản trị bật quyền «Đăng ký CC Mobile» hoặc «Chấm công mobile».';
+        }
         setState(() {
           _status = _RegStatus.error;
-          _errorMessage = response['message'] ?? 'Không thể kiểm tra trạng thái';
+          _errorMessage = msg;
         });
       }
     } catch (e) {
@@ -346,6 +555,10 @@ class _MobileDeviceRegistrationScreenState
   }
 
   Future<void> _submitRegistration() async {
+    if (!_hasValidLocationSelection) {
+      _showSnackBar('Chọn ít nhất một vị trí chấm công', isError: true);
+      return;
+    }
     if (_capturedImages.length < 5) {
       _showSnackBar('Cần đủ 5 ảnh khuôn mặt hợp lệ trước khi gửi', isError: true);
       return;
@@ -356,7 +569,7 @@ class _MobileDeviceRegistrationScreenState
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final user = authProvider.currentUser;
-      final employeeId = user?.id ?? '';
+      final employeeId = user?.employeeId ?? user?.id ?? '';
       final employeeName = user?.fullName ?? '';
 
       if (employeeId.isEmpty) {
@@ -372,6 +585,7 @@ class _MobileDeviceRegistrationScreenState
         employeeId: employeeId,
         employeeName: employeeName,
         faceImages: _capturedImages,
+        selectedWorkLocationIds: _selectedLocationIdList,
         wifiBssid: _wifiBssid,
       );
 
@@ -395,7 +609,13 @@ class _MobileDeviceRegistrationScreenState
           _capturedImages.clear();
         });
       } else {
-        _showSnackBar(response['message'] ?? 'Đăng ký thất bại', isError: true);
+        final code = response['statusCode'];
+        var msg = response['message']?.toString() ?? 'Đăng ký thất bại';
+        if (code == 403) {
+          msg =
+              'Không có quyền gửi đăng ký. Cần quyền chấm công mobile trên tài khoản của bạn.';
+        }
+        _showSnackBar(msg, isError: true);
       }
     } catch (e) {
       if (mounted) {
@@ -415,6 +635,10 @@ class _MobileDeviceRegistrationScreenState
   }
 
   Future<void> _submitDeviceChangeRequest() async {
+    if (!_hasValidLocationSelection) {
+      _showSnackBar('Chọn ít nhất một vị trí chấm công', isError: true);
+      return;
+    }
     if (_capturedImages.length < 5) {
       _showSnackBar('Cần đủ 5 ảnh khuôn mặt hợp lệ trước khi gửi', isError: true);
       return;
@@ -425,7 +649,7 @@ class _MobileDeviceRegistrationScreenState
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final user = authProvider.currentUser;
-      final employeeId = user?.id ?? '';
+      final employeeId = user?.employeeId ?? user?.id ?? '';
       final employeeName = user?.fullName ?? '';
 
       if (employeeId.isEmpty) {
@@ -442,6 +666,7 @@ class _MobileDeviceRegistrationScreenState
         newOsVersion: _osVersion,
         newWifiBssid: _wifiBssid,
         faceImages: _capturedImages,
+        selectedWorkLocationIds: _selectedLocationIdList,
         reason: _changeRequestReason,
       );
 
@@ -586,9 +811,12 @@ class _MobileDeviceRegistrationScreenState
           ),
           const SizedBox(height: 16),
 
-          // Step 2: Face capture
+          _buildLocationPicker(step: 2),
+          const SizedBox(height: 16),
+
+          // Step 3: Face capture
           _buildStepCard(
-            step: 2,
+            step: 3,
             title: 'Chụp khuôn mặt',
             subtitle: _capturedImages.isEmpty
                 ? 'Chưa chụp'
@@ -656,8 +884,11 @@ class _MobileDeviceRegistrationScreenState
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed:
-                  (_capturedImages.length >= 5 && !_isSubmitting) ? _submitRegistration : null,
+              onPressed: (_hasValidLocationSelection &&
+                      _capturedImages.length >= 5 &&
+                      !_isSubmitting)
+                  ? _submitRegistration
+                  : null,
               icon: _isSubmitting
                   ? const SizedBox(
                       width: 20,
@@ -1122,6 +1353,9 @@ class _MobileDeviceRegistrationScreenState
                 _buildInfoRow(Icons.system_update, 'Hệ điều hành', _osVersion),
                 const SizedBox(height: 16),
 
+                _buildLocationPicker(step: 1),
+                const SizedBox(height: 16),
+
                 // Reason input
                 TextField(
                   decoration: InputDecoration(
@@ -1184,7 +1418,9 @@ class _MobileDeviceRegistrationScreenState
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
-                    onPressed: (_capturedImages.length >= 5 && !_isSubmitting)
+                    onPressed: (_hasValidLocationSelection &&
+                            _capturedImages.length >= 5 &&
+                            !_isSubmitting)
                         ? _submitDeviceChangeRequest
                         : null,
                     icon: _isSubmitting

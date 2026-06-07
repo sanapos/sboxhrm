@@ -3,6 +3,7 @@ import '../widgets/hrm_page_chrome.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../services/api_service.dart';
+import '../utils/attendance_load_utils.dart';
 import '../utils/report_screen_helpers.dart';
 import '../providers/permission_provider.dart';
 
@@ -79,23 +80,19 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final result = await _api.getAllLeaves(
+      final items = await loadLeavesForPeriod(
+        _api,
         fromDate: _fmtDateApi.format(_from),
         toDate: _fmtDateApi.format(_to),
         status: _statusFilter?.toString(),
         pageSize: 500,
       );
-      final list = <Map<String, dynamic>>[];
-      if (result['isSuccess'] == true) {
-        final data = result['data'];
-        final items = data is List
-            ? data
-            : (data is Map && data['items'] is List ? data['items'] : []);
-        for (final item in items) {
-          if (item is Map) list.add(Map<String, dynamic>.from(item));
-        }
-      }
-      setState(() => _leaves = list);
+      setState(() {
+        _leaves = items
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+      });
     } catch (e) {
       debugPrint('leave_report _load error: $e');
     } finally {

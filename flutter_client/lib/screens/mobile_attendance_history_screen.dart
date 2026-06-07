@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import '../widgets/app_scroll_safe.dart';
 import '../models/mobile_attendance.dart';
 import '../services/api_service.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/mobile_attendance_record_detail_sheet.dart';
+import '../widgets/punch_photo_preview.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
 
 class MobileAttendanceHistoryScreen extends StatefulWidget {
@@ -615,13 +618,11 @@ class _MobileAttendanceHistoryScreenState
         ),
         child: Row(
           children: [
-            Container(
-              width: 36, height: 36,
-              decoration: BoxDecoration(
-                color: (isCheckIn ? HrmPageChrome.primaryNavy : const Color(0xFFEF4444)).withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(isCheckIn ? Icons.login : Icons.logout, size: 18, color: isCheckIn ? HrmPageChrome.primaryNavy : const Color(0xFFEF4444)),
+            MobilePunchPhotoThumb(
+              sitePhotoUrl: record.status == 'pending' ? record.sitePhotoUrl : null,
+              faceImageUrl: null,
+              apiService: _apiService,
+              sitePhotoOnly: record.status == 'pending',
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -657,84 +658,7 @@ class _MobileAttendanceHistoryScreenState
   }
 
   void _showRecordDetails(MobileAttendanceRecord record) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              record.punchType == 0 ? 'Chi tiết chấm công vào' : 'Chi tiết chấm công ra',
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF18181B),
-              ),
-            ),
-            const SizedBox(height: 20),
-            _buildDetailRow(
-              icon: Icons.access_time,
-              label: 'Thời gian',
-              value: '${record.punchTime.hour.toString().padLeft(2, '0')}:${record.punchTime.minute.toString().padLeft(2, '0')}:${record.punchTime.second.toString().padLeft(2, '0')}',
-            ),
-            _buildDetailRow(
-              icon: Icons.calendar_today,
-              label: 'Ngày',
-              value: '${record.punchTime.day}/${record.punchTime.month}/${record.punchTime.year}',
-            ),
-            _buildDetailRow(
-              icon: Icons.location_on,
-              label: 'Khoảng cách',
-              value: '${record.distanceFromLocation?.toInt() ?? 0}m từ văn phòng',
-            ),
-            _buildDetailRow(
-              icon: Icons.face,
-              label: 'Độ khớp khuôn mặt',
-              value: '${record.faceMatchScore?.toStringAsFixed(1) ?? 0}%',
-            ),
-            _buildDetailRow(
-              icon: Icons.verified,
-              label: 'Phương thức',
-              value: record.verifyMethod == 'face_gps' ? 'Face ID + GPS' : record.verifyMethod,
-            ),
-            _buildDetailRow(
-              icon: Icons.check_circle,
-              label: 'Trạng thái',
-              value: record.status == 'auto_approved'
-                  ? 'Tự động duyệt'
-                  : record.status == 'approved'
-                      ? 'Đã duyệt'
-                      : 'Chờ duyệt',
-            ),
-            if (record.latitude != null && record.longitude != null)
-              _buildDetailRow(
-                icon: Icons.my_location,
-                label: 'Tọa độ',
-                value: '${record.latitude?.toStringAsFixed(6)}, ${record.longitude?.toStringAsFixed(6)}',
-              ),
-            const SizedBox(height: 20),
-          ],
-        ),
-      ),
-    );
+    showMobileAttendanceRecordDetailSheet(context, record: record);
   }
 
   Widget _buildDetailRow({
@@ -805,7 +729,7 @@ class _MobileAttendanceHistoryScreenState
   void _showFilterBottomSheet() {
     String? tempFilter = _statusFilter;
     
-    showModalBottomSheet(
+    showAppSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) => StatefulBuilder(

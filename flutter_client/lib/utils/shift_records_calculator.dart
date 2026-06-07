@@ -69,6 +69,412 @@ int _parseTimeSpanToMinutes(String? timeStr) {
 
 int _dateTimeToMinutes(DateTime dt) => dt.hour * 60 + dt.minute;
 
+bool _isCheckOutAttendance(Attendance att) => att.attendanceState == 1;
+
+/// Một cặp Vào/Ra trong ngày — có thể chỉ có Ra (ca HC sau tăng ca).
+class DayAttendancePair {
+  final DateTime? checkIn;
+  final DateTime? checkOut;
+  final bool checkInInferred;
+
+  const DayAttendancePair({
+    this.checkIn,
+    this.checkOut,
+    this.checkInInferred = false,
+  });
+
+  bool get isOrphanOut => checkIn == null && checkOut != null;
+  bool get isMissingOut => checkIn != null && checkOut == null;
+}
+
+List<DayAttendancePair> _pairOddEvenByTime(List<Attendance> sorted) {
+  final pairs = <DayAttendancePair>[];
+  for (var i = 0; i < sorted.length; i += 2) {
+    if (i + 1 < sorted.length) {
+      pairs.add(DayAttendancePair(
+        checkIn: sorted[i].punchTime,
+        checkOut: sorted[i + 1].punchTime,
+      ));
+    } else {
+      pairs.add(DayAttendancePair(checkIn: sorted[i].punchTime));
+    }
+  }
+  return pairs;
+}
+
+/// Chuỗi Vào/Ra từ máy có đủ tin để ghép theo loại (không fallback chẵn/lẻ).
+bool _attendanceStateSequenceIsReliable(List<Attendance> sorted) {
+  var inCount = 0;
+  var outCount = 0;
+  var maxConsecutiveIn = 0;
+  var maxConsecutiveOut = 0;
+  var runIn = 0;
+  var runOut = 0;
+
+  for (final att in sorted) {
+    if (_isCheckOutAttendance(att)) {
+      outCount++;
+      runOut++;
+      runIn = 0;
+      if (runOut > maxConsecutiveOut) maxConsecutiveOut = runOut;
+    } else {
+      inCount++;
+      runIn++;
+      runOut = 0;
+      if (runIn > maxConsecutiveIn) maxConsecutiveIn = runIn;
+    }
+  }
+
+  // VD: 1 Ra (07:00 bổ sung sai) + 3 Vào máy → lệch 2, không tin được.
+  if ((inCount - outCount).abs() > 1) return false;
+  // ≥3 Vào/Ra liên tiếp → máy thường không gửi đúng loại.
+  if (maxConsecutiveIn >= 3 || maxConsecutiveOut >= 3) return false;
+
+  return true;
+}
+
+bool _shouldPairByAttendanceState(List<Attendance> sorted) {
+  if (sorted.length < 2) {
+    return sorted.length == 1 && _isCheckOutAttendance(sorted.first);
+  }
+  final hasIn = sorted.any((a) => !_isCheckOutAttendance(a));
+  final hasOut = sorted.any((a) => _isCheckOutAttendance(a));
+  if (!hasIn || !hasOut) return false;
+  return _attendanceStateSequenceIsReliable(sorted);
+}
+
+/// Ghép cặp chấm công trong ngày.
+/// Ưu tiên loại Vào/Ra khi chuỗi máy gửi đáng tin; ngược lại chẵn/lẻ theo thời gian.
+List<DayAttendancePair> buildDayAttendancePairs(List<Attendance> dayAtts) {
+  final sorted = List<Attendance>.from(dayAtts)
+    ..sort((a, b) => a.punchTime.compareTo(b.punchTime));
+  if (sorted.isEmpty) return [];
+
+  if (!_shouldPairByAttendanceState(sorted)) {
+    return _pairOddEvenByTime(sorted);
+  }
+
+  final pairs = <DayAttendancePair>[];
+  Attendance? pendingIn;
+  for (final att in sorted) {
+    if (!_isCheckOutAttendance(att)) {
+      if (pendingIn != null) {
+        pairs.add(DayAttendancePair(checkIn: pendingIn.punchTime));
+      }
+      pendingIn = att;
+    } else {
+      if (pendingIn != null) {
+        pairs.add(DayAttendancePair(
+          checkIn: pendingIn.punchTime,
+          checkOut: att.punchTime,
+        ));
+        pendingIn = null;
+      } else {
+        pairs.add(DayAttendancePair(checkOut: att.punchTime));
+      }
+    }
+  }
+  if (pendingIn != null) {
+    pairs.add(DayAttendancePair(checkIn: pendingIn.punchTime));
+  }
+  return pairs;
+}
+
+/// Tìm ca hành chính khớp khi NV chỉ chấm Ra (sau khi làm tăng ca liền trước).
+Map<String, dynamic>? matchShiftForOrphanCheckOut({
+  required int checkOutMinutes,
+  required List<String> candidateIds,
+  required Map<String, Map<String, dynamic>> shiftTemplateMap,
+  Set<String> usedShiftIds = const {},
+  int pairIndex = 0,
+}) {
+  Map<String, dynamic>? best;
+  var bestScore = 1 << 30;
+
+  final primaryIds =
+      candidateIds.isNotEmpty ? candidateIds : shiftTemplateMap.keys.toList();
+  final ordered = _sortShiftIdsByStart(primaryIds, shiftTemplateMap);
+  final scoped = pairIndex > 0 && pairIndex < ordered.length
+      ? ordered.sublist(pairIndex)
+      : ordered;
+
+  for (final stId in scoped) {
+    if (usedShiftIds.contains(stId)) continue;
+    final st = shiftTemplateMap[stId];
+    if (st == null || st['isActive'] == false) continue;
+    if (isOvertimeShiftTemplate(st)) continue;
+
+    final startMin = _parseTimeSpanToMinutes(st['startTime']?.toString());
+    final endMin = _parseTimeSpanToMinutes(st['endTime']?.toString());
+    final isCrossMidnight = startMin > endMin;
+    if (isCrossMidnight) continue;
+
+    final earlyGrace =
+        (st['earlyLeaveGraceMinutes'] as num?)?.toInt() ?? 5;
+    final otThreshold =
+        (st['overtimeMinutesThreshold'] as num?)?.toInt() ?? 30;
+    final earlyCheckIn = (st['earlyCheckInMinutes'] as num?)?.toInt() ?? 30;
+
+    if (checkOutMinutes < startMin - earlyCheckIn) continue;
+    if (checkOutMinutes > endMin + otThreshold) continue;
+
+    final distToEnd = (checkOutMinutes - endMin).abs();
+    final score = distToEnd;
+    if (score < bestScore) {
+      bestScore = score;
+      best = st;
+    }
+  }
+  return best;
+}
+
+/// Suy ra giờ Vào ca hành chính khi NV chỉ chấm Ra sau tăng ca.
+DateTime? inferAdminCheckInForOrphanOut({
+  required DateTime checkOut,
+  required Map<String, dynamic> matchedShift,
+  DateTime? previousCheckOut,
+}) {
+  final shiftStartMin =
+      _parseTimeSpanToMinutes(matchedShift['startTime']?.toString());
+  final shiftStart = DateTime(
+    checkOut.year,
+    checkOut.month,
+    checkOut.day,
+    shiftStartMin ~/ 60,
+    shiftStartMin % 60,
+  );
+
+  if (previousCheckOut != null) {
+    final gapMinutes = checkOut.difference(previousCheckOut).inMinutes;
+    if (gapMinutes >= 0 && gapMinutes <= 360) {
+      return previousCheckOut.isAfter(shiftStart)
+          ? previousCheckOut
+          : shiftStart;
+    }
+  }
+  return shiftStart;
+}
+
+/// Loại ca từ thiết lập ca (`shiftType` trên ShiftTemplate).
+enum ShiftTemplateKind { administrative, overtime, overnight }
+
+/// Đọc shiftType — khớp với [shift_settings_screen._getShiftType].
+ShiftTemplateKind parseShiftTemplateKind(Map<String, dynamic>? st) {
+  if (st == null) return ShiftTemplateKind.administrative;
+  final raw = (st['shiftType'] ?? '').toString().toLowerCase();
+  if (raw.contains('tăng ca') ||
+      raw.contains('tang ca') ||
+      raw.contains('tangca') ||
+      raw.contains('overtime')) {
+    return ShiftTemplateKind.overtime;
+  }
+  if (raw.contains('qua đêm') ||
+      raw.contains('qua dem') ||
+      raw.contains('quadem') ||
+      raw.contains('overnight')) {
+    return ShiftTemplateKind.overnight;
+  }
+  return ShiftTemplateKind.administrative;
+}
+
+bool isOvertimeShiftTemplate(Map<String, dynamic>? st) =>
+    parseShiftTemplateKind(st) == ShiftTemplateKind.overtime;
+
+bool isOvernightShiftTemplate(Map<String, dynamic>? st) =>
+    parseShiftTemplateKind(st) == ShiftTemplateKind.overnight;
+
+/// Hệ số lương ca qua đêm (+30%) — chỉ áp cho ca có shiftType Qua đêm.
+double applyOvernightShiftCoefficient({
+  required double workSalary,
+  required int totalShifts,
+  required int overnightShifts,
+}) {
+  if (overnightShifts <= 0 || totalShifts <= 0) return workSalary;
+  final regularShifts = totalShifts - overnightShifts;
+  final perShift = workSalary / totalShifts;
+  return perShift * regularShifts + perShift * 1.3 * overnightShifts;
+}
+
+/// How well a punch pair fits a shift (lower penalty = better match).
+class _ShiftPunchFit {
+  final Map<String, dynamic> shift;
+  final String shiftId;
+  final int effectiveLateIn;
+  final int effectiveEarlyOut;
+  final int distanceToStart;
+
+  const _ShiftPunchFit({
+    required this.shift,
+    required this.shiftId,
+    required this.effectiveLateIn,
+    required this.effectiveEarlyOut,
+    required this.distanceToStart,
+  });
+
+  int get penaltyScore => effectiveLateIn + effectiveEarlyOut;
+}
+
+/// Evaluate check-in/out against one shift template. Returns null when punch
+/// is outside allowed windows (too early, or too late beyond maximumAllowedLate).
+_ShiftPunchFit? _evaluateShiftPunchFit(
+  Map<String, dynamic> st,
+  int punchInMinutes, {
+  int? punchOutMinutes,
+}) {
+  if (st['isActive'] == false) return null;
+
+  final shiftId = st['id']?.toString() ?? '';
+  if (shiftId.isEmpty) return null;
+
+  final shiftStartMin = _parseTimeSpanToMinutes(st['startTime']?.toString());
+  final shiftEndMin = _parseTimeSpanToMinutes(st['endTime']?.toString());
+  final isCrossMidnight = shiftStartMin > shiftEndMin;
+
+  final lateGrace = (st['lateGraceMinutes'] as num?)?.toInt() ?? 5;
+  final earlyGrace = (st['earlyLeaveGraceMinutes'] as num?)?.toInt() ?? 5;
+  final earlyCheckIn = (st['earlyCheckInMinutes'] as num?)?.toInt() ?? 30;
+  final maxAllowedLate =
+      (st['maximumAllowedLateMinutes'] as num?)?.toInt() ?? 0;
+
+  int rawEarlyIn = 0;
+  int rawLateIn = 0;
+  if (isCrossMidnight) {
+    if (punchInMinutes < shiftStartMin && punchInMinutes > shiftEndMin) {
+      rawEarlyIn = shiftStartMin - punchInMinutes;
+    } else if (punchInMinutes >= shiftStartMin) {
+      rawLateIn = punchInMinutes - shiftStartMin;
+    } else if (punchInMinutes < shiftEndMin) {
+      rawLateIn = (1440 - shiftStartMin) + punchInMinutes;
+    }
+  } else {
+    if (punchInMinutes < shiftStartMin) {
+      rawEarlyIn = shiftStartMin - punchInMinutes;
+    } else if (punchInMinutes > shiftStartMin) {
+      rawLateIn = punchInMinutes - shiftStartMin;
+    }
+  }
+
+  if (rawEarlyIn > earlyCheckIn) return null;
+  if (maxAllowedLate > 0 && rawLateIn > maxAllowedLate) return null;
+
+  // Không cho chấm VÀO sau giờ tan ca (ca thường, không qua đêm).
+  if (!isCrossMidnight && punchInMinutes > shiftEndMin) return null;
+
+  var effectiveLateIn = rawLateIn;
+  if (effectiveLateIn > 0 && effectiveLateIn <= lateGrace) effectiveLateIn = 0;
+
+  var effectiveEarlyOut = 0;
+  if (punchOutMinutes != null) {
+    int rawEarlyOut = 0;
+    if (isCrossMidnight) {
+      if (punchOutMinutes <= shiftEndMin) {
+        rawEarlyOut = shiftEndMin - punchOutMinutes;
+      } else if (punchOutMinutes >= shiftStartMin) {
+        rawEarlyOut = (1440 - punchOutMinutes) + shiftEndMin;
+      }
+    } else if (punchOutMinutes < shiftEndMin) {
+      rawEarlyOut = shiftEndMin - punchOutMinutes;
+    }
+    effectiveEarlyOut = rawEarlyOut;
+    if (effectiveEarlyOut > 0 && effectiveEarlyOut <= earlyGrace) {
+      effectiveEarlyOut = 0;
+    }
+  }
+
+  var distanceToStart = (punchInMinutes - shiftStartMin).abs();
+  if (distanceToStart > 720) distanceToStart = 1440 - distanceToStart;
+
+  return _ShiftPunchFit(
+    shift: st,
+    shiftId: shiftId,
+    effectiveLateIn: effectiveLateIn,
+    effectiveEarlyOut: effectiveEarlyOut,
+    distanceToStart: distanceToStart,
+  );
+}
+
+/// Pick the best shift when an employee has multiple assigned templates.
+/// Prefers a shift where the punch is on-time (no late after grace) over a
+/// closer shift that would count as late — e.g. punch 13:14 matches 13:30-17:30
+/// instead of 13:00-17:00 (14P trễ).
+List<String> _sortShiftIdsByStart(
+  Iterable<String> ids,
+  Map<String, Map<String, dynamic>> shiftTemplateMap,
+) {
+  final list = ids.toList();
+  list.sort((a, b) {
+    final sa = _parseTimeSpanToMinutes(
+        shiftTemplateMap[a]?['startTime']?.toString());
+    final sb = _parseTimeSpanToMinutes(
+        shiftTemplateMap[b]?['startTime']?.toString());
+    return sa.compareTo(sb);
+  });
+  return list;
+}
+
+Map<String, dynamic>? findBestMatchingShift({
+  required int punchInMinutes,
+  int? punchOutMinutes,
+  required List<String> candidateIds,
+  required Map<String, Map<String, dynamic>> shiftTemplateMap,
+  Set<String> usedShiftIds = const {},
+  int pairIndex = 0,
+}) {
+  if (candidateIds.isEmpty && shiftTemplateMap.isEmpty) return null;
+
+  _ShiftPunchFit? pickBest(Iterable<String> ids) {
+    _ShiftPunchFit? best;
+    for (final stId in ids) {
+      if (usedShiftIds.contains(stId)) continue;
+      final st = shiftTemplateMap[stId];
+      if (st == null) continue;
+      final fit = _evaluateShiftPunchFit(
+        st,
+        punchInMinutes,
+        punchOutMinutes: punchOutMinutes,
+      );
+      if (fit == null) continue;
+      if (best == null ||
+          fit.penaltyScore < best.penaltyScore ||
+          (fit.penaltyScore == best.penaltyScore &&
+              fit.effectiveLateIn < best.effectiveLateIn) ||
+          (fit.penaltyScore == best.penaltyScore &&
+              fit.effectiveLateIn == best.effectiveLateIn &&
+              fit.distanceToStart < best.distanceToStart)) {
+        best = fit;
+      }
+    }
+    return best;
+  }
+
+  final primaryIds = candidateIds.isNotEmpty
+      ? candidateIds
+      : shiftTemplateMap.keys.toList();
+  // Cặp chấm thứ i (0=sáng, 1=chiều, …) chỉ xét ca có thứ tự >= i sau khi
+  // sắp xếp theo giờ vào — tránh ca chiều 13:24 bị gán ca sáng 07:00/11:00.
+  final orderedPrimary = _sortShiftIdsByStart(primaryIds, shiftTemplateMap);
+  final scopedPrimary = pairIndex > 0 && pairIndex < orderedPrimary.length
+      ? orderedPrimary.sublist(pairIndex)
+      : orderedPrimary;
+  var best = pickBest(scopedPrimary);
+
+  if (best == null || best.distanceToStart > 180) {
+    final orderedAll =
+        _sortShiftIdsByStart(shiftTemplateMap.keys, shiftTemplateMap);
+    final scopedAll = pairIndex > 0 && pairIndex < orderedAll.length
+        ? orderedAll.sublist(pairIndex)
+        : orderedAll;
+    final fallback = pickBest(scopedAll);
+    if (fallback != null &&
+        (best == null || fallback.distanceToStart < best.distanceToStart)) {
+      best = fallback;
+    }
+  }
+
+  if (best == null || best.distanceToStart > 180) return null;
+  return best.shift;
+}
+
 String _getDayOfWeekVN(int weekday) {
   const days = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
   return days[(weekday - 1).clamp(0, 6)];
@@ -228,52 +634,19 @@ class _ShiftLookups {
 
   Map<String, dynamic>? findMatchingShift(
     int punchInMinutes,
-    List<String> assignedShiftIds,
-  ) {
-    if (assignedShiftIds.isEmpty && shiftTemplateMap.isEmpty) return null;
-
-    Map<String, dynamic>? bestMatch;
-    int bestDistance = 999999;
-
-    final candidate = assignedShiftIds.isNotEmpty
-        ? assignedShiftIds
-        : shiftTemplateMap.keys.toList();
-
-    for (final stId in candidate) {
-      final st = shiftTemplateMap[stId];
-      if (st == null) continue;
-      if (st['isActive'] == false) continue;
-      final startMinutes = _parseTimeSpanToMinutes(st['startTime']?.toString());
-      // "Cho phép chấm sớm: X phút" – use earlyCheckInMinutes as the match window
-      final earlyWindow = (st['earlyCheckInMinutes'] as num?)?.toInt() ?? 30;
-      int dist = (punchInMinutes - startMinutes).abs();
-      if (dist > 720) dist = 1440 - dist;
-      // Reject punches that arrive more than earlyWindow minutes before shift start
-      final rawEarly =
-          punchInMinutes < startMinutes ? startMinutes - punchInMinutes : 0;
-      if (rawEarly > earlyWindow) continue; // too early for this shift
-      if (dist < bestDistance) {
-        bestDistance = dist;
-        bestMatch = st;
-      }
-    }
-
-    if (bestDistance > 180) {
-      for (final st in shiftTemplateMap.values) {
-        if (st['isActive'] == false) continue;
-        final startMinutes =
-            _parseTimeSpanToMinutes(st['startTime']?.toString());
-        int dist = (punchInMinutes - startMinutes).abs();
-        if (dist > 720) dist = 1440 - dist;
-        if (dist < bestDistance) {
-          bestDistance = dist;
-          bestMatch = st;
-        }
-      }
-    }
-
-    if (bestDistance > 180) return null;
-    return bestMatch;
+    List<String> assignedShiftIds, {
+    int? punchOutMinutes,
+    Set<String> usedShiftIds = const {},
+    int pairIndex = 0,
+  }) {
+    return findBestMatchingShift(
+      punchInMinutes: punchInMinutes,
+      punchOutMinutes: punchOutMinutes,
+      candidateIds: assignedShiftIds,
+      shiftTemplateMap: shiftTemplateMap,
+      usedShiftIds: usedShiftIds,
+      pairIndex: pairIndex,
+    );
   }
 
   bool isWeeklyOffDay(DateTime date, String employeeCode) {
@@ -399,23 +772,62 @@ List<DailyShiftRecord> computeDailyShiftRecords({
       bool hasMissingPunch = false;
       final shiftNames = <String>[];
       final missingOutShiftNames = <String>[];
+      final usedShiftIds = <String>{};
+      final dayPairs = buildDayAttendancePairs(dayAttendances);
 
-      for (int i = 0; i < dayAttendances.length; i += 2) {
-        final punchIn = dayAttendances[i].punchTime;
-        final punchOut = (i + 1 < dayAttendances.length)
-            ? dayAttendances[i + 1].punchTime
-            : null;
+      for (var pairIndex = 0; pairIndex < dayPairs.length; pairIndex++) {
+        final pair = dayPairs[pairIndex];
+        DateTime? punchIn = pair.checkIn;
+        final punchOut = pair.checkOut;
+
+        Map<String, dynamic>? matchedShift;
+        if (pair.isOrphanOut && punchOut != null) {
+          final outMin = _dateTimeToMinutes(punchOut);
+          matchedShift = matchShiftForOrphanCheckOut(
+            checkOutMinutes: outMin,
+            candidateIds: assignedShiftIds,
+            shiftTemplateMap: lookups.shiftTemplateMap,
+            usedShiftIds: usedShiftIds,
+            pairIndex: pairIndex,
+          );
+          if (matchedShift != null) {
+            final prevOut = pairIndex > 0
+                ? dayPairs[pairIndex - 1].checkOut
+                : null;
+            punchIn = inferAdminCheckInForOrphanOut(
+              checkOut: punchOut,
+              matchedShift: matchedShift,
+              previousCheckOut: prevOut,
+            );
+          }
+        }
+
+        if (punchIn == null) {
+          if (pair.isOrphanOut) hasMissingPunch = true;
+          continue;
+        }
 
         final punchInMinutes = _dateTimeToMinutes(punchIn);
-        final matchedShift =
-            lookups.findMatchingShift(punchInMinutes, assignedShiftIds);
+        final punchOutMinutes =
+            punchOut != null ? _dateTimeToMinutes(punchOut) : null;
+        matchedShift ??= lookups.findMatchingShift(
+          punchInMinutes,
+          assignedShiftIds,
+          punchOutMinutes: punchOutMinutes,
+          usedShiftIds: usedShiftIds,
+          pairIndex: pairIndex,
+        );
 
         if (matchedShift != null) {
+          final shiftId = matchedShift['id']?.toString() ?? '';
+          if (shiftId.isNotEmpty) usedShiftIds.add(shiftId);
           final name = matchedShift['name']?.toString() ?? '';
           if (name.isNotEmpty && !shiftNames.contains(name)) {
             shiftNames.add(name);
           }
         }
+
+        final isOtShift = isOvertimeShiftTemplate(matchedShift);
 
         int lateCalc = 0;
         int lateGrace = 5;
@@ -425,7 +837,7 @@ List<DailyShiftRecord> computeDailyShiftRecords({
         int shiftDurationMin = 0;
         bool isCrossMidnight = false;
         int overtimeThreshold = 0;
-        if (matchedShift != null) {
+        if (matchedShift != null && !isOtShift) {
           shiftStartMin =
               _parseTimeSpanToMinutes(matchedShift['startTime']?.toString());
           shiftEndMin =
@@ -437,8 +849,6 @@ List<DailyShiftRecord> computeDailyShiftRecords({
           lateGrace = (matchedShift['lateGraceMinutes'] as num?)?.toInt() ?? 5;
           earlyGrace =
               (matchedShift['earlyLeaveGraceMinutes'] as num?)?.toInt() ?? 5;
-          // "Tính tăng ca sau: X phút" – use the shift's OvertimeMinutesThreshold,
-          // NOT breakTimeMinutes (which is break duration, unrelated to OT).
           overtimeThreshold =
               (matchedShift['overtimeMinutesThreshold'] as num?)?.toInt() ?? 30;
 
@@ -453,6 +863,12 @@ List<DailyShiftRecord> computeDailyShiftRecords({
           }
           if (lateCalc > 0 && lateCalc <= lateGrace) lateCalc = 0;
           if (lateCalc > 0) totalLate += lateCalc;
+        } else if (matchedShift != null && isOtShift) {
+          shiftStartMin =
+              _parseTimeSpanToMinutes(matchedShift['startTime']?.toString());
+          shiftEndMin =
+              _parseTimeSpanToMinutes(matchedShift['endTime']?.toString());
+          isCrossMidnight = shiftStartMin > shiftEndMin;
         }
 
         if (punchOut == null) {
@@ -469,30 +885,39 @@ List<DailyShiftRecord> computeDailyShiftRecords({
           continue;
         }
 
-        final punchOutMinutes = _dateTimeToMinutes(punchOut);
+        final outMinutes = punchOutMinutes!;
         final actualWorkedMinutes = punchOut.difference(punchIn).inMinutes;
+
+        // Ca Tăng ca: không tính đi trễ/về sớm — chỉ cộng giờ làm thực tế vào OT.
+        if (matchedShift != null && isOtShift) {
+          if (actualWorkedMinutes > 0) {
+            totalOT += actualWorkedMinutes;
+            totalWorkHours += actualWorkedMinutes / 60.0;
+            totalDecimalHours += actualWorkedMinutes / 60.0;
+          }
+          continue;
+        }
 
         if (matchedShift != null) {
           int earlyCalc = 0;
           if (isCrossMidnight) {
-            if (punchOutMinutes <= shiftEndMin) {
-              earlyCalc = shiftEndMin - punchOutMinutes;
-            } else if (punchOutMinutes >= shiftStartMin) {
-              earlyCalc = (1440 - punchOutMinutes) + shiftEndMin;
+            if (outMinutes <= shiftEndMin) {
+              earlyCalc = shiftEndMin - outMinutes;
+            } else if (outMinutes >= shiftStartMin) {
+              earlyCalc = (1440 - outMinutes) + shiftEndMin;
             }
-          } else if (punchOutMinutes < shiftEndMin) {
-            earlyCalc = shiftEndMin - punchOutMinutes;
+          } else if (outMinutes < shiftEndMin) {
+            earlyCalc = shiftEndMin - outMinutes;
           }
           if (earlyCalc > 0 && earlyCalc <= earlyGrace) earlyCalc = 0;
 
           int extraMin = 0;
           if (isCrossMidnight) {
-            if (punchOutMinutes > shiftEndMin &&
-                punchOutMinutes < shiftStartMin) {
-              extraMin = punchOutMinutes - shiftEndMin;
+            if (outMinutes > shiftEndMin && outMinutes < shiftStartMin) {
+              extraMin = outMinutes - shiftEndMin;
             }
-          } else if (punchOutMinutes > shiftEndMin) {
-            extraMin = punchOutMinutes - shiftEndMin;
+          } else if (outMinutes > shiftEndMin) {
+            extraMin = outMinutes - shiftEndMin;
           }
           if (extraMin > overtimeThreshold) {
             totalOT += extraMin;
@@ -567,6 +992,9 @@ List<DailyShiftRecord> computeDailyShiftRecords({
       } else if (totalEarly > 0) {
         status = 'Về sớm';
         statusColor = Colors.red;
+      } else if (totalOT > 0 && totalWorkCount == 0) {
+        status = 'Tăng ca';
+        statusColor = Colors.amber;
       } else if (totalWorkCount > 0) {
         status = 'Hợp lệ';
         statusColor = Colors.green;
@@ -716,6 +1144,7 @@ class DailyShiftPair {
   final int lateMinutes;
   final int earlyMinutes;
   final bool hasMatchedShift;
+  final bool isOvernight;
 
   DailyShiftPair({
     required this.employeeId,
@@ -728,6 +1157,7 @@ class DailyShiftPair {
     required this.lateMinutes,
     required this.earlyMinutes,
     required this.hasMatchedShift,
+    this.isOvernight = false,
   });
 }
 
@@ -778,60 +1208,96 @@ List<DailyShiftPair> computeDailyShiftPairs({
       final empGuid = lookups.employeeCodeToGuid[employeeCode] ?? '';
       final assignedShiftIds =
           lookups.employeeGuidToShiftTemplateIds[empGuid] ?? [];
+      final usedShiftIds = <String>{};
+      final dayPairs = buildDayAttendancePairs(dayAttendances);
 
-      for (int i = 0; i < dayAttendances.length; i += 2) {
-        final punchIn = dayAttendances[i].punchTime;
-        final punchOut = (i + 1 < dayAttendances.length)
-            ? dayAttendances[i + 1].punchTime
-            : null;
+      for (var pairIndex = 0; pairIndex < dayPairs.length; pairIndex++) {
+        final pair = dayPairs[pairIndex];
+        DateTime? punchIn = pair.checkIn;
+        final punchOut = pair.checkOut;
+
+        Map<String, dynamic>? matchedShift;
+        if (pair.isOrphanOut && punchOut != null) {
+          final outMin = _dateTimeToMinutes(punchOut);
+          matchedShift = matchShiftForOrphanCheckOut(
+            checkOutMinutes: outMin,
+            candidateIds: assignedShiftIds,
+            shiftTemplateMap: lookups.shiftTemplateMap,
+            usedShiftIds: usedShiftIds,
+            pairIndex: pairIndex,
+          );
+          if (matchedShift != null) {
+            final prevOut = pairIndex > 0
+                ? dayPairs[pairIndex - 1].checkOut
+                : null;
+            punchIn = inferAdminCheckInForOrphanOut(
+              checkOut: punchOut,
+              matchedShift: matchedShift,
+              previousCheckOut: prevOut,
+            );
+          }
+        }
+
+        if (punchIn == null) continue;
 
         final punchInMinutes = _dateTimeToMinutes(punchIn);
-        final matchedShift =
-            lookups.findMatchingShift(punchInMinutes, assignedShiftIds);
+        final punchOutMinutes =
+            punchOut != null ? _dateTimeToMinutes(punchOut) : null;
+        matchedShift ??= lookups.findMatchingShift(
+          punchInMinutes,
+          assignedShiftIds,
+          punchOutMinutes: punchOutMinutes,
+          usedShiftIds: usedShiftIds,
+          pairIndex: pairIndex,
+        );
+        if (matchedShift != null) {
+          final shiftId = matchedShift['id']?.toString() ?? '';
+          if (shiftId.isNotEmpty) usedShiftIds.add(shiftId);
+        }
 
         String shiftName;
         int lateCalc = 0;
         int earlyCalc = 0;
+        final isOtShift = isOvertimeShiftTemplate(matchedShift);
         if (matchedShift != null) {
           shiftName = matchedShift['name']?.toString() ?? '';
-          final shiftStartMin =
-              _parseTimeSpanToMinutes(matchedShift['startTime']?.toString());
-          final shiftEndMin =
-              _parseTimeSpanToMinutes(matchedShift['endTime']?.toString());
-          final isCrossMidnight = shiftStartMin > shiftEndMin;
-          final lateGrace =
-              (matchedShift['lateGraceMinutes'] as num?)?.toInt() ?? 5;
-          final earlyGrace =
-              (matchedShift['earlyLeaveGraceMinutes'] as num?)?.toInt() ?? 5;
+          if (!isOtShift) {
+            final shiftStartMin =
+                _parseTimeSpanToMinutes(matchedShift['startTime']?.toString());
+            final shiftEndMin =
+                _parseTimeSpanToMinutes(matchedShift['endTime']?.toString());
+            final isCrossMidnight = shiftStartMin > shiftEndMin;
+            final lateGrace =
+                (matchedShift['lateGraceMinutes'] as num?)?.toInt() ?? 5;
+            final earlyGrace =
+                (matchedShift['earlyLeaveGraceMinutes'] as num?)?.toInt() ?? 5;
 
-          if (isCrossMidnight) {
-            if (punchInMinutes >= shiftStartMin) {
-              lateCalc = punchInMinutes - shiftStartMin;
-            } else if (punchInMinutes < shiftEndMin) {
-              lateCalc = (1440 - shiftStartMin) + punchInMinutes;
-            }
-          } else if (punchInMinutes > shiftStartMin) {
-            lateCalc = punchInMinutes - shiftStartMin;
-          }
-          if (lateCalc > 0 && lateCalc <= lateGrace) lateCalc = 0;
-
-          if (punchOut != null) {
-            final punchOutMinutes = _dateTimeToMinutes(punchOut);
             if (isCrossMidnight) {
-              if (punchOutMinutes <= shiftEndMin) {
-                earlyCalc = shiftEndMin - punchOutMinutes;
-              } else if (punchOutMinutes >= shiftStartMin) {
-                earlyCalc = (1440 - punchOutMinutes) + shiftEndMin;
+              if (punchInMinutes >= shiftStartMin) {
+                lateCalc = punchInMinutes - shiftStartMin;
+              } else if (punchInMinutes < shiftEndMin) {
+                lateCalc = (1440 - shiftStartMin) + punchInMinutes;
               }
-            } else if (punchOutMinutes < shiftEndMin) {
-              earlyCalc = shiftEndMin - punchOutMinutes;
+            } else if (punchInMinutes > shiftStartMin) {
+              lateCalc = punchInMinutes - shiftStartMin;
             }
-            if (earlyCalc > 0 && earlyCalc <= earlyGrace) earlyCalc = 0;
+            if (lateCalc > 0 && lateCalc <= lateGrace) lateCalc = 0;
+
+            if (punchOut != null) {
+              final outMin = _dateTimeToMinutes(punchOut);
+              if (isCrossMidnight) {
+                if (outMin <= shiftEndMin) {
+                  earlyCalc = shiftEndMin - outMin;
+                } else if (outMin >= shiftStartMin) {
+                  earlyCalc = (1440 - outMin) + shiftEndMin;
+                }
+              } else if (outMin < shiftEndMin) {
+                earlyCalc = shiftEndMin - outMin;
+              }
+              if (earlyCalc > 0 && earlyCalc <= earlyGrace) earlyCalc = 0;
+            }
           }
         } else {
-          // Không match ca nào trong ngưỡng 180 phút → "Chưa xếp ca".
-          // KHÔNG dùng nearest-shift vì sẽ gom punch sai ca (ví dụ: punch
-          // 22:20 Ca Đêm bị map sang Ca Hành Chính nếu Ca Đêm chưa cài).
           shiftName = 'Chưa xếp ca';
         }
 
@@ -850,6 +1316,7 @@ List<DailyShiftPair> computeDailyShiftPairs({
           lateMinutes: lateCalc,
           earlyMinutes: earlyCalc,
           hasMatchedShift: matchedShift != null,
+          isOvernight: isOvernightShiftTemplate(matchedShift),
         ));
       }
     });
@@ -878,6 +1345,7 @@ class PayrollShiftAttendanceStats {
   final int earlyCount;
   final int earlyMinutes;
   final int totalShifts;
+  final int overnightShifts;
 
   const PayrollShiftAttendanceStats({
     this.workDays = 0,
@@ -891,6 +1359,7 @@ class PayrollShiftAttendanceStats {
     this.earlyCount = 0,
     this.earlyMinutes = 0,
     this.totalShifts = 0,
+    this.overnightShifts = 0,
   });
 }
 
@@ -944,8 +1413,11 @@ PayrollShiftAttendanceStats aggregatePayrollStatsFromShiftRecords({
     }
   }
 
-  final totalShifts =
-      shiftPairs.where((p) => p.checkOut != null).length;
+  final completedPairs =
+      shiftPairs.where((p) => p.checkOut != null).toList();
+  final totalShifts = completedPairs.length;
+  final overnightShifts =
+      completedPairs.where((p) => p.isOvernight).length;
 
   return PayrollShiftAttendanceStats(
     workDays: workDays,
@@ -959,5 +1431,6 @@ PayrollShiftAttendanceStats aggregatePayrollStatsFromShiftRecords({
     earlyCount: earlyCount,
     earlyMinutes: earlyMinutes,
     totalShifts: totalShifts,
+    overnightShifts: overnightShifts,
   );
 }

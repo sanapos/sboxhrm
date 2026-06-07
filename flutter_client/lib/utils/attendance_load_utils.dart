@@ -32,9 +32,7 @@ Future<AttendanceLoadResult> loadAttendancesForPeriodResult(
   int maxPagesHardCap = 40,
   void Function(String message)? onProgress,
 }) async {
-  if (deviceIds.isEmpty) {
-    return const AttendanceLoadResult(items: []);
-  }
+  // deviceIds rỗng: server tự lấy máy trong store + lọc PIN theo role (Employee).
 
   final fetchFrom = (dayEndHour > 0 || dayEndMinute > 0)
       ? fromDate.subtract(const Duration(days: 1))
@@ -81,12 +79,18 @@ Future<AttendanceLoadResult> loadAttendancesForPeriodResult(
       totalCount: totalCount > 0 ? totalCount : all.length,
     );
   }
-  if (totalCount > 0 && all.length >= totalCount) {
+
+  // Trang 1 đủ pageSize: không dừng chỉ vì totalCount == pageSize (API đôi khi
+  // báo 1000 trong khi tháng có hàng chục nghìn log → chỉ thấy đến ~ngày 20).
+  final firstPageFull = firstItems.length >= pageSize;
+  final trustServerTotal =
+      totalCount > pageSize && all.length >= totalCount;
+  if (trustServerTotal) {
     return AttendanceLoadResult(items: all, totalCount: totalCount);
   }
 
   int lastPage;
-  if (totalCount > 0) {
+  if (totalCount > pageSize) {
     lastPage = (totalCount / pageSize).ceil();
     if (lastPage > maxPagesHardCap) {
       lastPage = maxPagesHardCap;
@@ -96,12 +100,8 @@ Future<AttendanceLoadResult> loadAttendancesForPeriodResult(
     lastPage = maxPagesHardCap;
     truncated = true;
   }
-  if (lastPage < 2) {
-    return AttendanceLoadResult(
-      items: all,
-      truncated: truncated,
-      totalCount: totalCount > 0 ? totalCount : null,
-    );
+  if (firstPageFull && lastPage < 2) {
+    lastPage = 2;
   }
 
   final batch = parallelPages.clamp(2, 6);
@@ -135,7 +135,9 @@ Future<AttendanceLoadResult> loadAttendancesForPeriodResult(
         done = true;
         break;
       }
-      if (totalCount > 0 && all.length >= totalCount) {
+      final reportedComplete =
+          totalCount > pageSize && all.length >= totalCount;
+      if (reportedComplete) {
         done = true;
         break;
       }
@@ -177,6 +179,48 @@ Future<List<Attendance>> loadAttendancesForPeriod(
     onProgress: onProgress,
   );
   return r.items;
+}
+
+List<dynamic> parseLeaveItemsFromResponse(Map<String, dynamic> result) {
+  if (result['isSuccess'] != true) return [];
+  final data = result['data'];
+  if (data is Map) return (data['items'] as List?) ?? [];
+  if (data is List) return data;
+  return [];
+}
+
+/// Tải đủ phiếu phép trong khoảng ngày (phân trang — tránh chỉ trang 1).
+Future<List<dynamic>> loadLeavesForPeriod(
+  ApiService api, {
+  required String fromDate,
+  required String toDate,
+  String? status,
+  String? employeeId,
+  int pageSize = 500,
+  int maxPages = 20,
+}) async {
+  final all = <dynamic>[];
+  for (var page = 1; page <= maxPages; page++) {
+    final res = await api.getAllLeaves(
+      page: page,
+      pageSize: pageSize,
+      fromDate: fromDate,
+      toDate: toDate,
+      status: status,
+      employeeId: employeeId,
+    );
+    final items = parseLeaveItemsFromResponse(res);
+    if (items.isEmpty) break;
+    all.addAll(items);
+
+    final data = res['data'];
+    final totalCount = data is Map
+        ? (data['totalCount'] as num?)?.toInt() ?? 0
+        : 0;
+    if (totalCount > 0 && all.length >= totalCount) break;
+    if (items.length < pageSize) break;
+  }
+  return all;
 }
 
 /// Kết quả xếp lần chấm + giờ ca (tối đa 5 ca / 10 lần) cho Tổng hợp chấm công thô.

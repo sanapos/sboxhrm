@@ -151,8 +151,7 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
     [RequireModulePermission("PenaltySetup", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<PenaltySettingDto>>> GetPenaltySettings()
     {
-        var query = new GetPenaltySettingsQuery(RequiredStoreId);
-        var result = await mediator.Send(query);
+        var result = await mediator.Send(new GetOrCreatePenaltySettingsCommand(RequiredStoreId));
         return Ok(result);
     }
 

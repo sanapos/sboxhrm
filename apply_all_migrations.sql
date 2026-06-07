@@ -591,6 +591,53 @@ CREATE INDEX IF NOT EXISTS "IX_MaintenanceWindows_Active_Range"
     ON "MaintenanceWindows" ("IsActive", "StartAt", "EndAt");
 
 -- =========================================================
+-- Mobile site photo + per-device photo proof (2026-06-03)
+-- =========================================================
+ALTER TABLE "MobileAttendanceRecords" ADD COLUMN IF NOT EXISTS "SitePhotoUrl" VARCHAR(500);
+ALTER TABLE "AuthorizedMobileDevices" ADD COLUMN IF NOT EXISTS "RequirePhotoProof" BOOLEAN NOT NULL DEFAULT false;
+
+-- =========================================================
+-- 20260605100000_AddMobileLocationEmployees (Phase 1)
+-- =========================================================
+ALTER TABLE "AuthorizedMobileDevices"
+    ADD COLUMN IF NOT EXISTS "SelectedLocationIdsJson" character varying(4000);
+
+ALTER TABLE "DeviceChangeRequests"
+    ADD COLUMN IF NOT EXISTS "SelectedLocationIdsJson" character varying(4000);
+
+CREATE TABLE IF NOT EXISTS "MobileLocationEmployees" (
+    "Id" uuid NOT NULL DEFAULT gen_random_uuid(),
+    "StoreId" uuid NOT NULL,
+    "WorkLocationId" uuid NOT NULL,
+    "EmployeeId" character varying(100) NOT NULL,
+    "EmployeeName" character varying(200),
+    "IsActive" boolean NOT NULL DEFAULT true,
+    "CreatedAt" timestamp without time zone NOT NULL DEFAULT NOW(),
+    "UpdatedAt" timestamp without time zone,
+    "CreatedBy" text,
+    "UpdatedBy" text,
+    "LastModified" timestamp without time zone,
+    "LastModifiedBy" text,
+    "Deleted" timestamp without time zone,
+    "DeletedBy" text,
+    CONSTRAINT "PK_MobileLocationEmployees" PRIMARY KEY ("Id"),
+    CONSTRAINT "FK_MobileLocationEmployees_Stores_StoreId"
+        FOREIGN KEY ("StoreId") REFERENCES "Stores" ("Id") ON DELETE CASCADE,
+    CONSTRAINT "FK_MobileLocationEmployees_MobileWorkLocations_WorkLocationId"
+        FOREIGN KEY ("WorkLocationId") REFERENCES "MobileWorkLocations" ("Id") ON DELETE CASCADE
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_MobileLocationEmployees_StoreId_WorkLocationId_EmployeeId"
+    ON "MobileLocationEmployees" ("StoreId", "WorkLocationId", "EmployeeId")
+    WHERE "Deleted" IS NULL;
+
+CREATE INDEX IF NOT EXISTS "IX_MobileLocationEmployees_StoreId_EmployeeId"
+    ON "MobileLocationEmployees" ("StoreId", "EmployeeId");
+
+CREATE INDEX IF NOT EXISTS "IX_MobileLocationEmployees_WorkLocationId"
+    ON "MobileLocationEmployees" ("WorkLocationId");
+
+-- =========================================================
 -- Mark ALL migrations as applied in __EFMigrationsHistory
 -- =========================================================
 INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
@@ -605,8 +652,49 @@ VALUES
     ('20260527120000_FixOrgAssignmentCareerHistoryIndex', '8.0.0'),
     ('20260527140000_EnhanceTaskAssignment', '8.0.0'),
     ('20260528120000_ShiftSwapFkToShiftTemplate', '8.0.0'),
-    ('20260528180000_AddAttendanceUniqueDevicePinTime', '8.0.0')
+    ('20260528180000_AddAttendanceUniqueDevicePinTime', '8.0.0'),
+    ('20260603100000_AddRequirePhotoProofToAuthorizedDevice', '8.0.0'),
+    ('20260605100000_AddMobileLocationEmployees', '8.0.0')
 ON CONFLICT ("MigrationId") DO NOTHING;
+
+-- =========================================================
+-- FundTransfers (chuyển quỹ thu chi)
+-- =========================================================
+CREATE TABLE IF NOT EXISTS "FundTransfers" (
+    "Id" uuid NOT NULL,
+    "TransferCode" character varying(50) NOT NULL,
+    "FromBankAccountId" uuid,
+    "ToBankAccountId" uuid,
+    "Amount" numeric(18,2) NOT NULL,
+    "TransferDate" timestamp without time zone NOT NULL,
+    "Description" character varying(500) NOT NULL,
+    "InternalNote" character varying(1000),
+    "StoreId" uuid,
+    "CreatedByUserId" uuid NOT NULL,
+    "IsActive" boolean NOT NULL DEFAULT true,
+    "CreatedAt" timestamp without time zone NOT NULL DEFAULT NOW(),
+    "UpdatedAt" timestamp without time zone,
+    "CreatedBy" text,
+    "UpdatedBy" text,
+    "LastModified" timestamp without time zone,
+    "LastModifiedBy" text,
+    "Deleted" timestamp without time zone,
+    "DeletedBy" text,
+    CONSTRAINT "PK_FundTransfers" PRIMARY KEY ("Id"),
+    CONSTRAINT "FK_FundTransfers_BankAccounts_FromBankAccountId"
+        FOREIGN KEY ("FromBankAccountId") REFERENCES "BankAccounts" ("Id") ON DELETE SET NULL,
+    CONSTRAINT "FK_FundTransfers_BankAccounts_ToBankAccountId"
+        FOREIGN KEY ("ToBankAccountId") REFERENCES "BankAccounts" ("Id") ON DELETE SET NULL,
+    CONSTRAINT "FK_FundTransfers_AspNetUsers_CreatedByUserId"
+        FOREIGN KEY ("CreatedByUserId") REFERENCES "AspNetUsers" ("Id") ON DELETE RESTRICT
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_FundTransfers_TransferCode"
+    ON "FundTransfers" ("TransferCode");
+CREATE INDEX IF NOT EXISTS "IX_FundTransfers_TransferDate"
+    ON "FundTransfers" ("TransferDate");
+CREATE INDEX IF NOT EXISTS "IX_FundTransfers_StoreId_TransferDate"
+    ON "FundTransfers" ("StoreId", "TransferDate");
 
 COMMIT;
 

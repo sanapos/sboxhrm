@@ -48,7 +48,8 @@ public static class NotificationDtoMapper
         var data = new Dictionary<string, string>
         {
             ["notificationId"] = notification.Id.ToString(),
-            ["type"] = notification.Type.ToString(),
+            // Severity (Info, Warning, …) — NOT used for screen routing on mobile.
+            ["notificationType"] = notification.Type.ToString(),
         };
         if (!string.IsNullOrEmpty(notification.CategoryCode))
             data["categoryCode"] = notification.CategoryCode!;

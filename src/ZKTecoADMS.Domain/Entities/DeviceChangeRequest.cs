@@ -53,6 +53,12 @@ public class DeviceChangeRequest : AuditableEntity<Guid>
     public string NewFaceImagesJson { get; set; } = "[]";
 
     /// <summary>
+    /// JSON array of work location Guid strings the employee selected for punch.
+    /// </summary>
+    [MaxLength(4000)]
+    public string? SelectedLocationIdsJson { get; set; }
+
+    /// <summary>
     /// 0 = Pending, 1 = Approved, 2 = Rejected
     /// </summary>
     public int Status { get; set; } = 0;

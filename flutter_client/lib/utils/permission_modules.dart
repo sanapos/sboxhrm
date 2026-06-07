@@ -61,6 +61,9 @@ class PermissionModules {
     'PenaltyReport',
     'AdvanceReport',
     'AssetReport',
+    'AttendanceReport',
+    'HrReport',
+    'PayrollReport',
     'Report',
   ];
 

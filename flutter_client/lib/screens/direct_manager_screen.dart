@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/permission_provider.dart';
 import '../widgets/hrm_page_chrome.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/employee.dart';
@@ -487,11 +489,13 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
             ],
           ),
         ),
-        IconButton(
-          onPressed: _showPositionSettings,
-          icon: const Icon(Icons.tune),
-          tooltip: 'Thiết lập chức vụ',
-        ),
+        if (Provider.of<PermissionProvider>(context, listen: false)
+            .canEdit('Employee'))
+          IconButton(
+            onPressed: _showPositionSettings,
+            icon: const Icon(Icons.tune),
+            tooltip: 'Thiết lập chức vụ',
+          ),
       ],
     );
   }
@@ -656,7 +660,7 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
               radius: 20,
               backgroundColor: color.withValues(alpha: 0.1),
               backgroundImage: manager.avatarUrl != null && manager.avatarUrl!.isNotEmpty
-                  ? NetworkImage(manager.avatarUrl!)
+                  ? _apiService.storeImageProvider(manager.avatarUrl!)
                   : null,
               onBackgroundImageError: manager.avatarUrl != null && manager.avatarUrl!.isNotEmpty ? (_, __) {} : null,
               child: manager.avatarUrl == null || manager.avatarUrl!.isEmpty
@@ -925,7 +929,7 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
                 radius: 36,
                 backgroundColor: color.withValues(alpha: 0.1),
                 backgroundImage: manager.avatarUrl != null && manager.avatarUrl!.isNotEmpty
-                    ? NetworkImage(manager.avatarUrl!)
+                    ? _apiService.storeImageProvider(manager.avatarUrl!)
                     : null,
                 onBackgroundImageError: manager.avatarUrl != null && manager.avatarUrl!.isNotEmpty ? (_, __) {} : null,
                 child: manager.avatarUrl == null || manager.avatarUrl!.isEmpty

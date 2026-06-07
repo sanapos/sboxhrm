@@ -13,6 +13,12 @@ class Attendance {
   final String? workCode;
   final String? note; // Ghi chú
   final DateTime? createdAt;
+  /// Liên kết bản ghi chấm công mobile (khi đã đồng bộ sang thô).
+  final String? mobileAttendanceRecordId;
+  final double? latitude;
+  final double? longitude;
+  final String? locationName;
+  final String? sitePhotoUrl;
 
   Attendance({
     required this.id,
@@ -29,7 +35,54 @@ class Attendance {
     this.workCode,
     this.note,
     this.createdAt,
+    this.mobileAttendanceRecordId,
+    this.latitude,
+    this.longitude,
+    this.locationName,
+    this.sitePhotoUrl,
   });
+
+  bool get hasSitePhoto {
+    final url = sitePhotoUrl?.trim();
+    return url != null && url.isNotEmpty;
+  }
+
+  bool get isFromMobile =>
+      (mobileAttendanceRecordId != null &&
+          mobileAttendanceRecordId!.isNotEmpty) ||
+      (note != null && note!.toLowerCase().contains('mobile:'));
+
+  bool get hasGpsLocation {
+    final lat = latitude;
+    final lng = longitude;
+    if (lat == null || lng == null) return false;
+    return lat.abs() > 1e-5 || lng.abs() > 1e-5;
+  }
+
+  Attendance copyWith({String? sitePhotoUrl, String? mobileAttendanceRecordId}) {
+    return Attendance(
+      id: id,
+      pin: pin,
+      employeeId: employeeId,
+      employeeName: employeeName,
+      deviceId: deviceId,
+      deviceName: deviceName,
+      deviceUserName: deviceUserName,
+      privilege: privilege,
+      attendanceTime: attendanceTime,
+      attendanceState: attendanceState,
+      verifyMode: verifyMode,
+      workCode: workCode,
+      note: note,
+      createdAt: createdAt,
+      mobileAttendanceRecordId:
+          mobileAttendanceRecordId ?? this.mobileAttendanceRecordId,
+      latitude: latitude,
+      longitude: longitude,
+      locationName: locationName,
+      sitePhotoUrl: sitePhotoUrl ?? this.sitePhotoUrl,
+    );
+  }
 
   // Alias for backward compatibility
   String? get enrollNumber => pin;
@@ -124,6 +177,18 @@ class Attendance {
     return int.tryParse(value.toString()) ?? defaultValue;
   }
 
+  static double? _parseOptionalDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value.toString().trim());
+  }
+
+  static String? _optionalPhotoUrl(dynamic value) {
+    final s = value?.toString().trim();
+    if (s == null || s.isEmpty) return null;
+    return s;
+  }
+
   factory Attendance.fromJson(Map<String, dynamic> json) {
     // Support both camelCase (API/SignalR with camelCase) and PascalCase (SignalR default)
     V? get<V>(String camelKey) {
@@ -185,6 +250,12 @@ class Attendance {
       createdAt: get<Object>('createdAt') != null
           ? DateTime.tryParse(get<Object>('createdAt').toString())
           : null,
+      mobileAttendanceRecordId:
+          get<Object>('mobileAttendanceRecordId')?.toString(),
+      latitude: _parseOptionalDouble(get('latitude')),
+      longitude: _parseOptionalDouble(get('longitude')),
+      locationName: get('locationName')?.toString(),
+      sitePhotoUrl: _optionalPhotoUrl(get('sitePhotoUrl')),
     );
   }
 

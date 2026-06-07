@@ -1,76 +1,24 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:intl/intl.dart';
+import '../features/leave/leave_catalog.dart';
 import '../l10n/app_localizations.dart';
 import '../services/api_service.dart';
+import '../utils/leave_salary_shifts.dart';
 import '../utils/responsive_helper.dart';
-import 'notification_overlay.dart';
 import 'employee_search_picker.dart';
+import 'notification_overlay.dart';
 
-/// Chuẩn hóa loại nghỉ từ API / AI (int hoặc string).
-int normalizeLeaveType(dynamic type) {
-  if (type is int) return type.clamp(0, 7);
-  final s = type?.toString().toLowerCase() ?? '';
-  switch (s) {
-    case 'annualleave':
-    case 'annual':
-    case '0':
-      return 0;
-    case 'holiday':
-    case '1':
-      return 1;
-    case 'personalpaid':
-    case '2':
-      return 2;
-    case 'personalunpaid':
-    case '3':
-      return 3;
-    case 'sickleave':
-    case 'sick':
-    case '4':
-      return 4;
-    case 'maternityleave':
-    case 'maternity':
-    case '5':
-      return 5;
-    case 'compensatoryleave':
-    case 'compensatory':
-    case '6':
-      return 6;
-    case 'longtermleave':
-    case 'longterm':
-    case '7':
-      return 7;
-    default:
-      return int.tryParse(s) ?? 0;
-  }
-}
-
-class LeaveTypeOption {
-  final int value;
-  final String label;
-  final IconData icon;
-  final Color color;
-  const LeaveTypeOption(this.value, this.label, this.icon, this.color);
-}
-
-const _leaveTypes = [
-  LeaveTypeOption(0, 'Phép năm', Icons.beach_access_rounded, Color(0xFF0D9488)),
-  LeaveTypeOption(1, 'Lễ tết', Icons.celebration_rounded, Color(0xFFEA580C)),
-  LeaveTypeOption(2, 'VR có lương', Icons.paid_rounded, Color(0xFF2563EB)),
-  LeaveTypeOption(3, 'VR không lương', Icons.money_off_rounded, Color(0xFFD97706)),
-  LeaveTypeOption(4, 'Ốm đau', Icons.local_hospital_rounded, Color(0xFFDC2626)),
-  LeaveTypeOption(5, 'Thai sản', Icons.child_friendly_rounded, Color(0xFFDB2777)),
-  LeaveTypeOption(6, 'Nghỉ bù', Icons.swap_horiz_rounded, Color(0xFF4F46E5)),
-  LeaveTypeOption(7, 'Nghỉ dài hạn', Icons.hourglass_full_rounded, Color(0xFF78716C)),
-];
+export '../features/leave/leave_catalog.dart' show normalizeLeaveType;
 
 const _primary = Color(0xFF1E3A5F);
 const _primaryDark = Color(0xFF0F2340);
 const _border = Color(0xFFE4E4E7);
 const _muted = Color(0xFF71717A);
 const _text = Color(0xFF18181B);
+const _bg = Color(0xFFF8FAFC);
 
-/// Dialog / fullscreen form tạo hoặc sửa đơn nghỉ phép.
+/// Form tạo/sửa đơn nghỉ phép — wizard theo nhóm pháp lý.
 class LeaveRequestFormDialog extends StatefulWidget {
   final List<dynamic> shifts;
   final List<dynamic> employees;
@@ -104,7 +52,8 @@ class LeaveRequestFormDialog extends StatefulWidget {
     return showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => LeaveRequestFormDialog(
+      useRootNavigator: true,
+      builder: (dialogContext) => LeaveRequestFormDialog(
         shifts: shifts,
         employees: employees,
         apiService: apiService,
@@ -123,6 +72,12 @@ class LeaveRequestFormDialog extends StatefulWidget {
 class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
   final _formKey = GlobalKey<FormState>();
   final _reasonController = TextEditingController();
+  final _bhxhNoteController = TextEditingController();
+  final _pageController = PageController();
+
+  int _step = 0;
+  LeaveLegalCategory? _category;
+  LeaveCatalogEntry? _entry;
 
   List<String> _selectedShiftIds = [];
   String? _selectedReplacementId;
@@ -130,48 +85,175 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
   String? _selectedEmployeeUserId;
   DateTime _startDate = DateTime.now();
   DateTime _endDate = DateTime.now();
-  int _leaveType = 0;
   bool _isHalfShift = false;
+  bool _countAsWork = false;
+  bool _autoApprove = false;
   bool _isSubmitting = false;
-  bool _shiftsManuallyCleared = false;
 
   List<dynamic> _filteredShifts = [];
   bool _isLoadingShifts = false;
-  bool _hasScheduleForDate = false;
+  bool _hasSalaryShifts = false;
+
+  double? _annualBalanceRemaining;
+  double? _annualBalanceEntitlement;
+  bool _loadingAnnualBalance = false;
 
   bool get _isEditMode => widget.existingLeave != null;
-
-  int get _dayCount {
-    final d = _endDate.difference(_startDate).inDays + 1;
-    return d < 1 ? 1 : d;
-  }
-
-  LeaveTypeOption get _typeOption =>
-      _leaveTypes.firstWhere((t) => t.value == _leaveType, orElse: () => _leaveTypes.first);
-
-  String? get _employeeDisplayName {
-    if (_isEditMode) {
-      return widget.existingLeave?['employeeName']?.toString();
-    }
-    if (_selectedEmployeeId == null) return null;
-    for (final emp in widget.employees) {
-      if (emp['id']?.toString() == _selectedEmployeeId) {
-        final name =
-            '${emp['lastName'] ?? ''} ${emp['firstName'] ?? ''}'.trim();
-        if (name.isNotEmpty) return name;
-        return emp['employeeCode']?.toString();
-      }
-    }
-    return null;
-  }
+  int get _totalSteps => _isEditMode ? 1 : 3;
+  bool get _needsBhxhNote => _entry?.requiresBhxhNote == true;
 
   @override
   void initState() {
     super.initState();
     _initEmployee();
     _initFromExistingOrAi();
-    _filteredShifts = List.from(widget.shifts);
     _loadShiftsForDate();
+    _loadAnnualBalance();
+  }
+
+  double get _daysNeeded {
+    final d = _endDate.difference(_startDate).inDays + 1;
+    final days = d < 1 ? 1 : d;
+    return _isHalfShift ? days * 0.5 : days.toDouble();
+  }
+
+  Future<void> _loadAnnualBalance() async {
+    final entry = _entry;
+    if (entry == null || !entry.usesAnnualBalance || _countAsWork) {
+      if (mounted) {
+        setState(() {
+          _annualBalanceRemaining = null;
+          _annualBalanceEntitlement = null;
+        });
+      }
+      return;
+    }
+    final employeeId = _selectedEmployeeId;
+    if (employeeId == null) return;
+
+    setState(() => _loadingAnnualBalance = true);
+    try {
+      final result =
+          await widget.apiService.getAnnualLeaveBalance(employeeId);
+      if (!mounted) return;
+      if (result['isSuccess'] == true && result['data'] != null) {
+        final raw = result['data'];
+        if (raw is! Map) return;
+        final data = Map<String, dynamic>.from(raw);
+        setState(() {
+          _annualBalanceRemaining =
+              (data['remainingDays'] as num?)?.toDouble();
+          _annualBalanceEntitlement =
+              (data['entitlementDays'] as num?)?.toDouble();
+        });
+      } else {
+        setState(() {
+          _annualBalanceRemaining = null;
+          _annualBalanceEntitlement = null;
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _loadingAnnualBalance = false);
+    }
+  }
+
+  Widget _buildAnnualBalanceCard() {
+    final entry = _entry;
+    if (entry == null || !entry.usesAnnualBalance || _countAsWork) {
+      return const SizedBox.shrink();
+    }
+
+    if (_loadingAnnualBalance) {
+      return const Padding(
+        padding: EdgeInsets.only(bottom: 12),
+        child: LinearProgressIndicator(minHeight: 2),
+      );
+    }
+
+    if (_annualBalanceRemaining == null) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFEF3C7),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: const Text(
+          'Chưa có quỹ phép năm (gắn hồ sơ lương trong Thiết lập lương).',
+          style: TextStyle(fontSize: 13, color: Color(0xFF92400E)),
+        ),
+      );
+    }
+
+    final remaining = _annualBalanceRemaining!;
+    final needed = _daysNeeded;
+    final insufficient = needed > remaining;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: insufficient
+            ? const Color(0xFFFEF2F2)
+            : const Color(0xFFECFDF5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: insufficient
+              ? const Color(0xFFFECACA)
+              : const Color(0xFF6EE7B7),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                insufficient ? Icons.warning_amber_rounded : Icons.beach_access,
+                color: insufficient
+                    ? const Color(0xFFDC2626)
+                    : const Color(0xFF059669),
+                size: 22,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Phép năm còn: ${remaining.toStringAsFixed(remaining.truncateToDouble() == remaining ? 0 : 1)} ngày'
+                  '${_annualBalanceEntitlement != null ? ' / ${_annualBalanceEntitlement!.toStringAsFixed(0)} ngày/năm' : ''}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                    color: insufficient
+                        ? const Color(0xFFDC2626)
+                        : const Color(0xFF047857),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Đơn này cần: ${needed.toStringAsFixed(needed.truncateToDouble() == needed ? 0 : 1)} ngày'
+            '${_isHalfShift ? ' (nửa ca)' : ''}. '
+            '${insufficient ? 'Không đủ phép — không thể duyệt.' : 'Sẽ trừ khi duyệt xong.'}',
+            style: TextStyle(
+              fontSize: 12,
+              color: insufficient
+                  ? const Color(0xFFB91C1C)
+                  : const Color(0xFF065F46),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _reasonController.dispose();
+    _bhxhNoteController.dispose();
+    _pageController.dispose();
+    super.dispose();
   }
 
   void _initEmployee() {
@@ -186,16 +268,16 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
   }
 
   void _initFromExistingOrAi() {
-    if (_isEditMode) {
-      final l = widget.existingLeave!;
-      _leaveType = normalizeLeaveType(l['type']);
+    final l = widget.existingLeave;
+    if (l != null) {
+      final type = normalizeLeaveType(l['type']);
+      final sm = SickLeaveMode.fromValue(l['sickLeaveMode'] ?? 0);
+      _entry = LeaveCatalog.findEntry(leaveType: type, sickMode: sm);
+      _category = _entry?.category;
       _isHalfShift = l['isHalfShift'] == true;
+      _countAsWork = l['countAsWork'] == true;
       _reasonController.text = l['reason']?.toString() ?? '';
-      final repId = l['replacementEmployeeId']?.toString();
-      if (repId != null &&
-          widget.employees.any((e) => e['id']?.toString() == repId)) {
-        _selectedReplacementId = repId;
-      }
+      _bhxhNoteController.text = l['bhxhDocumentNote']?.toString() ?? '';
       _startDate =
           DateTime.tryParse(l['startDate']?.toString() ?? '') ?? DateTime.now();
       _endDate = DateTime.tryParse(l['endDate']?.toString() ?? '') ?? _startDate;
@@ -203,9 +285,11 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
       final ids = l['shiftIds'];
       if (ids is List && ids.isNotEmpty) {
         _selectedShiftIds = ids.map((e) => e.toString()).toList();
-      } else if (l['shiftId'] != null && l['shiftId'].toString().isNotEmpty) {
+      } else if (l['shiftId'] != null) {
         _selectedShiftIds = [l['shiftId'].toString()];
       }
+      final repId = l['replacementEmployeeId']?.toString();
+      if (repId != null) _selectedReplacementId = repId;
       if (l['employeeUserId'] != null) {
         _selectedEmployeeUserId = l['employeeUserId']?.toString();
         for (final emp in widget.employees) {
@@ -220,24 +304,14 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
 
     final pre = widget.aiPrefill;
     if (pre != null) {
-      final startStr = pre['date'] ?? pre['startDate'];
-      final endStr = pre['endDate'] ?? startStr;
-      if (startStr != null) {
-        _startDate = DateTime.tryParse(startStr) ?? _startDate;
+      if (pre['startDate'] != null) {
+        _startDate = DateTime.tryParse(pre['startDate']!) ?? _startDate;
       }
-      if (endStr != null) {
-        _endDate = DateTime.tryParse(endStr) ?? _startDate;
-      } else {
-        _endDate = _startDate;
+      if (pre['endDate'] != null) {
+        _endDate = DateTime.tryParse(pre['endDate']!) ?? _startDate;
       }
       if (pre['reason'] != null) _reasonController.text = pre['reason']!;
-      final typeStr = pre['type'] ?? pre['leaveType'];
-      if (typeStr != null) _leaveType = normalizeLeaveType(typeStr);
       if (pre['isHalfShift'] == 'true') _isHalfShift = true;
-      final empId = pre['employeeId'];
-      if (empId != null && empId.isNotEmpty) {
-        _selectedEmployeeId = empId;
-      }
     }
   }
 
@@ -246,164 +320,94 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
     try {
       final employeeId = _selectedEmployeeId;
       if (employeeId != null) {
-        final scheduleShiftIds = <String>{};
-
-        final wsResult = await widget.apiService.getWorkSchedules(
-          employeeId: employeeId,
-          fromDate: _startDate,
-          toDate: _startDate,
-          isDayOff: false,
+        final profile =
+            await widget.apiService.getEmployeeSalaryProfile(employeeId);
+        final ids = LeaveSalaryShifts.templateIdsFromSalaryProfile(
+          profile != null ? Map<String, dynamic>.from(profile) : null,
+          widget.shifts,
         );
-        if (wsResult['isSuccess'] == true && wsResult['data'] != null) {
-          final data = wsResult['data'];
-          final items = data is List ? data : (data['items'] ?? []);
-          for (final item in items) {
-            final sid = item['shiftId']?.toString();
-            if (sid != null && sid.isNotEmpty) scheduleShiftIds.add(sid);
-          }
-        }
-
-        try {
-          final srResult = await widget.apiService.getScheduleRegistrations(
-            employeeId: employeeId,
-            fromDate: _startDate,
-            toDate: _startDate,
-          );
-          if (srResult['isSuccess'] == true && srResult['data'] != null) {
-            final data = srResult['data'];
-            final items = data is List ? data : (data['items'] ?? []);
-            for (final item in items) {
-              if (item['isDayOff'] != true &&
-                  item['status'] != 2 &&
-                  item['status'] != 3) {
-                final sid = item['shiftId']?.toString();
-                if (sid != null && sid.isNotEmpty) scheduleShiftIds.add(sid);
-              }
-            }
-          }
-        } catch (_) {}
-
-        if (scheduleShiftIds.isNotEmpty) {
-          _filteredShifts = widget.shifts
-              .where((s) => scheduleShiftIds.contains(s['id']?.toString()))
-              .toList();
-          _hasScheduleForDate = true;
-        } else {
-          _filteredShifts = List.from(widget.shifts);
-          _hasScheduleForDate = false;
-        }
+        _filteredShifts = ids.isEmpty
+            ? []
+            : widget.shifts
+                .where((s) => ids.contains(s['id']?.toString()))
+                .toList();
+        _hasSalaryShifts = ids.isNotEmpty;
       } else {
-        _filteredShifts = List.from(widget.shifts);
-        _hasScheduleForDate = false;
+        _filteredShifts = [];
+        _hasSalaryShifts = false;
       }
     } catch (_) {
-      _filteredShifts = List.from(widget.shifts);
-      _hasScheduleForDate = false;
+      _filteredShifts = [];
+      _hasSalaryShifts = false;
     }
-
-    if (!_shiftsManuallyCleared &&
-        _hasScheduleForDate &&
-        _filteredShifts.isNotEmpty &&
-        !_isEditMode) {
-      _selectedShiftIds = _filteredShifts
-          .map((s) => s['id']?.toString() ?? '')
-          .where((id) => id.isNotEmpty)
-          .toList();
-    }
-
     if (mounted) setState(() => _isLoadingShifts = false);
   }
 
-  @override
-  void dispose() {
-    _reasonController.dispose();
-    super.dispose();
+  void _goStep(int step) {
+    setState(() => _step = step);
+    _pageController.animateToPage(
+      step,
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  void _next() {
+    if (_step == 0 && _category == null) {
+      _toast('Chọn nhóm loại nghỉ', error: true);
+      return;
+    }
+    if (_step == 1 && _entry == null) {
+      _toast('Chọn loại nghỉ cụ thể', error: true);
+      return;
+    }
+    if (_step < _totalSteps - 1) _goStep(_step + 1);
+  }
+
+  void _back() {
+    if (_step > 0) _goStep(_step - 1);
+  }
+
+  void _toast(String msg, {bool error = false}) {
+    if (error) {
+      NotificationOverlayManager().showError(title: 'Thiếu thông tin', message: msg);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
     final isMobile = Responsive.isMobile(context);
-    final title = _isEditMode ? 'Sửa đơn nghỉ phép' : 'Tạo đơn nghỉ phép';
+    final title = _isEditMode ? 'Sửa đơn nghỉ phép' : 'Đăng ký nghỉ phép';
 
-    final body = Form(
-      key: _formKey,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _buildSummaryCard(),
-          const SizedBox(height: 16),
-          if (widget.isManager) ...[
-            _sectionCard(
-              title: 'Nhân viên',
-              icon: Icons.person_rounded,
-              required: true,
-              child: _buildEmployeeField(),
-            ),
-            const SizedBox(height: 12),
-          ],
-          _sectionCard(
-            title: l10n.leaveType,
-            icon: Icons.category_rounded,
-            required: true,
-            child: _buildLeaveTypeGrid(),
+    final content = Column(
+      children: [
+        _buildStepIndicator(),
+        Expanded(
+          child: PageView.builder(
+            controller: _pageController,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _totalSteps,
+            itemBuilder: (context, index) {
+              if (_isEditMode) return _buildDetailsStep();
+              switch (index) {
+                case 0:
+                  return _buildCategoryStep();
+                case 1:
+                  return _buildSubtypeStep();
+                default:
+                  return _buildDetailsStep();
+              }
+            },
           ),
-          const SizedBox(height: 12),
-          _sectionCard(
-            title: 'Thời gian nghỉ',
-            icon: Icons.date_range_rounded,
-            required: true,
-            child: _buildDateSection(l10n),
-          ),
-          const SizedBox(height: 12),
-          _sectionCard(
-            title: l10n.shiftLabel,
-            icon: Icons.schedule_rounded,
-            required: true,
-            child: _buildShiftSection(),
-          ),
-          const SizedBox(height: 12),
-          _sectionCard(
-            title: 'Nhân viên thay ca',
-            icon: Icons.swap_horiz_rounded,
-            child: _buildReplacementField(),
-          ),
-          const SizedBox(height: 12),
-          _sectionCard(
-            title: l10n.reason,
-            icon: Icons.notes_rounded,
-            required: true,
-            child: TextFormField(
-              controller: _reasonController,
-              maxLines: 4,
-              style: const TextStyle(fontSize: 15),
-              decoration: InputDecoration(
-                hintText: 'Mô tả lý do xin nghỉ (bắt buộc)...',
-                hintStyle: const TextStyle(color: _muted, fontSize: 14),
-                filled: true,
-                fillColor: const Color(0xFFFAFAFA),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: _border),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: _border),
-                ),
-              ),
-              validator: (v) => (v == null || v.trim().isEmpty)
-                  ? 'Vui lòng nhập lý do'
-                  : null,
-            ),
-          ),
-        ],
-      ),
+        ),
+        _buildBottomBar(title),
+      ],
     );
 
     if (isMobile) {
       return Dialog.fullscreen(
         child: Scaffold(
-          backgroundColor: const Color(0xFFFAFAFA),
+          backgroundColor: _bg,
           appBar: AppBar(
             backgroundColor: _primaryDark,
             foregroundColor: Colors.white,
@@ -412,12 +416,14 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
               icon: const Icon(Icons.close),
               onPressed: _isSubmitting ? null : () => Navigator.pop(context, false),
             ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.help_outline_rounded),
+                onPressed: _showLegalGuide,
+              ),
+            ],
           ),
-          body: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
-            child: body,
-          ),
-          bottomNavigationBar: _buildBottomBar(l10n),
+          body: content,
         ),
       );
     }
@@ -426,20 +432,13 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxWidth: 680,
-          maxHeight: MediaQuery.sizeOf(context).height * 0.9,
+          maxWidth: 720,
+          maxHeight: MediaQuery.sizeOf(context).height * 0.92,
         ),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           children: [
             _buildDialogHeader(title),
-            Flexible(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: body,
-              ),
-            ),
-            _buildBottomBar(l10n, compact: true),
+            Expanded(child: content),
           ],
         ),
       ),
@@ -448,7 +447,7 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
 
   Widget _buildDialogHeader(String title) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           colors: [_primaryDark, _primary],
@@ -462,14 +461,15 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
           const Icon(Icons.event_note_rounded, color: Colors.white, size: 26),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              title,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            child: Text(title,
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold)),
+          ),
+          IconButton(
+            onPressed: _showLegalGuide,
+            icon: const Icon(Icons.help_outline_rounded, color: Colors.white70),
           ),
           IconButton(
             onPressed: _isSubmitting ? null : () => Navigator.pop(context, false),
@@ -480,323 +480,376 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
     );
   }
 
-  Widget _buildBottomBar(AppLocalizations l10n, {bool compact = false}) {
-    return Container(
-      padding: EdgeInsets.fromLTRB(
-        compact ? 16 : 16,
-        12,
-        compact ? 16 : 16,
-        12 + MediaQuery.paddingOf(context).bottom,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: _border.withValues(alpha: 0.8))),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 8,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
+  Widget _buildStepIndicator() {
+    final labels =
+        _isEditMode ? ['Chi tiết'] : ['Nhóm', 'Loại', 'Chi tiết'];
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
       child: Row(
-        children: [
-          Expanded(
-            child: OutlinedButton(
-              onPressed: _isSubmitting ? null : () => Navigator.pop(context, false),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: Text(l10n.cancel),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            flex: 2,
-            child: FilledButton.icon(
-              onPressed: _isSubmitting ? null : _submit,
-              icon: _isSubmitting
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : Icon(_isEditMode ? Icons.save_rounded : Icons.send_rounded,
-                      size: 20),
-              label: Text(_isEditMode ? l10n.save : 'Gửi đơn'),
-              style: FilledButton.styleFrom(
-                backgroundColor: _primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSummaryCard() {
-    final shiftNames = _selectedShiftIds.map((id) {
-      for (final s in widget.shifts) {
-        if (s['id']?.toString() == id) {
-          return s['name']?.toString() ?? id;
-        }
-      }
-      return id;
-    }).toList();
-
-    final dateLabel = _dayCount == 1
-        ? DateFormat('dd/MM/yyyy').format(_startDate)
-        : '${DateFormat('dd/MM').format(_startDate)} – ${DateFormat('dd/MM/yyyy').format(_endDate)}';
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            _typeOption.color.withValues(alpha: 0.12),
-            _primary.withValues(alpha: 0.06),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _typeOption.color.withValues(alpha: 0.35)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(_typeOption.icon, color: _typeOption.color, size: 28),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _typeOption.label,
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
-                        color: _typeOption.color,
-                      ),
+        children: List.generate(labels.length, (i) {
+          final active = i <= _step;
+          return Expanded(
+            child: Row(
+              children: [
+                if (i > 0)
+                  Expanded(
+                    child: Container(
+                      height: 2,
+                      color: active ? _primary : _border,
                     ),
-                    if (_employeeDisplayName != null)
-                      Text(
-                        _employeeDisplayName!,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: _text,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  _isHalfShift ? 'Nửa ca' : '$_dayCount ngày',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                    color: _primary,
+                  ),
+                CircleAvatar(
+                  radius: 14,
+                  backgroundColor: active ? _primary : _border,
+                  child: Text(
+                    '${i + 1}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: active ? Colors.white : _muted,
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          _summaryRow(Icons.calendar_today_rounded, 'Ngày nghỉ', dateLabel),
-          _summaryRow(
-            Icons.schedule_rounded,
-            'Ca đã chọn',
-            shiftNames.isEmpty
-                ? 'Chưa chọn ca'
-                : shiftNames.join(', '),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _summaryRow(IconData icon, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 16, color: _muted),
-          const SizedBox(width: 8),
-          Text('$label: ', style: const TextStyle(fontSize: 13, color: _muted)),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: _text,
-              ),
+              ],
             ),
-          ),
-        ],
+          );
+        }),
       ),
     );
   }
 
-  Widget _sectionCard({
-    required String title,
-    required IconData icon,
-    required Widget child,
-    bool required = false,
-  }) {
-    return Container(
+  Widget _buildCategoryStep() {
+    return ListView(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: 20, color: _primary),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: _text,
-                ),
-              ),
-              if (required)
-                const Text(' *', style: TextStyle(color: Color(0xFFDC2626))),
-            ],
-          ),
-          const SizedBox(height: 12),
-          child,
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLeaveTypeGrid() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final crossCount = constraints.maxWidth > 520 ? 4 : 2;
-        return GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: crossCount,
-            mainAxisSpacing: 8,
-            crossAxisSpacing: 8,
-            childAspectRatio: 1.35,
-          ),
-          itemCount: _leaveTypes.length,
-          itemBuilder: (_, i) {
-            final t = _leaveTypes[i];
-            final selected = _leaveType == t.value;
-            return Material(
-              color: selected ? t.color.withValues(alpha: 0.12) : const Color(0xFFFAFAFA),
-              borderRadius: BorderRadius.circular(12),
+      children: [
+        const Text(
+          'Bước 1 — Chọn nhóm chế độ',
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: _text),
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          'Mỗi ngày nghỉ chỉ áp dụng một chế độ chi trả.',
+          style: TextStyle(fontSize: 13, color: _muted),
+        ),
+        const SizedBox(height: 16),
+        ...LeaveLegalCategory.values.map((cat) {
+          final selected = _category == cat;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Material(
+              color: selected
+                  ? LeaveCatalog.categoryColor(cat).withValues(alpha: 0.1)
+                  : Colors.white,
+              borderRadius: BorderRadius.circular(14),
               child: InkWell(
-                onTap: () => setState(() => _leaveType = t.value),
-                borderRadius: BorderRadius.circular(12),
+                onTap: () {
+                  setState(() {
+                    _category = cat;
+                    _entry = null;
+                  });
+                  _goStep(1);
+                },
+                borderRadius: BorderRadius.circular(14),
                 child: Container(
+                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: selected ? t.color : _border,
+                      color: selected
+                          ? LeaveCatalog.categoryColor(cat)
+                          : _border,
                       width: selected ? 2 : 1,
                     ),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  child: Row(
                     children: [
-                      Icon(t.icon, color: selected ? t.color : _muted, size: 26),
-                      const SizedBox(height: 6),
-                      Text(
-                        t.label,
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                          color: selected ? t.color : _muted,
-                          height: 1.15,
+                      CircleAvatar(
+                        backgroundColor:
+                            LeaveCatalog.categoryColor(cat).withValues(alpha: 0.15),
+                        child: Icon(LeaveCatalog.categoryIcon(cat),
+                            color: LeaveCatalog.categoryColor(cat)),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              LeaveCatalog.categoryTitle(cat),
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w700, fontSize: 15),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              LeaveCatalog.categoryDescription(cat),
+                              style: const TextStyle(fontSize: 12, color: _muted),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(Icons.chevron_right_rounded,
+                          color: selected
+                              ? LeaveCatalog.categoryColor(cat)
+                              : _muted),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget _buildSubtypeStep() {
+    final cat = _category;
+    if (cat == null) {
+      return const Center(
+        child: Text('Chọn nhóm loại nghỉ ở bước trước',
+            style: TextStyle(color: _muted, fontSize: 14)),
+      );
+    }
+    final entries = LeaveCatalog.forCategory(cat);
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Text(
+          'Bước 2 — ${LeaveCatalog.categoryTitle(cat)}',
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: _text),
+        ),
+        const SizedBox(height: 12),
+        ...entries.map((e) {
+          final selected = _entry == e;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Material(
+              color: selected ? e.color.withValues(alpha: 0.1) : Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              child: InkWell(
+                onTap: () {
+                  setState(() => _entry = e);
+                  _loadAnnualBalance();
+                  _goStep(2);
+                },
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                        color: selected ? e.color : _border,
+                        width: selected ? 2 : 1),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(e.icon, color: e.color, size: 28),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(e.title,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w700, fontSize: 15)),
+                            Text(e.subtitle,
+                                style: TextStyle(fontSize: 12, color: e.color)),
+                            const SizedBox(height: 6),
+                            Text(e.legalHint,
+                                style: const TextStyle(fontSize: 11, color: _muted)),
+                          ],
                         ),
                       ),
                     ],
                   ),
                 ),
               ),
-            );
-          },
-        );
-      },
+            ),
+          );
+        }),
+      ],
     );
   }
 
-  Widget _buildDateSection(AppLocalizations l10n) {
+  Widget _buildDetailsStep() {
+    final l10n = AppLocalizations.of(context);
+    final entry = _entry;
+    return Form(
+      key: _formKey,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          if (entry != null) _buildSelectedTypeBanner(entry),
+          _buildAnnualBalanceCard(),
+          if (widget.isManager) ...[
+            _labeledSection('Nhân viên', Icons.person_rounded, _buildEmployeePicker()),
+            const SizedBox(height: 12),
+          ],
+          _labeledSection('Thời gian', Icons.date_range_rounded, _buildDateSection(l10n)),
+          const SizedBox(height: 12),
+          _labeledSection('Ca nghỉ', Icons.schedule_rounded, _buildShiftSection()),
+          const SizedBox(height: 12),
+          _labeledSection(
+              'Người thay ca (tùy chọn)', Icons.swap_horiz_rounded, _buildReplacementPicker()),
+          if (_needsBhxhNote) ...[
+            const SizedBox(height: 12),
+            _labeledSection(
+              'Giấy nghỉ / hồ sơ BHXH',
+              Icons.description_rounded,
+              TextFormField(
+                controller: _bhxhNoteController,
+                decoration: const InputDecoration(
+                  hintText: 'Số seri giấy nghỉ, mã hồ sơ BHXH…',
+                  filled: true,
+                  border: OutlineInputBorder(),
+                ),
+                validator: (v) =>
+                    (v == null || v.trim().isEmpty) ? 'Bắt buộc với chế độ BHXH' : null,
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          _labeledSection(
+            l10n.reason,
+            Icons.notes_rounded,
+            TextFormField(
+              controller: _reasonController,
+              maxLines: 3,
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Vui lòng nhập lý do' : null,
+              decoration: const InputDecoration(
+                hintText: 'Mô tả ngắn gọn lý do nghỉ…',
+                filled: true,
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ),
+          if (widget.isManager) ...[
+            const SizedBox(height: 12),
+            _buildManagerOptions(),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSelectedTypeBanner(LeaveCatalogEntry entry) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: entry.color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: entry.color.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        children: [
+          Icon(entry.icon, color: entry.color),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(entry.title,
+                    style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: entry.color,
+                        fontSize: 15)),
+                Text(entry.paymentSource.label,
+                    style: const TextStyle(fontSize: 12, color: _muted)),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: entry.paymentSource.color.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(entry.paymentSource.label,
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: entry.paymentSource.color)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _labeledSection(String title, IconData icon, Widget child) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Expanded(child: _dateTile('Từ ngày', _startDate, _pickStartDate)),
-            const SizedBox(width: 10),
-            Expanded(child: _dateTile('Đến ngày', _endDate, _pickEndDate)),
+            Icon(icon, size: 18, color: _primary),
+            const SizedBox(width: 6),
+            Text(title,
+                style: const TextStyle(
+                    fontWeight: FontWeight.w600, fontSize: 14, color: _text)),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
+        child,
+      ],
+    );
+  }
+
+  Widget _buildManagerOptions() {
+    return Card(
+      elevation: 0,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: _border),
+      ),
+      child: Column(
+        children: [
+          SwitchListTile(
+            title: const Text('Phép duyệt nhưng vẫn tính công',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+            subtitle: const Text('Không ghi "Phép" trên chấm công',
+                style: TextStyle(fontSize: 12)),
+            value: _countAsWork,
+            onChanged: (v) {
+              setState(() => _countAsWork = v);
+              _loadAnnualBalance();
+            },
+          ),
+          if (!_isEditMode)
+            SwitchListTile(
+              title: const Text('Duyệt luôn khi tạo',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              value: _autoApprove,
+              onChanged: (v) => setState(() => _autoApprove = v),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDateSection(AppLocalizations l10n) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(child: _dateTile('Từ ngày', _startDate, _pickStart)),
+            const SizedBox(width: 8),
+            Expanded(child: _dateTile('Đến ngày', _endDate, _pickEnd)),
+          ],
+        ),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           value: _isHalfShift,
-          activeThumbColor: _primary,
-          title: Text(
-            l10n.halfShift,
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-          ),
-          subtitle: const Text(
-            'Chỉ nghỉ một phần ca trong ngày (0.5 công)',
-            style: TextStyle(fontSize: 12, color: _muted),
-          ),
-          onChanged: (v) => setState(() => _isHalfShift = v),
+          title: Text(l10n.halfShift),
+          subtitle: const Text('0.5 công / ngày', style: TextStyle(fontSize: 12)),
+          onChanged: (v) {
+            setState(() => _isHalfShift = v);
+            _loadAnnualBalance();
+          },
         ),
-        if (_dayCount > 1)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: const Color(0xFFEFF6FF),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Text(
-              'Đơn nghỉ $_dayCount ngày liên tiếp. Ca làm việc áp dụng theo lịch ngày bắt đầu.',
-              style: const TextStyle(fontSize: 12, color: Color(0xFF1D4ED8)),
-            ),
-          ),
       ],
     );
   }
@@ -804,33 +857,20 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
   Widget _dateTile(String label, DateTime date, VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(10),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: const Color(0xFFFAFAFA),
           border: Border.all(color: _border),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
+          color: Colors.white,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label, style: const TextStyle(fontSize: 12, color: _muted)),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                const Icon(Icons.calendar_month, size: 18, color: _primary),
-                const SizedBox(width: 8),
-                Text(
-                  DateFormat('dd/MM/yyyy').format(date),
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: _text,
-                  ),
-                ),
-              ],
-            ),
+            Text(label, style: const TextStyle(fontSize: 11, color: _muted)),
+            Text(DateFormat('dd/MM/yyyy').format(date),
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
           ],
         ),
       ),
@@ -838,225 +878,79 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
   }
 
   Widget _buildShiftSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                _hasScheduleForDate
-                    ? 'Ca theo lịch ${DateFormat('dd/MM').format(_startDate)}'
-                    : 'Chọn ca nghỉ (có thể chọn nhiều)',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: _hasScheduleForDate
-                      ? const Color(0xFF2563EB)
-                      : _muted,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-            if (_filteredShifts.isNotEmpty && !_isLoadingShifts)
-              TextButton(
-                onPressed: () {
-                  setState(() {
-                    _shiftsManuallyCleared = true;
-                    if (_selectedShiftIds.length == _filteredShifts.length) {
-                      _selectedShiftIds.clear();
-                    } else {
-                      _selectedShiftIds = _filteredShifts
-                          .map((s) => s['id']?.toString() ?? '')
-                          .where((id) => id.isNotEmpty)
-                          .toList();
-                    }
-                  });
-                },
-                child: Text(
-                  _selectedShiftIds.length == _filteredShifts.length
-                      ? 'Bỏ chọn'
-                      : 'Chọn tất cả',
-                  style: const TextStyle(fontSize: 13),
-                ),
-              ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        if (_isLoadingShifts)
-          const Center(
-            child: Padding(
-              padding: EdgeInsets.all(20),
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-          )
-        else if (_filteredShifts.isEmpty)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFEF3C7),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Text(
-              'Không có ca cho ngày đã chọn. Đổi ngày hoặc liên hệ HR xếp lịch.',
-              style: TextStyle(fontSize: 13, color: Color(0xFF92400E)),
-            ),
-          )
-        else
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: _filteredShifts.map<Widget>((shift) {
-              final id = shift['id']?.toString() ?? '';
-              final name = shift['name']?.toString() ?? 'Ca';
-              final selected = _selectedShiftIds.contains(id);
-              return FilterChip(
-                label: Text(
-                  name,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-                  ),
-                ),
-                selected: selected,
-                showCheckmark: true,
-                selectedColor: _primary.withValues(alpha: 0.15),
-                checkmarkColor: _primary,
-                side: BorderSide(
-                  color: selected ? _primary : _border,
-                ),
-                onSelected: (s) {
-                  setState(() {
-                    _shiftsManuallyCleared = true;
-                    if (s) {
-                      _selectedShiftIds.add(id);
-                    } else {
-                      _selectedShiftIds.remove(id);
-                    }
-                  });
-                },
-              );
-            }).toList(),
-          ),
-        if (_selectedShiftIds.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 10),
-            child: Text(
-              'Đã chọn ${_selectedShiftIds.length} ca',
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: _primary,
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildEmployeeField() {
-    if (_isEditMode) {
-      return Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF4F4F5),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: _border),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.person, color: _muted),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                widget.existingLeave?['employeeName']?.toString() ?? 'N/A',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            const Icon(Icons.lock_outline, size: 18, color: _muted),
-          ],
-        ),
+    if (_isLoadingShifts) {
+      return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+    }
+    if (!_hasSalaryShifts) {
+      return Text(
+        _selectedEmployeeId == null
+            ? 'Chọn nhân viên trước.'
+            : 'Chưa gắn ca trong Thiết lập lương.',
+        style: const TextStyle(color: Color(0xFFB45309), fontSize: 13),
       );
     }
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: _filteredShifts.map((s) {
+        final id = s['id']?.toString() ?? '';
+        final name = s['name']?.toString() ?? 'Ca';
+        final sel = _selectedShiftIds.contains(id);
+        return FilterChip(
+          label: Text(name),
+          selected: sel,
+          onSelected: (_) {
+            setState(() {
+              if (sel) {
+                _selectedShiftIds.remove(id);
+              } else {
+                _selectedShiftIds.add(id);
+              }
+            });
+          },
+        );
+      }).toList(),
+    );
+  }
 
-    final name = _employeeDisplayName ?? 'Chọn nhân viên';
-    return InkWell(
+  Widget _buildEmployeePicker() {
+    return ListTile(
+      tileColor: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: const BorderSide(color: _border),
+      ),
+      title: Text(_employeeName() ?? 'Chọn nhân viên'),
+      trailing: const Icon(Icons.chevron_right),
       onTap: _pickEmployee,
-      borderRadius: BorderRadius.circular(12),
-      child: InputDecorator(
-        decoration: InputDecoration(
-          filled: true,
-          fillColor: const Color(0xFFFAFAFA),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-          suffixIcon: const Icon(Icons.arrow_drop_down),
-          errorText: _selectedEmployeeId == null ? null : null,
-        ),
-        child: Text(
-          name,
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: _selectedEmployeeId != null
-                ? FontWeight.w600
-                : FontWeight.normal,
-            color: _selectedEmployeeId != null ? _text : _muted,
-          ),
-        ),
+    );
+  }
+
+  Widget _buildReplacementPicker() {
+    return ListTile(
+      tileColor: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: const BorderSide(color: _border),
       ),
-    );
-  }
-
-  Future<void> _pickEmployee() async {
-    final items = EmployeePickerItem.fromMaps(
-      widget.employees
-          .map((e) => Map<String, dynamic>.from(e as Map))
-          .toList(),
-    );
-    final picked = await EmployeeSearchPicker.pickId(
-      context,
-      items: items,
-      selectedId: _selectedEmployeeId,
-      title: 'Chọn nhân viên',
-    );
-    if (picked != null && mounted) {
-      setState(() {
-        _selectedEmployeeId = picked;
-        _selectedShiftIds.clear();
-        _shiftsManuallyCleared = false;
-        for (final emp in widget.employees) {
-          if (emp['id']?.toString() == picked) {
-            _selectedEmployeeUserId = emp['applicationUserId']?.toString();
-            break;
-          }
-        }
-      });
-      _loadShiftsForDate();
-    }
-  }
-
-  Widget _buildReplacementField() {
-    return InkWell(
+      title: Text(_replacementName() ?? 'Không chọn'),
+      trailing: const Icon(Icons.person_search),
       onTap: _pickReplacement,
-      borderRadius: BorderRadius.circular(12),
-      child: InputDecorator(
-        decoration: InputDecoration(
-          filled: true,
-          fillColor: const Color(0xFFFAFAFA),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-          suffixIcon: const Icon(Icons.person_search),
-        ),
-        child: Text(
-          _replacementLabel() ?? 'Không chọn (tùy chọn)',
-          style: TextStyle(
-            fontSize: 15,
-            color: _replacementLabel() != null ? _text : _muted,
-          ),
-        ),
-      ),
     );
   }
+
+  String? _employeeName() {
+    if (_selectedEmployeeId == null) return null;
+    for (final e in widget.employees) {
+      if (e['id']?.toString() == _selectedEmployeeId) {
+        final n = '${e['lastName'] ?? ''} ${e['firstName'] ?? ''}'.trim();
+        return n.isEmpty ? e['employeeCode']?.toString() : n;
+      }
+    }
+    return null;
+  }
+
+  String? _replacementName() => _replacementLabel();
 
   String? _replacementLabel() {
     if (_selectedReplacementId == null) return null;
@@ -1070,12 +964,60 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
     return null;
   }
 
-  Future<void> _pickReplacement() async {
+  List<dynamic> _replacementCandidates() {
     final others = widget.employees
         .where((e) => e['id']?.toString() != _selectedEmployeeId)
         .toList();
+    String? deptId;
+    for (final emp in widget.employees) {
+      if (emp['id']?.toString() == _selectedEmployeeId) {
+        deptId = emp['departmentId']?.toString();
+        if (deptId == null && emp['department'] is Map) {
+          deptId = emp['department']['id']?.toString();
+        }
+        break;
+      }
+    }
+    if (deptId == null || deptId.isEmpty) return others;
+    return others.where((e) {
+      if (e['departmentId']?.toString() == deptId) return true;
+      if (e['department'] is Map &&
+          e['department']['id']?.toString() == deptId) {
+        return true;
+      }
+      return false;
+    }).toList();
+  }
+
+  Future<void> _pickEmployee() async {
+    final picked = await EmployeeSearchPicker.pickId(
+      context,
+      items: EmployeePickerItem.fromMaps(
+        widget.employees.map((e) => Map<String, dynamic>.from(e as Map)).toList(),
+      ),
+      selectedId: _selectedEmployeeId,
+      title: 'Chọn nhân viên',
+    );
+    if (picked != null && mounted) {
+      setState(() {
+        _selectedEmployeeId = picked;
+        _selectedShiftIds.clear();
+        for (final emp in widget.employees) {
+          if (emp['id']?.toString() == picked) {
+            _selectedEmployeeUserId = emp['applicationUserId']?.toString();
+            break;
+          }
+        }
+      });
+      _loadShiftsForDate();
+    }
+  }
+
+  Future<void> _pickReplacement() async {
     final items = EmployeePickerItem.fromMaps(
-      others.map((e) => Map<String, dynamic>.from(e as Map)).toList(),
+      _replacementCandidates()
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList(),
     );
     final picked = await EmployeeSearchPicker.pickId(
       context,
@@ -1084,85 +1026,162 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
       title: 'Chọn người thay ca',
       allowClear: true,
     );
-    if (mounted) {
-      setState(() => _selectedReplacementId = picked);
-    }
+    if (mounted) setState(() => _selectedReplacementId = picked);
   }
 
-  Future<void> _pickStartDate() async {
-    final picked = await showDatePicker(
+  Future<void> _pickStart() async {
+    final p = await showDatePicker(
       context: context,
       initialDate: _startDate,
       firstDate: DateTime.now().subtract(const Duration(days: 30)),
       lastDate: DateTime.now().add(const Duration(days: 365)),
     );
-    if (picked != null) {
+    if (p != null) {
       setState(() {
-        _startDate = picked;
+        _startDate = p;
         if (_endDate.isBefore(_startDate)) _endDate = _startDate;
         _selectedShiftIds.clear();
-        _shiftsManuallyCleared = false;
       });
       _loadShiftsForDate();
+      _loadAnnualBalance();
     }
   }
 
-  Future<void> _pickEndDate() async {
-    final picked = await showDatePicker(
+  Future<void> _pickEnd() async {
+    final p = await showDatePicker(
       context: context,
       initialDate: _endDate.isBefore(_startDate) ? _startDate : _endDate,
       firstDate: _startDate,
       lastDate: DateTime.now().add(const Duration(days: 365)),
     );
-    if (picked != null) {
-      setState(() => _endDate = picked);
+    if (p != null) {
+      setState(() => _endDate = p);
+      _loadAnnualBalance();
     }
   }
 
+  Widget _buildBottomBar(String title) {
+    return SafeArea(
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(top: BorderSide(color: _border)),
+        ),
+        child: Row(
+          children: [
+            if (_step > 0 && !_isEditMode)
+              TextButton(onPressed: _isSubmitting ? null : _back, child: const Text('Quay lại')),
+            const Spacer(),
+            if (_step < _totalSteps - 1 && !_isEditMode)
+              FilledButton(onPressed: _next, child: const Text('Tiếp'))
+            else
+              FilledButton(
+                onPressed: _isSubmitting ? null : _submit,
+                child: _isSubmitting
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white))
+                    : Text(_isEditMode ? 'Cập nhật' : 'Gửi đơn'),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showLegalGuide() {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => ScrollableAlertDialog(
+        title: const Text('Quy định nghỉ phép (tóm tắt)'),
+        content: const SingleChildScrollView(
+          child: Text(
+            '• DN trả lương: phép năm, lễ, VR có lương, nghỉ bù, ốm dùng phép năm.\n'
+            '• Không lương: VR không lương, nghỉ dài hạn không lương.\n'
+            '• BHXH: ốm hưởng BHXH, thai sản — cần giấy tờ, không trùng lương DN cùng ngày.\n'
+            '• Mỗi ngày chỉ một chế độ.\n'
+            '• Ca nghỉ theo Thiết lập lương; người thay ca cùng phòng ban.',
+            style: TextStyle(fontSize: 14, height: 1.5),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Đóng')),
+        ],
+      ),
+    );
+  }
+
   Future<void> _submit() async {
+    final entry = _entry ??
+        (_isEditMode && widget.existingLeave != null
+            ? LeaveCatalog.findEntry(
+                leaveType: normalizeLeaveType(widget.existingLeave!['type']),
+                sickMode: SickLeaveMode.fromValue(
+                    widget.existingLeave!['sickLeaveMode'] ?? 0),
+              )
+            : null);
+    if (entry == null) {
+      _toast('Chọn loại nghỉ', error: true);
+      return;
+    }
     if (widget.isManager && !_isEditMode && _selectedEmployeeId == null) {
-      NotificationOverlayManager().showError(
-        title: 'Thiếu thông tin',
-        message: 'Vui lòng chọn nhân viên',
-      );
+      _toast('Chọn nhân viên', error: true);
       return;
     }
     if (!_formKey.currentState!.validate()) return;
-    if (_selectedShiftIds.isEmpty) {
-      NotificationOverlayManager().showError(
-        title: 'Thiếu thông tin',
-        message: 'Vui lòng chọn ít nhất một ca làm việc',
+    if (entry.usesAnnualBalance &&
+        !_countAsWork &&
+        _annualBalanceRemaining != null &&
+        _daysNeeded > _annualBalanceRemaining!) {
+      _toast(
+        'Không đủ phép năm (còn ${_annualBalanceRemaining!.toStringAsFixed(1)}, cần ${_daysNeeded.toStringAsFixed(1)})',
+        error: true,
       );
+      return;
+    }
+    if (_selectedShiftIds.isEmpty) {
+      _toast('Chọn ít nhất một ca', error: true);
       return;
     }
 
     setState(() => _isSubmitting = true);
     try {
       final Map<String, dynamic> result;
+      final sickMode = entry.sickLeaveMode.value;
+      final bhxh = _bhxhNoteController.text.trim();
+
       if (_isEditMode) {
         result = await widget.apiService.updateLeave(
           leaveId: widget.existingLeave!['id'],
           shiftIds: _selectedShiftIds,
           startDate: _startDate,
           endDate: _endDate,
-          type: _leaveType,
+          type: entry.leaveType,
           isHalfShift: _isHalfShift,
           reason: _reasonController.text.trim(),
           replacementEmployeeId: _selectedReplacementId,
-          employeeUserId: widget.isManager ? _selectedEmployeeUserId : null,
-          employeeId: widget.isManager ? _selectedEmployeeId : null,
+          countAsWork: widget.isManager ? _countAsWork : null,
+          sickLeaveMode: sickMode,
+          bhxhDocumentNote: bhxh.isEmpty ? null : bhxh,
         );
       } else {
         result = await widget.apiService.createLeave(
           shiftIds: _selectedShiftIds,
           startDate: _startDate,
           endDate: _endDate,
-          type: _leaveType,
+          type: entry.leaveType,
           isHalfShift: _isHalfShift,
           reason: _reasonController.text.trim(),
           replacementEmployeeId: _selectedReplacementId,
           employeeUserId: widget.isManager ? _selectedEmployeeUserId : null,
           employeeId: widget.isManager ? _selectedEmployeeId : null,
+          countAsWork: widget.isManager ? _countAsWork : null,
+          autoApprove: widget.isManager ? _autoApprove : null,
+          sickLeaveMode: sickMode,
+          bhxhDocumentNote: bhxh.isEmpty ? null : bhxh,
         );
       }
 
@@ -1170,9 +1189,7 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
       if (result['isSuccess'] == true) {
         NotificationOverlayManager().showSuccess(
           title: 'Thành công',
-          message: _isEditMode
-              ? 'Cập nhật đơn thành công'
-              : 'Tạo đơn nghỉ phép thành công',
+          message: _isEditMode ? 'Đã cập nhật đơn' : 'Đã gửi đơn nghỉ phép',
         );
         Navigator.pop(context, true);
       } else {

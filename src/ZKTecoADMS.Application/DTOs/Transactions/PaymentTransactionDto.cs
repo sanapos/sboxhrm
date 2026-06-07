@@ -79,6 +79,8 @@ public class EmployeePaymentSummaryDto
 public class UpdateTransactionStatusDto
 {
     public string Status { get; set; } = "Pending";
+    /// <summary>Bonus only: Cash = tạo phiếu chi; Salary = cộng vào lương, không tạo phiếu chi.</summary>
+    public string? DisbursementMode { get; set; }
 }
 
 public class UpdatePaymentTransactionDto
@@ -95,6 +97,8 @@ public class UpdatePaymentTransactionDto
 public class BulkTransactionApproveDto
 {
     public List<Guid> Ids { get; set; } = [];
+    /// <summary>Bonus only: Cash = tạo phiếu chi; Salary = cộng vào lương, không tạo phiếu chi.</summary>
+    public string? DisbursementMode { get; set; }
 }
 
 public class BulkTransactionPayDto

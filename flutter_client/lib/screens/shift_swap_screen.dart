@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/permission_provider.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/shift_swap_panel.dart';
 
@@ -60,12 +62,16 @@ class _ShiftSwapScreenState extends State<ShiftSwapScreen> {
           Expanded(child: ShiftSwapPanel(key: _panelKey)),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _panelKey.currentState?.showCreateDialog(),
-        backgroundColor: HrmPageChrome.primaryNavy,
-        icon: const Icon(Icons.add),
-        label: const Text('Yêu cầu đổi ca'),
-      ),
+      floatingActionButton:
+          Provider.of<PermissionProvider>(context, listen: false)
+                  .canCreate('ShiftSwap')
+              ? FloatingActionButton.extended(
+                  onPressed: () => _panelKey.currentState?.showCreateDialog(),
+                  backgroundColor: HrmPageChrome.primaryNavy,
+                  icon: const Icon(Icons.add),
+                  label: const Text('Yêu cầu đổi ca'),
+                )
+              : null,
     );
   }
 }

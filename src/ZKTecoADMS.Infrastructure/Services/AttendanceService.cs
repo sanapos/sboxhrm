@@ -141,10 +141,8 @@ public class AttendanceService(
             filter: e => e.DeviceId == device.Id
         )).ToDictionary(e => e.Pin, e => e);
 
-        // Pre-load PenaltySetting for this store (single record)
-        var penaltySetting = await penaltySettingRepository.GetSingleAsync(
-            filter: ps => ps.StoreId == device.StoreId
-        );
+        // Pre-load PenaltySetting for this store; auto-create defaults if missing.
+        var penaltySetting = await EnsurePenaltySettingAsync(device.StoreId);
 
         // Load store's day_end_time to correctly determine logical working date for overnight shifts.
         // E.g. if day_end_time = 05:00, a punch at 03:00 May 3 belongs to the working day May 2.
@@ -264,17 +262,36 @@ public class AttendanceService(
     /// Returns the logical working date for a punch: if the punch falls before the store's
     /// day_end_time cutoff (e.g. 05:00), it belongs to the PREVIOUS calendar day.
     /// </summary>
+    private async Task<PenaltySetting> EnsurePenaltySettingAsync(Guid? storeId)
+    {
+        if (!storeId.HasValue)
+            return new PenaltySetting();
+
+        var setting = await penaltySettingRepository.GetSingleAsync(
+            filter: ps => ps.StoreId == storeId);
+        if (setting != null)
+            return setting;
+
+        setting = new PenaltySetting { StoreId = storeId };
+        return await penaltySettingRepository.AddAsync(setting);
+    }
+
     private static DateTime GetLogicalDate(DateTime punchTime, TimeSpan storesDayEnd)
     {
-        // AttendanceTime is stored as UTC (EnableLegacyTimestampBehavior = true, Kind = Unspecified).
-        // Convert to Vietnam local time (UTC+7) before extracting the calendar date so that
-        // early-morning punches (00:00–06:59 VN = 17:00–23:59 UTC previous day) are assigned
-        // to the correct VN working day, not yesterday's UTC date.
-        var vnTime = punchTime.AddHours(7);
+        var vnTime = ToVietnamLocal(punchTime);
         if (storesDayEnd > TimeSpan.Zero && vnTime.TimeOfDay < storesDayEnd)
             return vnTime.Date.AddDays(-1);
         return vnTime.Date;
     }
+
+    /// <summary>
+    /// Máy chấm / mobile lưu giờ VN (Unspecified); một số API lưu UTC — chuẩn hóa về VN.
+    /// </summary>
+    private static DateTime ToVietnamLocal(DateTime punchTime)
+        => punchTime.Kind == DateTimeKind.Utc ? punchTime.AddHours(7) : punchTime;
+
+    private static TimeSpan GetPunchTimeOfDay(DateTime punchTime)
+        => ToVietnamLocal(punchTime).TimeOfDay;
 
     private static WorkSchedule? PickScheduleForPunch(List<WorkSchedule>? daySchedules, TimeSpan punchTime)
     {
@@ -324,7 +341,7 @@ public class AttendanceService(
         // Use logical date so that overnight punches (before day_end_time) are assigned
         // to the correct working day rather than the calendar date.
         var violationDate = GetLogicalDate(attendance.AttendanceTime, storesDayEnd);
-        var punchTime = attendance.AttendanceTime.TimeOfDay;
+        var punchTime = GetPunchTimeOfDay(attendance.AttendanceTime);
 
         // Use pre-loaded schedules (keyed by logical date); pick closest shift by punch time.
         schedulesByEmployeeDate.TryGetValue((employeeId, violationDate), out var daySchedules);
@@ -333,6 +350,7 @@ public class AttendanceService(
         TimeSpan shiftStart;
         TimeSpan shiftEnd;
         Guid? shiftIdForTicket;
+        string? matchedShiftType;
 
         // Shift-specific tolerance thresholds (from ShiftTemplate config)
         int lateGraceMinutes;
@@ -347,6 +365,7 @@ public class AttendanceService(
             shiftStart = schedule.StartTime ?? schedule.Shift?.StartTime ?? defaultStart;
             shiftEnd = schedule.EndTime ?? schedule.Shift?.EndTime ?? defaultEnd;
             shiftIdForTicket = schedule.ShiftId;
+            matchedShiftType = schedule.Shift?.ShiftType;
             // Apply per-shift tolerances; fall back to sensible defaults when no template linked.
             lateGraceMinutes          = schedule.Shift?.LateGraceMinutes ?? 5;
             earlyLeaveGraceMinutes    = schedule.Shift?.EarlyLeaveGraceMinutes ?? 5;
@@ -365,6 +384,7 @@ public class AttendanceService(
             earlyLeaveGraceMinutes    = fallback.Value.earlyLeaveGrace;
             maxAllowedLateMinutes     = fallback.Value.maxLate;
             maxAllowedEarlyLeaveMinutes = fallback.Value.maxEarlyLeave;
+            matchedShiftType          = fallback.Value.shiftType;
             shiftIdForTicket = null;
         }
 
@@ -373,6 +393,10 @@ public class AttendanceService(
 
         if (attendance.AttendanceState == AttendanceStates.CheckIn)
         {
+            // Ca Tăng ca: không phạt đi trễ (khớp logic tab Tổng hợp theo ca).
+            if (IsOvertimeShiftType(matchedShiftType))
+                return;
+
             if (punchTime > shiftStart)
             {
                 var lateMinutes = (int)(punchTime - shiftStart).TotalMinutes;
@@ -585,9 +609,19 @@ public class AttendanceService(
         var rangeStart = scanDates.Min().AddDays(-1);
         var rangeEnd = scanDates.Max().AddDays(1);
 
+        // Attendance.EmployeeId = DeviceUser.Id; map HR employee → device user ids on this device.
+        var deviceUsersOnDevice = (await employeeRepository.GetAllAsync(
+            filter: du => du.DeviceId == device.Id && du.EmployeeId.HasValue && employeeIds.Contains(du.EmployeeId.Value)
+        )).ToList();
+        var hrToDeviceUserIds = deviceUsersOnDevice
+            .GroupBy(du => du.EmployeeId!.Value)
+            .ToDictionary(g => g.Key, g => g.Select(du => du.Id).ToHashSet());
+
+        var relevantDeviceUserIds = hrToDeviceUserIds.Values.SelectMany(s => s).ToHashSet();
+
         var storeAttendances = (await attendanceRepository.GetAllAsync(
             filter: a => a.EmployeeId.HasValue
-                && employeeIds.Contains(a.EmployeeId.Value)
+                && relevantDeviceUserIds.Contains(a.EmployeeId.Value)
                 && a.DeviceId == device.Id
                 && a.AttendanceTime >= rangeStart
                 && a.AttendanceTime < rangeEnd.AddDays(1)
@@ -605,19 +639,21 @@ public class AttendanceService(
             if (!employees.TryGetValue(employeeId, out var employee))
                 continue;
             var empUserId = employee.ApplicationUserId;
-            if (!empUserId.HasValue) continue;
+            if (!hrToDeviceUserIds.TryGetValue(employeeId, out var deviceUserIdsForEmp))
+                continue;
 
             foreach (var workDate in scanDates)
             {
-                if (!IsExpectedWorkDay(employeeId, empUserId.Value, workDate,
+                if (!IsExpectedWorkDay(employeeId, workDate,
                         schedulesByEmployeeDate, employeeBenefits))
                     continue;
 
-                if (HasApprovedLeave(approvedLeaves, employeeId, empUserId.Value, workDate))
+                if (HasApprovedLeave(approvedLeaves, employeeId, empUserId, workDate))
                     continue;
 
                 var dayPunches = storeAttendances
-                    .Where(a => a.EmployeeId == employeeId
+                    .Where(a => a.EmployeeId.HasValue
+                        && deviceUserIdsForEmp.Contains(a.EmployeeId.Value)
                         && GetLogicalDate(a.AttendanceTime, storesDayEnd) == workDate)
                     .ToList();
 
@@ -656,19 +692,19 @@ public class AttendanceService(
     }
 
     private static bool HasApprovedLeave(
-        List<Leave> leaves, Guid employeeId, Guid employeeUserId, DateTime workDate)
+        List<Leave> leaves, Guid employeeId, Guid? employeeUserId, DateTime workDate)
         => leaves.Any(l =>
             l.StartDate.Date <= workDate && l.EndDate.Date >= workDate
-            && (l.EmployeeId == employeeId || l.EmployeeUserId == employeeUserId));
+            && (l.EmployeeId == employeeId
+                || (employeeUserId.HasValue && l.EmployeeUserId == employeeUserId.Value)));
 
     private static bool IsExpectedWorkDay(
         Guid employeeId,
-        Guid employeeUserId,
         DateTime workDate,
         Dictionary<(Guid, DateTime), List<WorkSchedule>> schedulesByEmployeeDate,
         Dictionary<Guid, EmployeeBenefit> employeeBenefits)
     {
-        if (schedulesByEmployeeDate.TryGetValue((employeeUserId, workDate), out var daySchedules)
+        if (schedulesByEmployeeDate.TryGetValue((employeeId, workDate), out var daySchedules)
             && daySchedules.Count > 0)
             return daySchedules.Any(s => !s.IsDayOff);
 
@@ -730,7 +766,18 @@ public class AttendanceService(
     /// để lấy danh sách ca làm việc và chọn ca phù hợp với thời điểm chấm công.
     /// Đảm bảo logic phạt đồng nhất với màn hình "Tổng hợp theo ca".
     /// </summary>
-    private static (TimeSpan start, TimeSpan end, int lateGrace, int earlyLeaveGrace, int maxLate, int maxEarlyLeave)? ResolveFallbackShift(
+    private static bool IsOvertimeShiftType(string? shiftType)
+    {
+        if (string.IsNullOrWhiteSpace(shiftType)) return false;
+        var raw = shiftType.Trim().ToLowerInvariant();
+        return raw.Contains("tăng ca")
+            || raw.Contains("tang ca")
+            || raw.Contains("tangca")
+            || raw == "tangca"
+            || raw.Contains("overtime");
+    }
+
+    private static (TimeSpan start, TimeSpan end, int lateGrace, int earlyLeaveGrace, int maxLate, int maxEarlyLeave, string? shiftType)? ResolveFallbackShift(
         Guid employeeId, DateTime violationDate, TimeSpan punchTime,
         AttendanceStates state,
         Dictionary<Guid, EmployeeBenefit> employeeBenefits,
@@ -766,7 +813,7 @@ public class AttendanceService(
         {
             // Last-resort fallback: Benefit's own CheckIn/CheckOut times.
             if (benefit.CheckIn.HasValue && benefit.CheckOut.HasValue)
-                return (benefit.CheckIn.Value.ToTimeSpan(), benefit.CheckOut.Value.ToTimeSpan(), 5, 5, 30, 30);
+                return (benefit.CheckIn.Value.ToTimeSpan(), benefit.CheckOut.Value.ToTimeSpan(), 5, 5, 30, 30, null);
             return null;
         }
 
@@ -795,7 +842,8 @@ public class AttendanceService(
 
         return (chosen.StartTime, chosen.EndTime,
             chosen.LateGraceMinutes, chosen.EarlyLeaveGraceMinutes,
-            chosen.MaximumAllowedLateMinutes, chosen.MaximumAllowedEarlyLeaveMinutes);
+            chosen.MaximumAllowedLateMinutes, chosen.MaximumAllowedEarlyLeaveMinutes,
+            chosen.ShiftType);
     }
 
     private static string NormalizeShiftName(string s)
@@ -819,15 +867,6 @@ public class AttendanceService(
     public async Task RecalculatePenaltiesForEmployeeDateAsync(
         Guid storeId, Guid employeeId, DateTime logicalWorkDate, CancellationToken cancellationToken = default)
     {
-        var device = await deviceRepository.GetSingleAsync(
-            d => d.StoreId == storeId,
-            cancellationToken: cancellationToken);
-        if (device == null)
-        {
-            logger.LogWarning("RecalculatePenalties: no device for store {StoreId}", storeId);
-            return;
-        }
-
         var dayEndSetting = await appSettingsRepository.GetSingleAsync(
             s => s.StoreId == storeId && s.Key == "day_end_time",
             cancellationToken: cancellationToken);
@@ -838,8 +877,21 @@ public class AttendanceService(
         var scanStart = logicalWorkDate.Date.AddDays(-1);
         var scanEnd = logicalWorkDate.Date.AddDays(2);
 
+        var linkedDeviceUsers = (await employeeRepository.GetAllAsync(
+            du => du.EmployeeId == employeeId,
+            cancellationToken: cancellationToken)).ToList();
+        if (linkedDeviceUsers.Count == 0)
+        {
+            logger.LogWarning("RecalculatePenalties: no DeviceUser linked to employee {EmployeeId}", employeeId);
+            return;
+        }
+
+        var deviceUserIds = linkedDeviceUsers.Select(du => du.Id).ToHashSet();
+        var pins = linkedDeviceUsers.Select(du => du.Pin).Where(p => !string.IsNullOrWhiteSpace(p)).ToHashSet();
+
         var attendances = (await attendanceRepository.GetAllAsync(
-            a => a.EmployeeId == employeeId
+            a => (a.EmployeeId.HasValue && deviceUserIds.Contains(a.EmployeeId.Value)
+                  || pins.Contains(a.PIN))
                  && a.AttendanceTime >= scanStart
                  && a.AttendanceTime < scanEnd,
             cancellationToken: cancellationToken)).ToList();
@@ -851,6 +903,53 @@ public class AttendanceService(
         if (dayPunches.Count == 0)
             return;
 
-        await UpdateShiftAttendancesAsync(dayPunches, device);
+        foreach (var group in dayPunches.GroupBy(a => a.DeviceId))
+        {
+            var device = await deviceRepository.GetSingleAsync(
+                d => d.Id == group.Key,
+                cancellationToken: cancellationToken);
+            if (device == null || device.StoreId != storeId)
+                continue;
+            await UpdateShiftAttendancesAsync(group.ToList(), device);
+        }
+    }
+
+    public async Task<int> BackfillPenaltyTicketsAsync(
+        Guid storeId, DateTime fromDate, DateTime toDate, CancellationToken cancellationToken = default)
+    {
+        var from = fromDate.Date;
+        var toExclusive = toDate.Date.AddDays(1);
+        if (toExclusive <= from)
+            return 0;
+
+        var devices = (await deviceRepository.GetAllAsync(
+            d => d.StoreId == storeId,
+            cancellationToken: cancellationToken)).ToList();
+        if (devices.Count == 0)
+            return 0;
+
+        var deviceIds = devices.Select(d => d.Id).ToList();
+        var attendances = (await attendanceRepository.GetAllAsync(
+            a => deviceIds.Contains(a.DeviceId)
+                 && a.AttendanceTime >= from
+                 && a.AttendanceTime < toExclusive,
+            cancellationToken: cancellationToken)).ToList();
+
+        var processed = 0;
+        foreach (var group in attendances.GroupBy(a => a.DeviceId))
+        {
+            var device = devices.FirstOrDefault(d => d.Id == group.Key);
+            if (device == null) continue;
+            foreach (var batch in group.OrderBy(a => a.AttendanceTime).Chunk(200))
+            {
+                await UpdateShiftAttendancesAsync(batch, device);
+                processed += batch.Length;
+            }
+        }
+
+        logger.LogInformation(
+            "BackfillPenaltyTickets: store {StoreId}, {From:yyyy-MM-dd}–{To:yyyy-MM-dd}, processed {Count} punches",
+            storeId, from, toDate.Date, processed);
+        return processed;
     }
 }

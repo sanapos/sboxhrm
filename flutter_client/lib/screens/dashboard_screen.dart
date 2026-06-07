@@ -4,6 +4,7 @@ import 'dart:collection';
 import 'dart:math' as math;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
 import '../models/attendance.dart';
@@ -15,6 +16,8 @@ import '../utils/dashboard_ui_capabilities.dart';
 import '../utils/shift_records_calculator.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/loading_widget.dart';
+import '../widgets/notification_overlay.dart';
+import '../widgets/app_scroll_safe.dart';
 import '../widgets/ai_assistant_sheet.dart';
 import 'main_layout.dart';
 import 'leave_screen.dart';
@@ -501,8 +504,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
           dayEndHour: deh,
           dayEndMinute: dem,
           pageSize: 1000,
+          parallelPages: 6,
         );
         phase2RawAttendances = attLoad.items;
+        if (attLoad.truncated && mounted) {
+          appNotification.showWarning(
+            title: 'Tổng quan: log chấm công có thể chưa đủ',
+            message:
+                'Đã tải ${attLoad.items.length} bản ghi. Thu hẹp kỳ xem nếu thiếu ngày cuối.',
+          );
+        }
       }
     }
 
@@ -1180,7 +1191,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         }
 
         if (_isLoading) {
-          return LoadingWidget(message: _l10n.loadingOverview);
+          return Scaffold(
+            backgroundColor: HrmPageChrome.background,
+            body: LoadingWidget(message: _l10n.loadingOverview),
+          );
         }
 
         final caps = DashboardUiCapabilities.from(
@@ -1588,7 +1602,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
         }),
       if (caps.quickPayroll)
         _QuickAction(Icons.payments_rounded, 'Phiếu lương',
-            const Color(0xFF06B6D4), () => NavigationNotifier.goToPayroll()),
+            const Color(0xFF06B6D4), () {
+          final perm =
+              Provider.of<PermissionProvider>(context, listen: false);
+          NavigationNotifier.goToPayModule(
+            preferPayslip: perm.canView('Payslip'),
+          );
+        }),
       if (caps.quickCommunication)
         _QuickAction(
             Icons.campaign_rounded,
@@ -1931,7 +1951,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             (a, b) => (a['name'] as String).compareTo(b['name'] as String));
       }
 
-      showModalBottomSheet<void>(
+      showAppSheet<void>(
         context: context,
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
@@ -2646,7 +2666,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         items = [];
     }
 
-    showModalBottomSheet<void>(
+    showAppSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -2936,7 +2956,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
           target = AdvanceRequestsScreen(highlightId: hi);
           break;
         case 'docs_detail':
-          target = HrDocumentsScreen(highlightId: hi);
+          if (Provider.of<PermissionProvider>(context, listen: false)
+              .canView('HrDocument')) {
+            target = HrDocumentsScreen(highlightId: hi);
+          } else {
+            target = EmployeesScreen(highlightId: hi);
+          }
           break;
         case 'birthday_detail':
         case 'newhires_detail':
@@ -2976,6 +3001,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return const _InsightCta('Mở danh sách nhân viên',
             Icons.people_alt_outlined, EmployeesScreen());
       case 'overtime_detail':
+        if (!Provider.of<PermissionProvider>(context, listen: false)
+            .canView('Overtime')) {
+          return null;
+        }
         return const _InsightCta(
             'Mở quản lý tăng ca', Icons.access_time, OvertimeScreen());
       case 'task_detail':
@@ -2985,8 +3014,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return const _InsightCta('Mở phiếu vi phạm', Icons.report_gmailerrorred,
             PenaltyTicketsScreen());
       case 'docs_detail':
-        return const _InsightCta('Mở danh sách nhân viên',
-            Icons.people_alt_outlined, EmployeesScreen());
+        return _InsightCta(
+          Provider.of<PermissionProvider>(context, listen: false)
+                  .canView('HrDocument')
+              ? 'Mở tài liệu HR'
+              : 'Mở danh sách nhân viên',
+          Provider.of<PermissionProvider>(context, listen: false)
+                  .canView('HrDocument')
+              ? Icons.folder_open_outlined
+              : Icons.people_alt_outlined,
+          Provider.of<PermissionProvider>(context, listen: false)
+                  .canView('HrDocument')
+              ? HrDocumentsScreen()
+              : const EmployeesScreen(),
+        );
       case 'advance_detail':
         return const _InsightCta('Mở phiếu ứng lương', Icons.payments_outlined,
             AdvanceRequestsScreen());
@@ -3090,7 +3131,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             final ctrl = TextEditingController();
             final confirmed = await showDialog<bool>(
               context: context,
-              builder: (_) => AlertDialog(
+              builder: (_) => ScrollableAlertDialog(
                 title: const Text('Lý do từ chối',
                     style:
                         TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
@@ -3547,7 +3588,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   final ctrl = TextEditingController();
                   final confirmed = await showDialog<bool>(
                     context: context,
-                    builder: (_) => AlertDialog(
+                    builder: (_) => ScrollableAlertDialog(
                       title: const Text('Lý do từ chối',
                           style: TextStyle(
                               fontSize: 15, fontWeight: FontWeight.w600)),
@@ -5104,7 +5145,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return;
     }
     final items = _kpiDetailData(k.kind);
-    showModalBottomSheet<void>(
+    showAppSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -5281,7 +5322,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           .compareTo((b['employeeName'] ?? '').toString()));
     }
 
-    showModalBottomSheet<void>(
+    showAppSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -5735,7 +5776,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final totalSections =
         shiftOrder.length + (noShiftAbsent.isNotEmpty ? 1 : 0);
 
-    showModalBottomSheet<void>(
+    showAppSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -6034,7 +6075,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return '${m ~/ 60}g${m % 60 > 0 ? ' ${m % 60}ph' : ''}';
     }
 
-    showModalBottomSheet<void>(
+    showAppSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -6373,7 +6414,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
     }
 
-    showModalBottomSheet<void>(
+    showAppSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -6746,7 +6787,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     String fmtTime(DateTime t) =>
         '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
 
-    showModalBottomSheet<void>(
+    showAppSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,

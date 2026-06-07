@@ -1,4 +1,8 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/permission_provider.dart';
+import '../widgets/app_scroll_safe.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../models/device.dart';
 import '../services/api_service.dart';
@@ -13,6 +17,9 @@ class ConnectMccScreen extends StatefulWidget {
 }
 
 class _ConnectMccScreenState extends State<ConnectMccScreen> {
+  PermissionProvider get _perm =>
+      Provider.of<PermissionProvider>(context, listen: false);
+
   final ApiService _apiService = ApiService();
   List<Device> _myDevices = [];
   List<Device> _availableDevices = []; // Thiết bị trong ADMS chưa được kết nối
@@ -118,6 +125,7 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
   }
 
   Widget _buildAddDeviceSection() {
+    if (!_perm.canCreate('Device')) return const SizedBox.shrink();
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -518,16 +526,18 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
                     side: const BorderSide(color: HrmPageChrome.primaryNavy),
                   ),
                 ),
-                const SizedBox(width: 8),
-                OutlinedButton.icon(
-                  onPressed: () => _confirmDeleteDevice(device),
-                  icon: const Icon(Icons.delete_outline, size: 18),
-                  label: const Text('Xóa'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFFEF4444),
-                    side: const BorderSide(color: Color(0xFFEF4444)),
+                if (_perm.canDelete('Device')) ...[
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
+                    onPressed: () => _confirmDeleteDevice(device),
+                    icon: const Icon(Icons.delete_outline, size: 18),
+                    label: const Text('Xóa'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFFEF4444),
+                      side: const BorderSide(color: Color(0xFFEF4444)),
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ],
@@ -546,7 +556,7 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
+        builder: (context, setDialogState) => ScrollableAlertDialog(
           backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Row(
@@ -823,7 +833,7 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
     
     final result = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => ScrollableAlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Đặt tên thiết bị', style: TextStyle(color: Color(0xFF18181B))),
@@ -898,7 +908,7 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
   }
 
   void _showDeviceInfo(Device device) {
-    showModalBottomSheet(
+    showAppSheet(
       context: context,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
@@ -1009,7 +1019,7 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
   void _confirmDeleteDevice(Device device) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => ScrollableAlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Row(

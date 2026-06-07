@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
+import '../utils/paged_load_utils.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/app_button.dart';
 import '../widgets/app_responsive_dialog.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
+import '../widgets/hrm_mini_stat_chip.dart';
 
 class OvertimeScreen extends StatefulWidget {
   const OvertimeScreen({super.key});
@@ -51,26 +55,30 @@ class _OvertimeScreenState extends State<OvertimeScreen>
   Future<void> _loadData({bool showLoading = true}) async {
     if (showLoading) setState(() => _isLoading = true);
     try {
-      final results = await Future.wait([
-        _apiService.getOvertimes(),
-        _apiService.getMyOvertimes(),
-        _apiService.getPendingOvertimes(),
-        _apiService.getOvertimeStatistics(),
-      ]);
+      final allFuture = fetchAllPagedMaps(
+        (p, s) => _apiService.getOvertimes(page: p, pageSize: s),
+        pageSize: 500,
+      );
+      final myRes = await _apiService.getMyOvertimes();
+      final pendingRes = await _apiService.getPendingOvertimes();
+      final statsRes = await _apiService.getOvertimeStatistics();
+      final allList = await allFuture;
       setState(() {
-        if (results[0]['isSuccess'] == true) {
-          _allOvertimes =
-              List<Map<String, dynamic>>.from(results[0]['data'] ?? []);
+        _allOvertimes = allList;
+        if (myRes['isSuccess'] == true) {
+          _myOvertimes = mapsFromPagedApiData(myRes['data']);
+          if (_myOvertimes.isEmpty && myRes['data'] is List) {
+            _myOvertimes = List<Map<String, dynamic>>.from(myRes['data']);
+          }
         }
-        if (results[1]['isSuccess'] == true) {
-          _myOvertimes =
-              List<Map<String, dynamic>>.from(results[1]['data'] ?? []);
+        if (pendingRes['isSuccess'] == true) {
+          _pendingOvertimes = mapsFromPagedApiData(pendingRes['data']);
+          if (_pendingOvertimes.isEmpty && pendingRes['data'] is List) {
+            _pendingOvertimes =
+                List<Map<String, dynamic>>.from(pendingRes['data']);
+          }
         }
-        if (results[2]['isSuccess'] == true) {
-          _pendingOvertimes =
-              List<Map<String, dynamic>>.from(results[2]['data'] ?? []);
-        }
-        if (results[3]['isSuccess'] == true) _statistics = results[3]['data'];
+        if (statsRes['isSuccess'] == true) _statistics = statsRes['data'];
       });
       if (_branches.isEmpty) {
         try {
@@ -186,12 +194,16 @@ class _OvertimeScreenState extends State<OvertimeScreen>
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showCreateDialog,
-        icon: const Icon(Icons.add),
-        label: const Text('Đăng ký tăng ca'),
-        backgroundColor: const Color(0xFFEA580C),
-      ),
+      floatingActionButton:
+          Provider.of<PermissionProvider>(context, listen: false)
+                  .canCreate('Overtime')
+              ? FloatingActionButton.extended(
+                  onPressed: _showCreateDialog,
+                  icon: const Icon(Icons.add),
+                  label: const Text('Đăng ký tăng ca'),
+                  backgroundColor: const Color(0xFFEA580C),
+                )
+              : null,
     );
   }
 
@@ -234,7 +246,7 @@ class _OvertimeScreenState extends State<OvertimeScreen>
                     Text('Qu\u1ea3n l\u00fd t\u0103ng ca',
                         style: TextStyle(
                             color: Colors.white,
-                            fontSize: 22,
+                            fontSize: 20,
                             fontWeight: FontWeight.bold)),
                     Text(
                         '\u0110\u0103ng k\u00fd v\u00e0 ph\u00ea duy\u1ec7t t\u0103ng ca',
@@ -621,7 +633,10 @@ class _OvertimeScreenState extends State<OvertimeScreen>
                       fontWeight: FontWeight.w600,
                       fontSize: 11)),
             ),
-            if (showActions && status == 'Pending') ...[
+            if (showActions &&
+                status == 'Pending' &&
+                Provider.of<PermissionProvider>(context, listen: false)
+                    .canApprove('Overtime')) ...[
               const SizedBox(width: 4),
               InkWell(
                 onTap: () => _approveOvertime(ot['id']),
@@ -681,25 +696,11 @@ class _OvertimeScreenState extends State<OvertimeScreen>
   Widget _buildStatCard(
       String label, String value, IconData icon, Color color) {
     return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(color: color.withValues(alpha: 0.1), blurRadius: 10)
-            ]),
-        child: Column(
-          children: [
-            Icon(icon, color: color, size: 32),
-            const SizedBox(height: 12),
-            Text(value,
-                style: TextStyle(
-                    fontSize: 28, fontWeight: FontWeight.bold, color: color)),
-            Text(label,
-                style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-          ],
-        ),
+      child: HrmStatSummaryCard(
+        icon: icon,
+        value: value,
+        label: label,
+        color: color,
       ),
     );
   }
@@ -886,7 +887,7 @@ class _OvertimeScreenState extends State<OvertimeScreen>
               );
             }
 
-            return AlertDialog(
+            return ScrollableAlertDialog(
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16)),
               title: const Row(children: [

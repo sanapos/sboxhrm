@@ -1,5 +1,9 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/permission_provider.dart';
+import '../widgets/app_scroll_safe.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/app_button.dart';
@@ -168,6 +172,9 @@ class HolidaySettingsScreen extends StatefulWidget {
 }
 
 class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
+  PermissionProvider get _perm =>
+      Provider.of<PermissionProvider>(context, listen: false);
+
   final ApiService _apiService = ApiService();
   List<Map<String, dynamic>> _holidays = [];
   List<Map<String, dynamic>> _employees = [];
@@ -523,49 +530,39 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
               else
                 const Spacer(),
               _buildYearSelector(compact: isMobile),
-              const SizedBox(width: 8),
-              FilledButton.icon(
-                onPressed: () => _showHolidayDialog(),
-                icon: const Icon(Icons.add, size: 18),
-                label: Text(isMobile ? 'Thêm' : 'Thêm ngày lễ'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: HrmPageChrome.primaryNavy,
-                  padding: EdgeInsets.symmetric(
-                    horizontal: isMobile ? 12 : 16,
-                    vertical: isMobile ? 8 : 12,
+              if (_perm.canCreate('Holiday')) ...[
+                const SizedBox(width: 8),
+                FilledButton.icon(
+                  onPressed: () => _showHolidayDialog(),
+                  icon: const Icon(Icons.add, size: 18),
+                  label: Text(isMobile ? 'Thêm' : 'Thêm ngày lễ'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: HrmPageChrome.primaryNavy,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isMobile ? 12 : 16,
+                      vertical: isMobile ? 8 : 12,
+                    ),
                   ),
                 ),
-              ),
+              ],
             ],
           ),
           const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              _buildMiniStat(Icons.celebration, '${_holidays.length}', 'Tổng',
-                  const Color(0xFFEF4444)),
-              _buildMiniStat(
-                  Icons.flag,
-                  '${_holidays.where((h) => _getCategory(h) == 'Ngày nghỉ chính thức').length}',
-                  'Chính thức',
-                  const Color(0xFFEF4444)),
-              _buildMiniStat(
-                  Icons.swap_horiz,
-                  '${_holidays.where((h) => _getCategory(h) == 'Ngày nghỉ bù').length}',
-                  'Nghỉ bù',
-                  const Color(0xFFF59E0B)),
-              SizedBox(
-                width: isMobile ? double.infinity : 200,
-                child: _categoryDropdown(),
-              ),
-              SizedBox(
-                width: isMobile ? double.infinity : 240,
-                child: _searchField(),
-              ),
-            ],
-          ),
+          _buildHolidayStatsBar(),
+          const SizedBox(height: 10),
+          if (isMobile) ...[
+            _categoryDropdown(),
+            const SizedBox(height: 8),
+            _searchField(),
+          ] else
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                SizedBox(width: 200, child: _categoryDropdown()),
+                const SizedBox(width: 12),
+                Expanded(child: _searchField()),
+              ],
+            ),
         ],
       ),
     );
@@ -895,7 +892,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
   }
 
   void _showMobileHolidayDetailSheet(Map<String, dynamic> holiday) {
-    showModalBottomSheet(
+    showAppSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -1082,33 +1079,38 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
             decoration: const BoxDecoration(border: Border(top: BorderSide(color: _borderColor))),
             child: Row(
               children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => _showHolidayDialog(holiday: holiday),
-                    icon: const Icon(Icons.edit, size: 16),
-                    label: const Text('Sửa', style: TextStyle(fontSize: 13)),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: _primaryColor,
-                      side: const BorderSide(color: _primaryColor),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                if (_perm.canEdit('Holiday'))
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _showHolidayDialog(holiday: holiday),
+                      icon: const Icon(Icons.edit, size: 16),
+                      label: const Text('Sửa', style: TextStyle(fontSize: 13)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: _primaryColor,
+                        side: const BorderSide(color: _primaryColor),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8)),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => _deleteHoliday(holiday),
-                    icon: const Icon(Icons.delete_outline, size: 16),
-                    label: const Text('Xóa', style: TextStyle(fontSize: 13)),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFFEF4444),
-                      side: const BorderSide(color: Color(0xFFEF4444)),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                if (_perm.canEdit('Holiday') && _perm.canDelete('Holiday'))
+                  const SizedBox(width: 12),
+                if (_perm.canDelete('Holiday'))
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _deleteHoliday(holiday),
+                      icon: const Icon(Icons.delete_outline, size: 16),
+                      label: const Text('Xóa', style: TextStyle(fontSize: 13)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFFEF4444),
+                        side: const BorderSide(color: Color(0xFFEF4444)),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8)),
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
           ),
@@ -1162,8 +1164,30 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
     }
   }
 
-  Widget _buildMiniStat(IconData icon, String value, String label, Color color) {
-    return HrmMiniStatChip(
+  Widget _buildHolidayStatsBar() {
+    return HrmPageChrome.horizontalStatCards(
+      cards: [
+        _buildStatCard(Icons.celebration, '${_holidays.length}', 'Tổng',
+            const Color(0xFFEF4444)),
+        _buildStatCard(
+            Icons.flag,
+            '${_holidays.where((h) => _getCategory(h) == 'Ngày nghỉ chính thức').length}',
+            'Chính thức',
+            const Color(0xFFEF4444)),
+        _buildStatCard(
+            Icons.swap_horiz,
+            '${_holidays.where((h) => _getCategory(h) == 'Ngày nghỉ bù').length}',
+            'Nghỉ bù',
+            const Color(0xFFF59E0B)),
+      ],
+      minCardWidth: 120,
+      gap: 10,
+    );
+  }
+
+  Widget _buildStatCard(
+      IconData icon, String value, String label, Color color) {
+    return HrmStatSummaryCard(
       icon: icon,
       value: value,
       label: label,
@@ -1181,16 +1205,19 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
           Text('Chưa có ngày lễ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.grey[600])),
           const SizedBox(height: 8),
           Text('Nhấn "Thêm ngày lễ" để bắt đầu', style: TextStyle(fontSize: 13, color: Colors.grey[400])),
-          const SizedBox(height: 20),
-          FilledButton.icon(
-            onPressed: () => _showHolidayDialog(),
-            icon: const Icon(Icons.add, size: 18),
-            label: const Text('Thêm ngày lễ'),
-            style: FilledButton.styleFrom(
-              backgroundColor: HrmPageChrome.primaryNavy,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          if (_perm.canCreate('Holiday')) ...[
+            const SizedBox(height: 20),
+            FilledButton.icon(
+              onPressed: () => _showHolidayDialog(),
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('Thêm ngày lễ'),
+              style: FilledButton.styleFrom(
+                backgroundColor: HrmPageChrome.primaryNavy,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -1910,7 +1937,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
   void _deleteHoliday(Map<String, dynamic> holiday) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => ScrollableAlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: const Text('Xác nhận xóa', style: TextStyle(color: _textDark)),

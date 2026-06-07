@@ -1,6 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
+import '../../providers/permission_provider.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/hrm_page_chrome.dart';
+
+/// Quyền thao tác trên màn Quản trị hệ thống (module `SystemAdmin`).
+extension SystemAdminPermissionContext on BuildContext {
+  bool get systemAdminCanCreate =>
+      Provider.of<PermissionProvider>(this, listen: false)
+          .canCreate('SystemAdmin');
+
+  bool get systemAdminCanEdit =>
+      Provider.of<PermissionProvider>(this, listen: false)
+          .canEdit('SystemAdmin');
+
+  bool get systemAdminCanDelete =>
+      Provider.of<PermissionProvider>(this, listen: false)
+          .canDelete('SystemAdmin');
+}
 
 /// Shared helper widgets used across all System Admin tabs
 class AdminHelpers {
@@ -162,7 +180,7 @@ class AdminHelpers {
     final ctrl = TextEditingController();
     return showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: Text(title),
         content: SingleChildScrollView(
           child: TextField(
@@ -189,7 +207,7 @@ class AdminHelpers {
       BuildContext context, String title, String content) {
     return showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: Text(title),
         content: Text(content),
         actions: [

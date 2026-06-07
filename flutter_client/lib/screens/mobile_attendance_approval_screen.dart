@@ -1,17 +1,25 @@
 import 'package:flutter/material.dart';
+import '../widgets/app_scroll_safe.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:intl/intl.dart';
 import '../models/mobile_attendance.dart';
 import '../services/api_service.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/mobile_attendance_record_detail_sheet.dart';
+import '../widgets/punch_photo_preview.dart';
 import '../widgets/notification_overlay.dart';
-import '../widgets/hrm_responsive_list_layout.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../utils/attendance_correction_privilege.dart';
-import '../utils/responsive_helper.dart';
 
 class MobileAttendanceApprovalScreen extends StatefulWidget {
-  const MobileAttendanceApprovalScreen({super.key});
+  /// Nhúng trong [AttendanceApprovalScreen] (TabBarView cha) — tránh NestedScrollView lồng nhau.
+  final bool embeddedInParentTab;
+
+  const MobileAttendanceApprovalScreen({
+    super.key,
+    this.embeddedInParentTab = false,
+  });
 
   @override
   State<MobileAttendanceApprovalScreen> createState() =>
@@ -109,10 +117,16 @@ class _MobileAttendanceApprovalScreenState
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
-      // Load pending records
+      final now = DateTime.now();
+      final from = DateTime(now.year, now.month, now.day)
+          .subtract(const Duration(days: 30));
+      final to = DateTime(now.year, now.month, now.day, 23, 59, 59);
+
       final pendingResult = await _apiService.getPendingMobileAttendance();
-      // Load history for approved/rejected
-      final historyResult = await _apiService.getMobileAttendanceHistory();
+      final historyResult = await _apiService.getMobileAttendanceHistory(
+        fromDate: from,
+        toDate: to,
+      );
 
       if (mounted) {
         setState(() {
@@ -127,6 +141,8 @@ class _MobileAttendanceApprovalScreenState
                         ? e
                         : Map<String, dynamic>.from(e)))
                 .toList();
+          } else {
+            _pendingRecords = [];
           }
 
           if (historyResult['isSuccess'] == true &&
@@ -146,8 +162,28 @@ class _MobileAttendanceApprovalScreenState
                 .toList();
             _rejectedRecords =
                 allRecords.where((r) => r.status == 'rejected').toList();
+          } else {
+            _approvedRecords = [];
+            _rejectedRecords = [];
           }
         });
+      }
+
+      final pendingOk = pendingResult['isSuccess'] == true;
+      final historyOk = historyResult['isSuccess'] == true;
+      if (mounted && (!pendingOk || !historyOk)) {
+        final msg = !pendingOk && !historyOk
+            ? (pendingResult['message'] ?? historyResult['message'] ?? '')
+                .toString()
+            : (!pendingOk
+                ? pendingResult['message']?.toString()
+                : historyResult['message']?.toString());
+        appNotification.showError(
+          title: 'Lỗi',
+          message: msg != null && msg.isNotEmpty
+              ? msg
+              : 'Không thể tải dữ liệu chấm công mobile',
+        );
       }
     } catch (e) {
       debugPrint('Error loading mobile attendance data: $e');
@@ -235,10 +271,6 @@ class _MobileAttendanceApprovalScreenState
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = Responsive.isMobile(context);
-    Widget tabChild(Widget child) =>
-        isMobile ? HrmScrollSlivers.nestedTabList(child: child) : child;
-
     final tabBarView = TabBarView(
       controller: _tabController,
       children: _isLoading
@@ -247,51 +279,46 @@ class _MobileAttendanceApprovalScreenState
               (_) => const Center(child: CircularProgressIndicator()),
             )
           : [
-              tabChild(_buildPendingTab()),
-              tabChild(_buildApprovedTab()),
-              tabChild(_buildRejectedTab()),
-              tabChild(_buildSummaryTab()),
+              _buildPendingTab(),
+              _buildApprovedTab(),
+              _buildRejectedTab(),
+              _buildSummaryTab(),
             ],
     );
 
+    final tabBarRow = Container(
+      color: Colors.white,
+      child: Row(
+        children: [
+          Expanded(child: _buildApprovalTabBar()),
+          IconButton(
+            tooltip: 'Bộ lọc',
+            icon: const Icon(Icons.filter_list, color: Color(0xFF71717A)),
+            onPressed: _showFilterDialog,
+          ),
+          const SizedBox(width: 4),
+        ],
+      ),
+    );
+
+    final body = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        tabBarRow,
+        Expanded(child: tabBarView),
+      ],
+    );
+
+    if (widget.embeddedInParentTab) {
+      return ColoredBox(
+        color: HrmPageChrome.background,
+        child: body,
+      );
+    }
+
     return Scaffold(
       backgroundColor: HrmPageChrome.background,
-      body: isMobile
-          ? HrmMobileNestedTabLayout(
-              headerSections: [
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: IconButton(
-                    tooltip: 'Bộ lọc',
-                    icon: const Icon(Icons.filter_list,
-                        color: Color(0xFF71717A)),
-                    onPressed: _showFilterDialog,
-                  ),
-                ),
-              ],
-              tabBar: _buildApprovalTabBar(),
-              tabBarView: tabBarView,
-            )
-          : Column(
-              children: [
-                Container(
-                  color: Colors.white,
-                  child: Row(
-                    children: [
-                      Expanded(child: _buildApprovalTabBar()),
-                      IconButton(
-                        tooltip: 'Bộ lọc',
-                        icon: const Icon(Icons.filter_list,
-                            color: Color(0xFF71717A)),
-                        onPressed: _showFilterDialog,
-                      ),
-                      const SizedBox(width: 4),
-                    ],
-                  ),
-                ),
-                Expanded(child: tabBarView),
-              ],
-            ),
+      body: body,
     );
   }
 
@@ -300,7 +327,8 @@ class _MobileAttendanceApprovalScreenState
       return _buildEmptyState(
         icon: Icons.check_circle_outline,
         title: 'Không có yêu cầu chờ duyệt',
-        subtitle: 'Tất cả chấm công đã được xử lý',
+        subtitle:
+            'Chấm công tự động duyệt nằm ở tab «Đã duyệt», không hiển thị ở đây',
       );
     }
 
@@ -312,35 +340,27 @@ class _MobileAttendanceApprovalScreenState
     final paginatedRecords = _filteredPendingRecords.sublist(
         startIndex.clamp(0, totalCount), endIndex);
 
-    return Column(
-      children: [
-        _buildBulkActions(),
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            itemCount: paginatedRecords.length,
-            itemBuilder: (_, index) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFE4E4E7)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+    Widget recordTile(int index) => Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE4E4E7)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
                 ),
-                child: _buildPendingDeckItem(paginatedRecords[index]),
-              ),
+              ],
             ),
+            child: _buildPendingDeckItem(paginatedRecords[index]),
           ),
-        ),
-        if (totalPages > 1)
-          Container(
+        );
+
+    final pager = totalPages > 1
+        ? Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
               color: Colors.white,
@@ -370,7 +390,20 @@ class _MobileAttendanceApprovalScreenState
                 ]),
               ],
             ),
+          )
+        : const SizedBox.shrink();
+
+    return Column(
+      children: [
+        _buildBulkActions(),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            itemCount: paginatedRecords.length,
+            itemBuilder: (_, index) => recordTile(index),
           ),
+        ),
+        pager,
       ],
     );
   }
@@ -439,6 +472,26 @@ class _MobileAttendanceApprovalScreenState
     );
   }
 
+  void _openRecordDetail(
+    MobileAttendanceRecord record, {
+    Future<void> Function(MobileAttendanceRecord)? onApprove,
+    Future<void> Function(MobileAttendanceRecord)? onReject,
+  }) {
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    final canApprove = canApproveMobileAttendance(perm) &&
+        record.status == 'pending' &&
+        onApprove != null &&
+        onReject != null;
+
+    showMobileAttendanceRecordDetailSheet(
+      context,
+      record: record,
+      apiService: _apiService,
+      onApprove: canApprove ? () => onApprove(record) : null,
+      onReject: canApprove ? () => onReject(record) : null,
+    );
+  }
+
   Widget _buildPendingDeckItem(MobileAttendanceRecord record) {
     final isCheckIn = record.punchType == 0;
     final time =
@@ -446,20 +499,16 @@ class _MobileAttendanceApprovalScreenState
     final date =
         '${record.punchTime.day}/${record.punchTime.month}/${record.punchTime.year}';
     return InkWell(
-      onTap: () {},
+      onTap: () => _openRecordDetail(record, onApprove: _approveRecord, onReject: _rejectRecord),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         child: Row(
           children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: const Color(0xFFFEF3C7),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(isCheckIn ? Icons.login : Icons.logout,
-                  size: 18, color: const Color(0xFFF59E0B)),
+            MobilePunchPhotoThumb(
+              sitePhotoUrl: record.sitePhotoUrl,
+              faceImageUrl: null,
+              apiService: _apiService,
+              sitePhotoOnly: true,
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -474,7 +523,7 @@ class _MobileAttendanceApprovalScreenState
                       overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 2),
                   Text(
-                    '$time · $date · ${record.distanceFromLocation?.toInt() ?? 0}m · ${record.faceMatchScore?.toStringAsFixed(0) ?? '0'}%',
+                    '$time · $date · ${isCheckIn ? 'Vào' : 'Ra'} · ${record.distanceFromLocation?.toInt() ?? 0}m · ${record.faceMatchScore?.toStringAsFixed(0) ?? '0'}%',
                     style:
                         const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
                     overflow: TextOverflow.ellipsis,
@@ -533,26 +582,15 @@ class _MobileAttendanceApprovalScreenState
         '${record.punchTime.hour.toString().padLeft(2, '0')}:${record.punchTime.minute.toString().padLeft(2, '0')}';
     final date = '${record.punchTime.day}/${record.punchTime.month}';
     return InkWell(
-      onTap: () {},
+      onTap: () => _openRecordDetail(record),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         child: Row(
           children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: (isApproved
-                        ? HrmPageChrome.primaryNavy
-                        : const Color(0xFFEF4444))
-                    .withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(isApproved ? Icons.check : Icons.close,
-                  size: 18,
-                  color: isApproved
-                      ? HrmPageChrome.primaryNavy
-                      : const Color(0xFFEF4444)),
+            MobilePunchPhotoThumb(
+              sitePhotoUrl: null,
+              faceImageUrl: null,
+              apiService: _apiService,
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -585,12 +623,18 @@ class _MobileAttendanceApprovalScreenState
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
-                isApproved ? 'Đã duyệt' : 'Từ chối',
+                isApproved
+                    ? (record.status == 'auto_approved'
+                        ? 'Tự động duyệt'
+                        : 'Đã duyệt')
+                    : 'Từ chối',
                 style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                     color: isApproved
-                        ? const Color(0xFF22C55E)
+                        ? (record.status == 'auto_approved'
+                            ? const Color(0xFF3B82F6)
+                            : const Color(0xFF22C55E))
                         : const Color(0xFFEF4444)),
               ),
             ),
@@ -600,51 +644,50 @@ class _MobileAttendanceApprovalScreenState
     );
   }
 
-  Widget _buildApprovedTab() {
-    if (_filteredApprovedRecords.isEmpty) {
+  Widget _buildHistoryListTab({
+    required List<MobileAttendanceRecord> records,
+    required bool isApproved,
+    required IconData emptyIcon,
+    required String emptyTitle,
+    required String emptySubtitle,
+  }) {
+    if (records.isEmpty) {
       return _buildEmptyState(
-        icon: Icons.check_circle,
-        title: 'Chưa có chấm công được duyệt',
-        subtitle: 'Các chấm công đã duyệt sẽ hiển thị ở đây',
+        icon: emptyIcon,
+        title: emptyTitle,
+        subtitle: emptySubtitle,
       );
     }
 
-    final totalCount = _filteredApprovedRecords.length;
+    final totalCount = records.length;
     final totalPages = (totalCount / _pageSize).ceil().clamp(1, 99999);
     final page = _currentPage.clamp(1, totalPages);
     final startIndex = (page - 1) * _pageSize;
     final endIndex = (page * _pageSize).clamp(0, totalCount);
-    final paginatedRecords = _filteredApprovedRecords.sublist(
-        startIndex.clamp(0, totalCount), endIndex);
+    final paginatedRecords =
+        records.sublist(startIndex.clamp(0, totalCount), endIndex);
 
-    return Column(
-      children: [
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            itemCount: paginatedRecords.length,
-            itemBuilder: (_, index) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFE4E4E7)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+    Widget recordTile(int index) => Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE4E4E7)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
                 ),
-                child: _buildHistoryDeckItem(paginatedRecords[index], true),
-              ),
+              ],
             ),
+            child: _buildHistoryDeckItem(paginatedRecords[index], isApproved),
           ),
-        ),
-        if (totalPages > 1)
-          Container(
+        );
+
+    final pager = totalPages > 1
+        ? Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
               color: Colors.white,
@@ -674,87 +717,41 @@ class _MobileAttendanceApprovalScreenState
                 ]),
               ],
             ),
+          )
+        : const SizedBox.shrink();
+
+    return Column(
+      children: [
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            itemCount: paginatedRecords.length,
+            itemBuilder: (_, index) => recordTile(index),
           ),
+        ),
+        pager,
       ],
     );
   }
 
+  Widget _buildApprovedTab() {
+    return _buildHistoryListTab(
+      records: _filteredApprovedRecords,
+      isApproved: true,
+      emptyIcon: Icons.check_circle,
+      emptyTitle: 'Chưa có chấm công được duyệt',
+      emptySubtitle:
+          'Gồm duyệt thủ công và tự động duyệt (30 ngày gần nhất)',
+    );
+  }
+
   Widget _buildRejectedTab() {
-    if (_filteredRejectedRecords.isEmpty) {
-      return _buildEmptyState(
-        icon: Icons.cancel,
-        title: 'Chưa có chấm công bị từ chối',
-        subtitle: 'Các chấm công bị từ chối sẽ hiển thị ở đây',
-      );
-    }
-
-    final totalCount = _filteredRejectedRecords.length;
-    final totalPages = (totalCount / _pageSize).ceil().clamp(1, 99999);
-    final page = _currentPage.clamp(1, totalPages);
-    final startIndex = (page - 1) * _pageSize;
-    final endIndex = (page * _pageSize).clamp(0, totalCount);
-    final paginatedRecords = _filteredRejectedRecords.sublist(
-        startIndex.clamp(0, totalCount), endIndex);
-
-    return Column(
-      children: [
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            itemCount: paginatedRecords.length,
-            itemBuilder: (_, index) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFE4E4E7)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: _buildHistoryDeckItem(paginatedRecords[index], false),
-              ),
-            ),
-          ),
-        ),
-        if (totalPages > 1)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border(top: BorderSide(color: Colors.grey.shade200)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Hiển thị ${startIndex + 1}-$endIndex / $totalCount',
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-                Row(children: [
-                  IconButton(
-                      icon: const Icon(Icons.chevron_left, size: 20),
-                      onPressed: page > 1
-                          ? () => setState(() => _currentPage--)
-                          : null,
-                      visualDensity: VisualDensity.compact),
-                  Text('$page / $totalPages',
-                      style: const TextStyle(
-                          fontSize: 12, fontWeight: FontWeight.w500)),
-                  IconButton(
-                      icon: const Icon(Icons.chevron_right, size: 20),
-                      onPressed: page < totalPages
-                          ? () => setState(() => _currentPage++)
-                          : null,
-                      visualDensity: VisualDensity.compact),
-                ]),
-              ],
-            ),
-          ),
-      ],
+    return _buildHistoryListTab(
+      records: _filteredRejectedRecords,
+      isApproved: false,
+      emptyIcon: Icons.cancel,
+      emptyTitle: 'Chưa có chấm công bị từ chối',
+      emptySubtitle: 'Các chấm công bị từ chối sẽ hiển thị ở đây',
     );
   }
 
@@ -780,6 +777,7 @@ class _MobileAttendanceApprovalScreenState
           const SizedBox(height: 4),
           Text(
             subtitle,
+            textAlign: TextAlign.center,
             style: const TextStyle(
               color: Color(0xFFA1A1AA),
             ),
@@ -792,7 +790,7 @@ class _MobileAttendanceApprovalScreenState
   Future<void> _approveRecord(MobileAttendanceRecord record) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => ScrollableAlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Xác nhận duyệt'),
         content: Text(
@@ -842,7 +840,7 @@ class _MobileAttendanceApprovalScreenState
 
     final result = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => ScrollableAlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Từ chối chấm công'),
         content: SingleChildScrollView(
@@ -911,7 +909,7 @@ class _MobileAttendanceApprovalScreenState
   void _bulkAction(bool approve) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => ScrollableAlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(approve ? 'Duyệt tất cả' : 'Từ chối tất cả'),
         content: Text(
@@ -1170,29 +1168,27 @@ class _MobileAttendanceApprovalScreenState
       );
     }
 
-    // ── frozen-column table ─────────────────────────────────────────────────
-    // Synchronise both tables' scroll positions with a shared notifier
+    const legend = Padding(
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: Wrap(
+        spacing: 12,
+        children: [
+          _LegendItem(
+              icon: Icons.login, color: Color(0xFF22C55E), label: 'Vào'),
+          _LegendItem(
+              icon: Icons.logout, color: Color(0xFF3B82F6), label: 'Ra'),
+          _LegendItem(
+              icon: Icons.circle,
+              color: Color(0xFFF59E0B),
+              label: 'Thiếu lượt'),
+        ],
+      ),
+    );
+
     return Column(
       children: [
         dateRangeBar(),
-        // Legend
-        Container(
-          color: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          child: const Wrap(
-            spacing: 12,
-            children: [
-              _LegendItem(
-                  icon: Icons.login, color: Color(0xFF22C55E), label: 'Vào'),
-              _LegendItem(
-                  icon: Icons.logout, color: Color(0xFF3B82F6), label: 'Ra'),
-              _LegendItem(
-                  icon: Icons.circle,
-                  color: Color(0xFFF59E0B),
-                  label: 'Thiếu lượt'),
-            ],
-          ),
-        ),
+        Container(color: Colors.white, child: legend),
         const Divider(height: 1),
         Expanded(
           child: _SyncScrollTables(
@@ -1208,7 +1204,7 @@ class _MobileAttendanceApprovalScreenState
   }
 
   void _showFilterDialog() {
-    showModalBottomSheet(
+    showAppSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(

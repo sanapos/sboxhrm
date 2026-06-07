@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
 import '../utils/responsive_helper.dart';
-import '../widgets/hrm_mini_stat_chip.dart';
 import '../widgets/hrm_page_chrome.dart';
 
 import 'account_management_screen.dart';
@@ -513,9 +512,6 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
         children: [
           // Header
           _buildOverviewHeader(),
-          const SizedBox(height: 24),
-          // Quick stats
-          _buildQuickStats(),
           const SizedBox(height: 28),
           // Group cards
           ..._groups.map((g) => Padding(
@@ -629,40 +625,6 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
                   color: Colors.white.withValues(alpha: 0.7), fontSize: 11)),
         ],
       ),
-    );
-  }
-
-  Widget _buildQuickStats() {
-    final totalItems = _groups.fold<int>(0, (sum, g) => sum + g.items.length);
-    const color = HrmPageChrome.primaryNavy;
-    final chips = [
-      HrmMiniStatChip(
-          icon: Icons.apps, value: '$totalItems', label: 'Cấu hình', color: color),
-      HrmMiniStatChip(
-          icon: Icons.category,
-          value: '${_groups.length}',
-          label: 'Nhóm',
-          color: color),
-      const HrmMiniStatChip(
-          icon: Icons.check_circle_outline,
-          value: 'OK',
-          label: 'Sẵn sàng',
-          color: color),
-    ];
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth < 520) {
-          return Wrap(spacing: 8, runSpacing: 8, children: chips);
-        }
-        return Row(
-          children: [
-            for (var i = 0; i < chips.length; i++) ...[
-              if (i > 0) const SizedBox(width: 12),
-              Expanded(child: Center(child: chips[i])),
-            ],
-          ],
-        );
-      },
     );
   }
 

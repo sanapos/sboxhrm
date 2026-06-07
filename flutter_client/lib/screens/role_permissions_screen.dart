@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/permission_provider.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import '../services/api_service.dart';
 import '../screens/settings_hub_screen.dart';
 import '../utils/dashboard_permission_modules.dart';
 import '../utils/permission_module_catalog.dart';
+import '../utils/permission_module_labels.dart';
 import '../utils/permission_role_catalog.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/hrm_page_chrome.dart';
@@ -16,6 +20,9 @@ class RolePermissionsScreen extends StatefulWidget {
 }
 
 class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
+  PermissionProvider get _perm =>
+      Provider.of<PermissionProvider>(context, listen: false);
+
   final ApiService _apiService = ApiService();
   List<Map<String, dynamic>> _roles = [];
   List<Map<String, dynamic>> _modules = [];
@@ -118,13 +125,20 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
       if (existing != null) {
         byModule[mod] = {
           ...existing,
-          'moduleDisplayName':
-              existing['moduleDisplayName'] ?? def['moduleDisplayName'],
+          'moduleDisplayName': PermissionModuleLabels.resolve(
+            mod,
+            def['moduleDisplayName'] as String? ??
+                existing['moduleDisplayName'] as String?,
+          ),
           'displayOrder': existing['displayOrder'] ?? def['displayOrder'],
         };
         return;
       }
       final copy = Map<String, dynamic>.from(def);
+      copy['moduleDisplayName'] = PermissionModuleLabels.resolve(
+        mod,
+        def['moduleDisplayName'] as String?,
+      );
       final guid = PermissionModuleCatalog.idsByModule[mod];
       if (guid != null) copy['id'] = guid;
       byModule[mod] = copy;
@@ -248,13 +262,32 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
     'Employee': {'canView', 'canCreate', 'canEdit', 'canDelete', 'canExport'},
     'DeviceUser': {'canView', 'canCreate', 'canEdit', 'canDelete'},
     'Department': {'canView', 'canCreate', 'canEdit', 'canDelete'},
-    'Leave': {'canView', 'canCreate', 'canDelete', 'canExport', 'canApprove'},
+    'Leave': {
+      'canView',
+      'canCreate',
+      'canEdit',
+      'canDelete',
+      'canExport',
+      'canApprove',
+    },
     'Payslip': {'canView', 'canExport'},
     'Overtime': {'canView', 'canCreate', 'canApprove'},
     'ShiftSwap': {'canView', 'canCreate', 'canApprove'},
     'SalarySettings': {'canView', 'canCreate', 'canEdit', 'canDelete'},
     // ── CHẤM CÔNG ──
-    'Attendance': {'canView', 'canExport'},
+    'Attendance': {
+      'canView',
+      'canCreate',
+      'canEdit',
+      'canDelete',
+      'canExport',
+    },
+    'AttendanceCorrection': {
+      'canView',
+      'canCreate',
+      'canDelete',
+      'canApprove',
+    },
     'WorkSchedule': {
       'canView',
       'canCreate',
@@ -264,7 +297,12 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
     },
     'AttendanceSummary': {'canView', 'canExport'},
     'AttendanceByShift': {'canView', 'canExport'},
-    'AttendanceApproval': {'canView', 'canApprove'},
+    'AttendanceApproval': {
+      'canView',
+      'canApprove',
+      'canExport',
+      'canDelete',
+    },
     'ScheduleApproval': {'canView', 'canApprove'},
     'Payroll': {'canView', 'canExport'},
     // ── TÀI CHÍNH ──
@@ -273,44 +311,87 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
       'canCreate',
       'canEdit',
       'canDelete',
-      'canExport'
+      'canExport',
+      'canApprove',
     },
-    'PenaltyTickets': {'canView', 'canCreate', 'canEdit', 'canDelete'},
-    'AdvanceRequests': {'canView', 'canCreate', 'canApprove'},
+    'PenaltyTickets': {
+      'canView',
+      'canCreate',
+      'canEdit',
+      'canDelete',
+      'canApprove',
+    },
+    'AdvanceRequests': {
+      'canView',
+      'canCreate',
+      'canApprove',
+      'canExport',
+      'canDelete',
+    },
     'CashTransaction': {
       'canView',
       'canCreate',
       'canEdit',
       'canDelete',
-      'canExport'
+      'canExport',
+      'canApprove',
     },
+    'BankAccount': {'canView', 'canCreate', 'canEdit', 'canDelete'},
     // ── QUẢN LÝ VẬN HÀNH ──
     'Asset': {'canView', 'canCreate', 'canEdit', 'canDelete', 'canExport'},
     'Task': {'canView', 'canCreate', 'canEdit', 'canDelete'},
     'Communication': {'canView', 'canCreate', 'canEdit', 'canDelete'},
-    'KPI': {'canView', 'canCreate', 'canEdit', 'canDelete', 'canExport'},
+    'KPI': {
+      'canView',
+      'canCreate',
+      'canEdit',
+      'canDelete',
+      'canExport',
+      'canApprove',
+    },
     'Production': {'canView', 'canCreate', 'canEdit', 'canDelete', 'canExport'},
     'MobileDeviceRegistration': {'canView', 'canApprove'},
     'MobileAttendanceApproval': {'canView', 'canApprove'},
     'Meal': {'canView', 'canCreate', 'canEdit', 'canDelete'},
-    'FieldCheckIn': {'canView', 'canExport'},
+    'FieldCheckIn': {'canView', 'canCreate', 'canEdit', 'canDelete'},
+    'Feedback': {'canView', 'canCreate', 'canDelete', 'canApprove'},
     // ── BÁO CÁO — chỉ xem + xuất ──
     'LeaveReport': {'canView', 'canExport'},
     'CashReport': {'canView', 'canExport'},
     'PenaltyReport': {'canView', 'canExport'},
     'AdvanceReport': {'canView', 'canExport'},
+    'AssetReport': {'canView', 'canExport'},
+    'AttendanceReport': {'canView', 'canExport'},
+    'HrReport': {'canView', 'canExport'},
+    'PayrollReport': {'canView', 'canExport'},
     // ── CÀI ĐẶT ──
     'SettingsHub': {'canView'},
     'ShiftSetup': {'canView', 'canCreate', 'canEdit', 'canDelete'},
-    'MobileAttendance': {'canView', 'canCreate', 'canEdit', 'canDelete'},
+    'MobileAttendance': {
+      'canView',
+      'canCreate',
+      'canEdit',
+      'canDelete',
+      'canApprove',
+    },
     'Holiday': {'canView', 'canCreate', 'canEdit', 'canDelete'},
-    'Device': {'canView', 'canCreate', 'canEdit', 'canDelete'},
+    'Device': {
+      'canView',
+      'canCreate',
+      'canEdit',
+      'canDelete',
+      'canApprove',
+    },
+    'Branch': {'canView', 'canCreate', 'canEdit', 'canDelete'},
+    'Geofence': {'canView', 'canCreate', 'canEdit', 'canDelete'},
+    'HrDocument': {'canView', 'canCreate', 'canEdit', 'canDelete'},
+    'OrgChart': {'canView', 'canCreate', 'canEdit', 'canDelete'},
+    'DepartmentPermission': {'canView', 'canCreate', 'canDelete'},
     'Allowance': {'canView', 'canCreate', 'canEdit', 'canDelete'},
     'PenaltySetup': {'canView', 'canCreate', 'canEdit', 'canDelete'},
     'Insurance': {'canView', 'canCreate', 'canEdit', 'canDelete'},
     'Tax': {'canView', 'canCreate', 'canEdit', 'canDelete'},
     'ProductSalary': {'canView', 'canCreate', 'canEdit', 'canDelete'},
-    'Feedback': {'canView', 'canCreate', 'canDelete'},
     'UserManagement': {'canView', 'canCreate', 'canEdit', 'canDelete'},
     'Role': {'canView', 'canCreate', 'canEdit', 'canDelete'},
     'SystemSettings': {'canView', 'canEdit'},
@@ -449,14 +530,26 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
       {
         'id': '012',
         'module': 'AttendanceByShift',
-        'moduleDisplayName': 'Tổng hợp theo ca',
+        'moduleDisplayName': 'Tổng hợp chấm công theo ca',
+        'displayOrder': 12
+      },
+      {
+        'id': '012b',
+        'module': 'AttendanceCorrection',
+        'moduleDisplayName': 'Chỉnh sửa chấm công',
         'displayOrder': 12
       },
       {
         'id': '013',
         'module': 'AttendanceApproval',
-        'moduleDisplayName': 'Duyệt chấm công (máy + mobile)',
+        'moduleDisplayName': 'Duyệt chấm công',
         'displayOrder': 13
+      },
+      {
+        'id': '047b',
+        'module': 'MobileAttendanceApproval',
+        'moduleDisplayName': 'Duyệt chấm công Mobile',
+        'displayOrder': 47
       },
       {
         'id': '014',
@@ -581,6 +674,66 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
         'moduleDisplayName': 'Báo cáo ứng lương',
         'displayOrder': 54
       },
+      {
+        'id': '055',
+        'module': 'AssetReport',
+        'moduleDisplayName': 'Báo cáo tài sản',
+        'displayOrder': 55
+      },
+      {
+        'id': '056',
+        'module': 'AttendanceReport',
+        'moduleDisplayName': 'Báo cáo chấm công',
+        'displayOrder': 56
+      },
+      {
+        'id': '057',
+        'module': 'HrReport',
+        'moduleDisplayName': 'Báo cáo nhân sự',
+        'displayOrder': 57
+      },
+      {
+        'id': '058',
+        'module': 'PayrollReport',
+        'moduleDisplayName': 'Báo cáo lương',
+        'displayOrder': 58
+      },
+      {
+        'id': '059',
+        'module': 'HrDocument',
+        'moduleDisplayName': 'Tài liệu HR',
+        'displayOrder': 59
+      },
+      {
+        'id': '060',
+        'module': 'OrgChart',
+        'moduleDisplayName': 'Sơ đồ tổ chức',
+        'displayOrder': 60
+      },
+      {
+        'id': '061',
+        'module': 'Branch',
+        'moduleDisplayName': 'Chi nhánh',
+        'displayOrder': 61
+      },
+      {
+        'id': '062',
+        'module': 'Geofence',
+        'moduleDisplayName': 'Vùng chấm công',
+        'displayOrder': 62
+      },
+      {
+        'id': '063',
+        'module': 'BankAccount',
+        'moduleDisplayName': 'Tài khoản ngân hàng',
+        'displayOrder': 63
+      },
+      {
+        'id': '064',
+        'module': 'DepartmentPermission',
+        'moduleDisplayName': 'PQ Phòng ban',
+        'displayOrder': 64
+      },
       // ══════════ CÀI ĐẶT ══════════
       {
         'id': '026',
@@ -597,7 +750,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
       {
         'id': '028',
         'module': 'MobileAttendance',
-        'moduleDisplayName': 'Chấm công mobile',
+        'moduleDisplayName': 'Chấm công Mobile',
         'displayOrder': 28
       },
       {
@@ -778,6 +931,14 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
     permissions.removeWhere(
       (p) => p['module'] == DashboardPermissionModules.legacyDashboard,
     );
+
+    for (var i = 0; i < permissions.length; i++) {
+      final mod = permissions[i]['module'] as String?;
+      final uiName = PermissionModuleLabels.forModule(mod);
+      if (uiName == null) continue;
+      permissions[i] = Map<String, dynamic>.from(permissions[i]);
+      permissions[i]['moduleDisplayName'] = uiName;
+    }
 
     _selectedRolePermissions!['permissions'] = permissions;
   }
@@ -1079,6 +1240,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
 
   Future<void> _savePermissions() async {
     if (_selectedRolePermissions == null) return;
+    if (!_perm.canEdit('Role')) return;
 
     setState(() => _isSaving = true);
     try {
@@ -1336,8 +1498,10 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
             child: Center(
               child: Checkbox(
                 value: allChecked,
-                onChanged: (value) =>
-                    _toggleAllForModule(globalIndex, value ?? false),
+                onChanged: _perm.canEdit('Role')
+                    ? (value) =>
+                        _toggleAllForModule(globalIndex, value ?? false)
+                    : null,
                 activeColor: HrmPageChrome.primaryNavy,
               ),
             ),
@@ -1466,7 +1630,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
+        builder: (context, setDialogState) => ScrollableAlertDialog(
         insetPadding: isMobile
             ? EdgeInsets.zero
             : const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
@@ -1590,6 +1754,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
   }
 
   Future<void> _deleteRole(String roleName) async {
+    if (!_perm.canDelete('Role')) return;
     final defaultRoles = [
       'Admin',
       'Director',
@@ -1609,7 +1774,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => ScrollableAlertDialog(
         title: const Text('Xác nhận xóa'),
         content: Text(
             'Bạn có chắc muốn xóa chức danh "$roleName" và tất cả quyền liên quan?'),
@@ -1660,7 +1825,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final saveAction = _selectedRolePermissions != null
+    final saveAction = _selectedRolePermissions != null && _perm.canEdit('Role')
         ? Padding(
             padding: const EdgeInsets.only(right: 16),
             child: FilledButton.icon(
@@ -1748,12 +1913,13 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                                     ],
                                   ),
                                 ),
-                                IconButton(
-                                  onPressed: _showAddRoleDialog,
-                                  icon: const Icon(Icons.add_circle,
-                                      color: HrmPageChrome.primaryNavy),
-                                  tooltip: 'Thêm chức danh',
-                                ),
+                                if (_perm.canCreate('Role'))
+                                  IconButton(
+                                    onPressed: _showAddRoleDialog,
+                                    icon: const Icon(Icons.add_circle,
+                                        color: HrmPageChrome.primaryNavy),
+                                    tooltip: 'Thêm chức danh',
+                                  ),
                               ],
                             ),
                           ),
@@ -1818,11 +1984,13 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  IconButton(
-                    onPressed: _showAddRoleDialog,
-                    icon: const Icon(Icons.add_circle, color: HrmPageChrome.primaryNavy),
-                    tooltip: 'Thêm chức danh',
-                  ),
+                  if (_perm.canCreate('Role'))
+                    IconButton(
+                      onPressed: _showAddRoleDialog,
+                      icon: const Icon(Icons.add_circle,
+                          color: HrmPageChrome.primaryNavy),
+                      tooltip: 'Thêm chức danh',
+                    ),
                 ],
               ),
             )
@@ -1860,11 +2028,13 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                       ],
                     ),
                   ),
-                  IconButton(
-                    onPressed: _showAddRoleDialog,
-                    icon: const Icon(Icons.add_circle, color: HrmPageChrome.primaryNavy),
-                    tooltip: 'Thêm chức danh',
-                  ),
+                  if (_perm.canCreate('Role'))
+                    IconButton(
+                      onPressed: _showAddRoleDialog,
+                      icon: const Icon(Icons.add_circle,
+                          color: HrmPageChrome.primaryNavy),
+                      tooltip: 'Thêm chức danh',
+                    ),
                 ],
               ),
             ),
@@ -2030,9 +2200,11 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                                                   color: Color(0xFF71717A))),
                                           Checkbox(
                                             value: allChecked,
-                                            onChanged: (value) =>
-                                                _toggleAllForModule(
-                                                    index, value ?? false),
+                                            onChanged: _perm.canEdit('Role')
+                                                ? (value) =>
+                                                    _toggleAllForModule(
+                                                        index, value ?? false)
+                                                : null,
                                             activeColor:
                                                 HrmPageChrome.primaryNavy,
                                             materialTapTargetSize:
@@ -2156,7 +2328,8 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
       'Employee',
       'User'
     ];
-    final canDelete = !defaultRoles.contains(role['roleName']);
+    final canDelete = _perm.canDelete('Role') &&
+        !defaultRoles.contains(role['roleName']);
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -2365,17 +2538,19 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
   }
 
   Widget _buildHeaderCheckbox(String label, String permissionType) {
+    final canEdit = _perm.canEdit('Role');
     return SizedBox(
       width: 100,
       child: InkWell(
-        onTap: () {
-          // Check if all are selected
-          final permissions = List<Map<String, dynamic>>.from(
-              _selectedRolePermissions!['permissions'] ?? []);
-          final allSelected =
-              permissions.every((p) => p[permissionType] == true);
-          _setAllPermissions(permissionType, !allSelected);
-        },
+        onTap: canEdit
+            ? () {
+                final permissions = List<Map<String, dynamic>>.from(
+                    _selectedRolePermissions!['permissions'] ?? []);
+                final allSelected =
+                    permissions.every((p) => p[permissionType] == true);
+                _setAllPermissions(permissionType, !allSelected);
+              }
+            : null,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -2398,13 +2573,16 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
 
   Widget _buildPermissionCheckbox(int index, String permissionType, bool value,
       {bool supported = true}) {
+    final canEdit = _perm.canEdit('Role');
     return SizedBox(
       width: 100,
       child: Center(
         child: supported
             ? Checkbox(
                 value: value,
-                onChanged: (_) => _togglePermission(index, permissionType),
+                onChanged: canEdit
+                    ? (_) => _togglePermission(index, permissionType)
+                    : null,
                 activeColor: _getPermissionColor(permissionType),
               )
             : const Text('—',

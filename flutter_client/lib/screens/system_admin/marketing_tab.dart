@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:intl/intl.dart';
 import '../../services/api_service.dart';
 import 'system_admin_helpers.dart';
@@ -257,7 +258,7 @@ class MarketingTabState extends State<MarketingTab>
     final saved = await showDialog<bool>(
       context: context,
       builder: (_) => StatefulBuilder(
-        builder: (ctx, setSt) => AlertDialog(
+        builder: (ctx, setSt) => ScrollableAlertDialog(
           title: Text(initial == null ? 'Tạo mẫu mới' : 'Sửa mẫu'),
           content: SizedBox(
             width: 520,
@@ -499,7 +500,7 @@ class MarketingTabState extends State<MarketingTab>
     final saved = await showDialog<bool>(
       context: context,
       builder: (_) => StatefulBuilder(
-        builder: (ctx, setSt) => AlertDialog(
+        builder: (ctx, setSt) => ScrollableAlertDialog(
           title: const Text('Tạo chiến dịch marketing'),
           content: SizedBox(
             width: 560,
@@ -677,7 +678,7 @@ class MarketingTabState extends State<MarketingTab>
   Future<bool> _confirm(String msg) async {
     final ok = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (_) => ScrollableAlertDialog(
         title: const Text('Xác nhận'),
         content: Text(msg),
         actions: [

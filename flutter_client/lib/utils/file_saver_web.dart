@@ -3,8 +3,13 @@ import 'dart:typed_data';
 import 'package:web/web.dart' as web;
 
 /// Download a file from raw bytes on Web (Blob + AnchorElement).
-Future<void> saveFileBytes(
-    List<int> bytes, String filename, String mimeType) async {
+Future<String?> saveFileBytes(
+  List<int> bytes,
+  String filename,
+  String mimeType, {
+  String? category,
+  String? sourceModule,
+}) async {
   final uint8List = Uint8List.fromList(bytes);
   final jsArray = uint8List.toJS;
   final blob = web.Blob([jsArray].toJS, web.BlobPropertyBag(type: mimeType));
@@ -17,6 +22,7 @@ Future<void> saveFileBytes(
   anchor.click();
   anchor.remove();
   web.URL.revokeObjectURL(url);
+  return filename;
 }
 
 /// Download a file from a data-URL string on Web.

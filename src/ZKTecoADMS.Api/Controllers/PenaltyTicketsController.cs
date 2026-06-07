@@ -15,7 +15,10 @@ namespace ZKTecoADMS.Api.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class PenaltyTicketsController(ZKTecoDbContext dbContext, ISystemNotificationService notificationService) : AuthenticatedControllerBase
+public class PenaltyTicketsController(
+    ZKTecoDbContext dbContext,
+    ISystemNotificationService notificationService,
+    IAttendanceService attendanceService) : AuthenticatedControllerBase
 {
     #region DTOs
 
@@ -729,6 +732,36 @@ public class PenaltyTicketsController(ZKTecoDbContext dbContext, ISystemNotifica
             TicketCode = ticket.TicketCode,
             Status = ticket.Status.ToString(),
             EmployeeName = ticket.Employee != null ? $"{ticket.Employee.LastName} {ticket.Employee.FirstName}".Trim() : "N/A"
+        }));
+    }
+
+    /// <summary>
+    /// Quét lại chấm công và tạo phiếu phạt đi trễ/về sớm/tái phạm còn thiếu trong khoảng ngày.
+    /// </summary>
+    [HttpPost("backfill-from-attendance")]
+    [RequireModulePermission("PenaltyTickets", ModulePermissionAction.Create)]
+    public async Task<ActionResult<AppResponse<object>>> BackfillFromAttendance(
+        [FromQuery] DateTime from,
+        [FromQuery] DateTime to,
+        CancellationToken cancellationToken = default)
+    {
+        var storeId = RequiredStoreId;
+        if (to.Date < from.Date)
+            return BadRequest(AppResponse<object>.Fail("Ngày kết thúc phải sau ngày bắt đầu"));
+
+        var maxDays = 62;
+        if ((to.Date - from.Date).TotalDays > maxDays)
+            return BadRequest(AppResponse<object>.Fail($"Khoảng ngày tối đa {maxDays} ngày"));
+
+        var processed = await attendanceService.BackfillPenaltyTicketsAsync(
+            storeId, from.Date, to.Date, cancellationToken);
+
+        return Ok(AppResponse<object>.Success(new
+        {
+            processedPunches = processed,
+            from = from.Date.ToString("yyyy-MM-dd"),
+            to = to.Date.ToString("yyyy-MM-dd"),
+            message = $"Đã quét {processed} lần chấm công và tạo phiếu phạt còn thiếu (nếu có).",
         }));
     }
 

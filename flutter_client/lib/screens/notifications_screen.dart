@@ -1,5 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/permission_provider.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:intl/intl.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import '../models/hrm.dart';
@@ -309,7 +312,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   Future<void> _deleteAllNotifications() async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Text('Xóa tất cả thông báo?'),
         content: const Text('Hành động này không thể hoàn tác.'),
         actions: [
@@ -465,6 +468,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       relatedEntityType: notification.relatedEntityType,
       relatedEntityId: notification.relatedEntityId,
       title: notification.title,
+      categoryCode: notification.categoryCode,
+      actionUrl: notification.actionUrl,
     );
   }
 
@@ -634,7 +639,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 if (_unreadCount > 0)
                   _actionIcon(
                       Icons.done_all, 'Đánh dấu đã đọc', _markAllAsRead),
-                if (_notifications.isNotEmpty) ...[
+                if (_notifications.isNotEmpty &&
+                    Provider.of<PermissionProvider>(context, listen: false)
+                        .canDelete('Notification')) ...[
                   const SizedBox(width: 4),
                   _actionIcon(Icons.delete_sweep_outlined, 'Xóa tất cả',
                       _deleteAllNotifications,
@@ -760,110 +767,118 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   Widget _buildNotificationCard(AppNotification n) {
     final color = _getColor(n);
     final icon = _getIcon(n);
-    final hasNav =
-        n.relatedEntityType != null && n.relatedEntityType!.isNotEmpty;
+    final canDelete = Provider.of<PermissionProvider>(context, listen: false)
+        .canDelete('Notification');
+    final hasNav = canNavigateFromNotification(
+      relatedEntityType: n.relatedEntityType,
+      categoryCode: n.categoryCode,
+      actionUrl: n.actionUrl,
+      title: n.title,
+    );
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Dismissible(
-        key: Key(n.id),
-        direction: DismissDirection.endToStart,
-        background: Container(
-          alignment: Alignment.centerRight,
-          padding: const EdgeInsets.only(right: 20),
+    final card = Material(
+      color: n.isRead ? Colors.white : color.withValues(alpha: 0.06),
+      borderRadius: BorderRadius.circular(12),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () async {
+          if (!n.isRead) await _markAsRead(n.id);
+          _navigateToRelated(n);
+        },
+        child: Container(
           decoration: BoxDecoration(
-              color: Colors.red.shade400,
-              borderRadius: BorderRadius.circular(12)),
-          child: const Icon(Icons.delete_outline, color: Colors.white),
-        ),
-        confirmDismiss: (_) => _deleteNotification(n.id),
-        child: Material(
-          color: n.isRead ? Colors.white : color.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(12),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
             borderRadius: BorderRadius.circular(12),
-            onTap: () async {
-              if (!n.isRead) await _markAsRead(n.id);
-              if (hasNav) _navigateToRelated(n);
-            },
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
+            border: Border.all(
+              color: n.isRead
+                  ? Colors.grey.shade200
+                  : color.withValues(alpha: 0.25),
+            ),
+          ),
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
                   color: n.isRead
-                      ? Colors.grey.shade200
-                      : color.withValues(alpha: 0.25),
+                      ? Colors.grey.shade100
+                      : color.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon,
+                    color: n.isRead ? Colors.grey.shade400 : color, size: 20),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      if (!n.isRead)
+                        Container(
+                          width: 8,
+                          height: 8,
+                          margin: const EdgeInsets.only(right: 6),
+                          decoration: BoxDecoration(
+                              color: color, shape: BoxShape.circle),
+                        ),
+                      Expanded(
+                        child: Text(
+                          n.title,
+                          style: TextStyle(
+                            fontWeight:
+                                n.isRead ? FontWeight.w500 : FontWeight.w700,
+                            fontSize: 14,
+                            color: n.isRead
+                                ? Colors.grey.shade600
+                                : Colors.grey.shade900,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (hasNav)
+                        Icon(Icons.chevron_right,
+                            size: 18, color: Colors.grey.shade400),
+                    ]),
+                    const SizedBox(height: 4),
+                    _buildExpandableMessage(n),
+                    const SizedBox(height: 6),
+                    Text(
+                      timeago.format(n.createdAt, locale: 'vi'),
+                      style:
+                          TextStyle(fontSize: 11, color: Colors.grey.shade400),
+                    ),
+                  ],
                 ),
               ),
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: n.isRead
-                          ? Colors.grey.shade100
-                          : color.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(icon,
-                        color: n.isRead ? Colors.grey.shade400 : color,
-                        size: 20),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(children: [
-                          if (!n.isRead)
-                            Container(
-                              width: 8,
-                              height: 8,
-                              margin: const EdgeInsets.only(right: 6),
-                              decoration: BoxDecoration(
-                                  color: color, shape: BoxShape.circle),
-                            ),
-                          Expanded(
-                            child: Text(
-                              n.title,
-                              style: TextStyle(
-                                fontWeight: n.isRead
-                                    ? FontWeight.w500
-                                    : FontWeight.w700,
-                                fontSize: 14,
-                                color: n.isRead
-                                    ? Colors.grey.shade600
-                                    : Colors.grey.shade900,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          if (hasNav)
-                            Icon(Icons.chevron_right,
-                                size: 18, color: Colors.grey.shade400),
-                        ]),
-                        const SizedBox(height: 4),
-                        _buildExpandableMessage(n),
-                        const SizedBox(height: 6),
-                        Text(
-                          timeago.format(n.createdAt, locale: 'vi'),
-                          style: TextStyle(
-                              fontSize: 11, color: Colors.grey.shade400),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            ],
           ),
         ),
       ),
+    );
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: canDelete
+          ? Dismissible(
+              key: Key(n.id),
+              direction: DismissDirection.endToStart,
+              background: Container(
+                alignment: Alignment.centerRight,
+                padding: const EdgeInsets.only(right: 20),
+                decoration: BoxDecoration(
+                    color: Colors.red.shade400,
+                    borderRadius: BorderRadius.circular(12)),
+                child: const Icon(Icons.delete_outline, color: Colors.white),
+              ),
+              confirmDismiss: (_) => _deleteNotification(n.id),
+              child: card,
+            )
+          : card,
     );
   }
 }

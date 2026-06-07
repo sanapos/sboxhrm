@@ -14,4 +14,7 @@ public class UpdateLeaveRequest
     public LeaveStatus? Status { get; set; }
     public Guid? ReplacementEmployeeId { get; set; }
     public Guid? EmployeeId { get; set; }
+    public bool? CountAsWork { get; set; }
+    public SickLeaveMode? SickLeaveMode { get; set; }
+    public string? BhxhDocumentNote { get; set; }
 }

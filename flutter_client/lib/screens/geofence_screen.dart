@@ -1,5 +1,8 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/permission_provider.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/hrm_page_chrome.dart';
@@ -15,6 +18,40 @@ class _GeofenceScreenState extends State<GeofenceScreen> {
   final ApiService _apiService = ApiService();
   bool _isLoading = false;
   List<Map<String, dynamic>> _geofences = [];
+
+  PermissionProvider get _perm =>
+      Provider.of<PermissionProvider>(context, listen: false);
+
+  Widget? _geofenceActionMenu(Map<String, dynamic> geo) {
+    final canEdit = _perm.canEdit('Geofence');
+    final canDelete = _perm.canDelete('Geofence');
+    if (!canEdit && !canDelete) return null;
+    return PopupMenuButton<String>(
+      icon: Icon(Icons.more_vert, color: Colors.grey[400], size: 20),
+      itemBuilder: (_) => [
+        if (canEdit)
+          const PopupMenuItem(
+              value: 'edit',
+              child: Row(children: [
+                Icon(Icons.edit, size: 16),
+                SizedBox(width: 8),
+                Text('Sửa')
+              ])),
+        if (canDelete)
+          const PopupMenuItem(
+              value: 'delete',
+              child: Row(children: [
+                Icon(Icons.delete, size: 16, color: Colors.red),
+                SizedBox(width: 8),
+                Text('Xóa', style: TextStyle(color: Colors.red))
+              ])),
+      ],
+      onSelected: (v) {
+        if (v == 'edit' && canEdit) _showGeofenceDialog(geo: geo);
+        if (v == 'delete' && canDelete) _deleteGeofence(geo);
+      },
+    );
+  }
 
   @override
   void initState() {
@@ -51,12 +88,16 @@ class _GeofenceScreenState extends State<GeofenceScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showGeofenceDialog(),
-        icon: const Icon(Icons.add_location_alt),
-        label: const Text('Thêm khu vực'),
-        backgroundColor: HrmPageChrome.primaryNavy,
-      ),
+      floatingActionButton:
+          Provider.of<PermissionProvider>(context, listen: false)
+                  .canCreate('Geofence')
+              ? FloatingActionButton.extended(
+                  onPressed: () => _showGeofenceDialog(),
+                  icon: const Icon(Icons.add_location_alt),
+                  label: const Text('Thêm khu vực'),
+                  backgroundColor: HrmPageChrome.primaryNavy,
+                )
+              : null,
     );
   }
 
@@ -167,17 +208,7 @@ class _GeofenceScreenState extends State<GeofenceScreen> {
                 ),
                 const SizedBox(width: 10),
                 Expanded(child: Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15), maxLines: 1, overflow: TextOverflow.ellipsis)),
-                PopupMenuButton<String>(
-                  icon: Icon(Icons.more_vert, color: Colors.grey[400], size: 20),
-                  itemBuilder: (_) => [
-                    const PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit, size: 16), SizedBox(width: 8), Text('Sửa')])),
-                    const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete, size: 16, color: Colors.red), SizedBox(width: 8), Text('Xóa', style: TextStyle(color: Colors.red))])),
-                  ],
-                  onSelected: (v) {
-                    if (v == 'edit') _showGeofenceDialog(geo: geo);
-                    if (v == 'delete') _deleteGeofence(geo);
-                  },
-                ),
+                if (_geofenceActionMenu(geo) != null) _geofenceActionMenu(geo)!,
               ],
             ),
             const Spacer(),
@@ -220,7 +251,9 @@ class _GeofenceScreenState extends State<GeofenceScreen> {
     final isActive = geo['isActive'] as bool? ?? true;
 
     return InkWell(
-      onTap: () => _showGeofenceDialog(geo: geo),
+      onTap: _perm.canEdit('Geofence')
+          ? () => _showGeofenceDialog(geo: geo)
+          : null,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         child: Row(
@@ -254,17 +287,8 @@ class _GeofenceScreenState extends State<GeofenceScreen> {
               ),
               child: Text(isActive ? 'Hoạt động' : 'Tắt', style: TextStyle(color: isActive ? HrmPageChrome.primaryNavy : Colors.grey, fontSize: 10, fontWeight: FontWeight.w600)),
             ),
-            PopupMenuButton<String>(
-              icon: Icon(Icons.more_vert, color: Colors.grey[400], size: 18),
-              itemBuilder: (_) => [
-                const PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit, size: 16), SizedBox(width: 8), Text('Sửa')])),
-                const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete, size: 16, color: Colors.red), SizedBox(width: 8), Text('Xóa', style: TextStyle(color: Colors.red))])),
-              ],
-              onSelected: (v) {
-                if (v == 'edit') _showGeofenceDialog(geo: geo);
-                if (v == 'delete') _deleteGeofence(geo);
-              },
-            ),
+            if (_geofenceActionMenu(geo) != null)
+              _geofenceActionMenu(geo)!,
           ],
         ),
       ),
@@ -274,7 +298,7 @@ class _GeofenceScreenState extends State<GeofenceScreen> {
   Future<void> _deleteGeofence(Map<String, dynamic> geo) async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Text('Xóa khu vực'),
         content: Text('Xóa "${geo['name']}"?'),
         actions: [
@@ -302,7 +326,7 @@ class _GeofenceScreenState extends State<GeofenceScreen> {
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: Text(isEdit ? 'Sửa khu vực' : 'Thêm khu vực'),
         content: SizedBox(
           width: math.min(420, MediaQuery.of(context).size.width - 32).toDouble(),

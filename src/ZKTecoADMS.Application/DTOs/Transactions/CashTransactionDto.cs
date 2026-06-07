@@ -103,6 +103,8 @@ public record UpdateCashTransactionStatusDto
 {
     public CashTransactionStatus Status { get; init; }
     public bool? IsPaid { get; init; }
+    public PaymentMethodType? PaymentMethod { get; init; }
+    public Guid? BankAccountId { get; init; }
 }
 
 /// <summary>
@@ -117,6 +119,10 @@ public record CashTransactionSummaryDto
     public int IncomeTransactions { get; init; }
     public int ExpenseTransactions { get; init; }
     public int PendingTransactions { get; init; }
+    public decimal PendingIncomeAmount { get; init; }
+    public decimal PendingExpenseAmount { get; init; }
+    public int PendingIncomeCount { get; init; }
+    public int PendingExpenseCount { get; init; }
     public DateTime? FromDate { get; init; }
     public DateTime? ToDate { get; init; }
     public List<CategorySummaryDto> IncomeByCategory { get; init; } = new();

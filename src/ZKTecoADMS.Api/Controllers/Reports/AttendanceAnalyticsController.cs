@@ -29,7 +29,7 @@ public class AttendanceAnalyticsController(
     // GET /api/reports/attendance-analytics/compliance?year=&month=&department=&employeeCode=&format=
     // ═════════════════════════════════════════════════════════════════════
     [HttpGet("compliance")]
-    [RequireModulePermission("AttendanceReport", ModulePermissionAction.View)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "AttendanceReport", "AttendanceSummary", "AttendanceByShift", "Attendance")]
     public async Task<IActionResult> GetCompliance(
         [FromQuery] int? year = null,
         [FromQuery] int? month = null,
@@ -223,7 +223,7 @@ public class AttendanceAnalyticsController(
     // GET /api/reports/attendance-analytics/absence?from=&to=&department=
     // ═════════════════════════════════════════════════════════════════════
     [HttpGet("absence")]
-    [RequireModulePermission("AttendanceReport", ModulePermissionAction.View)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "AttendanceReport", "AttendanceSummary", "AttendanceByShift", "Attendance")]
     public async Task<IActionResult> GetAbsence(
         [FromQuery] DateTime? from = null,
         [FromQuery] DateTime? to = null,
@@ -361,7 +361,7 @@ public class AttendanceAnalyticsController(
     // GET /api/reports/attendance-analytics/no-show?from=&to=&department=
     // ═════════════════════════════════════════════════════════════════════
     [HttpGet("no-show")]
-    [RequireModulePermission("AttendanceReport", ModulePermissionAction.View)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "AttendanceReport", "AttendanceSummary", "AttendanceByShift", "Attendance")]
     public async Task<IActionResult> GetNoShow(
         [FromQuery] DateTime? from = null,
         [FromQuery] DateTime? to = null,
@@ -483,7 +483,7 @@ public class AttendanceAnalyticsController(
     // GET /api/reports/attendance-analytics/anomalies?from=&to=&department=&minPunchesPerDay=&earlyMinutes=&lateMinutes=
     // ═════════════════════════════════════════════════════════════════════
     [HttpGet("anomalies")]
-    [RequireModulePermission("AttendanceReport", ModulePermissionAction.View)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "AttendanceReport", "AttendanceSummary", "AttendanceByShift", "Attendance")]
     public async Task<IActionResult> GetAnomalies(
         [FromQuery] DateTime? from = null,
         [FromQuery] DateTime? to = null,
@@ -602,7 +602,7 @@ public class AttendanceAnalyticsController(
     // GET /api/reports/attendance-analytics/field-summary?from=&to=&employeeCode=
     // ═════════════════════════════════════════════════════════════════════
     [HttpGet("field-summary")]
-    [RequireModulePermission("AttendanceReport", ModulePermissionAction.View)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "AttendanceReport", "AttendanceSummary", "AttendanceByShift", "Attendance")]
     public async Task<IActionResult> GetFieldSummary(
         [FromQuery] DateTime? from = null,
         [FromQuery] DateTime? to = null,
@@ -682,7 +682,7 @@ public class AttendanceAnalyticsController(
     // GET /api/reports/attendance-analytics/mobile-usage?from=&to=
     // ═════════════════════════════════════════════════════════════════════
     [HttpGet("mobile-usage")]
-    [RequireModulePermission("AttendanceReport", ModulePermissionAction.View)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "AttendanceReport", "AttendanceSummary", "AttendanceByShift", "Attendance")]
     public async Task<IActionResult> GetMobileUsage(
         [FromQuery] DateTime? from = null,
         [FromQuery] DateTime? to = null,

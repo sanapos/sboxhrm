@@ -86,6 +86,16 @@ public static class ModulePermissionImplicitGrants
             }
         }
 
+        if (module.Equals("AttendanceReport", StringComparison.Ordinal) &&
+            action is ModulePermissionAction.View or ModulePermissionAction.Export)
+        {
+            foreach (var alt in AttendanceReadModules.Append("AttendanceReport"))
+            {
+                if (HasAction(map, alt, action))
+                    return true;
+            }
+        }
+
         if (ApprovalAttendanceModules.Contains(module))
         {
             if (HasAction(map, "AttendanceApproval", action) ||
@@ -108,6 +118,15 @@ public static class ModulePermissionImplicitGrants
                     return true;
             }
         }
+
+        // Thu chi: danh mục + tài khoản NH dùng chung quyền CashTransaction / BankAccount.
+        if (module.Equals("BankAccount", StringComparison.Ordinal) &&
+            HasAction(map, "CashTransaction", action))
+            return true;
+
+        if (module.Equals("CashTransaction", StringComparison.Ordinal) &&
+            HasAction(map, "BankAccount", action))
+            return true;
 
         if (ShiftSetupModules.Contains(module))
         {
@@ -168,6 +187,19 @@ public static class ModulePermissionImplicitGrants
 
             if (action is ModulePermissionAction.View or ModulePermissionAction.Approve &&
                 HasAction(map, "MobileAttendanceApproval", action))
+                return true;
+        }
+
+        // Cài đặt CC mobile: quản lý thường chỉ được gán «Chấm công mobile», không tách module đăng ký thiết bị.
+        if (module.Equals("MobileDeviceRegistration", StringComparison.Ordinal))
+        {
+            if (action == ModulePermissionAction.View &&
+                HasAction(map, "MobileAttendance", ModulePermissionAction.View))
+                return true;
+
+            if (action is ModulePermissionAction.Create or ModulePermissionAction.Edit
+                    or ModulePermissionAction.Delete or ModulePermissionAction.Approve &&
+                HasAction(map, "MobileAttendance", ModulePermissionAction.Edit))
                 return true;
         }
 

@@ -1,6 +1,9 @@
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/permission_provider.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
@@ -19,6 +22,9 @@ class AllowanceSettingsScreen extends StatefulWidget {
 }
 
 class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
+  PermissionProvider get _perm =>
+      Provider.of<PermissionProvider>(context, listen: false);
+
   final ApiService _apiService = ApiService();
   final _currencyFormat = NumberFormat('#,###', 'vi_VN');
   List<Map<String, dynamic>> _allowances = [];
@@ -137,6 +143,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
   }
 
   List<Widget> _allowanceToolbarActions(BuildContext context) {
+    if (!_perm.canCreate('Allowance')) return [];
     return Responsive.isMobile(context)
             ? [
                 IconButton(
@@ -810,23 +817,27 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    IconButton(
-                      tooltip: 'Sửa',
-                      onPressed: () =>
-                          _showAllowanceDialog(allowance: allowance),
-                      icon: const Icon(Icons.edit_outlined, size: 18),
-                      color: HrmPageChrome.primaryNavy,
-                      visualDensity: VisualDensity.compact,
-                      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                    ),
-                    IconButton(
-                      tooltip: 'Xóa',
-                      onPressed: () => _deleteAllowance(allowance),
-                      icon: const Icon(Icons.delete_outline, size: 18),
-                      color: const Color(0xFFEF4444),
-                      visualDensity: VisualDensity.compact,
-                      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                    ),
+                    if (_perm.canEdit('Allowance'))
+                      IconButton(
+                        tooltip: 'Sửa',
+                        onPressed: () =>
+                            _showAllowanceDialog(allowance: allowance),
+                        icon: const Icon(Icons.edit_outlined, size: 18),
+                        color: HrmPageChrome.primaryNavy,
+                        visualDensity: VisualDensity.compact,
+                        constraints:
+                            const BoxConstraints(minWidth: 36, minHeight: 36),
+                      ),
+                    if (_perm.canDelete('Allowance'))
+                      IconButton(
+                        tooltip: 'Xóa',
+                        onPressed: () => _deleteAllowance(allowance),
+                        icon: const Icon(Icons.delete_outline, size: 18),
+                        color: const Color(0xFFEF4444),
+                        visualDensity: VisualDensity.compact,
+                        constraints:
+                            const BoxConstraints(minWidth: 36, minHeight: 36),
+                      ),
                   ],
                 ),
               ),
@@ -984,42 +995,52 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                     const SizedBox(height: 8),
                     // Action buttons hiển thị rõ ràng — bảo đảm tap luôn có
                     // tác dụng dù sự kiện InkWell ngoài có chặn hay không.
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () =>
-                                _showAllowanceDialog(allowance: allowance),
-                            icon: const Icon(Icons.edit_outlined, size: 14),
-                            label: const Text('Xem / Sửa',
-                                style: TextStyle(fontSize: 12)),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: HrmPageChrome.primaryNavy,
-                              side: const BorderSide(color: HrmPageChrome.primaryNavy),
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: 6, horizontal: 8),
-                              minimumSize: const Size(0, 32),
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    if (_perm.canEdit('Allowance') ||
+                        _perm.canDelete('Allowance'))
+                      Row(
+                        children: [
+                          if (_perm.canEdit('Allowance'))
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () => _showAllowanceDialog(
+                                    allowance: allowance),
+                                icon: const Icon(Icons.edit_outlined, size: 14),
+                                label: const Text('Xem / Sửa',
+                                    style: TextStyle(fontSize: 12)),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: HrmPageChrome.primaryNavy,
+                                  side: const BorderSide(
+                                      color: HrmPageChrome.primaryNavy),
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 6, horizontal: 8),
+                                  minimumSize: const Size(0, 32),
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        OutlinedButton.icon(
-                          onPressed: () => _deleteAllowance(allowance),
-                          icon: const Icon(Icons.delete_outline, size: 14),
-                          label:
-                              const Text('Xoá', style: TextStyle(fontSize: 12)),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFFEF4444),
-                            side: const BorderSide(color: Color(0xFFEF4444)),
-                            padding: const EdgeInsets.symmetric(
-                                vertical: 6, horizontal: 12),
-                            minimumSize: const Size(0, 32),
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          ),
-                        ),
-                      ],
-                    ),
+                          if (_perm.canEdit('Allowance') &&
+                              _perm.canDelete('Allowance'))
+                            const SizedBox(width: 8),
+                          if (_perm.canDelete('Allowance'))
+                            OutlinedButton.icon(
+                              onPressed: () => _deleteAllowance(allowance),
+                              icon:
+                                  const Icon(Icons.delete_outline, size: 14),
+                              label: const Text('Xoá',
+                                  style: TextStyle(fontSize: 12)),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFFEF4444),
+                                side: const BorderSide(
+                                    color: Color(0xFFEF4444)),
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 6, horizontal: 12),
+                                minimumSize: const Size(0, 32),
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                            ),
+                        ],
+                      ),
                   ],
                 ),
               ),
@@ -1217,18 +1238,21 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  IconButton(
-                    onPressed: () => _showAllowanceDialog(allowance: allowance),
-                    icon: const Icon(Icons.edit_outlined, size: 20),
-                    color: const Color(0xFF71717A),
-                    tooltip: 'Sửa',
-                  ),
-                  IconButton(
-                    onPressed: () => _deleteAllowance(allowance),
-                    icon: const Icon(Icons.delete_outline, size: 20),
-                    color: const Color(0xFF71717A),
-                    tooltip: 'Xóa',
-                  ),
+                  if (_perm.canEdit('Allowance'))
+                    IconButton(
+                      onPressed: () =>
+                          _showAllowanceDialog(allowance: allowance),
+                      icon: const Icon(Icons.edit_outlined, size: 20),
+                      color: const Color(0xFF71717A),
+                      tooltip: 'Sửa',
+                    ),
+                  if (_perm.canDelete('Allowance'))
+                    IconButton(
+                      onPressed: () => _deleteAllowance(allowance),
+                      icon: const Icon(Icons.delete_outline, size: 20),
+                      color: const Color(0xFF71717A),
+                      tooltip: 'Xóa',
+                    ),
                 ],
               ),
             ),
@@ -2303,7 +2327,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
   void _deleteAllowance(Map<String, dynamic> allowance) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => ScrollableAlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Xác nhận xóa',

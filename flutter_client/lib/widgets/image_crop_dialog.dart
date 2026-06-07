@@ -1,5 +1,6 @@
-﻿import 'dart:typed_data';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 
 /// Kết quả crop ảnh
 class CropResult {
@@ -72,7 +73,7 @@ class _ImageCropDialogState extends State<ImageCropDialog> {
     final dialogWidth = (size.width * 0.6).clamp(300.0, 700.0);
     final dialogHeight = (size.height * 0.7).clamp(300.0, 600.0);
 
-    return AlertDialog(
+    return ScrollableAlertDialog(
       title: Row(
         children: [
           const Icon(Icons.crop, color: Colors.blue),

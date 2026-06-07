@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Application.DTOs.Dashboard;
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
@@ -22,6 +23,7 @@ namespace ZKTecoADMS.Application.Queries.Dashboard.GetEmployeeDashboard;
 public class GetEmployeeDashboardHandler(
     IRepository<Shift> shiftRepository,
     IRepository<Attendance> attendanceRepository,
+    IRepository<DeviceUser> deviceUserRepository,
     UserManager<ApplicationUser> userManager,
     IShiftService shiftService
 ) : IQueryHandler<GetEmployeeDashboardQuery, AppResponse<EmployeeDashboardDto>>
@@ -69,14 +71,21 @@ public class GetEmployeeDashboardHandler(
     {
         if (user.Employee == null) return null;
 
+        var deviceUserIds = await AttendanceLogResolveHelper.GetDeviceUserIdsForHrEmployeeAsync(
+            deviceUserRepository, user.Employee.Id, cancellationToken);
+        if (deviceUserIds.Count == 0)
+        {
+            return new AttendanceInfoDto { Status = "not-started" };
+        }
+
         var nowVn = DateTime.UtcNow.AddHours(VnOffsetHours);
         var todayLocal = nowVn.Date;
         var utcStart = todayLocal.AddHours(-VnOffsetHours);
         var utcEnd = todayLocal.AddDays(1).AddHours(-VnOffsetHours);
-        var employeeId = user.Employee.Id;
 
         var todayPunches = await attendanceRepository.GetAllAsync(
-            filter: a => a.EmployeeId == employeeId
+            filter: a => a.EmployeeId != null
+                && deviceUserIds.Contains(a.EmployeeId.Value)
                 && a.AttendanceTime >= utcStart
                 && a.AttendanceTime < utcEnd,
             orderBy: q => q.OrderBy(a => a.AttendanceTime),
@@ -144,11 +153,16 @@ public class GetEmployeeDashboardHandler(
             return new AttendanceStatsDto { Period = period };
         }
 
+        var deviceUserIds = await AttendanceLogResolveHelper.GetDeviceUserIdsForHrEmployeeAsync(
+            deviceUserRepository, user.Employee.Id, cancellationToken);
+        if (deviceUserIds.Count == 0)
+        {
+            return new AttendanceStatsDto { Period = period };
+        }
+
         var (startLocal, endLocal) = GetDateRange(period);
         var utcStart = startLocal.AddHours(-VnOffsetHours);
         var utcEnd = endLocal.AddDays(1).AddHours(-VnOffsetHours);
-
-        var employeeId = user.Employee.Id;
 
         // Approved shifts in the VN window (Shift.StartTime is already local).
         var shifts = await shiftRepository.GetAllAsync(
@@ -162,18 +176,13 @@ public class GetEmployeeDashboardHandler(
         var totalWorkDays = shifts.Count;
         if (totalWorkDays == 0)
         {
-            return new AttendanceStatsDto
-            {
-                Period = period,
-                TotalWorkDays = 0,
-                AttendanceRate = 0,
-                PunctualityRate = 100,
-                AverageWorkHours = "0.0"
-            };
+            return await BuildPunchBasedStatsAsync(
+                deviceUserIds, utcStart, utcEnd, period, cancellationToken);
         }
 
         var attendances = await attendanceRepository.GetAllAsync(
-            filter: a => a.EmployeeId == employeeId
+            filter: a => a.EmployeeId != null
+                && deviceUserIds.Contains(a.EmployeeId.Value)
                 && a.AttendanceTime >= utcStart
                 && a.AttendanceTime < utcEnd,
             orderBy: q => q.OrderBy(a => a.AttendanceTime),
@@ -234,6 +243,77 @@ public class GetEmployeeDashboardHandler(
             EarlyCheckOuts = earlyCheckOuts,
             AttendanceRate = attendanceRate,
             PunctualityRate = punctualityRate,
+            AverageWorkHours = avgWorkHours,
+            Period = period
+        };
+    }
+
+    /// <summary>Fallback khi chưa có ca duyệt — thống kê theo ngày có log chấm công.</summary>
+    private async Task<AttendanceStatsDto> BuildPunchBasedStatsAsync(
+        List<Guid> deviceUserIds,
+        DateTime utcStart,
+        DateTime utcEnd,
+        string period,
+        CancellationToken cancellationToken)
+    {
+        var attendances = await attendanceRepository.GetAllAsync(
+            filter: a => a.EmployeeId != null
+                && deviceUserIds.Contains(a.EmployeeId.Value)
+                && a.AttendanceTime >= utcStart
+                && a.AttendanceTime < utcEnd,
+            orderBy: q => q.OrderBy(a => a.AttendanceTime),
+            cancellationToken: cancellationToken);
+
+        var attendanceByDate = attendances
+            .GroupBy(a => a.AttendanceTime.AddHours(VnOffsetHours).Date)
+            .ToDictionary(g => g.Key, g => g.OrderBy(a => a.AttendanceTime).ToList());
+
+        var presentDays = attendanceByDate.Count;
+        if (presentDays == 0)
+        {
+            return new AttendanceStatsDto
+            {
+                Period = period,
+                TotalWorkDays = 0,
+                AttendanceRate = 0,
+                PunctualityRate = 100,
+                AverageWorkHours = "0.0"
+            };
+        }
+
+        double totalWorkHours = 0;
+        var workedFullDays = 0;
+
+        foreach (var dayPunches in attendanceByDate.Values)
+        {
+            var firstIn = dayPunches.FirstOrDefault(a => a.AttendanceState == AttendanceStates.CheckIn)
+                ?? dayPunches.First();
+            var lastOut = dayPunches.LastOrDefault(a => a.AttendanceState == AttendanceStates.CheckOut)
+                ?? dayPunches.Last();
+
+            var inVn = firstIn.AttendanceTime.AddHours(VnOffsetHours);
+            var outVn = lastOut.AttendanceTime.AddHours(VnOffsetHours);
+
+            if (outVn > inVn)
+            {
+                totalWorkHours += (outVn - inVn).TotalHours;
+                workedFullDays++;
+            }
+        }
+
+        var avgWorkHours = workedFullDays > 0
+            ? (totalWorkHours / workedFullDays).ToString("F1")
+            : "0.0";
+
+        return new AttendanceStatsDto
+        {
+            TotalWorkDays = presentDays,
+            PresentDays = presentDays,
+            AbsentDays = 0,
+            LateCheckIns = 0,
+            EarlyCheckOuts = 0,
+            AttendanceRate = 100,
+            PunctualityRate = 100,
             AverageWorkHours = avgWorkHours,
             Period = period
         };

@@ -17,4 +17,7 @@ public record UpdateLeaveCommand(
     string Reason,
     LeaveStatus? Status,
     Guid? ReplacementEmployeeId,
-    Guid? EmployeeId) : ICommand<AppResponse<LeaveDto>>;
+    Guid? EmployeeId,
+    bool? CountAsWork,
+    SickLeaveMode? SickLeaveMode,
+    string? BhxhDocumentNote) : ICommand<AppResponse<LeaveDto>>;

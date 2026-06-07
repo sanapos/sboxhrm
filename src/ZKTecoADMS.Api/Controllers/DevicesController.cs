@@ -37,7 +37,7 @@ public class DevicesController(
     }
     
     [HttpGet]
-    [RequireModulePermission("Device", ModulePermissionAction.View)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "Device", "Attendance", "AttendanceSummary", "AttendanceByShift")]
     public async Task<ActionResult<AppResponse<IEnumerable<DeviceDto>>>> GetAllDevices([FromQuery] bool? storeOnly)
     {
         var query = new GetAllDevicesQuery(

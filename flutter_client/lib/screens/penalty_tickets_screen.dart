@@ -1,5 +1,7 @@
-﻿import 'dart:math' as math;
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import '../widgets/app_scroll_safe.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
@@ -298,7 +300,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
   Future<void> _approveTicket(String id) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => ScrollableAlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Duyệt phiếu phạt',
@@ -347,7 +349,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
   Future<void> _unapproveTicket(String id) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => ScrollableAlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Hoàn duyệt phiếu phạt',
@@ -386,7 +388,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
     final reasonController = TextEditingController();
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => ScrollableAlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Hủy phiếu phạt',
@@ -444,7 +446,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
   Future<void> _deleteTicket(String id) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => ScrollableAlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Xóa phiếu phạt',
@@ -479,6 +481,86 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
     }
   }
 
+  Future<void> _backfillFromAttendance() async {
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2024),
+      lastDate: DateTime.now(),
+      initialDateRange: _dateRange ??
+          DateTimeRange(
+            start: DateTime.now().subtract(const Duration(days: 30)),
+            end: DateTime.now(),
+          ),
+      helpText: 'Chọn khoảng ngày quét lại',
+    );
+    if (picked == null || !mounted) return;
+
+    if (picked.end.difference(picked.start).inDays > 62) {
+      appNotification.showWarning(
+        title: 'Khoảng ngày quá dài',
+        message: 'Chỉ quét tối đa 62 ngày mỗi lần. Vui lòng chọn khoảng ngắn hơn.',
+      );
+      return;
+    }
+
+    final fromLabel = DateFormat('dd/MM/yyyy').format(picked.start);
+    final toLabel = DateFormat('dd/MM/yyyy').format(picked.end);
+    if (!mounted) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => ScrollableAlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Quét lại chấm công',
+            style: TextStyle(fontWeight: FontWeight.bold)),
+        content: Text(
+          'Hệ thống sẽ quét chấm công từ $fromLabel đến $toLabel '
+          'và tạo phiếu phạt đi trễ/về sớm/quên chấm còn thiếu (nếu có). '
+          'Thao tác có thể mất vài phút.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Hủy',
+                style: TextStyle(color: Color(0xFF71717A))),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+                backgroundColor: HrmPageChrome.primaryNavy),
+            child: const Text('Quét lại'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    setState(() => _isLoading = true);
+    try {
+      final result = await _apiService.backfillPenaltyTicketsFromAttendance(
+        from: picked.start,
+        to: picked.end,
+      );
+      if (!mounted) return;
+      if (result['isSuccess'] == true) {
+        final data = result['data'];
+        final processed = data is Map ? data['processedPunches'] : null;
+        final msg = data is Map && data['message'] != null
+            ? data['message'].toString()
+            : 'Đã quét ${processed ?? 0} lần chấm công';
+        appNotification.showSuccess(title: 'Hoàn tất', message: msg);
+        await _loadData(showLoading: false);
+      } else {
+        appNotification.showError(
+          title: 'Lỗi',
+          message: result['message']?.toString() ?? 'Không thể quét lại chấm công',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   Future<void> _pickDateRange() async {
     final picked = await showDateRangePicker(
       context: context,
@@ -506,7 +588,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
     if (ids.isEmpty) return;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => ScrollableAlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Duyệt nhanh',
@@ -910,7 +992,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
     final isApproved = status == 'Approved' || status == 'AutoApproved';
     final isCancelled = status == 'Cancelled';
 
-    showModalBottomSheet(
+    showAppSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.white,
@@ -1179,6 +1261,13 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               ),
+            ),
+          if (Provider.of<PermissionProvider>(context, listen: false)
+              .canCreate('PenaltyTickets'))
+            IconButton(
+              icon: const Icon(Icons.sync, color: Color(0xFF18181B)),
+              onPressed: _isLoading ? null : _backfillFromAttendance,
+              tooltip: 'Quét lại chấm công',
             ),
           IconButton(
               icon: const Icon(Icons.date_range, color: Color(0xFF18181B)),
@@ -1497,6 +1586,19 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                   side: const BorderSide(color: Color(0xFFE4E4E7)),
                   onPressed: _pickDateRange,
                 ),
+                if (Provider.of<PermissionProvider>(context, listen: false)
+                    .canCreate('PenaltyTickets')) ...[
+                  const SizedBox(width: 6),
+                  ActionChip(
+                    avatar: const Icon(Icons.sync, size: 16),
+                    label: const Text('Quét lại'),
+                    backgroundColor: Colors.white,
+                    labelStyle: const TextStyle(
+                        fontSize: 12, color: Color(0xFF18181B)),
+                    side: const BorderSide(color: Color(0xFFE4E4E7)),
+                    onPressed: _isLoading ? null : _backfillFromAttendance,
+                  ),
+                ],
               ],
             ),
           ),

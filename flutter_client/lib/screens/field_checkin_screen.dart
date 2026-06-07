@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_map/flutter_map.dart';
 import 'package:image/image.dart' as img;
@@ -15,9 +16,12 @@ import '../models/field_checkin.dart';
 import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
+import '../widgets/auth_cached_image.dart';
 import '../utils/platform_geolocation.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/app_scroll_safe.dart';
+import '../widgets/hrm_mini_stat_chip.dart';
 
 class FieldCheckInScreen extends StatefulWidget {
   const FieldCheckInScreen({super.key});
@@ -748,7 +752,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
 
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Text('Kết thúc hành trình?'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -813,7 +817,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
       isOutsideRadius = distanceMeters > loc.radius;
     }
 
-    final confirm = await showModalBottomSheet<bool>(
+    final confirm = await showAppSheet<bool>(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
@@ -953,7 +957,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
         _currentLat!, _currentLng!, loc.latitude, loc.longitude);
     final isOutsideRadius = distanceMeters > loc.radius;
 
-    final confirm = await showModalBottomSheet<bool>(
+    final confirm = await showAppSheet<bool>(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
@@ -1162,7 +1166,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
         customerStatusCtl.text.isNotEmpty ||
         nextActionCtl.text.isNotEmpty;
 
-    final result = await showModalBottomSheet<Map<String, dynamic>?>(
+    final result = await showAppSheet<Map<String, dynamic>?>(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
@@ -1486,7 +1490,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
       );
     }
 
-    await showModalBottomSheet(
+    await showAppSheet(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
@@ -1608,9 +1612,11 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                             backgroundColor: Colors.black,
                             insetPadding: const EdgeInsets.all(12),
                             child: InteractiveViewer(
-                              child: Image.network(url,
+                              child: AuthCachedImage(
+                                  imagePath: url,
+                                  apiService: _apiService,
                                   fit: BoxFit.contain,
-                                  errorBuilder: (_, __, ___) => const Icon(
+                                  errorWidget: (_, __, ___) => const Icon(
                                       Icons.broken_image,
                                       color: Colors.white,
                                       size: 60)),
@@ -1619,12 +1625,13 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                         ),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(8),
-                          child: Image.network(
-                            url,
+                          child: AuthCachedImage(
+                            imagePath: url,
+                            apiService: _apiService,
                             width: 90,
                             height: 90,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
+                            errorWidget: (_, __, ___) => Container(
                               width: 90,
                               height: 90,
                               color: Colors.grey[200],
@@ -1656,7 +1663,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
     final noteCtl = TextEditingController();
     final result = await showDialog<String?>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Text('Duyệt báo cáo'),
         content: SizedBox(
           width: 400,
@@ -2783,7 +2790,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
     final photos = <String>[];
     bool saving = false;
 
-    showModalBottomSheet(
+    showAppSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -3885,7 +3892,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
             return bd.compareTo(ad);
           });
 
-    showModalBottomSheet(
+    showAppSheet(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
@@ -5223,23 +5230,11 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
 
   Widget _buildStatCard(
       String label, String value, IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
-      ),
-      child: Column(children: [
-        Icon(icon, color: color, size: 20),
-        const SizedBox(height: 2),
-        Text(value,
-            style: TextStyle(
-                fontSize: 16, fontWeight: FontWeight.bold, color: color)),
-        Text(label,
-            style: TextStyle(fontSize: 10, color: Colors.grey[600]),
-            textAlign: TextAlign.center),
-      ]),
+    return HrmStatSummaryCard(
+      icon: icon,
+      value: value,
+      label: label,
+      color: color,
     );
   }
 
@@ -5311,7 +5306,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
 
     final dwellPoints = points.where((p) => p.isDwell).toList();
 
-    showModalBottomSheet(
+    showAppSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -5606,7 +5601,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
                 onPressed: () async {
                   final confirm = await showDialog<bool>(
                     context: context,
-                    builder: (ctx) => AlertDialog(
+                    builder: (ctx) => ScrollableAlertDialog(
                       title: const Text('Xoá giao điểm?'),
                       content: Text('${a.location?.name} - ${a.employeeName}'),
                       actions: [
@@ -5801,7 +5796,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen>
             }
           }
 
-          return AlertDialog(
+          return ScrollableAlertDialog(
             title: const Text('Giao điểm cho nhân viên'),
             content: SizedBox(
               width: 420,

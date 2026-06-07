@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
 import '../screens/system_admin/system_admin_helpers.dart';
@@ -226,7 +227,7 @@ class _AnnouncementBannerState extends State<AnnouncementBanner> {
     await showDialog(
       context: context,
       barrierDismissible: !requireAck,
-      builder: (_) => AlertDialog(
+      builder: (_) => ScrollableAlertDialog(
         title: Text(_formatRenewalTitle(a, a['title']?.toString() ?? '')),
         content: SingleChildScrollView(
           child: Text(_clean(a['content']?.toString() ?? '')),

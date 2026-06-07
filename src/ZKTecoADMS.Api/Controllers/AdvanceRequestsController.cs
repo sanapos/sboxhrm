@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Commands.AdvanceRequests;
@@ -6,14 +7,21 @@ using ZKTecoADMS.Application.Queries.AdvanceRequests;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.DTOs.AdvanceRequests;
 using ZKTecoADMS.Application.DTOs.Commons;
+using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Enums;
+using ZKTecoADMS.Infrastructure;
+using ZKTecoADMS.Infrastructure.Services;
 
 namespace ZKTecoADMS.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class AdvanceRequestsController(IMediator mediator) : AuthenticatedControllerBase
+public class AdvanceRequestsController(
+    IMediator mediator,
+    ZKTecoDbContext context,
+    IModulePermissionService modulePermissionService,
+    ISystemNotificationService notificationService) : AuthenticatedControllerBase
 {
     [HttpGet]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -59,8 +67,6 @@ public class AdvanceRequestsController(IMediator mediator) : AuthenticatedContro
     [RequireModulePermission("AdvanceRequests", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<AdvanceRequestDto>>> CreateAdvanceRequest([FromBody] CreateAdvanceRequestDto request)
     {
-        // Manager/Admin creating for a specific employee: they provide employeeUserId and/or employeeId.
-        // Employee self-request: neither is provided → use CurrentUserId.
         Guid? employeeUserId = request.EmployeeUserId
             ?? (request.EmployeeId == null ? CurrentUserId : (Guid?)null);
 
@@ -73,7 +79,7 @@ public class AdvanceRequestsController(IMediator mediator) : AuthenticatedContro
             request.ForMonth,
             request.ForYear,
             request.EmployeeId);
-        
+
         var result = await mediator.Send(command);
         return Ok(result);
     }
@@ -82,17 +88,29 @@ public class AdvanceRequestsController(IMediator mediator) : AuthenticatedContro
     [Authorize(Policy = PolicyNames.AtLeastManager)]
     [RequireModulePermission("AdvanceRequests", ModulePermissionAction.Approve)]
     public async Task<ActionResult<AppResponse<AdvanceRequestDto>>> ApproveAdvanceRequest(
-        Guid id, 
+        Guid id,
         [FromBody] ApproveAdvanceRequestDto request)
     {
+        var storeId = RequiredStoreId;
         var command = new ApproveAdvanceRequestCommand(
-            RequiredStoreId,
+            storeId,
             id,
             CurrentUserId,
             request.IsApproved,
             request.RejectionReason);
-        
+
         var result = await mediator.Send(command);
+
+        try
+        {
+            if (result.IsSuccess && request.IsApproved
+                && result.Data?.Status == AdvanceRequestStatus.Approved)
+            {
+                await TryCreateAdvancePendingCashAsync(id, storeId);
+            }
+        }
+        catch { /* finance hook is best-effort */ }
+
         return Ok(result);
     }
 
@@ -111,12 +129,25 @@ public class AdvanceRequestsController(IMediator mediator) : AuthenticatedContro
     [RequireModulePermission("AdvanceRequests", ModulePermissionAction.Approve)]
     public async Task<ActionResult<AppResponse<AdvanceRequestDto>>> UndoApproveAdvanceRequest(Guid id)
     {
-        var command = new UndoApproveAdvanceRequestCommand(
-            RequiredStoreId,
-            id,
-            CurrentUserId);
-        
+        var storeId = RequiredStoreId;
+        var command = new UndoApproveAdvanceRequestCommand(storeId, id, CurrentUserId);
         var result = await mediator.Send(command);
+
+        try
+        {
+            if (result.IsSuccess)
+            {
+                var linked = await PaymentFinanceHelper.ResolveLinkedAsync(
+                    context, storeId, PaymentFinanceHelper.AdvanceNote(id));
+                if (linked != null && !linked.IsPaid)
+                {
+                    PaymentFinanceHelper.CancelLinkedCashTransaction(linked, "Hoàn duyệt yêu cầu ứng lương");
+                    await context.SaveChangesAsync();
+                }
+            }
+        }
+        catch { /* finance hook is best-effort */ }
+
         return Ok(result);
     }
 
@@ -144,7 +175,7 @@ public class AdvanceRequestsController(IMediator mediator) : AuthenticatedContro
             id,
             CurrentUserId,
             request?.PaymentMethod);
-        
+
         var result = await mediator.Send(command);
         return Ok(result);
     }
@@ -154,14 +185,21 @@ public class AdvanceRequestsController(IMediator mediator) : AuthenticatedContro
     [RequireModulePermission("AdvanceRequests", ModulePermissionAction.Approve)]
     public async Task<ActionResult<AppResponse<BulkResultDto>>> BulkApprove([FromBody] BulkApproveDto request)
     {
+        var storeId = RequiredStoreId;
         int success = 0, failed = 0;
         foreach (var id in request.Ids)
         {
             try
             {
-                var command = new ApproveAdvanceRequestCommand(RequiredStoreId, id, CurrentUserId, true, null);
+                var command = new ApproveAdvanceRequestCommand(storeId, id, CurrentUserId, true, null);
                 var result = await mediator.Send(command);
-                if (result.IsSuccess) success++; else failed++;
+                if (result.IsSuccess)
+                {
+                    success++;
+                    if (result.Data?.Status == AdvanceRequestStatus.Approved)
+                        await TryCreateAdvancePendingCashAsync(id, storeId);
+                }
+                else failed++;
             }
             catch { failed++; }
         }
@@ -204,5 +242,22 @@ public class AdvanceRequestsController(IMediator mediator) : AuthenticatedContro
             catch { failed++; }
         }
         return Ok(AppResponse<BulkResultDto>.Success(new BulkResultDto(success, failed)));
+    }
+
+    private async Task TryCreateAdvancePendingCashAsync(Guid advanceId, Guid storeId)
+    {
+        var advance = await context.AdvanceRequests
+            .Include(a => a.Employee)
+            .Include(a => a.EmployeeUser)
+            .FirstOrDefaultAsync(a => a.Id == advanceId && a.StoreId == storeId);
+        if (advance == null) return;
+
+        var cashTx = await PaymentFinanceHelper.CreateAdvancePendingOnApproveAsync(
+            context, advance, storeId, CurrentUserId);
+        if (cashTx == null) return;
+
+        await CashTransactionNotificationHelper.NotifyOnCreatedAsync(
+            context, modulePermissionService, notificationService,
+            cashTx, CurrentUserId, storeId);
     }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:flutter/services.dart';
 import '../../services/api_service.dart';
 import '../../utils/responsive_helper.dart';
@@ -552,14 +553,14 @@ class LicensesTabState extends State<LicensesTab> {
               ]),
             ),
             const SizedBox(width: 8),
-            if (status == 'available')
+            if (status == 'available' && context.systemAdminCanEdit)
               IconButton(
                 icon: const Icon(Icons.block,
                     color: AdminHelpers.warning, size: 18),
                 tooltip: 'Thu hồi',
                 onPressed: () => _revokeLicense(license),
               ),
-            if (canDel)
+            if (canDel && context.systemAdminCanDelete)
               IconButton(
                 icon: const Icon(Icons.delete_forever,
                     color: AdminHelpers.danger, size: 18),
@@ -625,7 +626,7 @@ class LicensesTabState extends State<LicensesTab> {
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Text('Tạo License Key'),
         content: SizedBox(
           width: MediaQuery.of(context).size.width < 600 ? MediaQuery.of(context).size.width - 32 : 400,
@@ -749,7 +750,7 @@ class LicensesTabState extends State<LicensesTab> {
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Text('Tạo hàng loạt License'),
         content: SizedBox(
           width: MediaQuery.of(context).size.width < 600 ? MediaQuery.of(context).size.width - 32 : 400,
@@ -881,7 +882,7 @@ class LicensesTabState extends State<LicensesTab> {
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Text('Cấp key hàng loạt cho đại lý'),
         content: SizedBox(
           width: MediaQuery.of(context).size.width < 600 ? MediaQuery.of(context).size.width - 32 : 420,

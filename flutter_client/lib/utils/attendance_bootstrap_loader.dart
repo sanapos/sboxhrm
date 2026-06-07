@@ -81,14 +81,12 @@ Future<AttendanceBootstrapData> loadAttendanceBootstrap(
 
   final fromStr = fromDate.toIso8601String().substring(0, 10);
   final toStr = toDate.toIso8601String().substring(0, 10);
-  final leavesFuture = api
-      .getAllLeaves(
-        fromDate: fromStr,
-        toDate: toStr,
-        status: 'Approved',
-        pageSize: 1000,
-      )
-      .catchError((_) => <String, dynamic>{'isSuccess': false});
+  final leavesFuture = loadLeavesForPeriod(
+    api,
+    fromDate: fromStr,
+    toDate: toStr,
+    status: 'Approved',
+  ).catchError((_) => <dynamic>[]);
 
   final devicesRaw = await devicesFuture;
   final devices = devicesRaw
@@ -104,34 +102,22 @@ Future<AttendanceBootstrapData> loadAttendanceBootstrap(
   final salary = await salaryFuture;
   final lunchBreakMinutes = (salary['lunchBreakMinutes'] as num?)?.toInt() ?? 60;
 
-  List<Attendance> attendances = [];
-  if (deviceIds.isNotEmpty) {
-    onProgress?.call('Đang tải log chấm công...');
-    attendances = await loadAttendancesForPeriod(
-      api,
-      deviceIds: deviceIds,
-      fromDate: fromDate,
-      toDate: toDate,
-      dayEndHour: dayEnd.hour,
-      dayEndMinute: dayEnd.minute,
-      onProgress: onProgress,
-    );
-  }
+  onProgress?.call('Đang tải log chấm công...');
+  final attendances = await loadAttendancesForPeriod(
+    api,
+    deviceIds: deviceIds,
+    fromDate: fromDate,
+    toDate: toDate,
+    dayEndHour: dayEnd.hour,
+    dayEndMinute: dayEnd.minute,
+    onProgress: onProgress,
+  );
 
   onProgress?.call('Đang tải ngày nghỉ, lương, phép...');
 
   final holidays = await holidaysFuture;
   final salaryProfiles = await salaryProfilesFuture;
-  final leavesResult = await leavesFuture;
-  List<dynamic> approvedLeaves = [];
-  if (leavesResult['isSuccess'] == true) {
-    final data = leavesResult['data'];
-    if (data is Map) {
-      approvedLeaves = (data['items'] as List?) ?? [];
-    } else if (data is List) {
-      approvedLeaves = data;
-    }
-  }
+  final approvedLeaves = await leavesFuture;
 
   List<Map<String, dynamic>> shiftTemplates = [];
   List<Map<String, dynamic>> shiftSalaryLevels = [];

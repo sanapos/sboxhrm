@@ -16,7 +16,10 @@ import '../services/face_embedding_service_stub.dart'
     if (dart.library.io) '../services/face_embedding_service.dart';
 import '../utils/platform_geolocation.dart';
 import '../utils/mobile_device_id.dart';
+import '../utils/device_site_photo_prefs.dart';
 import '../widgets/face_verification_camera.dart';
+import '../widgets/site_photo_capture_screen.dart';
+import '../widgets/mobile_attendance_record_detail_sheet.dart';
 import '../widgets/notification_overlay.dart';
 import 'mobile_attendance_history_screen.dart';
 
@@ -28,7 +31,7 @@ class MobileAttendanceScreen extends StatefulWidget {
 }
 
 class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
   final ApiService _apiService = ApiService();
@@ -65,6 +68,12 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
 
   // Device outside check-in permission
   bool _allowOutsideCheckIn = false;
+  /// Cửa hàng + thiết bị đều bật → mở camera sau chấm (từ API requirePhotoProof).
+  bool _deviceRequirePhotoProof = false;
+  bool _devicePhotoProofFlag = false;
+  bool _storePhotoProofFlag = false;
+  bool _localDevicePhotoProof = false;
+  bool _localStorePhotoProof = false;
 
   // Face verification state
   bool _isFaceVerified = false;
@@ -87,6 +96,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _pulseController = AnimationController(
       duration: const Duration(milliseconds: 1500),
       vsync: this,
@@ -141,7 +151,16 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _loadDeviceStatus();
+      _loadSettings();
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _monitorTimer?.cancel();
     _pulseController.dispose();
     super.dispose();
@@ -156,7 +175,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     if (user != null) {
       setState(() {
         _employeeName = user.fullName;
-        _employeeId = user.id;
+        _employeeId = user.employeeId ?? user.id;
         _department = user.department ?? '';
       });
       unawaited(_loadCachedFacesFromDevice());
@@ -180,12 +199,24 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     }
   }
 
+  static bool _parseApiBool(dynamic value) {
+    if (value == null) return false;
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    final s = value.toString().trim().toLowerCase();
+    return s == 'true' || s == '1';
+  }
+
   Future<void> _loadDeviceStatus() async {
     final storageService = FaceStorageService(baseUrl: ApiService.baseUrl);
     try {
+      _localStorePhotoProof = await DeviceSitePhotoPrefs.getStoreEnabled();
       if (_currentDeviceId == null || _currentDeviceId!.isEmpty) {
         _currentDeviceId = await MobileDeviceId.resolve();
       }
+      final localPhoto = _currentDeviceId != null && _currentDeviceId!.isNotEmpty
+          ? await DeviceSitePhotoPrefs.getDeviceEnabled(_currentDeviceId!)
+          : false;
       final response = await _apiService.getMyDeviceStatus(
         employeeId: _employeeId.isNotEmpty ? _employeeId : null,
         currentDeviceId: _currentDeviceId,
@@ -194,13 +225,42 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
         final data = response['data'];
         if (mounted) {
           setState(() {
-            _isDeviceRegistered = data['registered'] == true;
-            _isDeviceApproved = data['approved'] == true;
-            _registeredOnOtherDevice = data['registeredOnOtherDevice'] == true;
+            _isDeviceRegistered = _parseApiBool(data['registered']);
+            _isDeviceApproved = _parseApiBool(data['approved']);
+            _registeredOnOtherDevice =
+                _parseApiBool(data['registeredOnOtherDevice']);
             _otherDeviceName = data['deviceName'] as String?;
-            _allowOutsideCheckIn = data['allowOutsideCheckIn'] == true &&
+            _allowOutsideCheckIn = _parseApiBool(data['allowOutsideCheckIn']) &&
                 _isDeviceRegistered &&
                 _isDeviceApproved;
+            _storePhotoProofFlag = _localStorePhotoProof ||
+                (data.containsKey('requirePhotoProofStore')
+                    ? _parseApiBool(data['requirePhotoProofStore'])
+                    : (_settings?.requirePhotoProof ?? false));
+            if (data.containsKey('requirePhotoProofDevice')) {
+              _devicePhotoProofFlag =
+                  _parseApiBool(data['requirePhotoProofDevice']);
+              _deviceRequirePhotoProof =
+                  _parseApiBool(data['requirePhotoProof']) &&
+                      _isDeviceRegistered &&
+                      _isDeviceApproved;
+            } else {
+              _devicePhotoProofFlag =
+                  _parseApiBool(data['requirePhotoProof']);
+              _deviceRequirePhotoProof =
+                  _devicePhotoProofFlag &&
+                      _storePhotoProofFlag &&
+                      _isDeviceRegistered &&
+                      _isDeviceApproved;
+            }
+            _localDevicePhotoProof = localPhoto;
+            if (localPhoto) _devicePhotoProofFlag = true;
+            if (_devicePhotoProofFlag && _currentDeviceId != null) {
+              DeviceSitePhotoPrefs.setDeviceEnabledForRecord(
+                _currentDeviceId!,
+                true,
+              );
+            }
           });
         }
 
@@ -223,6 +283,12 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
           await _loadCachedFacesFromDevice();
         }
       } else {
+        if (mounted && localPhoto) {
+          setState(() {
+            _localDevicePhotoProof = true;
+            _devicePhotoProofFlag = true;
+          });
+        }
         await _loadCachedFacesFromDevice();
       }
     } catch (e) {
@@ -233,18 +299,135 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
 
   Future<void> _loadSettings() async {
     try {
+      _localStorePhotoProof = await DeviceSitePhotoPrefs.getStoreEnabled();
       final response = await _apiService.getMyMobileSettings();
       if (response['isSuccess'] == true && response['data'] != null) {
         if (mounted) {
           setState(() {
-            _settings = MobileAttendanceSettings.fromJson(
+            var s = MobileAttendanceSettings.fromJson(
                 response['data'] as Map<String, dynamic>);
+            if (_localStorePhotoProof || s.requirePhotoProof) {
+              s = s.copyWith(requirePhotoProof: true);
+              _storePhotoProofFlag = true;
+              _localStorePhotoProof = true;
+              DeviceSitePhotoPrefs.setStoreEnabled(true);
+            }
+            _settings = s;
           });
         }
+      } else if (mounted && _localStorePhotoProof) {
+        setState(() {
+          _storePhotoProofFlag = true;
+          _settings = (_settings ?? MobileAttendanceSettings())
+              .copyWith(requirePhotoProof: true);
+        });
       }
     } catch (e) {
       debugPrint('Error loading settings: $e');
     }
+  }
+
+  /// Đang ở công ty (GPS trong vùng hoặc WiFi công ty đã xác thực).
+  bool get _isAtCompanyLocation =>
+      _isLocationVerified || _isWifiVerified;
+
+  bool get _sitePhotoFeatureEnabled {
+    final storeOn = _localStorePhotoProof ||
+        _settings?.requirePhotoProof == true ||
+        _storePhotoProofFlag;
+    if (storeOn) return true;
+    return _localDevicePhotoProof ||
+        _devicePhotoProofFlag ||
+        _deviceRequirePhotoProof;
+  }
+
+  bool get _shouldCaptureSitePhoto =>
+      _sitePhotoFeatureEnabled && !_isAtCompanyLocation;
+
+  Future<void> _explainSkippedSitePhoto() async {
+    if (!mounted) return;
+    final storePref = await DeviceSitePhotoPrefs.getStoreEnabled();
+    final storeOn = storePref ||
+        _localStorePhotoProof ||
+        _settings?.requirePhotoProof == true ||
+        _storePhotoProofFlag;
+    final devicePref =
+        await DeviceSitePhotoPrefs.isDeviceEnabledOnPhone(_currentDeviceId);
+    final deviceOn = devicePref ||
+        _localDevicePhotoProof ||
+        _devicePhotoProofFlag ||
+        _deviceRequirePhotoProof;
+    if (!storeOn && !deviceOn) return;
+    if (!storeOn) {
+      _showWarning(
+        'Chưa chụp ảnh hiện trường',
+        'Vào Cài đặt mobile → Cài đặt chung → bật «Ảnh hiện trường (cửa hàng)» rồi Lưu. '
+            'Sau đó tab Thiết bị → bật cho máy này.',
+      );
+      return;
+    }
+    if (!deviceOn) {
+      _showWarning(
+        'Chưa chụp ảnh hiện trường',
+        'Vào Cài đặt mobile → Thiết bị → bật «Chụp ảnh hiện trường sau chấm» cho máy đang dùng.',
+      );
+    }
+  }
+
+  String? _extractPunchRecordId(Map<String, dynamic> response) {
+    dynamic data = response['data'] ?? response['Data'];
+    if (data is Map && (data['data'] != null || data['Data'] != null)) {
+      data = data['data'] ?? data['Data'];
+    }
+    if (data is! Map) return null;
+    final map = Map<String, dynamic>.from(data);
+    final id = map['id'] ?? map['Id'] ?? map['recordId'] ?? map['RecordId'];
+    final s = id?.toString().trim();
+    if (s == null || s.isEmpty) return null;
+    final normalized = ApiService.normalizeMobileRecordIdForUpload(s);
+    return normalized ?? s;
+  }
+
+  Future<bool> _needSitePhotoForPunch() async {
+    if (_isAtCompanyLocation) return false;
+    if (_sitePhotoFeatureEnabled) return true;
+    return DeviceSitePhotoPrefs.shouldCaptureAfterPunch(
+      serverStoreFlag: _settings?.requirePhotoProof == true ||
+          _storePhotoProofFlag ||
+          _localStorePhotoProof,
+      serverDeviceFlag: _devicePhotoProofFlag ||
+          _localDevicePhotoProof ||
+          _deviceRequirePhotoProof,
+      hardwareDeviceId: _currentDeviceId,
+    );
+  }
+
+  /// Chụp ảnh hiện trường bắt buộc sau xác thực — không cho bỏ qua.
+  Future<String?> _captureMandatorySitePhoto() async {
+    final locationLabel = _wifiLocationName ?? _nearestLocationName;
+    while (mounted) {
+      final photoBase64 = await Navigator.of(context, rootNavigator: true)
+          .push<String>(
+        MaterialPageRoute(
+          fullscreenDialog: true,
+          builder: (_) => SitePhotoCaptureScreen(
+            latitude: _currentLatitude,
+            longitude: _currentLongitude,
+            locationLabel: locationLabel,
+            mandatory: true,
+          ),
+        ),
+      );
+      if (!mounted) return null;
+      if (photoBase64 != null && photoBase64.trim().length > 100) {
+        return photoBase64.trim();
+      }
+      _showWarning(
+        'Bắt buộc chụp ảnh hiện trường',
+        'Vui lòng chụp ảnh công trình để hoàn tất chấm công.',
+      );
+    }
+    return null;
   }
 
   void _pauseLocationMonitor() {
@@ -627,6 +810,18 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       return;
     }
 
+    await Future.wait([_loadSettings(), _loadDeviceStatus()]);
+    if (!mounted) return;
+
+    final needSitePhoto = await _needSitePhotoForPunch();
+    if (!mounted) return;
+    String? sitePhotoBase64;
+    if (needSitePhoto) {
+      sitePhotoBase64 = await _captureMandatorySitePhoto();
+      if (!mounted) return;
+      if (sitePhotoBase64 == null) return;
+    }
+
     try {
       final punchType = _getNextPunchType();
       final onDeviceFaceOk =
@@ -645,6 +840,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
         wifiBssid: _detectedBssid,
         livenessPassed: _livenessPassed,
         clientFaceEngine: onDeviceFaceOk ? (_clientFaceEngine ?? 'tflite') : null,
+        sitePhotoBase64: sitePhotoBase64,
       );
 
       if (!mounted) return;
@@ -666,6 +862,10 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
         } else {
           subtitle = 'Đã lưu mobile; kiểm tra Chấm công thô hoặc liên hệ quản trị.';
         }
+        if (!needSitePhoto) {
+          await _explainSkippedSitePhoto();
+        }
+
         _showSuccess(
           punchType == 0
               ? 'Chấm công VÀO thành công!'
@@ -702,12 +902,15 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
 
   Future<void> _loadWorkLocations() async {
     try {
-      final response = await _apiService.getWorkLocations();
+      final response = await _apiService.getPunchWorkLocations(
+        employeeId: _employeeId.isNotEmpty ? _employeeId : null,
+      );
       if (response['isSuccess'] == true && response['data'] != null) {
         final data = response['data'];
-        if (data is List) {
+        final list = data is Map ? data['locations'] : data;
+        if (list is List) {
           setState(() {
-            _workLocations = data
+            _workLocations = list
                 .map((e) => WorkLocation.fromJson(e as Map<String, dynamic>))
                 .toList();
           });
@@ -1304,7 +1507,12 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
             ? (isCheckIn
                 ? 'Bước tiếp theo: Quét khuôn mặt để chấm vào'
                 : 'Bước tiếp theo: Quét khuôn mặt để chấm ra')
-            : (isCheckIn ? 'Sẵn sàng chấm công vào' : 'Sẵn sàng chấm công ra'))
+            : (isCheckIn ? 'Sẵn sàng chấm công vào' : 'Sẵn sàng chấm công ra') +
+                (_shouldCaptureSitePhoto
+                    ? ' · Ngoài công ty: bắt buộc chụp ảnh công trình'
+                    : (_sitePhotoFeatureEnabled && _isAtCompanyLocation
+                        ? ' · Tại công ty: không cần ảnh công trình'
+                        : '')))
         : (_registeredOnOtherDevice
             ? (_otherDeviceName != null && _otherDeviceName!.isNotEmpty
                 ? 'Đã đăng ký trên $_otherDeviceName — cần đổi thiết bị'
@@ -2025,7 +2233,10 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
         record.status == 'auto_approved' || record.status == 'approved';
     final color = isCheckIn ? const Color(0xFF3B82F6) : const Color(0xFFEF4444);
 
-    return Container(
+    return InkWell(
+      onTap: () => showMobileAttendanceRecordDetailSheet(context, record: record),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
@@ -2105,6 +2316,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
           ),
         ],
       ),
+    ),
     );
   }
 }

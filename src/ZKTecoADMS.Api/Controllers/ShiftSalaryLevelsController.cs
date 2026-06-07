@@ -15,8 +15,8 @@ namespace ZKTecoADMS.Api.Controllers;
 public class ShiftSalaryLevelsController(IMediator mediator) : AuthenticatedControllerBase
 {
     [HttpGet]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
-    [RequireModulePermission("ShiftSalaryLevel", ModulePermissionAction.View)]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "ShiftSalaryLevel", "ShiftSetup", "AttendanceSummary", "AttendanceByShift", "Payroll")]
     public async Task<ActionResult<AppResponse<PagedResult<ShiftSalaryLevelDto>>>> GetAll(
         [FromQuery] Guid? shiftTemplateId = null,
         [FromQuery] bool? isActive = null,
@@ -29,8 +29,8 @@ public class ShiftSalaryLevelsController(IMediator mediator) : AuthenticatedCont
     }
 
     [HttpGet("{id}")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
-    [RequireModulePermission("ShiftSalaryLevel", ModulePermissionAction.View)]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "ShiftSalaryLevel", "ShiftSetup", "AttendanceSummary", "AttendanceByShift", "Payroll")]
     public async Task<ActionResult<AppResponse<ShiftSalaryLevelDto>>> GetById(Guid id)
     {
         var query = new GetShiftSalaryLevelByIdQuery(RequiredStoreId, id);

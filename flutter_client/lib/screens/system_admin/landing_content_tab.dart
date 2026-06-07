@@ -201,7 +201,7 @@ class _HeroContactSubTabState extends State<_HeroContactSubTab> {
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: _saving ? null : _save,
+              onPressed: (context.systemAdminCanEdit && !_saving) ? _save : null,
               icon: _saving
                   ? const SizedBox(
                       width: 16,
@@ -391,7 +391,7 @@ class _FeaturesSubTabState extends State<_FeaturesSubTab> {
                   style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
               const Spacer(),
               FilledButton.icon(
-                onPressed: _addItem,
+                onPressed: context.systemAdminCanEdit ? _addItem : null,
                 icon: const Icon(Icons.add_rounded, size: 16),
                 label: const Text('Thêm'),
                 style: ElevatedButton.styleFrom(
@@ -457,7 +457,7 @@ class _FeaturesSubTabState extends State<_FeaturesSubTab> {
                         ]),
                       ),
                       IconButton(
-                        onPressed: () => _removeItem(idx),
+                        onPressed: context.systemAdminCanEdit ? () => _removeItem(idx) : null,
                         icon: const Icon(Icons.delete_outline_rounded,
                             color: Colors.red),
                       ),
@@ -473,7 +473,7 @@ class _FeaturesSubTabState extends State<_FeaturesSubTab> {
           child: SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: _saving ? null : _save,
+              onPressed: (context.systemAdminCanEdit && !_saving) ? _save : null,
               icon: _saving
                   ? const SizedBox(
                       width: 16,
@@ -709,7 +709,7 @@ class _PricingSubTabState extends State<_PricingSubTab> {
                       style: TextStyle(
                           fontWeight: FontWeight.w700, fontSize: 15))),
               FilledButton.icon(
-                onPressed: _addPlan,
+                onPressed: context.systemAdminCanEdit ? _addPlan : null,
                 icon: const Icon(Icons.add_rounded, size: 16),
                 label: const Text('Thêm gói'),
                 style: ElevatedButton.styleFrom(
@@ -753,7 +753,7 @@ class _PricingSubTabState extends State<_PricingSubTab> {
                           ),
                           const SizedBox(width: 8),
                           IconButton(
-                            onPressed: () => _removePlan(idx),
+                            onPressed: context.systemAdminCanEdit ? () => _removePlan(idx) : null,
                             icon: const Icon(Icons.delete_outline_rounded,
                                 color: Colors.red),
                             tooltip: 'Xóa gói',
@@ -824,7 +824,9 @@ class _PricingSubTabState extends State<_PricingSubTab> {
                                 style: TextStyle(
                                     fontWeight: FontWeight.w600, fontSize: 13)),
                             TextButton.icon(
-                              onPressed: () => _addFeature(idx),
+                              onPressed: context.systemAdminCanEdit
+                                  ? () => _addFeature(idx)
+                                  : null,
                               icon: const Icon(Icons.add_circle_outline_rounded,
                                   size: 16),
                               label: const Text('Thêm tính năng',
@@ -872,17 +874,19 @@ class _PricingSubTabState extends State<_PricingSubTab> {
                                           style: const TextStyle(fontSize: 13),
                                         ),
                                       ),
-                                      IconButton(
-                                        onPressed: () =>
-                                            _removeFeature(idx, fi),
-                                        icon: const Icon(
-                                            Icons.remove_circle_outline_rounded,
-                                            color: Colors.red,
-                                            size: 18),
-                                        tooltip: 'Xóa',
-                                        padding: EdgeInsets.zero,
-                                        constraints: const BoxConstraints(
-                                            minWidth: 32, minHeight: 32),
+                                      if (context.systemAdminCanEdit)
+                                        IconButton(
+                                          onPressed: () =>
+                                              _removeFeature(idx, fi),
+                                          icon: const Icon(
+                                              Icons
+                                                  .remove_circle_outline_rounded,
+                                              color: Colors.red,
+                                              size: 18),
+                                          tooltip: 'Xóa',
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(
+                                              minWidth: 32, minHeight: 32),
                                       ),
                                     ]),
                                   )),
@@ -897,7 +901,7 @@ class _PricingSubTabState extends State<_PricingSubTab> {
           child: SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: _saving ? null : _save,
+              onPressed: (context.systemAdminCanEdit && !_saving) ? _save : null,
               icon: _saving
                   ? const SizedBox(
                       width: 16,
@@ -1044,7 +1048,7 @@ class _GuideSubTabState extends State<_GuideSubTab> {
                   style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
               const Spacer(),
               FilledButton.icon(
-                onPressed: _addStep,
+                onPressed: context.systemAdminCanEdit ? _addStep : null,
                 icon: const Icon(Icons.add_rounded, size: 16),
                 label: const Text('Thêm bước'),
                 style: ElevatedButton.styleFrom(
@@ -1118,7 +1122,7 @@ class _GuideSubTabState extends State<_GuideSubTab> {
                         ]),
                       ),
                       IconButton(
-                        onPressed: () => _removeStep(idx),
+                        onPressed: context.systemAdminCanEdit ? () => _removeStep(idx) : null,
                         icon: const Icon(Icons.delete_outline_rounded,
                             color: Colors.red),
                       ),
@@ -1134,7 +1138,7 @@ class _GuideSubTabState extends State<_GuideSubTab> {
           child: SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: _saving ? null : _save,
+              onPressed: (context.systemAdminCanEdit && !_saving) ? _save : null,
               icon: _saving
                   ? const SizedBox(
                       width: 16,
@@ -1333,7 +1337,7 @@ class _VideoSubTabState extends State<_VideoSubTab> {
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: _saving ? null : _save,
+              onPressed: (context.systemAdminCanEdit && !_saving) ? _save : null,
               icon: _saving
                   ? const SizedBox(
                       width: 16,
@@ -1693,7 +1697,7 @@ class _ProductsSubTabState extends State<_ProductsSubTab> {
                   style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
               const Spacer(),
               TextButton.icon(
-                onPressed: _addProduct,
+                onPressed: context.systemAdminCanEdit ? _addProduct : null,
                 icon: const Icon(Icons.add_rounded, size: 18),
                 label: const Text('Thêm máy'),
               ),
@@ -1712,7 +1716,7 @@ class _ProductsSubTabState extends State<_ProductsSubTab> {
           child: SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: _saving ? null : _save,
+              onPressed: (context.systemAdminCanEdit && !_saving) ? _save : null,
               icon: _saving
                   ? const SizedBox(
                       width: 16,
@@ -1758,7 +1762,8 @@ class _ProductsSubTabState extends State<_ProductsSubTab> {
             ),
             const Spacer(),
             IconButton(
-              onPressed: () => _removeProduct(idx),
+              onPressed:
+                  context.systemAdminCanEdit ? () => _removeProduct(idx) : null,
               icon: const Icon(Icons.delete_outline_rounded,
                   color: Colors.red, size: 20),
               tooltip: 'Xóa sản phẩm',
@@ -2086,7 +2091,7 @@ class _DownloadsSubTabState extends State<_DownloadsSubTab> {
                   style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
               const Spacer(),
               TextButton.icon(
-                onPressed: _addItem,
+                onPressed: context.systemAdminCanEdit ? _addItem : null,
                 icon: const Icon(Icons.add_rounded, size: 18),
                 label: const Text('Thêm file'),
               ),
@@ -2105,7 +2110,7 @@ class _DownloadsSubTabState extends State<_DownloadsSubTab> {
           child: SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: _saving ? null : _save,
+              onPressed: (context.systemAdminCanEdit && !_saving) ? _save : null,
               icon: _saving
                   ? const SizedBox(
                       width: 16,
@@ -2151,7 +2156,7 @@ class _DownloadsSubTabState extends State<_DownloadsSubTab> {
             ),
             const Spacer(),
             IconButton(
-              onPressed: () => _removeItem(idx),
+              onPressed: context.systemAdminCanEdit ? () => _removeItem(idx) : null,
               icon: const Icon(Icons.delete_outline_rounded,
                   color: Colors.red, size: 20),
               tooltip: 'Xóa file',

@@ -89,7 +89,9 @@ class AttendanceLeaveLookup {
           status == 'pending' ||
           status == 'PENDING';
 
-      if (isApproved) {
+      final countAsWork = lv['countAsWork'] == true;
+
+      if (isApproved && !countAsWork) {
         _addKeysForLeave(approved, lv, employeesList);
       } else if (includePending && isPending) {
         _addKeysForLeave(pending, lv, employeesList);

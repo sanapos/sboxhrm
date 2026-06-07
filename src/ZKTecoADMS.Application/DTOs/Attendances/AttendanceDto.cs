@@ -18,5 +18,6 @@ public record AttendanceDto(
     Guid? MobileAttendanceRecordId = null,
     double? Latitude = null,
     double? Longitude = null,
-    string? LocationName = null
+    string? LocationName = null,
+    string? SitePhotoUrl = null
 );

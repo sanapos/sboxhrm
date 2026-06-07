@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import '../widgets/hrm_page_chrome.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
@@ -9,6 +10,7 @@ import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
+import '../widgets/app_scroll_safe.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 
@@ -631,10 +633,9 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
     return Column(
       children: [
         Expanded(
-          child: SingleChildScrollView(
-            child: SizedBox(
-              width: double.infinity,
-              child: DataTable(
+          child: AppTableScroll(
+            minWidth: 1120,
+            child: DataTable(
                 headingRowColor:
                     WidgetStateProperty.all(const Color(0xFFF8FAFC)),
                 columnSpacing: 20,
@@ -733,7 +734,6 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                   ]);
                 }).toList(),
               ),
-            ),
           ),
         ),
         if (_total > _pageSize) _buildPagination(),
@@ -1476,7 +1476,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
               ),
             );
           }
-          return AlertDialog(
+          return ScrollableAlertDialog(
             title: const Text('Nhập sản lượng'),
             content: SizedBox(
               width: 600,
@@ -1638,7 +1638,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
               ),
             );
           }
-          return AlertDialog(
+          return ScrollableAlertDialog(
             title: const Text('Sửa sản lượng'),
             content: SizedBox(
               width: 450,
@@ -2061,7 +2061,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
             );
           }
 
-          return AlertDialog(
+          return ScrollableAlertDialog(
             title: const Row(
               children: [
                 Icon(Icons.table_chart, color: Color(0xFF059669), size: 24),
@@ -2457,7 +2457,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
             );
           }
 
-          return AlertDialog(
+          return ScrollableAlertDialog(
             title: const Row(
               children: [
                 Icon(Icons.cloud_download, color: Color(0xFF1A73E8), size: 24),
@@ -2493,7 +2493,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
   void _confirmDeleteEntry(Map<String, dynamic> entry) async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: const Text('Xác nhận xóa'),
         content: const Text('Xóa bản ghi sản lượng này?'),
         actions: [

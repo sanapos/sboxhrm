@@ -3,6 +3,11 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 import '../utils/file_saver.dart' as file_saver;
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
+import '../providers/permission_provider.dart';
+import '../utils/attendance_correction_privilege.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:flutter/rendering.dart';
 import 'package:intl/intl.dart';
 import 'package:excel/excel.dart' as excel_lib;
@@ -16,6 +21,7 @@ import '../utils/responsive_helper.dart';
 import '../widgets/app_button.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/app_scroll_safe.dart';
 
 enum _SyncStatus { starting, deleting, syncing, completed, error }
 
@@ -42,6 +48,19 @@ class DeviceAttendanceScreen extends StatefulWidget {
 }
 
 class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
+  PermissionProvider get _perm =>
+      Provider.of<PermissionProvider>(context, listen: false);
+
+  bool get _canEditAtt =>
+      canEditAttendanceRecord(
+          role: Provider.of<AuthProvider>(context, listen: false).user?.role,
+          permissions: _perm);
+
+  bool get _canDeleteAtt =>
+      canDeleteAttendanceRecord(
+          role: Provider.of<AuthProvider>(context, listen: false).user?.role,
+          permissions: _perm);
+
   final ApiService _apiService = ApiService();
   final SignalRService _signalR = SignalRService();
 
@@ -362,6 +381,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
 
   /// Show dialog to edit attendance time
   Future<void> _showEditAttendanceDialog(Attendance att) async {
+    if (!_canEditAtt) return;
     DateTime editDate = att.attendanceTime;
     TimeOfDay editTime = TimeOfDay.fromDateTime(att.attendanceTime);
     bool isSaving = false;
@@ -370,7 +390,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) {
-          return AlertDialog(
+          return ScrollableAlertDialog(
             title: Row(
               children: [
                 Icon(Icons.edit_calendar,
@@ -622,9 +642,10 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
 
   /// Delete attendance with confirmation
   Future<void> _deleteAttendance(Attendance att) async {
+    if (!_canDeleteAtt) return;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         title: Row(
           children: [
             Icon(Icons.delete_forever, color: Colors.red.shade700, size: 24),
@@ -1087,7 +1108,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (ctx, setDialogState) {
-            return AlertDialog(
+            return ScrollableAlertDialog(
               title: Row(
                 children: [
                   Icon(Icons.sync, color: Colors.blue.shade700, size: 24),
@@ -1264,7 +1285,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
       if (!mounted) return;
       final confirmed2 = await showDialog<bool>(
         context: context,
-        builder: (ctx) => AlertDialog(
+        builder: (ctx) => ScrollableAlertDialog(
           title: Row(
             children: [
               Icon(Icons.warning, color: Colors.red.shade700),
@@ -1478,7 +1499,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (ctx, setDialogState) {
-            return AlertDialog(
+            return ScrollableAlertDialog(
               title: Row(
                 children: [
                   Icon(Icons.date_range, color: Colors.blue.shade700, size: 24),
@@ -1587,7 +1608,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
             final allFilteredSelected = filtered.isNotEmpty &&
                 filtered.every((e) => tempSelected.contains(e['pin']));
 
-            return AlertDialog(
+            return ScrollableAlertDialog(
               title: Row(
                 children: [
                   Icon(Icons.people, color: Colors.blue.shade700),
@@ -2534,7 +2555,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
             ),
             child: InkWell(
               borderRadius: BorderRadius.circular(12),
-              onTap: () => _showEditAttendanceDialog(att),
+              onTap: _canEditAtt ? () => _showEditAttendanceDialog(att) : null,
               child: Padding(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -2599,12 +2620,9 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
         }
         return RepaintBoundary(
           key: _tableKey,
-          child: Scrollbar(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
-              child: SizedBox(
-                width: double.infinity,
-                child: DataTable(
+          child: AppTableScroll(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
+            child: DataTable(
                   headingRowColor:
                       WidgetStateProperty.all(Colors.grey.shade100),
                   headingTextStyle: const TextStyle(
@@ -2744,24 +2762,27 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              IconButton(
-                                onPressed: () => _showEditAttendanceDialog(att),
-                                icon: Icon(Icons.edit,
-                                    size: 18, color: Colors.blue.shade700),
-                                tooltip: 'Sửa giờ chấm',
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(
-                                    minWidth: 32, minHeight: 32),
-                              ),
-                              IconButton(
-                                onPressed: () => _deleteAttendance(att),
-                                icon: Icon(Icons.delete_outline,
-                                    size: 18, color: Colors.red.shade600),
-                                tooltip: 'Xóa',
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(
-                                    minWidth: 32, minHeight: 32),
-                              ),
+                              if (_canEditAtt)
+                                IconButton(
+                                  onPressed: () =>
+                                      _showEditAttendanceDialog(att),
+                                  icon: Icon(Icons.edit,
+                                      size: 18, color: Colors.blue.shade700),
+                                  tooltip: 'Sửa giờ chấm',
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(
+                                      minWidth: 32, minHeight: 32),
+                                ),
+                              if (_canDeleteAtt)
+                                IconButton(
+                                  onPressed: () => _deleteAttendance(att),
+                                  icon: Icon(Icons.delete_outline,
+                                      size: 18, color: Colors.red.shade600),
+                                  tooltip: 'Xóa',
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(
+                                      minWidth: 32, minHeight: 32),
+                                ),
                             ],
                           ),
                         )),
@@ -2769,8 +2790,6 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                     );
                   }),
                 ),
-              ),
-            ),
           ),
         );
       },

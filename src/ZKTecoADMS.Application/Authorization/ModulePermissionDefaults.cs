@@ -102,10 +102,10 @@ public static class ModulePermissionDefaults
 
     private static (bool, bool, bool, bool, bool, bool) EmployeeDefaults(string m) => m switch
     {
-        _ when IsDashboardFamily(m) || m is "attendance" or "attendancesummary" or "payslip"
-            or "shift" or "notification" or "home"
+        _ when IsDashboardFamily(m) || m is "attendance" or "attendancesummary" or "attendancebyshift"
+            or "workschedule" or "payslip" or "shift" or "notification" or "home"
             => (true, false, false, false, false, false),
-        "leave" or "shiftswap" or "attendanceapproval" or "overtime"
+        "leave" or "shiftswap" or "attendanceapproval" or "attendancecorrection" or "overtime"
             => (true, true, false, false, false, false),
         "task" => (true, false, true, false, false, false),
         "fieldcheckin" or "feedback" => (true, true, true, false, false, false),

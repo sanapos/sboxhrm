@@ -97,8 +97,6 @@ class PermissionProvider extends ChangeNotifier {
     if (moduleCode == 'Dashboard') {
       return DashboardPermissionModules.canViewNavDashboard(this);
     }
-    final perm = _permissions[moduleCode];
-    if (perm == null) return false; // Module không có trong danh sách → ẩn
     if (DashboardPermissionModules.allWidgets.contains(moduleCode) &&
         _permissions[DashboardPermissionModules.legacyDashboard]?.canView ==
             true) {
@@ -116,52 +114,162 @@ class PermissionProvider extends ChangeNotifier {
         return true;
       }
     }
-    return perm.canView;
+    if (_flag(moduleCode, 'canView')) return true;
+    return _resolveAction(moduleCode, 'canView');
   }
 
   /// Kiểm tra quyền TẠO MỚI cho một module
   bool canCreate(String? moduleCode) {
     if (moduleCode == null || moduleCode.isEmpty) return true;
     if (_isSuperUser) return true;
-    if (!_isLoaded) return true;
-    if (_loadError) return false;
-    return _permissions[moduleCode]?.canCreate ?? false;
+    if (!_isLoaded || _loadError) return false;
+    return _hasAction(moduleCode, 'canCreate');
   }
 
   /// Kiểm tra quyền CHỈNH SỬA cho một module
   bool canEdit(String? moduleCode) {
     if (moduleCode == null || moduleCode.isEmpty) return true;
     if (_isSuperUser) return true;
-    if (!_isLoaded) return true;
-    if (_loadError) return false;
-    return _permissions[moduleCode]?.canEdit ?? false;
+    if (!_isLoaded || _loadError) return false;
+    return _hasAction(moduleCode, 'canEdit');
   }
 
   /// Kiểm tra quyền XÓA cho một module
   bool canDelete(String? moduleCode) {
     if (moduleCode == null || moduleCode.isEmpty) return true;
     if (_isSuperUser) return true;
-    if (!_isLoaded) return true;
-    if (_loadError) return false;
-    return _permissions[moduleCode]?.canDelete ?? false;
+    if (!_isLoaded || _loadError) return false;
+    return _hasAction(moduleCode, 'canDelete');
+  }
+
+  bool _hasAction(String moduleCode, String action) {
+    if (_flag(moduleCode, action)) return true;
+    return _resolveAction(moduleCode, action);
+  }
+
+  bool _flag(String moduleCode, String action) {
+    final perm = _permissions[moduleCode];
+    if (perm == null) return false;
+    switch (action) {
+      case 'canView':
+        return perm.canView;
+      case 'canCreate':
+        return perm.canCreate;
+      case 'canEdit':
+        return perm.canEdit;
+      case 'canDelete':
+        return perm.canDelete;
+      case 'canExport':
+        return perm.canExport;
+      case 'canApprove':
+        return perm.canApprove;
+      default:
+        return false;
+    }
+  }
+
+  bool _anyHas(String action, Iterable<String> codes) {
+    for (final c in codes) {
+      if (_flag(c, action)) return true;
+    }
+    return false;
+  }
+
+  bool _resolveAction(String moduleCode, String action) {
+    if (PermissionModules.attendanceRead.contains(moduleCode) &&
+        (action == 'canView' || action == 'canExport')) {
+      if (_anyHas(action, PermissionModules.attendanceRead)) return true;
+    }
+    if (moduleCode == 'AttendanceReport' &&
+        (action == 'canView' || action == 'canExport')) {
+      if (_anyHas(action, [...PermissionModules.attendanceRead, 'AttendanceReport'])) {
+        return true;
+      }
+    }
+    if (PermissionModules.attendanceApproval.contains(moduleCode)) {
+      if (_anyHas(action, PermissionModules.attendanceApproval)) return true;
+    }
+    if (PermissionModules.scheduleApproval.contains(moduleCode)) {
+      if (_anyHas(action, PermissionModules.scheduleApproval)) return true;
+    }
+    if (PermissionModules.shiftSetup.contains(moduleCode)) {
+      if (_anyHas(action, PermissionModules.shiftSetup)) return true;
+    }
+    if (moduleCode == 'ShiftSalaryLevel' &&
+        (action == 'canView' || action == 'canExport')) {
+      if (_anyHas(action, [
+        ...PermissionModules.shiftSetup,
+        'Payroll',
+        'AttendanceSummary',
+        'AttendanceByShift',
+      ])) {
+        return true;
+      }
+    }
+    if (moduleCode == 'BankAccount' && _flag('CashTransaction', action)) {
+      return true;
+    }
+    if (moduleCode == 'CashTransaction' && _flag('BankAccount', action)) {
+      return true;
+    }
+    if (PermissionModules.financialTransactions.contains(moduleCode)) {
+      if (_anyHas(action, PermissionModules.financialTransactions)) return true;
+    }
+    if (moduleCode == 'Benefit' && _flag('BonusPenalty', action)) return true;
+    if (moduleCode == 'AssetReport' &&
+        (action == 'canView' || action == 'canExport')) {
+      if (_flag('Asset', action)) return true;
+    }
+    if (moduleCode == 'Payroll' &&
+        (action == 'canView' || action == 'canExport')) {
+      if (_flag('Payslip', action)) return true;
+      if (_anyHas(action, PermissionModules.payrollRead)) return true;
+    }
+    if (moduleCode == 'Payslip' &&
+        (action == 'canView' || action == 'canExport')) {
+      if (_flag('Payroll', action)) return true;
+    }
+    if (moduleCode == 'ProductSalary') {
+      if (_flag('Production', action)) return true;
+    }
+    if (moduleCode == 'MobileAttendance') {
+      if ((action == 'canView' || action == 'canCreate') &&
+          _flag('MobileDeviceRegistration', 'canView')) {
+        return true;
+      }
+      if ((action == 'canView' || action == 'canApprove') &&
+          _flag('MobileAttendanceApproval', action)) {
+        return true;
+      }
+    }
+    if (moduleCode == 'MobileDeviceRegistration') {
+      if (action == 'canView' && _flag('MobileAttendance', 'canView')) {
+        return true;
+      }
+      if (action != 'canView' && _flag('MobileAttendance', 'canEdit')) {
+        return true;
+      }
+    }
+    if (moduleCode == 'Report' && action == 'canView') {
+      if (_anyHas('canView', PermissionModules.reportModules)) return true;
+    }
+    return false;
   }
 
   /// Kiểm tra quyền XUẤT BÁO CÁO cho một module
   bool canExport(String? moduleCode) {
     if (moduleCode == null || moduleCode.isEmpty) return true;
     if (_isSuperUser) return true;
-    if (!_isLoaded) return true;
-    if (_loadError) return false;
-    return _permissions[moduleCode]?.canExport ?? false;
+    if (!_isLoaded || _loadError) return false;
+    return _hasAction(moduleCode, 'canExport');
   }
 
   /// Kiểm tra quyền DUYỆT cho một module
   bool canApprove(String? moduleCode) {
     if (moduleCode == null || moduleCode.isEmpty) return true;
     if (_isSuperUser) return true;
-    if (!_isLoaded) return true;
-    if (_loadError) return false;
-    return _permissions[moduleCode]?.canApprove ?? false;
+    if (!_isLoaded || _loadError) return false;
+    return _hasAction(moduleCode, 'canApprove');
   }
 
   /// Xóa cache khi logout

@@ -22,7 +22,7 @@ class HrmResponsiveListLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (Responsive.isMobile(context)) {
+    if (Responsive.useUnifiedPageScroll(context)) {
       final headers = headerSections
           .map((w) => SliverToBoxAdapter(child: w))
           .toList();
@@ -68,7 +68,7 @@ class HrmMobileNestedTabLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!Responsive.isMobile(context)) {
+    if (!Responsive.useUnifiedPageScroll(context)) {
       final column = Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -221,7 +221,7 @@ class HrmResponsivePageBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (Responsive.isMobile(context)) {
+    if (Responsive.useUnifiedPageScroll(context)) {
       return CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
