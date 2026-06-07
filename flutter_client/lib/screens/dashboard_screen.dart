@@ -28,6 +28,7 @@ import 'advance_requests_screen.dart';
 import 'hr_documents_screen.dart';
 import 'employees_screen.dart';
 import 'overtime_screen.dart';
+import '../models/task.dart';
 import 'task_management_screen.dart';
 import 'penalty_tickets_screen.dart';
 import 'cash_transaction_screen.dart';
@@ -1597,8 +1598,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (caps.quickShiftSwap)
         _QuickAction(Icons.swap_horiz_rounded, 'Đổi ca', const Color(0xFF8B5CF6),
             () {
-          NavigationNotifier.scheduleApprovalTab.value = 2;
-          NavigationNotifier.goTo(NavigationNotifier.scheduleApproval);
+          final perm =
+              Provider.of<PermissionProvider>(context, listen: false);
+          if (perm.canView('ShiftSwap')) {
+            NavigationNotifier.goToShiftSwap();
+          } else {
+            NavigationNotifier.scheduleApprovalTab.value = 2;
+            NavigationNotifier.goTo(NavigationNotifier.scheduleApproval);
+          }
         }),
       if (caps.quickPayroll)
         _QuickAction(Icons.payments_rounded, 'Phiếu lương',
@@ -8807,19 +8814,43 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ? _emptyState('Chưa có dữ liệu công việc')
           : Column(children: [
               Row(children: [
-                _taskStatBox('Chờ làm', '$todo', Icons.hourglass_empty,
-                    const Color(0xFFA1A1AA)),
+                _taskStatBox(
+                  'Chờ làm',
+                  '$todo',
+                  Icons.hourglass_empty,
+                  const Color(0xFFA1A1AA),
+                  onTap: () => _openTaskManagement(
+                      status: WorkTaskStatus.todo),
+                ),
                 const SizedBox(width: 8),
-                _taskStatBox('Đang làm', '$inProgress',
-                    Icons.play_circle_outline, const Color(0xFF2D5F8B)),
+                _taskStatBox(
+                  'Đang làm',
+                  '$inProgress',
+                  Icons.play_circle_outline,
+                  const Color(0xFF2D5F8B),
+                  onTap: () => _openTaskManagement(
+                      status: WorkTaskStatus.inProgress),
+                ),
               ]),
               const SizedBox(height: 8),
               Row(children: [
-                _taskStatBox('Hoàn thành', '$done', Icons.check_circle_outline,
-                    HrmPageChrome.primaryNavy),
+                _taskStatBox(
+                  'Hoàn thành',
+                  '$done',
+                  Icons.check_circle_outline,
+                  HrmPageChrome.primaryNavy,
+                  onTap: () => _openTaskManagement(
+                      status: WorkTaskStatus.completed),
+                ),
                 const SizedBox(width: 8),
-                _taskStatBox('Quá hạn', '$overdue', Icons.error_outline,
-                    const Color(0xFFEF4444)),
+                _taskStatBox(
+                  'Quá hạn',
+                  '$overdue',
+                  Icons.error_outline,
+                  const Color(0xFFEF4444),
+                  onTap: () =>
+                      _openTaskManagement(overdueOnly: true),
+                ),
               ]),
               if (total > 0) ...[
                 const SizedBox(height: 14),
@@ -8857,27 +8888,54 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _taskStatBox(String label, String value, IconData icon, Color color) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withValues(alpha: 0.15)),
+  void _openTaskManagement({
+    WorkTaskStatus? status,
+    bool overdueOnly = false,
+  }) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => TaskManagementScreen(
+          initialStatus: overdueOnly ? null : status,
+          initialOverdueOnly: overdueOnly,
         ),
-        child: Row(children: [
-          Icon(icon, size: 20, color: color),
-          const SizedBox(width: 8),
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(value,
-                style: TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.bold, color: color)),
-            Text(label,
-                style: const TextStyle(fontSize: 10, color: Color(0xFFA1A1AA))),
-          ]),
-        ]),
       ),
+    );
+  }
+
+  Widget _taskStatBox(
+    String label,
+    String value,
+    IconData icon,
+    Color color, {
+    VoidCallback? onTap,
+  }) {
+    final box = Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.15)),
+      ),
+      child: Row(children: [
+        Icon(icon, size: 20, color: color),
+        const SizedBox(width: 8),
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(value,
+              style: TextStyle(
+                  fontSize: 16, fontWeight: FontWeight.bold, color: color)),
+          Text(label,
+              style: const TextStyle(fontSize: 10, color: Color(0xFFA1A1AA))),
+        ]),
+      ]),
+    );
+    return Expanded(
+      child: onTap == null
+          ? box
+          : InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(12),
+              child: box,
+            ),
     );
   }
 

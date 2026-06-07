@@ -3,6 +3,7 @@ import '../models/device.dart';
 import '../services/api_service.dart';
 import '../utils/work_hours_utils.dart';
 import 'attendance_load_utils.dart';
+import 'salary_profile_load_utils.dart';
 
 /// Dữ liệu nền cho màn tổng hợp chấm công (thô / theo ca).
 class AttendanceBootstrapData {
@@ -61,17 +62,22 @@ Future<AttendanceBootstrapData> loadAttendanceBootstrap(
   required DateTime fromDate,
   required DateTime toDate,
   bool loadShiftMeta = false,
+  bool preferSelfServiceApi = false,
   void Function(String message)? onProgress,
 }) async {
   onProgress?.call('Đang tải thiết bị và cấu hình...');
 
-  final devicesFuture = api.getDevices(storeOnly: true);
+  final devicesFuture = preferSelfServiceApi
+      ? Future.value(<dynamic>[])
+      : api.getDevices(storeOnly: true);
   final dayEndFuture = _appSettingValue(api, 'day_end_time');
   final roundingFuture = _appSettingValue(api, 'rounding_rule');
   final allowManualFuture = _appSettingValue(api, 'allow_manual_correction');
   final salaryFuture = api.getSalarySettings().catchError((_) => <String, dynamic>{});
-  final salaryProfilesFuture =
-      api.getSalaryProfiles().catchError((_) => <dynamic>[]);
+  final salaryProfilesFuture = preferSelfServiceApi
+      ? loadAttendanceSalaryProfiles(api, preferSelfServiceApi: true)
+          .catchError((_) => <dynamic>[])
+      : api.getSalaryProfiles().catchError((_) => <dynamic>[]);
   final holidaysFuture = api.getHolidaySettings(0).catchError((_) => <dynamic>[]);
   final shiftsFuture =
       loadShiftMeta ? api.getShifts().catchError((_) => <dynamic>[]) : Future.value(<dynamic>[]);

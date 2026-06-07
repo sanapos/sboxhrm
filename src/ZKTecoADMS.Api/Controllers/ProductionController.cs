@@ -299,6 +299,13 @@ public class ProductionController(
             .Include(e => e.ProductItem).ThenInclude(p => p.ProductGroup)
             .Where(e => e.StoreId == storeId && e.Deleted == null);
 
+        if (IsEmployee && !IsManager)
+        {
+            if (!EmployeeId.HasValue)
+                return Ok(AppResponse<object>.Success(new { items = Array.Empty<ProductionEntryDto>(), total = 0, page, pageSize }));
+            employeeId = EmployeeId.Value;
+        }
+
         if (fromDate.HasValue) query = query.Where(e => e.WorkDate >= fromDate.Value.Date);
         if (toDate.HasValue) query = query.Where(e => e.WorkDate <= toDate.Value.Date.AddDays(1));
         if (employeeId.HasValue) query = query.Where(e => e.EmployeeId == employeeId.Value);
@@ -541,6 +548,13 @@ public class ProductionController(
         [FromQuery] Guid? employeeId, [FromQuery] Guid? productGroupId)
     {
         var storeId = RequiredStoreId;
+        if (IsEmployee && !IsManager)
+        {
+            if (!EmployeeId.HasValue)
+                return Ok(AppResponse<List<ProductionSummaryDto>>.Success([]));
+            employeeId = EmployeeId.Value;
+        }
+
         var query = dbContext.ProductionEntries
             .Include(e => e.Employee)
             .Include(e => e.ProductItem).ThenInclude(p => p.ProductGroup)

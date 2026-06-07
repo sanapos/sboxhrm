@@ -29,6 +29,7 @@ import '../../utils/attendance_record_resolver.dart';
 import '../../utils/attendance_correction_dates.dart';
 import '../../utils/attendance_viewport_preserve.dart';
 import '../../utils/shift_records_calculator.dart';
+import '../../utils/mobile_attendance_vertical_layout.dart';
 import '../../widgets/synced_scroll_list_view.dart'
     show SyncedScrollListView, linkHorizontalScrollControllers;
 
@@ -1389,6 +1390,10 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
     }
 
     if (isMobileLayout) {
+      final useVerticalLayout = preferMobileVerticalAttendanceView(
+        userRole: Provider.of<AuthProvider>(context, listen: false).userRole,
+        uniqueEmployeeCount: uniqueEmployees,
+      );
       return CustomScrollView(
         controller: _listScrollController,
         physics: const AlwaysScrollableScrollPhysics(),
@@ -1402,6 +1407,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
               padding: const EdgeInsets.symmetric(horizontal: 16),
               sliver: SliverToBoxAdapter(child: _buildEmptyTableCard()),
             )
+          else if (useVerticalLayout)
+            ..._buildMobileVerticalShiftSlivers(records)
           else
             SliverToBoxAdapter(
               child: Padding(
@@ -4831,6 +4838,271 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
     ];
   }
 
+  ({
+    AttendanceLeaveLookup leaveLookup,
+    Map<String, String> empUserIdMap,
+    Map<String, String> hrEmpIdMap,
+  }) _verticalShiftLeaveContext() {
+    final leaveLookup = AttendanceLeaveLookup.fromLeaves(
+      widget.approvedLeaves,
+      employeesList: widget.employeesList,
+      includePending: true,
+    );
+    final empUserIdMap = <String, String>{};
+    final hrEmpIdMap = <String, String>{};
+    if (widget.employeesList != null) {
+      for (final e in widget.employeesList!) {
+        final code = e['employeeCode']?.toString() ?? '';
+        final appId = e['applicationUserId']?.toString() ?? '';
+        final hrId = e['id']?.toString() ?? '';
+        if (code.isNotEmpty) {
+          if (appId.isNotEmpty) empUserIdMap[code] = appId;
+          if (hrId.isNotEmpty) hrEmpIdMap[code] = hrId;
+        }
+      }
+    }
+    return (
+      leaveLookup: leaveLookup,
+      empUserIdMap: empUserIdMap,
+      hrEmpIdMap: hrEmpIdMap,
+    );
+  }
+
+  String _verticalShiftPunchText(_DailyShiftRecord r) {
+    final p1 =
+        r.displayPunchTimes.isNotEmpty ? r.displayPunchTimes.first : null;
+    final p2 = r.displayPunchTimes.length >= 2 ? r.displayPunchTimes[1] : null;
+    final inStr = p1 != null ? DateFormat('HH:mm').format(p1) : '—';
+    final outStr = p2 != null ? DateFormat('HH:mm').format(p2) : '—';
+    final lines = <String>['$inStr·$outStr'];
+    if (r.shiftNames.isNotEmpty) {
+      lines.add(r.shiftNames.join(' · '));
+    }
+    return lines.join('\n');
+  }
+
+  String _verticalShiftMinutesLabel(int minutes) =>
+      minutes > 0 ? '${minutes}p' : '—';
+
+  String _verticalShiftWorkCountLabel(double workCount) {
+    if (workCount <= 0) return '—';
+    return workCount % 1 == 0
+        ? workCount.toInt().toString()
+        : workCount.toStringAsFixed(2);
+  }
+
+  Widget _verticalShiftAbsenceCell({
+    required DateTime date,
+    required String empId,
+    required String empName,
+    required String empCode,
+    required AttendanceLeaveLookup leaveLookup,
+    required Map<String, String> empUserIdMap,
+    required Map<String, String> hrEmpIdMap,
+  }) {
+    final kind = leaveLookup.classify(
+      day: date,
+      employeeCode: empCode,
+      employeeUserId: empUserIdMap[empCode] ?? empUserIdMap[empId],
+      hrEmployeeId: hrEmpIdMap[empCode] ?? hrEmpIdMap[empId],
+      displayEmployeeId: empId,
+      isHoliday: _getHolidayRate(date, empCode) != null,
+      isWeeklyOff: _isWeeklyOffDay(date, empCode),
+    );
+    final label = switch (kind) {
+      AbsenceCellKind.holiday => ('Lễ', const Color(0xFFEA580C)),
+      AbsenceCellKind.weeklyOff => ('Nghỉ', const Color(0xFF8B5CF6)),
+      AbsenceCellKind.approvedLeave => ('Phép', const Color(0xFF0891B2)),
+      AbsenceCellKind.pendingLeave => ('Chờ phép', const Color(0xFFD97706)),
+      AbsenceCellKind.unpaidAbsent => ('Vắng', const Color(0xFFEF4444)),
+    };
+    return mobileAttendanceAbsenceLabel(
+      label.$1,
+      color: label.$2,
+      onTap: kind == AbsenceCellKind.unpaidAbsent
+          ? () {
+              AbsenceDayActions.showForAbsentDay(
+                context: context,
+                api: ApiService(),
+                employeeName: empName,
+                employeeCode: empCode,
+                displayEmployeeId: empId,
+                applicationUserId:
+                    empUserIdMap[empCode] ?? empUserIdMap[empId],
+                hrEmployeeId: hrEmpIdMap[empCode] ?? hrEmpIdMap[empId],
+                date: date,
+                employees: widget.employeesList,
+                onCompleted: _notifyDataChanged,
+              );
+            }
+          : null,
+    );
+  }
+
+  MobileAttendanceShiftVerticalTable _buildVerticalShiftTable({
+    required String empId,
+    required String empName,
+    required String empCode,
+    required List<_DailyShiftRecord> records,
+    String? title,
+  }) {
+    final dates = attendanceDaysInRange(_selectedDateRange);
+    final lookup = <String, _DailyShiftRecord>{};
+    for (final r in records) {
+      if (r.employeeId == empId) {
+        lookup[DateFormat('yyyy-MM-dd').format(r.date)] = r;
+      }
+    }
+    final leaveCtx = _verticalShiftLeaveContext();
+    final today = DateTime.now();
+
+    final rows = dates.map((date) {
+      final record = lookup[DateFormat('yyyy-MM-dd').format(date)];
+      final isToday = date.year == today.year &&
+          date.month == today.month &&
+          date.day == today.day;
+      return MobileAttendanceShiftVerticalRow(
+        day: attendanceVerticalDateShort(date),
+        weekday: attendanceVerticalWeekdayShort(date),
+        attendance: record == null
+            ? _verticalShiftAbsenceCell(
+                date: date,
+                empId: empId,
+                empName: empName,
+                empCode: empCode,
+                leaveLookup: leaveCtx.leaveLookup,
+                empUserIdMap: leaveCtx.empUserIdMap,
+                hrEmpIdMap: leaveCtx.hrEmpIdMap,
+              )
+            : mobileAttendancePunchText(_verticalShiftPunchText(record)),
+        totalWork: record != null
+            ? _verticalShiftWorkCountLabel(record.workCount)
+            : '—',
+        totalHours: record != null && record.workHours > 0
+            ? _formatHoursMinutes(record.workHours)
+            : '—',
+        late: record != null
+            ? _verticalShiftMinutesLabel(record.lateMinutes)
+            : '—',
+        early: record != null
+            ? _verticalShiftMinutesLabel(record.earlyMinutes)
+            : '—',
+        overtime: record != null
+            ? _verticalShiftMinutesLabel(record.overtimeMinutes)
+            : '—',
+        isToday: isToday,
+        onTap: record != null ? () => _showRecordDetail(record) : null,
+      );
+    }).toList();
+
+    var totalWork = 0.0;
+    var totalHours = 0.0;
+    var lateMinutes = 0;
+    var earlyMinutes = 0;
+    var overtimeMinutes = 0;
+    var presentDays = 0;
+    for (final r in records) {
+      if (r.employeeId != empId) continue;
+      totalWork += r.workCount;
+      totalHours += r.workHours;
+      lateMinutes += r.lateMinutes;
+      earlyMinutes += r.earlyMinutes;
+      overtimeMinutes += r.overtimeMinutes;
+      if (r.displayPunchTimes.isNotEmpty) presentDays++;
+    }
+
+    final totalRow = rows.isEmpty
+        ? null
+        : MobileAttendanceShiftVerticalRow(
+            day: 'TỔNG',
+            weekday: 'CỘNG',
+            attendance: Center(
+              child: Text(
+                presentDays > 0 ? '$presentDays ngày' : '—',
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF1E40AF),
+                ),
+              ),
+            ),
+            totalWork:
+                totalWork > 0 ? _verticalShiftWorkCountLabel(totalWork) : '—',
+            totalHours: totalHours > 0
+                ? _formatHoursMinutes(totalHours)
+                : '—',
+            late: _verticalShiftMinutesLabel(lateMinutes),
+            early: _verticalShiftMinutesLabel(earlyMinutes),
+            overtime: _verticalShiftMinutesLabel(overtimeMinutes),
+          );
+
+    return MobileAttendanceShiftVerticalTable(
+      title: title ?? 'Bảng dọc · $empName',
+      rows: rows,
+      totalRow: totalRow,
+    );
+  }
+
+  void _showEmployeeVerticalShiftSheet({
+    required String empId,
+    required String empName,
+    required String empCode,
+    required List<_DailyShiftRecord> records,
+  }) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (ctx) => Scaffold(
+          backgroundColor: HrmPageChrome.background,
+          appBar: AppBar(
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(empName, overflow: TextOverflow.ellipsis),
+                Text(
+                  'Mã $empCode',
+                  style: const TextStyle(
+                      fontSize: 12, fontWeight: FontWeight.w400),
+                ),
+              ],
+            ),
+          ),
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+            child: _buildVerticalShiftTable(
+              empId: empId,
+              empName: empName,
+              empCode: empCode,
+              records: records,
+              title: empName,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _buildMobileVerticalShiftSlivers(List<_DailyShiftRecord> records) {
+    if (records.isEmpty) return const [];
+    final empId = records.first.employeeId;
+    final empName = records.first.employeeName;
+    final empCode = records.first.employeeCode;
+
+    return [
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        sliver: SliverToBoxAdapter(
+          child: _buildVerticalShiftTable(
+            empId: empId,
+            empName: empName,
+            empCode: empCode,
+            records: records,
+          ),
+        ),
+      ),
+    ];
+  }
+
   Widget _buildMobileCrossTabTablePanel(List<_DailyShiftRecord> records) {
 
     // Build employee and code maps
@@ -5126,38 +5398,53 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
       final empId = employees[index].key;
       final empName = employees[index].value;
       final sub = subtextFn?.call(empId);
-      return Container(
-        width: empColW,
-        height: rowH,
-        alignment: Alignment.centerLeft,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        decoration: BoxDecoration(
-          color: isEven ? const Color(0xFFF4F4F5) : Colors.white,
-          border: const Border(
-            right: BorderSide(color: Color(0xFFD4D4D8)),
-            bottom: BorderSide(color: Color(0xFFE4E4E7), width: 0.5),
+      return Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _showEmployeeVerticalShiftSheet(
+            empId: empId,
+            empName: empName,
+            empCode: empCodeMap[empId] ?? empId,
+            records: records,
           ),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(empName,
-                style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF18181B)),
-                overflow: TextOverflow.ellipsis,
-                maxLines: 2),
-            if (sub != null)
-              Text(sub,
-                  style: TextStyle(
-                      fontSize: 9,
-                      color: subtextColor,
-                      fontWeight: FontWeight.bold),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis),
-          ],
+          child: Container(
+            width: empColW,
+            height: rowH,
+            alignment: Alignment.centerLeft,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            decoration: BoxDecoration(
+              color: isEven ? const Color(0xFFF4F4F5) : Colors.white,
+              border: const Border(
+                right: BorderSide(color: Color(0xFFD4D4D8)),
+                bottom: BorderSide(color: Color(0xFFE4E4E7), width: 0.5),
+              ),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(empName,
+                    style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF18181B)),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 2),
+                if (sub != null)
+                  Text(sub,
+                      style: TextStyle(
+                          fontSize: 9,
+                          color: subtextColor,
+                          fontWeight: FontWeight.bold),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis),
+                const Text(
+                  'Chạm xem dọc',
+                  style: TextStyle(fontSize: 8, color: Color(0xFF2563EB)),
+                ),
+              ],
+            ),
+          ),
         ),
       );
     }

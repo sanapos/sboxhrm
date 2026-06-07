@@ -696,6 +696,58 @@ CREATE INDEX IF NOT EXISTS "IX_FundTransfers_TransferDate"
 CREATE INDEX IF NOT EXISTS "IX_FundTransfers_StoreId_TransferDate"
     ON "FundTransfers" ("StoreId", "TransferDate");
 
+-- Feedbacks / FeedbackReplies (phiếu kiến nghị / phản ánh ý kiến)
+CREATE TABLE IF NOT EXISTS "Feedbacks" (
+    "Id" UUID NOT NULL PRIMARY KEY,
+    "SenderEmployeeId" UUID,
+    "IsAnonymous" BOOLEAN NOT NULL DEFAULT FALSE,
+    "RecipientEmployeeId" UUID,
+    "Title" VARCHAR(300) NOT NULL,
+    "Content" VARCHAR(5000) NOT NULL,
+    "ImageUrls" VARCHAR(2000),
+    "Category" VARCHAR(50) NOT NULL DEFAULT 'General',
+    "Status" VARCHAR(30) NOT NULL DEFAULT 'Pending',
+    "Response" VARCHAR(5000),
+    "RespondedByEmployeeId" UUID,
+    "RespondedAt" TIMESTAMP WITHOUT TIME ZONE,
+    "StoreId" UUID,
+    "CreatedAt" TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
+    "UpdatedAt" TIMESTAMP WITHOUT TIME ZONE,
+    "UpdatedBy" TEXT,
+    "CreatedBy" TEXT,
+    "IsActive" BOOLEAN NOT NULL DEFAULT TRUE,
+    "LastModified" TIMESTAMP WITHOUT TIME ZONE,
+    "LastModifiedBy" TEXT,
+    "Deleted" TIMESTAMP WITHOUT TIME ZONE,
+    "DeletedBy" TEXT
+);
+ALTER TABLE "Feedbacks" ADD COLUMN IF NOT EXISTS "ImageUrls" VARCHAR(2000);
+ALTER TABLE "Feedbacks" ADD COLUMN IF NOT EXISTS "IsActive" BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE "Feedbacks" ADD COLUMN IF NOT EXISTS "LastModified" TIMESTAMP WITHOUT TIME ZONE;
+ALTER TABLE "Feedbacks" ADD COLUMN IF NOT EXISTS "LastModifiedBy" TEXT;
+ALTER TABLE "Feedbacks" ADD COLUMN IF NOT EXISTS "Deleted" TIMESTAMP WITHOUT TIME ZONE;
+ALTER TABLE "Feedbacks" ADD COLUMN IF NOT EXISTS "DeletedBy" TEXT;
+CREATE INDEX IF NOT EXISTS "IX_Feedbacks_StoreId_Status" ON "Feedbacks" ("StoreId", "Status");
+CREATE INDEX IF NOT EXISTS "IX_Feedbacks_SenderEmployeeId" ON "Feedbacks" ("SenderEmployeeId");
+CREATE INDEX IF NOT EXISTS "IX_Feedbacks_RecipientEmployeeId" ON "Feedbacks" ("RecipientEmployeeId");
+
+CREATE TABLE IF NOT EXISTS "FeedbackReplies" (
+    "Id" UUID NOT NULL PRIMARY KEY,
+    "FeedbackId" UUID NOT NULL,
+    "SenderEmployeeId" UUID,
+    "Content" VARCHAR(5000) NOT NULL,
+    "ImageUrls" VARCHAR(2000),
+    "IsFromSender" BOOLEAN NOT NULL DEFAULT FALSE,
+    "StoreId" UUID,
+    "CreatedAt" TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
+    "UpdatedAt" TIMESTAMP WITHOUT TIME ZONE,
+    "UpdatedBy" TEXT,
+    "CreatedBy" TEXT
+);
+CREATE INDEX IF NOT EXISTS "IX_FeedbackReplies_FeedbackId" ON "FeedbackReplies" ("FeedbackId");
+CREATE INDEX IF NOT EXISTS "IX_FeedbackReplies_SenderEmployeeId" ON "FeedbackReplies" ("SenderEmployeeId");
+CREATE INDEX IF NOT EXISTS "IX_FeedbackReplies_StoreId" ON "FeedbackReplies" ("StoreId");
+
 COMMIT;
 
 SELECT 'Migration script completed successfully' AS status;

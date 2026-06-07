@@ -537,6 +537,7 @@ class TaskHistory {
 class TaskStatistics {
   final int totalTasks;
   final int todoCount;
+  final int assignedCount;
   final int inProgressCount;
   final int inReviewCount;
   final int completedCount;
@@ -552,6 +553,7 @@ class TaskStatistics {
   TaskStatistics({
     required this.totalTasks,
     required this.todoCount,
+    required this.assignedCount,
     required this.inProgressCount,
     required this.inReviewCount,
     required this.completedCount,
@@ -569,6 +571,7 @@ class TaskStatistics {
     return TaskStatistics(
       totalTasks: json['totalTasks'] ?? 0,
       todoCount: json['todoCount'] ?? 0,
+      assignedCount: json['assignedCount'] ?? 0,
       inProgressCount: json['inProgressCount'] ?? 0,
       inReviewCount: json['inReviewCount'] ?? 0,
       completedCount: json['completedCount'] ?? 0,

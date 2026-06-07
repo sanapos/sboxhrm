@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:provider/provider.dart';
+import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
+import '../widgets/auth_cached_image.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/hrm_page_chrome.dart';
 
@@ -30,6 +33,13 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
   List<Map<String, dynamic>> _replies = [];
   bool _isLoading = true;
   bool _isSending = false;
+  bool _canReply = true;
+  bool _showEmojiPicker = false;
+
+  static const _quickEmojis = [
+    '😊', '😂', '👍', '❤️', '🙏', '😢', '😅', '🎉',
+    '✅', '❌', '💡', '⚠️', '👏', '🤔', '😍', '🙌',
+  ];
 
   static const _primary = HrmPageChrome.primaryNavy;
   static const _statusLabels = {
@@ -72,6 +82,12 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
         final data = res['data'];
         _feedback = Map<String, dynamic>.from(data['feedback'] ?? {});
         _replies = List<Map<String, dynamic>>.from(data['replies'] ?? []);
+        final ctx = data['viewerContext'];
+        if (ctx is Map) {
+          _canReply = ctx['canReply'] == true;
+        } else {
+          _canReply = true;
+        }
       }
     } catch (e) {
       debugPrint('Load feedback detail error: $e');
@@ -90,6 +106,30 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
         );
       }
     });
+  }
+
+  Future<void> _updateStatus(String newStatus) async {
+    if (_feedback == null || newStatus == _feedback!['status']) return;
+    try {
+      final res =
+          await _apiService.updateFeedbackStatus(widget.feedbackId, newStatus);
+      if (res['isSuccess'] == true) {
+        await _loadData();
+        if (mounted) {
+          NotificationOverlayManager().showSuccess(
+            title: 'Đã cập nhật',
+            message: _statusLabels[newStatus] ?? newStatus,
+          );
+        }
+      } else if (mounted) {
+        NotificationOverlayManager().showError(
+          title: 'Lỗi',
+          message: res['message']?.toString() ?? 'Không thể đổi trạng thái',
+        );
+      }
+    } catch (e) {
+      debugPrint('Update feedback status error: $e');
+    }
   }
 
   Future<void> _sendReply() async {
@@ -178,8 +218,9 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
 
     final fb = _feedback!;
     final status = fb['status'] ?? 'Pending';
-    final isAnonymous = fb['isAnonymous'] == true;
-    final isClosed = status == 'Closed';
+    final isClosed = status == 'Closed' || !_canReply;
+    final canManageStatus = Provider.of<PermissionProvider>(context, listen: false)
+        .canApprove('Feedback');
 
     return Scaffold(
       appBar: AppBar(
@@ -191,21 +232,74 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
         backgroundColor: _primary,
         foregroundColor: Colors.white,
         actions: [
-          Container(
-            margin: const EdgeInsets.only(right: 12),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: (_statusColors[status] ?? Colors.grey).withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              _statusLabels[status] ?? status,
-              style: TextStyle(
-                fontSize: 12, fontWeight: FontWeight.w600,
-                color: _statusColors[status] ?? Colors.grey,
+          if (canManageStatus)
+            PopupMenuButton<String>(
+              tooltip: 'Đổi trạng thái',
+              child: Container(
+                margin: const EdgeInsets.only(right: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: (_statusColors[status] ?? Colors.grey)
+                      .withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.white54),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _statusLabels[status] ?? status,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: _statusColors[status] ?? Colors.white,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.arrow_drop_down, color: Colors.white, size: 18),
+                  ],
+                ),
+              ),
+              onSelected: _updateStatus,
+              itemBuilder: (_) => _statusLabels.entries
+                  .map((e) => PopupMenuItem(
+                        value: e.key,
+                        child: Row(
+                          children: [
+                            Icon(Icons.circle,
+                                size: 10,
+                                color: _statusColors[e.key] ?? Colors.grey),
+                            const SizedBox(width: 8),
+                            Text(e.value),
+                            if (e.key == status) ...[
+                              const Spacer(),
+                              const Icon(Icons.check, size: 16),
+                            ],
+                          ],
+                        ),
+                      ))
+                  .toList(),
+            )
+          else
+            Container(
+              margin: const EdgeInsets.only(right: 12),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: (_statusColors[status] ?? Colors.grey)
+                    .withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                _statusLabels[status] ?? status,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: _statusColors[status] ?? Colors.grey,
+                ),
               ),
             ),
-          ),
         ],
       ),
       body: Column(
@@ -223,7 +317,7 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
                 if (fb['response'] != null && fb['response'].toString().isNotEmpty)
                   _buildLegacyResponse(fb),
                 // Replies
-                ..._replies.map((r) => _buildReplyBubble(r, isAnonymous)),
+                ..._replies.map((r) => _buildReplyBubble(r)),
               ],
             ),
           ),
@@ -341,16 +435,12 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
     );
   }
 
-  Widget _buildReplyBubble(Map<String, dynamic> reply, bool isAnonymousFeedback) {
-    final isFromSender = reply['isFromSender'] == true;
+  Widget _buildReplyBubble(Map<String, dynamic> reply) {
     final senderName = reply['senderName'] as String?;
     final content = reply['content'] ?? '';
     final createdAt = DateTime.tryParse(reply['createdAt'] ?? '') ?? DateTime.now();
     final imageUrls = List<String>.from(reply['imageUrls'] ?? []);
-
-    // If this feedback is mine: my replies on right, others on left
-    // If this is mailbox: sender replies on left, my replies on right
-    final isMe = widget.isMine ? isFromSender : !isFromSender;
+    final isMe = reply['isMine'] == true;
 
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
@@ -375,20 +465,15 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
         child: Column(
           crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
-            // Sender name
-            if (!isMe) ...[
-              Text(
-                isAnonymousFeedback && isFromSender
-                    ? 'Ẩn danh'
-                    : (senderName ?? 'Nhân viên'),
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: isFromSender ? const Color(0xFFEF4444) : _primary,
-                ),
+            Text(
+              isMe ? 'Bạn' : (senderName ?? 'Người phản hồi'),
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: isMe ? _primary : const Color(0xFF64748B),
               ),
-              const SizedBox(height: 4),
-            ],
+            ),
+            const SizedBox(height: 4),
             // Content
             _buildRichContent(content),
             // Images
@@ -468,114 +553,221 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
     return Wrap(
       spacing: 6,
       runSpacing: 6,
-      children: imageUrls.map((url) => GestureDetector(
-        onTap: () => _showFullImage(url),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: Image.network(
-            url,
-            width: 120, height: 120,
-            fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => Container(
-              width: 120, height: 120,
-              color: Colors.grey[200],
-              child: const Icon(Icons.broken_image, color: Colors.grey),
+      children: imageUrls.asMap().entries.map((entry) {
+        final index = entry.key;
+        final url = entry.value;
+        return GestureDetector(
+          onTap: () => _showFullImage(imageUrls, initialIndex: index),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: AuthCachedImage(
+              imagePath: url,
+              apiService: _apiService,
+              width: 120,
+              height: 120,
+              fit: BoxFit.cover,
+              errorWidget: (_, __, ___) => Container(
+                width: 120,
+                height: 120,
+                color: Colors.grey[200],
+                child: const Icon(Icons.broken_image, color: Colors.grey),
+              ),
             ),
           ),
-        ),
-      )).toList(),
+        );
+      }).toList(),
     );
   }
 
-  void _showFullImage(String url) {
+  void _showFullImage(List<String> urls, {int initialIndex = 0}) {
+    final pageCtrl = PageController(initialPage: initialIndex);
+    var currentPage = initialIndex;
     showDialog(
       context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: Stack(
-          children: [
-            InteractiveViewer(
-              child: Image.network(url, fit: BoxFit.contain),
+      barrierColor: Colors.black87,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => Dialog(
+          backgroundColor: Colors.black,
+          insetPadding: EdgeInsets.zero,
+          child: SizedBox(
+            width: MediaQuery.of(ctx).size.width,
+            height: MediaQuery.of(ctx).size.height,
+            child: Stack(
+              children: [
+                PageView.builder(
+                  controller: pageCtrl,
+                  itemCount: urls.length,
+                  onPageChanged: (i) => setDialogState(() => currentPage = i),
+                  itemBuilder: (_, i) => Center(
+                    child: InteractiveViewer(
+                      minScale: 0.5,
+                      maxScale: 6,
+                      panEnabled: true,
+                      scaleEnabled: true,
+                      boundaryMargin: const EdgeInsets.all(80),
+                      child: AuthCachedImage(
+                        imagePath: urls[i],
+                        apiService: _apiService,
+                        fit: BoxFit.contain,
+                        errorWidget: (_, __, ___) => const Icon(
+                          Icons.broken_image,
+                          color: Colors.white54,
+                          size: 64,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                if (urls.length > 1)
+                  Positioned(
+                    bottom: 24,
+                    left: 0,
+                    right: 0,
+                    child: Text(
+                      '${currentPage + 1}/${urls.length}',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ),
+              ],
             ),
-            Positioned(
-              top: 8, right: 8,
-              child: IconButton(
-                icon: const Icon(Icons.close, color: Colors.white, size: 28),
-                onPressed: () => Navigator.pop(ctx),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
+  }
+
+  void _insertEmoji(String emoji) {
+    final text = _replyCtl.text;
+    final sel = _replyCtl.selection;
+    final start = sel.start >= 0 ? sel.start : text.length;
+    final end = sel.end >= 0 ? sel.end : text.length;
+    final newText = text.replaceRange(start, end, emoji);
+    _replyCtl.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: start + emoji.length),
+    );
+    setState(() => _showEmojiPicker = false);
   }
 
   Widget _buildReplyBar() {
-    return Container(
-      padding: EdgeInsets.only(
-        left: 12, right: 8, top: 8,
-        bottom: 8 + MediaQuery.of(context).padding.bottom,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 8, offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // Image button
-          IconButton(
-            icon: const Icon(Icons.image_outlined, color: Color(0xFF64748B)),
-            onPressed: _isSending ? null : _pickAndUploadImage,
-            tooltip: 'Gửi hình ảnh',
-          ),
-          // Text input
-          Expanded(
-            child: TextField(
-              controller: _replyCtl,
-              decoration: InputDecoration(
-                hintText: 'Nhập phản hồi...',
-                hintStyle: TextStyle(color: Colors.grey[400]),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(24),
-                  borderSide: BorderSide(color: Colors.grey[300]!),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(24),
-                  borderSide: BorderSide(color: Colors.grey[300]!),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(24),
-                  borderSide: const BorderSide(color: _primary),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16, vertical: 10,
-                ),
-                isDense: true,
-              ),
-              maxLines: 3,
-              minLines: 1,
-              textInputAction: TextInputAction.send,
-              onSubmitted: (_) => _sendReply(),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (_showEmojiPicker)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+            color: Colors.white,
+            child: Wrap(
+              spacing: 4,
+              runSpacing: 4,
+              children: _quickEmojis
+                  .map((e) => InkWell(
+                        onTap: () => _insertEmoji(e),
+                        borderRadius: BorderRadius.circular(8),
+                        child: Padding(
+                          padding: const EdgeInsets.all(6),
+                          child: Text(e, style: const TextStyle(fontSize: 22)),
+                        ),
+                      ))
+                  .toList(),
             ),
           ),
-          const SizedBox(width: 4),
-          // Send button
-          IconButton(
-            icon: _isSending
-                ? const SizedBox(
-                    width: 20, height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.send_rounded, color: _primary),
-            onPressed: _isSending ? null : _sendReply,
+        Container(
+          padding: EdgeInsets.only(
+            left: 12,
+            right: 8,
+            top: 8,
+            bottom: 8 + MediaQuery.of(context).padding.bottom,
           ),
-        ],
-      ),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.08),
+                blurRadius: 8,
+                offset: const Offset(0, -2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              IconButton(
+                icon: Icon(
+                  _showEmojiPicker
+                      ? Icons.emoji_emotions
+                      : Icons.emoji_emotions_outlined,
+                  color: _showEmojiPicker ? _primary : const Color(0xFF64748B),
+                ),
+                onPressed: _isSending
+                    ? null
+                    : () => setState(
+                        () => _showEmojiPicker = !_showEmojiPicker),
+                tooltip: 'Biểu tượng cảm xúc',
+              ),
+              IconButton(
+                icon: const Icon(Icons.image_outlined,
+                    color: Color(0xFF64748B)),
+                onPressed: _isSending ? null : _pickAndUploadImage,
+                tooltip: 'Gửi hình ảnh',
+              ),
+              Expanded(
+                child: TextField(
+                  controller: _replyCtl,
+                  decoration: InputDecoration(
+                    hintText: 'Nhập phản hồi...',
+                    hintStyle: TextStyle(color: Colors.grey[400]),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24),
+                      borderSide: BorderSide(color: Colors.grey[300]!),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24),
+                      borderSide: BorderSide(color: Colors.grey[300]!),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24),
+                      borderSide: const BorderSide(color: _primary),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+                    isDense: true,
+                  ),
+                  maxLines: 3,
+                  minLines: 1,
+                  textInputAction: TextInputAction.send,
+                  onSubmitted: (_) => _sendReply(),
+                ),
+              ),
+              const SizedBox(width: 4),
+              IconButton(
+                icon: _isSending
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.send_rounded, color: _primary),
+                onPressed: _isSending ? null : _sendReply,
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

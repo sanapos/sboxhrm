@@ -18,6 +18,7 @@ import '../utils/attendance_date_range_presets.dart';
 import '../utils/report_screen_helpers.dart';
 import '../utils/attendance_correction_privilege.dart';
 import '../utils/vietnamese_font.dart';
+import '../utils/salary_profile_load_utils.dart';
 
 /// M\u00e0n h\u00ecnh t\u1ed5ng h\u1ee3p ch\u1ea5m c\u00f4ng theo ca \u2014 wrapper cho [AttendanceByShiftTab].
 class AttendanceByShiftScreen extends StatefulWidget {
@@ -101,17 +102,24 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
   /// [silent] true khi sửa/xóa/thêm chấm công — không overlay loading (giữ vị trí cuộn).
   Future<void> _loadData({bool silent = false}) async {
     if (!mounted) return;
+    final isEmployee = isEmployeeUserRole(
+      context.read<AuthProvider>().user?.role,
+    );
     if (!silent) {
       setState(() => _isLoading = true);
     }
 
     try {
       await _branchFilter.ensureEmployees(_apiService);
-      // Load devices \u2014 d\u00f9ng getDevices(storeOnly: true) \u0111\u1ec3 l\u1ea5y thi\u1ebft b\u1ecb trong store
-      final devicesRaw = await _apiService.getDevices(storeOnly: true);
-      final devices = (devicesRaw)
-          .map((d) => Device.fromJson(d as Map<String, dynamic>))
-          .toList();
+      final List<Device> devices;
+      if (isEmployee) {
+        devices = [];
+      } else {
+        final devicesRaw = await _apiService.getDevices(storeOnly: true);
+        devices = devicesRaw
+            .map((d) => Device.fromJson(d as Map<String, dynamic>))
+            .toList();
+      }
 
       final deviceIds = devices.map((d) => d.id).toList();
 
@@ -156,7 +164,10 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
         _apiService
             .getShiftSalaryLevels()
             .catchError((_) => <String, dynamic>{}),
-        _apiService.getSalaryProfiles().catchError((_) => <dynamic>[]),
+        loadAttendanceSalaryProfiles(
+          _apiService,
+          preferSelfServiceApi: isEmployee,
+        ),
         _apiService.getHolidaySettings(0).catchError((_) => <dynamic>[]),
         _apiService
             .getAppSetting('allow_manual_correction')
@@ -186,9 +197,7 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
           .map((s) => s as Map<String, dynamic>)
           .toList();
 
-      final salaryProfilesRaw = p2[2] as List;
-      final salaryProfiles =
-          salaryProfilesRaw.map((s) => s as Map<String, dynamic>).toList();
+      final salaryProfiles = List<Map<String, dynamic>>.from(p2[2] as List);
 
       final holidaysResult = p2[3] as List<dynamic>;
 
@@ -325,7 +334,11 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
               ],
             ),
           ),
-          if (_salaryProfiles.isEmpty && !_isLoading)
+          if (_salaryProfiles.isEmpty &&
+              !_isLoading &&
+              !isEmployeeUserRole(
+                context.watch<AuthProvider>().user?.role,
+              ))
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
               child: Material(

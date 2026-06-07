@@ -10,6 +10,8 @@ import 'attendance/payroll_summary_tab.dart';
 import 'main_layout.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
+import '../providers/auth_provider.dart';
+import '../utils/salary_profile_load_utils.dart';
 
 /// Màn hình Tổng hợp lương
 class PayrollScreen extends StatefulWidget {
@@ -26,6 +28,8 @@ class _PayrollScreenState extends State<PayrollScreen> {
   List<Attendance> _attendances = [];
   List<Device> _devices = [];
   bool _isLoading = true;
+  int _selectedYear = DateTime.now().year;
+  int _selectedMonth = DateTime.now().month;
   String? _selectedBranchId;
   List<Map<String, dynamic>> _branches = [];
   List<Map<String, dynamic>> _employeesList = [];
@@ -83,24 +87,28 @@ class _PayrollScreenState extends State<PayrollScreen> {
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
-      final deviceList = await _apiService.getDevices(storeOnly: true);
-      final parsedDevices = deviceList
-          .map((d) => Device.fromJson(d as Map<String, dynamic>))
-          .toList();
-      final deviceIds = parsedDevices.map((d) => d.id).toList();
-
-      List<Attendance> allAttendances = [];
-      if (deviceIds.isNotEmpty) {
-        final now = DateTime.now();
-        final fromDate = DateTime(now.year, now.month, 1);
-        final bootstrap = await loadAttendanceBootstrap(
-          _apiService,
-          fromDate: fromDate,
-          toDate: now,
-          loadShiftMeta: false,
-        );
-        allAttendances = bootstrap.attendances;
+      final isEmployee = isEmployeeUserRole(
+        context.read<AuthProvider>().user?.role,
+      );
+      List<Device> parsedDevices = [];
+      if (!isEmployee) {
+        final deviceList = await _apiService.getDevices(storeOnly: true);
+        parsedDevices = deviceList
+            .map((d) => Device.fromJson(d as Map<String, dynamic>))
+            .toList();
       }
+
+      final fromDate = DateTime(_selectedYear, _selectedMonth, 1);
+      final toDate = DateTime(_selectedYear, _selectedMonth + 1, 0);
+      List<Attendance> allAttendances = [];
+      final bootstrap = await loadAttendanceBootstrap(
+        _apiService,
+        fromDate: fromDate,
+        toDate: toDate,
+        loadShiftMeta: false,
+        preferSelfServiceApi: isEmployee,
+      );
+      allAttendances = bootstrap.attendances;
 
       if (mounted) {
         setState(() {
@@ -163,6 +171,7 @@ class _PayrollScreenState extends State<PayrollScreen> {
                     ],
                   ),
                 ),
+                _monthYearChip(isMobile),
                 if (isMobile)
                   PopupMenuButton<String>(
                     icon: Container(
@@ -295,10 +304,60 @@ class _PayrollScreenState extends State<PayrollScreen> {
             ),
       ];
 
+  Widget _monthYearChip(bool isMobile) {
+    return PopupMenuButton<String>(
+      tooltip: 'Chọn tháng',
+      child: Container(
+        padding: EdgeInsets.symmetric(
+            horizontal: isMobile ? 8 : 10, vertical: isMobile ? 6 : 8),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.calendar_month, size: 16, color: Colors.white),
+            const SizedBox(width: 4),
+            Text(
+              '$_selectedMonth/$_selectedYear',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: isMobile ? 12 : 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+      onSelected: (v) {
+        final parts = v.split('/');
+        if (parts.length != 2) return;
+        final m = int.tryParse(parts[0]);
+        final y = int.tryParse(parts[1]);
+        if (m == null || y == null) return;
+        setState(() {
+          _selectedMonth = m;
+          _selectedYear = y;
+        });
+        _loadData();
+      },
+      itemBuilder: (_) {
+        final now = DateTime.now();
+        return List.generate(12, (i) {
+          final d = DateTime(now.year, now.month - i, 1);
+          final label = '${d.month}/${d.year}';
+          return PopupMenuItem(value: label, child: Text('Tháng $label'));
+        });
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
     final isMobile = Responsive.isMobile(context);
+    final fromDate = DateTime(_selectedYear, _selectedMonth, 1);
+    final toDate = DateTime(_selectedYear, _selectedMonth + 1, 0);
     final chrome = _payrollPageChromeSections(isMobile);
 
     return Scaffold(
@@ -313,8 +372,8 @@ class _PayrollScreenState extends State<PayrollScreen> {
                     key: _payrollTabKey,
                     attendances: _filteredAttendances,
                     devices: _devices,
-                    fromDate: DateTime(now.year, now.month, 1),
-                    toDate: now,
+                    fromDate: fromDate,
+                    toDate: toDate,
                     branchId: _selectedBranchId,
                     mobileLeadingSections: isMobile ? chrome : null,
                   ),

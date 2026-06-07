@@ -44,6 +44,41 @@ public static class TaskWorkflowHelper
         return await IsTaskParticipantAsync(db, task, employee.Id);
     }
 
+    public static Task<bool> CanViewTaskAsync(
+        ZKTecoDbContext db,
+        WorkTask task,
+        Guid currentUserId,
+        Guid storeId,
+        ClaimsPrincipal user) =>
+        CanModifyTaskAsync(db, task, currentUserId, storeId, user);
+
+    public static IQueryable<WorkTask> ApplyEmployeeVisibilityFilter(
+        IQueryable<WorkTask> query,
+        Guid? employeeId,
+        Guid currentUserId) =>
+        employeeId.HasValue
+            ? query.Where(t =>
+                t.AssignedById == currentUserId ||
+                t.AssigneeId == employeeId.Value ||
+                t.TaskAssignees!.Any(ta => ta.EmployeeId == employeeId.Value))
+            : query.Where(t => t.AssignedById == currentUserId);
+
+    public static async Task<IQueryable<WorkTask>> ApplyViewerScopeAsync(
+        IQueryable<WorkTask> query,
+        ZKTecoDbContext db,
+        Guid storeId,
+        Guid currentUserId,
+        ClaimsPrincipal user)
+    {
+        if (IsManagerOrAdmin(user)) return query;
+
+        var emp = await GetEmployeeForUserAsync(db, storeId, currentUserId);
+        if (emp == null)
+            return query.Where(_ => false);
+
+        return ApplyEmployeeVisibilityFilter(query, emp.Id, currentUserId);
+    }
+
     /// <summary>
     /// Keeps TaskAssignees in sync with primary assignee + optional co-assignees.
     /// </summary>

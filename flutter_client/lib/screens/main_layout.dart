@@ -50,6 +50,9 @@ import 'cash_report_screen.dart';
 import 'advance_report_screen.dart';
 import 'leave_report_screen.dart';
 import 'asset_report_screen.dart';
+import 'report_screen.dart';
+import 'hr_report_screen.dart';
+import 'payroll_report_screen.dart';
 import 'downloaded_documents_screen.dart';
 import 'agent_license_keys_screen.dart';
 import 'production_output_screen.dart';
@@ -60,6 +63,9 @@ import '../utils/pending_notification_launch.dart';
 import 'mobile_device_registration_screen.dart';
 import 'meal_tracking_screen.dart';
 import 'field_checkin_screen.dart';
+import 'shift_swap_screen.dart';
+import '../utils/permission_navigation.dart';
+import '../widgets/module_route_guard.dart';
 import '../utils/notification_sound_stub.dart';
 import '../services/system_notification_service.dart';
 
@@ -210,7 +216,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         NavigationNotifier.pendingOpenOvertime.value = false;
       }
       if (targetIndex != _selectedIndex) {
-        _navigateToIndex(targetIndex);
+        if (!_tryNavigateToIndex(targetIndex)) {
+          NavigationNotifier.navigateTo.value = null;
+          return;
+        }
       }
       NavigationNotifier.navigateTo.value = null;
       if (openOvertime) {
@@ -255,10 +264,15 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
     if (idx != null) {
       if (idx != _selectedIndex) {
-        _navigateToIndex(idx);
+        if (!_tryNavigateToIndex(idx)) return;
       }
-    } else if (kDebugMode) {
-      debugPrint('📍 Module not found in nav: $code');
+    } else {
+      final perm = Provider.of<PermissionProvider>(context, listen: false);
+      if (!PermissionNavigation.canNavigate(perm, code)) {
+        PermissionNavigation.showDenied(context, code);
+      } else if (kDebugMode) {
+        debugPrint('📍 Module not found in nav: $code');
+      }
     }
 
     if (openOvertime) {
@@ -280,9 +294,66 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     return null;
   }
 
+  bool _isNavItemVisible(int index) {
+    if (index < 0 || index >= _navItems.length) return false;
+    final item = _navItems[index];
+    final authUser = Provider.of<AuthProvider>(context, listen: false).user;
+    final userRole = authUser?.role ?? '';
+    final normalizedRole = userRole.toLowerCase();
+    final isSuperAdmin = normalizedRole == 'superadmin';
+    final isAgent = normalizedRole == 'agent';
+    final isDirector = normalizedRole == 'director';
+    final allowedModules = authUser?.allowedModules;
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+
+    if (item.adminOnly && !isSuperAdmin) return false;
+    if (item.requiredRole != null && item.requiredRole != userRole) {
+      return false;
+    }
+    if (isAgent && item.requiredRole != 'Agent') return false;
+    if (!PermissionNavigation.isAllowedByPackageOrRole(
+      item.moduleCode,
+      allowedModules: allowedModules,
+      perm: perm,
+      bypassPackageFilter: isSuperAdmin || isAgent || isDirector,
+    )) {
+      return false;
+    }
+    return PermissionNavigation.canNavigate(perm, item.moduleCode);
+  }
+
+  List<int> _visibleNavIndices() {
+    return [
+      for (var i = 0; i < _navItems.length; i++)
+        if (_isNavItemVisible(i)) i,
+    ];
+  }
+
+  List<({IconData icon, IconData activeIcon, String moduleCode})>
+      _visibleMobileBottomNavDefs() {
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    return _mobileBottomNavDefs
+        .where((d) => PermissionNavigation.canNavigate(perm, d.moduleCode))
+        .toList();
+  }
+
+  bool _tryNavigateToIndex(int index) {
+    if (index < 0 || index >= _navItems.length) return false;
+    final moduleCode = _navItems[index].moduleCode;
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    if (!PermissionNavigation.canNavigate(perm, moduleCode)) {
+      if (moduleCode != null && moduleCode.isNotEmpty) {
+        PermissionNavigation.showDenied(context, moduleCode);
+      }
+      return false;
+    }
+    _navigateToIndex(index);
+    return true;
+  }
+
   void _navigateToModule(String moduleCode) {
     final idx = _navIndexForModule(moduleCode);
-    if (idx != null) _navigateToIndex(idx);
+    if (idx != null) _tryNavigateToIndex(idx);
   }
 
   void _navigateToIndex(int index) {
@@ -303,6 +374,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       SettingsHubScreen.internalBackCallback!();
       return;
     }
+    if (TaskManagementScreen.internalBackCallback != null) {
+      TaskManagementScreen.internalBackCallback!();
+      return;
+    }
     if (_navigationHistory.isNotEmpty && mounted) {
       setState(() {
         _selectedIndex = _navigationHistory.removeLast();
@@ -312,7 +387,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
   bool get _canGoBack =>
       _navigationHistory.isNotEmpty ||
-      SettingsHubScreen.internalBackCallback != null;
+      SettingsHubScreen.internalBackCallback != null ||
+      TaskManagementScreen.internalBackCallback != null;
 
   String _settingsHubTitle(AppLocalizations l) {
     if (_selectedIndex == NavigationNotifier.settingsHub) {
@@ -446,7 +522,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           onTap: () {
             onDismiss();
             SettingsHubScreen.pendingSubIndex.value = 12;
-            _navigateToIndex(NavigationNotifier.settingsHub);
+            _tryNavigateToIndex(NavigationNotifier.settingsHub);
           },
         ));
   }
@@ -508,7 +584,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           onDismiss: onDismiss,
           onTap: () {
             onDismiss();
-            _navigateToIndex(NavigationNotifier.attendance);
+            _tryNavigateToIndex(NavigationNotifier.attendance);
           },
         ));
   }
@@ -960,7 +1036,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Quản lý phiếu thưởng nhân viên',
       screen: const BonusPenaltyScreen(bonusOnly: true),
       group: 'Tài chính',
-      showInSidebar: false,
+      showInSidebar: true,
       themeColor: const Color(0xFFEC4899),
       moduleCode: 'BonusPenalty',
     ),
@@ -971,7 +1047,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Quản lý ứng lương',
       screen: const AdvanceRequestsScreen(),
       group: 'Tài chính',
-      showInSidebar: false,
+      showInSidebar: true,
       themeColor: const Color(0xFFEC4899),
       moduleCode: 'AdvanceRequests',
     ),
@@ -1071,13 +1147,42 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
     // ══════════ BÁO CÁO ══════════
     NavItem(
+      icon: Icons.assessment_outlined,
+      activeIcon: Icons.assessment,
+      label: 'Báo cáo chấm công',
+      subtitle: 'Ngày, tháng, đi muộn, phòng ban',
+      screen: const ReportScreen(),
+      group: 'Báo cáo',
+      themeColor: const Color(0xFF7C3AED),
+      moduleCode: 'AttendanceReport',
+    ),
+    NavItem(
+      icon: Icons.groups_outlined,
+      activeIcon: Icons.groups,
+      label: 'Báo cáo nhân sự',
+      subtitle: 'Biến động, cơ cấu, hợp đồng',
+      screen: const HrReportScreen(),
+      group: 'Báo cáo',
+      themeColor: const Color(0xFF7C3AED),
+      moduleCode: 'HrReport',
+    ),
+    NavItem(
+      icon: Icons.pie_chart_outline,
+      activeIcon: Icons.pie_chart,
+      label: 'Báo cáo lương',
+      subtitle: 'Chi phí lương, trạng thái phiếu',
+      screen: const PayrollReportScreen(),
+      group: 'Báo cáo',
+      themeColor: const Color(0xFF7C3AED),
+      moduleCode: 'PayrollReport',
+    ),
+    NavItem(
       icon: Icons.receipt_long_outlined,
       activeIcon: Icons.receipt_long,
       label: 'Báo cáo phạt',
       subtitle: 'Thống kê phiếu phạt nhân viên',
       screen: const PenaltyReportScreen(),
       group: 'Báo cáo',
-      showInSidebar: false,
       themeColor: const Color(0xFFEC4899),
       moduleCode: 'PenaltyReport',
     ),
@@ -1088,7 +1193,6 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Tổng hợp thu chi, quỹ tiền mặt',
       screen: const CashReportScreen(),
       group: 'Báo cáo',
-      showInSidebar: false,
       themeColor: const Color(0xFF0EA5E9),
       moduleCode: 'CashReport',
     ),
@@ -1099,7 +1203,6 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Thống kê yêu cầu ứng lương',
       screen: const AdvanceReportScreen(),
       group: 'Báo cáo',
-      showInSidebar: false,
       themeColor: const Color(0xFFF59E0B),
       moduleCode: 'AdvanceReport',
     ),
@@ -1110,7 +1213,6 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Thống kê đơn nghỉ phép',
       screen: const LeaveReportScreen(),
       group: 'Báo cáo',
-      showInSidebar: false,
       themeColor: const Color(0xFF0284C7),
       moduleCode: 'LeaveReport',
     ),
@@ -1121,7 +1223,6 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Danh mục, cấp phát, kho, kiểm kê',
       screen: const AssetReportScreen(),
       group: 'Báo cáo',
-      showInSidebar: false,
       themeColor: const Color(0xFF059669),
       moduleCode: 'AssetReport',
     ),
@@ -1209,6 +1310,17 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       themeColor: const Color(0xFFF59E0B),
       moduleCode: 'NotificationSettings',
     ),
+    NavItem(
+      icon: Icons.swap_horiz_outlined,
+      activeIcon: Icons.swap_horiz,
+      label: 'Đổi ca làm việc',
+      subtitle: 'Gửi yêu cầu đổi ca',
+      screen: const ShiftSwapScreen(),
+      group: 'Chấm công',
+      showInSidebar: false,
+      themeColor: const Color(0xFF0284C7),
+      moduleCode: 'ShiftSwap',
+    ),
   ];
 
   @override
@@ -1234,13 +1346,16 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       final isDirector = role == 'director';
       return _HomeMenuScreen(
         navItems: _navItems,
-        onItemTap: (idx) => _navigateToIndex(idx),
+        onItemTap: (idx) => _tryNavigateToIndex(idx),
         allowedModules: (isSuperAdmin || isAgent || isDirector)
             ? null
             : authUser?.allowedModules,
       );
     }
-    return _navItems[index].screen;
+    return ModuleRouteGuard(
+      moduleCode: _navItems[index].moduleCode,
+      child: _navItems[index].screen,
+    );
   }
 
   // Desktop Layout với Navigation Rail mở rộng
@@ -1285,20 +1400,34 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                   minHeight: MediaQuery.of(context).size.height,
                 ),
                 child: IntrinsicHeight(
-                  child: NavigationRail(
-                    selectedIndex: _selectedIndex,
-                    onDestinationSelected: (index) {
-                      _navigateToIndex(index);
+                  child: Builder(
+                    builder: (context) {
+                      final visibleIndices = _visibleNavIndices();
+                      final railSelected = visibleIndices.indexOf(_selectedIndex);
+                      final safeRailSelected = railSelected < 0
+                          ? 0
+                          : railSelected.clamp(0, visibleIndices.length - 1);
+                      return NavigationRail(
+                        selectedIndex: visibleIndices.isEmpty
+                            ? 0
+                            : safeRailSelected,
+                        onDestinationSelected: (railIndex) {
+                          if (railIndex >= 0 &&
+                              railIndex < visibleIndices.length) {
+                            _tryNavigateToIndex(visibleIndices[railIndex]);
+                          }
+                        },
+                        labelType: NavigationRailLabelType.all,
+                        destinations: visibleIndices
+                            .map((i) => NavigationRailDestination(
+                                  icon: Icon(_navItems[i].icon),
+                                  selectedIcon: Icon(_navItems[i].activeIcon),
+                                  label: Text(_navItems[i].localizedLabel(
+                                      AppLocalizations.of(context))),
+                                ))
+                            .toList(),
+                      );
                     },
-                    labelType: NavigationRailLabelType.all,
-                    destinations: _navItems
-                        .map((item) => NavigationRailDestination(
-                              icon: Icon(item.icon),
-                              selectedIcon: Icon(item.activeIcon),
-                              label: Text(item.localizedLabel(
-                                  AppLocalizations.of(context))),
-                            ))
-                        .toList(),
                   ),
                 ),
               ),
@@ -1370,11 +1499,12 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   Widget _buildMobileLayout() {
     final l = AppLocalizations.of(context);
 
-    // Map _selectedIndex → bottom nav position; 4 = "Thêm" (drawer)
-    final bottomNavIndex = _mobileBottomNavDefs.indexWhere(
+    final visibleBottomDefs = _visibleMobileBottomNavDefs();
+    final bottomNavIndex = visibleBottomDefs.indexWhere(
       (d) => _navIndexForModule(d.moduleCode) == _selectedIndex,
     );
-    final safeBottomIndex = bottomNavIndex == -1 ? 4 : bottomNavIndex;
+    final safeBottomIndex =
+        bottomNavIndex == -1 ? visibleBottomDefs.length : bottomNavIndex;
 
     return PopScope(
       canPop: false,
@@ -1416,7 +1546,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                   child: const Icon(Icons.notifications_outlined),
                 ),
                 onPressed: () {
-                  _navigateToIndex(_notificationsIndex);
+                  _tryNavigateToIndex(_notificationsIndex);
                   _loadNotificationCount();
                 },
                 tooltip: l.notifications,
@@ -1440,7 +1570,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   /// Mobile body: IndexedStack keeps bottom-nav screen states alive (scroll position preserved).
   /// Non-bottom-nav screens are overlaid on top so IndexedStack stays in tree.
   Widget _buildMobileBody() {
-    final bottomNavIndices = _mobileBottomNavDefs
+    final bottomNavIndices = _visibleMobileBottomNavDefs()
         .map((d) => _navIndexForModule(d.moduleCode))
         .whereType<int>()
         .toList();
@@ -1464,9 +1594,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final surfaceColor = isDark ? const Color(0xFF1E1E2E) : Colors.white;
     final unselectedColor = isDark ? Colors.white54 : Colors.grey.shade500;
 
-    // All items: 4 defs + "Thêm" (điều hướng theo moduleCode khi bấm)
+    final visibleBottomDefs = _visibleMobileBottomNavDefs();
     final allItems = [
-      ..._mobileBottomNavDefs.map((d) => (
+      ...visibleBottomDefs.map((d) => (
             icon: d.icon,
             activeIcon: d.activeIcon,
             label: _mobileNavLabel(d.moduleCode, l),
@@ -1679,17 +1809,16 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       // Agents only see items with requiredRole == 'Agent'
       if (isAgent && _navItems[i].requiredRole != 'Agent') continue;
       // Lọc theo gói dịch vụ - SuperAdmin/Agent không bị giới hạn
-      if (!isSuperAdmin &&
-          !isAgent &&
-          !isDirector &&
-          allowedModules != null &&
-          allowedModules.isNotEmpty &&
-          _navItems[i].moduleCode != null &&
-          !allowedModules.contains(_navItems[i].moduleCode)) {
+      if (!PermissionNavigation.isAllowedByPackageOrRole(
+        _navItems[i].moduleCode,
+        allowedModules: allowedModules,
+        perm: permProvider,
+        bypassPackageFilter: isSuperAdmin || isAgent || isDirector,
+      )) {
         continue;
       }
       // Lọc theo quyền canView - ẩn module nếu không có quyền xem
-      if (!permProvider.canView(_navItems[i].moduleCode)) continue;
+      if (!permProvider.canViewNav(_navItems[i].moduleCode)) continue;
       final group = _navItems[i].group.isEmpty ? 'Khác' : _navItems[i].group;
       groupedItems.putIfAbsent(group, () => []);
       groupedItems[group]!.add(MapEntry(i, _navItems[i]));
@@ -1809,7 +1938,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                               : Colors.transparent,
                           borderRadius: BorderRadius.circular(10),
                           child: InkWell(
-                            onTap: () => _navigateToIndex(index),
+                            onTap: () => _tryNavigateToIndex(index),
                             borderRadius: BorderRadius.circular(10),
                             hoverColor: const Color(
                                 0xFFE2E9EC), // surface-container-high
@@ -2030,7 +2159,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
               child: const Icon(Icons.notifications_outlined),
             ),
             onPressed: () {
-              _navigateToIndex(_notificationsIndex);
+              _tryNavigateToIndex(_notificationsIndex);
               // Reload notification count khi chuyển đến màn hình thông báo
               _loadNotificationCount();
             },
@@ -2124,10 +2253,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       onSelected: (value) {
         switch (value) {
           case 'profile':
-            _navigateToIndex(NavigationNotifier.settingsHub);
+            _tryNavigateToIndex(NavigationNotifier.settings);
             break;
           case 'settings':
-            _navigateToIndex(NavigationNotifier.settings);
+            _tryNavigateToIndex(NavigationNotifier.settings);
             break;
           case 'logout':
             _showLogoutDialog();
@@ -2167,17 +2296,16 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       if (item.adminOnly && !isSuperAdmin) continue;
       if (item.requiredRole != null && item.requiredRole != userRole) continue;
       if (isAgent && item.requiredRole != 'Agent') continue;
-      if (!isSuperAdmin &&
-          !isAgent &&
-          !isDirector &&
-          allowedModules != null &&
-          allowedModules.isNotEmpty &&
-          item.moduleCode != null &&
-          !allowedModules.contains(item.moduleCode)) {
+      if (!PermissionNavigation.isAllowedByPackageOrRole(
+        item.moduleCode,
+        allowedModules: allowedModules,
+        perm: permProvider,
+        bypassPackageFilter: isSuperAdmin || isAgent || isDirector,
+      )) {
         continue;
       }
       // Lọc theo quyền canView
-      if (!permProvider.canView(item.moduleCode)) continue;
+      if (!permProvider.canViewNav(item.moduleCode)) continue;
       final group = item.group.isEmpty ? 'Khác' : item.group;
       groupedItems.putIfAbsent(group, () => []);
       groupedItems[group]!.add(MapEntry(i, item));
@@ -2282,8 +2410,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                         contentPadding: const EdgeInsets.symmetric(
                             horizontal: 16, vertical: 0),
                         onTap: () {
-                          _navigateToIndex(index);
-                          Navigator.pop(context);
+                          if (_tryNavigateToIndex(index)) {
+                            Navigator.pop(context);
+                          }
                         },
                       );
                     }),
@@ -2408,6 +2537,9 @@ class NavItem {
     'Communication': (l) => l.communication,
     'KPI': (l) => 'KPI',
     'Feedback': (l) => 'Phản ánh / Ý kiến',
+    'AttendanceReport': (l) => 'Báo cáo chấm công',
+    'HrReport': (l) => 'Báo cáo nhân sự',
+    'PayrollReport': (l) => 'Báo cáo lương',
     'PenaltyReport': (l) => 'Báo cáo phạt',
     'CashReport': (l) => 'Báo cáo thu chi',
     'AdvanceReport': (l) => 'Báo cáo ứng lương',
@@ -2534,14 +2666,16 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
       if (item.group == 'Tổng quan') continue;
       if (item.adminOnly) continue;
       if (item.requiredRole != null) continue;
-      if (widget.allowedModules != null &&
-          widget.allowedModules!.isNotEmpty &&
-          item.moduleCode != null &&
-          !widget.allowedModules!.contains(item.moduleCode)) {
+      if (!PermissionNavigation.isAllowedByPackageOrRole(
+        item.moduleCode,
+        allowedModules: widget.allowedModules,
+        perm: permProvider,
+        bypassPackageFilter: widget.allowedModules == null,
+      )) {
         continue;
       }
       // Lọc theo quyền canView
-      if (!permProvider.canView(item.moduleCode)) continue;
+      if (!permProvider.canViewNav(item.moduleCode)) continue;
       final group = item.group.isEmpty ? 'Khác' : item.group;
       groupedItems.putIfAbsent(group, () => []);
       groupedItems[group]!.add(MapEntry(i, item));

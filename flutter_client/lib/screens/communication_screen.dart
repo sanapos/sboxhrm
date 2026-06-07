@@ -180,7 +180,12 @@ class _CommunicationScreenState extends State<CommunicationScreen>
     return _communications;
   }
 
+  bool get _canInteractWithPosts =>
+      Provider.of<PermissionProvider>(context, listen: false)
+          .canView('Communication');
+
   Future<void> _toggleReaction(InternalCommunication comm) async {
+    if (!_canInteractWithPosts) return;
     final reactionType =
         comm.hasUserReacted ? (comm.userReactionType?.index ?? 0) : 0;
     await _api
@@ -1657,7 +1662,9 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                         _miniStat(Icons.visibility_outlined, c.viewCount),
                         const SizedBox(width: 14),
                         InkWell(
-                          onTap: () => _toggleReaction(c),
+                          onTap: _canInteractWithPosts
+                              ? () => _toggleReaction(c)
+                              : null,
                           borderRadius: BorderRadius.circular(20),
                           child: _miniStat(
                               c.hasUserReacted
@@ -1900,6 +1907,10 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
   final ApiService _api = ApiService();
   late InternalCommunication _communication;
   bool _isTogglingReaction = false;
+
+  bool get _canInteractWithPost =>
+      Provider.of<PermissionProvider>(context, listen: false)
+          .canView('Communication');
   List<CommunicationComment> _comments = [];
   bool _loadingComments = false;
   final _commentCtrl = TextEditingController();
@@ -1982,6 +1993,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
   }
 
   Future<void> _addComment() async {
+    if (!_canInteractWithPost) return;
     final content = _commentCtrl.text.trim();
     if (content.isEmpty) return;
     if (content.length > 2000) {
@@ -2011,7 +2023,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
   }
 
   Future<void> _toggleReaction(int reactionType) async {
-    if (_isTogglingReaction) return;
+    if (!_canInteractWithPost || _isTogglingReaction) return;
     setState(() => _isTogglingReaction = true);
     try {
       await _api.toggleCommunicationReaction(
@@ -2406,6 +2418,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                       const SizedBox(height: 16),
 
                       // ── REACTIONS ──
+                      if (_canInteractWithPost) ...[
                       const Text('Tương tác',
                           style: TextStyle(
                               fontSize: 14,
@@ -2460,6 +2473,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
 
                       const Divider(height: 24, color: Color(0xFFF1F5F9)),
                       const SizedBox(height: 16),
+                      ],
 
                       // ── COMMENTS ──
                       Row(
@@ -2508,51 +2522,52 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                           ),
                         ),
 
-                      // Comment input
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: _commentCtrl,
-                              decoration: InputDecoration(
-                                hintText: _replyToName != null
-                                    ? 'Trả lời $_replyToName...'
-                                    : 'Viết bình luận...',
-                                hintStyle: const TextStyle(
-                                    fontSize: 13, color: Color(0xFFA1A1AA)),
-                                filled: true,
-                                fillColor: const Color(0xFFFAFAFA),
-                                border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                    borderSide: const BorderSide(
-                                        color: Color(0xFFE4E4E7))),
-                                enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                    borderSide: const BorderSide(
-                                        color: Color(0xFFE4E4E7))),
-                                contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 14, vertical: 10),
+                      if (_canInteractWithPost) ...[
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _commentCtrl,
+                                decoration: InputDecoration(
+                                  hintText: _replyToName != null
+                                      ? 'Trả lời $_replyToName...'
+                                      : 'Viết bình luận...',
+                                  hintStyle: const TextStyle(
+                                      fontSize: 13, color: Color(0xFFA1A1AA)),
+                                  filled: true,
+                                  fillColor: const Color(0xFFFAFAFA),
+                                  border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                      borderSide: const BorderSide(
+                                          color: Color(0xFFE4E4E7))),
+                                  enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                      borderSide: const BorderSide(
+                                          color: Color(0xFFE4E4E7))),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 14, vertical: 10),
+                                ),
+                                style: const TextStyle(fontSize: 13),
+                                onSubmitted: (_) => _addComment(),
                               ),
-                              style: const TextStyle(fontSize: 13),
-                              onSubmitted: (_) => _addComment(),
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            decoration: BoxDecoration(
-                              color: HrmPageChrome.primaryNavy,
-                              borderRadius: BorderRadius.circular(10),
+                            const SizedBox(width: 8),
+                            Container(
+                              decoration: BoxDecoration(
+                                color: HrmPageChrome.primaryNavy,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: IconButton(
+                                onPressed: _addComment,
+                                icon: const Icon(Icons.send,
+                                    size: 18, color: Colors.white),
+                                tooltip: 'Gửi',
+                              ),
                             ),
-                            child: IconButton(
-                              onPressed: _addComment,
-                              icon: const Icon(Icons.send,
-                                  size: 18, color: Colors.white),
-                              tooltip: 'Gửi',
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                      ],
 
                       // Comments list
                       if (_loadingComments)
@@ -2647,22 +2662,23 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        InkWell(
-                          onTap: () => setState(() {
-                            _replyToId = cm.id;
-                            _replyToName = cm.userName;
-                          }),
-                          borderRadius: BorderRadius.circular(4),
-                          child: const Padding(
-                            padding: EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 2),
-                            child: Text('Trả lời',
-                                style: TextStyle(
-                                    fontSize: 11,
-                                    color: HrmPageChrome.primaryNavy,
-                                    fontWeight: FontWeight.w500)),
+                        if (_canInteractWithPost)
+                          InkWell(
+                            onTap: () => setState(() {
+                              _replyToId = cm.id;
+                              _replyToName = cm.userName;
+                            }),
+                            borderRadius: BorderRadius.circular(4),
+                            child: const Padding(
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 2),
+                              child: Text('Trả lời',
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      color: HrmPageChrome.primaryNavy,
+                                      fontWeight: FontWeight.w500)),
+                            ),
                           ),
-                        ),
                         if (cm.likeCount > 0) ...[
                           const SizedBox(width: 8),
                           Icon(Icons.favorite,

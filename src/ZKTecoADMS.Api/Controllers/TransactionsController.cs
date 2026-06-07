@@ -25,8 +25,8 @@ public class TransactionsController(
     ISystemNotificationService notificationService) : AuthenticatedControllerBase
 {
     [HttpGet]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
-    [RequireAnyModulePermission(ModulePermissionAction.View, "Transaction", "CashTransaction", "BonusPenalty")]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "Transaction", "CashTransaction", "BonusPenalty", "Benefit")]
     public async Task<ActionResult<AppResponse<PagedResult<PaymentTransactionDto>>>> GetTransactions(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10,
@@ -38,18 +38,27 @@ public class TransactionsController(
         [FromQuery] DateTime? fromDate = null,
         [FromQuery] DateTime? toDate = null)
     {
+        if (IsEmployee && !IsManager)
+            employeeUserId = CurrentUserId;
+
         var query = new GetTransactionsQuery(page, pageSize, employeeUserId, type, status, forMonth, forYear, fromDate, toDate, RequiredStoreId);
         var result = await mediator.Send(query);
         return Ok(result);
     }
 
     [HttpGet("{id}")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
-    [RequireAnyModulePermission(ModulePermissionAction.View, "Transaction", "CashTransaction", "BonusPenalty")]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "Transaction", "CashTransaction", "BonusPenalty", "Benefit")]
     public async Task<ActionResult<AppResponse<PaymentTransactionDto>>> GetTransactionById(Guid id)
     {
         var query = new GetTransactionByIdQuery(id);
         var result = await mediator.Send(query);
+        if (!result.IsSuccess || result.Data == null)
+            return Ok(result);
+
+        if (IsEmployee && !IsManager && result.Data.EmployeeUserId != CurrentUserId)
+            return Forbid();
+
         return Ok(result);
     }
 

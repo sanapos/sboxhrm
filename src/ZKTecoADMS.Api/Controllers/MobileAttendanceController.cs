@@ -1242,7 +1242,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
         if (string.IsNullOrWhiteSpace(request.EmployeeId) || string.IsNullOrWhiteSpace(request.EmployeeName))
 
 
-            return BadRequest(AppResponse<object>.Fail("Vui l�ng cung c?p th�ng tin nh�n vi�n"));
+            return BadRequest(AppResponse<object>.Fail("Vui lòng cung cấp thông tin nhân viên"));
 
 
 
@@ -2102,7 +2102,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
         if (string.IsNullOrWhiteSpace(employeeId) || string.IsNullOrWhiteSpace(employeeName))
 
 
-            return BadRequest(AppResponse<object>.Fail("Kh�ng x�c d?nh du?c nh�n vi�n"));
+            return BadRequest(AppResponse<object>.Fail("Không xác định được nhân viên"));
 
 
 
@@ -2222,7 +2222,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
         if (deviceUsed != null)
 
 
-            return BadRequest(AppResponse<object>.Fail($"Thi?t b? n�y d� du?c dang k� b?i nh�n vi�n kh�c ({deviceUsed.EmployeeName})."));
+            return BadRequest(AppResponse<object>.Fail($"Thiết bị này đã được đăng ký bởi nhân viên khác ({deviceUsed.EmployeeName})."));
 
 
 
@@ -3234,7 +3234,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
         if (string.IsNullOrWhiteSpace(employeeId) || string.IsNullOrWhiteSpace(employeeName))
 
 
-            return BadRequest(AppResponse<object>.Fail("Kh�ng x�c d?nh du?c nh�n vi�n"));
+            return BadRequest(AppResponse<object>.Fail("Không xác định được nhân viên"));
 
 
 
@@ -3315,7 +3315,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
         if (deviceUsed != null && deviceUsed.EmployeeId != employeeId)
 
 
-            return BadRequest(AppResponse<object>.Fail($"Thi?t b? m?i d� du?c dang k� b?i nh�n vi�n kh�c ({deviceUsed.EmployeeName})."));
+            return BadRequest(AppResponse<object>.Fail($"Thiết bị mới đã được đăng ký bởi nhân viên khác ({deviceUsed.EmployeeName})."));
 
 
 
@@ -4756,7 +4756,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
             _logger.LogWarning("❌ PUNCH REJECT: empty EmployeeId");
 
 
-            return BadRequest(AppResponse<object>.Fail("Thi?u th�ng tin nh�n vi�n"));
+            return BadRequest(AppResponse<object>.Fail("Thiếu thông tin nhân viên"));
 
 
         }
@@ -7393,7 +7393,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
         if (string.IsNullOrWhiteSpace(request.EmployeeId))
 
 
-            return BadRequest(AppResponse<object>.Fail("Thi?u th�ng tin nh�n vi�n"));
+            return BadRequest(AppResponse<object>.Fail("Thiếu thông tin nhân viên"));
 
 
 

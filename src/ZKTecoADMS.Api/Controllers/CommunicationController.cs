@@ -667,6 +667,9 @@ public class CommunicationController(
     {
         try
         {
+            var accessDenied = await DenyCommunicationInteractionIfForbiddenAsync(id);
+            if (accessDenied != null) return accessDenied;
+
             // Clamp pageSize to prevent abuse
             pageSize = Math.Clamp(pageSize, 1, 100);
 
@@ -724,15 +727,18 @@ public class CommunicationController(
     }
 
     /// <summary>
-    /// Add a comment to a communication
+    /// Add a comment to a communication (requires View — same as reading the post).
     /// </summary>
     [HttpPost("{id:guid}/comments")]
     [Authorize]
-    [RequireModulePermission("Communication", ModulePermissionAction.Create)]
+    [RequireModulePermission("Communication", ModulePermissionAction.View)]
     public async Task<IActionResult> AddComment(Guid id, [FromBody] AddCommentDto dto)
     {
         try
         {
+            var accessDenied = await DenyCommunicationInteractionIfForbiddenAsync(id);
+            if (accessDenied != null) return accessDenied;
+
             var command = new AddCommentCommand(
                 id,
                 CurrentUserId,
@@ -795,15 +801,18 @@ public class CommunicationController(
     }
 
     /// <summary>
-    /// Toggle a reaction on a communication
+    /// Toggle a reaction on a communication (requires View — same as reading the post).
     /// </summary>
     [HttpPost("{id:guid}/reactions")]
     [Authorize]
-    [RequireModulePermission("Communication", ModulePermissionAction.Create)]
+    [RequireModulePermission("Communication", ModulePermissionAction.View)]
     public async Task<IActionResult> ToggleReaction(Guid id, [FromBody] CommunicationReactionDto dto)
     {
         try
         {
+            var accessDenied = await DenyCommunicationInteractionIfForbiddenAsync(id);
+            if (accessDenied != null) return accessDenied;
+
             var command = new ToggleReactionCommand(id, CurrentUserId, dto.ReactionType);
             var result = await mediator.Send(command);
 
@@ -1186,6 +1195,22 @@ public class CommunicationController(
         if (status != CommunicationStatus.Published) return false;
         if (expiresAt.HasValue && expiresAt.Value < DateTime.UtcNow) return false;
         return true;
+    }
+
+    private async Task<IActionResult?> DenyCommunicationInteractionIfForbiddenAsync(Guid id)
+    {
+        var storeId = CurrentStoreId;
+        var baseQuery = storeId.HasValue
+            ? dbContext.InternalCommunications.Where(c => c.Id == id && c.StoreId == storeId.Value)
+            : dbContext.InternalCommunications.Where(c => c.Id == id);
+        var access = await baseQuery
+            .Select(c => new { c.Status, c.AuthorId, c.ExpiresAt })
+            .FirstOrDefaultAsync();
+        if (access == null)
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy bài truyền thông"));
+        if (!CanAccessCommunication(access.Status, access.AuthorId, access.ExpiresAt))
+            return StatusCode(403, AppResponse<object>.Fail("Bạn không có quyền tương tác với bài viết này"));
+        return null;
     }
 
     private string? BuildPublicShareUrl(string? token)

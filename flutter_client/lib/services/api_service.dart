@@ -2422,6 +2422,32 @@ class ApiService {
     }
   }
 
+  // Hồ sơ lương của user đang đăng nhập (role Employee).
+  Future<Map<String, dynamic>?> getMyEmployeeSalaryProfile() async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/api/benefits/me'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 10));
+      final result = _handleResponse(response);
+      return _parseSalaryProfileResponse(result);
+    } catch (e) {
+      debugPrint('Error getting my employee salary profile: $e');
+      return null;
+    }
+  }
+
+  Map<String, dynamic>? _parseSalaryProfileResponse(Map<String, dynamic> result) {
+    if (result['isSuccess'] != true) return null;
+    final data = result['data'];
+    if (data is Map<String, dynamic> && data.isNotEmpty) {
+      return data;
+    }
+    return null;
+  }
+
   // Get employee salary profile by employee ID
   Future<Map<String, dynamic>?> getEmployeeSalaryProfile(
       String employeeId) async {
@@ -2433,8 +2459,15 @@ class ApiService {
           )
           .timeout(const Duration(seconds: 10));
       final result = _handleResponse(response);
-      if (result['isSuccess'] == true) {
-        return result['data'];
+      final profile = _parseSalaryProfileResponse(result);
+      if (profile != null) return profile;
+      // Fallback: NV có thể không có quyền Benefit nhưng /me vẫn trả hồ sơ của mình.
+      final me = await getMyEmployeeSalaryProfile();
+      if (me == null) return null;
+      final meEmpId = me['employeeId']?.toString() ?? '';
+      if (meEmpId.isEmpty ||
+          meEmpId.toLowerCase() == employeeId.toLowerCase()) {
+        return me;
       }
       return null;
     } catch (e) {
@@ -3068,6 +3101,29 @@ class ApiService {
     }
   }
 
+  /// Đổi mật khẩu tài khoản đang đăng nhập (cần mật khẩu hiện tại).
+  Future<Map<String, dynamic>> updateOwnPassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    try {
+      final response = await _retryOnUnauthorized(() => http
+          .put(
+            Uri.parse('$baseUrl/api/accounts/profile/password'),
+            headers: _headers,
+            body: json.encode({
+              'currentPassword': currentPassword,
+              'newPassword': newPassword,
+            }),
+          )
+          .timeout(const Duration(seconds: 15)));
+      return _handleResponse(response);
+    } catch (e) {
+      debugPrint('Error updating own password: $e');
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
   Future<Map<String, dynamic>> deleteAccount(String id) async {
     try {
       final response = await _retryOnUnauthorized(() => http
@@ -3563,14 +3619,16 @@ class ApiService {
       // Handle 409 Conflict (already registered) - return device info
       if (response.statusCode == 409) {
         try {
-          final data = json.decode(response.body);
+          final rawBody = utf8.decode(response.bodyBytes, allowMalformed: true);
+          final data = json.decode(rawBody);
           if (data is Map<String, dynamic> && data['data'] != null) {
+            final payload = data['data'] as Map<String, dynamic>;
             return {
               'isSuccess': false,
               'alreadyRegistered': true,
-              'message':
-                  data['data']['message'] ?? 'Tài khoản đã đăng ký thiết bị',
-              'data': data['data'],
+              'message': payload['message']?.toString() ??
+                  'Tài khoản đã đăng ký thiết bị. Mỗi tài khoản chỉ được đăng ký 1 thiết bị.',
+              'data': payload,
               'statusCode': 409,
             };
           }
@@ -4735,6 +4793,146 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getting asset statistics: $e');
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  // ==================== FINANCE / HR / PAYROLL REPORTS ====================
+
+  Future<Map<String, dynamic>> getCashReportTransactions({
+    DateTime? fromDate,
+    DateTime? toDate,
+    int? type,
+    int page = 1,
+    int pageSize = 500,
+  }) async {
+    try {
+      final params = <String, String>{
+        'page': page.toString(),
+        'pageSize': pageSize.toString(),
+      };
+      if (fromDate != null) params['from'] = fromDate.toIso8601String();
+      if (toDate != null) params['to'] = toDate.toIso8601String();
+      if (type != null) params['type'] = type.toString();
+      final uri = Uri.parse('$baseUrl/api/reports/finance/cash-transactions')
+          .replace(queryParameters: params);
+      final response = await http.get(uri, headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> getPenaltySummaryReport({
+    DateTime? from,
+    DateTime? to,
+    String? department,
+  }) async {
+    try {
+      final params = <String, String>{};
+      if (from != null) params['from'] = from.toIso8601String();
+      if (to != null) params['to'] = to.toIso8601String();
+      if (department != null && department.isNotEmpty) {
+        params['department'] = department;
+      }
+      final uri = Uri.parse('$baseUrl/api/reports/finance/penalty-summary')
+          .replace(queryParameters: params.isNotEmpty ? params : null);
+      final response = await http.get(uri, headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> getAdvanceDebtReport({
+    DateTime? from,
+    DateTime? to,
+    String? department,
+    int? status,
+  }) async {
+    try {
+      final params = <String, String>{};
+      if (from != null) params['from'] = from.toIso8601String();
+      if (to != null) params['to'] = to.toIso8601String();
+      if (department != null && department.isNotEmpty) {
+        params['department'] = department;
+      }
+      if (status != null) params['status'] = status.toString();
+      final uri = Uri.parse('$baseUrl/api/reports/finance/advance-debt')
+          .replace(queryParameters: params.isNotEmpty ? params : null);
+      final response = await http.get(uri, headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> getHrHeadcountMovement({int? year}) async {
+    try {
+      final params = <String, String>{};
+      if (year != null) params['year'] = year.toString();
+      final uri = Uri.parse('$baseUrl/api/reports/hr/headcount-movement')
+          .replace(queryParameters: params.isNotEmpty ? params : null);
+      final response = await http.get(uri, headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> getHrContractExpiry({int days = 90}) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/reports/hr/contract-expiry')
+          .replace(queryParameters: {'days': days.toString()});
+      final response = await http.get(uri, headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> getHrOrgHeadcount() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/reports/hr/org-headcount'),
+        headers: _headers,
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> getPayrollCostByDepartment({
+    int? year,
+    int? month,
+  }) async {
+    try {
+      final params = <String, String>{};
+      if (year != null) params['year'] = year.toString();
+      if (month != null) params['month'] = month.toString();
+      final uri = Uri.parse('$baseUrl/api/reports/payroll/cost-by-department')
+          .replace(queryParameters: params.isNotEmpty ? params : null);
+      final response = await http.get(uri, headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> getPayrollStatusDistribution({
+    int? year,
+    int? month,
+  }) async {
+    try {
+      final params = <String, String>{};
+      if (year != null) params['year'] = year.toString();
+      if (month != null) params['month'] = month.toString();
+      final uri = Uri.parse('$baseUrl/api/reports/payroll/status-distribution')
+          .replace(queryParameters: params.isNotEmpty ? params : null);
+      final response = await http.get(uri, headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
     }
   }
@@ -6667,7 +6865,10 @@ class ApiService {
       String? search,
       dynamic taskType,
       dynamic fromDate,
-      dynamic toDate}) async {
+      dynamic toDate,
+      bool? isOverdue,
+      String? branchId,
+      bool? onlyAssignedToMe}) async {
     try {
       final params = <String, String>{};
       if (page != null) params['page'] = page.toString();
@@ -6677,6 +6878,9 @@ class ApiService {
       if (assigneeId != null) params['assigneeId'] = assigneeId;
       if (search != null) params['search'] = search;
       if (taskType != null) params['taskType'] = taskType.toString();
+      if (isOverdue == true) params['isOverdue'] = 'true';
+      if (branchId != null && branchId.isNotEmpty) params['branchId'] = branchId;
+      if (onlyAssignedToMe == true) params['onlyAssignedToMe'] = 'true';
       if (fromDate != null) {
         params['fromDate'] = fromDate is DateTime
             ? fromDate.toIso8601String()
@@ -6710,6 +6914,7 @@ class ApiService {
     int? pageSize,
     dynamic status,
     dynamic priority,
+    bool? isOverdue,
   }) async {
     try {
       final params = <String, String>{};
@@ -6717,6 +6922,7 @@ class ApiService {
       if (pageSize != null) params['pageSize'] = pageSize.toString();
       if (status != null) params['status'] = status.toString();
       if (priority != null) params['priority'] = priority.toString();
+      if (isOverdue == true) params['isOverdue'] = 'true';
       final uri = Uri.parse('$baseUrl/api/Tasks/my')
           .replace(queryParameters: params.isNotEmpty ? params : null);
       final response = await http.get(uri, headers: _headers);
@@ -6851,11 +7057,16 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> getTaskKanbanBoard(
-      {String? assigneeId, dynamic priority}) async {
+      {String? assigneeId,
+      dynamic priority,
+      String? branchId,
+      bool? onlyAssignedToMe}) async {
     try {
       final params = <String, String>{};
       if (assigneeId != null) params['assigneeId'] = assigneeId;
       if (priority != null) params['priority'] = priority.toString();
+      if (branchId != null && branchId.isNotEmpty) params['branchId'] = branchId;
+      if (onlyAssignedToMe == true) params['onlyAssignedToMe'] = 'true';
       final uri = Uri.parse('$baseUrl/api/Tasks/kanban')
           .replace(queryParameters: params.isNotEmpty ? params : null);
       final response = await http.get(uri, headers: _headers);
@@ -6869,11 +7080,13 @@ class ApiService {
       {String? assigneeId,
       dynamic priority,
       dynamic fromDate,
-      dynamic toDate}) async {
+      dynamic toDate,
+      String? branchId}) async {
     try {
       final params = <String, String>{};
       if (assigneeId != null) params['assigneeId'] = assigneeId;
       if (priority != null) params['priority'] = priority.toString();
+      if (branchId != null && branchId.isNotEmpty) params['branchId'] = branchId;
       if (fromDate != null) {
         params['fromDate'] = fromDate is DateTime
             ? fromDate.toIso8601String()
@@ -10895,6 +11108,29 @@ class ApiService {
     }
   }
 
+  // ── Production Export ──
+  Future<Map<String, dynamic>> getProductionExport({
+    required DateTime fromDate,
+    required DateTime toDate,
+    String? employeeId,
+    String? productGroupId,
+  }) async {
+    try {
+      final params = <String, String>{
+        'fromDate': fromDate.toIso8601String(),
+        'toDate': toDate.toIso8601String(),
+      };
+      if (employeeId != null) params['employeeId'] = employeeId;
+      if (productGroupId != null) params['productGroupId'] = productGroupId;
+      final uri = Uri.parse('$baseUrl/api/production/export')
+          .replace(queryParameters: params);
+      final response = await http.get(uri, headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
   // ── Production Summary ──
   Future<Map<String, dynamic>> getProductionSummary({
     required DateTime fromDate,
@@ -10990,6 +11226,11 @@ class ApiService {
   Future<Map<String, dynamic>> getFeedbacks({
     String? status,
     String? category,
+    String? senderEmployeeId,
+    String? recipientEmployeeId,
+    bool? generalMailboxOnly,
+    DateTime? fromDate,
+    DateTime? toDate,
     int page = 1,
     int pageSize = 20,
   }) async {
@@ -11000,6 +11241,21 @@ class ApiService {
       };
       if (status != null) params['status'] = status;
       if (category != null) params['category'] = category;
+      if (senderEmployeeId != null && senderEmployeeId.isNotEmpty) {
+        params['senderEmployeeId'] = senderEmployeeId;
+      }
+      if (generalMailboxOnly == true) {
+        params['generalMailboxOnly'] = 'true';
+      } else if (recipientEmployeeId != null &&
+          recipientEmployeeId.isNotEmpty) {
+        params['recipientEmployeeId'] = recipientEmployeeId;
+      }
+      if (fromDate != null) {
+        params['fromDate'] = fromDate.toIso8601String().split('T').first;
+      }
+      if (toDate != null) {
+        params['toDate'] = toDate.toIso8601String().split('T').first;
+      }
       final uri =
           Uri.parse('$baseUrl/api/feedback').replace(queryParameters: params);
       final response = await http.get(uri, headers: _headers);
@@ -11009,10 +11265,37 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> getMyFeedbacks() async {
+  Future<Map<String, dynamic>> getMyFeedbacks({
+    String? status,
+    String? category,
+    String? senderEmployeeId,
+    String? recipientEmployeeId,
+    bool? generalMailboxOnly,
+    DateTime? fromDate,
+    DateTime? toDate,
+  }) async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/api/feedback/my'),
-          headers: _headers);
+      final params = <String, String>{};
+      if (status != null) params['status'] = status;
+      if (category != null) params['category'] = category;
+      if (senderEmployeeId != null && senderEmployeeId.isNotEmpty) {
+        params['senderEmployeeId'] = senderEmployeeId;
+      }
+      if (generalMailboxOnly == true) {
+        params['generalMailboxOnly'] = 'true';
+      } else if (recipientEmployeeId != null &&
+          recipientEmployeeId.isNotEmpty) {
+        params['recipientEmployeeId'] = recipientEmployeeId;
+      }
+      if (fromDate != null) {
+        params['fromDate'] = fromDate.toIso8601String().split('T').first;
+      }
+      if (toDate != null) {
+        params['toDate'] = toDate.toIso8601String().split('T').first;
+      }
+      final uri = Uri.parse('$baseUrl/api/feedback/my')
+          .replace(queryParameters: params.isEmpty ? null : params);
+      final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
@@ -11036,6 +11319,19 @@ class ApiService {
           Uri.parse('$baseUrl/api/feedback/$id/respond'),
           headers: _headers,
           body: json.encode(data));
+      return _handleResponse(response);
+    } catch (e) {
+      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> updateFeedbackStatus(
+      String id, String status) async {
+    try {
+      final response = await http.patch(
+          Uri.parse('$baseUrl/api/feedback/$id/status'),
+          headers: _headers,
+          body: json.encode({'status': status}));
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};

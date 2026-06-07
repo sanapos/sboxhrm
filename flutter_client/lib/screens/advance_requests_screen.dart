@@ -76,7 +76,9 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
     return role == 'employee';
   }
 
-  // ignore: unused_element
+  String? get _currentUserId =>
+      Provider.of<AuthProvider>(context, listen: false).user?.id;
+
   bool get _isManagerOrAbove {
     final role = Provider.of<AuthProvider>(context, listen: false)
         .userRole
@@ -87,6 +89,16 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
         role == 'superadmin' ||
         role == 'departmenthead' ||
         role == 'agent';
+  }
+
+  bool _isOwnAdvance(AdvanceRequest request) =>
+      _currentUserId != null &&
+      request.employeeUserId == _currentUserId;
+
+  bool _canCancelAdvance(AdvanceRequest request, PermissionProvider p) {
+    if (request.status != AdvanceRequestStatus.pending) return false;
+    if (_isOwnAdvance(request)) return true;
+    return _isManagerOrAbove && p.canApprove('AdvanceRequests');
   }
 
   Future<void> _loadMyEmployee() async {
@@ -1464,37 +1476,47 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
   }
 
   List<Widget> _buildDialogActions(AdvanceRequest request, BuildContext ctx) {
+    final p = Provider.of<PermissionProvider>(context, listen: false);
     final List<Widget> actions = [];
+
     if (request.status == AdvanceRequestStatus.pending) {
-      actions.addAll([
-        TextButton.icon(
-          onPressed: () {
-            Navigator.pop(ctx);
-            _approveRequest(request, true);
-          },
-          icon: const Icon(Icons.check, size: 16, color: Colors.green),
-          label: Text(_l10n.approveLabel,
-              style: const TextStyle(color: Colors.green)),
-        ),
-        TextButton.icon(
-          onPressed: () {
-            Navigator.pop(ctx);
-            _showRejectDialog(request);
-          },
-          icon: const Icon(Icons.close, size: 16, color: Colors.red),
-          label: Text(_l10n.reject, style: const TextStyle(color: Colors.red)),
-        ),
-        TextButton.icon(
-          onPressed: () {
-            Navigator.pop(ctx);
-            _cancelRequest(request);
-          },
-          icon: const Icon(Icons.block, size: 16, color: Colors.orange),
-          label: const Text('Hủy', style: TextStyle(color: Colors.orange)),
-        ),
-      ]);
+      if (p.canApprove('AdvanceRequests') && !_isOwnAdvance(request)) {
+        actions.addAll([
+          TextButton.icon(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _approveRequest(request, true);
+            },
+            icon: const Icon(Icons.check, size: 16, color: Colors.green),
+            label: Text(_l10n.approveLabel,
+                style: const TextStyle(color: Colors.green)),
+          ),
+          TextButton.icon(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _showRejectDialog(request);
+            },
+            icon: const Icon(Icons.close, size: 16, color: Colors.red),
+            label:
+                Text(_l10n.reject, style: const TextStyle(color: Colors.red)),
+          ),
+        ]);
+      }
+      if (_canCancelAdvance(request, p)) {
+        actions.add(
+          TextButton.icon(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _cancelRequest(request);
+            },
+            icon: const Icon(Icons.block, size: 16, color: Colors.orange),
+            label: const Text('Hủy', style: TextStyle(color: Colors.orange)),
+          ),
+        );
+      }
     } else if (request.status == AdvanceRequestStatus.approved &&
-        !request.isPaid) {
+        !request.isPaid &&
+        p.canApprove('AdvanceRequests')) {
       actions.addAll([
         TextButton.icon(
           onPressed: () {
@@ -1515,7 +1537,8 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
               Text(_l10n.payment, style: const TextStyle(color: Colors.green)),
         ),
       ]);
-    } else if (request.status == AdvanceRequestStatus.rejected) {
+    } else if (request.status == AdvanceRequestStatus.rejected &&
+        p.canApprove('AdvanceRequests')) {
       actions.add(
         TextButton.icon(
           onPressed: () {
@@ -1528,16 +1551,23 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
         ),
       );
     }
-    actions.add(
-      TextButton.icon(
-        onPressed: () {
-          Navigator.pop(ctx);
-          _deleteRequest(request);
-        },
-        icon: Icon(Icons.delete, size: 16, color: Colors.red.shade300),
-        label: Text(_l10n.delete, style: TextStyle(color: Colors.red.shade300)),
-      ),
-    );
+
+    if (((_isOwnAdvance(request) &&
+                request.status == AdvanceRequestStatus.pending) ||
+            _isManagerOrAbove) &&
+        p.canDelete('AdvanceRequests')) {
+      actions.add(
+        TextButton.icon(
+          onPressed: () {
+            Navigator.pop(ctx);
+            _deleteRequest(request);
+          },
+          icon: Icon(Icons.delete, size: 16, color: Colors.red.shade300),
+          label:
+              Text(_l10n.delete, style: TextStyle(color: Colors.red.shade300)),
+        ),
+      );
+    }
     return actions;
   }
 
@@ -2506,37 +2536,60 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
-                          if (r.status == AdvanceRequestStatus.pending &&
-                              Provider.of<PermissionProvider>(context,
-                                      listen: false)
-                                  .canApprove('AdvanceRequests')) ...[
-                            _miniBtn(
-                                Icons.check,
-                                HrmPageChrome.primaryNavy,
-                                _l10n.approveLabel,
-                                () => _approveRequest(r, true)),
-                            const SizedBox(width: 6),
-                            _miniBtn(Icons.close, const Color(0xFFEF4444),
-                                _l10n.reject, () => _showRejectDialog(r)),
-                          ],
-                          if (r.status == AdvanceRequestStatus.approved &&
-                              !r.isPaid &&
-                              Provider.of<PermissionProvider>(context,
-                                      listen: false)
-                                  .canApprove('AdvanceRequests')) ...[
-                            _miniBtn(Icons.undo, const Color(0xFFF59E0B),
-                                _l10n.reverseApproval, () => _undoApprove(r)),
-                            const SizedBox(width: 6),
-                            _miniBtn(Icons.payment, HrmPageChrome.primaryNavy,
-                                _l10n.payment, () => _payRequest(r)),
-                          ],
-                          if (Provider.of<PermissionProvider>(context,
-                                  listen: false)
-                              .canDelete('AdvanceRequests')) ...[
-                            const SizedBox(width: 6),
-                            _miniBtn(Icons.delete_outline, Colors.grey,
-                                _l10n.delete, () => _deleteRequest(r)),
-                          ],
+                          Builder(builder: (ctx) {
+                            final p = Provider.of<PermissionProvider>(ctx,
+                                listen: false);
+                            return Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                if (r.status == AdvanceRequestStatus.pending &&
+                                    p.canApprove('AdvanceRequests') &&
+                                    !_isOwnAdvance(r)) ...[
+                                  _miniBtn(
+                                      Icons.check,
+                                      HrmPageChrome.primaryNavy,
+                                      _l10n.approveLabel,
+                                      () => _approveRequest(r, true)),
+                                  const SizedBox(width: 6),
+                                  _miniBtn(
+                                      Icons.close,
+                                      const Color(0xFFEF4444),
+                                      _l10n.reject,
+                                      () => _showRejectDialog(r)),
+                                ],
+                                if (r.status == AdvanceRequestStatus.pending &&
+                                    _canCancelAdvance(r, p)) ...[
+                                  const SizedBox(width: 6),
+                                  _miniBtn(Icons.block, const Color(0xFFF59E0B),
+                                      'Hủy', () => _cancelRequest(r)),
+                                ],
+                                if (r.status == AdvanceRequestStatus.approved &&
+                                    !r.isPaid &&
+                                    p.canApprove('AdvanceRequests')) ...[
+                                  _miniBtn(
+                                      Icons.undo,
+                                      const Color(0xFFF59E0B),
+                                      _l10n.reverseApproval,
+                                      () => _undoApprove(r)),
+                                  const SizedBox(width: 6),
+                                  _miniBtn(
+                                      Icons.payment,
+                                      HrmPageChrome.primaryNavy,
+                                      _l10n.payment,
+                                      () => _payRequest(r)),
+                                ],
+                                if (((_isOwnAdvance(r) &&
+                                            r.status ==
+                                                AdvanceRequestStatus.pending) ||
+                                        _isManagerOrAbove) &&
+                                    p.canDelete('AdvanceRequests')) ...[
+                                  const SizedBox(width: 6),
+                                  _miniBtn(Icons.delete_outline, Colors.grey,
+                                      _l10n.delete, () => _deleteRequest(r)),
+                                ],
+                              ],
+                            );
+                          }),
                         ],
                       ),
                     ],
@@ -2720,12 +2773,19 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (r.status == AdvanceRequestStatus.pending &&
-            p.canApprove('AdvanceRequests')) ...[
+            p.canApprove('AdvanceRequests') &&
+            !_isOwnAdvance(r)) ...[
           _miniBtn(Icons.check, HrmPageChrome.primaryNavy, _l10n.approveLabel,
               () => _approveRequest(r, true)),
           const SizedBox(width: 4),
           _miniBtn(Icons.close, const Color(0xFFEF4444), _l10n.reject,
               () => _showRejectDialog(r)),
+        ],
+        if (r.status == AdvanceRequestStatus.pending &&
+            _canCancelAdvance(r, p)) ...[
+          const SizedBox(width: 4),
+          _miniBtn(Icons.block, const Color(0xFFF59E0B), 'Hủy',
+              () => _cancelRequest(r)),
         ],
         if (r.status == AdvanceRequestStatus.approved &&
             !r.isPaid &&
@@ -2736,7 +2796,10 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
           _miniBtn(Icons.payment, HrmPageChrome.primaryNavy, _l10n.payment,
               () => _payRequest(r)),
         ],
-        if (p.canDelete('AdvanceRequests')) ...[
+        if (((_isOwnAdvance(r) &&
+                    r.status == AdvanceRequestStatus.pending) ||
+                _isManagerOrAbove) &&
+            p.canDelete('AdvanceRequests')) ...[
           const SizedBox(width: 4),
           _miniBtn(Icons.delete_outline, Colors.grey, _l10n.delete,
               () => _deleteRequest(r)),

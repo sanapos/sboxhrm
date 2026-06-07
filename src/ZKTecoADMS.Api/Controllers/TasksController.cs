@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Authorization;
@@ -68,6 +68,18 @@ public partial class TasksController(
         return null;
     }
 
+    private async Task<WorkTask?> GetViewableTaskAsync(Guid taskId)
+    {
+        var task = await _dbContext.WorkTasks
+            .AsNoTracking()
+            .FirstOrDefaultAsync(t => t.Id == taskId && t.StoreId == RequiredStoreId);
+        if (task == null) return null;
+        if (!await TaskWorkflowHelper.CanViewTaskAsync(
+                _dbContext, task, CurrentUserId, RequiredStoreId, User))
+            return null;
+        return task;
+    }
+
     #region Task CRUD
 
     /// <summary>
@@ -99,17 +111,8 @@ public partial class TasksController(
         var query = _dbContext.WorkTasks
             .Where(t => t.StoreId == RequiredStoreId && t.IsActive);
 
-        if (!TaskWorkflowHelper.IsManagerOrAdmin(User))
-        {
-            var emp = await TaskWorkflowHelper.GetEmployeeForUserAsync(
-                _dbContext, RequiredStoreId, CurrentUserId);
-            if (emp == null)
-                return Ok(AppResponse<PagedResult<WorkTaskDto>>.Success(new PagedResult<WorkTaskDto>()));
-            query = query.Where(t =>
-                t.AssignedById == CurrentUserId ||
-                t.AssigneeId == emp.Id ||
-                t.TaskAssignees!.Any(ta => ta.EmployeeId == emp.Id));
-        }
+        query = await TaskWorkflowHelper.ApplyViewerScopeAsync(
+            query, _dbContext, RequiredStoreId, CurrentUserId, User);
 
         if (onlyAssignedToMe == true)
         {
@@ -289,7 +292,8 @@ public partial class TasksController(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         [FromQuery] WorkTaskStatus? status = null,
-        [FromQuery] TaskPriority? priority = null)
+        [FromQuery] TaskPriority? priority = null,
+        [FromQuery] bool? isOverdue = null)
     {
         // Get employee ID for current user
         var employee = await _dbContext.Employees
@@ -307,6 +311,15 @@ public partial class TasksController(
 
         if (priority.HasValue)
             query = query.Where(t => t.Priority == priority.Value);
+
+        if (isOverdue == true)
+        {
+            var now = DateTime.Now;
+            query = query.Where(t =>
+                t.DueDate < now &&
+                t.Status != WorkTaskStatus.Completed &&
+                t.Status != WorkTaskStatus.Cancelled);
+        }
 
         query = query.OrderByDescending(t => t.Priority).ThenByDescending(t => t.CreatedAt);
 
@@ -392,6 +405,10 @@ public partial class TasksController(
 
         if (task == null)
             return Ok(AppResponse<WorkTaskDto>.Error("Task not found"));
+
+        if (!await TaskWorkflowHelper.CanViewTaskAsync(
+                _dbContext, task, CurrentUserId, RequiredStoreId, User))
+            return Ok(AppResponse<WorkTaskDto>.Error("Bạn không có quyền xem công việc này"));
 
         var dto = MapToDto(task, includeDetails: true);
         dto.BlockedByTaskIds = await _dbContext.TaskDependencies
@@ -1051,6 +1068,9 @@ public partial class TasksController(
     [RequireModulePermission("Task", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<TaskCommentDto>>>> GetComments(Guid taskId)
     {
+        if (await GetViewableTaskAsync(taskId) == null)
+            return Ok(AppResponse<List<TaskCommentDto>>.Error("Bạn không có quyền xem công việc này"));
+
         var comments = await _dbContext.TaskComments
             .Include(c => c.User)
             .Include(c => c.Replies!)
@@ -1227,6 +1247,9 @@ public partial class TasksController(
         var query = _dbContext.WorkTasks
             .Where(t => t.StoreId == storeId && t.IsActive);
 
+        query = await TaskWorkflowHelper.ApplyViewerScopeAsync(
+            query, _dbContext, storeId, CurrentUserId, User);
+
         var branchScope = await BranchQueryHelper.ResolveEmployeeScopeAsync(
             _dbContext, storeId, branchId, includeChildBranches);
         if (branchScope != null)
@@ -1282,33 +1305,32 @@ public partial class TasksController(
             ByType = byType
         };
 
-        // By Assignee - server-side aggregation.
-        // Inherit the same fromDate/toDate window as the top-level stats; previously this
-        // ignored the filter, so a "tháng này" dashboard showed historical assignee counts
-        // that didn't add up to the visible TotalTasks.
-        var assigneeQuery = _dbContext.WorkTasks
-            .Where(t => t.StoreId == storeId && t.IsActive && t.AssigneeId != null);
-        if (branchScope != null)
-            assigneeQuery = TaskWorkflowHelper.ApplyBranchFilter(assigneeQuery, branchScope);
-        if (fromDate.HasValue)
-            assigneeQuery = assigneeQuery.Where(t => t.CreatedAt >= fromDate.Value);
-        if (toDate.HasValue)
-            assigneeQuery = assigneeQuery.Where(t => t.CreatedAt <= toDate.Value);
+        if (TaskWorkflowHelper.IsManagerOrAdmin(User))
+        {
+            var assigneeQuery = _dbContext.WorkTasks
+                .Where(t => t.StoreId == storeId && t.IsActive && t.AssigneeId != null);
+            if (branchScope != null)
+                assigneeQuery = TaskWorkflowHelper.ApplyBranchFilter(assigneeQuery, branchScope);
+            if (fromDate.HasValue)
+                assigneeQuery = assigneeQuery.Where(t => t.CreatedAt >= fromDate.Value);
+            if (toDate.HasValue)
+                assigneeQuery = assigneeQuery.Where(t => t.CreatedAt <= toDate.Value);
 
-        stats.ByAssignee = await assigneeQuery
-            .GroupBy(t => new { t.AssigneeId, t.Assignee!.FirstName, t.Assignee!.LastName })
-            .Select(g => new TasksByAssigneeDto
-            {
-                EmployeeId = g.Key.AssigneeId!.Value,
-                EmployeeName = (g.Key.LastName ?? "") + " " + (g.Key.FirstName ?? ""),
-                TotalTasks = g.Count(),
-                CompletedTasks = g.Count(t => t.Status == WorkTaskStatus.Completed),
-                InProgressTasks = g.Count(t => t.Status == WorkTaskStatus.InProgress),
-                OverdueTasks = g.Count(t => t.DueDate < now && t.Status != WorkTaskStatus.Completed && t.Status != WorkTaskStatus.Cancelled)
-            })
-            .OrderByDescending(x => x.TotalTasks)
-            .Take(10)
-            .ToListAsync();
+            stats.ByAssignee = await assigneeQuery
+                .GroupBy(t => new { t.AssigneeId, t.Assignee!.FirstName, t.Assignee!.LastName })
+                .Select(g => new TasksByAssigneeDto
+                {
+                    EmployeeId = g.Key.AssigneeId!.Value,
+                    EmployeeName = (g.Key.LastName ?? "") + " " + (g.Key.FirstName ?? ""),
+                    TotalTasks = g.Count(),
+                    CompletedTasks = g.Count(t => t.Status == WorkTaskStatus.Completed),
+                    InProgressTasks = g.Count(t => t.Status == WorkTaskStatus.InProgress),
+                    OverdueTasks = g.Count(t => t.DueDate < now && t.Status != WorkTaskStatus.Completed && t.Status != WorkTaskStatus.Cancelled)
+                })
+                .OrderByDescending(x => x.TotalTasks)
+                .Take(10)
+                .ToListAsync();
+        }
 
         return Ok(AppResponse<TaskStatisticsDto>.Success(stats));
     }
@@ -1331,6 +1353,9 @@ public partial class TasksController(
             .Include(t => t.TaskAssignees!)
                 .ThenInclude(ta => ta.Employee)
             .Where(t => t.StoreId == RequiredStoreId && t.IsActive && t.ParentTaskId == null);
+
+        query = await TaskWorkflowHelper.ApplyViewerScopeAsync(
+            query, _dbContext, RequiredStoreId, CurrentUserId, User);
 
         if (assigneeId.HasValue)
             query = query.Where(t => t.AssigneeId == assigneeId.Value || t.TaskAssignees!.Any(ta => ta.EmployeeId == assigneeId.Value));
@@ -1389,6 +1414,9 @@ public partial class TasksController(
     [RequireModulePermission("Task", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<TaskHistoryDto>>>> GetTaskHistory(Guid taskId)
     {
+        if (await GetViewableTaskAsync(taskId) == null)
+            return Ok(AppResponse<List<TaskHistoryDto>>.Error("Bạn không có quyền xem công việc này"));
+
         var histories = await _dbContext.TaskHistories
             .Include(h => h.User)
             .Where(h => h.TaskId == taskId)
@@ -1505,6 +1533,9 @@ public partial class TasksController(
     [RequireModulePermission("Task", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<TaskReminderDto>>>> GetReminders(Guid taskId)
     {
+        if (await GetViewableTaskAsync(taskId) == null)
+            return Ok(AppResponse<List<TaskReminderDto>>.Error("Bạn không có quyền xem công việc này"));
+
         var reminders = await _dbContext.TaskReminders
             .Include(r => r.SentBy)
             .Include(r => r.SentTo)
@@ -1647,6 +1678,9 @@ public partial class TasksController(
     [RequireModulePermission("Task", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<TaskEvaluationDto>>>> GetEvaluations(Guid taskId)
     {
+        if (await GetViewableTaskAsync(taskId) == null)
+            return Ok(AppResponse<List<TaskEvaluationDto>>.Error("Bạn không có quyền xem công việc này"));
+
         var evaluations = await _dbContext.TaskEvaluations
             .Include(e => e.Evaluator)
             .Include(e => e.Task)
@@ -1889,9 +1923,58 @@ public partial class TasksController(
             ChangeType = changeType,
             OldValue = oldValue,
             NewValue = newValue,
-            Description = $"{changeType}: {oldValue ?? "null"} â†’ {newValue}"
+            Description = FormatHistoryDescription(changeType, oldValue, newValue)
         };
     }
+
+    private static string FormatHistoryDescription(
+        string changeType, string? oldValue, string? newValue) =>
+        changeType switch
+        {
+            "StatusChanged" =>
+                $"Đổi trạng thái: {LocalizeTaskStatus(oldValue)} → {LocalizeTaskStatus(newValue)}",
+            "ProgressUpdated" =>
+                $"Cập nhật tiến độ: {oldValue ?? "0"}% → {newValue ?? "0"}%",
+            "TitleChanged" => "Đổi tiêu đề công việc",
+            "TypeChanged" =>
+                $"Đổi loại: {LocalizeTaskType(oldValue)} → {LocalizeTaskType(newValue)}",
+            "PriorityChanged" =>
+                $"Đổi ưu tiên: {LocalizeTaskPriority(oldValue)} → {LocalizeTaskPriority(newValue)}",
+            "AssigneeChanged" => "Đổi người thực hiện",
+            _ => $"Cập nhật: {oldValue ?? "—"} → {newValue ?? "—"}"
+        };
+
+    private static string LocalizeTaskStatus(string? value) => value switch
+    {
+        "Todo" => "Chờ làm",
+        "InProgress" => "Đang làm",
+        "InReview" => "Đang xem xét",
+        "Completed" => "Hoàn thành",
+        "Cancelled" => "Đã hủy",
+        "OnHold" => "Tạm hoãn",
+        "Assigned" => "Chờ xác nhận",
+        _ => value ?? "—"
+    };
+
+    private static string LocalizeTaskType(string? value) => value switch
+    {
+        "Task" => "Công việc",
+        "Bug" => "Lỗi",
+        "Feature" => "Tính năng",
+        "Improvement" => "Cải tiến",
+        "Meeting" => "Cuộc họp",
+        "Other" => "Khác",
+        _ => value ?? "—"
+    };
+
+    private static string LocalizeTaskPriority(string? value) => value switch
+    {
+        "Low" => "Thấp",
+        "Medium" => "Trung bình",
+        "High" => "Cao",
+        "Urgent" => "Khẩn cấp",
+        _ => value ?? "—"
+    };
 
     #endregion
 }

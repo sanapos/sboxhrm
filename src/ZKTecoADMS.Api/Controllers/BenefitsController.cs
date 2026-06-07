@@ -109,10 +109,31 @@ public class BenefitsController(IMediator mediator) : AuthenticatedControllerBas
     /// </summary>
     [HttpGet("employees/{employeeId}")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
-    [RequireAnyModulePermission(ModulePermissionAction.View, "Benefit", "BonusPenalty")]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "Benefit", "BonusPenalty", "Payroll")]
     public async Task<ActionResult<AppResponse<EmployeeBenefitDto>>> GetEmployeeBenefit(Guid employeeId)
     {
+        if (IsEmployee && !IsManager)
+        {
+            if (!EmployeeId.HasValue || EmployeeId.Value != employeeId)
+                return Forbid();
+        }
+
         var query = new GetEmployeeBenefitQuery(employeeId);
+        var result = await mediator.Send(query);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Hồ sơ lương của user đang đăng nhập — không yêu cầu quyền Benefit (NV xem lương của mình).
+    /// </summary>
+    [HttpGet("me")]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    public async Task<ActionResult<AppResponse<EmployeeBenefitDto>>> GetMyEmployeeBenefit()
+    {
+        if (!EmployeeId.HasValue)
+            return Ok(AppResponse<EmployeeBenefitDto>.Error("Tài khoản chưa liên kết với nhân viên"));
+
+        var query = new GetEmployeeBenefitQuery(EmployeeId.Value);
         var result = await mediator.Send(query);
         return Ok(result);
     }

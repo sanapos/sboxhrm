@@ -184,41 +184,47 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
     setState(() => _isLoading = true);
     try {
       final range = _selectedDateRange;
-      final empFuture = _apiService.getEmployees();
-      final txFuture = _apiService.getTransactions(
-        fromDate: range.start,
-        toDate: range.end,
-        type: _filterType == 'all' ? null : _filterType,
-        page: _currentPage,
-        pageSize: _pageSize,
-      );
-      final results = await Future.wait([empFuture, txFuture]);
-
-      final empResult = results[0];
-      final txResult = results[1];
-
-      final employees = empResult as List<dynamic>;
 
       List<Map<String, dynamic>> transactions = [];
       int totalCount = 0;
-      final txData = txResult as Map<String, dynamic>;
-      if (txData['isSuccess'] == true) {
-        final data = txData['data'];
-        if (data is Map && data['items'] is List) {
-          transactions = (data['items'] as List)
-              .map((e) => Map<String, dynamic>.from(e))
-              .toList();
-          totalCount = data['totalCount'] ?? transactions.length;
-        } else if (data is List) {
-          transactions = data.map((e) => Map<String, dynamic>.from(e)).toList();
-          totalCount = transactions.length;
+      try {
+        final txData = await _apiService.getTransactions(
+          fromDate: range.start,
+          toDate: range.end,
+          type: _filterType == 'all' ? null : _filterType,
+          page: _currentPage,
+          pageSize: _pageSize,
+        );
+        if (txData['isSuccess'] == true) {
+          final data = txData['data'];
+          if (data is Map && data['items'] is List) {
+            transactions = (data['items'] as List)
+                .map((e) => Map<String, dynamic>.from(e))
+                .toList();
+            totalCount = data['totalCount'] ?? transactions.length;
+          } else if (data is List) {
+            transactions =
+                data.map((e) => Map<String, dynamic>.from(e)).toList();
+            totalCount = transactions.length;
+          }
         }
+      } catch (e) {
+        debugPrint('Error loading bonus/penalty transactions: $e');
+      }
+
+      List<Map<String, dynamic>> employees = [];
+      try {
+        final empResult = await _apiService.getEmployees();
+        employees = empResult
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
+      } catch (e) {
+        debugPrint('Error loading employees for bonus/penalty filters: $e');
       }
 
       if (mounted) {
         setState(() {
-          _employees =
-              employees.map((e) => Map<String, dynamic>.from(e)).toList();
+          _employees = employees;
           _transactions = transactions;
           _totalCount = totalCount;
           _isLoading = false;
@@ -1404,7 +1410,11 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                               onTap: () => _handleAction('approve', tx)),
                           const SizedBox(width: 6),
                         ],
-                        if (status == 'Completed' && _awaitingCashPayment(tx)) ...[
+                        if (status == 'Completed' &&
+                            _awaitingCashPayment(tx) &&
+                            Provider.of<PermissionProvider>(context,
+                                    listen: false)
+                                .canApprove('BonusPenalty')) ...[
                           _ActionBtn(
                             icon: isBonus ? Icons.payment : Icons.receipt_long,
                             label:
@@ -1682,7 +1692,9 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                     _handleAction('approve', tx);
                   },
                 ),
-              if (status == 'Completed' && _awaitingCashPayment(tx))
+              if (status == 'Completed' &&
+                  _awaitingCashPayment(tx) &&
+                  perms.canApprove('BonusPenalty'))
                 ListTile(
                   leading: Icon(
                     isBonus ? Icons.payment : Icons.receipt_long,

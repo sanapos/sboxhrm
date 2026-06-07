@@ -24,8 +24,8 @@ public class AdvanceRequestsController(
     ISystemNotificationService notificationService) : AuthenticatedControllerBase
 {
     [HttpGet]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
-    [RequireModulePermission("AdvanceRequests", ModulePermissionAction.View)]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "AdvanceRequests", "AdvanceReport")]
     public async Task<ActionResult<AppResponse<PagedResult<AdvanceRequestDto>>>> GetAdvanceRequests(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10,
@@ -34,6 +34,9 @@ public class AdvanceRequestsController(
         [FromQuery] DateTime? fromDate = null,
         [FromQuery] DateTime? toDate = null)
     {
+        if (IsEmployee && !IsManager)
+            employeeUserId = CurrentUserId;
+
         var query = new GetAdvanceRequestsQuery(RequiredStoreId, page, pageSize, employeeUserId, status, fromDate, toDate);
         var result = await mediator.Send(query);
         return Ok(result);
@@ -41,7 +44,7 @@ public class AdvanceRequestsController(
 
     [HttpGet("my")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
-    [RequireModulePermission("AdvanceRequests", ModulePermissionAction.View)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "AdvanceRequests", "AdvanceReport")]
     public async Task<ActionResult<AppResponse<PagedResult<AdvanceRequestDto>>>> GetMyAdvanceRequests(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10,
@@ -153,7 +156,7 @@ public class AdvanceRequestsController(
 
     [HttpPost("{id}/cancel")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
-    [RequireModulePermission("AdvanceRequests", ModulePermissionAction.Delete)]
+    [RequireModulePermission("AdvanceRequests", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<bool>>> CancelAdvanceRequest(Guid id)
     {
         var command = new CancelAdvanceRequestCommand(

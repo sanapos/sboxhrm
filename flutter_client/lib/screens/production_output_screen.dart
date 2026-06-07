@@ -8,8 +8,8 @@ import 'package:excel/excel.dart' as xl;
 import '../utils/file_saver.dart' as file_saver;
 import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
+import '../utils/report_screen_helpers.dart';
 import '../widgets/notification_overlay.dart';
-import '../widgets/hrm_responsive_list_layout.dart';
 import '../widgets/app_scroll_safe.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
@@ -25,6 +25,29 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
   final ApiService _apiService = ApiService();
   final _currencyFormat = NumberFormat('#,###', 'vi_VN');
 
+  static double _toDouble(dynamic v, [double fallback = 0]) {
+    if (v == null) return fallback;
+    if (v is num) return v.toDouble();
+    if (v is String) {
+      return double.tryParse(v.replaceAll(',', '').trim()) ?? fallback;
+    }
+    return fallback;
+  }
+
+  static List<Map<String, dynamic>> _parseMapList(dynamic raw) {
+    if (raw is! List) return [];
+    final out = <Map<String, dynamic>>[];
+    for (final e in raw) {
+      if (e is Map) out.add(Map<String, dynamic>.from(e));
+    }
+    return out;
+  }
+
+  static String _avatarLetter(dynamic name) {
+    final s = (name ?? '').toString().trim();
+    return s.isEmpty ? '?' : s[0].toUpperCase();
+  }
+
   late TabController _tabCtl;
 
   // Data
@@ -39,6 +62,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
   // Filters
   DateTime _fromDate = DateTime.now().copyWith(day: 1);
   DateTime _toDate = DateTime.now();
+  String _datePreset = 'this_month';
   String? _filterEmployeeId;
   String? _filterGroupId;
   String? _filterItemId;
@@ -46,6 +70,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
   List<Map<String, dynamic>> _branches = [];
   int _page = 1;
   final int _pageSize = 50;
+  bool _isExporting = false;
 
   // Mobile UI state
   @override
@@ -93,10 +118,10 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
         _apiService.getProductItems(),
       ]);
       if (results[0]['isSuccess'] == true) {
-        _groups = List<Map<String, dynamic>>.from(results[0]['data'] ?? []);
+        _groups = _parseMapList(results[0]['data']);
       }
       if (results[1]['isSuccess'] == true) {
-        _items = List<Map<String, dynamic>>.from(results[1]['data'] ?? []);
+        _items = _parseMapList(results[1]['data']);
       }
       debugPrint('Loaded ${_groups.length} groups, ${_items.length} items');
     } catch (e) {
@@ -123,8 +148,10 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
       );
       if (res['isSuccess'] == true) {
         final data = res['data'];
-        _entries = List<Map<String, dynamic>>.from(data['items'] ?? []);
-        _total = data['total'] ?? 0;
+        if (data is Map) {
+          _entries = _parseMapList(data['items']);
+          _total = (data['total'] as num?)?.toInt() ?? _entries.length;
+        }
       }
     } catch (e) {
       debugPrint('Load entries error: $e');
@@ -146,7 +173,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
         productGroupId: _filterGroupId,
       );
       if (res['isSuccess'] == true) {
-        _summaries = List<Map<String, dynamic>>.from(res['data'] ?? []);
+        _summaries = _parseMapList(res['data']);
       }
     } catch (e) {
       debugPrint('Load summary error: $e');
@@ -238,141 +265,41 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                         ],
                       ),
                     ),
-                    // Filter toggle (mobile)
-                    if (isMobile) ...[
-                      GestureDetector(
-                        onTap: () {
-                          _showMobileImportMenu(context);
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(7),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(Icons.file_upload_outlined,
-                              size: 18, color: Colors.white),
-                        ),
-                      ),
-                    ],
-                    // Desktop buttons
-                    if (!isMobile) ...[
-                      PopupMenuButton<String>(
-                        icon: const Icon(Icons.file_upload_outlined,
-                            color: Colors.white70),
-                        tooltip: 'Import dữ liệu',
-                        onSelected: (v) {
-                          if (v == 'excel') _showExcelImportDialog();
-                          if (v == 'gsheet') _showGSheetSyncDialog();
-                        },
-                        itemBuilder: (ctx) => [
-                          const PopupMenuItem(
-                              value: 'excel',
-                              child: Row(children: [
-                                Icon(Icons.table_chart,
-                                    size: 18, color: Color(0xFF059669)),
-                                SizedBox(width: 8),
-                                Text('Import từ Excel'),
-                              ])),
-                          const PopupMenuItem(
-                              value: 'gsheet',
-                              child: Row(children: [
-                                Icon(Icons.cloud_download,
-                                    size: 18, color: Color(0xFF1A73E8)),
-                                SizedBox(width: 8),
-                                Text('Đồng bộ Google Sheet'),
-                              ])),
-                        ],
-                      ),
-                      const SizedBox(width: 4),
-                      if (Provider.of<PermissionProvider>(context,
-                              listen: false)
-                          .canCreate('Production'))
-                        FilledButton.icon(
-                          onPressed: () {
-                            if (_items.isEmpty) {
-                              NotificationOverlayManager().showError(
-                                title: 'Chưa có sản phẩm',
-                                message:
-                                    'Vui lòng thêm sản phẩm trước khi nhập sản lượng',
-                              );
-                              return;
-                            }
-                            _showAddEntryDialog();
-                          },
-                          icon: const Icon(Icons.add,
-                              size: 18, color: Colors.white),
-                          label: const Text('Nhập sản lượng',
-                              style: TextStyle(color: Colors.white)),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor:
-                                Colors.white.withValues(alpha: 0.2),
-                            elevation: 0,
-                          ),
-                        ),
-                    ],
                   ],
                 ),
               ],
             ),
           ),
 
+          _buildToolbarRow(),
+
           Expanded(
-            child: isMobile
-                ? HrmMobileNestedTabLayout(
-                    headerSections: [_buildProductionFilters()],
-                    tabBar: TabBar(
-                      controller: _tabCtl,
-                      labelColor: primary,
-                      unselectedLabelColor: const Color(0xFF71717A),
-                      indicatorColor: primary,
-                      tabs: const [
-                        Tab(text: 'Chi tiết'),
-                        Tab(text: 'Tổng hợp'),
-                      ],
-                    ),
-                    tabBarView: TabBarView(
-                      controller: _tabCtl,
-                      children: [
-                        _isLoading
-                            ? const Center(child: CircularProgressIndicator())
-                            : _buildEntriesTab(nestedTab: true),
-                        _isLoading
-                            ? const Center(child: CircularProgressIndicator())
-                            : HrmScrollSlivers.nestedTabList(
-                                child: _buildSummaryTab()),
-                      ],
-                    ),
-                  )
-                : Column(
-                    children: [
-                      _buildProductionFilters(),
-                      Container(
-                        color: Colors.white,
-                        child: TabBar(
-                          controller: _tabCtl,
-                          labelColor: primary,
-                          unselectedLabelColor: const Color(0xFF71717A),
-                          indicatorColor: primary,
-                          tabs: const [
-                            Tab(text: 'Chi tiết'),
-                            Tab(text: 'Tổng hợp'),
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        child: _isLoading
-                            ? const Center(child: CircularProgressIndicator())
-                            : TabBarView(
-                                controller: _tabCtl,
-                                children: [
-                                  _buildEntriesTab(),
-                                  _buildSummaryTab(),
-                                ],
-                              ),
-                      ),
+            child: Column(
+              children: [
+                Container(
+                  color: Colors.white,
+                  child: TabBar(
+                    controller: _tabCtl,
+                    labelColor: primary,
+                    unselectedLabelColor: const Color(0xFF71717A),
+                    indicatorColor: primary,
+                    tabs: const [
+                      Tab(text: 'Chi tiết'),
+                      Tab(text: 'Tổng hợp'),
                     ],
                   ),
+                ),
+                Expanded(
+                  child: TabBarView(
+                    controller: _tabCtl,
+                    children: [
+                      _buildEntriesTab(),
+                      _buildSummaryTab(),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -384,6 +311,88 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
       _filterGroupId != null ||
       _filterItemId != null ||
       _filterBranchId != null;
+
+  int get _activeFilterCount {
+    var n = 0;
+    if (_filterEmployeeId != null) n++;
+    if (_filterGroupId != null) n++;
+    if (_filterItemId != null) n++;
+    if (_filterBranchId != null) n++;
+    return n;
+  }
+
+  List<Map<String, dynamic>> get _filterableEmployees {
+    var list = _employees;
+    if (_filterBranchId != null) {
+      list = list
+          .where((e) => e['branchId']?.toString() == _filterBranchId)
+          .toList();
+    }
+    return list
+        .where((e) => (e['id']?.toString() ?? '').isNotEmpty)
+        .toList();
+  }
+
+  List<Map<String, dynamic>> get _filterableItems {
+    if (_filterGroupId == null) return _items;
+    return _items
+        .where((i) => i['productGroupId']?.toString() == _filterGroupId)
+        .toList();
+  }
+
+  String _employeeLabel(String id) {
+    final e = _employees.firstWhere(
+      (x) => x['id']?.toString() == id,
+      orElse: () => <String, dynamic>{},
+    );
+    if (e.isEmpty) return id;
+    return '${e['lastName'] ?? ''} ${e['firstName'] ?? ''}'.trim();
+  }
+
+  String _groupLabel(String id) =>
+      _groups
+          .firstWhere(
+            (g) => g['id']?.toString() == id,
+            orElse: () => <String, dynamic>{'name': id},
+          )['name']
+          ?.toString() ??
+      id;
+
+  String _itemLabel(String id) =>
+      _items
+          .firstWhere(
+            (i) => i['id']?.toString() == id,
+            orElse: () => <String, dynamic>{'name': id},
+          )['name']
+          ?.toString() ??
+      id;
+
+  String _branchLabel(String id) =>
+      _branches
+          .firstWhere(
+            (b) => b['id']?.toString() == id,
+            orElse: () => <String, dynamic>{'name': id},
+          )['name']
+          ?.toString() ??
+      id;
+
+  void _clearFilters() {
+    setState(() {
+      _filterEmployeeId = null;
+      _filterGroupId = null;
+      _filterItemId = null;
+      _filterBranchId = null;
+    });
+    _reloadCurrentTab();
+  }
+
+  String? _validDropdownValue(String? value, Iterable<String?> options) {
+    if (value == null || value.isEmpty) return null;
+    for (final o in options) {
+      if (o == value) return value;
+    }
+    return null;
+  }
 
   void _showMobileImportMenu(BuildContext context) {
     showModalBottomSheet(
@@ -427,120 +436,944 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
     );
   }
 
-  Widget _buildProductionFilters() {
+  Widget _buildToolbarRow() {
     final isMobile = Responsive.isMobile(context);
-    return Container(
-      padding: EdgeInsets.symmetric(
-          horizontal: isMobile ? 12 : 24, vertical: isMobile ? 10 : 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Wrap(
-        spacing: 12,
-        runSpacing: 8,
+    const primary = Color(0xFF059669);
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    final canCreate = perm.canCreate('Production');
+    final canExport = perm.canExport('Production');
+
+    Widget buildActions({bool compact = false}) {
+      final importBtn = compact
+          ? IconButton(
+              tooltip: 'Import dữ liệu',
+              onPressed: () => _showMobileImportMenu(context),
+              icon: const Icon(Icons.file_upload_outlined, size: 20),
+              style: IconButton.styleFrom(foregroundColor: primary),
+            )
+          : PopupMenuButton<String>(
+              tooltip: 'Import dữ liệu',
+              icon: const Icon(Icons.file_upload_outlined, size: 18),
+              padding: EdgeInsets.zero,
+              onSelected: (v) {
+                if (v == 'excel') _showExcelImportDialog();
+                if (v == 'gsheet') _showGSheetSyncDialog();
+              },
+              itemBuilder: (ctx) => const [
+                PopupMenuItem(
+                    value: 'excel',
+                    child: Row(children: [
+                      Icon(Icons.table_chart,
+                          size: 18, color: Color(0xFF059669)),
+                      SizedBox(width: 8),
+                      Text('Import từ Excel'),
+                    ])),
+                PopupMenuItem(
+                    value: 'gsheet',
+                    child: Row(children: [
+                      Icon(Icons.cloud_download,
+                          size: 18, color: Color(0xFF1A73E8)),
+                      SizedBox(width: 8),
+                      Text('Đồng bộ Google Sheet'),
+                    ])),
+              ],
+            );
+
+      return Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          _buildDateFilter('Từ ngày', _fromDate, (d) {
-            setState(() => _fromDate = d);
-            _reloadCurrentTab();
-          }),
-          _buildDateFilter('Đến ngày', _toDate, (d) {
-            setState(() => _toDate = d);
-            _reloadCurrentTab();
-          }),
-          _buildDropdown(
-            'Nhân viên',
-            _filterEmployeeId,
-            (_filterBranchId != null
-                    ? _employees
-                        .where((e) =>
-                            e['branchId']?.toString() == _filterBranchId)
-                        .toList()
-                    : _employees)
-                .map((e) {
-              final name =
-                  '${e['lastName'] ?? ''} ${e['firstName'] ?? ''}'.trim();
-              return DropdownMenuItem(
-                  value: e['id']?.toString(), child: Text(name));
-            }).toList(),
-            (v) {
-              setState(() => _filterEmployeeId = v);
-              _reloadCurrentTab();
-            },
-          ),
-          _buildDropdown(
-            'Nhóm SP',
-            _filterGroupId,
-            _groups
-                .map((g) => DropdownMenuItem(
-                    value: g['id']?.toString(), child: Text(g['name'] ?? '')))
-                .toList(),
-            (v) {
-              setState(() => _filterGroupId = v);
-              _reloadCurrentTab();
-            },
-          ),
-          if (_branches.isNotEmpty)
-            Container(
-              height: 40,
-              constraints:
-                  const BoxConstraints(minWidth: 150, maxWidth: 220),
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFE4E4E7)),
-              ),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                const Icon(Icons.account_tree_outlined,
-                    size: 15, color: Color(0xFF6B7280)),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String?>(
-                      value: _filterBranchId,
-                      isExpanded: true,
-                      isDense: true,
-                      style: const TextStyle(
-                          fontSize: 12, color: Color(0xFF111827)),
-                      icon: const Icon(Icons.keyboard_arrow_down,
-                          size: 16, color: Color(0xFF9CA3AF)),
-                      items: [
-                        const DropdownMenuItem<String?>(
-                            value: null,
-                            child: Text('Chi nhánh',
-                                style: TextStyle(fontSize: 12))),
-                        ..._branches.map((b) => DropdownMenuItem<String?>(
-                            value: b['id']?.toString(),
-                            child: Text(b['name']?.toString() ?? '',
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontSize: 12)))),
-                      ],
-                      onChanged: (v) {
-                        setState(() {
-                          _filterBranchId = v;
-                          if (v != null) _filterEmployeeId = null;
-                        });
-                      },
+          if (canExport)
+            compact
+                ? IconButton(
+                    tooltip: 'Xuất Excel',
+                    onPressed: _isExporting ? null : _exportExcel,
+                    icon: _isExporting
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.file_download_outlined, size: 20),
+                    style: IconButton.styleFrom(foregroundColor: primary),
+                  )
+                : OutlinedButton.icon(
+                    onPressed: _isExporting ? null : _exportExcel,
+                    icon: _isExporting
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.file_download_outlined, size: 16),
+                    label: Text(_isExporting ? 'Đang xuất...' : 'Xuất Excel',
+                        style: const TextStyle(fontSize: 13)),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: primary,
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 8),
                     ),
                   ),
-                ),
-                if (_filterBranchId != null)
-                  InkWell(
-                    onTap: () => setState(() => _filterBranchId = null),
-                    child: const Padding(
-                        padding: EdgeInsets.all(3),
-                        child: Icon(Icons.close,
-                            size: 13, color: Color(0xFF9CA3AF))),
+          importBtn,
+          if (canCreate) ...[
+            compact
+                ? IconButton(
+                    tooltip: 'Thêm sản phẩm',
+                    onPressed: _showAddProductDialog,
+                    icon: const Icon(Icons.inventory_2_outlined, size: 20),
+                    style: IconButton.styleFrom(foregroundColor: primary),
+                  )
+                : OutlinedButton.icon(
+                    onPressed: _showAddProductDialog,
+                    icon: const Icon(Icons.inventory_2_outlined, size: 16),
+                    label: const Text('Thêm SP',
+                        style: TextStyle(fontSize: 13)),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: primary,
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 8),
+                    ),
                   ),
-              ]),
+            if (!compact)
+              FilledButton.icon(
+                onPressed: () {
+                  if (_items.isEmpty) {
+                    NotificationOverlayManager().showError(
+                      title: 'Chưa có sản phẩm',
+                      message:
+                          'Vui lòng thêm sản phẩm trước khi nhập sản lượng',
+                    );
+                    return;
+                  }
+                  _showAddEntryDialog();
+                },
+                icon: const Icon(Icons.add, size: 16),
+                label: const Text('Nhập SL',
+                    style: TextStyle(fontSize: 13)),
+                style: FilledButton.styleFrom(
+                  backgroundColor: primary,
+                  visualDensity: VisualDensity.compact,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                ),
+              ),
+          ],
+        ],
+      );
+    }
+
+    final toolbarContent = Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        SizedBox(width: isMobile ? 120 : 130, child: _buildPeriodDropdown()),
+        const SizedBox(width: 8),
+        _buildCompactDateRange(),
+        const SizedBox(width: 8),
+        if (isMobile) ...[
+          OutlinedButton.icon(
+            onPressed: _showFilterSheet,
+            icon: Badge(
+              isLabelVisible: _activeFilterCount > 0,
+              label: Text('$_activeFilterCount',
+                  style: const TextStyle(fontSize: 10)),
+              child: const Icon(Icons.tune, size: 16),
             ),
+            label: Text(
+              _activeFilterCount > 0 ? 'Lọc ($_activeFilterCount)' : 'Lọc',
+              style: const TextStyle(fontSize: 12),
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: primary,
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            ),
+          ),
+        ] else ...[
+          SizedBox(
+              width: 150,
+              child: _buildFilterDropdownField(
+                label: 'Nhân viên',
+                value: _filterEmployeeId,
+                items: [
+                  const DropdownMenuItem<String?>(
+                      value: null, child: Text('Tất cả NV')),
+                  ..._filterableEmployees.map((e) {
+                    final name =
+                        '${e['lastName'] ?? ''} ${e['firstName'] ?? ''}'
+                            .trim();
+                    return DropdownMenuItem<String?>(
+                      value: e['id']?.toString(),
+                      child:
+                          Text(name, overflow: TextOverflow.ellipsis),
+                    );
+                  }),
+                ],
+                onChanged: (v) {
+                  setState(() => _filterEmployeeId = v);
+                  _reloadCurrentTab();
+                },
+              )),
+          const SizedBox(width: 6),
+          SizedBox(
+              width: 120,
+              child: _buildFilterDropdownField(
+                label: 'Nhóm',
+                value: _filterGroupId,
+                items: [
+                  const DropdownMenuItem<String?>(
+                      value: null, child: Text('Tất cả')),
+                  ..._groups.map((g) => DropdownMenuItem<String?>(
+                        value: g['id']?.toString(),
+                        child: Text(g['name']?.toString() ?? '',
+                            overflow: TextOverflow.ellipsis),
+                      )),
+                ],
+                onChanged: (v) {
+                  setState(() {
+                    _filterGroupId = v;
+                    if (_filterItemId != null &&
+                        !_filterableItems.any((i) =>
+                            i['id']?.toString() == _filterItemId)) {
+                      _filterItemId = null;
+                    }
+                  });
+                  _reloadCurrentTab();
+                },
+              )),
+          const SizedBox(width: 6),
+          SizedBox(
+              width: 120,
+              child: _buildFilterDropdownField(
+                label: 'Sản phẩm',
+                value: _filterItemId,
+                items: [
+                  const DropdownMenuItem<String?>(
+                      value: null, child: Text('Tất cả')),
+                  ..._filterableItems.map((i) => DropdownMenuItem<String?>(
+                        value: i['id']?.toString(),
+                        child: Text(i['name']?.toString() ?? '',
+                            overflow: TextOverflow.ellipsis),
+                      )),
+                ],
+                onChanged: (v) {
+                  setState(() => _filterItemId = v);
+                  _reloadCurrentTab();
+                },
+              )),
+          if (_branches.isNotEmpty) ...[
+            const SizedBox(width: 6),
+            SizedBox(
+                width: 120,
+                child: _buildFilterDropdownField(
+                  label: 'Chi nhánh',
+                  value: _filterBranchId,
+                  items: [
+                    const DropdownMenuItem<String?>(
+                        value: null, child: Text('Tất cả')),
+                    ..._branches.map((b) => DropdownMenuItem<String?>(
+                          value: b['id']?.toString(),
+                          child: Text(b['name']?.toString() ?? '',
+                              overflow: TextOverflow.ellipsis),
+                        )),
+                  ],
+                  onChanged: (v) {
+                    setState(() {
+                      _filterBranchId = v;
+                      if (v != null) _filterEmployeeId = null;
+                    });
+                    _reloadCurrentTab();
+                  },
+                )),
+          ],
+          if (_hasActiveFilters)
+            IconButton(
+              tooltip: 'Xóa bộ lọc',
+              onPressed: _clearFilters,
+              icon: const Icon(Icons.filter_alt_off, size: 18),
+              visualDensity: VisualDensity.compact,
+            ),
+        ],
+        const Spacer(),
+        buildActions(compact: isMobile),
+      ],
+    );
+
+    return Theme(
+      data: Theme.of(context).copyWith(
+        canvasColor: Colors.white,
+        inputDecorationTheme: const InputDecorationTheme(
+          fillColor: Colors.white,
+          filled: true,
+        ),
+      ),
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+        ),
+        padding: EdgeInsets.symmetric(
+            horizontal: isMobile ? 10 : 16, vertical: isMobile ? 6 : 8),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: toolbarContent,
+        ),
+      ),
+    );
+  }
+
+  static const _toolbarFieldText = TextStyle(
+    fontSize: 12,
+    color: Color(0xFF111827),
+  );
+
+  InputDecoration _toolbarFieldDecoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      isDense: true,
+      filled: true,
+      fillColor: Colors.white,
+      labelStyle: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+      floatingLabelStyle:
+          const TextStyle(fontSize: 12, color: Color(0xFF059669)),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: Color(0xFF059669)),
+      ),
+    );
+  }
+
+  Widget _buildPeriodDropdown() {
+    return DropdownButtonFormField<String>(
+      key: ValueKey('period-$_datePreset'),
+      initialValue: _datePreset,
+      isExpanded: true,
+      dropdownColor: Colors.white,
+      icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF6B7280)),
+      decoration: _toolbarFieldDecoration('Kỳ'),
+      style: _toolbarFieldText,
+      items: const [
+        DropdownMenuItem(
+            value: 'today',
+            child: Text('Hôm nay', style: _toolbarFieldText)),
+        DropdownMenuItem(
+            value: 'yesterday',
+            child: Text('Hôm qua', style: _toolbarFieldText)),
+        DropdownMenuItem(
+            value: 'this_week',
+            child: Text('Tuần này', style: _toolbarFieldText)),
+        DropdownMenuItem(
+            value: 'last_week',
+            child: Text('Tuần trước', style: _toolbarFieldText)),
+        DropdownMenuItem(
+            value: 'this_month',
+            child: Text('Tháng này', style: _toolbarFieldText)),
+        DropdownMenuItem(
+            value: 'last_month',
+            child: Text('Tháng trước', style: _toolbarFieldText)),
+        DropdownMenuItem(
+            value: 'custom',
+            child: Text('Tùy chọn', style: _toolbarFieldText)),
+      ],
+      onChanged: (v) async {
+        if (v == null) return;
+        if (v == 'custom') {
+          final picked = await showDateRangePicker(
+            context: context,
+            firstDate: DateTime(2020),
+            lastDate: DateTime.now().add(const Duration(days: 365)),
+            initialDateRange: DateTimeRange(start: _fromDate, end: _toDate),
+            locale: const Locale('vi'),
+          );
+          if (picked != null) {
+            setState(() {
+              _fromDate = picked.start;
+              _toDate = picked.end;
+              _datePreset = 'custom';
+            });
+            _reloadCurrentTab();
+          }
+        } else {
+          final r = ReportDateRangePresets.resolve(v);
+          setState(() {
+            _fromDate = r.from;
+            _toDate = r.to;
+            _datePreset = v;
+          });
+          _reloadCurrentTab();
+        }
+      },
+    );
+  }
+
+  Widget _buildCompactDateRange() {
+    final fmt = DateFormat('dd/MM/yy');
+    return InkWell(
+      onTap: () async {
+        final picked = await showDateRangePicker(
+          context: context,
+          firstDate: DateTime(2020),
+          lastDate: DateTime.now().add(const Duration(days: 365)),
+          initialDateRange: DateTimeRange(start: _fromDate, end: _toDate),
+          locale: const Locale('vi'),
+        );
+        if (picked != null) {
+          setState(() {
+            _fromDate = picked.start;
+            _toDate = picked.end;
+            _datePreset = 'custom';
+          });
+          _reloadCurrentTab();
+        }
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        height: 40,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          border: Border.all(color: const Color(0xFFE4E4E7)),
+          borderRadius: BorderRadius.circular(8),
+          color: const Color(0xFFF8FAFC),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.calendar_today_outlined,
+                size: 14, color: Color(0xFF6B7280)),
+            const SizedBox(width: 6),
+            Text(
+              '${fmt.format(_fromDate)} – ${fmt.format(_toDate)}',
+              style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF111827)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _exportExcel() async {
+    if (_isExporting) return;
+    setState(() => _isExporting = true);
+    try {
+      final res = await _apiService.getProductionExport(
+        fromDate: _fromDate,
+        toDate: _toDate,
+        employeeId: _filterEmployeeId,
+        productGroupId: _filterGroupId,
+      );
+      if (res['isSuccess'] != true) {
+        NotificationOverlayManager().showError(
+          title: 'Lỗi',
+          message: res['message']?.toString() ?? 'Không thể xuất dữ liệu',
+        );
+        return;
+      }
+      final raw = res['data'];
+      if (raw is! List || raw.isEmpty) {
+        NotificationOverlayManager().showError(
+            title: 'Thông báo', message: 'Không có dữ liệu để xuất');
+        return;
+      }
+      final fmt = DateFormat('dd/MM/yyyy');
+      final rows = <List<dynamic>>[];
+      for (int i = 0; i < raw.length; i++) {
+        final e = Map<String, dynamic>.from(raw[i] as Map);
+        final workDate = DateTime.tryParse(e['workDate']?.toString() ?? '');
+        rows.add([
+          i + 1,
+          workDate != null ? fmt.format(workDate) : '',
+          e['employeeName'] ?? '',
+          e['employeeCode'] ?? '',
+          e['groupName'] ?? e['productGroupName'] ?? '',
+          e['productName'] ?? e['productItemName'] ?? '',
+          e['quantity'] ?? 0,
+          _toDouble(e['unitPrice']),
+          _toDouble(e['amount']),
+          e['note'] ?? '',
+        ]);
+      }
+      final filterParts = <String>[];
+      if (_filterEmployeeId != null) {
+        filterParts.add('NV: ${_employeeLabel(_filterEmployeeId!)}');
+      }
+      if (_filterGroupId != null) {
+        filterParts.add('Nhóm: ${_groupLabel(_filterGroupId!)}');
+      }
+      if (_filterItemId != null) {
+        filterParts.add('SP: ${_itemLabel(_filterItemId!)}');
+      }
+      await ClientExcelExport.export(
+        context: context,
+        title: 'Báo cáo sản lượng',
+        sheetName: 'San luong',
+        filePrefix: 'SanLuong',
+        headers: const [
+          'STT',
+          'Ngày',
+          'Nhân viên',
+          'Mã NV',
+          'Nhóm SP',
+          'Sản phẩm',
+          'Số lượng',
+          'Đơn giá',
+          'Thành tiền',
+          'Ghi chú',
+        ],
+        rows: rows,
+        periodLabel:
+            '${fmt.format(_fromDate)} – ${fmt.format(_toDate)}',
+        filterLabel:
+            filterParts.isEmpty ? null : filterParts.join(' · '),
+      );
+    } catch (e) {
+      NotificationOverlayManager().showError(
+          title: 'Lỗi', message: 'Không thể xuất Excel: $e');
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
+  }
+
+  Widget _buildFilterDropdownField({
+    required String label,
+    required String? value,
+    required List<DropdownMenuItem<String?>> items,
+    required ValueChanged<String?> onChanged,
+  }) {
+    final safeValue = _validDropdownValue(
+      value,
+      items.map((i) => i.value),
+    );
+    return DropdownButtonFormField<String?>(
+      key: ValueKey('$label-$safeValue'),
+      initialValue: safeValue,
+      isExpanded: true,
+      dropdownColor: Colors.white,
+      icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF6B7280)),
+      decoration: _toolbarFieldDecoration(label),
+      style: _toolbarFieldText,
+      items: items,
+      onChanged: onChanged,
+    );
+  }
+
+  void _showFilterSheet() {
+    var employeeId = _filterEmployeeId;
+    var groupId = _filterGroupId;
+    var itemId = _filterItemId;
+    var branchId = _filterBranchId;
+
+    showAppSheet(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) {
+          final sheetEmployees = branchId == null
+              ? _employees
+              : _employees
+                  .where((e) => e['branchId']?.toString() == branchId)
+                  .toList();
+          final sheetItems = groupId == null
+              ? _items
+              : _items
+                  .where((i) => i['productGroupId']?.toString() == groupId)
+                  .toList();
+
+          return Padding(
+            padding: EdgeInsets.fromLTRB(
+              16,
+              12,
+              16,
+              16 + MediaQuery.of(ctx).padding.bottom,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    const Text('Bộ lọc',
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w600)),
+                    const Spacer(),
+                    if (employeeId != null ||
+                        groupId != null ||
+                        itemId != null ||
+                        branchId != null)
+                      TextButton(
+                        onPressed: () => setSheet(() {
+                          employeeId = null;
+                          groupId = null;
+                          itemId = null;
+                          branchId = null;
+                        }),
+                        child: const Text('Xóa tất cả',
+                            style: TextStyle(color: Color(0xFFEF4444))),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                if (_branches.isNotEmpty) ...[
+                  DropdownButtonFormField<String?>(
+                    key: ValueKey('sheet-branch-$branchId'),
+                    initialValue: branchId,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Chi nhánh',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    items: [
+                      const DropdownMenuItem<String?>(
+                          value: null, child: Text('Tất cả chi nhánh')),
+                      ..._branches.map((b) => DropdownMenuItem<String?>(
+                            value: b['id']?.toString(),
+                            child: Text(b['name']?.toString() ?? ''),
+                          )),
+                    ],
+                    onChanged: (v) => setSheet(() {
+                      branchId = v;
+                      if (v != null) employeeId = null;
+                    }),
+                  ),
+                  const SizedBox(height: 10),
+                ],
+                DropdownButtonFormField<String?>(
+                  key: ValueKey('sheet-emp-$employeeId'),
+                  initialValue: employeeId,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Nhân viên',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  items: [
+                    const DropdownMenuItem<String?>(
+                        value: null, child: Text('Tất cả nhân viên')),
+                    ...sheetEmployees.map((e) {
+                      final name =
+                          '${e['lastName'] ?? ''} ${e['firstName'] ?? ''}'
+                              .trim();
+                      return DropdownMenuItem<String?>(
+                        value: e['id']?.toString(),
+                        child: Text(name),
+                      );
+                    }),
+                  ],
+                  onChanged: (v) => setSheet(() => employeeId = v),
+                ),
+                const SizedBox(height: 10),
+                DropdownButtonFormField<String?>(
+                  key: ValueKey('sheet-group-$groupId'),
+                  initialValue: groupId,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Nhóm sản phẩm',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  items: [
+                    const DropdownMenuItem<String?>(
+                        value: null, child: Text('Tất cả nhóm')),
+                    ..._groups.map((g) => DropdownMenuItem<String?>(
+                          value: g['id']?.toString(),
+                          child: Text(g['name']?.toString() ?? ''),
+                        )),
+                  ],
+                  onChanged: (v) => setSheet(() {
+                    groupId = v;
+                    if (itemId != null) {
+                      final valid = v == null
+                          ? _items
+                          : _items.where(
+                              (i) => i['productGroupId']?.toString() == v);
+                      if (!valid.any((i) => i['id']?.toString() == itemId)) {
+                        itemId = null;
+                      }
+                    }
+                  }),
+                ),
+                const SizedBox(height: 10),
+                DropdownButtonFormField<String?>(
+                  key: ValueKey('sheet-item-$itemId'),
+                  initialValue: itemId,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Sản phẩm',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  items: [
+                    const DropdownMenuItem<String?>(
+                        value: null, child: Text('Tất cả sản phẩm')),
+                    ...sheetItems.map((i) => DropdownMenuItem<String?>(
+                          value: i['id']?.toString(),
+                          child: Text(i['name']?.toString() ?? ''),
+                        )),
+                  ],
+                  onChanged: (v) => setSheet(() => itemId = v),
+                ),
+                const SizedBox(height: 16),
+                FilledButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _filterEmployeeId = employeeId;
+                      _filterGroupId = groupId;
+                      _filterItemId = itemId;
+                      _filterBranchId = branchId;
+                    });
+                    Navigator.pop(ctx);
+                    _reloadCurrentTab();
+                  },
+                  icon: const Icon(Icons.check, size: 18),
+                  label: const Text('Áp dụng'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF059669),
+                    minimumSize: const Size(double.infinity, 44),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _reloadProductCatalog() async {
+    try {
+      final results = await Future.wait([
+        _apiService.getProductGroups(),
+        _apiService.getProductItems(),
+      ]);
+      if (results[0]['isSuccess'] == true) {
+        _groups = _parseMapList(results[0]['data']);
+      }
+      if (results[1]['isSuccess'] == true) {
+        _items = _parseMapList(results[1]['data']);
+      }
+      if (mounted) setState(() {});
+    } catch (e) {
+      debugPrint('Reload product catalog error: $e');
+    }
+  }
+
+  void _showAddProductDialog() {
+    if (_groups.isEmpty) {
+      _showQuickAddGroupDialog(andThenAddProduct: true);
+      return;
+    }
+
+    final codeCtl = TextEditingController();
+    final nameCtl = TextEditingController();
+    final unitCtl = TextEditingController(text: 'cái');
+    final priceCtl = TextEditingController(text: '0');
+    String? selectedGroupId = _filterGroupId ?? _groups.first['id']?.toString();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlg) => ScrollableAlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.inventory_2_outlined,
+                  size: 22, color: Color(0xFF059669)),
+              SizedBox(width: 8),
+              Text('Thêm sản phẩm'),
+            ],
+          ),
+          content: SizedBox(
+            width: 420,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  key: ValueKey('add-prod-group-$selectedGroupId'),
+                  initialValue: selectedGroupId,
+                  decoration: const InputDecoration(
+                    labelText: 'Nhóm sản phẩm *',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  items: _groups
+                      .map((g) => DropdownMenuItem(
+                            value: g['id']?.toString(),
+                            child: Text(g['name']?.toString() ?? ''),
+                          ))
+                      .toList(),
+                  onChanged: (v) => setDlg(() => selectedGroupId = v),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: codeCtl,
+                        decoration: const InputDecoration(
+                          labelText: 'Mã SP *',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: TextField(
+                        controller: nameCtl,
+                        decoration: const InputDecoration(
+                          labelText: 'Tên sản phẩm *',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: unitCtl,
+                        decoration: const InputDecoration(
+                          labelText: 'Đơn vị',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: priceCtl,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Đơn giá',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                          suffixText: 'đ',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => _showQuickAddGroupDialog(),
+              child: const Text('Thêm nhóm mới'),
+            ),
+            const Spacer(),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+            FilledButton(
+              onPressed: () async {
+                if (codeCtl.text.trim().isEmpty ||
+                    nameCtl.text.trim().isEmpty ||
+                    selectedGroupId == null) {
+                  NotificationOverlayManager().showError(
+                    title: 'Thiếu thông tin',
+                    message: 'Vui lòng nhập mã, tên và chọn nhóm sản phẩm',
+                  );
+                  return;
+                }
+                Navigator.pop(ctx);
+                final res = await _apiService.createProductItem({
+                  'code': codeCtl.text.trim(),
+                  'name': nameCtl.text.trim(),
+                  'unit': unitCtl.text.trim(),
+                  'productGroupId': selectedGroupId,
+                  'priceTiers': [
+                    {
+                      'tierLevel': 1,
+                      'minQuantity': 0,
+                      'maxQuantity': null,
+                      'unitPrice':
+                          double.tryParse(priceCtl.text.replaceAll(',', '')) ??
+                              0,
+                    },
+                  ],
+                });
+                if (res['isSuccess'] == true) {
+                  NotificationOverlayManager().showSuccess(
+                    title: 'Thành công',
+                    message: 'Đã thêm sản phẩm "${nameCtl.text.trim()}"',
+                  );
+                  await _reloadProductCatalog();
+                } else {
+                  NotificationOverlayManager().showError(
+                    title: 'Lỗi',
+                    message: res['message']?.toString() ?? 'Không thể thêm SP',
+                  );
+                }
+              },
+              style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF059669)),
+              child: const Text('Thêm'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showQuickAddGroupDialog({bool andThenAddProduct = false}) {
+    final nameCtl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => ScrollableAlertDialog(
+        title: const Text('Thêm nhóm sản phẩm'),
+        content: SizedBox(
+          width: 360,
+          child: TextField(
+            controller: nameCtl,
+            decoration: const InputDecoration(
+              labelText: 'Tên nhóm *',
+              border: OutlineInputBorder(),
+            ),
+            autofocus: true,
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+          FilledButton(
+            onPressed: () async {
+              if (nameCtl.text.trim().isEmpty) return;
+              Navigator.pop(ctx);
+              final res = await _apiService.createProductGroup({
+                'name': nameCtl.text.trim(),
+                'sortOrder': _groups.length,
+              });
+              if (res['isSuccess'] == true) {
+                NotificationOverlayManager().showSuccess(
+                  title: 'Thành công',
+                  message: 'Đã thêm nhóm "${nameCtl.text.trim()}"',
+                );
+                await _reloadProductCatalog();
+                if (andThenAddProduct && mounted) _showAddProductDialog();
+              } else {
+                NotificationOverlayManager().showError(
+                  title: 'Lỗi',
+                  message: res['message']?.toString() ?? 'Không thể thêm nhóm',
+                );
+              }
+            },
+            style:
+                FilledButton.styleFrom(backgroundColor: const Color(0xFF059669)),
+            child: const Text('Thêm'),
+          ),
         ],
       ),
     );
@@ -556,68 +1389,45 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
   }
 
   // ═══════════ ENTRIES TAB ═══════════
-  Widget _buildEntriesTab({bool nestedTab = false}) {
+  Widget _buildEntriesTab() {
     final isMobile = Responsive.isMobile(context);
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
     if (_entries.isEmpty) {
-      final empty = Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+      return RefreshIndicator(
+        onRefresh: () async => _reloadCurrentTab(),
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
           children: [
-            Icon(Icons.inbox_outlined, size: 64, color: Colors.grey[300]),
-            const SizedBox(height: 16),
-            Text('Chưa có dữ liệu sản lượng',
-                style: TextStyle(color: Colors.grey[500])),
+            SizedBox(
+              height: MediaQuery.sizeOf(context).height * 0.35,
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.inbox_outlined,
+                        size: 64, color: Colors.grey[300]),
+                    const SizedBox(height: 16),
+                    Text('Chưa có dữ liệu sản lượng',
+                        style: TextStyle(color: Colors.grey[500])),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       );
-      if (nestedTab) {
-        return CustomScrollView(
-          slivers: [
-            SliverOverlapInjector(
-              handle:
-                  NestedScrollView.sliverOverlapAbsorberHandleFor(context),
-            ),
-            SliverFillRemaining(child: empty),
-          ],
-        );
-      }
-      return empty;
     }
 
     if (isMobile) {
-      if (nestedTab) {
-        return RefreshIndicator(
-          onRefresh: () async => _reloadCurrentTab(),
-          child: CustomScrollView(
-            slivers: [
-              SliverOverlapInjector(
-                handle: NestedScrollView.sliverOverlapAbsorberHandleFor(
-                    context),
-              ),
-              SliverPadding(
-                padding: const EdgeInsets.all(12),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (ctx, i) => Padding(
-                      padding: EdgeInsets.only(bottom: i < _entries.length - 1 ? 8 : 0),
-                      child: _buildEntryCard(_entries[i], i),
-                    ),
-                    childCount: _entries.length,
-                  ),
-                ),
-              ),
-              if (_total > _pageSize)
-                SliverToBoxAdapter(child: _buildPagination()),
-            ],
-          ),
-        );
-      }
       return Column(
         children: [
           Expanded(
             child: RefreshIndicator(
               onRefresh: () async => _reloadCurrentTab(),
               child: ListView.separated(
+                physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.all(12),
                 itemCount: _entries.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 8),
@@ -692,9 +1502,9 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                     DataCell(Text(entry['productItemName'] ?? '')),
                     DataCell(Text('${entry['quantity'] ?? 0}')),
                     DataCell(Text(_currencyFormat
-                        .format((entry['unitPrice'] ?? 0).toDouble()))),
+                        .format(_toDouble(entry['unitPrice'])))),
                     DataCell(Text(_currencyFormat
-                        .format((entry['amount'] ?? 0).toDouble()))),
+                        .format(_toDouble(entry['amount'])))),
                     DataCell(Text(entry['note'] ?? '',
                         overflow: TextOverflow.ellipsis)),
                     DataCell(Row(
@@ -743,7 +1553,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
 
   Widget _buildEntryCard(Map<String, dynamic> entry, int index) {
     final workDate = DateTime.tryParse(entry['workDate'] ?? '');
-    final amount = (entry['amount'] ?? 0).toDouble();
+    final amount = _toDouble(entry['amount']);
     const primary = Color(0xFF059669);
 
     return Container(
@@ -773,7 +1583,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                     radius: 18,
                     backgroundColor: primary.withValues(alpha: 0.1),
                     child: Text(
-                      (entry['employeeName'] ?? '?')[0],
+                      _avatarLetter(entry['employeeName']),
                       style: const TextStyle(
                           color: primary,
                           fontWeight: FontWeight.bold,
@@ -844,7 +1654,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                     ),
                   ),
                   Text(
-                    'ĐG: ${_currencyFormat.format((entry['unitPrice'] ?? 0).toDouble())}',
+                    'ĐG: ${_currencyFormat.format(_toDouble(entry['unitPrice']))}',
                     style:
                         const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                   ),
@@ -936,25 +1746,43 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
 
   // ═══════════ SUMMARY TAB ═══════════
   Widget _buildSummaryTab() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
     if (_summaries.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+      return RefreshIndicator(
+        onRefresh: () async => _loadSummary(),
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
           children: [
-            Icon(Icons.analytics_outlined, size: 64, color: Colors.grey[300]),
-            const SizedBox(height: 16),
-            Text('Chưa có dữ liệu tổng hợp',
-                style: TextStyle(color: Colors.grey[500])),
+            SizedBox(
+              height: MediaQuery.sizeOf(context).height * 0.35,
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.analytics_outlined,
+                        size: 64, color: Colors.grey[300]),
+                    const SizedBox(height: 16),
+                    Text('Chưa có dữ liệu tổng hợp',
+                        style: TextStyle(color: Colors.grey[500])),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       );
     }
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: _summaries.asMap().entries.map((e) {
+    return RefreshIndicator(
+      onRefresh: () async => _loadSummary(),
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: _summaries.asMap().entries.map((e) {
           final summary = e.value;
-          final items = List<Map<String, dynamic>>.from(summary['items'] ?? []);
+          final items = _parseMapList(summary['items']);
           return Card(
             margin: const EdgeInsets.only(bottom: 12),
             elevation: 0,
@@ -1000,7 +1828,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(
-                            '${_currencyFormat.format((summary['totalAmount'] ?? 0).toDouble())} đ',
+                            '${_currencyFormat.format(_toDouble(summary['totalAmount']))} đ',
                             style: const TextStyle(
                                 fontWeight: FontWeight.w700,
                                 fontSize: 16,
@@ -1030,7 +1858,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                                       fontSize: 13, color: Color(0xFF64748B))),
                               const SizedBox(width: 16),
                               Text(
-                                '${_currencyFormat.format((item['amount'] ?? 0).toDouble())} đ',
+                                '${_currencyFormat.format(_toDouble(item['amount']))} đ',
                                 style: const TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w600,
@@ -1044,71 +1872,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
               ),
             ),
           );
-        }).toList(),
-      ),
-    );
-  }
-
-  // ═══════════ HELPERS ═══════════
-
-  Widget _buildDateFilter(
-      String label, DateTime value, ValueChanged<DateTime> onChanged) {
-    return InkWell(
-      onTap: () async {
-        final picked = await showDatePicker(
-          context: context,
-          initialDate: value,
-          firstDate: DateTime(2020),
-          lastDate: DateTime(2030),
-        );
-        if (picked != null) onChanged(picked);
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          border: Border.all(color: const Color(0xFFCBD5E1)),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('$label: ',
-                style: const TextStyle(fontSize: 12, color: Color(0xFF71717A))),
-            Text(DateFormat('dd/MM/yyyy').format(value),
-                style:
-                    const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-            const SizedBox(width: 4),
-            const Icon(Icons.calendar_today,
-                size: 14, color: Color(0xFF71717A)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDropdown(
-      String label,
-      String? value,
-      List<DropdownMenuItem<String>> dropdownItems,
-      ValueChanged<String?> onChanged) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFFCBD5E1)),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: value,
-          hint: Text(label,
-              style: const TextStyle(fontSize: 13, color: Color(0xFF71717A))),
-          items: [
-            DropdownMenuItem<String>(value: null, child: Text('Tất cả $label')),
-            ...dropdownItems,
-          ],
-          onChanged: onChanged,
-          isDense: true,
-          style: const TextStyle(fontSize: 13, color: Color(0xFF0F172A)),
+          }).toList(),
         ),
       ),
     );

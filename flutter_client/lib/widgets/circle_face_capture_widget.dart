@@ -83,14 +83,13 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
   ];
 
   // Direction thresholds (euler angles in degrees)
-  // headEulerAngleY: positive = face turned LEFT (from camera's view), negative = RIGHT
-  // headEulerAngleX: positive = face looking UP, negative = DOWN
-  // Note: front camera mirrors, so Y is inverted for user perception
-  static const double _yawThreshold = 20.0;     // Min yaw for left/right
-  static const double _pitchThreshold = 15.0;    // Min pitch for up/down
-  static const double _frontMaxAngle = 12.0;     // Max angle for "straight"
-  static const double _minFaceAreaRatio = 0.06;  // Min face area vs image
-  static const double _minSharpnessScore = 90.0; // Laplacian variance threshold
+  // headEulerAngleY: left/right — front camera mirrors, normalize via [_normalizeYaw].
+  // headEulerAngleX: positive = up, negative = down
+  static const double _yawThreshold = 15.0;
+  static const double _pitchThreshold = 12.0;
+  static const double _frontMaxAngle = 14.0;
+  static const double _minFaceAreaRatio = 0.05;
+  static const double _minSharpnessScore = 60.0;
 
   @override
   void initState() {
@@ -206,12 +205,9 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
       }
 
       final face = faces.first;
-      final yaw = face.headEulerAngleY ?? 0.0;   // left/right
-      final pitch = face.headEulerAngleX ?? 0.0;  // up/down
-
-      // iOS front camera + ML Kit can report yaw with opposite sign to user-facing hint.
-      // Normalize yaw so left/right prompts match what user actually turns.
-      final normalizedYaw = Platform.isIOS ? -yaw : yaw;
+      final yaw = face.headEulerAngleY ?? 0.0;
+      final pitch = face.headEulerAngleX ?? 0.0;
+      final normalizedYaw = _normalizeYaw(yaw);
 
       final step = _steps[_currentStep];
       final isAligned = _checkDirection(step.direction, normalizedYaw, pitch);
@@ -261,6 +257,30 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
     );
   }
 
+  /// Front camera mirrors preview — invert yaw on all platforms for user-facing hints.
+  double _normalizeYaw(double yaw) {
+    final lens = _cameraController?.description.lensDirection;
+    if (lens == CameraLensDirection.front) return -yaw;
+    return yaw;
+  }
+
+  String _directionMismatchMessage(String direction) {
+    switch (direction) {
+      case 'front':
+        return 'Ảnh chưa nhìn thẳng — giữ mặt vuông với camera';
+      case 'left':
+        return 'Ảnh chưa quay trái đủ — thử lại bước này';
+      case 'right':
+        return 'Ảnh chưa quay phải đủ — thử lại bước này';
+      case 'up':
+        return 'Ảnh chưa ngẩng lên đủ — thử lại bước này';
+      case 'down':
+        return 'Ảnh chưa cúi xuống đủ — thử lại bước này';
+      default:
+        return 'Tư thế chưa đúng — thử lại bước này';
+    }
+  }
+
   /// Check if face direction matches the required step.
   bool _checkDirection(String direction, double yaw, double pitch) {
     switch (direction) {
@@ -282,7 +302,8 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
 
   String _getAlignedHint(String direction) {
     switch (direction) {
-      case 'front': return 'Giữ nguyên...';
+      case 'front':
+        return 'Giữ nguyên — đủ sáng, máy ổn định...';
       case 'left': return 'Tốt! Giữ nguyên...';
       case 'right': return 'Tốt! Giữ nguyên...';
       case 'up': return 'Tốt! Giữ nguyên...';
@@ -378,11 +399,15 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
       debugPrint('📸 Capture error: $e');
     }
 
+    final stepDirection = _steps[_currentStep].direction;
     String? rejectReason;
     String base64Image = '';
     if (xFile != null) {
       try {
-        rejectReason = await _validateCapturedPhoto(xFile.path);
+        rejectReason = await _validateCapturedPhoto(
+          xFile.path,
+          requiredDirection: stepDirection,
+        );
         if (rejectReason == null) {
           final bytes = await File(xFile.path).readAsBytes();
           base64Image = base64Encode(bytes);
@@ -434,12 +459,11 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
     }
   }
 
-  /// Reject blurry frames or photos without a clear single face.
-  Future<String?> _validateCapturedPhoto(String filePath) async {
-    if (_faceStatus != _FaceStatus.aligned) {
-      return 'Giữ đúng tư thế và ổn định trước khi chụp';
-    }
-
+  /// Reject blurry frames or photos without a clear single face at the required pose.
+  Future<String?> _validateCapturedPhoto(
+    String filePath, {
+    required String requiredDirection,
+  }) async {
     final inputImage = InputImage.fromFilePath(filePath);
     final faces = await _faceDetector.processImage(inputImage);
     if (faces.isEmpty) {
@@ -450,6 +474,12 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
     }
 
     final face = faces.first;
+    final photoYaw = _normalizeYaw(face.headEulerAngleY ?? 0.0);
+    final photoPitch = face.headEulerAngleX ?? 0.0;
+    if (!_checkDirection(requiredDirection, photoYaw, photoPitch)) {
+      return _directionMismatchMessage(requiredDirection);
+    }
+
     final meta = inputImage.metadata;
     if (meta != null) {
       final imgArea = meta.size.width * meta.size.height;
@@ -465,7 +495,7 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
     final bytes = await File(filePath).readAsBytes();
     final sharpness = await _estimateSharpness(bytes);
     if (sharpness < _minSharpnessScore) {
-      return 'Ảnh bị mờ — giữ máy ổn định, đủ sáng và thử lại';
+      return 'Ảnh bị mờ — tăng ánh sáng, giữ máy ổn định và thử lại';
     }
 
     return null;

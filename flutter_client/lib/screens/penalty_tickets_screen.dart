@@ -681,14 +681,19 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
     DateTime selectedDate = isEditing
         ? (DateTime.tryParse(ticket['violationDate'] ?? '') ?? DateTime.now())
         : DateTime.now();
+    bool isSaving = false;
 
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) {
           final isMobile = Responsive.isMobile(context);
+          final canApproveCreate = !isEditing &&
+              Provider.of<PermissionProvider>(context, listen: false)
+                  .canApprove('PenaltyTickets');
 
-          Future<void> onSubmit() async {
+          Future<void> onSubmit({bool autoApprove = false}) async {
+            if (isSaving) return;
             if (!isEditing && selectedEmployeeId == null) {
               appNotification.showWarning(
                   title: 'Thiếu thông tin', message: 'Vui lòng chọn nhân viên');
@@ -702,7 +707,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
               return;
             }
 
-            Navigator.pop(context);
+            setDialogState(() => isSaving = true);
 
             Map<String, dynamic> result;
             if (isEditing) {
@@ -721,20 +726,42 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                 'minutesLateOrEarly': int.tryParse(minutesCtrl.text),
                 'description': descCtrl.text.isEmpty ? null : descCtrl.text,
               });
+
+              if (result['isSuccess'] == true && autoApprove) {
+                final ticketId = result['data']?['id']?.toString();
+                if (ticketId != null) {
+                  final approveResult =
+                      await _apiService.approvePenaltyTicket(ticketId);
+                  if (approveResult['isSuccess'] != true) {
+                    if (mounted) {
+                      Navigator.pop(context);
+                      appNotification.showWarning(
+                          title: 'Tạo thành công',
+                          message: approveResult['message'] ??
+                              'Không thể duyệt phiếu phạt');
+                      await _loadData(showLoading: false);
+                    }
+                    return;
+                  }
+                }
+              }
             }
 
-            if (mounted) {
-              if (result['isSuccess'] == true) {
-                appNotification.showSuccess(
-                    title: 'Thành công',
-                    message: isEditing
-                        ? 'Đã cập nhật phiếu phạt'
-                        : 'Đã tạo phiếu phạt');
-                await _loadData(showLoading: false);
-              } else {
-                appNotification.showError(
-                    title: 'Lỗi', message: result['message'] ?? 'Lỗi');
-              }
+            if (!mounted) return;
+            Navigator.pop(context);
+
+            if (result['isSuccess'] == true) {
+              appNotification.showSuccess(
+                  title: 'Thành công',
+                  message: isEditing
+                      ? 'Đã cập nhật phiếu phạt'
+                      : (autoApprove
+                          ? 'Đã tạo & duyệt phiếu phạt'
+                          : 'Đã tạo phiếu phạt'));
+              await _loadData(showLoading: false);
+            } else {
+              appNotification.showError(
+                  title: 'Lỗi', message: result['message'] ?? 'Lỗi');
             }
           }
 
@@ -885,17 +912,60 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                         fontSize: 16,
                         fontWeight: FontWeight.bold),
                   ),
-                  actions: [
-                    TextButton.icon(
-                      onPressed: onSubmit,
-                      icon: const Icon(Icons.save, size: 18),
-                      label: Text(isEditing ? 'Cập nhật' : 'Tạo'),
-                      style: TextButton.styleFrom(
-                          foregroundColor: HrmPageChrome.primaryNavy),
-                    ),
-                  ],
                 ),
                 body: formBody,
+                bottomNavigationBar: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+                    child: Row(
+                      children: [
+                        TextButton(
+                          onPressed:
+                              isSaving ? null : () => Navigator.pop(context),
+                          child: const Text('Hủy'),
+                        ),
+                        const Spacer(),
+                        if (canApproveCreate) ...[
+                          OutlinedButton.icon(
+                            onPressed: isSaving
+                                ? null
+                                : () => onSubmit(autoApprove: true),
+                            icon: isSaving
+                                ? const SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2))
+                                : const Icon(Icons.check_circle, size: 16),
+                            label: const Text('Tạo & Duyệt',
+                                style: TextStyle(fontSize: 13)),
+                            style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.green),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        FilledButton.icon(
+                          onPressed: isSaving ? null : () => onSubmit(),
+                          icon: isSaving
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2, color: Colors.white))
+                              : Icon(isEditing ? Icons.save : Icons.add,
+                                  size: 16),
+                          label: Text(
+                              isSaving
+                                  ? 'Đang lưu...'
+                                  : (isEditing ? 'Cập nhật' : 'Tạo phiếu'),
+                              style: const TextStyle(fontSize: 13)),
+                          style: FilledButton.styleFrom(
+                              backgroundColor: HrmPageChrome.primaryNavy),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             );
           }
@@ -940,15 +1010,43 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                   Row(
                     children: [
                       TextButton(
-                          onPressed: () => Navigator.pop(context),
+                          onPressed: isSaving
+                              ? null
+                              : () => Navigator.pop(context),
                           child: const Text('Hủy',
                               style: TextStyle(color: Color(0xFF71717A)))),
                       const Spacer(),
+                      if (canApproveCreate) ...[
+                        OutlinedButton.icon(
+                          onPressed: isSaving
+                              ? null
+                              : () => onSubmit(autoApprove: true),
+                          icon: isSaving
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2))
+                              : const Icon(Icons.check_circle),
+                          label: const Text('Tạo & Duyệt'),
+                          style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.green),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
                       FilledButton.icon(
-                        onPressed: onSubmit,
-                        icon:
-                            Icon(isEditing ? Icons.save : Icons.add, size: 18),
-                        label: Text(isEditing ? 'Cập nhật' : 'Tạo phiếu'),
+                        onPressed: isSaving ? null : () => onSubmit(),
+                        icon: isSaving
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: Colors.white))
+                            : Icon(isEditing ? Icons.save : Icons.add,
+                                size: 18),
+                        label: Text(isSaving
+                            ? 'Đang lưu...'
+                            : (isEditing ? 'Cập nhật' : 'Tạo phiếu')),
                         style: FilledButton.styleFrom(
                           backgroundColor: HrmPageChrome.primaryNavy,
                           padding: const EdgeInsets.symmetric(

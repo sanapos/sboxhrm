@@ -1,16 +1,15 @@
 ﻿import 'package:flutter/material.dart';
-import '../widgets/hrm_page_chrome.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+
+import '../models/hrm.dart';
+import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
-import '../models/hrm.dart';
+import '../utils/report_access_utils.dart';
 import '../utils/report_screen_helpers.dart';
+import '../widgets/reports/hrm_report_widgets.dart';
 
-const _aRowH = 54.0;
-const _aHdrH = 44.0;
-const _aStickyW = 164.0;
-const _aTheme = Color(0xFFF59E0B);
+const _theme = Color(0xFFF59E0B);
 
 class AdvanceReportScreen extends StatefulWidget {
   const AdvanceReportScreen({super.key});
@@ -20,45 +19,44 @@ class AdvanceReportScreen extends StatefulWidget {
 
 class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
   final ApiService _api = ApiService();
-  final _fmtDate = DateFormat('dd/MM/yyyy');
-  final _fmtMoney = NumberFormat('#,##0', 'vi_VN');
+  final _branchFilter = ReportBranchFilter();
 
   DateTime _from = DateTime(DateTime.now().year, DateTime.now().month, 1);
   DateTime _to = DateTime.now();
   String _datePreset = 'this_month';
   AdvanceRequestStatus? _statusFilter;
-  bool _loading = false;
-  List<AdvanceRequest> _requests = [];
   String _empSearch = '';
   String? _selectedBranchId;
-  final _branchFilter = ReportBranchFilter();
+  int _viewTab = 0;
+  int _page = 1;
+  static const _pageSize = 50;
+
+  bool _loading = false;
+  String? _loadError;
+  List<AdvanceRequest> _requests = [];
+  int _totalCount = 0;
+  List<Map<String, dynamic>> _byEmployee = [];
+
+  bool get _teamView {
+    final role =
+        Provider.of<AuthProvider>(context, listen: false).userRole;
+    return isTeamReportView(role: role);
+  }
 
   List<AdvanceRequest> get _filtered {
     var result = _requests;
-    if (_selectedBranchId != null) {
+    if (_teamView && _selectedBranchId != null) {
       final ids = _branchFilter.userIdsForBranch(_selectedBranchId);
       if (ids.isEmpty) return [];
       result = result.where((r) => ids.contains(r.employeeUserId)).toList();
     }
-    if (_empSearch.isEmpty) return result;
-    return result
-        .where((r) =>
-            r.employeeName.toLowerCase().contains(_empSearch.toLowerCase()))
-        .toList();
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-    _branchFilter.loadBranches(_api).then((_) {
-      if (mounted) setState(() {});
-    });
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
+    if (_teamView && _empSearch.isNotEmpty) {
+      result = result
+          .where((r) =>
+              r.employeeName.toLowerCase().contains(_empSearch.toLowerCase()))
+          .toList();
+    }
+    return result;
   }
 
   List<String> get _empSuggestions => _requests
@@ -68,76 +66,134 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
       .toList()
     ..sort();
 
+  @override
+  void initState() {
+    super.initState();
+    _load();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_teamView) {
+        _branchFilter.loadBranches(_api).then((_) {
+          if (mounted) setState(() {});
+        });
+      }
+    });
+  }
+
   Future<void> _load() async {
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _loadError = null;
+    });
     try {
       final result = await _api.getAdvanceRequests(
         fromDate: _from,
         toDate: _to,
         status: _statusFilter?.index,
-        pageSize: 500,
+        page: _page,
+        pageSize: _pageSize,
       );
+      final parsed = parsePagedReportListResponse(result);
       final list = <AdvanceRequest>[];
-      if (result['isSuccess'] == true) {
-        final data = result['data'];
-        final items = data is List
-            ? data
-            : (data is Map && data['items'] is List ? data['items'] : []);
-        for (final item in items) {
-          try {
-            list.add(AdvanceRequest.fromJson(
-                Map<String, dynamic>.from(item as Map)));
-          } catch (_) {}
-        }
+      for (final item in parsed.items) {
+        try {
+          list.add(AdvanceRequest.fromJson(item));
+        } catch (_) {}
       }
-      setState(() => _requests = list);
+      if (mounted) {
+        setState(() {
+          _requests = list;
+          _totalCount = parsed.totalCount;
+          _loadError = parsed.error;
+        });
+      }
+      if (_teamView && _viewTab == 1) await _loadSummary();
     } catch (e) {
-      debugPrint('advance_report _load error: $e');
+      if (mounted) {
+        setState(() => _loadError = 'Không tải được báo cáo ứng lương: $e');
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
-  Future<void> _exportExcel() async {
-    final data = _filtered;
-    final rows = <List<dynamic>>[];
-    for (int i = 0; i < data.length; i++) {
-      final r = data[i];
-      rows.add([
-        i + 1,
-        r.employeeName,
-        r.employeeCode,
-        (r.forMonth != null && r.forYear != null)
-            ? '${r.forMonth}/${r.forYear}'
-            : '',
-        _fmtDate.format(r.requestDate),
-        r.amount,
-        r.reason ?? '',
-        _statusLabel(r.status),
-        r.approvedByName ?? '',
-        r.approvedDate != null ? _fmtDate.format(r.approvedDate!) : '',
-      ]);
+  Future<void> _loadSummary() async {
+    try {
+      final res = await _api.getAdvanceDebtReport(
+        from: _from,
+        to: _to,
+        status: _statusFilter?.index,
+      );
+      if (res['isSuccess'] == true && res['data'] is Map) {
+        final data = res['data'] as Map;
+        final raw = data['items'] ?? data['Items'];
+        if (raw is List && mounted) {
+          setState(() {
+            _byEmployee = raw
+                .map((e) => Map<String, dynamic>.from(e as Map))
+                .toList();
+          });
+        }
+      }
+    } catch (_) {}
+  }
+
+  List<ReportKpiItem> _buildKpis() {
+    final f = _filtered;
+    final pending =
+        f.where((r) => r.status == AdvanceRequestStatus.pending).length;
+    final approved =
+        f.where((r) => r.status == AdvanceRequestStatus.approved).length;
+    final totalAmt = f.fold(0.0, (s, r) => s + r.amount);
+    final approvedAmt = f
+        .where((r) => r.status == AdvanceRequestStatus.approved)
+        .fold(0.0, (s, r) => s + r.amount);
+
+    if (!_teamView) {
+      return [
+        ReportKpiItem(
+            label: 'Yêu cầu',
+            value: f.length.toString(),
+            icon: Icons.list_alt,
+            color: _theme),
+        ReportKpiItem(
+            label: 'Chờ duyệt',
+            value: pending.toString(),
+            icon: Icons.hourglass_empty,
+            color: Colors.orange),
+        ReportKpiItem(
+            label: 'Đã duyệt',
+            value: approved.toString(),
+            icon: Icons.check_circle_outline,
+            color: const Color(0xFF16A34A)),
+        ReportKpiItem(
+            label: 'Tổng đã ứng',
+            value: '${reportMoneyFmt.format(approvedAmt)}đ',
+            icon: Icons.payments_outlined,
+            color: _theme),
+      ];
     }
-    await ClientExcelExport.export(
-      context: context,
-      title: 'Báo cáo ứng lương',
-      sheetName: 'Bao cao ung luong',
-      filePrefix: 'BaoCaoUngLuong',
-      headers: const [
-        'STT',
-        'Nhân viên',
-        'Mã NV',
-        'Tháng/Năm',
-        'Ngày tạo',
-        'Số tiền (đ)',
-        'Lý do',
-        'Trạng thái',
-        'Người duyệt',
-        'Ngày duyệt',
-      ],
-      rows: rows,
-      periodLabel: '${_fmtDate.format(_from)} – ${_fmtDate.format(_to)}',
-    );
+    return [
+      ReportKpiItem(
+          label: 'Tổng yêu cầu',
+          value: '$_totalCount',
+          icon: Icons.list_alt,
+          color: Colors.blueGrey),
+      ReportKpiItem(
+          label: 'Chờ duyệt',
+          value: pending.toString(),
+          icon: Icons.hourglass_empty,
+          color: Colors.orange),
+      ReportKpiItem(
+          label: 'Tổng tiền',
+          value: '${reportMoneyFmt.format(totalAmt)}đ',
+          icon: Icons.payments_outlined,
+          color: _theme),
+      ReportKpiItem(
+          label: 'Đã duyệt',
+          value: '${reportMoneyFmt.format(approvedAmt)}đ',
+          icon: Icons.account_balance,
+          color: const Color(0xFF16A34A)),
+    ];
   }
 
   String _statusLabel(AdvanceRequestStatus s) {
@@ -166,223 +222,132 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: HrmPageChrome.background,
-      appBar: AppBar(
-        title: const Text('Báo cáo ứng lương'),
-        backgroundColor: _aTheme,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          if (Provider.of<PermissionProvider>(context, listen: false)
-              .canExport('AdvanceReport'))
-            IconButton(
-                icon: const Icon(Icons.file_download_outlined),
-                tooltip: 'Xuất Excel',
-                onPressed: _exportExcel),
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
-        ],
-      ),
-      body: Column(children: [
-        Expanded(
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildFilters(),
-                _buildSummary(),
-                if (_loading)
-                  const Padding(
-                    padding: EdgeInsets.all(48),
-                    child: Center(child: CircularProgressIndicator()),
-                  )
-                else
-                  _buildTable(),
-              ],
-            ),
-          ),
-        ),
-      ]),
+  Future<void> _exportExcel() async {
+    final data = _filtered;
+    final rows = <List<dynamic>>[];
+    for (int i = 0; i < data.length; i++) {
+      final r = data[i];
+      rows.add([
+        i + 1,
+        if (_teamView) r.employeeName,
+        if (_teamView) r.employeeCode,
+        (r.forMonth != null && r.forYear != null)
+            ? '${r.forMonth}/${r.forYear}'
+            : '',
+        reportDateFmt.format(r.requestDate),
+        r.amount,
+        r.reason ?? '',
+        _statusLabel(r.status),
+        r.approvedByName ?? '',
+      ]);
+    }
+    await ClientExcelExport.export(
+      context: context,
+      title: _teamView ? 'Báo cáo ứng lương' : 'Lịch sử ứng lương',
+      sheetName: 'Bao cao ung luong',
+      filePrefix: 'BaoCaoUngLuong',
+      headers: [
+        'STT',
+        if (_teamView) 'Nhân viên',
+        if (_teamView) 'Mã NV',
+        'Tháng/Năm',
+        'Ngày tạo',
+        'Số tiền (đ)',
+        'Lý do',
+        'Trạng thái',
+        'Người duyệt',
+      ],
+      rows: rows,
+      periodLabel: reportPeriodSubtitle(_from, _to, team: _teamView),
     );
   }
 
-  Widget _buildFilters() {
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-      child: Column(children: [
-        ReportDateRangeFilterBar(
-          from: _from,
-          to: _to,
-          preset: _datePreset,
-          onChanged: (f, t, p) => setState(() {
-            _from = f;
-            _to = t;
-            _datePreset = p;
-          }),
-        ),
-        const SizedBox(height: 8),
-        Row(children: [
-          Expanded(child: _statusDrop()),
-          const SizedBox(width: 8),
-          SizedBox(
-            height: 40,
-            child: ElevatedButton.icon(
-              icon: const Icon(Icons.search, size: 16),
-              label: const Text('Tìm', style: TextStyle(fontSize: 13)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _aTheme,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8)),
-                minimumSize: const Size(0, 40),
-              ),
-              onPressed: _load,
-            ),
-          ),
-        ]),
-        if (_branchFilter.branches.isNotEmpty) ...[
-          const SizedBox(height: 6),
-          Container(
-            height: 40,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFFE4E4E7)),
-            ),
-            child: Row(children: [
-              const Icon(Icons.account_tree_outlined,
-                  size: 16, color: Color(0xFF6B7280)),
-              const SizedBox(width: 8),
-              Expanded(
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String?>(
-                    value: _selectedBranchId,
-                    isExpanded: true,
-                    isDense: true,
-                    style:
-                        const TextStyle(fontSize: 13, color: Color(0xFF111827)),
-                    icon: const Icon(Icons.keyboard_arrow_down,
-                        size: 18, color: Color(0xFF9CA3AF)),
-                    items: [
-                      const DropdownMenuItem<String?>(
-                          value: null,
-                          child: Text('Tất cả chi nhánh',
-                              style: TextStyle(fontSize: 13))),
-                      ..._branchFilter.branches.map((b) => DropdownMenuItem<String?>(
-                          value: b['id']?.toString(),
-                          child: Text(b['name']?.toString() ?? '',
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 13)))),
-                    ],
-                    onChanged: (v) async {
+  @override
+  Widget build(BuildContext context) {
+    final canExport = Provider.of<PermissionProvider>(context, listen: false)
+        .canExport('AdvanceReport');
+
+    return ReportScreenShell(
+      title: _teamView ? 'Báo cáo ứng lương' : 'Lịch sử ứng lương',
+      subtitle: reportPeriodSubtitle(_from, _to, team: _teamView),
+      accentColor: _theme,
+      canExport: canExport,
+      onExport: _exportExcel,
+      onRefresh: _load,
+      child: Column(
+        children: [
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _load,
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  ReportFilterSection(
+                    from: _from,
+                    to: _to,
+                    datePreset: _datePreset,
+                    onDateChanged: (f, t, p) => setState(() {
+                      _from = f;
+                      _to = t;
+                      _datePreset = p;
+                    }),
+                    statusFilter: _statusDrop(),
+                    showTeamFilters: _teamView,
+                    branchFilter: _teamView ? _branchFilter : null,
+                    selectedBranchId: _selectedBranchId,
+                    onBranchChanged: (v) async {
                       if (v != null) await _branchFilter.ensureEmployees(_api);
                       if (mounted) setState(() => _selectedBranchId = v);
                     },
+                    empSearch: _empSearch,
+                    onEmpSearchChanged: (v) => setState(() => _empSearch = v),
+                    empSuggestions: _empSuggestions,
+                    onApply: () {
+                      setState(() => _page = 1);
+                      _load();
+                    },
+                    onClearFilters: _teamView
+                        ? () => setState(() {
+                              _empSearch = '';
+                              _selectedBranchId = null;
+                            })
+                        : null,
                   ),
-                ),
+                  reportLoadErrorBanner(_loadError),
+                  ReportKpiGrid(items: _buildKpis()),
+                  if (_teamView)
+                    ReportViewModeTabs(
+                      index: _viewTab,
+                      onChanged: (i) {
+                        setState(() => _viewTab = i);
+                        if (i == 1) _loadSummary();
+                      },
+                    ),
+                  if (_loading)
+                    const Padding(
+                      padding: EdgeInsets.all(48),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else if (_teamView && _viewTab == 1)
+                    _buildByEmployee()
+                  else
+                    _buildBody(),
+                ],
               ),
-              if (_selectedBranchId != null)
-                InkWell(
-                  onTap: () => setState(() => _selectedBranchId = null),
-                  child: const Padding(
-                      padding: EdgeInsets.all(4),
-                      child: Icon(Icons.close,
-                          size: 14, color: Color(0xFF9CA3AF))),
-                ),
-            ]),
+            ),
           ),
+          if (_teamView && _viewTab == 0)
+            ReportPaginationBar(
+              page: _page,
+              pageSize: _pageSize,
+              totalCount: _totalCount,
+              onPageChanged: (p) {
+                setState(() => _page = p);
+                _load();
+              },
+            ),
         ],
-        const SizedBox(height: 6),
-        _buildEmpSearch('Lọc theo tên nhân viên...'),
-      ]),
-    );
-  }
-
-  Widget _buildEmpSearch(String hint) {
-    final suggestions = _empSuggestions;
-    return Autocomplete<String>(
-      optionsBuilder: (textEditingValue) {
-        if (suggestions.isEmpty) return const Iterable<String>.empty();
-        if (textEditingValue.text.isEmpty) return suggestions;
-        final q = textEditingValue.text.toLowerCase();
-        return suggestions.where((s) => s.toLowerCase().contains(q));
-      },
-      onSelected: (selection) => setState(() => _empSearch = selection),
-      fieldViewBuilder: (context, fieldCtrl, focusNode, _) {
-        return Container(
-          height: 40,
-          decoration: BoxDecoration(
-            border: Border.all(color: const Color(0xFFD1D5DB)),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: TextField(
-            controller: fieldCtrl,
-            focusNode: focusNode,
-            style: const TextStyle(fontSize: 13),
-            decoration: InputDecoration(
-              hintText: hint,
-              hintStyle:
-                  const TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
-              prefixIcon: const Icon(Icons.person_search_outlined,
-                  size: 18, color: Color(0xFF9CA3AF)),
-              suffixIcon: _empSearch.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear, size: 16),
-                      onPressed: () {
-                        fieldCtrl.clear();
-                        setState(() => _empSearch = '');
-                      })
-                  : null,
-              contentPadding:
-                  const EdgeInsets.symmetric(vertical: 0, horizontal: 4),
-              border: InputBorder.none,
-              isDense: true,
-            ),
-            onChanged: (v) => setState(() => _empSearch = v),
-          ),
-        );
-      },
-      optionsViewBuilder: (context, onSelected, options) {
-        return Align(
-          alignment: Alignment.topLeft,
-          child: Material(
-            elevation: 6,
-            borderRadius: BorderRadius.circular(8),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 200),
-              child: ListView(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                shrinkWrap: true,
-                children: options
-                    .map((option) => InkWell(
-                          onTap: () => onSelected(option),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 10),
-                            child: Row(children: [
-                              const Icon(Icons.person_outline,
-                                  size: 16, color: Color(0xFF6B7280)),
-                              const SizedBox(width: 8),
-                              Flexible(
-                                  child: Text(option,
-                                      style: const TextStyle(
-                                          fontSize: 13,
-                                          color: Color(0xFF111827)))),
-                            ]),
-                          ),
-                        ))
-                    .toList(),
-              ),
-            ),
-          ),
-        );
-      },
+      ),
     );
   }
 
@@ -391,8 +356,9 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
       height: 40,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
-          border: Border.all(color: const Color(0xFFD1D5DB)),
-          borderRadius: BorderRadius.circular(8)),
+        border: Border.all(color: const Color(0xFFD1D5DB)),
+        borderRadius: BorderRadius.circular(8),
+      ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<AdvanceRequestStatus?>(
           value: _statusFilter,
@@ -400,12 +366,10 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
           hint: const Text('Trạng thái',
               style: TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
           style: const TextStyle(fontSize: 12, color: Color(0xFF111827)),
-          icon: const Icon(Icons.keyboard_arrow_down,
-              size: 18, color: Color(0xFF9CA3AF)),
           items: [
             const DropdownMenuItem(value: null, child: Text('Tất cả')),
-            ...AdvanceRequestStatus.values.map((s) =>
-                DropdownMenuItem(value: s, child: Text(_statusLabel(s)))),
+            ...AdvanceRequestStatus.values.map(
+                (s) => DropdownMenuItem(value: s, child: Text(_statusLabel(s)))),
           ],
           onChanged: (v) => setState(() => _statusFilter = v),
         ),
@@ -413,235 +377,73 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
     );
   }
 
-  Widget _buildSummary() {
-    return Container(
-      height: 78,
-      color: Colors.white,
-      margin: const EdgeInsets.only(top: 1),
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        children: [
-          _sumCard('Tổng yêu cầu', _filtered.length.toString(), Icons.list_alt,
-              Colors.blueGrey),
-          _sumCard(
-              'Chờ duyệt',
-              _filtered
-                  .where((r) => r.status == AdvanceRequestStatus.pending)
-                  .length
-                  .toString(),
-              Icons.hourglass_empty,
-              Colors.orange),
-          _sumCard(
-              'Đã duyệt',
-              _filtered
-                  .where((r) => r.status == AdvanceRequestStatus.approved)
-                  .length
-                  .toString(),
-              Icons.check_circle_outline,
-              const Color(0xFF16A34A)),
-          _sumCard(
-              'Tổng tiền',
-              '${_fmtMoney.format(_filtered.fold(0.0, (s, r) => s + r.amount))}đ',
-              Icons.payments_outlined,
-              _aTheme),
-          _sumCard(
-              'Tiền đã duyệt',
-              '${_fmtMoney.format(_filtered.where((r) => r.status == AdvanceRequestStatus.approved).fold(0.0, (s, r) => s + r.amount))}đ',
-              Icons.account_balance,
-              const Color(0xFF16A34A)),
-        ],
-      ),
-    );
-  }
-
-  Widget _sumCard(String title, String value, IconData icon, Color color) {
-    return Container(
-      width: 148,
-      margin: const EdgeInsets.only(right: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withValues(alpha: 0.22)),
-      ),
-      child: Row(children: [
-        Icon(icon, color: color, size: 26),
-        const SizedBox(width: 8),
-        Expanded(
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-              Text(title,
-                  style: TextStyle(fontSize: 10, color: Colors.grey.shade700),
-                  overflow: TextOverflow.ellipsis),
-              Text(value,
-                  style: TextStyle(
-                      fontSize: 13, fontWeight: FontWeight.bold, color: color),
-                  overflow: TextOverflow.ellipsis),
-            ])),
-      ]),
-    );
-  }
-
-  Widget _buildTable() {
+  Widget _buildBody() {
     final rows = _filtered;
     if (rows.isEmpty) {
-      return Center(
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Icon(Icons.inbox_outlined, size: 64, color: Colors.grey.shade300),
-        const SizedBox(height: 12),
-        Text('Không có dữ liệu',
-            style: TextStyle(color: Colors.grey.shade500, fontSize: 15)),
-      ]));
+      return ReportEmptyState(
+        title: _teamView ? 'Không có yêu cầu ứng lương' : 'Bạn chưa có ứng lương',
+        subtitle: 'Thử đổi khoảng thời gian hoặc bộ lọc',
+      );
     }
+    return Column(
+      children: rows.map((r) => _requestCard(r)).toList(),
+    );
+  }
 
-    const hdrBg = Color(0xFFFEF3C7);
-    const evenBg = Colors.white;
-    const oddBg = Color(0xFFF9FAFB);
+  Widget _requestCard(AdvanceRequest r) {
+    final monthYear = (r.forMonth != null && r.forYear != null)
+        ? 'Tháng ${r.forMonth}/${r.forYear}'
+        : null;
+    return ReportTimelineCard(
+      title: _teamView ? r.employeeName : (monthYear ?? 'Ứng lương'),
+      trailing: reportDateFmt.format(r.requestDate),
+      amount: '${reportMoneyFmt.format(r.amount)}đ',
+      subtitle: [
+        if (_teamView && monthYear != null) monthYear,
+        if (_teamView) r.employeeCode,
+        r.reason ?? '',
+        if (r.approvedByName != null && r.approvedByName!.isNotEmpty)
+          'Duyệt: ${r.approvedByName}',
+      ].where((s) => s != null && s.toString().isNotEmpty).join(' · '),
+      accentColor: _theme,
+      statusLabel: _statusLabel(r.status),
+      statusColor: _statusColor(r.status),
+      icon: Icons.account_balance_wallet_outlined,
+    );
+  }
 
-    Widget hCell(String t, double w) => Container(
-          width: w,
-          height: _aHdrH,
-          color: hdrBg,
-          alignment: Alignment.centerLeft,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Text(t,
-              style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12,
-                  color: Color(0xFF374151))),
+  Widget _buildByEmployee() {
+    if (_byEmployee.isEmpty) {
+      return const ReportEmptyState(
+        title: 'Chưa có dữ liệu tổng hợp',
+        subtitle: 'Thử đổi khoảng thời gian',
+      );
+    }
+    return Column(
+      children: _byEmployee.map((e) {
+        final name = e['employeeName']?.toString() ??
+            e['EmployeeName']?.toString() ??
+            '—';
+        final dept = e['department']?.toString() ??
+            e['Department']?.toString() ??
+            '';
+        final count = e['totalRequests'] ?? e['TotalRequests'] ?? 0;
+        final amt = reportSafeDouble(e['totalApproved'] ??
+            e['TotalApproved'] ??
+            e['outstandingDebt'] ??
+            e['OutstandingDebt']);
+        return ReportEmployeeSummaryCard(
+          name: name,
+          meta: dept.isNotEmpty ? dept : null,
+          primaryValue: '${reportMoneyFmt.format(amt)}đ',
+          secondaryValue: '$count lần ứng',
+          accentColor: _theme,
+          onTap: () => setState(() {
+            _viewTab = 0;
+            _empSearch = name;
+          }),
         );
-
-    Widget dCell(String t, double w, int i, {Color? textColor}) => Container(
-          width: w,
-          height: _aRowH,
-          color: i.isEven ? evenBg : oddBg,
-          alignment: Alignment.centerLeft,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Text(t,
-              style: TextStyle(
-                  fontSize: 12, color: textColor ?? const Color(0xFF374151)),
-              overflow: TextOverflow.ellipsis),
-        );
-
-    Widget sCell(AdvanceRequestStatus s, double w, int i) => Container(
-          width: w,
-          height: _aRowH,
-          color: i.isEven ? evenBg : oddBg,
-          alignment: Alignment.centerLeft,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-            decoration: BoxDecoration(
-              color: _statusColor(s).withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: _statusColor(s).withValues(alpha: 0.4)),
-            ),
-            child: Text(_statusLabel(s),
-                style: TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w600,
-                    color: _statusColor(s))),
-          ),
-        );
-
-    return Container(
-      color: Colors.white,
-      margin: const EdgeInsets.only(top: 1),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-            // ═══ STICKY: Nhân viên ═══
-            Container(
-              width: _aStickyW,
-              decoration: BoxDecoration(
-                boxShadow: [
-                  BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.06),
-                      blurRadius: 4,
-                      offset: const Offset(2, 0))
-                ],
-              ),
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: _aStickyW,
-                      height: _aHdrH,
-                      color: hdrBg,
-                      alignment: Alignment.centerLeft,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: const Text('Nhân viên',
-                          style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 12,
-                              color: Color(0xFF374151))),
-                    ),
-                    ...List.generate(rows.length, (i) {
-                      final r = rows[i];
-                      return Container(
-                        width: _aStickyW,
-                        height: _aRowH,
-                        color: i.isEven ? evenBg : oddBg,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
-                        child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(r.employeeName,
-                                  style: const TextStyle(
-                                      fontSize: 12.5,
-                                      fontWeight: FontWeight.w600,
-                                      color: Color(0xFF111827)),
-                                  overflow: TextOverflow.ellipsis),
-                              Text(r.employeeCode,
-                                  style: const TextStyle(
-                                      fontSize: 11, color: Color(0xFF6B7280)),
-                                  overflow: TextOverflow.ellipsis),
-                            ]),
-                      );
-                    }),
-                  ]),
-            ),
-            // ═══ SCROLLABLE COLUMNS ═══
-            Expanded(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(children: [
-                        hCell('Tháng/Năm', 92),
-                        hCell('Ngày tạo', 104),
-                        hCell('Số tiền', 128),
-                        hCell('Lý do', 180),
-                        hCell('Trạng thái', 112),
-                        hCell('Người duyệt', 130),
-                      ]),
-                      ...List.generate(rows.length, (i) {
-                        final r = rows[i];
-                        final monthYear =
-                            (r.forMonth != null && r.forYear != null)
-                                ? '${r.forMonth}/${r.forYear}'
-                                : '—';
-                        return Row(children: [
-                          dCell(monthYear, 92, i),
-                          dCell(_fmtDate.format(r.requestDate), 104, i),
-                          dCell('${_fmtMoney.format(r.amount)}đ', 128, i,
-                              textColor: _aTheme),
-                          dCell(r.reason ?? '', 180, i),
-                          sCell(r.status, 112, i),
-                          dCell(r.approvedByName ?? '—', 130, i),
-                        ]);
-                      }),
-                    ]),
-              ),
-            ),
-          ],
-        ),
+      }).toList(),
     );
   }
 }

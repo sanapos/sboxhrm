@@ -1957,7 +1957,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                         SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'Camera sẽ mở và chụp 3 ảnh khuôn mặt ở các góc: thẳng, trái, phải',
+                            'Camera sẽ mở và chụp 5 ảnh khuôn mặt: thẳng, trái, phải, trên, dưới',
                             style: TextStyle(fontSize: 12, color: Color(0xFF92400E)),
                           ),
                         ),

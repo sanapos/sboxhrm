@@ -23,6 +23,9 @@ class NavigationNotifier {
       ValueNotifier<String?>(null);
   /// Mở chi tiết công việc và cuộn tới bình luận/báo cáo tiến độ
   static final ValueNotifier<bool> taskOpenComments = ValueNotifier<bool>(false);
+  /// Mở tab Hòm thư (thay vì Của tôi) khi vào Phản ánh từ thông báo gửi tới người nhận
+  static final ValueNotifier<bool> feedbackPreferInbox =
+      ValueNotifier<bool>(false);
 
   static const int home = 0;
   static const int notifications = 1;
@@ -65,6 +68,7 @@ class NavigationNotifier {
   static const int systemAdmin = 38;
   static const int penaltyTickets = 39;
   static const int notificationSettings = 40;
+  static const int shiftSwap = 46;
 
   static final ValueNotifier<bool> goBackNotifier = ValueNotifier<bool>(false);
 
@@ -109,6 +113,7 @@ class NavigationNotifier {
   static void goToCommunication() => goTo(communication);
   static void goToPayroll() => goTo(payroll);
   static void goToPayslip() => goToModule('Payslip');
+  static void goToShiftSwap() => goToModule('ShiftSwap');
 
   /// Ưu tiên phiếu lương cá nhân khi có quyền Payslip.
   static void goToPayModule({required bool preferPayslip}) {

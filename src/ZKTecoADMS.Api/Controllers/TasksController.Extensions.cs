@@ -329,6 +329,9 @@ public partial class TasksController
     [RequireModulePermission("Task", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<TaskDependencyDto>>>> GetDependencies(Guid taskId)
     {
+        if (await GetViewableTaskAsync(taskId) == null)
+            return Ok(AppResponse<List<TaskDependencyDto>>.Error("Bạn không có quyền xem công việc này"));
+
         var list = await _dbContext.TaskDependencies
             .Include(d => d.DependsOnTask)
             .Where(d => d.TaskId == taskId)

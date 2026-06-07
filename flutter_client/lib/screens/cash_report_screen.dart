@@ -5,6 +5,8 @@ import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import '../models/cash_transaction.dart';
 import '../utils/report_screen_helpers.dart';
+import '../utils/report_access_utils.dart';
+import '../providers/auth_provider.dart';
 import '../utils/vietnamese_text_fix.dart';
 
 const _cRowH = 54.0;
@@ -28,6 +30,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
   String _datePreset = 'this_month';
   int? _typeFilter;
   bool _loading = false;
+  String? _loadError;
   List<Map<String, dynamic>> _items = [];
   // ignore: unused_field
   Map<String, dynamic> _summary = {};
@@ -82,23 +85,35 @@ class _CashReportScreenState extends State<CashReportScreen> {
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _loadError = null;
+    });
     try {
-      final r = await _api.getCashTransactions(
-          fromDate: _from, toDate: _to, type: _typeFilter, pageSize: 500);
-      final list = <Map<String, dynamic>>[];
-      if (r['isSuccess'] == true) {
-        final data = r['data'];
-        final items = data is List
-            ? data
-            : (data is Map && data['items'] is List ? data['items'] : []);
-        for (final item in items) {
-          if (item is Map) list.add(Map<String, dynamic>.from(item));
-        }
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      final perm = Provider.of<PermissionProvider>(context, listen: false);
+      final useReportApi = shouldUseCashReportApi(
+        role: auth.user?.role,
+        perm: perm,
+      );
+      final result = await loadCashReportTransactions(
+        _api,
+        from: _from,
+        to: _to,
+        typeFilter: _typeFilter,
+        useReportApi: useReportApi,
+      );
+      if (mounted) {
+        setState(() {
+          _items = result.items;
+          _loadError = result.error;
+        });
       }
-      setState(() => _items = list);
     } catch (e) {
       debugPrint('cash_report _load error: $e');
+      if (mounted) {
+        setState(() => _loadError = 'Không tải được báo cáo thu chi: $e');
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -210,6 +225,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _buildFilters(),
+                reportLoadErrorBanner(_loadError),
                 _buildSummary(),
                 if (_loading)
                   const Padding(

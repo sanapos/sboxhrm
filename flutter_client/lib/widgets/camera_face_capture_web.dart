@@ -56,7 +56,7 @@ class _CameraFaceCaptureState extends State<CameraFaceCapture>
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
 
-  final List<_CaptureStep> _steps = const [
+  static const List<_CaptureStep> _allSteps = [
     _CaptureStep(
       instruction: 'Nhìn thẳng vào camera',
       icon: Icons.face,
@@ -69,7 +69,20 @@ class _CameraFaceCaptureState extends State<CameraFaceCapture>
       instruction: 'Nghiêng mặt sang PHẢI',
       icon: Icons.arrow_forward,
     ),
+    _CaptureStep(
+      instruction: 'Ngẩng mặt lên TRÊN',
+      icon: Icons.expand_less,
+    ),
+    _CaptureStep(
+      instruction: 'Cúi mặt xuống DƯỚI',
+      icon: Icons.expand_more,
+    ),
   ];
+
+  _CaptureStep? get _activeStep {
+    if (_currentStep >= _allSteps.length) return null;
+    return _allSteps[_currentStep];
+  }
 
   @override
   void initState() {
@@ -368,9 +381,8 @@ class _CameraFaceCaptureState extends State<CameraFaceCapture>
   }
 
   Widget _buildFaceGuide() {
-    if (_currentStep >= _steps.length) return const SizedBox.shrink();
-
-    final step = _steps[_currentStep];
+    final step = _activeStep;
+    if (step == null) return const SizedBox.shrink();
     return AnimatedBuilder(
       animation: _pulseAnimation,
       builder: (context, child) {
@@ -585,7 +597,7 @@ class _CameraFaceCaptureState extends State<CameraFaceCapture>
         // Step dots
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(_steps.length, (index) {
+          children: List.generate(widget.requiredPhotos, (index) {
             final isCompleted = index < _capturedImages.length;
             final isCurrent = index == _currentStep;
             return Container(

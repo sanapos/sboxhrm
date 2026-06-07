@@ -61,6 +61,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
   List<Map<String, dynamic>> _branches = [];
 
   // --- Mobile UI ---
+  bool _showKpiFilters = false;
   // --- Export ---
   final GlobalKey _dashboardKey = GlobalKey();
   final GlobalKey _targetsKey = GlobalKey();
@@ -75,11 +76,11 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 5, vsync: this);
+    _tabCtrl = TabController(length: 4, vsync: this);
     _tabCtrl.addListener(() {
       if (!_tabCtrl.indexIsChanging) {
         final i = _tabCtrl.index;
-        if (i >= 2 && _selPeriodId != null) _loadPeriodData();
+        if (i >= 1 && _selPeriodId != null) _loadPeriodData();
       }
     });
     _loadData();
@@ -148,6 +149,86 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
     }
   }
 
+  Map<String, dynamic>? get _currentPeriod {
+    if (_selPeriodId == null || _periods.isEmpty) return null;
+    for (final p in _periods) {
+      if (p['id']?.toString() == _selPeriodId) return p;
+    }
+    return _periods.first;
+  }
+
+  int get _currentPeriodStatus =>
+      _currentPeriod != null ? _periodStatusInt(_currentPeriod!['status']) : -1;
+
+  bool get _isPeriodOpen => _currentPeriodStatus == 0;
+
+  bool get _isPeriodLocked => _currentPeriodStatus == 1;
+
+  bool get _isPeriodCalculated => _currentPeriodStatus == 2;
+
+  bool get _hasPersistedSalaries => _filteredSalaries.isNotEmpty;
+
+  bool _requireOpenPeriod({String? message}) {
+    if (_isPeriodOpen) return true;
+    NotificationOverlayManager().showWarning(
+      title: 'Chu kỳ đã khóa',
+      message: message ??
+          'Chỉ được chỉnh sửa chỉ tiêu/doanh số khi chu kỳ đang ở trạng thái Mở.',
+    );
+    return false;
+  }
+
+  bool _requireLockedPeriod({String? message}) {
+    if (_isPeriodLocked) return true;
+    NotificationOverlayManager().showWarning(
+      title: 'Chưa thể tính lương',
+      message: message ??
+          'Vui lòng khóa chu kỳ trước khi tính lương KPI.',
+    );
+    return false;
+  }
+
+  double _previewSalaryTotal(Map<String, dynamic> t) {
+    final pct = ((t['completionRate'] ?? 0) as num).toDouble();
+    final cs = ((t['completionSalary'] ?? 0) as num).toDouble();
+    final salaryHT = pct >= 100 ? cs : cs * pct / 100;
+    final tierBonus = _calcTierBonuses(t).fold<double>(
+        0, (s, b) => s + ((b['bonus'] as num?)?.toDouble() ?? 0));
+    final penBonus = _calcPenaltyBonus(t);
+    return math.max(0.0, salaryHT + penBonus + tierBonus);
+  }
+
+  Widget _salaryModeBadge(bool isPreview) {
+    if (!isPreview) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: const Color(0xFF059669).withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: const Color(0xFF059669).withValues(alpha: 0.25)),
+        ),
+        child: const Text('Đã tính',
+            style: TextStyle(
+                color: Color(0xFF059669),
+                fontSize: 10,
+                fontWeight: FontWeight.w600)),
+      );
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: HrmPageChrome.textMuted.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: const Color(0xFFE4E4E7)),
+      ),
+      child: const Text('Dự kiến',
+          style: TextStyle(
+              color: HrmPageChrome.textMuted,
+              fontSize: 10,
+              fontWeight: FontWeight.w600)),
+    );
+  }
+
   // ------------------------------------------------
   //  BUILD
   // ------------------------------------------------
@@ -155,49 +236,45 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isMobile = Responsive.isMobile(context);
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor: HrmPageChrome.background,
       body: Column(
         children: [
           _buildHeader(),
+          _buildWorkflowBanner(),
           Container(
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2)),
-              ],
+              border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
             ),
             child: TabBar(
               controller: _tabCtrl,
-              isScrollable: true,
+              isScrollable: isMobile,
+              tabAlignment: isMobile ? TabAlignment.start : TabAlignment.center,
               labelColor: _accent,
-              unselectedLabelColor: Colors.grey[500],
+              unselectedLabelColor: HrmPageChrome.textMuted,
               indicatorColor: _accent,
-              indicatorWeight: 3,
+              indicatorWeight: 2,
               indicatorSize: TabBarIndicatorSize.label,
+              labelPadding: EdgeInsets.symmetric(horizontal: isMobile ? 10 : 16),
               labelStyle:
-                  const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                  TextStyle(fontWeight: FontWeight.w600, fontSize: isMobile ? 12 : 13),
               unselectedLabelStyle:
-                  const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+                  TextStyle(fontWeight: FontWeight.w500, fontSize: isMobile ? 12 : 13),
               tabs: const [
                 Tab(
                     icon: Icon(Icons.dashboard_rounded, size: 18),
                     text: 'Tổng quan'),
                 Tab(
-                    icon: Icon(Icons.calendar_month_rounded, size: 18),
-                    text: 'Chu kỳ'),
-                Tab(
                     icon: Icon(Icons.track_changes_rounded, size: 18),
-                    text: 'Chỉ tiêu & Tiến độ'),
+                    text: 'Chỉ tiêu'),
                 Tab(
                     icon: Icon(Icons.account_balance_wallet_rounded, size: 18),
                     text: 'Lương KPI'),
                 Tab(
-                    icon: Icon(Icons.cloud_sync_rounded, size: 18),
-                    text: 'Cấu hình GSheet'),
+                    icon: Icon(Icons.settings_rounded, size: 18),
+                    text: 'Cài đặt'),
               ],
             ),
           ),
@@ -217,7 +294,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                         const SizedBox(height: 16),
                         Text('Đang tải dữ liệu...',
                             style: TextStyle(
-                                color: Colors.grey[500], fontSize: 14)),
+                                color: HrmPageChrome.textMuted, fontSize: 14)),
                       ],
                     ),
                   )
@@ -225,10 +302,9 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                     controller: _tabCtrl,
                     children: [
                       _buildDashboardTab(theme),
-                      _buildPeriodsTab(theme),
                       _buildTargetsTab(theme),
                       _buildSalaryTab(theme),
-                      _buildGSheetConfigTab(theme),
+                      _buildSettingsTab(theme),
                     ],
                   ),
           ),
@@ -238,102 +314,268 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildHeader() {
-    final currentPeriod = _periods.isNotEmpty
-        ? _periods.firstWhere((p) => p['id']?.toString() == _selPeriodId,
-            orElse: () => _periods.first)
-        : null;
-    final periodStatus =
-        currentPeriod != null ? _periodStatusInt(currentPeriod['status']) : -1;
+    final isMobile = Responsive.isMobile(context);
+    final embedded = HrmPageChrome.isEmbedded;
+    final currentPeriod = _currentPeriod;
+    final periodStatus = _currentPeriodStatus;
     final statusLabel =
         periodStatus >= 0 ? _periodStatusLabel(periodStatus) : '';
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
       decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [HrmPageChrome.primaryNavy, HrmPageChrome.primaryNavy, Color(0xFF2A5298)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+      ),
+      padding: EdgeInsets.fromLTRB(
+        isMobile ? 10 : 14,
+        embedded ? 6 : (isMobile ? 6 : 8),
+        isMobile ? 4 : 8,
+        6,
+      ),
+      child: Row(
+        children: [
+          if (!embedded && !isMobile) ...[
+            Icon(Icons.trending_up_rounded, size: 20, color: _accent),
+            const SizedBox(width: 8),
+            const Text(
+              'KPI',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: HrmPageChrome.textDark,
+              ),
+            ),
+            const SizedBox(width: 12),
+          ],
+          Expanded(child: _buildPeriodSelector(isMobile)),
+          if (statusLabel.isNotEmpty) ...[
+            const SizedBox(width: 6),
+            _buildStatusBadge(statusLabel, periodStatus, compact: true),
+          ],
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            tooltip: 'Tải lại dữ liệu',
+            onPressed: _loading ? null : () => _loadData(),
+            icon: const Icon(Icons.refresh_rounded,
+                size: 20, color: HrmPageChrome.textMuted),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Thanh hướng dẫn quy trình: Mở → Khóa → Tính lương → Duyệt
+  Widget _buildWorkflowBanner() {
+    if (_selPeriodId == null || _currentPeriodStatus < 0) {
+      return const SizedBox.shrink();
+    }
+    final status = _currentPeriodStatus;
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    final isMobile = Responsive.isMobile(context);
+
+    String hint;
+    String? actionLabel;
+    VoidCallback? action;
+
+    switch (status) {
+      case 0:
+        hint = 'Bước 1: Giao chỉ tiêu và cập nhật doanh số trên tab Chỉ tiêu.';
+        if (perm.canApprove('KPI')) {
+          actionLabel = 'Khóa chu kỳ';
+          action = () => _updatePeriodStatus(_currentPeriod!['id'], 1);
+        }
+      case 1:
+        hint =
+            'Bước 2: Chu kỳ đã khóa. Kiểm tra số liệu rồi tính lương trên tab Lương KPI.';
+        actionLabel = 'Tính lương KPI';
+        action = () {
+          _tabCtrl.animateTo(2);
+          _calculateSalary(_selPeriodId);
+        };
+      case 2:
+        hint = 'Bước 3: Đã tính lương. Duyệt để hoàn tất chu kỳ.';
+        if (perm.canApprove('KPI')) {
+          actionLabel = 'Duyệt lương';
+          action = () async {
+            _tabCtrl.animateTo(2);
+            final ok = await _approveAllSalaries();
+            if (ok && mounted) {
+              await _updatePeriodStatus(_currentPeriod!['id'], 3);
+              await _loadData(showLoading: false);
+            }
+          };
+        }
+      case 3:
+        hint = 'Chu kỳ đã duyệt — chỉ xem, không chỉnh sửa.';
+      default:
+        hint = '';
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(isMobile ? 12 : 16, 8, isMobile ? 12 : 16, 10),
+      decoration: BoxDecoration(
+        color: _accent.withValues(alpha: 0.04),
+        border: Border(
+          bottom: BorderSide(color: _accent.withValues(alpha: 0.12)),
         ),
       ),
-      child: SafeArea(
-        bottom: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
               children: [
-                const Icon(Icons.trending_up_rounded,
-                    color: Colors.white, size: 20),
-                const SizedBox(width: 8),
-                const Expanded(
-                  child: Text('Quản lý KPI',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -0.3),
-                      overflow: TextOverflow.ellipsis),
-                ),
-                if (statusLabel.isNotEmpty) ...[
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: _periodStatusColor(periodStatus)
-                          .withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.2)),
-                    ),
-                    child: Text(statusLabel,
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600)),
-                  ),
-                  const SizedBox(width: 6),
-                ],
+                _workflowStepChip(0, 'Giao KPI', status),
+                _workflowConnector(status >= 1),
+                _workflowStepChip(1, 'Khóa', status),
+                _workflowConnector(status >= 2),
+                _workflowStepChip(2, 'Tính lương', status),
+                _workflowConnector(status >= 3),
+                _workflowStepChip(3, 'Duyệt', status),
               ],
             ),
-            if (_periods.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 1),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
-                  border:
-                      Border.all(color: Colors.white.withValues(alpha: 0.15)),
+          ),
+          if (hint.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              hint,
+              style: const TextStyle(
+                fontSize: 12,
+                color: HrmPageChrome.textMuted,
+                height: 1.35,
+              ),
+            ),
+          ],
+          if (actionLabel != null && action != null) ...[
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: FilledButton.icon(
+                onPressed: action,
+                icon: Icon(
+                  status == 0
+                      ? Icons.lock_outline
+                      : status == 1
+                          ? Icons.calculate_outlined
+                          : Icons.verified_outlined,
+                  size: 18,
                 ),
-                child: DropdownButton<String>(
-                  value: _selPeriodId,
-                  dropdownColor: HrmPageChrome.primaryNavy,
-                  isExpanded: true,
-                  isDense: true,
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500),
-                  underline: const SizedBox(),
-                  icon: const Icon(Icons.expand_more_rounded,
-                      color: Colors.white70, size: 18),
-                  items: _periods
-                      .map((p) => DropdownMenuItem(
-                            value: p['id']?.toString(),
-                            child: Text(p['name'] ?? ''),
-                          ))
-                      .toList(),
-                  onChanged: (v) {
-                    setState(() => _selPeriodId = v);
-                    _loadPeriodData();
-                  },
+                label: Text(actionLabel!),
+                style: FilledButton.styleFrom(
+                  backgroundColor: _accent,
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 8),
                 ),
               ),
-            ],
+            ),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _workflowStepChip(int step, String label, int currentStatus) {
+    final done = currentStatus > step;
+    final active = currentStatus == step;
+    final color = done || active ? _accent : HrmPageChrome.textMuted;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: active
+            ? _accent.withValues(alpha: 0.12)
+            : (done ? const Color(0xFF059669).withValues(alpha: 0.08) : Colors.white),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: active
+              ? _accent.withValues(alpha: 0.35)
+              : const Color(0xFFE4E4E7),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (done)
+            const Icon(Icons.check_circle, size: 14, color: Color(0xFF059669))
+          else
+            Text('${step + 1}',
+                style: TextStyle(
+                    fontSize: 11, fontWeight: FontWeight.w700, color: color)),
+          const SizedBox(width: 5),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                  color: color)),
+        ],
+      ),
+    );
+  }
+
+  Widget _workflowConnector(bool active) {
+    return Container(
+      width: 16,
+      height: 2,
+      margin: const EdgeInsets.symmetric(horizontal: 2),
+      color: active ? const Color(0xFF059669) : const Color(0xFFE4E4E7),
+    );
+  }
+
+  Widget _buildPeriodSelector(bool isMobile) {
+    if (_periods.isEmpty) {
+      return Text(
+        'Chưa có chu kỳ',
+        style: TextStyle(fontSize: isMobile ? 12 : 13, color: HrmPageChrome.textMuted),
+        overflow: TextOverflow.ellipsis,
+      );
+    }
+    return DropdownButtonHideUnderline(
+      child: DropdownButton<String>(
+        value: _selPeriodId,
+        isDense: true,
+        isExpanded: true,
+        style: TextStyle(
+          fontSize: isMobile ? 12 : 13,
+          fontWeight: FontWeight.w600,
+          color: HrmPageChrome.textDark,
+        ),
+        icon: const Icon(Icons.expand_more_rounded,
+            size: 18, color: HrmPageChrome.textMuted),
+        items: _periods
+            .map((p) => DropdownMenuItem(
+                  value: p['id']?.toString(),
+                  child: Text(
+                    p['name'] ?? '',
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ))
+            .toList(),
+        onChanged: (v) {
+          setState(() => _selPeriodId = v);
+          _loadPeriodData();
+        },
+      ),
+    );
+  }
+
+  Widget _buildStatusBadge(String label, int status, {bool compact = false}) {
+    final color = _periodStatusColor(status);
+    return Container(
+      padding: EdgeInsets.symmetric(
+          horizontal: compact ? 7 : 10, vertical: compact ? 2 : 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.22)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: compact ? 10 : 11,
+          fontWeight: FontWeight.w600,
+          color: color,
         ),
       ),
     );
@@ -391,18 +633,157 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         .toList();
   }
 
-  Widget _buildFilterRow(ThemeData theme) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Row(
+  bool get _hasActiveFilters =>
+      _filterBranchId != null ||
+      _filterDepartment != null ||
+      _filterEmployeeId != null;
+
+  Widget _buildExportButtons({
+    VoidCallback? onExcel,
+    VoidCallback? onPng,
+    String excelLabel = 'Xuất Excel',
+  }) {
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    final canExport = perm.canExport('KPI');
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        if (onExcel != null)
+          OutlinedButton.icon(
+            onPressed: _isExporting ? null : onExcel,
+            icon: const Icon(Icons.table_chart_outlined, size: 18),
+            label: Text(excelLabel),
+            style: OutlinedButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              foregroundColor: _accent,
+            ),
+          ),
+        if (canExport && onPng != null)
+          OutlinedButton.icon(
+            onPressed: _isExporting ? null : onPng,
+            icon: const Icon(Icons.image_outlined, size: 18),
+            label: Text(_isExporting ? 'Đang xuất...' : 'Xuất PNG'),
+            style: OutlinedButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              foregroundColor: _accent,
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _sectionLabel(String title, {String? subtitle}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.filter_list_rounded, size: 18, color: Colors.grey[500]),
-          const SizedBox(width: 8),
+          Text(title,
+              style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: HrmPageChrome.textDark)),
+          if (subtitle != null)
+            Text(subtitle,
+                style: const TextStyle(
+                    fontSize: 11, color: HrmPageChrome.textMuted)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterSection(ThemeData theme, {List<Widget>? footerActions}) {
+    final isMobile = Responsive.isMobile(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (isMobile)
+          Material(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(10),
+              onTap: () => setState(() => _showKpiFilters = !_showKpiFilters),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: _hasActiveFilters
+                        ? _accent.withValues(alpha: 0.35)
+                        : const Color(0xFFE4E4E7),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.filter_list,
+                        size: 18,
+                        color: _hasActiveFilters ? _accent : HrmPageChrome.textMuted),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _hasActiveFilters
+                            ? 'Bộ lọc (đang áp dụng)'
+                            : 'Bộ lọc theo chi nhánh / phòng ban',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: _hasActiveFilters
+                              ? _accent
+                              : HrmPageChrome.textDark,
+                        ),
+                      ),
+                    ),
+                    Icon(
+                      _showKpiFilters
+                          ? Icons.keyboard_arrow_up
+                          : Icons.keyboard_arrow_down,
+                      color: HrmPageChrome.textMuted,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          )
+        else
+          _sectionLabel('Bộ lọc',
+              subtitle: 'Chi nhánh, phòng ban, nhân viên'),
+        if (!isMobile || _showKpiFilters) ...[
+          if (isMobile) const SizedBox(height: 8),
+          _buildFilterRow(theme),
+          if (_hasActiveFilters && isMobile)
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: () => setState(() {
+                  _filterBranchId = null;
+                  _filterDepartment = null;
+                  _filterEmployeeId = null;
+                }),
+                icon: const Icon(Icons.clear, size: 16),
+                label: const Text('Xóa bộ lọc'),
+              ),
+            ),
+        ],
+        if (footerActions != null && footerActions.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          ...footerActions,
+        ],
+      ],
+    );
+  }
+
+  Widget _buildFilterRow(ThemeData theme) {
+    return HrmFilterBar(
+      margin: EdgeInsets.zero,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.filter_list_rounded,
+                size: 18, color: HrmPageChrome.textMuted),
+            const SizedBox(width: 8),
           if (_branches.isNotEmpty) ...[
             Expanded(
               child: DropdownButtonFormField<String?>(
@@ -546,6 +927,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           ],
         ],
       ),
+    ],
     );
   }
 
@@ -782,59 +1164,25 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
 
   Widget _buildDashboardTab(ThemeData theme) {
     final filteredTargets = _filteredTargets;
-    final isMobile = Responsive.isMobile(context);
+    final canExport =
+        Provider.of<PermissionProvider>(context, listen: false).canExport('KPI');
     return SingleChildScrollView(
       padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Filter + Export row - compact
-          
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: _buildFilterRow(theme),
-            ),
-          if (isMobile) ...[
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                if (Provider.of<PermissionProvider>(context, listen: false)
-                    .canExport('KPI'))
-                  OutlinedButton.icon(
-                    onPressed: _isExporting
-                        ? null
-                        : () => _exportPng(_dashboardKey, 'TongQuan_KPI'),
-                    icon: const Icon(Icons.image, size: 16),
-                    label: Text(_isExporting ? '...' : 'Xuất PNG',
-                        style: const TextStyle(fontSize: 11)),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8)),
+          _buildFilterSection(
+            theme,
+            footerActions: canExport
+                ? [
+                    _buildExportButtons(
+                      onPng: () => _exportPng(_dashboardKey, 'TongQuan_KPI'),
                     ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 8),
-          ] else ...[
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                if (Provider.of<PermissionProvider>(context, listen: false)
-                    .canExport('KPI'))
-                  OutlinedButton.icon(
-                    onPressed: _isExporting
-                        ? null
-                        : () => _exportPng(_dashboardKey, 'TongQuan_KPI'),
-                    icon: const Icon(Icons.image, size: 16),
-                    label: Text(_isExporting ? 'Đang xuất...' : 'Xuất PNG',
-                        style: const TextStyle(fontSize: 12)),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 12),
-          ],
+                  ]
+                : null,
+          ),
+          const SizedBox(height: 12),
+          _sectionLabel('Tóm tắt', subtitle: 'Số liệu chu kỳ đang chọn'),
           RepaintBoundary(
             key: _dashboardKey,
             child: Container(
@@ -842,7 +1190,6 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Summary stat cards
                   LayoutBuilder(builder: (context, constraints) {
                     final avgPct = filteredTargets.isNotEmpty
                         ? filteredTargets
@@ -851,29 +1198,30 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                 .reduce((a, b) => a + b) /
                             filteredTargets.length
                         : 0.0;
-                    final totalBonus = _filteredSalaries.fold<double>(
-                        0,
-                        (sum, s) =>
-                            sum +
-                            ((s['kpiBonusAmount'] ?? 0) as num).toDouble());
+                    final totalBonus = _hasPersistedSalaries
+                        ? _filteredSalaries.fold<double>(
+                            0,
+                            (sum, s) =>
+                                sum +
+                                ((s['grossIncome'] ?? 0) as num).toDouble())
+                        : filteredTargets.fold<double>(
+                            0, (sum, t) => sum + _previewSalaryTotal(t));
                     final isNarrow = constraints.maxWidth < 600;
                     final cards = [
                       _statCard('Nhân viên', '${filteredTargets.length}',
-                          Icons.people, _accent),
+                          Icons.people_outline),
                       _statCard(
                           'Đạt mục tiêu',
                           '${filteredTargets.where((t) => (t['completionRate'] ?? 0) >= 100).length}',
-                          Icons.check_circle,
-                          _green),
+                          Icons.check_circle_outline),
                       _statCard(
                           'Chưa đạt',
                           '${filteredTargets.where((t) => (t['completionRate'] ?? 0) < 100 && t['actualValue'] != null).length}',
-                          Icons.warning_amber,
-                          _amber),
+                          Icons.warning_amber_outlined),
                       _statCard('Tiến độ TB', '${avgPct.toStringAsFixed(1)}%',
-                          Icons.analytics, _blue),
-                      _statCard('Tổng thưởng', _cur.format(totalBonus),
-                          Icons.monetization_on, HrmPageChrome.primaryNavy),
+                          Icons.analytics_outlined),
+                      _statCard('Tổng lương', _cur.format(totalBonus),
+                          Icons.payments_outlined),
                     ];
                     if (isNarrow) {
                       return Wrap(
@@ -893,8 +1241,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                       ],
                     ]);
                   }),
-                  const SizedBox(height: 12),
-                  // Progress overview + Top performers side by side on desktop
+                  const SizedBox(height: 16),
                   LayoutBuilder(builder: (context, constraints) {
                     if (constraints.maxWidth >= 900) {
                       return Row(
@@ -1656,7 +2003,136 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
   }
 
   // ------------------------------------------------
-  //  TAB 2: CHU KỲ
+  //  TAB: CÀI ĐẶT (Chu kỳ + Google Sheet)
+  // ------------------------------------------------
+
+  Widget _buildSettingsTab(ThemeData theme) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Theme(
+            data: theme.copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              initiallyExpanded: true,
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: const EdgeInsets.only(top: 8, bottom: 16),
+              leading: const Icon(Icons.calendar_month_rounded, color: _accent),
+              title: Text('Chu kỳ đánh giá',
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w700)),
+              subtitle: Text('${_periods.length} chu kỳ',
+                  style: const TextStyle(
+                      fontSize: 12, color: HrmPageChrome.textMuted)),
+              children: [_buildPeriodsSection(theme)],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Theme(
+            data: theme.copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: const EdgeInsets.only(top: 8, bottom: 8),
+              leading: const Icon(Icons.cloud_sync_rounded, color: _accent),
+              title: Text('Google Sheet',
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w700)),
+              subtitle: Text(
+                  _selPeriodId == null
+                      ? 'Chọn chu kỳ ở header'
+                      : 'Đồng bộ doanh số tự động',
+                  style: const TextStyle(
+                      fontSize: 12, color: HrmPageChrome.textMuted)),
+              children: [
+                if (_selPeriodId == null)
+                  _emptyState('Chọn chu kỳ ở header', Icons.calendar_today)
+                else
+                  _buildGSheetConfigBody(theme),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPeriodsSection(ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Align(
+          alignment: Alignment.centerRight,
+          child: FilledButton.icon(
+            onPressed: _showPeriodDialog,
+            icon: const Icon(Icons.add_rounded, size: 18),
+            label: const Text('Tạo chu kỳ'),
+            style: FilledButton.styleFrom(
+              backgroundColor: _accent,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (_periods.isEmpty)
+          _emptyState('Chưa có chu kỳ đánh giá', Icons.calendar_today)
+        else
+          ..._periods.map((p) => Responsive.isMobile(context)
+              ? Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE4E4E7)),
+                    ),
+                    child: _buildPeriodDeckItem(p),
+                  ),
+                )
+              : _buildPeriodCard(p)),
+      ],
+    );
+  }
+
+  Widget _buildGSheetConfigBody(ThemeData theme) {
+    final period = _currentPeriod ?? {};
+    final lastSynced = period['lastSyncedAt'];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(children: [
+          Expanded(
+              child: Text(
+                  'Thiết lập kết nối Google Sheet cho chu kỳ đang chọn.',
+                  style: TextStyle(
+                      color: HrmPageChrome.textMuted, fontSize: 13))),
+          OutlinedButton.icon(
+            onPressed: _showCopyGSheetConfigDialog,
+            icon: const Icon(Icons.copy, size: 16),
+            label: const Text('Copy từ chu kỳ khác',
+                style: TextStyle(fontSize: 12)),
+          ),
+        ]),
+        if (lastSynced != null) ...[
+          const SizedBox(height: 4),
+          Text('Lần đồng bộ cuối: ${_fmtDateTime(lastSynced)}',
+              style: const TextStyle(color: _green, fontSize: 12)),
+        ],
+        const SizedBox(height: 16),
+        if (!_credentialsConfigured) _buildCredentialsWarning(theme),
+        if (!_credentialsConfigured) const SizedBox(height: 16),
+        _buildGSheetConnectionSection(theme, period),
+        const SizedBox(height: 16),
+        _buildEmployeeMappingSection(theme),
+        const SizedBox(height: 16),
+        _buildAutoSyncSection(theme, period),
+      ],
+    );
+  }
+
+  // ------------------------------------------------
+  //  TAB 2: CHU KỲ (legacy section helpers)
   // ------------------------------------------------
 
   Widget _buildPeriodsTab(ThemeData theme) {
@@ -1742,8 +2218,8 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
     final statusColor = _periodStatusColor(status);
     final isCurrent = p['id']?.toString() == _selPeriodId;
     final name = p['name']?.toString() ?? '';
-    final start = DateTime.tryParse((p['startDate'] ?? '').toString());
-    final end = DateTime.tryParse((p['endDate'] ?? '').toString());
+    final start = DateTime.tryParse((p['periodStart'] ?? '').toString());
+    final end = DateTime.tryParse((p['periodEnd'] ?? '').toString());
 
     return InkWell(
       onTap: () {
@@ -2055,15 +2531,15 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
   Color _periodStatusColor(int s) {
     switch (s) {
       case 0:
-        return _green;
+        return const Color(0xFF059669);
       case 1:
-        return _amber;
+        return const Color(0xFFB45309);
       case 2:
-        return _blue;
+        return _accent;
       case 3:
-        return HrmPageChrome.primaryNavy;
+        return const Color(0xFF059669);
       default:
-        return Colors.grey;
+        return HrmPageChrome.textMuted;
     }
   }
 
@@ -2114,7 +2590,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                     child: ListTile(
                   dense: true,
                   title:
-                      Text('T?: ${DateFormat('dd/MM/yyyy').format(startDate)}'),
+                      Text('Từ: ${DateFormat('dd/MM/yyyy').format(startDate)}'),
                   trailing: const Icon(Icons.calendar_today, size: 18),
                   onTap: () async {
                     final d = await showDatePicker(
@@ -2199,6 +2675,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
 
   Future<void> _calculateSalary(String? periodId) async {
     if (periodId == null) return;
+    if (!_requireLockedPeriod()) return;
     setState(() => _loading = true);
     final res = await _api.calculateKpiSalary(periodId);
     if (mounted) {
@@ -2206,7 +2683,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       if (res['isSuccess'] == true) {
         NotificationOverlayManager()
             .showSuccess(title: 'Thành công', message: 'Đã tính lương KPI');
-        _loadPeriodData();
+        await _loadData(showLoading: false);
       } else {
         NotificationOverlayManager().showError(
             title: 'Lỗi', message: res['message'] ?? 'Lỗi tính lương');
@@ -2245,137 +2722,134 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
   }
 
   List<Widget> _buildTargetsTabHeaders(ThemeData theme,
-      List<Map<String, dynamic>> filtered, bool isMobile, ButtonStyle btnStyle) =>
-      [
-        Padding(
-          padding: EdgeInsets.fromLTRB(
-              16, isMobile ? 10 : 16, 16, isMobile ? 6 : 16),
-          child:
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                    color: _accent.withValues(alpha: 0.06),
-                    borderRadius: BorderRadius.circular(8)),
-                child: const Icon(Icons.track_changes_rounded,
-                    color: _accent, size: 18),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                  child: Text('Chỉ tiêu & Tiến độ',
-                      style: theme.textTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w700))),
-            ]),
-            const SizedBox(height: 10),
-            Wrap(spacing: 6, runSpacing: 6, children: [
-              OutlinedButton.icon(
-                onPressed: _showBatchUpdateDialog,
-                icon: Icon(Icons.edit_note_rounded, size: isMobile ? 16 : 18),
-                label: const Text('Cập nhật doanh số'),
-                style: btnStyle,
-              ),
-              OutlinedButton.icon(
-                onPressed: _importExcelActuals,
-                icon: Icon(Icons.upload_file_rounded, size: isMobile ? 16 : 18),
-                label: const Text('Nhập Excel'),
-                style: btnStyle,
-              ),
-              OutlinedButton.icon(
-                onPressed: _writeTargetsToGSheet,
-                icon: Icon(Icons.cloud_upload_rounded, size: isMobile ? 16 : 18),
-                label: const Text('Ghi chỉ tiêu → GSheet'),
-                style: btnStyle.copyWith(
-                    foregroundColor: const WidgetStatePropertyAll(_green)),
-              ),
-              OutlinedButton.icon(
-                onPressed: _isExporting ? null : _exportTargetsExcel,
-                icon: Icon(Icons.table_chart_rounded, size: isMobile ? 16 : 18),
-                label: const Text('Xuất Excel'),
-                style: btnStyle,
-              ),
-              OutlinedButton.icon(
-                onPressed: _isExporting
-                    ? null
-                    : () => _exportPng(_targetsKey, 'ChiTieu_KPI'),
-                icon: Icon(Icons.image_rounded, size: isMobile ? 16 : 18),
-                label: const Text('Xuất PNG'),
-                style: btnStyle,
-              ),
-              FilledButton.icon(
-                onPressed: Provider.of<PermissionProvider>(context, listen: false)
-                        .canCreate('KPI')
-                    ? _showAddTargetDialog
-                    : null,
-                icon: Icon(Icons.person_add_rounded, size: isMobile ? 16 : 18),
-                label: const Text('Giao chỉ tiêu'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: _accent,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8)),
-                  padding: EdgeInsets.symmetric(
-                      horizontal: isMobile ? 12 : 20,
-                      vertical: isMobile ? 6 : 10),
-                  textStyle: TextStyle(fontSize: isMobile ? 11 : 13),
+      List<Map<String, dynamic>> filtered, bool isMobile, ButtonStyle btnStyle) {
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    final hPad = isMobile ? 12.0 : 16.0;
+    return [
+      Padding(
+        padding: EdgeInsets.fromLTRB(hPad, 10, hPad, 4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _sectionLabel('Thao tác chỉ tiêu',
+                subtitle: _isPeriodOpen
+                    ? 'Chu kỳ đang mở — có thể giao và cập nhật doanh số'
+                    : 'Chu kỳ đã khóa — chỉ xem, không sửa'),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                FilledButton.icon(
+                  onPressed: perm.canCreate('KPI')
+                      ? (_isPeriodOpen
+                          ? _showAddTargetDialog
+                          : () => _requireOpenPeriod())
+                      : null,
+                  icon: const Icon(Icons.person_add_rounded, size: 18),
+                  label: const Text('Giao chỉ tiêu'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _accent,
+                    visualDensity: VisualDensity.compact,
+                  ),
                 ),
-              ),
-            ]),
-          ]),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: _buildFilterRow(theme),
-        ),
-        const SizedBox(height: 8),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: LayoutBuilder(builder: (context, constraints) {
-            final mobileLayout = constraints.maxWidth < 600;
-            final items = [
-              _miniStat('Tổng NV', '${filtered.length}', _accent),
-              _miniStat(
-                  'Đạt ≥100%',
-                  '${filtered.where((t) => (t['completionRate'] ?? 0) >= 100).length}',
-                  _green),
-              _miniStat(
-                  '70-99%',
-                  '${filtered.where((t) {
-                    final p = (t['completionRate'] ?? 0) as num;
-                    return p >= 70 && p < 100;
-                  }).length}',
-                  _amber),
-              _miniStat(
-                  '<70%',
-                  '${filtered.where((t) {
-                    final p = (t['completionRate'] ?? 0) as num;
-                    return t['actualValue'] != null && p < 70;
-                  }).length}',
-                  _red),
-              _miniStat(
-                  'Chưa có DS',
-                  '${filtered.where((t) => t['actualValue'] == null).length}',
-                  Colors.grey),
-            ];
-            if (mobileLayout) {
-              return Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: items
-                    .map((c) => SizedBox(
-                        width: (constraints.maxWidth - 8) / 2, child: c))
-                    .toList(),
-              );
-            }
-            return Row(children: [
-              for (int i = 0; i < items.length; i++) ...[
-                if (i > 0) const SizedBox(width: 10),
-                Expanded(child: items[i]),
+                OutlinedButton.icon(
+                  onPressed: _isPeriodOpen
+                      ? _showBatchUpdateDialog
+                      : () => _requireOpenPeriod(),
+                  icon: const Icon(Icons.edit_note_outlined, size: 18),
+                  label: const Text('Cập nhật doanh số'),
+                  style: btnStyle,
+                ),
+                OutlinedButton.icon(
+                  onPressed: _isPeriodOpen
+                      ? _importExcelActuals
+                      : () => _requireOpenPeriod(),
+                  icon: const Icon(Icons.upload_file_outlined, size: 18),
+                  label: const Text('Nhập Excel'),
+                  style: btnStyle,
+                ),
+                OutlinedButton.icon(
+                  onPressed: _isPeriodOpen
+                      ? _writeTargetsToGSheet
+                      : () => _requireOpenPeriod(),
+                  icon: const Icon(Icons.cloud_upload_outlined, size: 18),
+                  label: const Text('Ghi Google Sheet'),
+                  style: btnStyle,
+                ),
               ],
-            ]);
-          }),
+            ),
+            const SizedBox(height: 8),
+            _buildExportButtons(
+              onExcel: _isExporting ? null : _exportTargetsExcel,
+              onPng: _isExporting
+                  ? null
+                  : () => _exportPng(_targetsKey, 'ChiTieu_KPI'),
+            ),
+          ],
         ),
-        const SizedBox(height: 12),
+      ),
+      Padding(
+        padding: EdgeInsets.symmetric(horizontal: hPad),
+        child: _buildFilterSection(theme),
+      ),
+      const SizedBox(height: 10),
+      Padding(
+        padding: EdgeInsets.symmetric(horizontal: hPad),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _sectionLabel('Thống kê nhanh'),
+            _buildTargetMiniStats(filtered, compact: isMobile),
+          ],
+        ),
+      ),
+      const SizedBox(height: 8),
+    ];
+  }
+
+  Widget _buildTargetMiniStats(List<Map<String, dynamic>> filtered,
+      {bool compact = false}) {
+    return LayoutBuilder(builder: (context, constraints) {
+      final mobileLayout = compact || constraints.maxWidth < 600;
+      final items = [
+        _miniStat('Tổng NV', '${filtered.length}'),
+        _miniStat(
+            'Đạt ≥100%',
+            '${filtered.where((t) => (t['completionRate'] ?? 0) >= 100).length}'),
+        _miniStat(
+            '70-99%',
+            '${filtered.where((t) {
+              final p = (t['completionRate'] ?? 0) as num;
+              return p >= 70 && p < 100;
+            }).length}'),
+        _miniStat(
+            '<70%',
+            '${filtered.where((t) {
+              final p = (t['completionRate'] ?? 0) as num;
+              return t['actualValue'] != null && p < 70;
+            }).length}'),
+        _miniStat(
+            'Chưa có DS',
+            '${filtered.where((t) => t['actualValue'] == null).length}'),
       ];
+      if (mobileLayout) {
+        return Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: items
+              .map((c) => SizedBox(
+                  width: (constraints.maxWidth - 6) / 2, child: c))
+              .toList(),
+        );
+      }
+      return Row(children: [
+        for (int i = 0; i < items.length; i++) ...[
+          if (i > 0) const SizedBox(width: 8),
+          Expanded(child: items[i]),
+        ],
+      ]);
+    });
+  }
 
   List<Widget> _targetsTabMobileSlivers(List<Map<String, dynamic>> filtered) {
     if (filtered.isEmpty) {
@@ -3555,9 +4029,203 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
     return mx;
   }
 
+  Widget _buildPersistedSalaryTab(ThemeData theme) {
+    final rows = _filteredSalaries;
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    final pendingCount =
+        rows.where((s) => s['isApproved'] != true).length;
+    final totalGross = rows.fold<double>(
+        0, (s, r) => s + ((r['grossIncome'] ?? 0) as num).toDouble());
+    final totalNet = rows.fold<double>(
+        0, (s, r) => s + ((r['netIncome'] ?? 0) as num).toDouble());
+
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(Responsive.isMobile(context) ? 12 : 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionLabel('Bảng lương đã tính',
+              subtitle: 'Số liệu chính thức từ hệ thống'),
+          Row(
+            children: [
+              _salaryModeBadge(false),
+              const Spacer(),
+              if (_isPeriodLocked)
+                OutlinedButton.icon(
+                  onPressed: () => _calculateSalary(_selPeriodId),
+                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                  label: const Text('Tính lại'),
+                ),
+              if (_isPeriodCalculated &&
+                  pendingCount > 0 &&
+                  perm.canApprove('KPI')) ...[
+                const SizedBox(width: 8),
+                FilledButton.icon(
+                  onPressed: () async {
+                    final ok = await _approveAllSalaries();
+                    if (ok && mounted) {
+                      await _updatePeriodStatus(_currentPeriod!['id'], 3);
+                      await _loadData(showLoading: false);
+                    }
+                  },
+                  icon: const Icon(Icons.verified_outlined, size: 18),
+                  label: Text('Duyệt ($pendingCount)'),
+                  style: FilledButton.styleFrom(backgroundColor: _accent),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 12),
+          _buildFilterSection(
+            theme,
+            footerActions: [
+              _buildExportButtons(
+                onExcel: _isExporting ? null : _exportSalaryExcel,
+                onPng: _isExporting
+                    ? null
+                    : () => _exportPng(_salaryKey, 'Lương_KPI'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          HrmPageChrome.horizontalStatCards(
+            cards: [
+              _statCard('Nhân viên', '${rows.length}', Icons.people_outline),
+              _statCard('Tổng gross', _cur.format(totalGross),
+                  Icons.payments_outlined),
+              _statCard('Thực nhận', _cur.format(totalNet),
+                  Icons.account_balance_wallet_outlined),
+              _statCard('Chờ duyệt', '$pendingCount',
+                  Icons.pending_actions_outlined),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (rows.isEmpty)
+            _emptyState('Chưa có bảng lương cho bộ lọc hiện tại',
+                Icons.receipt_long)
+          else if (Responsive.isMobile(context))
+            ...rows.map((s) => _buildPersistedSalaryCard(s))
+          else
+            Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFE4E4E7)),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: DataTable(
+                    headingRowColor:
+                        WidgetStateProperty.all(const Color(0xFFFAFAFA)),
+                    columns: const [
+                      DataColumn(label: Text('Mã NV')),
+                      DataColumn(label: Text('Họ tên')),
+                      DataColumn(label: Text('% KPI')),
+                      DataColumn(label: Text('Lương CB')),
+                      DataColumn(label: Text('Thưởng KPI')),
+                      DataColumn(label: Text('Phụ cấp')),
+                      DataColumn(label: Text('Khấu trừ')),
+                      DataColumn(label: Text('Gross')),
+                      DataColumn(label: Text('Thực nhận')),
+                      DataColumn(label: Text('Trạng thái')),
+                    ],
+                    rows: rows.map((s) {
+                      final approved = s['isApproved'] == true;
+                      final score =
+                          ((s['totalKpiScore'] ?? 0) as num).toDouble();
+                      return DataRow(cells: [
+                        DataCell(Text(s['employeeCode']?.toString() ?? '')),
+                        DataCell(Text(s['employeeName']?.toString() ?? '')),
+                        DataCell(Text('${score.toStringAsFixed(1)}%')),
+                        DataCell(Text(_cur.format(s['baseSalary'] ?? 0))),
+                        DataCell(Text(_cur.format(s['kpiBonusAmount'] ?? 0))),
+                        DataCell(Text(_cur.format(s['allowances'] ?? 0))),
+                        DataCell(Text(_cur.format(s['deductions'] ?? 0))),
+                        DataCell(Text(_cur.format(s['grossIncome'] ?? 0),
+                            style: const TextStyle(fontWeight: FontWeight.w600))),
+                        DataCell(Text(_cur.format(s['netIncome'] ?? 0),
+                            style: const TextStyle(fontWeight: FontWeight.bold))),
+                        DataCell(Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: (approved ? _green : _amber)
+                                .withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                              approved ? 'Đã duyệt' : 'Chờ duyệt',
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: approved ? _green : _amber)),
+                        )),
+                      ]);
+                    }).toList(),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPersistedSalaryCard(Map<String, dynamic> s) {
+    final approved = s['isApproved'] == true;
+    final score = ((s['totalKpiScore'] ?? 0) as num).toDouble();
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              Expanded(
+                  child: Text(s['employeeName']?.toString() ?? '',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w700, fontSize: 14))),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: (approved ? _green : _amber).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(approved ? 'Đã duyệt' : 'Chờ duyệt',
+                    style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: approved ? _green : _amber)),
+              ),
+            ]),
+            Text(s['employeeCode']?.toString() ?? '',
+                style: const TextStyle(
+                    color: HrmPageChrome.textMuted, fontSize: 12)),
+            const Divider(height: 20),
+            _mobileInfoRow('% KPI', '${score.toStringAsFixed(1)}%', _accent),
+            _mobileInfoRow(
+                'Lương CB', _cur.format(s['baseSalary'] ?? 0), Colors.black87),
+            _mobileInfoRow('Thưởng KPI',
+                _cur.format(s['kpiBonusAmount'] ?? 0), _green),
+            _mobileInfoRow('Thực nhận', _cur.format(s['netIncome'] ?? 0), _accent),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildSalaryTab(ThemeData theme) {
     if (_selPeriodId == null) {
       return _emptyState('Chọn chu kỳ ở header', Icons.calendar_today);
+    }
+    if (_hasPersistedSalaries) {
+      return _buildPersistedSalaryTab(theme);
     }
 
     final maxTiers = _maxTierCount;
@@ -3568,60 +4236,43 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           : MediaQuery.of(context).size.width - 40;
       final filteredTgts = _filteredTargets;
       return SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: EdgeInsets.all(Responsive.isMobile(context) ? 12 : 16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                Row(mainAxisSize: MainAxisSize.min, children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                        color: _accent.withValues(alpha: 0.06),
-                        borderRadius: BorderRadius.circular(10)),
-                    child: const Icon(Icons.account_balance_wallet_rounded,
-                        color: _accent, size: 20),
-                  ),
-                  const SizedBox(width: 12),
-                  Text('Bảng lương KPI',
-                      style: theme.textTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w700)),
-                ]),
-                const SizedBox(width: 12),
-                OutlinedButton.icon(
-                  onPressed: _isExporting ? null : _exportSalaryExcel,
-                  icon: const Icon(Icons.table_chart_rounded, size: 18),
-                  label: const Text('Xuất Excel'),
-                  style: OutlinedButton.styleFrom(
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10))),
+          _sectionLabel(
+            'Dự kiến lương',
+            subtitle: _isPeriodLocked
+                ? 'Nhấn "Tính lương KPI" để chốt số chính thức'
+                : 'Khóa chu kỳ trước khi tính lương',
+          ),
+          Row(
+            children: [
+              _salaryModeBadge(true),
+              const Spacer(),
+              FilledButton.icon(
+                onPressed: _isPeriodLocked
+                    ? () => _calculateSalary(_selPeriodId)
+                    : () => _requireLockedPeriod(),
+                icon: const Icon(Icons.calculate_outlined, size: 18),
+                label: const Text('Tính lương KPI'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: _accent,
+                  visualDensity: VisualDensity.compact,
                 ),
-                OutlinedButton.icon(
-                  onPressed: _isExporting
-                      ? null
-                      : () => _exportPng(_salaryKey, 'Lương_KPI'),
-                  icon: const Icon(Icons.image_rounded, size: 18),
-                  label: const Text('Xuất PNG'),
-                  style: OutlinedButton.styleFrom(
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10))),
-                ),
-                FilledButton.icon(
-                  onPressed: () => _calculateSalary(_selPeriodId),
-                  icon: const Icon(Icons.calculate_rounded, size: 18),
-                  label: const Text('Tính lương'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: _green,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
-                  ),
-                ),
-              ]),
-          const SizedBox(height: 8),
-          
-            _buildFilterRow(theme),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _buildFilterSection(
+            theme,
+            footerActions: [
+              _buildExportButtons(
+                onExcel: _isExporting ? null : _exportSalaryExcel,
+                onPng: _isExporting
+                    ? null
+                    : () => _exportPng(_salaryKey, 'Lương_KPI'),
+              ),
+            ],
+          ),
           const SizedBox(height: 12),
           RepaintBoundary(
             key: _salaryKey,
@@ -4229,20 +4880,30 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
     );
   }
 
-  // ignore: unused_element
-  Future<void> _approveAllSalaries() async {
-    final ids = _salaries
+  Future<bool> _approveAllSalaries() async {
+    final ids = _filteredSalaries
         .where((s) => s['isApproved'] != true)
         .map((s) => s['id']?.toString() ?? '')
         .where((id) => id.isNotEmpty)
         .toList();
-    if (ids.isEmpty) return;
+    if (ids.isEmpty) {
+      NotificationOverlayManager().showInfo(
+          title: 'Thông báo', message: 'Không có bảng lương nào cần duyệt');
+      return false;
+    }
     final res = await _api.approveKpiSalaries(ids);
     if (mounted && res['isSuccess'] == true) {
-      NotificationOverlayManager()
-          .showSuccess(title: 'Thành công', message: 'Đã duyệt tất cả');
-      _loadPeriodData();
+      NotificationOverlayManager().showSuccess(
+          title: 'Thành công',
+          message: 'Đã duyệt ${ids.length} bảng lương');
+      await _loadPeriodData();
+      return true;
     }
+    if (mounted) {
+      NotificationOverlayManager().showError(
+          title: 'Lỗi', message: res['message']?.toString() ?? 'Duyệt thất bại');
+    }
+    return false;
   }
 
   // ------------------------------------------------
@@ -4273,97 +4934,85 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
     }
   }
 
-  Widget _statCard(String label, String value, IconData icon, Color color) {
+  Widget _statCard(String label, String value, IconData icon, [Color? accent]) {
+    final c = accent ?? _accent;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.white, color.withValues(alpha: 0.04)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withValues(alpha: 0.12)),
-        boxShadow: [
-          BoxShadow(
-              color: color.withValues(alpha: 0.06),
-              blurRadius: 10,
-              offset: const Offset(0, 2)),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE4E4E7)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 18, color: c.withValues(alpha: 0.85)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    value,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: HrmPageChrome.textDark,
+                    ),
+                  ),
+                ),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: HrmPageChrome.textMuted,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(colors: [
-              color.withValues(alpha: 0.15),
-              color.withValues(alpha: 0.05)
-            ]),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(icon, color: color, size: 18),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-            child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(value,
-                  style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: color,
-                      letterSpacing: -0.5)),
-            ),
-            Text(label,
-                style: TextStyle(
-                    color: Colors.grey[500],
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500)),
-          ],
-        )),
-      ]),
     );
   }
 
-  Widget _miniStat(String label, String value, Color color) {
+  Widget _miniStat(String label, String value) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
       decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [
-          color.withValues(alpha: 0.08),
-          color.withValues(alpha: 0.02)
-        ]),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withValues(alpha: 0.15)),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE4E4E7)),
       ),
-      child: Row(children: [
-        Container(
-          width: 30,
-          height: 30,
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(8),
+      child: Row(
+        children: [
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: HrmPageChrome.textDark,
+            ),
           ),
-          child: Center(
-              child: Text(value,
-                  style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      color: color))),
-        ),
-        const SizedBox(width: 6),
-        Expanded(
-            child: Text(label,
-                style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500),
-                overflow: TextOverflow.ellipsis)),
-      ]),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: HrmPageChrome.textMuted,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
     );
   }
 

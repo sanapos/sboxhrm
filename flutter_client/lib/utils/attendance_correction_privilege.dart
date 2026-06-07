@@ -132,10 +132,7 @@ bool canApproveMobileAttendance(PermissionProvider permissions) {
 }
 
 bool canViewMobileAttendanceApprovalTab(PermissionProvider permissions) {
-  return permissions.canView('MobileAttendanceApproval') ||
-      permissions.canView('AttendanceApproval') ||
-      permissions.canApprove('AttendanceApproval') ||
-      permissions.canApprove('MobileAttendanceApproval');
+  return canApproveMobileAttendance(permissions);
 }
 
 String attendanceCorrectionSuccessMessage(

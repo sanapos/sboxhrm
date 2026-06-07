@@ -44,11 +44,18 @@ class _CameraFaceCaptureState extends State<CameraFaceCapture> {
   bool _isCapturing = false;
   final ImagePicker _picker = ImagePicker();
 
-  final List<_CaptureStep> _steps = const [
+  static const List<_CaptureStep> _allSteps = [
     _CaptureStep(instruction: 'Nhìn thẳng vào camera', icon: Icons.face),
     _CaptureStep(instruction: 'Nghiêng mặt sang TRÁI', icon: Icons.arrow_back),
     _CaptureStep(instruction: 'Nghiêng mặt sang PHẢI', icon: Icons.arrow_forward),
+    _CaptureStep(instruction: 'Ngẩng mặt lên TRÊN', icon: Icons.expand_less),
+    _CaptureStep(instruction: 'Cúi mặt xuống DƯỚI', icon: Icons.expand_more),
   ];
+
+  _CaptureStep? get _activeStep {
+    if (_currentStep >= _allSteps.length) return null;
+    return _allSteps[_currentStep];
+  }
 
   int get _currentStep => _capturedImages.length;
   bool get _allCaptured => _capturedImages.length >= widget.requiredPhotos;
@@ -167,7 +174,7 @@ class _CameraFaceCaptureState extends State<CameraFaceCapture> {
   Widget _buildContent() {
     if (_allCaptured) return _buildCompletionView();
 
-    final step = _currentStep < _steps.length ? _steps[_currentStep] : null;
+    final step = _activeStep;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -281,7 +288,7 @@ class _CameraFaceCaptureState extends State<CameraFaceCapture> {
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(_steps.length, (index) {
+          children: List.generate(widget.requiredPhotos, (index) {
             final isCompleted = index < _capturedImages.length;
             final isCurrent = index == _currentStep;
             return Container(

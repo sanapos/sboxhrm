@@ -2,6 +2,41 @@
 class PermissionModules {
   PermissionModules._();
 
+  /// Luôn cho phép xem — cài đặt cá nhân, trang chủ, thông báo.
+  static const selfServiceModules = {
+    'Home',
+    'Notification',
+    'Settings',
+  };
+
+  /// Màn duyệt — menu/route chỉ mở khi có quyền Duyệt, không alias từ Xem lịch/chỉnh công.
+  static const approvalNavModules = {
+    'AttendanceApproval',
+    'ScheduleApproval',
+    'MobileAttendanceApproval',
+  };
+
+  /// Menu chỉ hiện khi module được cấp trực tiếp — không alias chéo (Thu chi, Phiếu thưởng…).
+  static const explicitNavModules = {
+    'CashTransaction',
+    'Transaction',
+    'BonusPenalty',
+    'BankAccount',
+    'CashReport',
+    'AdvanceRequests',
+    'PenaltyTickets',
+    'Production',
+    'ProductSalary',
+    'KPI',
+    'LeaveReport',
+    'PenaltyReport',
+    'AdvanceReport',
+    'AssetReport',
+    'AttendanceReport',
+    'HrReport',
+    'PayrollReport',
+  };
+
   static const financialTransactions = [
     'Transaction',
     'CashTransaction',
@@ -12,6 +47,7 @@ class PermissionModules {
     'Attendance',
     'AttendanceSummary',
     'AttendanceByShift',
+    'AttendanceReport',
   ];
 
   static const attendanceApproval = [
@@ -30,8 +66,8 @@ class PermissionModules {
     'Shift',
   ];
 
+  /// Khớp backend PayrollReadModules — cần quyền Payroll mới được xem.
   static const payrollRead = [
-    'Payroll',
     'Employee',
     'Attendance',
     'AttendanceSummary',
@@ -51,6 +87,7 @@ class PermissionModules {
     'ShiftSalaryLevel',
     'WorkSchedule',
     'ShiftSetup',
+    'Benefit',
     'BonusPenalty',
     'SystemSettings',
   ];

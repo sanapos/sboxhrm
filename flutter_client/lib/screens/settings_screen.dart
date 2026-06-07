@@ -67,6 +67,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               icon: Icons.person,
               children: [
                 _buildProfileCard(context),
+                const Divider(height: 1),
+                _buildSettingTile(
+                  context,
+                  icon: Icons.lock_outline,
+                  title: 'Đổi mật khẩu',
+                  subtitle: 'Cập nhật mật khẩu đăng nhập của bạn',
+                  onTap: () => _showChangePasswordDialog(context),
+                ),
               ],
             ),
             const SizedBox(height: 24),
@@ -509,7 +517,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _buildInfoRow('Vai trò', user?.role ?? 'N/A'),
             const SizedBox(height: 12),
             const Text(
-              'Liên hệ quản trị viên để thay đổi thông tin tài khoản.',
+              'Bạn có thể đổi mật khẩu trong mục Đổi mật khẩu bên dưới.',
               style: TextStyle(color: Color(0xFF71717A), fontSize: 12),
             ),
           ],
@@ -519,9 +527,194 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onPressed: () => Navigator.pop(ctx),
             child: Text(l.cancel),
           ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _showChangePasswordDialog(context);
+            },
+            child: const Text('Đổi mật khẩu'),
+          ),
         ],
       ),
     );
+  }
+
+  void _showChangePasswordDialog(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final currentController = TextEditingController();
+    final newController = TextEditingController();
+    final confirmController = TextEditingController();
+    var showCurrent = false;
+    var showNew = false;
+    var showConfirm = false;
+    var isSaving = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          Future<void> submit() async {
+            final current = currentController.text.trim();
+            final newPassword = newController.text;
+            final confirm = confirmController.text;
+
+            if (current.isEmpty) {
+              appNotification.showWarning(
+                title: 'Thiếu thông tin',
+                message: 'Vui lòng nhập mật khẩu hiện tại',
+              );
+              return;
+            }
+            if (newPassword.length < 6) {
+              appNotification.showWarning(
+                title: 'Mật khẩu quá ngắn',
+                message: 'Mật khẩu mới phải có ít nhất 6 ký tự',
+              );
+              return;
+            }
+            if (newPassword != confirm) {
+              appNotification.showWarning(
+                title: 'Không khớp',
+                message: 'Mật khẩu xác nhận không khớp',
+              );
+              return;
+            }
+
+            setDialogState(() => isSaving = true);
+            try {
+              final response = await ApiService().updateOwnPassword(
+                currentPassword: current,
+                newPassword: newPassword,
+              );
+              if (!ctx.mounted) return;
+              if (response['isSuccess'] == true) {
+                Navigator.pop(ctx);
+                appNotification.showSuccess(
+                  title: 'Thành công',
+                  message: 'Đã đổi mật khẩu thành công',
+                );
+              } else {
+                appNotification.showError(
+                  title: 'Lỗi',
+                  message:
+                      response['message']?.toString() ?? 'Không thể đổi mật khẩu',
+                );
+              }
+            } catch (e) {
+              if (ctx.mounted) {
+                appNotification.showError(
+                  title: 'Lỗi',
+                  message: 'Không thể đổi mật khẩu: $e',
+                );
+              }
+            } finally {
+              if (ctx.mounted) {
+                setDialogState(() => isSaving = false);
+              }
+            }
+          }
+
+          InputDecoration fieldDecoration({
+            required String hint,
+            required bool visible,
+            required VoidCallback toggle,
+          }) {
+            return InputDecoration(
+              hintText: hint,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              suffixIcon: IconButton(
+                icon: Icon(
+                  visible ? Icons.visibility_off : Icons.visibility,
+                  size: 20,
+                ),
+                onPressed: toggle,
+              ),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            );
+          }
+
+          return ScrollableAlertDialog(
+            title: const Text('Đổi mật khẩu'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Nhập mật khẩu hiện tại và mật khẩu mới để cập nhật tài khoản của bạn.',
+                  style: TextStyle(color: Color(0xFF71717A), fontSize: 13),
+                ),
+                const SizedBox(height: 16),
+                const Text('Mật khẩu hiện tại',
+                    style: TextStyle(fontSize: 13, color: Color(0xFF71717A))),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: currentController,
+                  obscureText: !showCurrent,
+                  enabled: !isSaving,
+                  decoration: fieldDecoration(
+                    hint: 'Nhập mật khẩu hiện tại',
+                    visible: showCurrent,
+                    toggle: () =>
+                        setDialogState(() => showCurrent = !showCurrent),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text('Mật khẩu mới',
+                    style: TextStyle(fontSize: 13, color: Color(0xFF71717A))),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: newController,
+                  obscureText: !showNew,
+                  enabled: !isSaving,
+                  decoration: fieldDecoration(
+                    hint: 'Tối thiểu 6 ký tự',
+                    visible: showNew,
+                    toggle: () => setDialogState(() => showNew = !showNew),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text('Xác nhận mật khẩu mới',
+                    style: TextStyle(fontSize: 13, color: Color(0xFF71717A))),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: confirmController,
+                  obscureText: !showConfirm,
+                  enabled: !isSaving,
+                  decoration: fieldDecoration(
+                    hint: 'Nhập lại mật khẩu mới',
+                    visible: showConfirm,
+                    toggle: () =>
+                        setDialogState(() => showConfirm = !showConfirm),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: isSaving ? null : () => Navigator.pop(ctx),
+                child: Text(l.cancel),
+              ),
+              FilledButton.icon(
+                onPressed: isSaving ? null : submit,
+                icon: isSaving
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.lock_reset, size: 18),
+                label: Text(isSaving ? 'Đang lưu...' : 'Lưu'),
+              ),
+            ],
+          );
+        },
+      ),
+    ).whenComplete(() {
+      currentController.dispose();
+      newController.dispose();
+      confirmController.dispose();
+    });
   }
 
   Widget _buildInfoRow(String label, String value) {

@@ -113,9 +113,15 @@ class DashboardUiCapabilities {
     String? role,
   }) {
     if (DashboardAccess.useEmployeeDashboard(perm, role: role)) {
-      return const DashboardUiCapabilities(
+      final quickLeave = perm.canView('Leave');
+      final quickShiftSwap = perm.canView('ShiftSwap') ||
+          perm.canApprove('ScheduleApproval');
+      final quickPayroll =
+          perm.canView('Payslip') || perm.canView('Payroll');
+      return DashboardUiCapabilities(
         useEmployeeLayout: true,
-        showQuickActions: true,
+        showQuickActions:
+            quickLeave || quickShiftSwap || quickPayroll,
         showAttendanceHero: false,
         showShiftSchedule: false,
         showInsightSection: false,
@@ -127,7 +133,7 @@ class DashboardUiCapabilities {
         loadRawAttendances: false,
         loadCommunications: false,
         loadKpi: false,
-        loadLeaves: true,
+        loadLeaves: quickLeave,
         loadSchedules: false,
         loadPendingApprovals: false,
         loadTasks: false,
@@ -137,9 +143,9 @@ class DashboardUiCapabilities {
         loadContracts: false,
         loadAdvances: false,
         loadBirthdays: false,
-        quickLeave: true,
-        quickShiftSwap: true,
-        quickPayroll: true,
+        quickLeave: quickLeave,
+        quickShiftSwap: quickShiftSwap,
+        quickPayroll: quickPayroll,
         quickCommunication: false,
         quickAi: false,
         insightLeave: false,
@@ -176,7 +182,7 @@ class DashboardUiCapabilities {
     return DashboardUiCapabilities(
       useEmployeeLayout: false,
       showQuickActions: perm.canView('Leave') ||
-          perm.canView('ScheduleApproval') ||
+          perm.canApprove('ScheduleApproval') ||
           perm.canView('ShiftSwap') ||
           perm.canView('Payroll') ||
           perm.canView('Payslip') ||
@@ -206,7 +212,7 @@ class DashboardUiCapabilities {
       loadBirthdays: insights && emp,
       quickLeave: perm.canView('Leave'),
       quickShiftSwap:
-          perm.canView('ScheduleApproval') || perm.canView('ShiftSwap'),
+          perm.canApprove('ScheduleApproval') || perm.canView('ShiftSwap'),
       quickPayroll: perm.canView('Payroll') || perm.canView('Payslip'),
       quickCommunication: perm.canView('Communication'),
       quickAi: perm.canView('AIGemini'),

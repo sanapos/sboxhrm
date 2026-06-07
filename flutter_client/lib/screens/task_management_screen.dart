@@ -34,7 +34,20 @@ import 'task/task_assignment_tab.dart';
 // ==========================================================================
 
 class TaskManagementScreen extends StatefulWidget {
-  const TaskManagementScreen({super.key});
+  /// Khi mở chi tiết trên mobile, nút back của [MainLayout] gọi callback này trước.
+  static VoidCallback? internalBackCallback;
+
+  final WorkTaskStatus? initialStatus;
+  final bool initialOverdueOnly;
+  final int initialTabIndex;
+
+  const TaskManagementScreen({
+    super.key,
+    this.initialStatus,
+    this.initialOverdueOnly = false,
+    this.initialTabIndex = 0,
+  });
+
   @override
   State<TaskManagementScreen> createState() => _TaskManagementScreenState();
 }
@@ -62,6 +75,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
   String? _assigneeFilter;
   DateTime? _fromDate, _toDate;
   bool _isMyTasks = false;
+  bool _isOverdueFilter = false;
   String? _filterBranchId;
   List<Map<String, dynamic>> _branches = [];
 
@@ -70,6 +84,8 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
   bool _selectMode = false;
 
   // ---------- mobile UI ----------
+  bool _showFilters = false;
+
   // ---------- side detail ----------
   WorkTask? _detailTask;
   List<TaskComment> _comments = [];
@@ -86,7 +102,10 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
     super.initState();
     _tabCtrl = TabController(length: 4, vsync: this);
     _tabCtrl.addListener(() {
-      if (!_tabCtrl.indexIsChanging) _loadTab(_tabCtrl.index);
+      if (!_tabCtrl.indexIsChanging) {
+        setState(() {});
+        _loadTab(_tabCtrl.index);
+      }
     });
     _highlightListener = () {
       if (NavigationNotifier.notificationHighlightId.value != null) {
@@ -103,6 +122,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
 
   @override
   void dispose() {
+    TaskManagementScreen.internalBackCallback = null;
     if (_highlightListener != null) {
       NavigationNotifier.notificationHighlightId
           .removeListener(_highlightListener!);
@@ -111,6 +131,20 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
     _commentCtrl.dispose();
     _detailScrollCtrl.dispose();
     super.dispose();
+  }
+
+  void _closeDetail() {
+    setState(() => _detailTask = null);
+    TaskManagementScreen.internalBackCallback = null;
+  }
+
+  void _syncDetailBackCallback() {
+    final isMobile = Responsive.isMobile(context);
+    if (isMobile && _detailTask != null) {
+      TaskManagementScreen.internalBackCallback = _closeDetail;
+    } else {
+      TaskManagementScreen.internalBackCallback = null;
+    }
   }
 
   bool _isManagerRole() {
@@ -229,12 +263,26 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
   Future<void> _init() async {
     setState(() => _loading = true);
     _isManager = _isManagerRole();
+    if (widget.initialStatus != null) {
+      _statusFilter = widget.initialStatus;
+    }
+    if (widget.initialOverdueOnly) {
+      _isOverdueFilter = true;
+      _statusFilter = null;
+    }
     final empResp = await _api.getMyEmployee();
     if (empResp['isSuccess'] == true && empResp['data'] != null) {
       _myEmployeeId = empResp['data']['id']?.toString();
     }
     await Future.wait([_loadEmployees(), _loadTasks(), _loadStats()]);
-    if (mounted) setState(() => _loading = false);
+    if (mounted) {
+      setState(() => _loading = false);
+      if (widget.initialTabIndex > 0 && widget.initialTabIndex < _tabCtrl.length) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _tabCtrl.animateTo(widget.initialTabIndex);
+        });
+      }
+    }
   }
 
   Future<void> _loadTab(int i) async {
@@ -242,9 +290,43 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
       await _loadTasks();
     } else if (i == 1) {
       await _loadKanban();
-    } else {
+    } else if (i == 2) {
       await _loadStats();
     }
+  }
+
+  void _reloadScopedData() {
+    _loadTasks();
+    _loadStats();
+    if (_tabCtrl.index == 1) _loadKanban();
+  }
+
+  void _onBranchFilterChanged(String? branchId) {
+    setState(() => _filterBranchId = branchId);
+    _reloadScopedData();
+  }
+
+  void _navigateToFilteredList({
+    WorkTaskStatus? status,
+    bool overdue = false,
+    bool toggle = true,
+    bool clearFilters = false,
+  }) {
+    setState(() {
+      if (clearFilters) {
+        _isOverdueFilter = false;
+        _statusFilter = null;
+      } else if (overdue) {
+        _isOverdueFilter = toggle && _isOverdueFilter ? false : true;
+        if (_isOverdueFilter) _statusFilter = null;
+      } else if (status != null) {
+        _isOverdueFilter = false;
+        _statusFilter = toggle && _statusFilter == status ? null : status;
+      }
+      _page = 1;
+    });
+    if (_tabCtrl.index != 0) _tabCtrl.animateTo(0);
+    _loadTasks();
   }
 
   Future<void> _loadEmployees() async {
@@ -280,6 +362,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
         pageSize: _pageSize,
         status: _statusFilter?.index,
         priority: _priorityFilter?.index,
+        isOverdue: _isOverdueFilter ? true : null,
       );
     } else {
       r = await _api.getTasks(
@@ -292,6 +375,8 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
         assigneeId: _assigneeFilter,
         fromDate: _fromDate,
         toDate: _toDate,
+        isOverdue: _isOverdueFilter ? true : null,
+        branchId: _filterBranchId,
       );
     }
     if (r['isSuccess'] == true && r['data'] != null) {
@@ -312,6 +397,8 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
     final r = await _api.getTaskKanbanBoard(
       assigneeId: _assigneeFilter,
       priority: _priorityFilter?.index,
+      branchId: _filterBranchId,
+      onlyAssignedToMe: !_isManager,
     );
     if (r['isSuccess'] == true && r['data'] != null && mounted) {
       setState(() => _kanban = KanbanBoard.fromJson(r['data']));
@@ -319,8 +406,11 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
   }
 
   Future<void> _loadStats() async {
-    final r =
-        await _api.getTaskStatistics(fromDate: _fromDate, toDate: _toDate);
+    final r = await _api.getTaskStatistics(
+      fromDate: _fromDate,
+      toDate: _toDate,
+      branchId: _filterBranchId,
+    );
     if (r['isSuccess'] == true && r['data'] != null && mounted) {
       setState(() => _stats = TaskStatistics.fromJson(r['data']));
     }
@@ -340,6 +430,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
           _history = hList.map((e) => TaskHistory.fromJson(e)).toList();
           _detailLoading = false;
         });
+        _syncDetailBackCallback();
       }
     } else {
       if (mounted) setState(() => _detailLoading = false);
@@ -383,10 +474,8 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                                     _tabCtrl.animateTo(0);
                                     _loadDetail(t.id);
                                   },
-                                  onRefreshParent: () {
-                                    _loadTasks();
-                                    _loadStats();
-                                  },
+                                  onFilterList: _navigateToFilteredList,
+                                  onRefreshParent: _reloadScopedData,
                                 ),
                               ],
                             ),
@@ -405,227 +494,311 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
           ? null
           : Provider.of<PermissionProvider>(context, listen: false)
                   .canCreate('Task')
-              ? FloatingActionButton.extended(
+              ? FloatingActionButton(
                   onPressed: _showCreateDialog,
-                  icon: const Icon(Icons.add),
-                  label: const Text('Tạo công việc'),
-                  backgroundColor: HrmPageChrome.primaryNavy,
+                  backgroundColor: const Color(0xFF059669),
                   foregroundColor: Colors.white,
+                  child: Icon(isMobile ? Icons.add : Icons.add_task),
                 )
               : null,
     );
   }
 
   // ======================== HEADER ========================
-  Widget _buildHeader() {
-    final perm = Provider.of<PermissionProvider>(context, listen: false);
-    final canEditTask = perm.canEdit('Task');
-    final canDeleteTask = perm.canDelete('Task');
+  static const _taskPrimary = Color(0xFF059669);
 
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-              color: Color(0x0A000000), blurRadius: 8, offset: Offset(0, 2))
-        ],
-      ),
-      child: Column(
+  int get _activeFilterCount {
+    var n = 0;
+    if (_statusFilter != null) n++;
+    if (_priorityFilter != null) n++;
+    if (_typeFilter != null) n++;
+    if (_assigneeFilter != null) n++;
+    if (_fromDate != null) n++;
+    if (_filterBranchId != null) n++;
+    if (_isMyTasks) n++;
+    if (_isOverdueFilter) n++;
+    if (_search != null && _search!.isNotEmpty) n++;
+    return n;
+  }
+
+  Widget _headerActionIcon(IconData icon, VoidCallback onTap,
+      {Color? color, int badge = 0}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Stack(
+        clipBehavior: Clip.none,
         children: [
-          LayoutBuilder(builder: (context, headerConstraints) {
-            final isNarrow = headerConstraints.maxWidth < 600;
-            return Padding(
-              padding: EdgeInsets.fromLTRB(
-                  isNarrow ? 12 : 20, isNarrow ? 8 : 16, isNarrow ? 8 : 20, 4),
-              child: Row(
-                children: [
-                  if (!isNarrow) ...[
-                    const Icon(Icons.task_alt,
-                        color: HrmPageChrome.primaryNavy, size: 28),
-                    const SizedBox(width: 10),
-                    const Text('Quản lý Công việc',
-                        style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF18181B))),
-                  ],
-                  if (isNarrow)
-                    const Text('Công việc',
-                        style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF18181B))),
-                  const Spacer(),
-                  if (_selectMode && _sel.isNotEmpty) ...[
-                    Text('${_sel.length} đã chọn',
-                        style: const TextStyle(
-                            color: HrmPageChrome.primaryNavy,
-                            fontWeight: FontWeight.w600)),
-                    const SizedBox(width: 8),
-                    if (isNarrow) ...[
-                      if (canEditTask)
-                        IconButton(
-                          icon: const Icon(Icons.check_circle, size: 20),
-                          color: Colors.green,
-                          tooltip: 'Hoàn thành',
-                          onPressed: () =>
-                              _batchStatus(WorkTaskStatus.completed),
-                        ),
-                      if (canEditTask)
-                        IconButton(
-                          icon: const Icon(Icons.person_add, size: 20),
-                          color: Colors.blue,
-                          tooltip: 'Giao việc',
-                          onPressed: _showBatchAssign,
-                        ),
-                      if (canDeleteTask)
-                        IconButton(
-                          icon: const Icon(Icons.delete, size: 20),
-                          color: Colors.red,
-                          tooltip: 'Xóa',
-                          onPressed: _confirmBatchDelete,
-                        ),
-                    ] else ...[
-                      if (canEditTask) ...[
-                        _buildBatchBtn(
-                            'Hoàn thành',
-                            Icons.check_circle,
-                            Colors.green,
-                            () => _batchStatus(WorkTaskStatus.completed)),
-                        const SizedBox(width: 4),
-                        _buildBatchBtn('Giao việc', Icons.person_add,
-                            Colors.blue, _showBatchAssign),
-                        const SizedBox(width: 4),
-                      ],
-                      if (canDeleteTask)
-                        _buildBatchBtn('Xóa', Icons.delete, Colors.red,
-                            _confirmBatchDelete),
-                    ],
-                    const SizedBox(width: 8),
-                  ],
-                  if (isNarrow)
-                    InkWell(
-                      onTap: () {
-                        setState(() {
-                          _isMyTasks = !_isMyTasks;
-                          _page = 1;
-                        });
-                        _loadTasks();
-                      },
-                      borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: _isMyTasks
-                              ? HrmPageChrome.primaryNavy
-                              : const Color(0xFFF1F5F9),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(mainAxisSize: MainAxisSize.min, children: [
-                          Icon(Icons.person,
-                              size: 14,
-                              color: _isMyTasks
-                                  ? Colors.white
-                                  : HrmPageChrome.primaryNavy),
-                          const SizedBox(width: 4),
-                          Text('Của tôi',
-                              style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: _isMyTasks
-                                      ? Colors.white
-                                      : HrmPageChrome.primaryNavy)),
-                        ]),
-                      ),
-                    ),
-                  if (isNarrow) const SizedBox(width: 4),
-                  IconButton(
-                    icon: Icon(_selectMode ? Icons.close : Icons.checklist,
-                        color:
-                            _selectMode ? Colors.red : const Color(0xFF71717A)),
-                    tooltip: _selectMode ? 'Thoát chọn' : 'Chọn nhiều',
-                    onPressed: () => setState(() {
-                      _selectMode = !_selectMode;
-                      if (!_selectMode) _sel.clear();
-                    }),
-                  ),
-                ],
+          Container(
+            padding: const EdgeInsets.all(7),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, size: 18, color: color ?? Colors.white),
+          ),
+          if (badge > 0)
+            Positioned(
+              right: -3,
+              top: -3,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: const BoxDecoration(
+                    color: Colors.white, shape: BoxShape.circle),
+                child: Text('$badge',
+                    style: const TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        color: _taskPrimary)),
               ),
-            );
-          }),
-          LayoutBuilder(builder: (context, tabConstraints) {
-            final tabNarrow = tabConstraints.maxWidth < 600;
-            return TabBar(
-              controller: _tabCtrl,
-              indicatorColor: HrmPageChrome.primaryNavy,
-              labelColor: HrmPageChrome.primaryNavy,
-              unselectedLabelColor: const Color(0xFFA1A1AA),
-              labelPadding:
-                  tabNarrow ? const EdgeInsets.symmetric(horizontal: 4) : null,
-              labelStyle: TextStyle(
-                  fontSize: tabNarrow ? 12 : 14, fontWeight: FontWeight.w600),
-              unselectedLabelStyle: TextStyle(fontSize: tabNarrow ? 12 : 14),
-              tabs: [
-                Tab(
-                  height: tabNarrow ? 36 : null,
-                  icon: tabNarrow ? null : const Icon(Icons.view_list_rounded),
-                  text: 'Danh sách',
-                ),
-                Tab(
-                  height: tabNarrow ? 36 : null,
-                  icon:
-                      tabNarrow ? null : const Icon(Icons.view_kanban_rounded),
-                  text: 'Kanban',
-                ),
-                Tab(
-                  height: tabNarrow ? 36 : null,
-                  icon: tabNarrow ? null : const Icon(Icons.analytics_rounded),
-                  text: 'Tổng kết',
-                ),
-                Tab(
-                  height: tabNarrow ? 36 : null,
-                  icon: tabNarrow
-                      ? null
-                      : const Icon(Icons.assignment_ind_outlined),
-                  text: 'Phân công',
-                ),
-              ],
-            );
-          }),
+            ),
         ],
       ),
     );
   }
 
-  Widget _buildBatchBtn(
-      String label, IconData icon, Color c, VoidCallback onTap) {
-    return TextButton.icon(
-      onPressed: onTap,
-      icon: Icon(icon, size: 16, color: c),
-      label: Text(label, style: TextStyle(color: c, fontSize: 12)),
-      style: TextButton.styleFrom(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          minimumSize: const Size(0, 32)),
+  Widget _headerStatChip(
+    String label,
+    int count, {
+    WorkTaskStatus? status,
+    bool overdue = false,
+  }) {
+    final selected = overdue
+        ? _isOverdueFilter
+        : status != null && _statusFilter == status;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: GestureDetector(
+        onTap: () {
+          if (overdue) {
+            _navigateToFilteredList(overdue: true);
+          } else if (status != null) {
+            _navigateToFilteredList(status: status);
+          }
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: selected
+                ? Colors.white
+                : Colors.white.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+                color: Colors.white.withValues(alpha: selected ? 1 : 0.3)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('$count',
+                  style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: selected ? _taskPrimary : Colors.white)),
+              const SizedBox(width: 4),
+              Text(label,
+                  style: TextStyle(
+                      fontSize: 11,
+                      color: selected
+                          ? _taskPrimary
+                          : Colors.white.withValues(alpha: 0.9))),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    final canEditTask = perm.canEdit('Task');
+    final canDeleteTask = perm.canDelete('Task');
+    final isMobile = Responsive.isMobile(context);
+    const primary = _taskPrimary;
+    final s = _stats;
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [primary, primary.withValues(alpha: 0.85)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: primary.withValues(alpha: 0.25),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+                isMobile ? 14 : 24, isMobile ? 12 : 18, isMobile ? 14 : 24, 8),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: EdgeInsets.all(isMobile ? 8 : 10),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(Icons.task_alt,
+                          size: isMobile ? 18 : 22, color: Colors.white),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(isMobile ? 'Công việc' : 'Quản lý Công việc',
+                              style: TextStyle(
+                                  fontSize: isMobile ? 16 : 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white)),
+                          if (!isMobile)
+                            Text('Theo dõi & phân công công việc',
+                                style: TextStyle(
+                                    fontSize: 13,
+                                    color:
+                                        Colors.white.withValues(alpha: 0.8))),
+                          if (isMobile && _total > 0)
+                            Text(
+                                '$_total công việc${_isMyTasks ? ' của tôi' : ''}',
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    color:
+                                        Colors.white.withValues(alpha: 0.75))),
+                        ],
+                      ),
+                    ),
+                    if (_selectMode && _sel.isNotEmpty) ...[
+                      Text('${_sel.length}',
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14)),
+                      const SizedBox(width: 6),
+                      if (canEditTask)
+                        _headerActionIcon(Icons.check_circle,
+                            () => _batchStatus(WorkTaskStatus.completed)),
+                      if (canEditTask)
+                        _headerActionIcon(Icons.person_add, _showBatchAssign),
+                      if (canDeleteTask)
+                        _headerActionIcon(Icons.delete, _confirmBatchDelete,
+                            color: Colors.red.shade200),
+                    ] else ...[
+                      _headerActionIcon(
+                          _selectMode ? Icons.close : Icons.checklist,
+                          () => setState(() {
+                                _selectMode = !_selectMode;
+                                if (!_selectMode) _sel.clear();
+                              }),
+                          color: _selectMode ? Colors.red.shade200 : null),
+                      if (isMobile && _tabCtrl.index == 0) ...[
+                        const SizedBox(width: 6),
+                        _headerActionIcon(
+                            _showFilters
+                                ? Icons.filter_list_off
+                                : Icons.filter_list,
+                            () => setState(
+                                () => _showFilters = !_showFilters),
+                            badge: _activeFilterCount),
+                      ],
+                    ],
+                  ],
+                ),
+                if (s != null) ...[
+                  const SizedBox(height: 10),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        if (s.assignedCount > 0)
+                          _headerStatChip(
+                            'Chờ XN',
+                            s.assignedCount,
+                            status: WorkTaskStatus.assigned,
+                          ),
+                        _headerStatChip(
+                          'Chờ',
+                          s.todoCount,
+                          status: WorkTaskStatus.todo,
+                        ),
+                        _headerStatChip(
+                          'Đang làm',
+                          s.inProgressCount,
+                          status: WorkTaskStatus.inProgress,
+                        ),
+                        _headerStatChip(
+                          'Xong',
+                          s.completedCount,
+                          status: WorkTaskStatus.completed,
+                        ),
+                        if (s.overdueCount > 0)
+                          _headerStatChip(
+                            'Trễ hạn',
+                            s.overdueCount,
+                            overdue: true,
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          TabBar(
+            controller: _tabCtrl,
+            indicatorColor: Colors.white,
+            indicatorWeight: 3,
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.white.withValues(alpha: 0.55),
+            labelPadding: isMobile
+                ? const EdgeInsets.symmetric(horizontal: 4)
+                : const EdgeInsets.symmetric(horizontal: 12),
+            labelStyle: TextStyle(
+                fontSize: isMobile ? 12 : 14, fontWeight: FontWeight.w600),
+            unselectedLabelStyle: TextStyle(fontSize: isMobile ? 12 : 14),
+            tabs: [
+              Tab(
+                height: isMobile ? 36 : null,
+                icon: isMobile ? null : const Icon(Icons.view_list_rounded),
+                text: 'Danh sách',
+              ),
+              Tab(
+                height: isMobile ? 36 : null,
+                icon: isMobile ? null : const Icon(Icons.view_kanban_rounded),
+                text: 'Kanban',
+              ),
+              Tab(
+                height: isMobile ? 36 : null,
+                icon: isMobile ? null : const Icon(Icons.analytics_rounded),
+                text: 'Tổng kết',
+              ),
+              Tab(
+                height: isMobile ? 36 : null,
+                icon: isMobile
+                    ? null
+                    : const Icon(Icons.assignment_ind_outlined),
+                text: 'Phân công',
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
   // ======================== LIST VIEW ========================
   Widget _buildListView() {
     final isMobile = Responsive.isMobile(context);
-    // Calculate summary counts for mobile quick stats
-    final myTasks = _tasks;
-    final overdueCount = myTasks.where((t) => t.isOverdue).length;
-    final inProgressCount =
-        myTasks.where((t) => t.status == WorkTaskStatus.inProgress).length;
-    final todoCount =
-        myTasks.where((t) => t.status == WorkTaskStatus.todo).length;
-    final completedCount =
-        myTasks.where((t) => t.status == WorkTaskStatus.completed).length;
 
     return Column(
       children: [
-         _buildFilters(),
+        _buildFilters(),
         Expanded(
           child: RefreshIndicator(
             onRefresh: () async {
@@ -633,109 +806,43 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
               await _loadStats();
             },
             child: _tasks.isEmpty
-                ? ListView(children: [
-                    const SizedBox(height: 80),
-                    Center(
-                        child:
-                            Column(mainAxisSize: MainAxisSize.min, children: [
-                      Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: const BoxDecoration(
-                            color: Color(0xFFF1F5F9), shape: BoxShape.circle),
-                        child: Icon(Icons.task_alt,
-                            size: 48, color: Colors.grey[400]),
-                      ),
-                      const SizedBox(height: 16),
-                      Text('Chưa có công việc nào',
-                          style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500)),
-                      const SizedBox(height: 4),
-                      Text('Nhấn nút + để tạo công việc mới',
-                          style:
-                              TextStyle(color: Colors.grey[400], fontSize: 13)),
-                    ])),
-                  ])
+                ? ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: [
+                      const SizedBox(height: 80),
+                      Center(
+                          child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                            Container(
+                              padding: const EdgeInsets.all(20),
+                              decoration: const BoxDecoration(
+                                  color: Color(0xFFF1F5F9),
+                                  shape: BoxShape.circle),
+                              child: Icon(Icons.task_alt,
+                                  size: 48, color: Colors.grey[400]),
+                            ),
+                            const SizedBox(height: 16),
+                            Text('Chưa có công việc nào',
+                                style: TextStyle(
+                                    color: Colors.grey[600],
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500)),
+                            const SizedBox(height: 4),
+                            Text('Nhấn nút + để tạo công việc mới',
+                                style: TextStyle(
+                                    color: Colors.grey[400], fontSize: 13)),
+                          ])),
+                    ])
                 : isMobile
                     ? ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(12, 0, 12, 80),
-                        itemCount: _tasks.length + 1, // +1 for summary header
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.fromLTRB(12, 8, 12, 80),
+                        itemCount: _tasks.length,
                         itemBuilder: (_, i) {
-                          if (i == 0) {
-                            // ── Quick stats summary ──
-                            return Padding(
-                              padding: const EdgeInsets.only(top: 8, bottom: 8),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  SingleChildScrollView(
-                                    scrollDirection: Axis.horizontal,
-                                    child: Row(children: [
-                                      _taskStatChip(
-                                          Icons.pending_actions,
-                                          '$todoCount',
-                                          'Chờ làm',
-                                          const Color(0xFFA1A1AA), () {
-                                        setState(() {
-                                          _statusFilter = WorkTaskStatus.todo;
-                                          _page = 1;
-                                        });
-                                        _loadTasks();
-                                      }),
-                                      const SizedBox(width: 6),
-                                      _taskStatChip(
-                                          Icons.play_circle_filled,
-                                          '$inProgressCount',
-                                          'Đang làm',
-                                          HrmPageChrome.primaryNavy, () {
-                                        setState(() {
-                                          _statusFilter =
-                                              WorkTaskStatus.inProgress;
-                                          _page = 1;
-                                        });
-                                        _loadTasks();
-                                      }),
-                                      const SizedBox(width: 6),
-                                      _taskStatChip(
-                                          Icons.check_circle,
-                                          '$completedCount',
-                                          'Xong',
-                                          const Color(0xFF22C55E), () {
-                                        setState(() {
-                                          _statusFilter =
-                                              WorkTaskStatus.completed;
-                                          _page = 1;
-                                        });
-                                        _loadTasks();
-                                      }),
-                                      if (overdueCount > 0) ...[
-                                        const SizedBox(width: 6),
-                                        _taskStatChip(
-                                            Icons.warning_amber,
-                                            '$overdueCount',
-                                            'Trễ hạn',
-                                            const Color(0xFFEF4444),
-                                            () {}),
-                                      ],
-                                    ]),
-                                  ),
-                                  if (_total > 0)
-                                    Padding(
-                                      padding: const EdgeInsets.only(top: 8),
-                                      child: Text(
-                                          '$_total công việc${_isMyTasks ? ' của tôi' : ''}',
-                                          style: const TextStyle(
-                                              fontSize: 12,
-                                              color: Color(0xFFA1A1AA))),
-                                    ),
-                                ],
-                              ),
-                            );
-                          }
-                          final task = _tasks[i - 1];
+                          final task = _tasks[i];
                           return Padding(
-                            padding: const EdgeInsets.only(bottom: 10),
+                            padding: const EdgeInsets.only(bottom: 8),
                             child: Container(
                               decoration: BoxDecoration(
                                 color: Colors.white,
@@ -743,14 +850,14 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                                 border: Border.all(
                                     color: task.isOverdue
                                         ? const Color(0xFFEF4444)
-                                            .withValues(alpha: 0.3)
+                                            .withValues(alpha: 0.35)
                                         : const Color(0xFFE4E4E7)),
                                 boxShadow: [
                                   BoxShadow(
-                                      color:
-                                          Colors.black.withValues(alpha: 0.04),
-                                      blurRadius: 6,
-                                      offset: const Offset(0, 2)),
+                                      color: Colors.black
+                                          .withValues(alpha: 0.03),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 1)),
                                 ],
                               ),
                               child: _buildTaskDeckItem(task),
@@ -759,6 +866,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                         },
                       )
                     : ListView.builder(
+                        physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.all(12),
                         itemCount: _tasks.length + 1,
                         itemBuilder: (_, i) => i == _tasks.length
@@ -771,160 +879,150 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
     );
   }
 
-  Widget _taskStatChip(IconData icon, String value, String label, Color color,
-      VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: color.withValues(alpha: 0.15)),
-        ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(icon, size: 16, color: color),
+  // ---------- Filters ----------
+  Widget _buildSearchField({bool compact = false}) {
+    return TextField(
+      decoration: InputDecoration(
+        hintText: 'Tìm kiếm công việc...',
+        prefixIcon: const Icon(Icons.search, size: 20),
+        isDense: compact,
+        border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+        enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+        contentPadding: EdgeInsets.symmetric(
+            horizontal: 12, vertical: compact ? 8 : 10),
+        filled: true,
+        fillColor: const Color(0xFFFAFAFA),
+        suffixIcon: _search != null
+            ? IconButton(
+                icon: const Icon(Icons.clear, size: 18),
+                onPressed: () {
+                  setState(() => _search = null);
+                  _loadTasks();
+                })
+            : null,
+      ),
+      onSubmitted: (v) {
+        setState(() => _search = v.isEmpty ? null : v);
+        _loadTasks();
+      },
+    );
+  }
+
+  Widget _buildFilterChips() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          FilterChip(
+            label: Text('Của tôi',
+                style: TextStyle(
+                    fontSize: 12,
+                    color: _isMyTasks ? Colors.white : _taskPrimary)),
+            selected: _isMyTasks,
+            onSelected: (_) {
+              setState(() {
+                _isMyTasks = !_isMyTasks;
+                _page = 1;
+              });
+              _loadTasks();
+            },
+            avatar: Icon(Icons.person,
+                size: 16, color: _isMyTasks ? Colors.white : _taskPrimary),
+            backgroundColor: _taskPrimary.withValues(alpha: 0.08),
+            selectedColor: _taskPrimary,
+            checkmarkColor: Colors.white,
+            visualDensity: VisualDensity.compact,
+          ),
           const SizedBox(width: 6),
-          Text(value,
-              style: TextStyle(
-                  fontSize: 14, fontWeight: FontWeight.bold, color: color)),
-          const SizedBox(width: 4),
-          Text(label,
-              style:
-                  TextStyle(fontSize: 11, color: color.withValues(alpha: 0.8))),
-        ]),
+          _chip(
+              _statusFilter != null
+                  ? getTaskStatusLabel(_statusFilter!)
+                  : 'Trạng thái',
+              _statusFilter != null,
+              _showStatusFilter),
+          const SizedBox(width: 6),
+          _chip(
+              _priorityFilter != null
+                  ? getPriorityLabel(_priorityFilter!)
+                  : 'Ưu tiên',
+              _priorityFilter != null,
+              _showPriorityFilter),
+          const SizedBox(width: 6),
+          _chip(
+              _typeFilter != null
+                  ? getTaskTypeLabel(_typeFilter!)
+                  : 'Loại',
+              _typeFilter != null,
+              _showTypeFilter),
+          const SizedBox(width: 6),
+          _chip(
+              _assigneeFilter != null
+                  ? (_employees
+                          .where((e) => e.id == _assigneeFilter)
+                          .firstOrNull
+                          ?.fullName ??
+                      'Đã chọn')
+                  : 'Người thực hiện',
+              _assigneeFilter != null,
+              _showAssigneeFilter),
+          const SizedBox(width: 6),
+          if (_branches.isNotEmpty) _branchChipFilter(),
+          if (_activeFilterCount > 0)
+            TextButton.icon(
+              onPressed: _clearFilters,
+              icon: const Icon(Icons.clear_all,
+                  size: 16, color: Color(0xFFEF4444)),
+              label: const Text('Xóa bộ lọc',
+                  style: TextStyle(color: Color(0xFFEF4444), fontSize: 12)),
+            ),
+        ],
       ),
     );
   }
 
-  // ---------- Filters ----------
-  // Bộ lọc: Trạng thái, Ưu tiên, Người thực hiện, Khoảng thời gian, Tìm kiếm
   Widget _buildFilters() {
-    return Container(
+    final isMobile = Responsive.isMobile(context);
+    final showFull = !isMobile || _showFilters;
+
+    if (!showFull) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+        child: _buildSearchField(compact: true),
+      );
+    }
+
+    return HrmFilterBar(
+      margin: EdgeInsets.fromLTRB(isMobile ? 12 : 16, 8, isMobile ? 12 : 16, 4),
       padding: const EdgeInsets.all(12),
-      color: Colors.white,
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  decoration: InputDecoration(
-                    hintText: 'Tìm kiếm công việc...',
-                    prefixIcon: const Icon(Icons.search, size: 20),
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
-                    enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 10),
-                    filled: true,
-                    fillColor: const Color(0xFFFAFAFA),
-                    suffixIcon: _search != null
-                        ? IconButton(
-                            icon: const Icon(Icons.clear, size: 18),
-                            onPressed: () {
-                              setState(() => _search = null);
-                              _loadTasks();
-                            })
-                        : null,
-                  ),
-                  onSubmitted: (v) {
-                    setState(() => _search = v.isEmpty ? null : v);
-                    _loadTasks();
-                  },
-                ),
+      children: [
+        isMobile
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildSearchField(compact: true),
+                  const SizedBox(height: 8),
+                  _buildDateRangeFilter(),
+                  const SizedBox(height: 8),
+                  _buildFilterChips(),
+                ],
+              )
+            : Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(flex: 3, child: _buildSearchField()),
+                  const SizedBox(width: 8),
+                  _buildDateRangeFilter(),
+                ],
               ),
-              const SizedBox(width: 8),
-              // Bộ lọc ngày - Khoảng thời gian
-              _buildDateRangeFilter(),
-            ],
-          ),
+        if (!isMobile) ...[
           const SizedBox(height: 8),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                FilterChip(
-                  label: Text('Của tôi',
-                      style: TextStyle(
-                          fontSize: 12,
-                          color: _isMyTasks
-                              ? Colors.white
-                              : HrmPageChrome.primaryNavy)),
-                  selected: _isMyTasks,
-                  onSelected: (_) {
-                    setState(() {
-                      _isMyTasks = !_isMyTasks;
-                      _page = 1;
-                    });
-                    _loadTasks();
-                  },
-                  avatar: Icon(Icons.person,
-                      size: 16,
-                      color:
-                          _isMyTasks ? Colors.white : HrmPageChrome.primaryNavy),
-                  backgroundColor: const Color(0xFFE0F2FE),
-                  selectedColor: HrmPageChrome.primaryNavy,
-                  checkmarkColor: Colors.white,
-                  visualDensity: VisualDensity.compact,
-                ),
-                const SizedBox(width: 6),
-                _chip(
-                    _statusFilter != null
-                        ? getTaskStatusLabel(_statusFilter!)
-                        : 'Trạng thái',
-                    _statusFilter != null,
-                    _showStatusFilter),
-                const SizedBox(width: 6),
-                _chip(
-                    _priorityFilter != null
-                        ? getPriorityLabel(_priorityFilter!)
-                        : 'Ưu tiên',
-                    _priorityFilter != null,
-                    _showPriorityFilter),
-                const SizedBox(width: 6),
-                _chip(
-                    _typeFilter != null
-                        ? getTaskTypeLabel(_typeFilter!)
-                        : 'Loại',
-                    _typeFilter != null,
-                    _showTypeFilter),
-                const SizedBox(width: 6),
-                _chip(
-                    _assigneeFilter != null
-                        ? (_employees
-                                .where((e) => e.id == _assigneeFilter)
-                                .firstOrNull
-                                ?.fullName ??
-                            'Đã chọn')
-                        : 'Người thực hiện',
-                    _assigneeFilter != null,
-                    _showAssigneeFilter),
-                const SizedBox(width: 6),
-                if (_branches.isNotEmpty) _branchChipFilter(),
-                if (_priorityFilter != null ||
-                    _typeFilter != null ||
-                    _assigneeFilter != null ||
-                    _filterBranchId != null ||
-                    _fromDate != null ||
-                    _isMyTasks)
-                  TextButton.icon(
-                    onPressed: _clearFilters,
-                    icon: const Icon(Icons.clear_all,
-                        size: 16, color: Color(0xFFEF4444)),
-                    label: const Text('Xóa bộ lọc',
-                        style:
-                            TextStyle(color: Color(0xFFEF4444), fontSize: 12)),
-                  ),
-              ],
-            ),
-          ),
+          _buildFilterChips(),
         ],
-      ),
+      ],
     );
   }
 
@@ -956,19 +1054,17 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
       },
       icon: Icon(Icons.date_range,
           size: 16,
-          color: _fromDate != null
-              ? HrmPageChrome.primaryNavy
-              : const Color(0xFFA1A1AA)),
+          color: _fromDate != null ? _taskPrimary : const Color(0xFFA1A1AA)),
       label: Text(label,
           style: TextStyle(
               fontSize: 12,
               color: _fromDate != null
-                  ? HrmPageChrome.primaryNavy
+                  ? _taskPrimary
                   : const Color(0xFFA1A1AA))),
       style: OutlinedButton.styleFrom(
         side: BorderSide(
             color: _fromDate != null
-                ? HrmPageChrome.primaryNavy
+                ? _taskPrimary
                 : const Color(0xFFE4E4E7)),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       ),
@@ -984,7 +1080,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
       selected: selected,
       onSelected: (_) => onTap(),
       backgroundColor: HrmPageChrome.background,
-      selectedColor: HrmPageChrome.primaryNavy,
+      selectedColor: _taskPrimary,
       checkmarkColor: Colors.white,
       visualDensity: VisualDensity.compact,
     );
@@ -1044,8 +1140,8 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
             title: const Text('Tất cả chi nhánh'),
             leading: const Icon(Icons.all_inclusive),
             onTap: () {
-              setState(() => _filterBranchId = null);
               Navigator.pop(context);
+              _onBranchFilterChanged(null);
             },
           ),
           ..._branches.map((b) => ListTile(
@@ -1053,8 +1149,8 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                 leading: const Icon(Icons.account_tree_outlined),
                 selected: _filterBranchId == b['id']?.toString(),
                 onTap: () {
-                  setState(() => _filterBranchId = b['id']?.toString());
                   Navigator.pop(context);
+                  _onBranchFilterChanged(b['id']?.toString());
                 },
               )),
         ]),
@@ -1071,8 +1167,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
         deleteIcon: selected
             ? const Icon(Icons.close, size: 14, color: Colors.white)
             : null,
-        onDeleted:
-            selected ? () => setState(() => _filterBranchId = null) : null,
+        onDeleted: selected ? () => _onBranchFilterChanged(null) : null,
       ),
     );
   }
@@ -1158,12 +1253,13 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
       _fromDate = null;
       _toDate = null;
       _isMyTasks = false;
+      _isOverdueFilter = false;
       _filterBranchId = null;
     });
-    _loadTasks();
+    _reloadScopedData();
   }
 
-  // ---------- Task Deck Item (Mobile) - Professional Card ----------
+  // ---------- Task Deck Item (Mobile) ----------
   Widget _buildTaskDeckItem(WorkTask t) {
     final isSel = _sel.contains(t.id);
     final deadlineInfo = _getDeadlineInfo(t);
@@ -1187,221 +1283,136 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
           });
         }
       },
-      child: Column(
-        children: [
-          // ── Top accent bar with priority color ──
-          Container(
-            height: 3,
-            decoration: BoxDecoration(
-              color: _priorityColor(t.priority),
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (_selectMode)
+              Padding(
+                padding: const EdgeInsets.only(right: 8, top: 2),
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: Checkbox(
+                      value: isSel,
+                      activeColor: _taskPrimary,
+                      onChanged: (v) => setState(() {
+                            v == true ? _sel.add(t.id) : _sel.remove(t.id);
+                          }),
+                      visualDensity: VisualDensity.compact,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                ),
+              ),
+            Container(
+              width: 4,
+              height: 44,
+              decoration: BoxDecoration(
+                color: _priorityColor(t.priority),
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // ── Row 1: Type icon + Code + Status + Priority ──
-                Row(children: [
-                  if (_selectMode)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: Checkbox(
-                            value: isSel,
-                            onChanged: (v) => setState(() {
-                                  v == true
-                                      ? _sel.add(t.id)
-                                      : _sel.remove(t.id);
-                                }),
-                            visualDensity: VisualDensity.compact,
-                            materialTapTargetSize:
-                                MaterialTapTargetSize.shrinkWrap),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(t.title,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                                color: Color(0xFF18181B)),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis),
                       ),
-                    ),
-                  Container(
-                    padding: const EdgeInsets.all(5),
-                    decoration: BoxDecoration(
-                      color: _taskTypeColor(t.taskType).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Icon(_taskTypeIcon(t.taskType),
-                        color: _taskTypeColor(t.taskType), size: 14),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(t.taskCode,
-                      style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color:
-                              HrmPageChrome.primaryNavy.withValues(alpha: 0.7))),
-                  const Spacer(),
-                  _statusBadge(t.status),
-                  const SizedBox(width: 6),
-                  _priorityBadge(t.priority),
-                ]),
-                const SizedBox(height: 8),
-                // ── Row 2: Title ──
-                Text(t.title,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                        color: Color(0xFF18181B)),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis),
-                if (t.description != null && t.description!.isNotEmpty) ...[
-                  const SizedBox(height: 3),
-                  Text(t.description!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          color: Color(0xFFA1A1AA), fontSize: 12)),
-                ],
-                // ── Row 3: Progress bar (if any) ──
-                if (t.progress > 0 ||
-                    t.status == WorkTaskStatus.inProgress) ...[
-                  const SizedBox(height: 8),
-                  Row(children: [
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: LinearProgressIndicator(
-                          value: t.progress / 100,
-                          minHeight: 5,
-                          backgroundColor: const Color(0xFFE4E4E7),
-                          valueColor: AlwaysStoppedAnimation(
-                              _progressColor(t.progress)),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text('${t.progress}%',
-                        style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: _progressColor(t.progress))),
-                  ]),
-                ],
-                const SizedBox(height: 8),
-                // ── Row 4: Assignee + Deadline + Counters ──
-                Row(children: [
-                  if (t.assigneeName != null) ...[
-                    CircleAvatar(
-                      radius: 11,
-                      backgroundColor: HrmPageChrome.primaryNavy,
-                      child: Text(t.assigneeName![0],
-                          style: const TextStyle(
-                              fontSize: 9,
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600)),
-                    ),
-                    const SizedBox(width: 5),
-                    Flexible(
-                      child: Text(t.assigneeName!,
-                          style: const TextStyle(
-                              color: Color(0xFF71717A), fontSize: 11),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis),
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                  if (deadlineInfo != null) ...[
-                    Icon(deadlineInfo['icon'] as IconData,
-                        size: 13, color: deadlineInfo['color'] as Color),
-                    const SizedBox(width: 3),
-                    Text(deadlineInfo['text'] as String,
-                        style: TextStyle(
-                            fontSize: 10,
-                            color: deadlineInfo['color'] as Color,
-                            fontWeight: FontWeight.w600)),
-                  ],
-                  const Spacer(),
-                  // Quick action counters
-                  if (t.hasSubTasks) ...[
-                    const Icon(Icons.checklist,
-                        size: 12, color: Color(0xFFA1A1AA)),
-                    const SizedBox(width: 2),
-                    Text('${t.completedSubTaskCount}/${t.subTaskCount}',
-                        style: const TextStyle(
-                            fontSize: 10, color: Color(0xFFA1A1AA))),
-                    const SizedBox(width: 6),
-                  ],
-                  if (t.hasComments) ...[
-                    const Icon(Icons.chat_bubble_outline,
-                        size: 12, color: Color(0xFFA1A1AA)),
-                    const SizedBox(width: 2),
-                    Text('${t.commentCount}',
-                        style: const TextStyle(
-                            fontSize: 10, color: Color(0xFFA1A1AA))),
-                    const SizedBox(width: 6),
-                  ],
-                  if (t.estimatedHours != null) ...[
-                    const Icon(Icons.access_time,
-                        size: 12, color: Color(0xFFA1A1AA)),
-                    const SizedBox(width: 2),
-                    Text('${t.actualHours ?? 0}/${t.estimatedHours}h',
-                        style: const TextStyle(
-                            fontSize: 10, color: Color(0xFFA1A1AA))),
-                  ],
-                ]),
-                // ── Row 5: Quick action buttons (for non-completed tasks) ──
-                if (t.status != WorkTaskStatus.completed &&
-                    t.status != WorkTaskStatus.cancelled) ...[
-                  const SizedBox(height: 8),
-                  const Divider(height: 1),
-                  const SizedBox(height: 6),
-                  Row(children: [
-                    if (t.status == WorkTaskStatus.todo)
-                      _quickActionBtn(
-                          'Bắt đầu',
-                          Icons.play_arrow_rounded,
-                          HrmPageChrome.primaryNavy,
-                          () => _updateStatus(t.id, WorkTaskStatus.inProgress)),
-                    if (t.status == WorkTaskStatus.inProgress) ...[
-                      _quickActionBtn(
-                          'Tiến độ',
-                          Icons.trending_up,
-                          HrmPageChrome.primaryNavy,
-                          () => _updateProgress(t.id, t.progress)),
                       const SizedBox(width: 6),
-                      _quickActionBtn(
-                          'Hoàn thành',
-                          Icons.check_circle_outline,
-                          const Color(0xFF22C55E),
-                          () => _updateStatus(t.id, WorkTaskStatus.completed)),
+                      _statusBadge(t.status),
                     ],
-                    if (t.status == WorkTaskStatus.inReview)
-                      _quickActionBtn(
-                          'Duyệt xong',
-                          Icons.verified,
-                          const Color(0xFF22C55E),
-                          () => _updateStatus(t.id, WorkTaskStatus.completed)),
-                    if (t.status == WorkTaskStatus.onHold)
-                      _quickActionBtn(
-                          'Tiếp tục',
-                          Icons.play_arrow_rounded,
-                          HrmPageChrome.primaryNavy,
-                          () => _updateStatus(t.id, WorkTaskStatus.inProgress)),
-                    const Spacer(),
-                    InkWell(
-                      onTap: () => _showTaskQuickMenu(t),
-                      borderRadius: BorderRadius.circular(8),
-                      child: const Padding(
-                        padding: EdgeInsets.all(4),
-                        child: Icon(Icons.more_horiz,
-                            size: 18, color: Color(0xFFA1A1AA)),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Text(t.taskCode,
+                          style: TextStyle(
+                              fontSize: 11,
+                              color: _taskPrimary.withValues(alpha: 0.8))),
+                      const SizedBox(width: 6),
+                      _priorityBadge(t.priority),
+                      if (t.hasSubTasks || t.hasComments) ...[
+                        const Spacer(),
+                        if (t.hasSubTasks)
+                          Text(
+                              '${t.completedSubTaskCount}/${t.subTaskCount}',
+                              style: const TextStyle(
+                                  fontSize: 10, color: Color(0xFFA1A1AA))),
+                        if (t.hasComments) ...[
+                          const SizedBox(width: 8),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.chat_bubble_outline,
+                                  size: 11, color: Color(0xFFA1A1AA)),
+                              Text('${t.commentCount}',
+                                  style: const TextStyle(
+                                      fontSize: 10,
+                                      color: Color(0xFFA1A1AA))),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ],
+                  ),
+                  if (t.progress > 0 ||
+                      t.status == WorkTaskStatus.inProgress) ...[
+                    const SizedBox(height: 8),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: t.progress / 100,
+                        minHeight: 4,
+                        backgroundColor: const Color(0xFFE4E4E7),
+                        valueColor:
+                            AlwaysStoppedAnimation(_progressColor(t.progress)),
                       ),
                     ),
-                  ]),
+                  ],
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      if (t.assigneeName != null) ...[
+                        Icon(Icons.person_outline,
+                            size: 13, color: Colors.grey[500]),
+                        const SizedBox(width: 3),
+                        Flexible(
+                          child: Text(t.assigneeName!,
+                              style: const TextStyle(
+                                  color: Color(0xFF71717A), fontSize: 11),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis),
+                        ),
+                      ],
+                      if (deadlineInfo != null) ...[
+                        const SizedBox(width: 8),
+                        Icon(deadlineInfo['icon'] as IconData,
+                            size: 12, color: deadlineInfo['color'] as Color),
+                        const SizedBox(width: 2),
+                        Text(deadlineInfo['text'] as String,
+                            style: TextStyle(
+                                fontSize: 10,
+                                color: deadlineInfo['color'] as Color,
+                                fontWeight: FontWeight.w600)),
+                      ],
+                    ],
+                  ),
                 ],
-              ],
+              ),
             ),
-          ),
-        ],
+            const Icon(Icons.chevron_right, size: 18, color: Color(0xFFD4D4D8)),
+          ],
+        ),
       ),
     );
   }
@@ -2088,20 +2099,40 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
         Row(
           children: [
             Expanded(
-                child: _statCard('Tổng', s.totalTasks, Icons.assignment,
-                    HrmPageChrome.primaryNavy)),
+                child: _statCard(
+                    'Tổng',
+                    s.totalTasks,
+                    Icons.assignment,
+                    HrmPageChrome.primaryNavy,
+                    onTap: () =>
+                        _navigateToFilteredList(clearFilters: true))),
             const SizedBox(width: 6),
             Expanded(
-                child: _statCard('Xong', s.completedCount, Icons.check_circle,
-                    HrmPageChrome.primaryNavy)),
+                child: _statCard(
+                    'Xong',
+                    s.completedCount,
+                    Icons.check_circle,
+                    HrmPageChrome.primaryNavy,
+                    onTap: () => _navigateToFilteredList(
+                        status: WorkTaskStatus.completed))),
             const SizedBox(width: 6),
             Expanded(
-                child: _statCard('Đang làm', s.inProgressCount,
-                    Icons.pending_actions, const Color(0xFFF59E0B))),
+                child: _statCard(
+                    'Đang làm',
+                    s.inProgressCount,
+                    Icons.pending_actions,
+                    const Color(0xFFF59E0B),
+                    onTap: () => _navigateToFilteredList(
+                        status: WorkTaskStatus.inProgress))),
             const SizedBox(width: 6),
             Expanded(
-                child: _statCard('Quá hạn', s.overdueCount, Icons.warning_amber,
-                    const Color(0xFFEF4444))),
+                child: _statCard(
+                    'Quá hạn',
+                    s.overdueCount,
+                    Icons.warning_amber,
+                    const Color(0xFFEF4444),
+                    onTap: () =>
+                        _navigateToFilteredList(overdue: true))),
           ],
         ),
         const SizedBox(height: 12),
@@ -2134,18 +2165,35 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
         // --- Theo trạng thái ---
         _sectionCard('Phân bổ theo trạng thái', Icons.donut_large,
             child: Column(children: [
+              if (s.assignedCount > 0)
+                _statBar('Chờ xác nhận', s.assignedCount, s.totalTasks,
+                    const Color(0xFFF59E0B),
+                    onTap: () => _navigateToFilteredList(
+                        status: WorkTaskStatus.assigned)),
               _statBar('Chờ làm', s.todoCount, s.totalTasks,
-                  const Color(0xFFA1A1AA)),
+                  const Color(0xFFA1A1AA),
+                  onTap: () =>
+                      _navigateToFilteredList(status: WorkTaskStatus.todo)),
               _statBar('Đang làm', s.inProgressCount, s.totalTasks,
-                  HrmPageChrome.primaryNavy),
+                  HrmPageChrome.primaryNavy,
+                  onTap: () => _navigateToFilteredList(
+                      status: WorkTaskStatus.inProgress)),
               _statBar('Đang xem xét', s.inReviewCount, s.totalTasks,
-                  HrmPageChrome.primaryNavy),
+                  HrmPageChrome.primaryNavy,
+                  onTap: () => _navigateToFilteredList(
+                      status: WorkTaskStatus.inReview)),
               _statBar('Hoàn thành', s.completedCount, s.totalTasks,
-                  HrmPageChrome.primaryNavy),
+                  HrmPageChrome.primaryNavy,
+                  onTap: () => _navigateToFilteredList(
+                      status: WorkTaskStatus.completed)),
               _statBar('Tạm hoãn', s.onHoldCount, s.totalTasks,
-                  const Color(0xFFF59E0B)),
+                  const Color(0xFFF59E0B),
+                  onTap: () => _navigateToFilteredList(
+                      status: WorkTaskStatus.onHold)),
               _statBar('Đã hủy', s.cancelledCount, s.totalTasks,
-                  const Color(0xFFEF4444)),
+                  const Color(0xFFEF4444),
+                  onTap: () => _navigateToFilteredList(
+                      status: WorkTaskStatus.cancelled)),
             ])),
         const SizedBox(height: 12),
         // --- Theo nhân viên (thời gian nhân viên) ---
@@ -2224,8 +2272,9 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
     );
   }
 
-  Widget _statCard(String title, int value, IconData icon, Color c) {
-    return Container(
+  Widget _statCard(String title, int value, IconData icon, Color c,
+      {VoidCallback? onTap}) {
+    final card = Container(
       decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
@@ -2253,6 +2302,12 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
             maxLines: 1,
             overflow: TextOverflow.ellipsis),
       ]),
+    );
+    if (onTap == null) return card;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: card,
     );
   }
 
@@ -2282,9 +2337,10 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
     );
   }
 
-  Widget _statBar(String label, int count, int total, Color c) {
+  Widget _statBar(String label, int count, int total, Color c,
+      {VoidCallback? onTap}) {
     final pct = total > 0 ? count / total : 0.0;
-    return Padding(
+    final bar = Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(children: [
         SizedBox(
@@ -2308,6 +2364,8 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                     const TextStyle(fontSize: 11, color: Color(0xFF71717A)))),
       ]),
     );
+    if (onTap == null) return bar;
+    return InkWell(onTap: onTap, child: bar);
   }
 
   Widget _miniStat(String label, int value, Color c) {
@@ -2353,18 +2411,10 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
               bottom: false,
               child: Column(
                 children: [
-                  // Top bar: back + code + status + actions
+                  // Top bar: code + status + actions (mobile dùng nút back của MainLayout)
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
+                    padding: EdgeInsets.fromLTRB(isMobile ? 8 : 12, 4, 4, 0),
                     child: Row(children: [
-                      if (isMobile)
-                        IconButton(
-                          icon: const Icon(Icons.arrow_back,
-                              color: Colors.white, size: 22),
-                          onPressed: () => setState(() => _detailTask = null),
-                        )
-                      else
-                        const SizedBox(width: 12),
                       Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 3),
@@ -2408,8 +2458,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                         IconButton(
                             icon: const Icon(Icons.close,
                                 size: 20, color: Colors.white70),
-                            onPressed: () =>
-                                setState(() => _detailTask = null)),
+                            onPressed: _closeDetail),
                     ]),
                   ),
                   // Title + deadline
@@ -2801,83 +2850,9 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                 ],
                 // ── Đánh giá (Evaluation Display) ──
                 if (canManage) _buildEvaluationSection(t),
-                // ── Báo cáo tiến độ ──
-                _buildProgressReports(),
-                const SizedBox(height: 16),
-                // ── Bình luận ──
-                _detailLabel('Bình luận'),
-                const SizedBox(height: 6),
-                Row(children: [
-                  Expanded(
-                      child: TextField(
-                    controller: _commentCtrl,
-                    decoration: InputDecoration(
-                      hintText: 'Thêm bình luận...',
-                      hintStyle: const TextStyle(fontSize: 13),
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide:
-                              const BorderSide(color: Color(0xFFE4E4E7))),
-                      enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide:
-                              const BorderSide(color: Color(0xFFE4E4E7))),
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
-                      filled: true,
-                      fillColor: const Color(0xFFFAFAFA),
-                    ),
-                    maxLines: 2,
-                    style: const TextStyle(fontSize: 13),
-                  )),
-                  const SizedBox(width: 6),
-                  IconButton.filled(
-                    onPressed: _addComment,
-                    icon: const Icon(Icons.send, size: 18),
-                    style: IconButton.styleFrom(
-                        backgroundColor: HrmPageChrome.primaryNavy),
-                  ),
-                ]),
-                const SizedBox(height: 8),
-                if (_comments.isEmpty)
-                  const Center(
-                      child: Padding(
-                          padding: EdgeInsets.all(12),
-                          child: Text('Chưa có bình luận',
-                              style: TextStyle(
-                                  color: Color(0xFFA1A1AA), fontSize: 13))))
-                else
-                  ..._comments.map((c) => _buildCommentCard(c)),
-                const SizedBox(height: 16),
-                // ── Lịch sử thay đổi ──
-                ExpansionTile(
-                  tilePadding: EdgeInsets.zero,
-                  title: _detailLabel('Lịch sử thay đổi'),
-                  initiallyExpanded: false,
-                  children: _history.isEmpty
-                      ? [
-                          const Padding(
-                              padding: EdgeInsets.all(8),
-                              child: Text('Chưa có lịch sử',
-                                  style: TextStyle(color: Color(0xFFA1A1AA))))
-                        ]
-                      : _history
-                          .take(20)
-                          .map((h) => ListTile(
-                                dense: true,
-                                visualDensity: VisualDensity.compact,
-                                leading: Icon(_historyIcon(h.changeType),
-                                    size: 16, color: HrmPageChrome.primaryNavy),
-                                title: Text(h.description ?? h.changeType,
-                                    style: const TextStyle(fontSize: 12)),
-                                subtitle: Text(
-                                    '${h.userName ?? ''} \u2022 ${DateFormat('dd/MM HH:mm').format(h.createdAt)}',
-                                    style: const TextStyle(
-                                        fontSize: 10,
-                                        color: Color(0xFFA1A1AA))),
-                              ))
-                          .toList(),
-                ),
+                _buildActivitySection(),
+                const SizedBox(height: 12),
+                _buildAuditHistorySection(),
               ],
             ),
           ),
@@ -2933,152 +2908,262 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
     );
   }
 
-  // ── Báo cáo tiến độ - hiển thị các lần cập nhật tiến độ ──
-  Widget _buildProgressReports() {
-    final progressComments =
-        _comments.where((c) => c.isProgressUpdate).toList();
-    if (progressComments.isEmpty) return const SizedBox.shrink();
+  Widget _buildActivitySection() {
+    final sorted = List<TaskComment>.from(_comments)
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(children: [
-          const Icon(Icons.assessment, size: 16, color: HrmPageChrome.primaryNavy),
+          const Icon(Icons.forum_outlined,
+              size: 16, color: HrmPageChrome.primaryNavy),
           const SizedBox(width: 6),
-          _detailLabel('Báo cáo tiến độ'),
-          const Spacer(),
-          Text('${progressComments.length} lần cập nhật',
-              style: const TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
+          _detailLabel('Hoạt động & bình luận'),
         ]),
+        const SizedBox(height: 6),
+        Text(
+          'Báo cáo tiến độ và trao đổi trong một dòng thời gian',
+          style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+        ),
         const SizedBox(height: 8),
-        ...progressComments.map((c) {
-          final images = c.imageUrlList;
-          final links = c.linkUrlList;
-          return Container(
-            margin: const EdgeInsets.only(bottom: 10),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF0FDF4),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                  color: const Color(0xFF22C55E).withValues(alpha: 0.3)),
+        Row(children: [
+          Expanded(
+            child: TextField(
+              controller: _commentCtrl,
+              decoration: InputDecoration(
+                hintText: 'Viết bình luận...',
+                hintStyle: const TextStyle(fontSize: 13),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
+                ),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                filled: true,
+                fillColor: const Color(0xFFFAFAFA),
+              ),
+              maxLines: 2,
+              style: const TextStyle(fontSize: 13),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header: user + time + progress badge
-                Row(children: [
-                  CircleAvatar(
-                    radius: 14,
-                    backgroundColor: const Color(0xFF22C55E),
-                    child: Text(
-                      (c.userName ?? '?')[0].toUpperCase(),
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(c.userName ?? 'Unknown',
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w600, fontSize: 12)),
-                        Text(DateFormat('dd/MM/yyyy HH:mm').format(c.createdAt),
-                            style: const TextStyle(
-                                fontSize: 10, color: Color(0xFFA1A1AA))),
-                      ],
-                    ),
-                  ),
-                  if (c.progressSnapshot != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: _progressColor(c.progressSnapshot!),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text('${c.progressSnapshot}%',
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold)),
-                    ),
-                ]),
-                // Content
-                if (c.content.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Text(c.content,
-                      style: const TextStyle(
-                          fontSize: 13, color: Color(0xFF18181B))),
-                ],
-                // Images
-                if (images.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    height: 100,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: images.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 6),
-                      itemBuilder: (ctx, i) => InkWell(
-                        onTap: () => _showImageDialog(images[i]),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: AuthCachedImage(
-                            imagePath: images[i],
-                            apiService: _api,
-                            width: 100,
-                            height: 100,
-                            fit: BoxFit.cover,
-                            errorWidget: (_, __, ___) => Container(
-                              width: 100,
-                              height: 100,
-                              color: const Color(0xFFE4E4E7),
-                              child: const Icon(Icons.broken_image,
-                                  size: 32, color: Color(0xFFA1A1AA)),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-                // Links
-                if (links.isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  ...links.map((url) => Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: InkWell(
-                          onTap: () => _launchUrl(url),
-                          child: Row(children: [
-                            const Icon(Icons.link,
-                                size: 14, color: HrmPageChrome.primaryNavy),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Text(
-                                url,
-                                style: const TextStyle(
-                                    fontSize: 11,
-                                    color: HrmPageChrome.primaryNavy,
-                                    decoration: TextDecoration.underline),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ]),
-                        ),
-                      )),
-                ],
-              ],
+          ),
+          const SizedBox(width: 6),
+          IconButton.filled(
+            onPressed: _addComment,
+            icon: const Icon(Icons.send, size: 18),
+            style: IconButton.styleFrom(
+                backgroundColor: HrmPageChrome.primaryNavy),
+          ),
+        ]),
+        const SizedBox(height: 10),
+        if (sorted.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Center(
+              child: Text(
+                'Chưa có hoạt động nào',
+                style: TextStyle(color: Color(0xFFA1A1AA), fontSize: 13),
+              ),
             ),
-          );
-        }),
+          )
+        else
+          ...sorted.map(_buildActivityCard),
       ],
     );
+  }
+
+  Widget _buildActivityCard(TaskComment c) {
+    final isProgress = c.isProgressUpdate;
+    final badgeColor =
+        isProgress ? const Color(0xFF059669) : HrmPageChrome.primaryNavy;
+    final images = c.imageUrlList;
+    final links = c.linkUrlList;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE4E4E7)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: badgeColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  isProgress ? 'Báo cáo tiến độ' : 'Bình luận',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: badgeColor,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              if (isProgress && c.progressSnapshot != null)
+                Text(
+                  '${c.progressSnapshot}%',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: _progressColor(c.progressSnapshot!),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '${c.userName ?? 'Hệ thống'} • ${DateFormat('dd/MM/yyyy HH:mm').format(c.createdAt)}',
+            style: const TextStyle(fontSize: 11, color: Color(0xFFA1A1AA)),
+          ),
+          if (c.content.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(c.content,
+                style: const TextStyle(fontSize: 13, color: Color(0xFF18181B))),
+          ],
+          if (images.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: images
+                  .map((url) => InkWell(
+                        onTap: () => _showImageDialog(url),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(6),
+                          child: AuthCachedImage(
+                            imagePath: url,
+                            apiService: _api,
+                            width: 72,
+                            height: 72,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ))
+                  .toList(),
+            ),
+          ],
+          if (links.isNotEmpty)
+            ...links.map((url) => Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: InkWell(
+                    onTap: () => _launchUrl(url),
+                    child: Text(url,
+                        style: const TextStyle(
+                            fontSize: 11,
+                            color: HrmPageChrome.primaryNavy,
+                            decoration: TextDecoration.underline),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis),
+                  ),
+                )),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAuditHistorySection() {
+    const skipTypes = {'ProgressUpdated', 'CommentAdded'};
+    final auditItems = _history
+        .where((h) => !skipTypes.contains(h.changeType))
+        .take(15)
+        .toList();
+
+    return ExpansionTile(
+      tilePadding: EdgeInsets.zero,
+      title: _detailLabel('Nhật ký hệ thống'),
+      subtitle: const Text(
+        'Giao việc, đổi trạng thái, đánh giá...',
+        style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA)),
+      ),
+      initiallyExpanded: false,
+      children: auditItems.isEmpty
+          ? [
+              const Padding(
+                padding: EdgeInsets.all(8),
+                child: Text('Chưa có thay đổi hệ thống',
+                    style: TextStyle(color: Color(0xFFA1A1AA), fontSize: 12)),
+              )
+            ]
+          : auditItems
+              .map((h) => ListTile(
+                    dense: true,
+                    visualDensity: VisualDensity.compact,
+                    leading: Icon(_historyIcon(h.changeType),
+                        size: 16, color: HrmPageChrome.primaryNavy),
+                    title: Text(
+                      _historyLabel(h),
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    subtitle: Text(
+                      '${h.userName ?? 'Hệ thống'} • ${DateFormat('dd/MM/yyyy HH:mm').format(h.createdAt)}',
+                      style: const TextStyle(
+                          fontSize: 10, color: Color(0xFFA1A1AA)),
+                    ),
+                  ))
+              .toList(),
+    );
+  }
+
+  bool _isLegacyEnglishHistory(String desc) {
+    return RegExp(
+      r'^(StatusChanged|ProgressUpdated|TitleChanged|TypeChanged|PriorityChanged|AssigneeChanged):',
+    ).hasMatch(desc);
+  }
+
+  String _histStatusLabel(String? raw) {
+    if (raw == null || raw.isEmpty) return '—';
+    return getTaskStatusLabel(parseTaskStatus(raw));
+  }
+
+  String _histPriorityLabel(String? raw) {
+    if (raw == null || raw.isEmpty) return '—';
+    return getPriorityLabel(parsePriority(raw));
+  }
+
+  String _histTypeLabel(String? raw) {
+    if (raw == null || raw.isEmpty) return '—';
+    return getTaskTypeLabel(parseTaskType(raw));
+  }
+
+  String _historyLabel(TaskHistory h) {
+    final desc = h.description?.trim();
+    if (desc != null &&
+        desc.isNotEmpty &&
+        !_isLegacyEnglishHistory(desc)) {
+      return desc;
+    }
+    return switch (h.changeType) {
+      'StatusChanged' =>
+        'Đổi trạng thái: ${_histStatusLabel(h.oldValue)} → ${_histStatusLabel(h.newValue)}',
+      'ProgressUpdated' =>
+        'Cập nhật tiến độ: ${h.oldValue ?? "0"}% → ${h.newValue ?? "0"}%',
+      'TitleChanged' => 'Đổi tiêu đề công việc',
+      'TypeChanged' =>
+        'Đổi loại: ${_histTypeLabel(h.oldValue)} → ${_histTypeLabel(h.newValue)}',
+      'PriorityChanged' =>
+        'Đổi ưu tiên: ${_histPriorityLabel(h.oldValue)} → ${_histPriorityLabel(h.newValue)}',
+      'AssigneeChanged' => 'Đổi người thực hiện',
+      'CommentAdded' => 'Thêm bình luận',
+      'ReminderSent' => h.newValue != null && h.newValue!.isNotEmpty
+          ? 'Gửi nhắc nhở: ${h.newValue}'
+          : 'Gửi nhắc nhở',
+      'Evaluated' => h.newValue ?? 'Đánh giá công việc',
+      _ => desc ?? 'Cập nhật công việc',
+    };
   }
 
   Widget _statusBadgeLight(WorkTaskStatus s) => Container(
@@ -3112,151 +3197,6 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                     fontWeight: FontWeight.w500,
                     fontSize: 12,
                     color: color ?? const Color(0xFF18181B)))),
-      ]),
-    );
-  }
-
-  Widget _buildCommentCard(TaskComment c) {
-    final isProgress = c.isProgressUpdate;
-    final images = c.imageUrlList;
-    final links = c.linkUrlList;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-          color: isProgress ? const Color(0xFFF0FDF4) : const Color(0xFFFAFAFA),
-          borderRadius: BorderRadius.circular(8),
-          border: isProgress
-              ? Border.all(
-                  color: const Color(0xFF22C55E).withValues(alpha: 0.3))
-              : null),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          CircleAvatar(
-              radius: 12,
-              backgroundColor: isProgress
-                  ? const Color(0xFF22C55E)
-                  : HrmPageChrome.primaryNavy,
-              child: Icon(
-                isProgress ? Icons.trending_up : Icons.person,
-                size: 12,
-                color: Colors.white,
-              )),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(c.userName ?? 'Unknown',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w600, fontSize: 12)),
-                if (isProgress && c.progressSnapshot != null)
-                  Text('Cập nhật tiến độ: ${c.progressSnapshot}%',
-                      style: const TextStyle(
-                          fontSize: 10,
-                          color: Color(0xFF22C55E),
-                          fontWeight: FontWeight.w500)),
-              ],
-            ),
-          ),
-          if (isProgress && c.progressSnapshot != null)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: const Color(0xFF22C55E),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text('${c.progressSnapshot}%',
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold)),
-            ),
-          const SizedBox(width: 6),
-          Text(DateFormat('dd/MM HH:mm').format(c.createdAt),
-              style: const TextStyle(color: Color(0xFFA1A1AA), fontSize: 10)),
-        ]),
-        const SizedBox(height: 6),
-        Text(c.content,
-            style: const TextStyle(fontSize: 12, color: Color(0xFF334155))),
-        // Images
-        if (images.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: images
-                .map((url) => InkWell(
-                      onTap: () => _showImageDialog(url),
-                      child: Container(
-                        width: 80,
-                        height: 60,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: const Color(0xFFE4E4E7)),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(5),
-                          child: AuthCachedImage(
-                            imagePath: url,
-                            apiService: _api,
-                            fit: BoxFit.cover,
-                            errorWidget: (_, __, ___) => const Center(
-                              child: Icon(Icons.broken_image,
-                                  size: 20, color: Color(0xFFA1A1AA)),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ))
-                .toList(),
-          ),
-        ],
-        // Links
-        if (links.isNotEmpty) ...[
-          const SizedBox(height: 6),
-          Wrap(
-            spacing: 6,
-            runSpacing: 4,
-            children: links
-                .map((url) => InkWell(
-                      onTap: () => _launchUrl(url),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEFF6FF),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(
-                              color: HrmPageChrome.primaryNavy
-                                  .withValues(alpha: 0.2)),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.link,
-                                size: 12, color: HrmPageChrome.primaryNavy),
-                            const SizedBox(width: 4),
-                            Flexible(
-                              child: Text(
-                                url.length > 40
-                                    ? '${url.substring(0, 40)}...'
-                                    : url,
-                                style: const TextStyle(
-                                    fontSize: 10,
-                                    color: HrmPageChrome.primaryNavy,
-                                    decoration: TextDecoration.underline),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ))
-                .toList(),
-          ),
-        ],
       ]),
     );
   }

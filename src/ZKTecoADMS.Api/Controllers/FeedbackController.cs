@@ -37,10 +37,12 @@ public class FeedbackController(
 
     public record FeedbackRespondDto(string Response, string Status);
 
+    public record FeedbackStatusDto(string Status);
+
     public record FeedbackReplyDto(
         Guid Id, Guid FeedbackId, string Content, List<string>? ImageUrls,
         bool IsFromSender, string? SenderName, Guid? SenderEmployeeId,
-        DateTime CreatedAt);
+        DateTime CreatedAt, bool IsMine = false);
 
     public record FeedbackReplyCreateDto(string Content);
 
@@ -76,12 +78,214 @@ public class FeedbackController(
             .FirstOrDefaultAsync();
     }
 
+    /// <summary>
+    /// Resolve Application User Id for push/in-app notifications.
+    /// Falls back to CreatedBy user id when Employee.ApplicationUserId is not linked.
+    /// </summary>
+    private async Task<Guid?> ResolveUserIdForEmployeeAsync(
+        Guid? employeeId, string? createdByUserId = null)
+    {
+        if (employeeId.HasValue)
+        {
+            var linkedUserId = await dbContext.Employees
+                .Where(e => e.Id == employeeId.Value && e.ApplicationUserId != null)
+                .Select(e => e.ApplicationUserId!.Value)
+                .FirstOrDefaultAsync();
+            if (linkedUserId != Guid.Empty)
+                return linkedUserId;
+        }
+
+        if (!string.IsNullOrWhiteSpace(createdByUserId)
+            && Guid.TryParse(createdByUserId, out var uid))
+        {
+            var exists = await dbContext.Users.AnyAsync(u => u.Id == uid);
+            if (exists) return uid;
+        }
+
+        return null;
+    }
+
+    private async Task<string?> ResolveDisplayNameAsync(
+        Guid? employeeId, string? createdByUserId = null)
+    {
+        var empName = await GetEmployeeNameAsync(employeeId);
+        if (!string.IsNullOrWhiteSpace(empName)) return empName;
+
+        if (!string.IsNullOrWhiteSpace(createdByUserId)
+            && Guid.TryParse(createdByUserId, out var uid))
+        {
+            var userName = await dbContext.Users
+                .Where(u => u.Id == uid)
+                .Select(u => ((u.LastName ?? "") + " " + (u.FirstName ?? "")).Trim())
+                .FirstOrDefaultAsync();
+            if (!string.IsNullOrWhiteSpace(userName)) return userName;
+        }
+
+        return null;
+    }
+
+    private async Task<List<Guid>> ResolveFeedbackManagerNotifyUserIdsAsync(
+        Feedback feedback, Guid excludeUserId)
+    {
+        var targets = new HashSet<Guid>();
+
+        if (feedback.RecipientEmployeeId.HasValue)
+        {
+            var uid = await ResolveUserIdForEmployeeAsync(feedback.RecipientEmployeeId);
+            if (uid.HasValue) targets.Add(uid.Value);
+        }
+
+        var replierUserIds = await dbContext.FeedbackReplies
+            .Where(r => r.FeedbackId == feedback.Id && !r.IsFromSender && r.CreatedBy != null)
+            .Select(r => r.CreatedBy!)
+            .Distinct()
+            .ToListAsync();
+        foreach (var s in replierUserIds)
+        {
+            if (Guid.TryParse(s, out var uid)) targets.Add(uid);
+        }
+
+        if (!feedback.RecipientEmployeeId.HasValue)
+        {
+            var adminIds = await dbContext.Users
+                .Where(u => u.IsActive && u.StoreId == feedback.StoreId &&
+                    (u.Role == "Admin" || u.Role == "SuperAdmin" ||
+                     u.Role == "Manager" || u.Role == "StoreOwner" || u.Role == "Director"))
+                .Select(u => u.Id)
+                .ToListAsync();
+            foreach (var id in adminIds) targets.Add(id);
+        }
+
+        targets.Remove(excludeUserId);
+        return targets.ToList();
+    }
+
+    private async Task NotifyFeedbackReplyAsync(
+        Feedback feedback, string senderLabel, string preview, bool isSender)
+    {
+        var targets = new HashSet<Guid>();
+
+        if (isSender)
+        {
+            foreach (var id in await ResolveFeedbackManagerNotifyUserIdsAsync(feedback, CurrentUserId))
+                targets.Add(id);
+        }
+        else
+        {
+            var senderUid = await ResolveUserIdForEmployeeAsync(
+                feedback.SenderEmployeeId, feedback.CreatedBy);
+            if (senderUid.HasValue && senderUid.Value != CurrentUserId)
+                targets.Add(senderUid.Value);
+        }
+
+        if (targets.Count == 0) return;
+
+        await notificationService.CreateAndSendToUsersAsync(
+            targets.ToList(), NotificationType.Info,
+            "Phản hồi mới",
+            $"{senderLabel}: \"{preview}\"",
+            relatedEntityType: "Feedback", relatedEntityId: feedback.Id,
+            fromUserId: CurrentUserId, categoryCode: "feedback", storeId: feedback.StoreId);
+    }
+
+    private async Task NotifyFeedbackApproversNewItemAsync(
+        Feedback feedback, string senderLabel)
+    {
+        if (feedback.RecipientEmployeeId.HasValue) return;
+
+        var targets = await ResolveFeedbackManagerNotifyUserIdsAsync(feedback, CurrentUserId);
+        if (targets.Count == 0) return;
+
+        await notificationService.CreateAndSendToUsersAsync(
+            targets, NotificationType.Info,
+            "Phản ánh mới",
+            $"Phản ánh từ {senderLabel}: \"{feedback.Title}\"",
+            relatedEntityType: "Feedback", relatedEntityId: feedback.Id,
+            fromUserId: CurrentUserId, categoryCode: "feedback", storeId: feedback.StoreId);
+    }
+
+    private bool IsOriginalFeedbackSender(Feedback feedback, Guid? employeeId) =>
+        feedback.SenderEmployeeId == employeeId
+        || feedback.CreatedBy == CurrentUserId.ToString();
+
+    private async Task<bool> IsFeedbackRecipientAsync(Feedback feedback, Guid? employeeId)
+    {
+        if (feedback.RecipientEmployeeId == employeeId) return true;
+        if (!feedback.RecipientEmployeeId.HasValue) return false;
+
+        var recipientUserId = await dbContext.Employees
+            .Where(e => e.Id == feedback.RecipientEmployeeId.Value
+                && e.ApplicationUserId != null)
+            .Select(e => e.ApplicationUserId!.Value)
+            .FirstOrDefaultAsync();
+        return recipientUserId != Guid.Empty && recipientUserId == CurrentUserId;
+    }
+
+    private async Task<bool> CanAccessFeedbackAsync(Feedback feedback, Guid? employeeId)
+    {
+        if (IsAdmin || IsManager) return true;
+        if (IsOriginalFeedbackSender(feedback, employeeId)) return true;
+        if (await IsFeedbackRecipientAsync(feedback, employeeId)) return true;
+        return false;
+    }
+
+    private async Task<bool> CanReplyToFeedbackAsync(Feedback feedback, Guid? employeeId)
+    {
+        if (feedback.Status == "Closed") return false;
+        return await CanAccessFeedbackAsync(feedback, employeeId);
+    }
+
+    private static bool IsReplyFromCurrentUser(
+        Guid? replySenderEmployeeId, string? replyCreatedBy,
+        Guid? viewerEmployeeId, Guid currentUserId)
+    {
+        if (viewerEmployeeId.HasValue && replySenderEmployeeId == viewerEmployeeId)
+            return true;
+        return replyCreatedBy == currentUserId.ToString();
+    }
+
     // ══════════════════ GET ALL (Manager/Admin) ══════════════════
+
+    private static IQueryable<Feedback> ApplyFeedbackListFilters(
+        IQueryable<Feedback> query,
+        string? status,
+        string? category,
+        Guid? senderEmployeeId,
+        Guid? recipientEmployeeId,
+        bool? generalMailboxOnly,
+        DateTime? fromDate,
+        DateTime? toDate)
+    {
+        if (!string.IsNullOrEmpty(status))
+            query = query.Where(f => f.Status == status);
+        if (!string.IsNullOrEmpty(category))
+            query = query.Where(f => f.Category == category);
+        if (senderEmployeeId.HasValue)
+            query = query.Where(f => f.SenderEmployeeId == senderEmployeeId);
+        if (generalMailboxOnly == true)
+            query = query.Where(f => f.RecipientEmployeeId == null);
+        else if (recipientEmployeeId.HasValue)
+            query = query.Where(f => f.RecipientEmployeeId == recipientEmployeeId);
+        if (fromDate.HasValue)
+        {
+            var from = fromDate.Value.Date;
+            query = query.Where(f => f.CreatedAt >= from);
+        }
+        if (toDate.HasValue)
+        {
+            var toExclusive = toDate.Value.Date.AddDays(1);
+            query = query.Where(f => f.CreatedAt < toExclusive);
+        }
+        return query;
+    }
 
     [HttpGet]
     [RequireModulePermission("Feedback", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> GetAll(
         [FromQuery] string? status, [FromQuery] string? category,
+        [FromQuery] Guid? senderEmployeeId, [FromQuery] Guid? recipientEmployeeId,
+        [FromQuery] bool? generalMailboxOnly,
+        [FromQuery] DateTime? fromDate, [FromQuery] DateTime? toDate,
         [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
     {
         var storeId = RequiredStoreId;
@@ -101,13 +305,14 @@ public class FeedbackController(
         }
         else
         {
-            query = query.Where(f => f.RecipientEmployeeId == null);
+            // NV thường: hòm thư chung + phản ánh gửi trực tiếp tới mình
+            query = query.Where(f =>
+                f.RecipientEmployeeId == null || f.RecipientEmployeeId == employeeId);
         }
 
-        if (!string.IsNullOrEmpty(status))
-            query = query.Where(f => f.Status == status);
-        if (!string.IsNullOrEmpty(category))
-            query = query.Where(f => f.Category == category);
+        query = ApplyFeedbackListFilters(
+            query, status, category, senderEmployeeId, recipientEmployeeId,
+            generalMailboxOnly, fromDate, toDate);
 
         var total = await query.CountAsync();
         var rawItems = await query
@@ -193,15 +398,27 @@ public class FeedbackController(
 
     [HttpGet("my")]
     [RequireModulePermission("Feedback", ModulePermissionAction.View)]
-    public async Task<ActionResult<AppResponse<List<FeedbackDto>>>> GetMyFeedbacks()
+    public async Task<ActionResult<AppResponse<List<FeedbackDto>>>> GetMyFeedbacks(
+        [FromQuery] string? status, [FromQuery] string? category,
+        [FromQuery] Guid? senderEmployeeId, [FromQuery] Guid? recipientEmployeeId,
+        [FromQuery] bool? generalMailboxOnly,
+        [FromQuery] DateTime? fromDate, [FromQuery] DateTime? toDate)
     {
         var storeId = RequiredStoreId;
         var employeeId = await ResolveEmployeeIdAsync();
         var userId = CurrentUserId.ToString();
 
-        var rawItems = await dbContext.Feedbacks
+        var query = dbContext.Feedbacks
             .Where(f => f.StoreId == storeId && f.Deleted == null
-                && (f.SenderEmployeeId == employeeId || f.CreatedBy == userId))
+                && (f.SenderEmployeeId == employeeId
+                    || f.CreatedBy == userId
+                    || f.RecipientEmployeeId == employeeId));
+
+        query = ApplyFeedbackListFilters(
+            query, status, category, senderEmployeeId, recipientEmployeeId,
+            generalMailboxOnly, fromDate, toDate);
+
+        var rawItems = await query
             .OrderByDescending(f => f.CreatedAt)
             .Select(f => new
             {
@@ -269,6 +486,7 @@ public class FeedbackController(
 
         var feedback = new Feedback
         {
+            Id = Guid.NewGuid(),
             // Luôn lưu SenderEmployeeId để hiển thị trong "Của tôi", IsAnonymous quyết định ẩn/hiện
             SenderEmployeeId = employeeId,
             IsAnonymous = dto.IsAnonymous,
@@ -285,25 +503,29 @@ public class FeedbackController(
         dbContext.Feedbacks.Add(feedback);
         await dbContext.SaveChangesAsync();
 
-        // Notify recipient manager about new feedback
         try
         {
+            var senderLabel = dto.IsAnonymous
+                ? "Ẩn danh"
+                : (await ResolveDisplayNameAsync(employeeId, CurrentUserId.ToString()) ?? "Nhân viên");
+
             if (dto.RecipientEmployeeId.HasValue)
             {
-                var recipientUserId = await dbContext.Employees
-                    .Where(e => e.Id == dto.RecipientEmployeeId.Value && e.ApplicationUserId != null)
-                    .Select(e => e.ApplicationUserId!.Value)
-                    .FirstOrDefaultAsync();
-                if (recipientUserId != Guid.Empty && recipientUserId != CurrentUserId)
+                var recipientUserId =
+                    await ResolveUserIdForEmployeeAsync(dto.RecipientEmployeeId);
+                if (recipientUserId.HasValue && recipientUserId.Value != CurrentUserId)
                 {
-                    var senderLabel = dto.IsAnonymous ? "Ẩn danh" : (await GetEmployeeNameAsync(employeeId) ?? "Nhân viên");
                     await notificationService.CreateAndSendAsync(
-                        recipientUserId, NotificationType.Info,
+                        recipientUserId.Value, NotificationType.Info,
                         "Phản ánh mới",
                         $"Phản ánh từ {senderLabel}: \"{dto.Title}\"",
                         relatedEntityType: "Feedback", relatedEntityId: feedback.Id,
                         fromUserId: CurrentUserId, categoryCode: "feedback", storeId: storeId);
                 }
+            }
+            else
+            {
+                await NotifyFeedbackApproversNewItemAsync(feedback, senderLabel);
             }
         }
         catch { /* Notification failure should not affect main operation */ }
@@ -347,28 +569,76 @@ public class FeedbackController(
         // Notify the feedback sender about the response
         try
         {
-            if (feedback.SenderEmployeeId.HasValue)
+            var senderUserId = await ResolveUserIdForEmployeeAsync(
+                feedback.SenderEmployeeId, feedback.CreatedBy);
+            if (senderUserId.HasValue && senderUserId.Value != CurrentUserId)
             {
-                var senderUserId = await dbContext.Employees
-                    .Where(e => e.Id == feedback.SenderEmployeeId.Value && e.ApplicationUserId != null)
-                    .Select(e => e.ApplicationUserId!.Value)
-                    .FirstOrDefaultAsync();
-                if (senderUserId != Guid.Empty && senderUserId != CurrentUserId)
+                var statusLabel = dto.Status switch
                 {
-                    var statusLabel = dto.Status switch
-                    {
-                        "Resolved" => "đã giải quyết",
-                        "Closed" => "đã đóng",
-                        "InProgress" => "đang xử lý",
-                        _ => "đã được phản hồi"
-                    };
-                    await notificationService.CreateAndSendAsync(
-                        senderUserId, NotificationType.Info,
-                        "Phản ánh được phản hồi",
-                        $"Phản ánh \"{feedback.Title}\" {statusLabel}",
-                        relatedEntityType: "Feedback", relatedEntityId: feedback.Id,
-                        fromUserId: CurrentUserId, categoryCode: "feedback", storeId: storeId);
-                }
+                    "Resolved" => "đã giải quyết",
+                    "Closed" => "đã đóng",
+                    "InProgress" => "đang xử lý",
+                    _ => "đã được phản hồi"
+                };
+                await notificationService.CreateAndSendAsync(
+                    senderUserId.Value, NotificationType.Info,
+                    "Phản ánh được phản hồi",
+                    $"Phản ánh \"{feedback.Title}\" {statusLabel}",
+                    relatedEntityType: "Feedback", relatedEntityId: feedback.Id,
+                    fromUserId: CurrentUserId, categoryCode: "feedback", storeId: storeId);
+            }
+        }
+        catch { /* Notification failure should not affect main operation */ }
+
+        return Ok(AppResponse<bool>.Success(true));
+    }
+
+    [HttpPatch("{id}/status")]
+    [RequireModulePermission("Feedback", ModulePermissionAction.Approve)]
+    public async Task<ActionResult<AppResponse<bool>>> UpdateStatus(
+        Guid id, [FromBody] FeedbackStatusDto dto)
+    {
+        var storeId = RequiredStoreId;
+        var feedback = await dbContext.Feedbacks.AsTracking()
+            .FirstOrDefaultAsync(f => f.Id == id && f.StoreId == storeId && f.Deleted == null);
+        if (feedback == null)
+            return NotFound(AppResponse<bool>.Fail("Không tìm thấy phản ánh"));
+
+        var allowed = new[] { "Pending", "InProgress", "Resolved", "Closed" };
+        if (!allowed.Contains(dto.Status))
+            return BadRequest(AppResponse<bool>.Fail("Trạng thái không hợp lệ"));
+
+        feedback.Status = dto.Status;
+        feedback.UpdatedAt = DateTime.Now;
+        feedback.UpdatedBy = CurrentUserId.ToString();
+        if (dto.Status is "Resolved" or "Closed")
+        {
+            feedback.RespondedAt ??= DateTime.Now;
+            feedback.RespondedByEmployeeId ??= await ResolveEmployeeIdAsync();
+        }
+
+        await dbContext.SaveChangesAsync();
+
+        try
+        {
+            var senderUserId = await ResolveUserIdForEmployeeAsync(
+                feedback.SenderEmployeeId, feedback.CreatedBy);
+            if (senderUserId.HasValue && senderUserId.Value != CurrentUserId)
+            {
+                var statusLabel = dto.Status switch
+                {
+                    "Resolved" => "đã giải quyết",
+                    "Closed" => "đã đóng",
+                    "InProgress" => "đang xử lý",
+                    "Pending" => "chờ xử lý",
+                    _ => "đã cập nhật"
+                };
+                await notificationService.CreateAndSendAsync(
+                    senderUserId.Value, NotificationType.Info,
+                    "Cập nhật phản ánh",
+                    $"Phản ánh \"{feedback.Title}\" {statusLabel}",
+                    relatedEntityType: "Feedback", relatedEntityId: feedback.Id,
+                    fromUserId: CurrentUserId, categoryCode: "feedback", storeId: storeId);
             }
         }
         catch { /* Notification failure should not affect main operation */ }
@@ -468,10 +738,7 @@ public class FeedbackController(
         if (feedback == null)
             return NotFound(AppResponse<object>.Fail("Không tìm thấy phản ánh"));
 
-        // Check access
-        if (!IsAdmin && !IsManager
-            && feedback.SenderEmployeeId != employeeId
-            && feedback.CreatedBy != CurrentUserId.ToString())
+        if (!await CanAccessFeedbackAsync(feedback, employeeId))
             return BadRequest(AppResponse<object>.Fail("Không có quyền xem"));
 
         var replies = await dbContext.FeedbackReplies
@@ -480,24 +747,49 @@ public class FeedbackController(
             .Select(r => new
             {
                 r.Id, r.FeedbackId, r.Content, r.ImageUrls,
-                r.IsFromSender, r.SenderEmployeeId, r.CreatedAt,
+                r.IsFromSender, r.SenderEmployeeId, r.CreatedAt, r.CreatedBy,
                 SenderName = r.SenderEmployee != null
                     ? (r.SenderEmployee.LastName + " " + r.SenderEmployee.FirstName).Trim() : null,
             })
             .ToListAsync();
 
-        // For anonymous feedback, hide sender name when IsFromSender=true
-        var result = replies.Select(r => new FeedbackReplyDto(
-            r.Id, r.FeedbackId, r.Content, ParseImageUrls(r.ImageUrls),
-            r.IsFromSender,
-            feedback.IsAnonymous && r.IsFromSender ? null : r.SenderName,
-            feedback.IsAnonymous && r.IsFromSender ? null : r.SenderEmployeeId,
-            r.CreatedAt
-        )).ToList();
+        var needUserResolve = replies
+            .Where(r => string.IsNullOrWhiteSpace(r.SenderName)
+                && !string.IsNullOrEmpty(r.CreatedBy))
+            .Select(r => r.CreatedBy!)
+            .Distinct()
+            .ToList();
+        var userNames = needUserResolve.Count > 0
+            ? await dbContext.Users
+                .Where(u => needUserResolve.Contains(u.Id.ToString()))
+                .ToDictionaryAsync(
+                    u => u.Id.ToString(),
+                    u => ((u.LastName ?? "") + " " + (u.FirstName ?? "")).Trim())
+            : new Dictionary<string, string>();
 
-        // Also return feedback info for chat header
-        var senderName = feedback.IsAnonymous ? null : await GetEmployeeNameAsync(feedback.SenderEmployeeId);
+        var result = replies.Select(r =>
+        {
+            var hideSender = feedback.IsAnonymous && r.IsFromSender;
+            var senderName = hideSender
+                ? null
+                : (r.SenderName
+                    ?? (r.CreatedBy != null && userNames.TryGetValue(r.CreatedBy, out var un)
+                        ? un : null));
+            return new FeedbackReplyDto(
+                r.Id, r.FeedbackId, r.Content, ParseImageUrls(r.ImageUrls),
+                r.IsFromSender,
+                senderName,
+                hideSender ? null : r.SenderEmployeeId,
+                r.CreatedAt,
+                IsReplyFromCurrentUser(
+                    r.SenderEmployeeId, r.CreatedBy, employeeId, CurrentUserId));
+        }).ToList();
+
+        var senderName = feedback.IsAnonymous
+            ? null
+            : await ResolveDisplayNameAsync(feedback.SenderEmployeeId, feedback.CreatedBy);
         var recipientName = await GetEmployeeNameAsync(feedback.RecipientEmployeeId);
+        var canReply = await CanReplyToFeedbackAsync(feedback, employeeId);
 
         return Ok(AppResponse<object>.Success(new
         {
@@ -513,6 +805,12 @@ public class FeedbackController(
                 feedback.CreatedAt,
             },
             replies = result,
+            viewerContext = new
+            {
+                canReply,
+                isOriginalSender = IsOriginalFeedbackSender(feedback, employeeId),
+                employeeId,
+            },
         }));
     }
 
@@ -529,17 +827,14 @@ public class FeedbackController(
         if (feedback == null)
             return NotFound(AppResponse<FeedbackReplyDto>.Fail("Không tìm thấy phản ánh"));
 
-        // Determine if the reply is from the original sender
-        var isSender = feedback.SenderEmployeeId == employeeId
-            || feedback.CreatedBy == CurrentUserId.ToString();
-
-        // Check access: sender or recipient/admin/manager
-        if (!isSender && !IsAdmin && !IsManager
-            && feedback.RecipientEmployeeId != employeeId)
+        if (!await CanReplyToFeedbackAsync(feedback, employeeId))
             return BadRequest(AppResponse<FeedbackReplyDto>.Fail("Không có quyền phản hồi"));
+
+        var isSender = IsOriginalFeedbackSender(feedback, employeeId);
 
         var reply = new FeedbackReply
         {
+            Id = Guid.NewGuid(),
             FeedbackId = id,
             SenderEmployeeId = employeeId,
             Content = dto.Content,
@@ -560,48 +855,29 @@ public class FeedbackController(
 
         await dbContext.SaveChangesAsync();
 
-        // Send notification to the other party
         try
         {
-            Guid? targetEmployeeId = isSender
-                ? feedback.RecipientEmployeeId  // sender replied → notify recipient
-                : feedback.SenderEmployeeId;    // recipient replied → notify sender
+            string senderLabel;
+            if (isSender && feedback.IsAnonymous)
+                senderLabel = "Ẩn danh";
+            else
+                senderLabel = await ResolveDisplayNameAsync(employeeId, CurrentUserId.ToString())
+                    ?? "Nhân viên";
 
-            if (targetEmployeeId.HasValue)
-            {
-                var targetUserId = await dbContext.Employees
-                    .Where(e => e.Id == targetEmployeeId.Value && e.ApplicationUserId != null)
-                    .Select(e => e.ApplicationUserId!.Value)
-                    .FirstOrDefaultAsync();
-
-                if (targetUserId != Guid.Empty && targetUserId != CurrentUserId)
-                {
-                    string senderLabel;
-                    if (isSender && feedback.IsAnonymous)
-                        senderLabel = "Ẩn danh";
-                    else
-                        senderLabel = await GetEmployeeNameAsync(employeeId) ?? "Nhân viên";
-
-                    var preview = dto.Content.Length > 100 ? dto.Content[..100] + "..." : dto.Content;
-                    await notificationService.CreateAndSendAsync(
-                        targetUserId, NotificationType.Info,
-                        "Phản hồi mới",
-                        $"{senderLabel}: \"{preview}\"",
-                        relatedEntityType: "Feedback", relatedEntityId: feedback.Id,
-                        fromUserId: CurrentUserId, categoryCode: "feedback", storeId: storeId);
-                }
-            }
+            var preview = dto.Content.Length > 100 ? dto.Content[..100] + "..." : dto.Content;
+            await NotifyFeedbackReplyAsync(feedback, senderLabel, preview, isSender);
         }
         catch { /* Notification failure should not affect main operation */ }
 
-        var senderName = await GetEmployeeNameAsync(employeeId);
+        var senderName = await ResolveDisplayNameAsync(employeeId, CurrentUserId.ToString());
 
         return Ok(AppResponse<FeedbackReplyDto>.Success(new FeedbackReplyDto(
             reply.Id, reply.FeedbackId, reply.Content, null,
             reply.IsFromSender,
             feedback.IsAnonymous && isSender ? null : senderName,
             feedback.IsAnonymous && isSender ? null : employeeId,
-            reply.CreatedAt
+            reply.CreatedAt,
+            true
         )));
     }
 

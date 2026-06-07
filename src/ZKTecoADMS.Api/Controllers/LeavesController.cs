@@ -27,7 +27,7 @@ public class LeavesController(IMediator mediator, IDataScopeService dataScopeSer
     // Employee endpoints - can manage their own leaves
     [HttpGet("my-leaves")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
-    [RequireModulePermission("Leave", ModulePermissionAction.View)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "Leave", "LeaveReport")]
     public async Task<ActionResult<AppResponse<List<LeaveDto>>>> GetMyLeaves()
     {
         var query = new GetMyLeavesQuery(RequiredStoreId, CurrentUserId, IsManager);
@@ -140,7 +140,7 @@ public class LeavesController(IMediator mediator, IDataScopeService dataScopeSer
 
     [HttpGet]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
-    [RequireModulePermission("Leave", ModulePermissionAction.View)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "Leave", "LeaveReport")]
     public async Task<ActionResult<AppResponse<PagedResult<LeaveDto>>>> GetAllLeaves(
         [FromQuery] PaginationRequest request,
         [FromQuery] DateTime? fromDate = null,

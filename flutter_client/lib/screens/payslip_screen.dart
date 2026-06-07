@@ -17,6 +17,8 @@ class _PayslipScreenState extends State<PayslipScreen> with SingleTickerProvider
 
   List<Map<String, dynamic>> _myPayslips = [];
   Map<String, dynamic>? _selectedPayslip;
+  int _filterYear = DateTime.now().year;
+  int? _filterMonth;
 
   @override
   void initState() {
@@ -115,13 +117,54 @@ class _PayslipScreenState extends State<PayslipScreen> with SingleTickerProvider
               ],
             ),
           ),
+          DropdownButton<int>(
+            value: _filterYear,
+            dropdownColor: Colors.white,
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+            underline: const SizedBox.shrink(),
+            items: List.generate(5, (i) {
+              final y = DateTime.now().year - 2 + i;
+              return DropdownMenuItem(value: y, child: Text('$y'));
+            }),
+            onChanged: (v) {
+              if (v == null) return;
+              setState(() => _filterYear = v);
+            },
+          ),
+          const SizedBox(width: 8),
+          DropdownButton<int?>(
+            value: _filterMonth,
+            dropdownColor: Colors.white,
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+            underline: const SizedBox.shrink(),
+            hint: const Text('Tất cả', style: TextStyle(color: Colors.white70)),
+            items: [
+              const DropdownMenuItem<int?>(value: null, child: Text('Tất cả tháng')),
+              ...List.generate(
+                12,
+                (i) => DropdownMenuItem(value: i + 1, child: Text('Tháng ${i + 1}')),
+              ),
+            ],
+            onChanged: (v) => setState(() => _filterMonth = v),
+          ),
         ],
       ),
     );
   }
 
+  List<Map<String, dynamic>> get _filteredPayslips {
+    return _myPayslips.where((p) {
+      final y = (p['year'] as num?)?.toInt();
+      final m = (p['month'] as num?)?.toInt();
+      if (y != _filterYear) return false;
+      if (_filterMonth != null && m != _filterMonth) return false;
+      return true;
+    }).toList();
+  }
+
   Widget _buildPayslipList() {
-    if (_myPayslips.isEmpty) {
+    final list = _filteredPayslips;
+    if (list.isEmpty) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -137,7 +180,7 @@ class _PayslipScreenState extends State<PayslipScreen> with SingleTickerProvider
       onRefresh: _loadData,
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        itemCount: _myPayslips.length,
+        itemCount: list.length,
         itemBuilder: (ctx, i) => Padding(
           padding: const EdgeInsets.only(bottom: 10),
           child: Container(
@@ -153,7 +196,7 @@ class _PayslipScreenState extends State<PayslipScreen> with SingleTickerProvider
                 ),
               ],
             ),
-            child: _buildPayslipDeckItem(_myPayslips[i]),
+            child: _buildPayslipDeckItem(list[i]),
           ),
         ),
       ),

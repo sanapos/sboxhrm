@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
+import '../utils/permission_navigation.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/hrm_page_chrome.dart';
 
@@ -487,12 +488,13 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
         Provider.of<PermissionProvider>(context, listen: false);
     final allowedModules = authUser?.allowedModules;
     return items.where((item) {
-      // Lọc theo gói dịch vụ
-      if (!isDirector &&
-          allowedModules != null &&
-          allowedModules.isNotEmpty &&
-          item.moduleCode != null &&
-          !allowedModules.contains(item.moduleCode)) {
+      // Lọc theo gói dịch vụ (ưu tiên quyền role nếu gói thiếu module mới)
+      if (!PermissionNavigation.isAllowedByPackageOrRole(
+        item.moduleCode,
+        allowedModules: allowedModules,
+        perm: permProvider,
+        bypassPackageFilter: isDirector,
+      )) {
         return false;
       }
       // Lọc theo quyền canView

@@ -338,6 +338,93 @@ public class FinanceAnalyticsController(
             return StatusCode(500, AppResponse<MealDebtReportDto>.Fail(ex.Message));
         }
     }
+
+    // ═════════════════════════════════════════════════════════════════════
+    // 4. CASH TRANSACTIONS — Báo cáo thu chi (quyền CashReport)
+    // GET /api/reports/finance/cash-transactions?from=&to=&type=
+    // ═════════════════════════════════════════════════════════════════════
+    [HttpGet("cash-transactions")]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("CashReport", ModulePermissionAction.View)]
+    public async Task<IActionResult> GetCashTransactionsReport(
+        [FromQuery] DateTime? from = null,
+        [FromQuery] DateTime? to = null,
+        [FromQuery] CashTransactionType? type = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 500,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var (_, _, fromUtc, toUtc) = ReportHelpers.VnRange(from, to);
+            var storeId = RequiredStoreId;
+
+            var query = db.CashTransactions.IgnoreQueryFilters()
+                .Include(x => x.Category)
+                .Include(x => x.CreatedByUser)
+                .Where(x => x.StoreId == storeId && x.IsActive
+                    && x.TransactionDate >= fromUtc && x.TransactionDate < toUtc);
+
+            if (type.HasValue)
+                query = query.Where(x => x.Type == type.Value);
+
+            if (IsEmployee && !IsManager)
+            {
+                var empId = EmployeeId;
+                if (!empId.HasValue)
+                {
+                    return Ok(AppResponse<CashReportListDto>.Success(new CashReportListDto
+                    {
+                        Page = page,
+                        PageSize = pageSize
+                    }));
+                }
+
+                var linkedTxIds = await db.PenaltyTickets.IgnoreQueryFilters()
+                    .Where(p => p.StoreId == storeId && p.EmployeeId == empId.Value
+                        && p.CashTransactionId != null)
+                    .Select(p => p.CashTransactionId!.Value)
+                    .Distinct()
+                    .ToListAsync(ct);
+
+                query = query.Where(x =>
+                    linkedTxIds.Contains(x.Id) || x.CreatedByUserId == CurrentUserId);
+            }
+
+            var total = await query.CountAsync(ct);
+            var items = await query
+                .OrderByDescending(x => x.TransactionDate)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(x => new CashReportItemDto
+                {
+                    Id = x.Id,
+                    TransactionCode = x.TransactionCode,
+                    Type = (int)x.Type,
+                    CategoryName = x.Category != null ? x.Category.Name : "",
+                    Amount = x.Amount,
+                    TransactionDate = x.TransactionDate,
+                    Description = x.Description,
+                    PaymentMethod = (int)x.PaymentMethod,
+                    Status = x.IsPaid ? (int)CashTransactionStatus.Completed : (int)x.Status,
+                    CreatedByUserName = x.CreatedByUser != null ? (x.CreatedByUser.UserName ?? "") : ""
+                })
+                .ToListAsync(ct);
+
+            return Ok(AppResponse<CashReportListDto>.Success(new CashReportListDto
+            {
+                Items = items,
+                TotalCount = total,
+                Page = page,
+                PageSize = pageSize
+            }));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Cash report transactions failed");
+            return StatusCode(500, AppResponse<CashReportListDto>.Fail(ex.Message));
+        }
+    }
 }
 
 // ═══════════════════════════ DTOs ═══════════════════════════
@@ -420,5 +507,27 @@ public class MealDebtEmployeeDto
     public decimal TotalPayment { get; set; }
     public decimal OutstandingDebt { get; set; }
     public DateTime LastTransactionDate { get; set; }
+}
+
+public class CashReportListDto
+{
+    public List<CashReportItemDto> Items { get; set; } = new();
+    public int TotalCount { get; set; }
+    public int Page { get; set; }
+    public int PageSize { get; set; }
+}
+
+public class CashReportItemDto
+{
+    public Guid Id { get; set; }
+    public string TransactionCode { get; set; } = string.Empty;
+    public int Type { get; set; }
+    public string CategoryName { get; set; } = string.Empty;
+    public decimal Amount { get; set; }
+    public DateTime TransactionDate { get; set; }
+    public string Description { get; set; } = string.Empty;
+    public int PaymentMethod { get; set; }
+    public int Status { get; set; }
+    public string CreatedByUserName { get; set; } = string.Empty;
 }
 

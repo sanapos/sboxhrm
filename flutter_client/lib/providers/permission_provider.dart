@@ -88,12 +88,51 @@ class PermissionProvider extends ChangeNotifier {
     }
   }
 
+  /// Menu / điều hướng: màn duyệt cần [canApprove], không alias từ WorkSchedule / AttendanceCorrection.
+  bool canViewNav(String? moduleCode) {
+    if (moduleCode == null || moduleCode.isEmpty) return true;
+    if (_isSuperUser) return true;
+    if (PermissionModules.selfServiceModules.contains(moduleCode)) {
+      return true;
+    }
+    if (PermissionModules.approvalNavModules.contains(moduleCode)) {
+      return _canAccessApprovalNav(moduleCode);
+    }
+    if (PermissionModules.explicitNavModules.contains(moduleCode)) {
+      if (!_isLoaded || _loadError) return false;
+      if (_flag(moduleCode, 'canView')) return true;
+      // Module legacy trên DB — vẫn mở Phiếu thưởng khi đã cấp Benefit.
+      if (moduleCode == 'BonusPenalty' && _flag('Benefit', 'canView')) {
+        return true;
+      }
+      return false;
+    }
+    return canView(moduleCode);
+  }
+
+  bool _canAccessApprovalNav(String moduleCode) {
+    if (!_isLoaded || _loadError) return false;
+    switch (moduleCode) {
+      case 'AttendanceApproval':
+        return canApprove('AttendanceApproval') ||
+            canApprove('MobileAttendanceApproval');
+      case 'MobileAttendanceApproval':
+        return canApprove('MobileAttendanceApproval') ||
+            canApprove('AttendanceApproval');
+      default:
+        return canApprove(moduleCode);
+    }
+  }
+
   /// Kiểm tra quyền XEM cho một module
   bool canView(String? moduleCode) {
     if (moduleCode == null || moduleCode.isEmpty) return true;
     if (_isSuperUser) return true;
-    if (!_isLoaded) return true; // Chưa load xong → hiện hết (tránh flash)
-    if (_loadError) return false; // API lỗi → ẩn hết (secure default)
+    if (PermissionModules.selfServiceModules.contains(moduleCode)) {
+      return true;
+    }
+    if (!_isLoaded) return false;
+    if (_loadError) return false;
     if (moduleCode == 'Dashboard') {
       return DashboardPermissionModules.canViewNavDashboard(this);
     }
@@ -182,9 +221,37 @@ class PermissionProvider extends ChangeNotifier {
     }
     if (moduleCode == 'AttendanceReport' &&
         (action == 'canView' || action == 'canExport')) {
-      if (_anyHas(action, [...PermissionModules.attendanceRead, 'AttendanceReport'])) {
+      if (_anyHas(action, PermissionModules.attendanceRead)) {
         return true;
       }
+    }
+    if (moduleCode == 'LeaveReport' &&
+        (action == 'canView' || action == 'canExport')) {
+      if (_flag('Leave', action)) return true;
+    }
+    if (moduleCode == 'Leave' &&
+        (action == 'canView' || action == 'canExport')) {
+      if (_flag('LeaveReport', action)) return true;
+    }
+    if (moduleCode == 'PenaltyReport' &&
+        (action == 'canView' || action == 'canExport')) {
+      if (_flag('PenaltyTickets', action)) return true;
+    }
+    if (moduleCode == 'AdvanceReport' &&
+        (action == 'canView' || action == 'canExport')) {
+      if (_flag('AdvanceRequests', action)) return true;
+    }
+    if (moduleCode == 'CashReport' &&
+        (action == 'canView' || action == 'canExport')) {
+      if (_flag('CashTransaction', action)) return true;
+    }
+    if (moduleCode == 'PayrollReport' &&
+        (action == 'canView' || action == 'canExport')) {
+      if (_flag('Payroll', action)) return true;
+    }
+    if (moduleCode == 'Payroll' &&
+        (action == 'canView' || action == 'canExport')) {
+      if (_flag('PayrollReport', action)) return true;
     }
     if (PermissionModules.attendanceApproval.contains(moduleCode)) {
       if (_anyHas(action, PermissionModules.attendanceApproval)) return true;
@@ -195,16 +262,9 @@ class PermissionProvider extends ChangeNotifier {
     if (PermissionModules.shiftSetup.contains(moduleCode)) {
       if (_anyHas(action, PermissionModules.shiftSetup)) return true;
     }
-    if (moduleCode == 'ShiftSalaryLevel' &&
+    if (PermissionModules.payrollRead.contains(moduleCode) &&
         (action == 'canView' || action == 'canExport')) {
-      if (_anyHas(action, [
-        ...PermissionModules.shiftSetup,
-        'Payroll',
-        'AttendanceSummary',
-        'AttendanceByShift',
-      ])) {
-        return true;
-      }
+      if (_flag('Payroll', action)) return true;
     }
     if (moduleCode == 'BankAccount' && _flag('CashTransaction', action)) {
       return true;
@@ -216,21 +276,16 @@ class PermissionProvider extends ChangeNotifier {
       if (_anyHas(action, PermissionModules.financialTransactions)) return true;
     }
     if (moduleCode == 'Benefit' && _flag('BonusPenalty', action)) return true;
+    if (moduleCode == 'BonusPenalty' && _flag('Benefit', action)) return true;
     if (moduleCode == 'AssetReport' &&
         (action == 'canView' || action == 'canExport')) {
       if (_flag('Asset', action)) return true;
     }
-    if (moduleCode == 'Payroll' &&
-        (action == 'canView' || action == 'canExport')) {
-      if (_flag('Payslip', action)) return true;
-      if (_anyHas(action, PermissionModules.payrollRead)) return true;
-    }
-    if (moduleCode == 'Payslip' &&
-        (action == 'canView' || action == 'canExport')) {
-      if (_flag('Payroll', action)) return true;
-    }
     if (moduleCode == 'ProductSalary') {
       if (_flag('Production', action)) return true;
+    }
+    if (moduleCode == 'Production' && _flag('ProductSalary', action)) {
+      return true;
     }
     if (moduleCode == 'MobileAttendance') {
       if ((action == 'canView' || action == 'canCreate') &&

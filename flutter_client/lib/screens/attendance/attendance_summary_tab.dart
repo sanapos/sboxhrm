@@ -3,8 +3,11 @@ import '../../utils/file_saver.dart' as file_saver;
 import '../../utils/web_canvas.dart' as web_canvas;
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:intl/intl.dart';
+import '../../providers/auth_provider.dart';
+import '../../utils/mobile_attendance_vertical_layout.dart';
 import 'package:excel/excel.dart' as excel_lib;
 import '../../models/attendance.dart';
 import '../../models/device.dart';
@@ -1293,6 +1296,10 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
     }
 
     if (isMobileLayout) {
+      final useVerticalLayout = preferMobileVerticalAttendanceView(
+        userRole: Provider.of<AuthProvider>(context, listen: false).userRole,
+        uniqueEmployeeCount: uniqueEmployees,
+      );
       final tableSlivers = _isSummarizing && summaries.isEmpty
           ? <Widget>[SliverToBoxAdapter(child: _buildSummarizingPlaceholder())]
           : summaries.isEmpty
@@ -1302,8 +1309,11 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
                     sliver: SliverToBoxAdapter(child: _buildEmptyTableCard()),
                   ),
                 ]
-              : _buildMobileCrossTabSlivers(
-                  summaries, maxPunches, maxShifts);
+              : useVerticalLayout
+                  ? _buildMobileVerticalAttendanceSlivers(
+                      summaries, maxPunches, maxShifts)
+                  : _buildMobileCrossTabSlivers(
+                      summaries, maxPunches, maxShifts);
 
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1333,7 +1343,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
               ],
             ),
           ),
-          _buildMobileBottomTabBar(),
+          if (!useVerticalLayout) _buildMobileBottomTabBar(),
         ],
       );
     }
@@ -3547,7 +3557,267 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
     );
   }
 
-  /// Show vertical detail popup for a row
+  // ─── Bảng dọc (mobile — nhân viên / chạm tên NV) ─────────────────────────
+
+  ({
+    AttendanceLeaveLookup leaveLookup,
+    Map<String, String> empUserIdMap,
+    Map<String, String> hrEmpIdMap,
+  }) _verticalSummaryLeaveContext() {
+    final leaveLookup = AttendanceLeaveLookup.fromLeaves(
+      widget.approvedLeaves,
+      employeesList: widget.employeesList,
+      includePending: true,
+    );
+    final empUserIdMap = <String, String>{};
+    final hrEmpIdMap = <String, String>{};
+    if (widget.employeesList != null) {
+      for (final e in widget.employeesList!) {
+        final code = e['employeeCode']?.toString() ?? '';
+        final appId = e['applicationUserId']?.toString() ?? '';
+        final hrId = e['id']?.toString() ?? '';
+        if (code.isNotEmpty) {
+          if (appId.isNotEmpty) empUserIdMap[code] = appId;
+          if (hrId.isNotEmpty) hrEmpIdMap[code] = hrId;
+        }
+      }
+    }
+    return (
+      leaveLookup: leaveLookup,
+      empUserIdMap: empUserIdMap,
+      hrEmpIdMap: hrEmpIdMap,
+    );
+  }
+
+  String _verticalSummaryPunchText(_DailySummary s, int maxShifts) {
+    final parts = <String>[];
+    for (var si = 0; si < maxShifts; si++) {
+      final pin = s.getPunch(si * 2 + 1);
+      final pout = s.getPunch(si * 2 + 2);
+      if (pin == null && pout == null) continue;
+      final inStr = pin != null ? DateFormat('HH:mm').format(pin) : '—';
+      final outStr = pout != null ? DateFormat('HH:mm').format(pout) : '—';
+      parts.add(maxShifts > 1 ? 'C${si + 1} $inStr·$outStr' : '$inStr·$outStr');
+    }
+    return parts.isEmpty ? '—' : parts.join('\n');
+  }
+
+  String _verticalWorkCountLabel(double workCount) {
+    if (workCount <= 0) return '—';
+    return workCount % 1 == 0
+        ? workCount.toInt().toString()
+        : workCount.toStringAsFixed(1);
+  }
+
+  Widget _verticalSummaryAbsenceCell({
+    required DateTime date,
+    required String empId,
+    required String empName,
+    required String empCode,
+    required AttendanceLeaveLookup leaveLookup,
+    required Map<String, String> empUserIdMap,
+    required Map<String, String> hrEmpIdMap,
+  }) {
+    final kind = leaveLookup.classify(
+      day: date,
+      employeeCode: empCode,
+      employeeUserId: empUserIdMap[empCode] ?? empUserIdMap[empId],
+      hrEmployeeId: hrEmpIdMap[empCode] ?? hrEmpIdMap[empId],
+      displayEmployeeId: empId,
+      isHoliday: _getHolidayRate(date, empCode) != null,
+      isWeeklyOff: _isWeeklyOffDay(date, empCode),
+    );
+    final label = switch (kind) {
+      AbsenceCellKind.holiday => ('Lễ', const Color(0xFFEA580C)),
+      AbsenceCellKind.weeklyOff => ('Nghỉ', const Color(0xFF8B5CF6)),
+      AbsenceCellKind.approvedLeave => ('Phép', const Color(0xFF0891B2)),
+      AbsenceCellKind.pendingLeave => ('Chờ phép', const Color(0xFFD97706)),
+      AbsenceCellKind.unpaidAbsent => ('Vắng', const Color(0xFFEF4444)),
+    };
+    return mobileAttendanceAbsenceLabel(
+      label.$1,
+      color: label.$2,
+      onTap: kind == AbsenceCellKind.unpaidAbsent
+          ? () {
+              AbsenceDayActions.showForAbsentDay(
+                context: context,
+                api: ApiService(),
+                employeeName: empName,
+                employeeCode: empCode,
+                displayEmployeeId: empId,
+                applicationUserId:
+                    empUserIdMap[empCode] ?? empUserIdMap[empId],
+                hrEmployeeId: hrEmpIdMap[empCode] ?? hrEmpIdMap[empId],
+                date: date,
+                employees: widget.employeesList,
+                onCompleted: _notifyDataChanged,
+              );
+            }
+          : null,
+    );
+  }
+
+  MobileAttendanceVerticalTable _buildVerticalSummaryTable({
+    required String empId,
+    required String empName,
+    required String empCode,
+    required List<_DailySummary> summaries,
+    required int maxPunches,
+    required int maxShifts,
+    String? title,
+  }) {
+    final dates = attendanceDaysInRange(_selectedDateRange);
+    final lookup = <String, _DailySummary>{};
+    for (final s in summaries) {
+      if (s.employeeId == empId) {
+        lookup[DateFormat('yyyy-MM-dd').format(s.date)] = s;
+      }
+    }
+    final leaveCtx = _verticalSummaryLeaveContext();
+    final today = DateTime.now();
+
+    final rows = dates.map((date) {
+      final summary = lookup[DateFormat('yyyy-MM-dd').format(date)];
+      final isToday = date.year == today.year &&
+          date.month == today.month &&
+          date.day == today.day;
+      return MobileAttendanceVerticalRow(
+        day: attendanceVerticalDateShort(date),
+        weekday: attendanceVerticalWeekdayShort(date),
+        attendance: summary == null
+            ? _verticalSummaryAbsenceCell(
+                date: date,
+                empId: empId,
+                empName: empName,
+                empCode: empCode,
+                leaveLookup: leaveCtx.leaveLookup,
+                empUserIdMap: leaveCtx.empUserIdMap,
+                hrEmpIdMap: leaveCtx.hrEmpIdMap,
+              )
+            : mobileAttendancePunchText(
+                _verticalSummaryPunchText(summary, maxShifts),
+              ),
+        totalHours: summary != null && summary.totalHours > 0
+            ? _formatHours(summary.totalHours)
+            : '—',
+        totalWork: summary != null
+            ? _verticalWorkCountLabel(summary.workCount)
+            : '—',
+        isToday: isToday,
+        onTap: summary != null
+            ? () => _showRowDetailDialog(summary, maxPunches, maxShifts)
+            : null,
+      );
+    }).toList();
+
+    var totalHours = 0.0;
+    var totalWork = 0.0;
+    var presentDays = 0;
+    for (final s in summaries) {
+      if (s.employeeId != empId) continue;
+      totalHours += s.totalHours;
+      totalWork += s.workCount;
+      if (s.totalPunches > 0) presentDays++;
+    }
+
+    final totalRow = rows.isEmpty
+        ? null
+        : MobileAttendanceVerticalRow(
+            day: 'TỔNG',
+            weekday: 'CỘNG',
+            attendance: Center(
+              child: Text(
+                presentDays > 0 ? '$presentDays ngày' : '—',
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF1E40AF),
+                ),
+              ),
+            ),
+            totalHours:
+                totalHours > 0 ? _formatHours(totalHours) : '—',
+            totalWork:
+                totalWork > 0 ? _verticalWorkCountLabel(totalWork) : '—',
+          );
+
+    return MobileAttendanceVerticalTable(
+      title: title ?? 'Bảng dọc · $empName',
+      rows: rows,
+      totalRow: totalRow,
+    );
+  }
+
+  void _showEmployeeVerticalAttendanceSheet({
+    required String empId,
+    required String empName,
+    required String empCode,
+    required List<_DailySummary> summaries,
+    required int maxPunches,
+    required int maxShifts,
+  }) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (ctx) => Scaffold(
+          backgroundColor: HrmPageChrome.background,
+          appBar: AppBar(
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(empName, overflow: TextOverflow.ellipsis),
+                Text(
+                  'Mã $empCode',
+                  style: const TextStyle(
+                      fontSize: 12, fontWeight: FontWeight.w400),
+                ),
+              ],
+            ),
+          ),
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+            child: _buildVerticalSummaryTable(
+              empId: empId,
+              empName: empName,
+              empCode: empCode,
+              summaries: summaries,
+              maxPunches: maxPunches,
+              maxShifts: maxShifts,
+              title: empName,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _buildMobileVerticalAttendanceSlivers(
+    List<_DailySummary> summaries,
+    int maxPunches,
+    int maxShifts,
+  ) {
+    if (summaries.isEmpty) return const [];
+    final empId = summaries.first.employeeId;
+    final empName = summaries.first.employeeName;
+    final empCode = summaries.first.employeeCode;
+
+    return [
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        sliver: SliverToBoxAdapter(
+          child: _buildVerticalSummaryTable(
+            empId: empId,
+            empName: empName,
+            empCode: empCode,
+            summaries: summaries,
+            maxPunches: maxPunches,
+            maxShifts: maxShifts,
+          ),
+        ),
+      ),
+    ];
+  }
+
   // ─── Cross-tab table view (mobile) ────────────────────────────────────────
 
   List<Widget> _buildMobileCrossTabSlivers(
@@ -3871,35 +4141,52 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
       final empId = employees[index].key;
       final empName = employees[index].value;
       final sub = workSubtextFn?.call(empId, empName) ?? subtextFn?.call(empId);
-      return Container(
-        width: empColW,
-        height: rowHeight,
-        alignment: Alignment.centerLeft,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        decoration: BoxDecoration(
-          color: isEven ? const Color(0xFFF4F4F5) : Colors.white,
-          border: const Border(
-            right: BorderSide(color: Color(0xFFD4D4D8)),
-            bottom: BorderSide(color: Color(0xFFE4E4E7), width: 0.5),
+      return Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _showEmployeeVerticalAttendanceSheet(
+            empId: empId,
+            empName: empName,
+            empCode: empCodeMap[empId] ?? empId,
+            summaries: summaries,
+            maxPunches: maxPunches,
+            maxShifts: maxShifts,
           ),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ctEmployeeNameLabel(
-              empName,
-              maxLines: sub != null ? 1 : 2,
+          child: Container(
+            width: empColW,
+            height: rowHeight,
+            alignment: Alignment.centerLeft,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            decoration: BoxDecoration(
+              color: isEven ? const Color(0xFFF4F4F5) : Colors.white,
+              border: const Border(
+                right: BorderSide(color: Color(0xFFD4D4D8)),
+                bottom: BorderSide(color: Color(0xFFE4E4E7), width: 0.5),
+              ),
             ),
-            if (sub != null)
-              Text(sub,
-                  style: TextStyle(
-                      fontSize: 9,
-                      color: subtextColor,
-                      fontWeight: FontWeight.bold),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis),
-          ],
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ctEmployeeNameLabel(
+                  empName,
+                  maxLines: sub != null ? 1 : 2,
+                ),
+                if (sub != null)
+                  Text(sub,
+                      style: TextStyle(
+                          fontSize: 9,
+                          color: subtextColor,
+                          fontWeight: FontWeight.bold),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis),
+                const Text(
+                  'Chạm xem dọc',
+                  style: TextStyle(fontSize: 8, color: Color(0xFF2563EB)),
+                ),
+              ],
+            ),
+          ),
         ),
       );
     }
@@ -4526,7 +4813,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
           sliver: SliverToBoxAdapter(
             child: Text(
-              'Mỗi ô: C1/C2… = từng ca. Vuốt dọc xem thêm NV; vuốt ngang xem thêm ngày.',
+              'Chạm tên NV để xem bảng dọc. Vuốt ngang xem thêm ngày; vuốt dọc xem thêm NV.',
               style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
             ),
           ),

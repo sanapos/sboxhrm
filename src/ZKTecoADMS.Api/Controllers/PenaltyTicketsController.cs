@@ -99,11 +99,11 @@ public class PenaltyTicketsController(
     #endregion
 
     /// <summary>
-    /// Láº¥y danh sÃ¡ch phiáº¿u pháº¡t (cÃ³ phÃ¢n trang, lá»c)
+    /// Lấy danh sách phiếu phạt (có phân trang, lọc)
     /// </summary>
     [HttpGet]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
-    [RequireModulePermission("PenaltyTickets", ModulePermissionAction.View)]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "PenaltyTickets", "PenaltyReport")]
     public async Task<ActionResult<AppResponse<PenaltyTicketListResponse>>> GetPenaltyTickets(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
@@ -116,6 +116,21 @@ public class PenaltyTicketsController(
         [FromQuery] bool includeChildBranches = true)
     {
         var storeId = RequiredStoreId;
+
+        // Nhân viên chỉ xem phiếu phạt của mình (kể cả khi có quyền PenaltyReport).
+        if (IsEmployee && !IsManager)
+        {
+            if (!EmployeeId.HasValue)
+            {
+                return Ok(AppResponse<PenaltyTicketListResponse>.Success(new PenaltyTicketListResponse
+                {
+                    Page = page,
+                    PageSize = pageSize
+                }));
+            }
+            employeeId = EmployeeId.Value;
+        }
+
         var query = dbContext.PenaltyTickets
             .Include(pt => pt.Employee)
             .Include(pt => pt.ProcessedBy)
@@ -201,7 +216,7 @@ public class PenaltyTicketsController(
     }
 
     /// <summary>
-    /// Láº¥y chi tiáº¿t phiáº¿u pháº¡t
+    /// Lấy chi tiết phiếu phạt
     /// </summary>
     [HttpGet("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -216,7 +231,7 @@ public class PenaltyTicketsController(
             .FirstOrDefaultAsync(pt => pt.Id == id && pt.StoreId == storeId && pt.Deleted == null);
 
         if (ticket == null)
-            return NotFound(AppResponse<PenaltyTicketDto>.Fail("Phiáº¿u pháº¡t khÃ´ng tá»“n táº¡i"));
+            return NotFound(AppResponse<PenaltyTicketDto>.Fail("Phiếu phạt không tồn tại"));
 
         var dto = new PenaltyTicketDto
         {
@@ -249,7 +264,7 @@ public class PenaltyTicketsController(
     }
 
     /// <summary>
-    /// Há»§y phiáº¿u pháº¡t (Pending / Approved / AutoApproved). Nếu có phiếu thu liên kết → hủy luôn phiếu thu.
+    /// Hủy phiếu phạt (Pending / Approved / AutoApproved). Nếu có phiếu thu liên kết → hủy luôn phiếu thu.
     /// </summary>
     [HttpPost("{id}/cancel")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -263,15 +278,15 @@ public class PenaltyTicketsController(
             .FirstOrDefaultAsync(pt => pt.Id == id && pt.StoreId == storeId && pt.Deleted == null);
 
         if (ticket == null)
-            return NotFound(AppResponse<PenaltyTicketDto>.Fail("Phiáº¿u pháº¡t khÃ´ng tá»“n táº¡i"));
+            return NotFound(AppResponse<PenaltyTicketDto>.Fail("Phiếu phạt không tồn tại"));
 
         if (ticket.Status == PenaltyTicketStatus.Cancelled)
-            return BadRequest(AppResponse<PenaltyTicketDto>.Fail("Phiáº¿u pháº¡t Ä‘Ã£ bá»‹ há»§y"));
+            return BadRequest(AppResponse<PenaltyTicketDto>.Fail("Phiếu phạt đã bị hủy"));
 
         if (ticket.Status != PenaltyTicketStatus.Pending
             && ticket.Status != PenaltyTicketStatus.Approved
             && ticket.Status != PenaltyTicketStatus.AutoApproved)
-            return BadRequest(AppResponse<PenaltyTicketDto>.Fail("KhÃ´ng thá»ƒ há»§y phiáº¿u pháº¡t á»Ÿ tráº¡ng thÃ¡i hiá»‡n táº¡i"));
+            return BadRequest(AppResponse<PenaltyTicketDto>.Fail("Không thể hủy phiếu phạt ở trạng thái hiện tại"));
 
         ticket.Status = PenaltyTicketStatus.Cancelled;
         ticket.CancellationReason = request.Reason;
@@ -295,8 +310,8 @@ public class PenaltyTicketsController(
             var uid = ticket.Employee?.ApplicationUserId;
             if (uid != null && uid != CurrentUserId)
                 await notificationService.CreateAndSendAsync(uid, NotificationType.Warning,
-                    "Phiáº¿u pháº¡t Ä‘Ã£ bá»‹ há»§y",
-                    $"Phiáº¿u pháº¡t {ticket.TicketCode} ({ticket.Amount:N0}Ä‘) Ä‘Ã£ bá»‹ há»§y.",
+                    "Phiếu phạt đã bị hủy",
+                    $"Phiếu phạt {ticket.TicketCode} ({ticket.Amount:N0}đ) đã bị hủy.",
                     relatedEntityType: "PenaltyTicket", relatedEntityId: ticket.Id,
                     fromUserId: CurrentUserId, categoryCode: "penalty", storeId: RequiredStoreId);
         }
@@ -312,7 +327,7 @@ public class PenaltyTicketsController(
     }
 
     /// <summary>
-    /// Duyá»‡t phiáº¿u pháº¡t thá»§ cÃ´ng â†’ táº¡o phiáº¿u thu ngay
+    /// Duyệt phiếu phạt thủ công → tạo phiếu thu ngay
     /// </summary>
     [HttpPost("{id}/approve")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -325,10 +340,10 @@ public class PenaltyTicketsController(
             .FirstOrDefaultAsync(pt => pt.Id == id && pt.StoreId == storeId && pt.Deleted == null);
 
         if (ticket == null)
-            return NotFound(AppResponse<PenaltyTicketDto>.Fail("Phiáº¿u pháº¡t khÃ´ng tá»“n táº¡i"));
+            return NotFound(AppResponse<PenaltyTicketDto>.Fail("Phiếu phạt không tồn tại"));
 
         if (ticket.Status != PenaltyTicketStatus.Pending)
-            return BadRequest(AppResponse<PenaltyTicketDto>.Fail("Chá»‰ cÃ³ thá»ƒ duyá»‡t phiáº¿u pháº¡t Ä‘ang chá» duyá»‡t"));
+            return BadRequest(AppResponse<PenaltyTicketDto>.Fail("Chỉ có thể duyệt phiếu phạt đang chờ duyệt"));
 
         ticket.Status = PenaltyTicketStatus.Approved;
         ticket.ProcessedById = CurrentUserId;
@@ -348,8 +363,8 @@ public class PenaltyTicketsController(
             var uid = ticket.Employee?.ApplicationUserId;
             if (uid != null && uid != CurrentUserId)
                 await notificationService.CreateAndSendAsync(uid, NotificationType.Info,
-                    "Phiáº¿u pháº¡t Ä‘Ã£ Ä‘Æ°á»£c duyá»‡t",
-                    $"Phiáº¿u pháº¡t {ticket.TicketCode} ({ticket.Amount:N0}Ä‘) Ä‘Ã£ Ä‘Æ°á»£c duyá»‡t.",
+                    "Phiếu phạt đã được duyệt",
+                    $"Phiếu phạt {ticket.TicketCode} ({ticket.Amount:N0}đ) đã được duyệt.",
                     relatedEntityType: "PenaltyTicket", relatedEntityId: ticket.Id,
                     fromUserId: CurrentUserId, categoryCode: "penalty", storeId: RequiredStoreId);
         }
@@ -366,11 +381,11 @@ public class PenaltyTicketsController(
     }
 
     /// <summary>
-    /// Thá»‘ng kÃª phiáº¿u pháº¡t theo thÃ¡ng hoáº·c theo khoáº£ng ngÃ y
+    /// Thống kê phiếu phạt theo tháng hoặc theo khoảng ngày
     /// </summary>
     [HttpGet("stats")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
-    [RequireModulePermission("PenaltyTickets", ModulePermissionAction.View)]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "PenaltyTickets", "PenaltyReport")]
     public async Task<ActionResult<AppResponse<PenaltyStatsSummary>>> GetPenaltyStats(
         [FromQuery] int? month = null,
         [FromQuery] int? year = null,
@@ -391,7 +406,7 @@ public class PenaltyTicketsController(
 
         if (fromDate.HasValue || toDate.HasValue)
         {
-            // Lá»c theo khoáº£ng ngÃ y tÆ°á»ng minh (fromDate/toDate) khi Ä‘Æ°á»£c cung cáº¥p.
+            // Lọc theo khoảng ngày tường minh (fromDate/toDate) khi được cung cấp.
             if (fromDate.HasValue)
                 query = query.Where(pt => pt.ViolationDate >= fromDate.Value.Date);
             if (toDate.HasValue)
@@ -399,7 +414,7 @@ public class PenaltyTicketsController(
         }
         else
         {
-            // Fallback: lá»c theo thÃ¡ng/nÄƒm
+            // Fallback: lọc theo tháng/năm
             var targetMonth = month ?? now.Month;
             var targetYear = year ?? now.Year;
             var monthStart = new DateTime(targetYear, targetMonth, 1);
@@ -407,13 +422,22 @@ public class PenaltyTicketsController(
             query = query.Where(pt => pt.ViolationDate >= monthStart && pt.ViolationDate < monthEnd);
         }
 
-        var branchScope = await BranchQueryHelper.ResolveEmployeeScopeAsync(
-            dbContext, storeId, branchId, includeChildBranches);
-        if (branchScope != null)
+        if (IsEmployee && !IsManager)
         {
-            if (branchScope.IsEmpty)
+            if (!EmployeeId.HasValue)
                 return Ok(AppResponse<PenaltyStatsSummary>.Success(new PenaltyStatsSummary()));
-            query = query.Where(pt => branchScope.EmployeeIds.Contains(pt.EmployeeId));
+            query = query.Where(pt => pt.EmployeeId == EmployeeId.Value);
+        }
+        else
+        {
+            var branchScope = await BranchQueryHelper.ResolveEmployeeScopeAsync(
+                dbContext, storeId, branchId, includeChildBranches);
+            if (branchScope != null)
+            {
+                if (branchScope.IsEmpty)
+                    return Ok(AppResponse<PenaltyStatsSummary>.Success(new PenaltyStatsSummary()));
+                query = query.Where(pt => branchScope.EmployeeIds.Contains(pt.EmployeeId));
+            }
         }
 
         var stats = new PenaltyStatsSummary
@@ -430,10 +454,11 @@ public class PenaltyTicketsController(
     }
 
     /// <summary>
-    /// Láº¥y danh sÃ¡ch phiáº¿u pháº¡t cá»§a nhÃ¢n viÃªn Ä‘ang Ä‘Äƒng nháº­p
+    /// Lấy danh sách phiếu phạt của nhân viên đang đăng nhập
     /// </summary>
     [HttpGet("my")]
-    [RequireModulePermission("PenaltyTickets", ModulePermissionAction.View)]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "PenaltyTickets", "PenaltyReport")]
     public async Task<ActionResult<AppResponse<PenaltyTicketListResponse>>> GetMyPenaltyTickets(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
@@ -443,7 +468,7 @@ public class PenaltyTicketsController(
         var storeId = RequiredStoreId;
         var userId = CurrentUserId;
 
-        // TÃ¬m Employee tá»« ApplicationUserId
+        // Tìm Employee từ ApplicationUserId
         var employee = await dbContext.Employees
             .FirstOrDefaultAsync(e => e.ApplicationUserId == userId && e.StoreId == storeId);
 
@@ -494,7 +519,7 @@ public class PenaltyTicketsController(
     }
 
     /// <summary>
-    /// Táº¡o phiáº¿u pháº¡t thá»§ cÃ´ng
+    /// Tạo phiếu phạt thủ công
     /// </summary>
     [HttpPost]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -506,7 +531,7 @@ public class PenaltyTicketsController(
         var employee = await dbContext.Employees
             .FirstOrDefaultAsync(e => e.Id == request.EmployeeId && e.StoreId == storeId);
         if (employee == null)
-            return NotFound(AppResponse<PenaltyTicketDto>.Fail("NhÃ¢n viÃªn khÃ´ng tá»“n táº¡i"));
+            return NotFound(AppResponse<PenaltyTicketDto>.Fail("Nhân viên không tồn tại"));
 
         if (!Enum.TryParse<PenaltyTicketType>(request.Type, out var ticketType))
             ticketType = PenaltyTicketType.Violation;
@@ -527,7 +552,7 @@ public class PenaltyTicketsController(
             ViolationDate = request.ViolationDate.Date,
             MinutesLateOrEarly = request.MinutesLateOrEarly,
             PenaltyTier = 1,
-            Description = request.Description ?? $"Pháº¡t thá»§ cÃ´ng - {employee.LastName} {employee.FirstName}".Trim(),
+            Description = request.Description ?? $"Phạt thủ công - {employee.LastName} {employee.FirstName}".Trim(),
             StoreId = storeId,
             CreatedAt = DateTime.Now,
             UpdatedAt = DateTime.Now
@@ -542,8 +567,8 @@ public class PenaltyTicketsController(
             var uid = employee.ApplicationUserId;
             if (uid != null && uid != CurrentUserId)
                 await notificationService.CreateAndSendAsync(uid, NotificationType.Warning,
-                    "Báº¡n cÃ³ phiáº¿u pháº¡t má»›i",
-                    $"Phiáº¿u pháº¡t {ticket.TicketCode} - {ticket.Amount:N0}Ä‘ ({ticket.Type}).",
+                    "Bạn có phiếu phạt mới",
+                    $"Phiếu phạt {ticket.TicketCode} - {ticket.Amount:N0}đ ({ticket.Type}).",
                     relatedEntityType: "PenaltyTicket", relatedEntityId: ticket.Id,
                     fromUserId: CurrentUserId, categoryCode: "penalty", storeId: RequiredStoreId);
         }
@@ -570,7 +595,7 @@ public class PenaltyTicketsController(
     }
 
     /// <summary>
-    /// Sá»­a phiáº¿u pháº¡t (chá»‰ khi Pending)
+    /// Sửa phiếu phạt (chỉ khi Pending)
     /// </summary>
     [HttpPut("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -583,10 +608,10 @@ public class PenaltyTicketsController(
             .FirstOrDefaultAsync(pt => pt.Id == id && pt.StoreId == storeId && pt.Deleted == null);
 
         if (ticket == null)
-            return NotFound(AppResponse<PenaltyTicketDto>.Fail("Phiáº¿u pháº¡t khÃ´ng tá»“n táº¡i"));
+            return NotFound(AppResponse<PenaltyTicketDto>.Fail("Phiếu phạt không tồn tại"));
 
         if (ticket.Status != PenaltyTicketStatus.Pending)
-            return BadRequest(AppResponse<PenaltyTicketDto>.Fail("Chá»‰ cÃ³ thá»ƒ sá»­a phiáº¿u pháº¡t Ä‘ang chá» duyá»‡t"));
+            return BadRequest(AppResponse<PenaltyTicketDto>.Fail("Chỉ có thể sửa phiếu phạt đang chờ duyệt"));
 
         if (request.Type != null && Enum.TryParse<PenaltyTicketType>(request.Type, out var newType))
             ticket.Type = newType;
@@ -605,8 +630,8 @@ public class PenaltyTicketsController(
             var uid = ticket.Employee?.ApplicationUserId;
             if (uid != null && uid != CurrentUserId)
                 await notificationService.CreateAndSendAsync(uid, NotificationType.Info,
-                    "Phiáº¿u pháº¡t Ä‘Ã£ Ä‘Æ°á»£c cáº­p nháº­t",
-                    $"Phiáº¿u pháº¡t {ticket.TicketCode} Ä‘Ã£ Ä‘Æ°á»£c cáº­p nháº­t ({ticket.Amount:N0}Ä‘).",
+                    "Phiếu phạt đã được cập nhật",
+                    $"Phiếu phạt {ticket.TicketCode} đã được cập nhật ({ticket.Amount:N0}đ).",
                     relatedEntityType: "PenaltyTicket", relatedEntityId: ticket.Id,
                     fromUserId: CurrentUserId, categoryCode: "penalty", storeId: RequiredStoreId);
         }
@@ -628,7 +653,7 @@ public class PenaltyTicketsController(
     }
 
     /// <summary>
-    /// XÃ³a phiáº¿u pháº¡t (soft delete, chá»‰ khi Pending). Xóa mềm phiếu thu liên kết nếu có.
+    /// Xóa phiếu phạt (soft delete, chỉ khi Pending). Xóa mềm phiếu thu liên kết nếu có.
     /// </summary>
     [HttpDelete("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -642,10 +667,10 @@ public class PenaltyTicketsController(
             .FirstOrDefaultAsync(pt => pt.Id == id && pt.StoreId == storeId && pt.Deleted == null);
 
         if (ticket == null)
-            return NotFound(AppResponse<string>.Fail("Phiáº¿u pháº¡t khÃ´ng tá»“n táº¡i"));
+            return NotFound(AppResponse<string>.Fail("Phiếu phạt không tồn tại"));
 
         if (ticket.Status != PenaltyTicketStatus.Pending)
-            return BadRequest(AppResponse<string>.Fail("Chá»‰ cÃ³ thá»ƒ xÃ³a phiáº¿u pháº¡t Ä‘ang chá» duyá»‡t"));
+            return BadRequest(AppResponse<string>.Fail("Chỉ có thể xóa phiếu phạt đang chờ duyệt"));
 
         var ticketCode = ticket.TicketCode;
         var employeeUserId = ticket.Employee?.ApplicationUserId;
@@ -670,18 +695,18 @@ public class PenaltyTicketsController(
         {
             if (employeeUserId != null && employeeUserId != CurrentUserId)
                 await notificationService.CreateAndSendAsync(employeeUserId, NotificationType.Warning,
-                    "Phiáº¿u pháº¡t Ä‘Ã£ bá»‹ xÃ³a",
-                    $"Phiáº¿u pháº¡t {ticketCode} Ä‘Ã£ bá»‹ xÃ³a.",
+                    "Phiếu phạt đã bị xóa",
+                    $"Phiếu phạt {ticketCode} đã bị xóa.",
                     relatedEntityType: "PenaltyTicket", relatedEntityId: id,
                     fromUserId: CurrentUserId, categoryCode: "penalty", storeId: RequiredStoreId);
         }
         catch { /* Notification failure should not affect main operation */ }
 
-        return Ok(AppResponse<string>.Success("ÄÃ£ xÃ³a phiáº¿u pháº¡t"));
+        return Ok(AppResponse<string>.Success("Đã xóa phiếu phạt"));
     }
 
     /// <summary>
-    /// HoÃ n duyá»‡t phiáº¿u pháº¡t (Approved/AutoApproved â†’ Pending, xÃ³a phiáº¿u thu liÃªn quan)
+    /// Hoàn duyệt phiếu phạt (Approved/AutoApproved → Pending, xóa phiếu thu liên quan)
     /// </summary>
     [HttpPost("{id}/unapprove")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -695,10 +720,10 @@ public class PenaltyTicketsController(
             .FirstOrDefaultAsync(pt => pt.Id == id && pt.StoreId == storeId && pt.Deleted == null);
 
         if (ticket == null)
-            return NotFound(AppResponse<PenaltyTicketDto>.Fail("Phiáº¿u pháº¡t khÃ´ng tá»“n táº¡i"));
+            return NotFound(AppResponse<PenaltyTicketDto>.Fail("Phiếu phạt không tồn tại"));
 
         if (ticket.Status != PenaltyTicketStatus.Approved && ticket.Status != PenaltyTicketStatus.AutoApproved)
-            return BadRequest(AppResponse<PenaltyTicketDto>.Fail("Chá»‰ cÃ³ thá»ƒ hoÃ n duyá»‡t phiáº¿u pháº¡t Ä‘Ã£ duyá»‡t"));
+            return BadRequest(AppResponse<PenaltyTicketDto>.Fail("Chỉ có thể hoàn duyệt phiếu phạt đã duyệt"));
 
         var linkedCash = ticket.CashTransaction
             ?? await PenaltyTicketFinanceHelper.ResolveLinkedCashTransactionAsync(dbContext, ticket);
@@ -719,8 +744,8 @@ public class PenaltyTicketsController(
             var uid = ticket.Employee?.ApplicationUserId;
             if (uid != null && uid != CurrentUserId)
                 await notificationService.CreateAndSendAsync(uid, NotificationType.Info,
-                    "Phiáº¿u pháº¡t Ä‘Ã£ hoÃ n duyá»‡t",
-                    $"Phiáº¿u pháº¡t {ticket.TicketCode} ({ticket.Amount:N0}Ä‘) Ä‘Ã£ Ä‘Æ°á»£c hoÃ n duyá»‡t vá» tráº¡ng thÃ¡i chá».",
+                    "Phiếu phạt đã hoàn duyệt",
+                    $"Phiếu phạt {ticket.TicketCode} ({ticket.Amount:N0}đ) đã được hoàn duyệt về trạng thái chờ.",
                     relatedEntityType: "PenaltyTicket", relatedEntityId: ticket.Id,
                     fromUserId: CurrentUserId, categoryCode: "penalty", storeId: RequiredStoreId);
         }

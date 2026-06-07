@@ -37,7 +37,7 @@ public class AttendancesController(
     : AuthenticatedControllerBase
 {
     [HttpPost("devices")]
-    [RequireModulePermission("Attendance", ModulePermissionAction.View)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "Attendance", "AttendanceSummary", "AttendanceByShift", "AttendanceReport")]
     public async Task<ActionResult<AppResponse<PagedResult<AttendanceDto>>>> GetAttendanceByDevice(
         [FromQuery] PaginationRequest paginationRequest, [FromBody] GetAttendancesByDeviceRequest filter)
     {

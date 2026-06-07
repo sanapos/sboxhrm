@@ -600,17 +600,44 @@ class _MobileDeviceRegistrationScreenState
           _capturedImages.clear();
         });
       } else if (response['alreadyRegistered'] == true) {
-        // Already registered on another device
-        final data = response['data'];
-        setState(() {
-          _status = _RegStatus.alreadyRegisteredOnOtherDevice;
-          _existingDeviceName = data?['existingDeviceName'] ?? 'Không rõ';
-          _existingDeviceModel = data?['existingDeviceModel'] ?? '';
-          _capturedImages.clear();
-        });
+        final data = response['data'] as Map<String, dynamic>?;
+        final existingId = data?['existingDeviceId']?.toString() ?? '';
+        final isSameDevice = existingId.isNotEmpty &&
+            existingId.toLowerCase() == _deviceId.toLowerCase();
+        if (isSameDevice) {
+          final approved = data?['isAuthorized'] == true;
+          setState(() {
+            _status = approved ? _RegStatus.approved : _RegStatus.pending;
+            _registeredDeviceName =
+                data?['existingDeviceName']?.toString() ?? _deviceName;
+            _registeredAt = data?['registeredAt'] != null
+                ? DateTime.tryParse(data!['registeredAt'].toString())
+                : null;
+            _capturedImages.clear();
+          });
+          _showSnackBar(
+            approved
+                ? 'Thiết bị này đã được đăng ký và duyệt.'
+                : 'Thiết bị này đã đăng ký, đang chờ quản lý duyệt.',
+          );
+        } else {
+          setState(() {
+            _status = _RegStatus.alreadyRegisteredOnOtherDevice;
+            _existingDeviceName = data?['existingDeviceName'] ?? 'Không rõ';
+            _existingDeviceModel = data?['existingDeviceModel'] ?? '';
+            _capturedImages.clear();
+          });
+          _showSnackBar(
+            'Tài khoản đã đăng ký trên thiết bị khác. Vui lòng dùng yêu cầu đổi thiết bị.',
+            isError: true,
+          );
+        }
       } else {
         final code = response['statusCode'];
-        var msg = response['message']?.toString() ?? 'Đăng ký thất bại';
+        var msg = _sanitizeApiMessage(
+          response['message']?.toString(),
+          fallback: 'Đăng ký thất bại',
+        );
         if (code == 403) {
           msg =
               'Không có quyền gửi đăng ký. Cần quyền chấm công mobile trên tài khoản của bạn.';
@@ -626,11 +653,24 @@ class _MobileDeviceRegistrationScreenState
     }
   }
 
+  String _sanitizeApiMessage(String? raw, {required String fallback}) {
+    final m = raw?.trim() ?? '';
+    if (m.isEmpty) return fallback;
+    // Chuỗi lỗi encoding từ API cũ (Thi?t b?, Kh?ng...)
+    if (m.contains('?') &&
+        RegExp(r'Thi\?t|Kh\?ng|nh\?n vi\?n|d\?').hasMatch(m)) {
+      return fallback;
+    }
+    return m;
+  }
+
   void _showSnackBar(String message, {bool isError = false}) {
+    final text = _sanitizeApiMessage(message, fallback: message);
     if (isError) {
-      NotificationOverlayManager().showError(title: 'Lỗi', message: message);
+      NotificationOverlayManager().showError(title: 'Lỗi', message: text);
     } else {
-      NotificationOverlayManager().showSuccess(title: 'Thành công', message: message);
+      NotificationOverlayManager().showSuccess(
+          title: 'Thành công', message: text);
     }
   }
 

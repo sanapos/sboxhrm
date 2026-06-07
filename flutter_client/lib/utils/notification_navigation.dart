@@ -387,15 +387,13 @@ NotificationNavigationTarget? resolveNotificationNavigation(
     case 'salarysettings':
       return const NotificationNavigationTarget(moduleCode: 'SalarySettings');
     case 'payroll':
-    case 'payslip':
       return const NotificationNavigationTarget(moduleCode: 'Payroll');
+    case 'payslip':
+      return const NotificationNavigationTarget(moduleCode: 'Payslip');
 
     // Lịch / đổi ca
     case 'shiftswap':
-      return const NotificationNavigationTarget(
-        moduleCode: 'ScheduleApproval',
-        scheduleApprovalTab: 2,
-      );
+      return const NotificationNavigationTarget(moduleCode: 'ShiftSwap');
     case 'scheduleregistration':
       return const NotificationNavigationTarget(
         moduleCode: 'ScheduleApproval',
@@ -431,6 +429,9 @@ NotificationNavigationTarget? resolveNotificationNavigation(
     case 'assetreport':
       return const NotificationNavigationTarget(moduleCode: 'AssetReport');
     case 'feedback':
+      if (title != null && title.toLowerCase().contains('phản ánh mới')) {
+        NavigationNotifier.feedbackPreferInbox.value = true;
+      }
       return const NotificationNavigationTarget(moduleCode: 'Feedback');
     case 'fieldcheckin':
       return const NotificationNavigationTarget(moduleCode: 'FieldCheckIn');

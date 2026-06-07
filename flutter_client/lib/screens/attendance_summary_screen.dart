@@ -19,6 +19,7 @@ import '../utils/attendance_correction_submit.dart';
 import '../utils/attendance_record_resolver.dart';
 import '../utils/attendance_correction_dates.dart';
 import '../utils/report_screen_helpers.dart';
+import '../utils/salary_profile_load_utils.dart';
 
 /// Màn hình tổng hợp chấm công - standalone wrapper cho AttendanceSummaryTab
 /// Tự load dữ liệu (attendances + devices) và nhúng AttendanceSummaryTab
@@ -104,6 +105,9 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
   /// [silent] true sau chỉnh công — tải lại không che màn hình, giữ vị trí bảng.
   Future<void> _loadData({bool silent = false}) async {
     if (!mounted) return;
+    final isEmployee = isEmployeeUserRole(
+      context.read<AuthProvider>().user?.role,
+    );
     if (!silent) {
       setState(() {
         _isLoading = true;
@@ -120,9 +124,11 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
       _toDate = range.end;
       final toStr = _toDate.toIso8601String().substring(0, 10);
 
-      // Thiết bị + cài đặt song song
+      // NV: không gọi getDevices (API manager) — server tự resolve máy khi deviceIds rỗng.
       final phase1 = await Future.wait([
-        _apiService.getDevices(storeOnly: true),
+        isEmployee
+            ? Future<List<dynamic>>.value([])
+            : _apiService.getDevices(storeOnly: true),
         _apiService
             .getAppSetting('day_end_time')
             .catchError((_) => <String, dynamic>{}),
@@ -190,9 +196,10 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
         _apiService
             .getHolidaySettings(0)
             .catchError((_) => <dynamic>[]),
-        _apiService
-            .getSalaryProfiles()
-            .catchError((_) => <dynamic>[]),
+        loadAttendanceSalaryProfiles(
+          _apiService,
+          preferSelfServiceApi: isEmployee,
+        ),
         loadLeavesForPeriod(
           _apiService,
           fromDate: fromStr,
@@ -224,7 +231,7 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
           .toList();
 
       final holidays = results[2] as List<dynamic>;
-      final salaryProfiles = results[3] as List<dynamic>;
+      final salaryProfiles = List<Map<String, dynamic>>.from(results[3] as List);
 
       final approvedLeaves = [
         ...(results[4] as List<dynamic>),
@@ -368,7 +375,11 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
               ],
             ),
           ),
-          if (_salaryProfiles.isEmpty && !_isLoading)
+          if (_salaryProfiles.isEmpty &&
+              !_isLoading &&
+              !isEmployeeUserRole(
+                context.watch<AuthProvider>().user?.role,
+              ))
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
               child: Material(

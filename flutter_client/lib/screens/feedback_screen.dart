@@ -4,9 +4,12 @@ import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/notification_overlay.dart';
+import '../widgets/app_scroll_safe.dart';
 import '../widgets/ai_assist_sheet.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
+import '../providers/auth_provider.dart';
+import '../utils/navigation_notifier.dart';
 import 'feedback_detail_screen.dart';
 import '../widgets/hrm_page_chrome.dart';
 
@@ -24,9 +27,16 @@ class _FeedbackScreenState extends State<FeedbackScreen>
   List<Map<String, dynamic>> _allFeedbacks = [];
   List<Map<String, dynamic>> _myFeedbacks = [];
   List<Map<String, dynamic>> _managers = [];
+  List<Map<String, dynamic>> _senders = [];
   bool _isLoading = true;
   String? _filterStatus;
   String? _filterCategory;
+  String? _filterSenderId;
+  /// null = tất cả; 'general' = hòm thư chung; còn lại = id người nhận
+  String? _filterRecipientKey;
+  DateTime? _fromDate;
+  DateTime? _toDate;
+  VoidCallback? _highlightListener;
 
   // Mobile UI state
   static const _statusLabels = {
@@ -54,21 +64,114 @@ class _FeedbackScreenState extends State<FeedbackScreen>
     'Other': Icons.more_horiz,
   };
 
+  bool _isFeedbackManager() {
+    final role =
+        Provider.of<AuthProvider>(context, listen: false).userRole ?? '';
+    final r = role.toLowerCase();
+    return r == 'admin' ||
+        r == 'director' ||
+        r == 'manager' ||
+        r == 'departmenthead' ||
+        Provider.of<PermissionProvider>(context, listen: false)
+            .canApprove('Feedback');
+  }
+
   @override
   void initState() {
     super.initState();
-    _tabCtl = TabController(length: 2, vsync: this);
+    final preferInbox = NavigationNotifier.feedbackPreferInbox.value;
+    final initialTab = preferInbox
+        ? 1
+        : (_isFeedbackManager() ? 1 : 0);
+    _tabCtl = TabController(length: 2, vsync: this, initialIndex: initialTab);
     _tabCtl.addListener(() {
       if (!_tabCtl.indexIsChanging) _reloadCurrentTab();
     });
+    _highlightListener = () {
+      if (NavigationNotifier.notificationHighlightId.value != null) {
+        _consumeNotificationHighlight();
+      }
+    };
+    NavigationNotifier.notificationHighlightId
+        .addListener(_highlightListener!);
     _loadManagers();
-    _loadMy();
+    if (_isFeedbackManager()) _loadSenders();
+    _loadBoth().then((_) {
+      if (preferInbox) {
+        NavigationNotifier.feedbackPreferInbox.value = false;
+      }
+      _consumeNotificationHighlight();
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _consumeNotificationHighlight();
+    });
   }
 
   @override
   void dispose() {
+    if (_highlightListener != null) {
+      NavigationNotifier.notificationHighlightId
+          .removeListener(_highlightListener!);
+    }
     _tabCtl.dispose();
     super.dispose();
+  }
+
+  Future<void> _consumeNotificationHighlight() async {
+    final id = NavigationNotifier.notificationHighlightId.value;
+    if (id == null || id.isEmpty || !mounted) return;
+
+    if (_myFeedbacks.isEmpty && _allFeedbacks.isEmpty) {
+      await _loadBoth(showSpinner: false);
+    }
+
+    Map<String, dynamic>? fb;
+    var isMine = false;
+    for (final item in _myFeedbacks) {
+      if (item['id']?.toString() == id) {
+        fb = item;
+        isMine = true;
+        break;
+      }
+    }
+    if (fb == null) {
+      for (final item in _allFeedbacks) {
+        if (item['id']?.toString() == id) {
+          fb = item;
+          break;
+        }
+      }
+    }
+
+    if (fb == null) {
+      await _loadBoth(showSpinner: false);
+      for (final item in _myFeedbacks) {
+        if (item['id']?.toString() == id) {
+          fb = item;
+          isMine = true;
+          break;
+        }
+      }
+      if (fb == null) {
+        for (final item in _allFeedbacks) {
+          if (item['id']?.toString() == id) {
+            fb = item;
+            break;
+          }
+        }
+      }
+    }
+
+    if (fb == null || !mounted) return;
+
+    NavigationNotifier.notificationHighlightId.value = null;
+    final targetTab = isMine ? 0 : 1;
+    if (_tabCtl.index != targetTab) {
+      _tabCtl.animateTo(targetTab);
+    }
+    await Future.delayed(const Duration(milliseconds: 120));
+    if (!mounted) return;
+    _openDetail(fb, isMine: isMine);
   }
 
   Future<void> _loadManagers() async {
@@ -82,35 +185,312 @@ class _FeedbackScreenState extends State<FeedbackScreen>
     }
   }
 
+  Future<void> _loadSenders() async {
+    try {
+      final rows = await _apiService.getEmployees(pageSize: 500);
+      _senders = rows
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList()
+        ..sort((a, b) {
+          final na = _employeeDisplayName(a);
+          final nb = _employeeDisplayName(b);
+          return na.compareTo(nb);
+        });
+    } catch (e) {
+      debugPrint('Load senders error: $e');
+    }
+  }
+
+  String _employeeDisplayName(Map<String, dynamic> e) {
+    final fn = '${e['lastName'] ?? ''} ${e['firstName'] ?? ''}'.trim();
+    if (fn.isNotEmpty) return fn;
+    return e['fullName']?.toString() ?? e['name']?.toString() ?? '';
+  }
+
+  bool get _hasActiveFilters =>
+      _filterStatus != null ||
+      _filterCategory != null ||
+      _filterSenderId != null ||
+      _filterRecipientKey != null ||
+      _fromDate != null ||
+      _toDate != null;
+
+  int get _activeFilterCount {
+    var n = 0;
+    if (_filterStatus != null) n++;
+    if (_filterCategory != null) n++;
+    if (_filterSenderId != null) n++;
+    if (_filterRecipientKey != null) n++;
+    if (_fromDate != null || _toDate != null) n++;
+    return n;
+  }
+
+  void _showFilterSheet(bool showSenderFilter) {
+    var status = _filterStatus;
+    var category = _filterCategory;
+    var senderId = _filterSenderId;
+    var recipientKey = _filterRecipientKey;
+    var fromDate = _fromDate;
+    var toDate = _toDate;
+
+    showAppSheet(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) => Padding(
+          padding: EdgeInsets.fromLTRB(
+            16,
+            12,
+            16,
+            16 + MediaQuery.of(ctx).padding.bottom,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  const Text('Bộ lọc',
+                      style: TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w600)),
+                  const Spacer(),
+                  if (_hasActiveFilters)
+                    TextButton(
+                      onPressed: () {
+                        setSheet(() {
+                          status = null;
+                          category = null;
+                          senderId = null;
+                          recipientKey = null;
+                          fromDate = null;
+                          toDate = null;
+                        });
+                      },
+                      child: const Text('Xóa tất cả',
+                          style: TextStyle(color: Color(0xFFEF4444))),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              _buildFilterDropdown(
+                'Trạng thái',
+                status,
+                _statusLabels.entries
+                    .map((e) =>
+                        DropdownMenuItem(value: e.key, child: Text(e.value)))
+                    .toList(),
+                (v) => setSheet(() => status = v),
+              ),
+              const SizedBox(height: 10),
+              _buildFilterDropdown(
+                'Phân loại',
+                category,
+                _categoryLabels.entries
+                    .map((e) =>
+                        DropdownMenuItem(value: e.key, child: Text(e.value)))
+                    .toList(),
+                (v) => setSheet(() => category = v),
+              ),
+              if (showSenderFilter) ...[
+                const SizedBox(height: 10),
+                _buildEmployeeFilterDropdown(
+                  'Người gửi',
+                  senderId,
+                  _senders,
+                  (v) => setSheet(() => senderId = v),
+                ),
+              ],
+              const SizedBox(height: 10),
+              DropdownButtonFormField<String>(
+                key: ValueKey('recipient-sheet-$recipientKey'),
+                initialValue: recipientKey,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'Người nhận',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+                items: [
+                  const DropdownMenuItem(
+                      value: null, child: Text('Tất cả người nhận')),
+                  const DropdownMenuItem(
+                      value: 'general', child: Text('Hòm thư chung')),
+                  ..._managers.map((m) {
+                    final id = m['id']?.toString() ?? '';
+                    final name = m['name']?.toString() ?? '';
+                    return DropdownMenuItem(value: id, child: Text(name));
+                  }),
+                ],
+                onChanged: (v) => setSheet(() => recipientKey = v),
+              ),
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final range = await showDateRangePicker(
+                    context: ctx,
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                    initialDateRange: fromDate != null
+                        ? DateTimeRange(
+                            start: fromDate!,
+                            end: toDate ?? fromDate!)
+                        : null,
+                    locale: const Locale('vi'),
+                  );
+                  if (range != null) {
+                    setSheet(() {
+                      fromDate = range.start;
+                      toDate = range.end;
+                    });
+                  }
+                },
+                icon: const Icon(Icons.date_range, size: 18),
+                label: Text(
+                  fromDate != null
+                      ? '${DateFormat('dd/MM/yy').format(fromDate!)} – ${DateFormat('dd/MM/yy').format(toDate ?? fromDate!)}'
+                      : 'Thời gian gửi',
+                ),
+              ),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: () {
+                  setState(() {
+                    _filterStatus = status;
+                    _filterCategory = category;
+                    _filterSenderId = senderId;
+                    _filterRecipientKey = recipientKey;
+                    _fromDate = fromDate;
+                    _toDate = toDate;
+                  });
+                  Navigator.pop(ctx);
+                  _reloadCurrentTab();
+                },
+                style: FilledButton.styleFrom(
+                  backgroundColor: HrmPageChrome.primaryNavy,
+                ),
+                child: const Text('Áp dụng'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _clearFilters() {
+    setState(() {
+      _filterStatus = null;
+      _filterCategory = null;
+      _filterSenderId = null;
+      _filterRecipientKey = null;
+      _fromDate = null;
+      _toDate = null;
+    });
+    _reloadCurrentTab();
+  }
+
+  ({
+    String? senderEmployeeId,
+    String? recipientEmployeeId,
+    bool? generalMailboxOnly,
+    DateTime? fromDate,
+    DateTime? toDate,
+  }) _filterQuery() {
+    return (
+      senderEmployeeId: _filterSenderId,
+      recipientEmployeeId:
+          _filterRecipientKey != null && _filterRecipientKey != 'general'
+              ? _filterRecipientKey
+              : null,
+      generalMailboxOnly: _filterRecipientKey == 'general' ? true : null,
+      fromDate: _fromDate,
+      toDate: _toDate,
+    );
+  }
+
+  Future<void> _fetchAll() async {
+    final q = _filterQuery();
+    final res = await _apiService.getFeedbacks(
+      status: _filterStatus,
+      category: _filterCategory,
+      senderEmployeeId: q.senderEmployeeId,
+      recipientEmployeeId: q.recipientEmployeeId,
+      generalMailboxOnly: q.generalMailboxOnly,
+      fromDate: q.fromDate,
+      toDate: q.toDate,
+    );
+    if (res['isSuccess'] == true) {
+      final data = res['data'];
+      _allFeedbacks = List<Map<String, dynamic>>.from(data['items'] ?? []);
+    } else if (mounted) {
+      NotificationOverlayManager().showError(
+          title: 'Lỗi',
+          message: res['message']?.toString() ??
+              'Không thể tải danh sách phản hồi');
+    }
+  }
+
+  Future<void> _fetchMy() async {
+    final q = _filterQuery();
+    final res = await _apiService.getMyFeedbacks(
+      status: _filterStatus,
+      category: _filterCategory,
+      senderEmployeeId: q.senderEmployeeId,
+      recipientEmployeeId: q.recipientEmployeeId,
+      generalMailboxOnly: q.generalMailboxOnly,
+      fromDate: q.fromDate,
+      toDate: q.toDate,
+    );
+    if (res['isSuccess'] == true) {
+      _myFeedbacks = List<Map<String, dynamic>>.from(res['data'] ?? []);
+    } else if (mounted) {
+      NotificationOverlayManager().showError(
+          title: 'Lỗi',
+          message: res['message']?.toString() ??
+              'Không thể tải phản hồi của bạn');
+    }
+  }
+
+  Future<void> _loadBoth({bool showSpinner = true}) async {
+    if (showSpinner) setState(() => _isLoading = true);
+    try {
+      await Future.wait([_fetchMy(), _fetchAll()]);
+    } catch (e) {
+      debugPrint('Load feedback lists error: $e');
+      if (mounted) {
+        NotificationOverlayManager().showError(
+            title: 'Lỗi', message: 'Không thể tải danh sách phản ánh');
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   Future<void> _loadAll() async {
     setState(() => _isLoading = true);
     try {
-      final res = await _apiService.getFeedbacks(
-        status: _filterStatus, category: _filterCategory,
-      );
-      if (res['isSuccess'] == true) {
-        final data = res['data'];
-        _allFeedbacks = List<Map<String, dynamic>>.from(data['items'] ?? []);
-      }
+      await _fetchAll();
     } catch (e) {
       debugPrint('Load feedbacks error: $e');
-      if (mounted) NotificationOverlayManager().showError(title: 'Lỗi', message: 'Không thể tải danh sách phản hồi');
+      if (mounted) {
+        NotificationOverlayManager().showError(
+            title: 'Lỗi', message: 'Không thể tải danh sách phản hồi');
+      }
     }
-    setState(() => _isLoading = false);
+    if (mounted) setState(() => _isLoading = false);
   }
 
   Future<void> _loadMy() async {
     setState(() => _isLoading = true);
     try {
-      final res = await _apiService.getMyFeedbacks();
-      if (res['isSuccess'] == true) {
-        _myFeedbacks = List<Map<String, dynamic>>.from(res['data'] ?? []);
-      }
+      await _fetchMy();
     } catch (e) {
       debugPrint('Load my feedbacks error: $e');
-      if (mounted) NotificationOverlayManager().showError(title: 'Lỗi', message: 'Không thể tải phản hồi của bạn');
+      if (mounted) {
+        NotificationOverlayManager().showError(
+            title: 'Lỗi', message: 'Không thể tải phản hồi của bạn');
+      }
     }
-    setState(() => _isLoading = false);
+    if (mounted) setState(() => _isLoading = false);
   }
 
   void _reloadCurrentTab() {
@@ -125,7 +505,8 @@ class _FeedbackScreenState extends State<FeedbackScreen>
   Widget build(BuildContext context) {
     final isMobile = Responsive.isMobile(context);
     const primary = HrmPageChrome.primaryNavy;
-    final hasActiveFilter = _filterStatus != null || _filterCategory != null;
+    final hasActiveFilter = _hasActiveFilters;
+    final showSenderFilter = _isFeedbackManager() && _senders.isNotEmpty;
 
     return Scaffold(
       backgroundColor: HrmPageChrome.background,
@@ -164,47 +545,10 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                 ],
               ),
             ),
-          // ===== Collapsible filters =====
-          
-            Container(
-              width: double.infinity,
-              padding: EdgeInsets.symmetric(
-                  horizontal: isMobile ? 14 : 24, vertical: 10),
-              color: Colors.white,
-              child: Wrap(
-                spacing: 12,
-                runSpacing: 8,
-                children: [
-                  _buildFilterDropdown(
-                    'Trạng thái',
-                    _filterStatus,
-                    _statusLabels.entries
-                        .map((e) => DropdownMenuItem(
-                            value: e.key, child: Text(e.value)))
-                        .toList(),
-                    (v) {
-                      setState(() => _filterStatus = v);
-                      _reloadCurrentTab();
-                    },
-                  ),
-                  _buildFilterDropdown(
-                    'Phân loại',
-                    _filterCategory,
-                    _categoryLabels.entries
-                        .map((e) => DropdownMenuItem(
-                            value: e.key, child: Text(e.value)))
-                        .toList(),
-                    (v) {
-                      setState(() => _filterCategory = v);
-                      _reloadCurrentTab();
-                    },
-                  ),
-                ],
-              ),
-            ),
-          // ===== TabBar =====
+          // ===== TabBar + filter =====
           Container(
             color: Colors.white,
+            padding: EdgeInsets.only(right: isMobile ? 4 : 12),
             child: Row(
               children: [
                 Expanded(
@@ -217,6 +561,32 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                       Tab(text: 'Của tôi'),
                       Tab(text: 'Hòm thư'),
                     ],
+                  ),
+                ),
+                if (hasActiveFilter)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: Chip(
+                      label: Text('$_activeFilterCount',
+                          style: const TextStyle(fontSize: 11)),
+                      backgroundColor: primary.withValues(alpha: 0.1),
+                      labelStyle: const TextStyle(color: primary),
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                    ),
+                  ),
+                IconButton(
+                  tooltip: 'Bộ lọc',
+                  onPressed: () => _showFilterSheet(showSenderFilter),
+                  icon: Badge(
+                    isLabelVisible: hasActiveFilter,
+                    smallSize: 8,
+                    child: Icon(
+                      hasActiveFilter
+                          ? Icons.filter_list
+                          : Icons.filter_list_outlined,
+                      color: hasActiveFilter ? primary : const Color(0xFF71717A),
+                    ),
                   ),
                 ),
               ],
@@ -239,11 +609,17 @@ class _FeedbackScreenState extends State<FeedbackScreen>
     );
   }
 
+  double _filterFieldWidth([double desktop = 180]) {
+    if (!Responsive.isMobile(context)) return desktop;
+    return MediaQuery.of(context).size.width - 28;
+  }
+
   Widget _buildFilterDropdown(String label, String? value,
       List<DropdownMenuItem<String>> items, ValueChanged<String?> onChanged) {
     return SizedBox(
-      width: 180,
+      width: _filterFieldWidth(),
       child: DropdownButtonFormField<String>(
+        key: ValueKey('$label-$value'),
         initialValue: value,
         decoration: InputDecoration(
           labelText: label,
@@ -261,6 +637,46 @@ class _FeedbackScreenState extends State<FeedbackScreen>
     );
   }
 
+  Widget _buildEmployeeFilterDropdown(
+    String label,
+    String? value,
+    List<Map<String, dynamic>> employees,
+    ValueChanged<String?> onChanged,
+  ) {
+    return SizedBox(
+      width: _filterFieldWidth(200),
+      child: DropdownButtonFormField<String>(
+        key: ValueKey('$label-$value'),
+        initialValue: value,
+        isExpanded: true,
+        decoration: InputDecoration(
+          labelText: label,
+          border: const OutlineInputBorder(),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          isDense: true,
+        ),
+        items: [
+          DropdownMenuItem<String>(
+              value: null, child: Text('Tất cả $label')),
+          ...employees.map((e) {
+            final id = e['id']?.toString() ?? '';
+            final name = _employeeDisplayName(e);
+            final code = e['employeeCode']?.toString() ?? '';
+            return DropdownMenuItem<String>(
+              value: id,
+              child: Text(
+                code.isNotEmpty ? '$name ($code)' : name,
+                overflow: TextOverflow.ellipsis,
+              ),
+            );
+          }),
+        ],
+        onChanged: onChanged,
+      ),
+    );
+  }
+
   Widget _buildFeedbackList(List<Map<String, dynamic>> list,
       {required bool isMine}) {
     if (list.isEmpty) {
@@ -271,9 +687,17 @@ class _FeedbackScreenState extends State<FeedbackScreen>
             Icon(Icons.inbox_outlined, size: 64, color: Colors.grey[300]),
             const SizedBox(height: 12),
             Text(
-              isMine ? 'Bạn chưa gửi phản ánh nào' : 'Chưa có phản ánh nào',
+              _hasActiveFilters
+                  ? 'Không có phản ánh phù hợp bộ lọc'
+                  : (isMine
+                      ? 'Bạn chưa gửi phản ánh nào'
+                      : 'Chưa có phản ánh nào'),
               style: TextStyle(fontSize: 16, color: Colors.grey[500]),
             ),
+            if (_hasActiveFilters) ...[
+              const SizedBox(height: 8),
+              TextButton(onPressed: _clearFilters, child: const Text('Xóa bộ lọc')),
+            ],
           ],
         ),
       );
@@ -631,7 +1055,8 @@ class _FeedbackScreenState extends State<FeedbackScreen>
             title: 'Thành công',
             message:
                 isAnonymous ? 'Đã gửi phản ánh ẩn danh' : 'Đã gửi phản ánh');
-        _loadMy();
+        if (_tabCtl.index != 0) _tabCtl.animateTo(0);
+        _loadBoth();
       } else {
         appNotification.showError(
             title: 'Lỗi',

@@ -535,7 +535,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
     final canExport = Provider.of<PermissionProvider>(context, listen: false)
         .canExport('WorkSchedule');
     final canApprove = Provider.of<PermissionProvider>(context, listen: false)
-        .canView('ScheduleApproval');
+        .canApprove('ScheduleApproval');
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
