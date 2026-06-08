@@ -361,7 +361,6 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
     'PenaltyReport': {'canView', 'canExport'},
     'AdvanceReport': {'canView', 'canExport'},
     'AssetReport': {'canView', 'canExport'},
-    'AttendanceReport': {'canView', 'canExport'},
     'HrReport': {'canView', 'canExport'},
     'PayrollReport': {'canView', 'canExport'},
     // ── CÀI ĐẶT ──
@@ -679,12 +678,6 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
         'module': 'AssetReport',
         'moduleDisplayName': 'Báo cáo tài sản',
         'displayOrder': 55
-      },
-      {
-        'id': '056',
-        'module': 'AttendanceReport',
-        'moduleDisplayName': 'Báo cáo chấm công',
-        'displayOrder': 56
       },
       {
         'id': '057',

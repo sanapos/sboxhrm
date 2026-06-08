@@ -50,7 +50,6 @@ import 'cash_report_screen.dart';
 import 'advance_report_screen.dart';
 import 'leave_report_screen.dart';
 import 'asset_report_screen.dart';
-import 'report_screen.dart';
 import 'hr_report_screen.dart';
 import 'payroll_report_screen.dart';
 import 'downloaded_documents_screen.dart';
@@ -1146,16 +1145,6 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     ),
 
     // ══════════ BÁO CÁO ══════════
-    NavItem(
-      icon: Icons.assessment_outlined,
-      activeIcon: Icons.assessment,
-      label: 'Báo cáo chấm công',
-      subtitle: 'Ngày, tháng, đi muộn, phòng ban',
-      screen: const ReportScreen(),
-      group: 'Báo cáo',
-      themeColor: const Color(0xFF7C3AED),
-      moduleCode: 'AttendanceReport',
-    ),
     NavItem(
       icon: Icons.groups_outlined,
       activeIcon: Icons.groups,
@@ -2537,7 +2526,6 @@ class NavItem {
     'Communication': (l) => l.communication,
     'KPI': (l) => 'KPI',
     'Feedback': (l) => 'Phản ánh / Ý kiến',
-    'AttendanceReport': (l) => 'Báo cáo chấm công',
     'HrReport': (l) => 'Báo cáo nhân sự',
     'PayrollReport': (l) => 'Báo cáo lương',
     'PenaltyReport': (l) => 'Báo cáo phạt',

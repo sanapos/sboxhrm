@@ -57,6 +57,7 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
 
   int _currentStep = 0;
   bool _isCapturing = false;
+  bool _isAdvancing = false;
   bool _allDone = false;
   final List<String> _capturedImages = [];
 
@@ -65,6 +66,8 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
   bool _isProcessingFrame = false;
   _FaceStatus _faceStatus = _FaceStatus.noFace;
   String _faceHint = '';
+  bool _alignedAtCapture = false;
+  int _stepRetryCount = 0;
   // Hold progress: only advances while face is aligned
   double _stepProgress = 0.0;
   Timer? _progressTimer;
@@ -88,8 +91,11 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
   static const double _yawThreshold = 15.0;
   static const double _pitchThreshold = 12.0;
   static const double _frontMaxAngle = 14.0;
-  static const double _minFaceAreaRatio = 0.05;
-  static const double _minSharpnessScore = 60.0;
+  static const double _minFaceAreaRatioAndroid = 0.05;
+  static const double _minFaceAreaRatioIos = 0.03;
+  static const double _minSharpnessScoreAndroid = 60.0;
+  static const int _maxStepRetriesIos = 6;
+  static const Duration _iosCameraSettleDelay = Duration(milliseconds: 180);
 
   @override
   void initState() {
@@ -178,7 +184,13 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
 
   /// Process each camera frame for face detection.
   void _onCameraFrame(CameraImage image) {
-    if (_isProcessingFrame || _allDone || !mounted) return;
+    if (_isProcessingFrame ||
+        _isAdvancing ||
+        !_isCapturing ||
+        _allDone ||
+        !mounted) {
+      return;
+    }
     _isProcessingFrame = true;
     _detectFace(image).then((_) {
       _isProcessingFrame = false;
@@ -282,19 +294,25 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
   }
 
   /// Check if face direction matches the required step.
-  bool _checkDirection(String direction, double yaw, double pitch) {
+  bool _checkDirection(
+    String direction,
+    double yaw,
+    double pitch, {
+    double slack = 0,
+  }) {
     switch (direction) {
       case 'front':
-        return yaw.abs() < _frontMaxAngle && pitch.abs() < _frontMaxAngle;
+        return yaw.abs() < _frontMaxAngle + slack &&
+            pitch.abs() < _frontMaxAngle + slack;
       case 'left':
         // Front camera mirrors: positive yaw = user's left
-        return yaw > _yawThreshold;
+        return yaw > _yawThreshold - slack;
       case 'right':
-        return yaw < -_yawThreshold;
+        return yaw < -_yawThreshold + slack;
       case 'up':
-        return pitch > _pitchThreshold;
+        return pitch > _pitchThreshold - slack;
       case 'down':
-        return pitch < -_pitchThreshold;
+        return pitch < -_pitchThreshold + slack;
       default:
         return false;
     }
@@ -349,12 +367,13 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
   }
 
   void _startStep() {
-    if (_currentStep >= _steps.length || !mounted) return;
+    if (_currentStep >= _steps.length || !mounted || _isAdvancing) return;
     setState(() {
       _isCapturing = true;
       _stepProgress = 0.0;
       _faceStatus = _FaceStatus.noFace;
       _faceHint = '';
+      _alignedAtCapture = false;
     });
 
     // Progress timer: only advances when face is aligned
@@ -371,6 +390,7 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
         });
         if (_stepProgress >= 1.0) {
           t.cancel();
+          _alignedAtCapture = _faceStatus == _FaceStatus.aligned;
           _captureAndAdvance();
         }
       } else {
@@ -384,56 +404,91 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
     });
   }
 
+  double get _minFaceAreaRatio =>
+      Platform.isIOS ? _minFaceAreaRatioIos : _minFaceAreaRatioAndroid;
+
   Future<void> _captureAndAdvance() async {
-    // Stop image stream temporarily for clean capture
+    if (_isAdvancing) return;
+    _isAdvancing = true;
+    try {
+      await _captureAndAdvanceImpl();
+    } finally {
+      _isAdvancing = false;
+    }
+  }
+
+  Future<void> _captureAndAdvanceImpl() async {
+    _progressTimer?.cancel();
+
+    // Stop image stream temporarily for clean capture.
     try {
       await _cameraController?.stopImageStream();
     } catch (_) {}
 
-    XFile? xFile;
-    try {
-      if (_cameraController != null && _cameraController!.value.isInitialized) {
-        xFile = await _cameraController!.takePicture();
-      }
-    } catch (e) {
-      debugPrint('📸 Capture error: $e');
+    if (Platform.isIOS) {
+      await Future.delayed(_iosCameraSettleDelay);
     }
+
+    // Let any in-flight ML Kit frame finish before we reuse the detector on JPEG.
+    await _waitForFrameProcessing();
 
     final stepDirection = _steps[_currentStep].direction;
     String? rejectReason;
     String base64Image = '';
+    Uint8List? rawBytes;
+
+    final xFile = await _takePhotoWithRetry();
     if (xFile != null) {
       try {
+        rawBytes = await File(xFile.path).readAsBytes();
         rejectReason = await _validateCapturedPhoto(
           xFile.path,
           requiredDirection: stepDirection,
+          rawBytes: rawBytes,
         );
         if (rejectReason == null) {
-          final bytes = await File(xFile.path).readAsBytes();
-          base64Image = base64Encode(bytes);
+          base64Image = base64Encode(rawBytes);
+        } else if (Platform.isIOS &&
+            _alignedAtCapture &&
+            _stepRetryCount >= _maxStepRetriesIos - 1) {
+          // Live stream already held pose; JPEG checks on iOS are unreliable.
+          debugPrint(
+            '📸 iOS fallback accept step=${_currentStep + 1} '
+            'after retries ($_stepRetryCount): $rejectReason',
+          );
+          rejectReason = null;
+          base64Image = base64Encode(rawBytes);
         }
       } catch (e) {
         debugPrint('📸 Validate error: $e');
-        rejectReason = 'Không thể xử lý ảnh, vui lòng chụp lại';
+        if (Platform.isIOS && _alignedAtCapture && rawBytes != null) {
+          rejectReason = null;
+          base64Image = base64Encode(rawBytes);
+        } else {
+          rejectReason = 'Không thể xử lý ảnh, vui lòng chụp lại';
+        }
       } finally {
         try {
           await File(xFile.path).delete();
         } catch (_) {}
       }
+    } else if (Platform.isIOS && _alignedAtCapture) {
+      rejectReason = 'Không chụp được ảnh — giữ máy ổn định và thử lại';
     } else {
       rejectReason = 'Không chụp được ảnh, vui lòng thử lại';
     }
 
-    // Restart image stream after validation
     if (!_allDone && mounted) {
-      try {
-        await _cameraController?.startImageStream(_onCameraFrame);
-      } catch (_) {}
+      if (Platform.isIOS) {
+        await Future.delayed(_iosCameraSettleDelay);
+      }
+      await _restartImageStream();
     }
 
     if (!mounted) return;
 
     if (rejectReason != null || base64Image.isEmpty) {
+      _stepRetryCount++;
       setState(() {
         _isCapturing = true;
         _stepProgress = 0.0;
@@ -444,6 +499,7 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
       return;
     }
 
+    _stepRetryCount = 0;
     _capturedImages.add(base64Image);
     setState(() => _isCapturing = false);
     _segmentController.forward(from: 0);
@@ -459,11 +515,59 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
     }
   }
 
+  Future<void> _waitForFrameProcessing() async {
+    for (var i = 0; i < 60 && _isProcessingFrame; i++) {
+      await Future.delayed(const Duration(milliseconds: 10));
+    }
+  }
+
+  Future<XFile?> _takePhotoWithRetry() async {
+    final controller = _cameraController;
+    if (controller == null || !controller.value.isInitialized) return null;
+
+    const attempts = 2;
+    for (var i = 0; i < attempts; i++) {
+      try {
+        return await controller.takePicture();
+      } catch (e) {
+        debugPrint('📸 Capture error (attempt ${i + 1}/$attempts): $e');
+        if (i < attempts - 1 && Platform.isIOS) {
+          await Future.delayed(_iosCameraSettleDelay);
+        }
+      }
+    }
+    return null;
+  }
+
+  Future<void> _restartImageStream() async {
+    for (var i = 0; i < 3; i++) {
+      try {
+        await _cameraController?.startImageStream(_onCameraFrame);
+        return;
+      } catch (e) {
+        debugPrint('📸 Stream restart error (attempt ${i + 1}/3): $e');
+        if (Platform.isIOS) {
+          await Future.delayed(_iosCameraSettleDelay);
+        }
+      }
+    }
+  }
+
   /// Reject blurry frames or photos without a clear single face at the required pose.
   Future<String?> _validateCapturedPhoto(
     String filePath, {
     required String requiredDirection,
+    Uint8List? rawBytes,
   }) async {
+    // iOS: live stream already enforced pose for ~2s — JPEG re-checks are flaky
+    // (EXIF orientation, ML Kit angle mismatch, soft front-camera JPEG).
+    if (Platform.isIOS) {
+      if (!_alignedAtCapture) {
+        return 'Giữ đúng tư thế và ổn định trước khi chụp';
+      }
+      return _validateCapturedPhotoIos(filePath, rawBytes: rawBytes);
+    }
+
     final inputImage = InputImage.fromFilePath(filePath);
     final faces = await _faceDetector.processImage(inputImage);
     if (faces.isEmpty) {
@@ -492,10 +596,53 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
       }
     }
 
-    final bytes = await File(filePath).readAsBytes();
+    final bytes = rawBytes ?? await File(filePath).readAsBytes();
     final sharpness = await _estimateSharpness(bytes);
-    if (sharpness < _minSharpnessScore) {
+    if (sharpness < _minSharpnessScoreAndroid) {
       return 'Ảnh bị mờ — tăng ánh sáng, giữ máy ổn định và thử lại';
+    }
+
+    return null;
+  }
+
+  /// Lightweight JPEG checks on iOS — never re-validate head pose on file.
+  Future<String?> _validateCapturedPhotoIos(
+    String filePath, {
+    Uint8List? rawBytes,
+  }) async {
+    final bytes = rawBytes ?? await File(filePath).readAsBytes();
+    if (bytes.isEmpty) {
+      return 'Không chụp được ảnh, vui lòng thử lại';
+    }
+
+    try {
+      final inputImage = InputImage.fromFilePath(filePath);
+      final faces = await _faceDetector.processImage(inputImage);
+      if (faces.isEmpty) {
+        // Common on iOS: stream sees the face, takePicture JPEG does not.
+        debugPrint('📸 iOS JPEG face miss — trusting live alignment gate');
+        return null;
+      }
+      if (faces.length > 1) {
+        return 'Chỉ được có một khuôn mặt trong ảnh';
+      }
+
+      final meta = inputImage.metadata;
+      if (meta != null) {
+        final imgArea = meta.size.width * meta.size.height;
+        if (imgArea > 0) {
+          final box = faces.first.boundingBox;
+          final faceRatio = (box.width * box.height) / imgArea;
+          if (faceRatio < _minFaceAreaRatio) {
+            debugPrint(
+              '📸 iOS small face ratio ${faceRatio.toStringAsFixed(3)} — '
+              'trusting live alignment gate',
+            );
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('📸 iOS validate soft-fail: $e');
     }
 
     return null;

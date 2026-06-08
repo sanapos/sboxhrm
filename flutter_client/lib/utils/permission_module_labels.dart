@@ -59,7 +59,6 @@ class PermissionModuleLabels {
     'PenaltyReport': 'Báo cáo phạt',
     'AdvanceReport': 'Báo cáo ứng lương',
     'AssetReport': 'Báo cáo tài sản',
-    'AttendanceReport': 'Báo cáo chấm công',
     'HrReport': 'Báo cáo nhân sự',
     'PayrollReport': 'Báo cáo lương',
     // Thiết lập HRM

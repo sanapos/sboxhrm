@@ -32,7 +32,6 @@ class PermissionModules {
     'PenaltyReport',
     'AdvanceReport',
     'AssetReport',
-    'AttendanceReport',
     'HrReport',
     'PayrollReport',
   };
@@ -47,7 +46,6 @@ class PermissionModules {
     'Attendance',
     'AttendanceSummary',
     'AttendanceByShift',
-    'AttendanceReport',
   ];
 
   static const attendanceApproval = [
@@ -98,7 +96,6 @@ class PermissionModules {
     'PenaltyReport',
     'AdvanceReport',
     'AssetReport',
-    'AttendanceReport',
     'HrReport',
     'PayrollReport',
     'Report',

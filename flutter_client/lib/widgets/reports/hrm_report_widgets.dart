@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../../utils/report_screen_helpers.dart';
 import '../../utils/responsive_helper.dart';
+import '../../utils/vietnamese_font.dart';
 import '../hrm_page_chrome.dart';
 
 /// Một chỉ số KPI trên báo cáo.
@@ -62,15 +63,15 @@ class ReportKpiGrid extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(k.label,
-                          style: TextStyle(
-                              fontSize: 10, color: Colors.grey.shade700),
+                          style: vietnameseTextStyle(TextStyle(
+                              fontSize: 10, color: Colors.grey.shade700)),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis),
                       Text(k.value,
-                          style: TextStyle(
+                          style: vietnameseTextStyle(TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.bold,
-                              color: k.color),
+                              color: k.color)),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis),
                     ],
@@ -114,16 +115,27 @@ class ReportScreenShell extends StatelessWidget {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: const TextStyle(fontSize: 17)),
+            Text(title,
+                style: vietnameseTextStyle(const TextStyle(
+                    fontSize: 17, fontWeight: FontWeight.bold))),
             if (subtitle != null)
               Text(subtitle!,
-                  style: const TextStyle(
-                      fontSize: 11, fontWeight: FontWeight.normal)),
+                  style: vietnameseTextStyle(const TextStyle(
+                      fontSize: 11, fontWeight: FontWeight.normal))),
           ],
         ),
         backgroundColor: accentColor,
         foregroundColor: Colors.white,
         elevation: 0,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [accentColor, accentColor.withValues(alpha: 0.85)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
         actions: [
           if (canExport && onExport != null)
             IconButton(
@@ -156,15 +168,17 @@ class ReportViewModeTabs extends StatelessWidget {
       color: Colors.white,
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
       child: SegmentedButton<int>(
-        segments: const [
+        segments: [
           ButtonSegment(
               value: 0,
-              label: Text('Chi tiết', style: TextStyle(fontSize: 12)),
-              icon: Icon(Icons.list_alt, size: 16)),
+              label: Text('Chi tiết',
+                  style: vietnameseTextStyle(const TextStyle(fontSize: 12))),
+              icon: const Icon(Icons.list_alt, size: 16)),
           ButtonSegment(
               value: 1,
-              label: Text('Theo NV', style: TextStyle(fontSize: 12)),
-              icon: Icon(Icons.people_outline, size: 16)),
+              label: Text('Theo NV',
+                  style: vietnameseTextStyle(const TextStyle(fontSize: 12))),
+              icon: const Icon(Icons.people_outline, size: 16)),
         ],
         selected: {index},
         onSelectionChanged: (s) => onChanged(s.first),
@@ -231,30 +245,30 @@ class ReportTimelineCard extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(title,
-                            style: const TextStyle(
-                                fontSize: 14, fontWeight: FontWeight.w600),
+                            style: vietnameseTextStyle(const TextStyle(
+                                fontSize: 14, fontWeight: FontWeight.w600)),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis),
                       ),
                       if (trailing != null)
                         Text(trailing!,
-                            style: TextStyle(
-                                fontSize: 11, color: Colors.grey.shade600)),
+                            style: vietnameseTextStyle(TextStyle(
+                                fontSize: 11, color: Colors.grey.shade600))),
                     ],
                   ),
                   if (amount != null) ...[
                     const SizedBox(height: 4),
                     Text(amount!,
-                        style: TextStyle(
+                        style: vietnameseTextStyle(TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.bold,
-                            color: accentColor)),
+                            color: accentColor))),
                   ],
                   if (subtitle != null && subtitle!.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Text(subtitle!,
-                        style: TextStyle(
-                            fontSize: 12, color: Colors.grey.shade700),
+                        style: vietnameseTextStyle(TextStyle(
+                            fontSize: 12, color: Colors.grey.shade700)),
                         maxLines: 3,
                         overflow: TextOverflow.ellipsis),
                   ],
@@ -281,8 +295,8 @@ Widget _statusChip(String label, Color color) {
       border: Border.all(color: color.withValues(alpha: 0.35)),
     ),
     child: Text(label,
-        style: TextStyle(
-            fontSize: 11, fontWeight: FontWeight.w600, color: color)),
+        style: vietnameseTextStyle(TextStyle(
+            fontSize: 11, fontWeight: FontWeight.w600, color: color))),
   );
 }
 
@@ -326,8 +340,8 @@ class ReportEmployeeSummaryCard extends StatelessWidget {
                 backgroundColor: accentColor.withValues(alpha: 0.12),
                 child: Text(
                   name.isNotEmpty ? name[0].toUpperCase() : '?',
-                  style: TextStyle(
-                      color: accentColor, fontWeight: FontWeight.bold),
+                  style: vietnameseTextStyle(TextStyle(
+                      color: accentColor, fontWeight: FontWeight.bold)),
                 ),
               ),
               const SizedBox(width: 12),
@@ -336,13 +350,13 @@ class ReportEmployeeSummaryCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(name,
-                        style: const TextStyle(
-                            fontSize: 14, fontWeight: FontWeight.w600),
+                        style: vietnameseTextStyle(const TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.w600)),
                         overflow: TextOverflow.ellipsis),
                     if (meta != null)
                       Text(meta!,
-                          style: TextStyle(
-                              fontSize: 11, color: Colors.grey.shade600)),
+                          style: vietnameseTextStyle(TextStyle(
+                              fontSize: 11, color: Colors.grey.shade600))),
                   ],
                 ),
               ),
@@ -350,14 +364,14 @@ class ReportEmployeeSummaryCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(primaryValue,
-                      style: TextStyle(
+                      style: vietnameseTextStyle(TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
-                          color: accentColor)),
+                          color: accentColor))),
                   if (secondaryValue != null)
                     Text(secondaryValue!,
-                        style: TextStyle(
-                            fontSize: 11, color: Colors.grey.shade600)),
+                        style: vietnameseTextStyle(TextStyle(
+                            fontSize: 11, color: Colors.grey.shade600))),
                 ],
               ),
               if (onTap != null) ...[
@@ -430,7 +444,8 @@ class ReportFilterSection extends StatelessWidget {
                 height: 40,
                 child: FilledButton.icon(
                   icon: const Icon(Icons.search, size: 16),
-                  label: const Text('Áp dụng', style: TextStyle(fontSize: 13)),
+                  label: Text('Áp dụng',
+                      style: vietnameseTextStyle(const TextStyle(fontSize: 13))),
                   style: FilledButton.styleFrom(
                     backgroundColor: HrmPageChrome.primaryNavy,
                     padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -456,7 +471,8 @@ class ReportFilterSection extends StatelessWidget {
               child: TextButton.icon(
                 onPressed: onClearFilters,
                 icon: const Icon(Icons.filter_alt_off, size: 15),
-                label: const Text('Xóa lọc', style: TextStyle(fontSize: 12)),
+                label: Text('Xóa lọc',
+                    style: vietnameseTextStyle(const TextStyle(fontSize: 12))),
               ),
             ),
         ],
@@ -478,9 +494,11 @@ class ReportFilterSection extends StatelessWidget {
           value: selectedBranchId,
           isExpanded: true,
           isDense: true,
-          hint: const Text('Tất cả chi nhánh',
-              style: TextStyle(fontSize: 13, color: Color(0xFF6B7280))),
-          style: const TextStyle(fontSize: 13, color: Color(0xFF111827)),
+          hint: Text('Tất cả chi nhánh',
+              style: vietnameseTextStyle(
+                  const TextStyle(fontSize: 13, color: Color(0xFF6B7280)))),
+          style: vietnameseTextStyle(
+              const TextStyle(fontSize: 13, color: Color(0xFF111827))),
           items: [
             const DropdownMenuItem<String?>(
                 value: null, child: Text('Tất cả chi nhánh')),
@@ -516,11 +534,11 @@ class ReportFilterSection extends StatelessWidget {
           child: TextField(
             controller: ctrl,
             focusNode: node,
-            style: const TextStyle(fontSize: 13),
+            style: vietnameseTextStyle(const TextStyle(fontSize: 13)),
             decoration: InputDecoration(
               hintText: 'Tìm nhân viên...',
-              hintStyle:
-                  const TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
+              hintStyle: vietnameseTextStyle(
+                  const TextStyle(fontSize: 12, color: Color(0xFF9CA3AF))),
               prefixIcon: const Icon(Icons.person_search_outlined,
                   size: 18, color: Color(0xFF9CA3AF)),
               suffixIcon: empSearch.isNotEmpty
@@ -571,8 +589,9 @@ class ReportPaginationBar extends StatelessWidget {
       child: Row(
         children: [
           Text(
-            'Trang $page/$totalPages · $totalCount bản ghi',
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+            'Trang $page/$totalPages | $totalCount bản ghi',
+            style: vietnameseTextStyle(
+                TextStyle(fontSize: 12, color: Colors.grey.shade700)),
           ),
           const Spacer(),
           IconButton(
@@ -619,10 +638,10 @@ class ReportPersonalInsightBanner extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(message,
-                style: TextStyle(
+                style: vietnameseTextStyle(TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
-                    color: color)),
+                    color: color))),
           ),
         ],
       ),
@@ -632,8 +651,8 @@ class ReportPersonalInsightBanner extends StatelessWidget {
 
 String reportPeriodSubtitle(DateTime from, DateTime to, {bool team = true}) {
   final fmt = DateFormat('dd/MM/yyyy');
-  final range = '${fmt.format(from)} – ${fmt.format(to)}';
-  return team ? 'Kỳ $range' : 'Lịch sử của bạn · $range';
+  final range = '${fmt.format(from)} - ${fmt.format(to)}';
+  return team ? 'Kỳ $range' : 'Lịch sử của bạn | $range';
 }
 
 int reportSafeInt(dynamic v) {

@@ -29,7 +29,7 @@ bool isManagerUserRole(String? role) {
   if (data is List) {
     raw = data;
   } else if (data is Map) {
-    raw = data[listKey] ?? data['items'];
+    raw = data[listKey] ?? data['items'] ?? data['Items'];
   }
   if (raw is! List) {
     return (items: <Map<String, dynamic>>[], error: null);
@@ -54,7 +54,7 @@ bool isManagerUserRole(String? role) {
   final data = response['data'];
   int total = base.items.length;
   if (data is Map) {
-    final tc = data['totalCount'] ?? data['total'];
+    final tc = data['totalCount'] ?? data['TotalCount'] ?? data['total'];
     if (tc is int) {
       total = tc;
     } else if (tc is num) {
@@ -64,12 +64,177 @@ bool isManagerUserRole(String? role) {
   return (items: base.items, totalCount: total, error: base.error);
 }
 
+/// Nhãn tiếng Việt cho loại phiếu phạt (PascalCase, lowercase, hoặc mã số enum).
+String penaltyTypeDisplayLabel(dynamic raw) {
+  if (raw == null) return '-';
+  if (raw is int) {
+    switch (raw) {
+      case 1:
+        return 'Đi trễ';
+      case 2:
+        return 'Về sớm';
+      case 3:
+        return 'Quên chấm công';
+      case 4:
+        return 'Nghỉ không phép';
+      case 5:
+        return 'Vi phạm nội quy';
+      case 6:
+        return 'Tái phạm';
+      default:
+        return '-';
+    }
+  }
+  final key = raw.toString().trim();
+  if (key.isEmpty) return '-';
+
+  switch (key) {
+    case 'Late':
+      return 'Đi trễ';
+    case 'EarlyLeave':
+      return 'Về sớm';
+    case 'ForgotCheck':
+      return 'Quên chấm công';
+    case 'UnauthorizedLeave':
+      return 'Nghỉ không phép';
+    case 'Violation':
+      return 'Vi phạm nội quy';
+    case 'Repeat':
+      return 'Tái phạm';
+    case 'Disciplinary':
+      return 'Kỷ luật';
+    case 'Financial':
+    case 'FinancialPenalty':
+      return 'Phạt tiền';
+    case 'Warning':
+      return 'Cảnh báo';
+    case 'Absent':
+      return 'Vắng mặt';
+    default:
+      break;
+  }
+
+  switch (key.toLowerCase()) {
+    case 'late':
+      return 'Đi trễ';
+    case 'earlyleave':
+    case 'earlycheck':
+    case 'early':
+      return 'Về sớm';
+    case 'forgotcheck':
+      return 'Quên chấm công';
+    case 'unauthorizedleave':
+      return 'Nghỉ không phép';
+    case 'violation':
+      return 'Vi phạm nội quy';
+    case 'repeat':
+      return 'Tái phạm';
+    case 'disciplinary':
+      return 'Kỷ luật';
+    case 'financial':
+    case 'financialpenalty':
+      return 'Phạt tiền';
+    case 'warning':
+      return 'Cảnh báo';
+    case 'absent':
+      return 'Vắng mặt';
+    default:
+      return key;
+  }
+}
+
+/// Nhãn tiếng Việt cho trạng thái phiếu phạt.
+String penaltyStatusDisplayLabel(dynamic raw) {
+  if (raw == null) return '';
+  if (raw is int) {
+    switch (raw) {
+      case 0:
+        return 'Chờ duyệt';
+      case 1:
+        return 'Đã duyệt';
+      case 2:
+        return 'Đã hủy';
+      case 3:
+        return 'Tự động duyệt';
+      default:
+        return '';
+    }
+  }
+  final key = raw.toString().trim();
+  if (key.isEmpty) return '';
+
+  switch (key) {
+    case 'Pending':
+      return 'Chờ duyệt';
+    case 'Approved':
+      return 'Đã duyệt';
+    case 'AutoApproved':
+      return 'Tự động duyệt';
+    case 'Cancelled':
+    case 'Canceled':
+      return 'Đã hủy';
+    default:
+      break;
+  }
+
+  switch (key.toLowerCase()) {
+    case 'pending':
+      return 'Chờ duyệt';
+    case 'approved':
+      return 'Đã duyệt';
+    case 'autoapproved':
+      return 'Tự động duyệt';
+    case 'cancelled':
+    case 'canceled':
+      return 'Đã hủy';
+    default:
+      return key;
+  }
+}
+
+bool isApprovedPenaltyStatus(dynamic raw) {
+  if (raw is int) return raw == 1 || raw == 3;
+  final key = raw?.toString().toLowerCase().trim() ?? '';
+  return key == 'approved' || key == 'autoapproved' || key == '1' || key == '3';
+}
+
+Color penaltyStatusColor(dynamic raw) {
+  if (raw is int) {
+    switch (raw) {
+      case 0:
+        return const Color(0xFFF59E0B);
+      case 1:
+      case 3:
+        return const Color(0xFF2563EB);
+      case 2:
+        return Colors.grey;
+      default:
+        break;
+    }
+  }
+  final key = raw?.toString().toLowerCase().trim() ?? '';
+  if (key == 'pending' || key == '0') return const Color(0xFFF59E0B);
+  if (key == 'approved' || key == 'autoapproved' || key == '1' || key == '3') {
+    return const Color(0xFF2563EB);
+  }
+  if (key == 'cancelled' || key == 'canceled' || key == '2') {
+    return Colors.grey;
+  }
+  return const Color(0xFF1E3A5F);
+}
+
 Map<String, dynamic> normalizePenaltyTicketRow(Map<String, dynamic> t) {
   final m = Map<String, dynamic>.from(t);
-  m['date'] ??= m['violationDate'];
+  m['date'] ??= m['violationDate'] ?? m['ViolationDate'];
+  m['type'] ??= m['Type'];
+  m['status'] ??= m['Status'];
+  m['amount'] ??= m['Amount'];
+  m['employeeName'] ??= m['EmployeeName'];
+  m['departmentName'] ??= m['department'] ?? m['Department'];
+  m['note'] ??= m['description'] ?? m['Description'];
   m['penaltyTypeName'] ??= m['type'];
-  m['note'] ??= m['description'];
-  m['departmentName'] ??= m['department'];
+  m['penaltyTypeLabel'] = penaltyTypeDisplayLabel(m['type']);
+  m['statusLabel'] = penaltyStatusDisplayLabel(m['status']);
   return m;
 }
 

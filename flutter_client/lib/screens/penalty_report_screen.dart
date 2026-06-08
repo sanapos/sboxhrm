@@ -6,9 +6,14 @@ import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import '../utils/report_access_utils.dart';
 import '../utils/report_screen_helpers.dart';
+import '../utils/vietnamese_font.dart';
+import '../widgets/hrm_page_chrome.dart';
 import '../widgets/reports/hrm_report_widgets.dart';
 
-const _theme = Color(0xFFEC4899);
+const _theme = HrmPageChrome.primaryNavy;
+const _accentBlue = Color(0xFF2563EB);
+const _accentLight = Color(0xFF3B82F6);
+const _accentDark = Color(0xFF1E40AF);
 
 class PenaltyReportScreen extends StatefulWidget {
   const PenaltyReportScreen({super.key});
@@ -132,10 +137,10 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
   List<ReportKpiItem> _buildKpis() {
     final f = _filtered;
     final total = f.length;
-    final approved = f.where((t) => reportSafeInt(t['status']) == 1).length;
+    final approved = f.where((t) => isApprovedPenaltyStatus(t['status'])).length;
     final totalAmt = f.fold(0.0, (s, t) => s + reportSafeDouble(t['amount']));
     final approvedAmt = f
-        .where((t) => reportSafeInt(t['status']) == 1)
+        .where((t) => isApprovedPenaltyStatus(t['status']))
         .fold(0.0, (s, t) => s + reportSafeDouble(t['amount']));
 
     if (!_teamView) {
@@ -149,17 +154,17 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
             label: 'Đã duyệt',
             value: approved.toString(),
             icon: Icons.check_circle_outline,
-            color: const Color(0xFF16A34A)),
+            color: _accentBlue),
         ReportKpiItem(
             label: 'Tổng tiền',
             value: '${reportMoneyFmt.format(totalAmt)}đ',
             icon: Icons.money_off_outlined,
-            color: Colors.orange),
+            color: _accentLight),
         ReportKpiItem(
             label: 'Tiền đã duyệt',
             value: '${reportMoneyFmt.format(approvedAmt)}đ',
             icon: Icons.payments_outlined,
-            color: Colors.red),
+            color: _accentDark),
       ];
     }
     final empCount = f
@@ -177,17 +182,17 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
           label: 'NV vi phạm',
           value: empCount.toString(),
           icon: Icons.people_outline,
-          color: Colors.blueGrey),
+          color: _accentBlue),
       ReportKpiItem(
           label: 'Tổng tiền phạt',
           value: '${reportMoneyFmt.format(totalAmt)}đ',
           icon: Icons.money_off_outlined,
-          color: Colors.orange),
+          color: _accentLight),
       ReportKpiItem(
           label: 'Tiền đã duyệt',
           value: '${reportMoneyFmt.format(approvedAmt)}đ',
           icon: Icons.payments_outlined,
-          color: const Color(0xFF16A34A)),
+          color: _accentDark),
     ];
   }
 
@@ -202,10 +207,11 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
         i + 1,
         if (_teamView) t['employeeName']?.toString() ?? '',
         if (_teamView) t['departmentName']?.toString() ?? '',
-        _penaltyTypeLabel(t['penaltyTypeName'] ?? t['type']),
+        t['penaltyTypeLabel']?.toString() ??
+            penaltyTypeDisplayLabel(t['type']),
         date != null ? reportDateFmt.format(date) : '',
         reportSafeDouble(t['amount']),
-        _statusLabel(t['status']),
+        t['statusLabel']?.toString() ?? penaltyStatusDisplayLabel(t['status']),
         t['note']?.toString() ?? t['reason']?.toString() ?? '',
       ]);
     }
@@ -229,65 +235,14 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
     );
   }
 
-  String _statusLabel(dynamic s) {
-    switch (reportSafeInt(s)) {
-      case 0:
-        return 'Chờ duyệt';
-      case 1:
-        return 'Đã duyệt';
-      case 2:
-        return 'Đã hủy';
-      default:
-        final str = s?.toString().toLowerCase() ?? '';
-        if (str == 'pending') return 'Chờ duyệt';
-        if (str == 'approved') return 'Đã duyệt';
-        if (str == 'cancelled' || str == 'canceled') return 'Đã hủy';
-        return '';
-    }
-  }
-
-  Color _statusColor(dynamic s) {
-    switch (reportSafeInt(s)) {
-      case 0:
-        return Colors.orange;
-      case 1:
-        return const Color(0xFF16A34A);
-      case 2:
-        return Colors.grey;
-      default:
-        return Colors.blueGrey;
-    }
-  }
-
-  String _penaltyTypeLabel(dynamic t) {
-    if (t == null || t.toString().trim().isEmpty) return '—';
-    switch (t.toString().toLowerCase().trim()) {
-      case 'late':
-        return 'Đi muộn';
-      case 'absent':
-        return 'Vắng mặt';
-      case 'earlyleave':
-      case 'earlycheck':
-      case 'early':
-        return 'Về sớm';
-      case 'disciplinary':
-        return 'Kỷ luật';
-      case 'financial':
-      case 'financialpenalty':
-        return 'Phạt tiền';
-      case 'warning':
-        return 'Cảnh báo';
-      default:
-        return t.toString();
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final canExport = Provider.of<PermissionProvider>(context, listen: false)
         .canExport('PenaltyReport');
 
-    return ReportScreenShell(
+    return Theme(
+      data: vietnameseThemeOverlay(context),
+      child: ReportScreenShell(
       title: _teamView ? 'Báo cáo phạt' : 'Phiếu phạt của tôi',
       subtitle: reportPeriodSubtitle(_from, _to, team: _teamView),
       accentColor: _theme,
@@ -368,6 +323,7 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
             ),
         ],
       ),
+    ),
     );
   }
 
@@ -383,14 +339,27 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
         child: DropdownButton<String?>(
           value: _statusFilter,
           isExpanded: true,
-          hint: const Text('Trạng thái',
-              style: TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
-          style: const TextStyle(fontSize: 12, color: Color(0xFF111827)),
-          items: const [
-            DropdownMenuItem(value: null, child: Text('Tất cả')),
-            DropdownMenuItem(value: '0', child: Text('Chờ duyệt')),
-            DropdownMenuItem(value: '1', child: Text('Đã duyệt')),
-            DropdownMenuItem(value: '2', child: Text('Đã hủy')),
+          hint: Text('Trạng thái',
+              style: vietnameseTextStyle(
+                  const TextStyle(fontSize: 12, color: Color(0xFF6B7280)))),
+          style: vietnameseTextStyle(
+              const TextStyle(fontSize: 12, color: Color(0xFF111827))),
+          items: [
+            DropdownMenuItem(
+                value: null,
+                child: Text('Tất cả', style: vietnameseTextStyle())),
+            DropdownMenuItem(
+                value: '0',
+                child: Text('Chờ duyệt', style: vietnameseTextStyle())),
+            DropdownMenuItem(
+                value: '1',
+                child: Text('Đã duyệt', style: vietnameseTextStyle())),
+            DropdownMenuItem(
+                value: '3',
+                child: Text('Tự động duyệt', style: vietnameseTextStyle())),
+            DropdownMenuItem(
+                value: '2',
+                child: Text('Đã hủy', style: vietnameseTextStyle())),
           ],
           onChanged: (v) => setState(() => _statusFilter = v),
         ),
@@ -421,13 +390,15 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
         t['date'] != null ? DateTime.tryParse(t['date'].toString()) : null;
     final amt = reportSafeDouble(t['amount']);
     return ReportTimelineCard(
-      title: _penaltyTypeLabel(t['penaltyTypeName'] ?? t['type']),
+      title: t['penaltyTypeLabel']?.toString() ??
+          penaltyTypeDisplayLabel(t['type']),
       trailing: date != null ? reportDateFmt.format(date) : null,
       amount: '${reportMoneyFmt.format(amt)}đ',
       subtitle: t['note']?.toString() ?? t['reason']?.toString() ?? '',
       accentColor: _theme,
-      statusLabel: _statusLabel(t['status']),
-      statusColor: _statusColor(t['status']),
+      statusLabel: t['statusLabel']?.toString() ??
+          penaltyStatusDisplayLabel(t['status']),
+      statusColor: penaltyStatusColor(t['status']),
       icon: Icons.gavel_outlined,
     );
   }
@@ -435,20 +406,21 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
   Widget _teamDetailCard(Map<String, dynamic> t) {
     final date =
         t['date'] != null ? DateTime.tryParse(t['date'].toString()) : null;
-    final name = t['employeeName']?.toString() ?? '—';
+    final name = t['employeeName']?.toString() ?? '-';
     final dept = t['departmentName']?.toString() ?? '';
     return ReportTimelineCard(
       title: name,
       trailing: date != null ? reportDateFmt.format(date) : null,
       amount:
-          '${reportMoneyFmt.format(reportSafeDouble(t['amount']))}đ · ${_penaltyTypeLabel(t['penaltyTypeName'] ?? t['type'])}',
+          '${reportMoneyFmt.format(reportSafeDouble(t['amount']))}đ | ${t['penaltyTypeLabel'] ?? penaltyTypeDisplayLabel(t['type'])}',
       subtitle: [
         if (dept.isNotEmpty) dept,
         t['note']?.toString() ?? t['reason']?.toString() ?? '',
-      ].where((s) => s.isNotEmpty).join(' · '),
+      ].where((s) => s.isNotEmpty).join(' | '),
       accentColor: _theme,
-      statusLabel: _statusLabel(t['status']),
-      statusColor: _statusColor(t['status']),
+      statusLabel: t['statusLabel']?.toString() ??
+          penaltyStatusDisplayLabel(t['status']),
+      statusColor: penaltyStatusColor(t['status']),
       icon: Icons.person_outline,
     );
   }
@@ -464,7 +436,7 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
       children: _byEmployee.map((e) {
         final name = e['employeeName']?.toString() ??
             e['EmployeeName']?.toString() ??
-            '—';
+            '-';
         final dept = e['department']?.toString() ??
             e['Department']?.toString() ??
             '';

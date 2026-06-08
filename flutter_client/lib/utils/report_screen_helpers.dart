@@ -7,6 +7,7 @@ import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
+import 'vietnamese_font.dart';
 import 'excel_report_builder.dart';
 import 'file_saver.dart' as file_saver;
 
@@ -109,7 +110,8 @@ class ReportDateRangeFilterBar extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(right: 6),
       child: ChoiceChip(
-        label: Text(label, style: const TextStyle(fontSize: 12)),
+        label: Text(label,
+            style: vietnameseTextStyle(const TextStyle(fontSize: 12))),
         selected: selected,
         onSelected: (_) => _applyPreset(context, key),
         backgroundColor: Colors.white,
@@ -127,7 +129,7 @@ class ReportDateRangeFilterBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fmt = DateFormat('dd/MM/yyyy');
-    final rangeText = '${fmt.format(from)} – ${fmt.format(to)}';
+    final rangeText = '${fmt.format(from)} - ${fmt.format(to)}';
     final isCustom = preset == 'custom';
 
     return Column(
@@ -193,11 +195,11 @@ class ReportDateRangeFilterBar extends StatelessWidget {
                   Expanded(
                     child: Text(
                       rangeText,
-                      style: const TextStyle(
+                      style: vietnameseTextStyle(const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                         color: Color(0xFF111827),
-                      ),
+                      )),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),

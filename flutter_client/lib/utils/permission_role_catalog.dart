@@ -139,7 +139,6 @@ class PermissionRoleCatalog {
         'PenaltyReport',
         'AdvanceReport',
         'AssetReport',
-        'AttendanceReport',
         'HrReport',
         'PayrollReport',
       ],
