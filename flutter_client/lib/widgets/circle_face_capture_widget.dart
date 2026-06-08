@@ -482,8 +482,10 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
           _faceHint = retryReason ?? 'Ảnh không hợp lệ, vui lòng chụp lại';
         });
         _startStep();
+        break;
       case _AdvanceOutcome.nextStep:
         _startStep();
+        break;
       case _AdvanceOutcome.allDone:
         break;
     }
@@ -557,7 +559,13 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
       if (Platform.isIOS) {
         await Future.delayed(_iosCameraSettleDelay);
       }
-      await _restartImageStream();
+      final streamOk = await _restartImageStream();
+      if (!streamOk && mounted) {
+        setState(() {
+          _faceHint = 'Đang khởi động lại camera...';
+        });
+        await _recoverImageStream();
+      }
     }
 
     if (!mounted) return (_AdvanceOutcome.retry, 'Đã hủy');
@@ -640,12 +648,15 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
     final controller = _cameraController;
     if (controller == null || !controller.value.isInitialized) return;
     if (controller.value.isStreamingImages) return;
-    await _restartImageStream();
+    final ok = await _restartImageStream();
+    if (!ok && mounted) {
+      await _recoverImageStream();
+    }
   }
 
-  Future<void> _restartImageStream() async {
+  Future<bool> _restartImageStream() async {
     final controller = _cameraController;
-    if (controller == null || !controller.value.isInitialized) return;
+    if (controller == null || !controller.value.isInitialized) return false;
 
     try {
       if (controller.value.isStreamingImages) {
@@ -662,7 +673,7 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
     for (var i = 0; i < 3; i++) {
       try {
         await controller.startImageStream(_onCameraFrame);
-        return;
+        return true;
       } catch (e) {
         debugPrint('📸 Stream restart error (attempt ${i + 1}/3): $e');
         if (Platform.isIOS) {
@@ -670,6 +681,25 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
         }
       }
     }
+    return false;
+  }
+
+  Future<void> _recoverImageStream() async {
+    for (var attempt = 0; attempt < 4 && mounted; attempt++) {
+      await Future.delayed(
+        Duration(milliseconds: _iosCameraSettleDelay.inMilliseconds * (attempt + 1)),
+      );
+      if (await _restartImageStream()) {
+        if (mounted && _faceHint.startsWith('Đang khởi động lại camera')) {
+          setState(() => _faceHint = '');
+        }
+        return;
+      }
+    }
+    if (!mounted) return;
+    setState(() {
+      _faceHint = 'Camera chưa sẵn sàng — nhấn Huỷ và thử lại';
+    });
   }
 
   /// Reject blurry frames or photos without a clear single face at the required pose.

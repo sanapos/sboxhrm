@@ -491,12 +491,18 @@ class _MobileDeviceRegistrationScreenState
 
   Future<void> _openFaceCapture() async {
     final images = await CircleFaceCaptureWidget.show(context);
-    if (images != null && images.isNotEmpty && mounted) {
-      setState(() {
-        _capturedImages.clear();
-        _capturedImages.addAll(images);
-      });
+    if (!mounted || images == null) return;
+    if (images.length < 5) {
+      _showSnackBar(
+        'Cần đủ 5 ảnh khuôn mặt (hiện có ${images.length}). Vui lòng chụp lại.',
+        isError: true,
+      );
+      return;
     }
+    setState(() {
+      _capturedImages.clear();
+      _capturedImages.addAll(images);
+    });
   }
 
   Widget _buildFacePreviewBeforeSubmit() {

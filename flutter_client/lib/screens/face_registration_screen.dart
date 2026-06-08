@@ -231,12 +231,19 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
 
   Future<void> _openFaceCapture() async {
     final images = await CircleFaceCaptureWidget.show(context);
-    if (images != null && images.isNotEmpty && mounted) {
-      setState(() {
-        _capturedImages.clear();
-        _capturedImages.addAll(images);
-      });
+    if (!mounted || images == null) return;
+    if (images.length < _requiredImages) {
+      NotificationOverlayManager().showError(
+        title: 'Chưa đủ ảnh',
+        message:
+            'Cần đủ $_requiredImages ảnh khuôn mặt (hiện có ${images.length}). Vui lòng chụp lại.',
+      );
+      return;
     }
+    setState(() {
+      _capturedImages.clear();
+      _capturedImages.addAll(images);
+    });
   }
 
   Widget _buildCompletionView() {
