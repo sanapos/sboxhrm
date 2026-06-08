@@ -79,12 +79,12 @@ public class ApproveLeaveHandler(
                 currentStep.Status = ApprovalStatus.Approved;
                 currentStep.ActualUserId = request.ApprovedByUserId;
                 currentStep.ActualUserName = approverName;
-                currentStep.ActionDate = DateTime.Now;
+                currentStep.ActionDate = DateTime.UtcNow;
                 currentStep.Note = "Đã phê duyệt";
                 await approvalRecordRepository.UpdateAsync(currentStep, cancellationToken);
 
                 leave.CurrentApprovalStep = currentStep.StepOrder;
-                leave.UpdatedAt = DateTime.Now;
+                leave.UpdatedAt = DateTime.UtcNow;
 
                 // Check if this was the last step
                 var nextStep = approvalRecords.FirstOrDefault(r => r.StepOrder > currentStep.StepOrder && r.Status == ApprovalStatus.Pending);
@@ -143,7 +143,7 @@ public class ApproveLeaveHandler(
             return AppResponse<bool>.Error(deduct.Message ?? "Không thể trừ phép năm.");
 
         leave.Status = LeaveStatus.Approved;
-        leave.UpdatedAt = DateTime.Now;
+        leave.UpdatedAt = DateTime.UtcNow;
         await leaveRepository.UpdateAsync(leave, cancellationToken);
 
         try

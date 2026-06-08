@@ -262,5 +262,23 @@ public class AdvanceRequestsController(
         await CashTransactionNotificationHelper.NotifyOnCreatedAsync(
             context, modulePermissionService, notificationService,
             cashTx, CurrentUserId, storeId);
+
+        try
+        {
+            if (advance.EmployeeUserId.HasValue && advance.EmployeeUserId != CurrentUserId)
+            {
+                await notificationService.CreateAndSendAsync(
+                    advance.EmployeeUserId.Value,
+                    NotificationType.Info,
+                    "Ứng lương chờ thanh toán",
+                    $"Yêu cầu ứng lương {advance.Amount:N0}đ đã được duyệt, đang chờ kế toán thanh toán.",
+                    relatedEntityId: advance.Id,
+                    relatedEntityType: "AdvanceRequest",
+                    fromUserId: CurrentUserId,
+                    categoryCode: "payroll",
+                    storeId: storeId);
+            }
+        }
+        catch { /* best-effort */ }
     }
 }

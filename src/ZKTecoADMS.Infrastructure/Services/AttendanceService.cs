@@ -523,7 +523,7 @@ public class AttendanceService(
             ShiftId = shiftId,
             AttendanceId = attendance.Id,
             StoreId = storeId,
-            CreatedAt = DateTime.Now,
+            CreatedAt = DateTime.UtcNow,
         };
 
         await penaltyTicketRepository.AddAsync(ticket);
@@ -753,7 +753,7 @@ public class AttendanceService(
             PenaltyTier = 1,
             Description = description,
             StoreId = storeId,
-            CreatedAt = DateTime.Now,
+            CreatedAt = DateTime.UtcNow,
         };
 
         await penaltyTicketRepository.AddAsync(ticket);

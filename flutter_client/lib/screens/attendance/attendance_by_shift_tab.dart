@@ -18,6 +18,7 @@ import '../../models/attendance.dart';
 import '../../models/device.dart';
 import '../../services/api_service.dart';
 import '../../widgets/notification_overlay.dart';
+import '../../widgets/attendance_frozen_employee_name_cell.dart';
 import '../../widgets/hrm_page_chrome.dart';
 import '../../widgets/attendance_correction_reason_field.dart';
 import '../../widgets/attendance_delete_confirm_dialog.dart';
@@ -5190,9 +5191,9 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
 
     _ensureCrossTabScrollLinked();
 
-    const empColW = 130.0;
+    final empColW = attendanceFrozenEmployeeColWidth(context);
     const dayColW = 72.0;
-    const rowH = 50.0;
+    const rowH = 52.0;
     const headerH = 52.0;
     const ctTitleH = 28.0;
     const ctScrollEndPad = 20.0;
@@ -5419,30 +5420,10 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
                 bottom: BorderSide(color: Color(0xFFE4E4E7), width: 0.5),
               ),
             ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(empName,
-                    style: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF18181B)),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 2),
-                if (sub != null)
-                  Text(sub,
-                      style: TextStyle(
-                          fontSize: 9,
-                          color: subtextColor,
-                          fontWeight: FontWeight.bold),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis),
-                const Text(
-                  'Chạm xem dọc',
-                  style: TextStyle(fontSize: 8, color: Color(0xFF2563EB)),
-                ),
-              ],
+            child: AttendanceFrozenEmployeeNameCell(
+              name: empName,
+              subtext: sub,
+              subtextColor: subtextColor,
             ),
           ),
         ),

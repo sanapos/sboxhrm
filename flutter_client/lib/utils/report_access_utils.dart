@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../models/hrm.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import 'salary_profile_load_utils.dart';
@@ -196,6 +197,62 @@ bool isApprovedPenaltyStatus(dynamic raw) {
   if (raw is int) return raw == 1 || raw == 3;
   final key = raw?.toString().toLowerCase().trim() ?? '';
   return key == 'approved' || key == 'autoapproved' || key == '1' || key == '3';
+}
+
+/// Phiếu hủy / từ chối — không tính vào KPI báo cáo (trừ khi lọc đúng trạng thái đó).
+bool isVoidAdvanceRequestStatus(AdvanceRequestStatus s) =>
+    s == AdvanceRequestStatus.cancelled ||
+    s == AdvanceRequestStatus.rejected;
+
+bool isVoidPenaltyTicketStatus(dynamic raw) {
+  if (raw is int) return raw == 2;
+  final key = raw?.toString().toLowerCase().trim() ?? '';
+  return key == 'cancelled' || key == 'canceled' || key == '2';
+}
+
+int normalizeLeaveReportStatus(dynamic s) {
+  if (s == null) return 0;
+  if (s is int) return s;
+  final str = s.toString().toLowerCase();
+  if (str == '0' || str == 'pending') return 0;
+  if (str == '1' || str == 'approved') return 1;
+  if (str == '2' || str == 'rejected') return 2;
+  if (str == '3' || str == 'cancelled') return 3;
+  return int.tryParse(str) ?? 0;
+}
+
+bool isVoidLeaveReportStatus(int s) => s == 2 || s == 3;
+
+List<AdvanceRequest> advanceRowsForReportStats(
+  List<AdvanceRequest> rows,
+  AdvanceRequestStatus? statusFilter,
+) {
+  if (statusFilter == AdvanceRequestStatus.cancelled ||
+      statusFilter == AdvanceRequestStatus.rejected) {
+    return rows;
+  }
+  return rows.where((r) => !isVoidAdvanceRequestStatus(r.status)).toList();
+}
+
+List<Map<String, dynamic>> penaltyRowsForReportStats(
+  List<Map<String, dynamic>> rows,
+  String? statusFilter,
+) {
+  if (statusFilter != null) {
+    final f = statusFilter.toLowerCase();
+    if (f == 'cancelled' || f == 'canceled' || f == '2') return rows;
+  }
+  return rows.where((t) => !isVoidPenaltyTicketStatus(t['status'])).toList();
+}
+
+List<Map<String, dynamic>> leaveRowsForReportStats(
+  List<Map<String, dynamic>> rows,
+  int? statusFilter,
+) {
+  if (statusFilter == 2 || statusFilter == 3) return rows;
+  return rows
+      .where((l) => !isVoidLeaveReportStatus(normalizeLeaveReportStatus(l['status'])))
+      .toList();
 }
 
 Color penaltyStatusColor(dynamic raw) {

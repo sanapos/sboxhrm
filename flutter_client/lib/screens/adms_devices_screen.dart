@@ -10,6 +10,7 @@ import '../utils/responsive_helper.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/app_button.dart';
 import 'main_layout.dart' show ScreenRefreshNotifier;
+import '../utils/device_setup_guide.dart';
 import '../widgets/hrm_page_chrome.dart';
 
 enum DeviceFilter {
@@ -627,7 +628,7 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
           Text(
             _searchQuery.isNotEmpty
                 ? 'Thử tìm kiếm với từ khóa khác'
-                : 'Khi máy chấm công kết nối đến server,\nnó sẽ tự động xuất hiện ở đây',
+                : DeviceSetupGuide.emptyStateHint,
             textAlign: TextAlign.center,
             style: const TextStyle(color: Color(0xFFA1A1AA), fontSize: 14),
           ),
@@ -885,7 +886,7 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
                         HrmPageChrome.primaryNavy.withValues(alpha: 0.3);
                   } else if (device.hasNeverConnected) {
                     noteText =
-                        'Thiết bị này chưa từng kết nối đến server. Vui lòng kiểm tra cấu hình mạng trên máy chấm công.';
+                        'Thiết bị này chưa từng kết nối đến server.\n${DeviceSetupGuide.configureBeforeConnect}';
                     noteColor = Colors.orange.shade800;
                     noteBorderColor = Colors.orange.withValues(alpha: 0.3);
                   } else {

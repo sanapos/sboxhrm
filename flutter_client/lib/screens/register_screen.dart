@@ -1,6 +1,52 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
 import '../services/api_service.dart';
 import 'store_success_screen.dart';
+
+String _sanitizeStoreLoginNameInput(String input) {
+  var code = input.toLowerCase();
+  code = _removeVietnameseAccentsForLoginName(code);
+  code = code.replaceAll(RegExp(r'[^a-z0-9]'), '');
+  if (code.length > 20) code = code.substring(0, 20);
+  return code;
+}
+
+String _removeVietnameseAccentsForLoginName(String text) {
+  const vietnamese = [
+    'aàảãáạăằẳẵắặâầẩẫấậ',
+    'dđ',
+    'eèẻẽéẹêềểễếệ',
+    'iìỉĩíị',
+    'oòỏõóọôồổỗốộơờởỡớợ',
+    'uùủũúụưừửữứự',
+    'yỳỷỹýỵ',
+  ];
+  for (final chars in vietnamese) {
+    for (int i = 1; i < chars.length; i++) {
+      text = text.replaceAll(chars[i], chars[0]);
+    }
+  }
+  return text;
+}
+
+class _StoreLoginNameInputFormatter extends TextInputFormatter {
+  const _StoreLoginNameInputFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final text = _sanitizeStoreLoginNameInput(newValue.text);
+    if (text == newValue.text) return newValue;
+    final offset = newValue.selection.baseOffset.clamp(0, text.length);
+    return TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: offset),
+    );
+  }
+}
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -153,31 +199,8 @@ class _RegisterScreenState extends State<RegisterScreen>
     }
   }
 
-  static String _generateLoginName(String storeName) {
-    var code = storeName.toLowerCase().trim();
-    code = _removeVietnameseAccents(code);
-    code = code.replaceAll(RegExp(r'[^a-z0-9]'), '');
-    if (code.length > 20) code = code.substring(0, 20);
-    return code;
-  }
-
-  static String _removeVietnameseAccents(String text) {
-    const vietnamese = [
-      'aàảãáạăằẳẵắặâầẩẫấậ',
-      'dđ',
-      'eèẻẽéẹêềểễếệ',
-      'iìỉĩíị',
-      'oòỏõóọôồổỗốộơờởỡớợ',
-      'uùủũúụưừửữứự',
-      'yỳỷỹýỵ',
-    ];
-    for (final chars in vietnamese) {
-      for (int i = 1; i < chars.length; i++) {
-        text = text.replaceAll(chars[i], chars[0]);
-      }
-    }
-    return text;
-  }
+  static String _generateLoginName(String storeName) =>
+      _sanitizeStoreLoginNameInput(storeName);
 
   @override
   void dispose() {
@@ -570,9 +593,11 @@ class _RegisterScreenState extends State<RegisterScreen>
                         const SizedBox(height: 8),
                         _buildField(
                           controller: _loginNameController,
-                          hint: 'Tự động tạo từ tên doanh nghiệp',
+                          hint: 'Ví dụ: sanapos — chỉ chữ và số, không dấu',
                           icon: Icons.badge_rounded,
-                          onChanged: (value) {
+                          inputFormatters: const [_StoreLoginNameInputFormatter()],
+                          maxLength: 20,
+                          onChanged: (_) {
                             if (!_loginNameManuallyEdited) {
                               setState(() => _loginNameManuallyEdited = true);
                             }
@@ -600,7 +625,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                               return 'Tên đăng nhập phải có ít nhất 2 ký tự';
                             }
                             if (!RegExp(r'^[a-z0-9]+$').hasMatch(v)) {
-                              return 'Chỉ chấp nhận chữ thường và số, không dấu';
+                              return 'Chỉ nhập liền không dấu, không khoảng trắng (a-z, 0-9)';
                             }
                             return null;
                           },
@@ -1035,6 +1060,8 @@ class _RegisterScreenState extends State<RegisterScreen>
     TextInputType? keyboardType,
     bool obscure = false,
     Widget? suffixIcon,
+    List<TextInputFormatter>? inputFormatters,
+    int? maxLength,
     ValueChanged<String>? onChanged,
     String? Function(String?)? validator,
   }) {
@@ -1043,6 +1070,12 @@ class _RegisterScreenState extends State<RegisterScreen>
       keyboardType: keyboardType,
       obscureText: obscure,
       onChanged: onChanged,
+      inputFormatters: inputFormatters,
+      maxLength: maxLength,
+      buildCounter: maxLength == null
+          ? null
+          : (_, {required currentLength, required isFocused, maxLength}) =>
+              null,
       style: const TextStyle(color: Color(0xFF2B3437), fontSize: 15),
       validator: validator,
       decoration: InputDecoration(

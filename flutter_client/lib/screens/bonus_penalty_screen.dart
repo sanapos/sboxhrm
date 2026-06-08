@@ -3,6 +3,7 @@ import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:intl/intl.dart';
 import '../l10n/app_localizations.dart';
 import '../services/api_service.dart';
+import '../utils/api_datetime.dart';
 import '../utils/number_formatter.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
@@ -1221,8 +1222,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
         final empName = tx['employeeName']?.toString() ?? '';
         final empCode = tx['employeeCode']?.toString() ?? '';
         final date =
-            DateTime.tryParse(tx['transactionDate']?.toString() ?? '') ??
-                DateTime.now();
+            parseApiCalendarDate(tx['transactionDate']) ?? DateTime.now();
         final paymentMethod = tx['paymentMethod']?.toString() ?? '';
         final isPaid = _isCashPaid(paymentMethod);
         final isSalary = _isSalaryDisbursement(paymentMethod);
@@ -1473,8 +1473,8 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
     final status = tx['status']?.toString() ?? 'Pending';
     final empName = tx['employeeName']?.toString() ?? '';
     final empCode = tx['employeeCode']?.toString() ?? '';
-    final date = DateTime.tryParse(tx['transactionDate']?.toString() ?? '') ??
-        DateTime.now();
+    final date =
+        parseApiCalendarDate(tx['transactionDate']) ?? DateTime.now();
     final desc = tx['description']?.toString() ?? '';
 
     Color statusColor;
@@ -2197,8 +2197,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
     Set<String> selectedEmployeeIds = {};
     bool selectAll = false;
     DateTime selectedDate = isEdit
-        ? (DateTime.tryParse(editTx['transactionDate']?.toString() ?? '') ??
-            DateTime.now())
+        ? (parseApiCalendarDate(editTx['transactionDate']) ?? DateTime.now())
         : DateTime.now();
     bool isSaving = false;
     String empSearchQuery = '';

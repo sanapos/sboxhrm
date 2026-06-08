@@ -1624,6 +1624,9 @@ public class ReportsController(
                 var approved = empLeaves.Where(l => l.Status == LeaveStatus.Approved).ToList();
                 var rejected = empLeaves.Where(l => l.Status == LeaveStatus.Rejected).ToList();
                 var pending = empLeaves.Where(l => l.Status == LeaveStatus.Pending).ToList();
+                var activeLeaves = empLeaves
+                    .Where(l => l.Status != LeaveStatus.Rejected && l.Status != LeaveStatus.Cancelled)
+                    .ToList();
 
                 var usedDays = 0;
                 foreach (var leave in approved)
@@ -1633,7 +1636,7 @@ public class ReportsController(
                     usedDays += (int)(leaveEnd - leaveStart).TotalDays + 1;
                 }
 
-                totalLeaveRequests += empLeaves.Count;
+                totalLeaveRequests += activeLeaves.Count;
                 totalLeaveDays += usedDays;
                 approvedCount += approved.Count;
                 rejectedCount += rejected.Count;
@@ -1653,7 +1656,7 @@ public class ReportsController(
                     EmployeeName = $"{employee.LastName} {employee.FirstName}".Trim(),
                     DepartmentName = employee.Department ?? "N/A",
                     LeaveType = leaveType,
-                    TotalRequests = empLeaves.Count,
+                    TotalRequests = activeLeaves.Count,
                     TotalDays = usedDays,
                     UsedDays = usedDays,
                     RemainingDays = 12 - usedDays, // Assuming 12 days/year default

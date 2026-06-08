@@ -4,7 +4,7 @@ import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
-
+import '../services/app_permission_service.dart';
 import '../utils/site_photo_watermark.dart';
 import '../widgets/hrm_page_chrome.dart';
 
@@ -50,10 +50,15 @@ class _SitePhotoCaptureScreenState extends State<SitePhotoCaptureScreen> {
       return;
     }
 
-    final camStatus = await Permission.camera.request();
-    if (!camStatus.isGranted) {
+    final camStatus = await AppPermissionService.ensureCameraPermission();
+    final allowed = camStatus.isGranted ||
+        camStatus.isLimited ||
+        await AppPermissionService.hasCameraAccess();
+    if (!allowed) {
       setState(() {
-        _error = 'Cần quyền camera để chụp ảnh hiện trường.';
+        _error = camStatus.isPermanentlyDenied
+            ? 'Cần bật Camera trong Cài đặt > SBOX HRM > Quyền.'
+            : 'Cần quyền camera để chụp ảnh hiện trường.';
         _initializing = false;
       });
       return;

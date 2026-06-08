@@ -15,6 +15,9 @@ class NavigationNotifier {
   static final ValueNotifier<int> scheduleApprovalTab = ValueNotifier<int>(0);
   /// Tab Duyệt chấm công: 0=chỉnh CC, 1=mobile
   static final ValueNotifier<int> attendanceApprovalTab = ValueNotifier<int>(0);
+  /// Tab Cài đặt chấm công mobile: 0=cài đặt, 1=vị trí, 2=thiết bị
+  static final ValueNotifier<int?> mobileAttendanceSettingsTab =
+      ValueNotifier<int?>(null);
   /// Bộ lọc trạng thái khi mở Duyệt chấm công (-1=tất cả, 0=chờ duyệt)
   static final ValueNotifier<int> attendanceApprovalStatusFilter =
       ValueNotifier<int>(-1);

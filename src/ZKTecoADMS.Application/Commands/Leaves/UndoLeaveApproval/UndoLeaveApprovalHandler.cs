@@ -43,7 +43,7 @@ public class UndoLeaveApprovalHandler(
             // Set back to Pending
             leave.Status = LeaveStatus.Pending;
             leave.CurrentApprovalStep = 0;
-            leave.UpdatedAt = DateTime.Now;
+            leave.UpdatedAt = DateTime.UtcNow;
             await leaveRepository.UpdateAsync(leave, cancellationToken);
 
             // Reset all approval records to Pending
@@ -108,7 +108,7 @@ public class UndoLeaveApprovalHandler(
                                     ws.StartTime = shiftTemplate.StartTime;
                                     ws.EndTime = shiftTemplate.EndTime;
                                     ws.Note = null;
-                                    ws.UpdatedAt = DateTime.Now;
+                                    ws.UpdatedAt = DateTime.UtcNow;
                                     await workScheduleRepository.UpdateAsync(ws, cancellationToken);
                                 }
                             }
@@ -127,7 +127,7 @@ public class UndoLeaveApprovalHandler(
                             {
                                 ws.IsDayOff = false;
                                 ws.Note = null;
-                                ws.UpdatedAt = DateTime.Now;
+                                ws.UpdatedAt = DateTime.UtcNow;
                                 await workScheduleRepository.UpdateAsync(ws, cancellationToken);
                             }
                         }
@@ -179,7 +179,7 @@ public class UndoLeaveApprovalHandler(
                                     reg.Status = ScheduleRegistrationStatus.Pending;
                                     reg.ApprovedById = null;
                                     reg.ApprovedDate = null;
-                                    reg.UpdatedAt = DateTime.Now;
+                                    reg.UpdatedAt = DateTime.UtcNow;
                                     await scheduleRegistrationRepository.UpdateAsync(reg, cancellationToken);
                                 }
                             }

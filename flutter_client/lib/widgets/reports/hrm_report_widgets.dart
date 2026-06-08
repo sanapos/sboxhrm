@@ -247,7 +247,7 @@ class ReportTimelineCard extends StatelessWidget {
                         child: Text(title,
                             style: vietnameseTextStyle(const TextStyle(
                                 fontSize: 14, fontWeight: FontWeight.w600)),
-                            maxLines: 2,
+                            maxLines: 1,
                             overflow: TextOverflow.ellipsis),
                       ),
                       if (trailing != null)
@@ -352,6 +352,7 @@ class ReportEmployeeSummaryCard extends StatelessWidget {
                     Text(name,
                         style: vietnameseTextStyle(const TextStyle(
                             fontSize: 14, fontWeight: FontWeight.w600)),
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis),
                     if (meta != null)
                       Text(meta!,

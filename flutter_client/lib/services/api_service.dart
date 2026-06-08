@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart' show MediaType;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api_config.dart';
+import '../utils/app_error_utils.dart';
 import '../utils/attendance_correction_dates.dart';
 
 /// Query phân trang cho API dùng [PaginationRequest] (pageNumber + alias page).
@@ -30,6 +31,9 @@ class ApiService {
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
   ApiService._internal();
+
+  Map<String, dynamic> _connectionFailure(Object e, {String? fallback}) =>
+      AppErrorUtils.apiFailure(e, fallbackMessage: fallback);
 
   // Headers với token
   Map<String, String> get _headers {
@@ -239,10 +243,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('❌ Login error: $e');
-      return {
-        'isSuccess': false,
-        'message': 'Không thể kết nối đến server: $e',
-      };
+      return _connectionFailure(e);
     }
   }
 
@@ -261,10 +262,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('❌ AdminLogin error: $e');
-      return {
-        'isSuccess': false,
-        'message': 'Không thể kết nối đến server: $e'
-      };
+      return _connectionFailure(e);
     }
   }
 
@@ -285,10 +283,7 @@ class ApiService {
           .timeout(const Duration(seconds: 15));
       return _handleResponse(response);
     } catch (e) {
-      return {
-        'isSuccess': false,
-        'message': 'Không thể kết nối đến server: $e'
-      };
+      return _connectionFailure(e);
     }
   }
 
@@ -329,10 +324,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('❌ Register error: $e');
-      return {
-        'isSuccess': false,
-        'message': 'Không thể kết nối đến server: $e',
-      };
+      return _connectionFailure(e);
     }
   }
 
@@ -503,15 +495,7 @@ class ApiService {
       };
     } catch (e) {
       debugPrint('Error creating device: $e');
-      String errorMsg;
-      if (e.toString().contains('TimeoutException')) {
-        errorMsg = 'Server không phản hồi. Vui lòng thử lại.';
-      } else if (e.toString().contains('SocketException')) {
-        errorMsg = 'Không thể kết nối server. Vui lòng kiểm tra kết nối mạng.';
-      } else {
-        errorMsg = 'Lỗi kết nối server: $e';
-      }
-      return {'success': false, 'message': errorMsg};
+      return _connectionFailure(e);
     }
   }
 
@@ -533,7 +517,7 @@ class ApiService {
       };
     } catch (e) {
       debugPrint('Error deleting device: $e');
-      return {'success': false, 'message': 'Lỗi kết nối server: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -689,20 +673,14 @@ class ApiService {
       };
     } catch (e) {
       debugPrint('Error checking serial number: $e');
-      String errorMsg;
-      if (e.toString().contains('TimeoutException') ||
-          e.toString().contains('SocketException')) {
-        errorMsg = 'Không thể kết nối server. Vui lòng kiểm tra kết nối mạng.';
-      } else {
-        errorMsg = 'Lỗi kết nối server: $e';
-      }
+      final fail = _connectionFailure(e);
       return {
         'serialNumber': serialNumber,
         'exists': false,
         'isAvailable': false,
         'isClaimed': false,
         'error': true,
-        'message': errorMsg,
+        'message': fail['message'],
       };
     }
   }
@@ -739,18 +717,7 @@ class ApiService {
       };
     } catch (e) {
       debugPrint('Error claiming device: $e');
-      String errorMsg;
-      if (e.toString().contains('TimeoutException')) {
-        errorMsg = 'Server không phản hồi. Vui lòng thử lại.';
-      } else if (e.toString().contains('SocketException')) {
-        errorMsg = 'Không thể kết nối server. Vui lòng kiểm tra kết nối mạng.';
-      } else {
-        errorMsg = 'Lỗi kết nối server: $e';
-      }
-      return {
-        'success': false,
-        'message': errorMsg,
-      };
+      return _connectionFailure(e);
     }
   }
 
@@ -772,10 +739,7 @@ class ApiService {
       };
     } catch (e) {
       debugPrint('Error unclaiming device: $e');
-      return {
-        'success': false,
-        'message': 'Lỗi kết nối server: $e',
-      };
+      return _connectionFailure(e);
     }
   }
 
@@ -955,7 +919,7 @@ class ApiService {
         'message': 'Export thất bại: ${response.statusCode}'
       };
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -1109,7 +1073,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('❌ Error creating manual attendance: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -1172,7 +1136,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('❌ Error deleting attendance: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -1449,7 +1413,7 @@ class ApiService {
       return data;
     } catch (e) {
       debugPrint('❌ Error creating device user: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -1467,7 +1431,7 @@ class ApiService {
       return data;
     } catch (e) {
       debugPrint('Error updating device user: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -1625,7 +1589,7 @@ class ApiService {
       return data;
     } catch (e) {
       debugPrint('Error syncing employee to device: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -1891,7 +1855,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getting work schedules: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -1915,7 +1879,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getting my work schedules: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -1931,7 +1895,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getting work schedule: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -1950,7 +1914,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error creating work schedule: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -1969,7 +1933,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error bulk creating work schedules: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -1988,7 +1952,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error updating work schedule: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -2005,7 +1969,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error deleting work schedule: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -2049,7 +2013,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('❌ Error creating shift: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -2067,7 +2031,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error updating shift: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -2083,7 +2047,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error deleting shift: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -2118,7 +2082,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getting schedule registrations: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -2143,7 +2107,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getting my schedule registrations: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -2162,7 +2126,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error creating schedule registration: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -2181,7 +2145,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error approving schedule registration: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -2198,7 +2162,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error deleting schedule registration: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -2217,7 +2181,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error undoing schedule registration approval: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -2238,7 +2202,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error sending schedule reminder: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -2257,7 +2221,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error requesting shift coverage: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -2274,7 +2238,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getting staffing quotas: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -2293,7 +2257,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error upserting staffing quota: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -2310,7 +2274,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error deleting staffing quota: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -2367,7 +2331,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error creating salary profile: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -2385,7 +2349,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error updating salary profile: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -2401,7 +2365,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error deleting salary profile: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -2490,7 +2454,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error assigning salary profile: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -2547,7 +2511,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error saving salary settings: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -2581,7 +2545,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error saving attendance settings: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -2615,7 +2579,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error creating allowance: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -2632,7 +2596,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error updating allowance: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -2647,7 +2611,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error deleting allowance: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -2687,7 +2651,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error creating holiday: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -2704,7 +2668,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error updating holiday: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -2719,7 +2683,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error deleting holiday: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -2735,7 +2699,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getting penalty settings: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -2752,7 +2716,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error saving penalty settings: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -2809,7 +2773,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error saving insurance settings: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -2843,7 +2807,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error saving tax settings: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -2881,7 +2845,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error saving employee tax deduction: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -2957,7 +2921,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error saving role permissions: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -2975,7 +2939,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error deleting role: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -3046,7 +3010,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error creating account: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -3063,7 +3027,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error updating account: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -3080,7 +3044,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error toggling account status: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -3097,7 +3061,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error resetting password: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -3120,7 +3084,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error updating own password: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -3135,7 +3099,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error deleting account: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -3222,7 +3186,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error marking notification as read: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -3238,7 +3202,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error marking all notifications as read: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -3254,7 +3218,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error deleting notification: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -3274,7 +3238,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error deleting all notifications: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -3309,7 +3273,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error creating notification: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -3327,7 +3291,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getting work locations: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -3344,7 +3308,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getting registration locations: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -3363,7 +3327,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getting punch work locations: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -3380,7 +3344,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getting location employees: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -3408,7 +3372,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error setting location employees: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -3447,7 +3411,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error adding work location: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -3487,7 +3451,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error updating work location: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -3503,7 +3467,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error deleting work location: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -3519,7 +3483,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getting face registrations: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -3547,7 +3511,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error registering face: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -3563,7 +3527,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error deleting face registration: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -3579,7 +3543,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getting authorized devices: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -3638,7 +3602,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error registering mobile device: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -3679,7 +3643,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error requesting device change: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -3696,7 +3660,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getting device change request: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -3712,7 +3676,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getting device change requests: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -3738,7 +3702,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error approving device change: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -3771,7 +3735,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getting device status: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -3798,7 +3762,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error approving device: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -3819,7 +3783,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error setDeviceRequirePhotoProof: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -3858,7 +3822,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error authorizing device: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -3874,7 +3838,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error revoking device: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -3927,7 +3891,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error submitting mobile attendance: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -3989,7 +3953,7 @@ class ApiService {
       return result;
     } catch (e) {
       debugPrint('Error uploading site photo: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -4005,7 +3969,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getting mobile attendance record: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -4034,7 +3998,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getting mobile attendance history: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -4050,7 +4014,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getting pending mobile attendance: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -4076,7 +4040,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error approving mobile attendance: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -4092,7 +4056,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getting my mobile settings: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -4108,7 +4072,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getting mobile attendance settings: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -4166,7 +4130,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error updating mobile attendance settings: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -4186,7 +4150,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error checking wifi: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -4211,7 +4175,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error verifying face: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -4244,7 +4208,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getting advance requests: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -4276,7 +4240,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error creating advance request: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -4300,7 +4264,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error approving advance request: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -4315,7 +4279,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error undoing advance request approval: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -4333,7 +4297,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error paying advance request: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -4347,7 +4311,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error deleting advance request: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -4361,7 +4325,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error cancelling advance request: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -4395,7 +4359,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getting assets: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -4455,7 +4419,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error creating asset: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -4515,7 +4479,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error updating asset: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -4528,7 +4492,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error deleting asset: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -4541,7 +4505,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getting asset categories: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -4567,7 +4531,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error creating asset category: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -4593,7 +4557,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error updating asset category: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -4606,7 +4570,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error deleting asset category: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -4619,7 +4583,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getting asset transfers: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -4645,7 +4609,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error assigning asset: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -4673,7 +4637,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error transferring asset: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -4701,7 +4665,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error returning asset: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -4717,7 +4681,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error confirming asset transfer: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -4730,7 +4694,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getting asset inventories: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -4767,7 +4731,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error creating asset inventory: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -4780,7 +4744,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getting asset inventory history: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -4793,7 +4757,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getting asset statistics: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -4819,7 +4783,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -4840,7 +4804,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -4863,7 +4827,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -4876,7 +4840,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -4887,7 +4851,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -4899,7 +4863,7 @@ class ApiService {
       );
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -4916,7 +4880,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -4933,7 +4897,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -4954,7 +4918,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getAssetReportSummary: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -4977,7 +4941,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getAssetReportRegister: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -4998,7 +4962,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getAssetReportAssignments: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -5017,7 +4981,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getAssetReportTransfers: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -5040,7 +5004,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getAssetReportStockLedger: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -5065,7 +5029,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getAssetReportInventoryVariance: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -5084,7 +5048,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getAssetReportWarrantyExpiring: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -5098,7 +5062,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error looking up asset: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -5111,7 +5075,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getting inventory detail: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -5148,7 +5112,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error checking inventory item: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -5186,7 +5150,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error scanning inventory item: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -5199,7 +5163,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error completing inventory: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -5212,7 +5176,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error cancelling inventory: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -5225,7 +5189,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error deleting inventory: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -5417,7 +5381,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getting transactions: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -5432,7 +5396,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error creating transaction: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -5447,7 +5411,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error updating transaction: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -5460,7 +5424,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error deleting transaction: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -5482,7 +5446,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error updating transaction status: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -5502,7 +5466,7 @@ class ApiService {
       );
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -5516,7 +5480,7 @@ class ApiService {
       );
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -5552,7 +5516,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error creating content category: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -5567,7 +5531,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error updating content category: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -5580,7 +5544,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error deleting content category: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -5614,7 +5578,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getting communications: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -5629,7 +5593,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error creating communication: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -5644,7 +5608,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error updating communication: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -5657,7 +5621,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error deleting communication: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -5670,7 +5634,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error publishing communication: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -5717,7 +5681,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error uploading communication image: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -5761,7 +5725,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -5777,7 +5741,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -5787,7 +5751,7 @@ class ApiService {
           .get(Uri.parse('$baseUrl/api/Departments/select'), headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -5814,7 +5778,7 @@ class ApiService {
           headers: _headers, body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -5845,7 +5809,7 @@ class ApiService {
           headers: _headers, body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -5855,7 +5819,7 @@ class ApiService {
           .delete(Uri.parse('$baseUrl/api/Departments/$id'), headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -5871,7 +5835,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -5881,7 +5845,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -5891,7 +5855,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -5901,7 +5865,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -5911,7 +5875,7 @@ class ApiService {
           headers: _headers, body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -5922,7 +5886,7 @@ class ApiService {
           headers: _headers, body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -5933,7 +5897,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -5943,7 +5907,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -5954,7 +5918,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -5967,7 +5931,7 @@ class ApiService {
           body: jsonEncode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -5980,7 +5944,7 @@ class ApiService {
           body: jsonEncode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -5991,7 +5955,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6002,7 +5966,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6028,7 +5992,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6055,7 +6019,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6073,7 +6037,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6117,7 +6081,7 @@ class ApiService {
           headers: _headers, body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6159,7 +6123,7 @@ class ApiService {
           headers: _headers, body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6169,7 +6133,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6181,7 +6145,7 @@ class ApiService {
       );
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6196,7 +6160,7 @@ class ApiService {
           body: body);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6208,7 +6172,7 @@ class ApiService {
           body: json.encode({'rejectionReason': reason ?? ''}));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6219,7 +6183,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6230,7 +6194,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6250,7 +6214,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6284,7 +6248,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6334,7 +6298,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6353,7 +6317,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6371,7 +6335,7 @@ class ApiService {
           ).timeout(const Duration(seconds: 30)));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6382,7 +6346,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6393,7 +6357,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6434,7 +6398,7 @@ class ApiService {
       final response = await _get(uri);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6445,7 +6409,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6457,7 +6421,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6467,7 +6431,7 @@ class ApiService {
           await _delete(Uri.parse('$baseUrl/api/CashTransactions/$id'));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6489,7 +6453,7 @@ class ApiService {
       final response = await _get(uri);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6499,7 +6463,7 @@ class ApiService {
           await _get(Uri.parse('$baseUrl/api/CashTransactions/fund-balances'));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6511,7 +6475,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6521,7 +6485,7 @@ class ApiService {
           Uri.parse('$baseUrl/api/CashTransactions/fund-transfers/$id'));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6536,7 +6500,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6559,7 +6523,7 @@ class ApiService {
       final response = await _get(uri);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6570,7 +6534,7 @@ class ApiService {
           await _get(Uri.parse('$baseUrl/api/TransactionCategories'));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6582,7 +6546,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6594,7 +6558,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6604,7 +6568,7 @@ class ApiService {
           Uri.parse('$baseUrl/api/TransactionCategories/$id'));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6614,7 +6578,7 @@ class ApiService {
           Uri.parse('$baseUrl/api/TransactionCategories/init-default'));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6625,7 +6589,7 @@ class ApiService {
           Uri.parse('$baseUrl/api/TransactionCategories/repair-encoding'));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6635,7 +6599,7 @@ class ApiService {
       final response = await _get(Uri.parse('$baseUrl/api/BankAccounts'));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6646,7 +6610,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6657,7 +6621,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6667,7 +6631,7 @@ class ApiService {
           await _put(Uri.parse('$baseUrl/api/BankAccounts/$id/set-default'));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6677,7 +6641,7 @@ class ApiService {
           await _delete(Uri.parse('$baseUrl/api/BankAccounts/$id'));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6687,7 +6651,7 @@ class ApiService {
           await _get(Uri.parse('$baseUrl/api/BankAccounts/vietqr-banks'));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6698,7 +6662,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6708,7 +6672,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6718,7 +6682,7 @@ class ApiService {
           .get(Uri.parse('$baseUrl/api/orgchart/positions'), headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6731,7 +6695,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6742,7 +6706,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6755,7 +6719,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6768,7 +6732,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6781,7 +6745,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6792,7 +6756,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6803,7 +6767,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6816,7 +6780,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6829,7 +6793,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6840,7 +6804,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6851,7 +6815,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6895,7 +6859,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6905,7 +6869,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6928,7 +6892,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6964,7 +6928,7 @@ class ApiService {
           headers: _headers, body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6980,7 +6944,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -6996,7 +6960,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7013,7 +6977,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7030,7 +6994,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7040,7 +7004,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7052,7 +7016,7 @@ class ApiService {
           body: json.encode({'taskIds': taskIds}));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7072,7 +7036,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7101,7 +7065,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7112,7 +7076,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7128,7 +7092,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7139,7 +7103,7 @@ class ApiService {
           headers: _headers, body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7159,7 +7123,7 @@ class ApiService {
               }));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7170,7 +7134,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7191,7 +7155,7 @@ class ApiService {
               }));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7202,7 +7166,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7220,7 +7184,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getTaskAssignmentDashboard: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7235,7 +7199,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error acceptTask: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7249,7 +7213,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error rejectTask: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7319,7 +7283,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7335,7 +7299,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7363,7 +7327,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7387,7 +7351,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7412,7 +7376,7 @@ class ApiService {
         'message': 'Export failed: ${response.statusCode}'
       };
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7434,7 +7398,7 @@ class ApiService {
         'message': 'Export failed: ${response.statusCode}'
       };
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7468,7 +7432,7 @@ class ApiService {
         'message': 'Export failed: ${response.statusCode}'
       };
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7493,7 +7457,7 @@ class ApiService {
         'message': 'Export failed: ${response.statusCode}'
       };
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7515,7 +7479,7 @@ class ApiService {
         'message': 'Export failed: ${response.statusCode}'
       };
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7549,7 +7513,7 @@ class ApiService {
         'message': 'Export failed: ${response.statusCode}'
       };
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7570,7 +7534,7 @@ class ApiService {
         'message': 'Export failed: ${response.statusCode}'
       };
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7600,7 +7564,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7629,7 +7593,7 @@ class ApiService {
         'message': 'Export failed: ${response.statusCode}'
       };
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7653,7 +7617,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7682,7 +7646,7 @@ class ApiService {
         'message': 'Export failed: ${response.statusCode}'
       };
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7696,7 +7660,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7709,7 +7673,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7722,7 +7686,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7735,7 +7699,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7746,7 +7710,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7758,7 +7722,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7773,7 +7737,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7806,7 +7770,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7839,7 +7803,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7850,7 +7814,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7863,7 +7827,7 @@ class ApiService {
           body: body);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7874,7 +7838,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7896,7 +7860,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7914,7 +7878,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7931,7 +7895,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7943,7 +7907,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7954,7 +7918,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7968,7 +7932,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7979,7 +7943,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -7992,7 +7956,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8005,7 +7969,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8016,7 +7980,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8029,7 +7993,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8041,7 +8005,7 @@ class ApiService {
           body: json.encode({'days': days}));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8054,7 +8018,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8067,7 +8031,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8080,7 +8044,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8091,7 +8055,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8104,7 +8068,7 @@ class ApiService {
           body: json.encode({'licenseKeys': licenseKeys}));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8118,7 +8082,7 @@ class ApiService {
           body: json.encode({'licenseKeys': licenseKeys}));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8143,7 +8107,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8175,7 +8139,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8193,7 +8157,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8206,7 +8170,7 @@ class ApiService {
           body: json.encode({'role': role}));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8217,7 +8181,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8244,7 +8208,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8284,7 +8248,7 @@ class ApiService {
           body: json.encode(data)));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8296,7 +8260,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8309,7 +8273,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8341,7 +8305,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8367,7 +8331,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8393,7 +8357,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8404,7 +8368,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8415,7 +8379,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8430,7 +8394,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8454,7 +8418,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8468,7 +8432,7 @@ class ApiService {
               .encode({'licenseKeyIds': licenseKeyIds, 'agentId': agentId}));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8491,7 +8455,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8505,7 +8469,7 @@ class ApiService {
               .encode({'licenseKeyIds': licenseKeyIds, 'storeId': storeId}));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8537,7 +8501,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8548,7 +8512,7 @@ class ApiService {
           await http.get(uri, headers: {'Content-Type': 'application/json'});
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8580,7 +8544,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8608,7 +8572,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8624,7 +8588,7 @@ class ApiService {
           body: body);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8635,7 +8599,7 @@ class ApiService {
           .get(Uri.parse('$baseUrl/api/settings/app/$key'), headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8661,7 +8625,7 @@ class ApiService {
           headers: _headers, body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8672,7 +8636,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8683,7 +8647,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8696,7 +8660,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8735,7 +8699,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8746,7 +8710,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8757,7 +8721,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8769,7 +8733,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8780,7 +8744,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8791,7 +8755,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8802,7 +8766,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8813,7 +8777,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8826,7 +8790,7 @@ class ApiService {
       );
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8839,7 +8803,7 @@ class ApiService {
       );
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8856,7 +8820,7 @@ class ApiService {
       );
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8868,7 +8832,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8896,7 +8860,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8908,7 +8872,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8935,7 +8899,7 @@ class ApiService {
           }));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8954,7 +8918,7 @@ class ApiService {
               }));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8965,7 +8929,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8978,7 +8942,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -8989,7 +8953,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9000,7 +8964,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9013,7 +8977,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9024,7 +8988,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9038,7 +9002,7 @@ class ApiService {
           body: json.encode({'storeCode': storeCode, 'email': email}));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9056,7 +9020,7 @@ class ApiService {
               }));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9074,7 +9038,7 @@ class ApiService {
           }));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9097,7 +9061,7 @@ class ApiService {
       final response = await http.delete(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9120,7 +9084,7 @@ class ApiService {
           body: body.isNotEmpty ? json.encode(body) : null);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9133,7 +9097,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getting communication stats: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9144,7 +9108,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getting communication detail: $e');
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9160,7 +9124,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9173,7 +9137,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9184,7 +9148,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9200,7 +9164,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9219,7 +9183,7 @@ class ApiService {
       final response = await http.Response.fromStream(streamedResponse);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9237,7 +9201,7 @@ class ApiService {
       final response = await http.Response.fromStream(streamedResponse);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9251,7 +9215,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9311,7 +9275,7 @@ class ApiService {
       final response = await http.Response.fromStream(streamedResponse);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9322,7 +9286,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9333,7 +9297,7 @@ class ApiService {
           headers: _headers, body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9344,7 +9308,7 @@ class ApiService {
           headers: _headers, body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9354,7 +9318,7 @@ class ApiService {
           .delete(Uri.parse('$baseUrl/api/kpi/configs/$id'), headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9364,7 +9328,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9375,7 +9339,7 @@ class ApiService {
           headers: _headers, body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9386,7 +9350,7 @@ class ApiService {
           headers: _headers, body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9399,7 +9363,7 @@ class ApiService {
           body: json.encode({'status': status}));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9409,7 +9373,7 @@ class ApiService {
           .delete(Uri.parse('$baseUrl/api/kpi/periods/$id'), headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9419,7 +9383,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9432,7 +9396,7 @@ class ApiService {
           body: json.encode(rules));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9445,7 +9409,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9455,7 +9419,7 @@ class ApiService {
           headers: _headers, body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9465,7 +9429,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9478,7 +9442,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9491,7 +9455,7 @@ class ApiService {
           body: json.encode({'periodId': periodId, 'targets': targets}));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9502,7 +9466,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9515,7 +9479,7 @@ class ApiService {
           body: json.encode({'periodId': periodId}));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9526,7 +9490,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9539,7 +9503,7 @@ class ApiService {
           body: json.encode({'salaryIds': salaryIds}));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9553,7 +9517,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9567,7 +9531,7 @@ class ApiService {
       );
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9581,7 +9545,7 @@ class ApiService {
       );
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9592,7 +9556,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9603,7 +9567,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9623,7 +9587,7 @@ class ApiService {
       final response = await http.Response.fromStream(streamedResponse);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9635,7 +9599,7 @@ class ApiService {
       );
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9647,7 +9611,7 @@ class ApiService {
       );
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9661,7 +9625,7 @@ class ApiService {
       );
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9715,7 +9679,7 @@ class ApiService {
           }));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9746,7 +9710,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9757,7 +9721,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9767,7 +9731,7 @@ class ApiService {
           headers: _headers, body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9778,7 +9742,7 @@ class ApiService {
           headers: _headers, body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9788,7 +9752,7 @@ class ApiService {
           .delete(Uri.parse('$baseUrl/api/overtimes/$id'), headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9798,7 +9762,7 @@ class ApiService {
           .get(Uri.parse('$baseUrl/api/overtimes/pending'), headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9809,7 +9773,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9822,7 +9786,7 @@ class ApiService {
           body: json.encode({'reason': reason}));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9833,7 +9797,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9844,7 +9808,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9857,7 +9821,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9868,7 +9832,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9878,7 +9842,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9894,7 +9858,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9905,7 +9869,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9916,7 +9880,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9927,7 +9891,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9938,7 +9902,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9966,7 +9930,7 @@ class ApiService {
           headers: _headers, body: json.encode(body));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -9986,7 +9950,7 @@ class ApiService {
           }));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10008,7 +9972,7 @@ class ApiService {
           }));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10018,7 +9982,7 @@ class ApiService {
           .delete(Uri.parse('$baseUrl/api/shiftswaps/$id'), headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10029,7 +9993,7 @@ class ApiService {
           .get(Uri.parse('$baseUrl/api/shifts/my-shifts'), headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10040,7 +10004,7 @@ class ApiService {
           headers: _headers, body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10050,7 +10014,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10060,7 +10024,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10070,7 +10034,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10081,7 +10045,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10093,7 +10057,7 @@ class ApiService {
           body: json.encode({'reason': reason}));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10106,7 +10070,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10118,7 +10082,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10131,7 +10095,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10144,7 +10108,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10155,7 +10119,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10167,7 +10131,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10178,7 +10142,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10196,7 +10160,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10207,7 +10171,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10220,7 +10184,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10231,7 +10195,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10241,7 +10205,7 @@ class ApiService {
           headers: _headers, body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10252,7 +10216,7 @@ class ApiService {
           headers: _headers, body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10262,7 +10226,7 @@ class ApiService {
           .delete(Uri.parse('$baseUrl/api/geofences/$id'), headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10275,7 +10239,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10304,7 +10268,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10315,7 +10279,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10326,7 +10290,7 @@ class ApiService {
           headers: _headers, body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10339,7 +10303,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10350,7 +10314,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10361,7 +10325,7 @@ class ApiService {
           await http.get(Uri.parse('$baseUrl/api/users'), headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10371,7 +10335,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10384,7 +10348,7 @@ class ApiService {
           body: json.encode({'newRole': role})));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10395,7 +10359,7 @@ class ApiService {
           headers: _headers));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10406,7 +10370,7 @@ class ApiService {
           headers: _headers));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10417,7 +10381,7 @@ class ApiService {
           headers: _headers));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10430,7 +10394,7 @@ class ApiService {
           body: json.encode({'newPassword': newPassword ?? ''})));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10443,7 +10407,7 @@ class ApiService {
           body: json.encode(data)));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10453,7 +10417,7 @@ class ApiService {
           .delete(Uri.parse('$baseUrl/api/users/$userId'), headers: _headers));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10692,7 +10656,7 @@ class ApiService {
           .timeout(const Duration(seconds: 120));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10724,7 +10688,7 @@ class ApiService {
           .timeout(const Duration(seconds: 15));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10750,7 +10714,7 @@ class ApiService {
           .timeout(const Duration(seconds: 15));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10765,7 +10729,7 @@ class ApiService {
           .timeout(const Duration(seconds: 10));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10782,7 +10746,7 @@ class ApiService {
           .timeout(const Duration(seconds: 10));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10799,7 +10763,7 @@ class ApiService {
           .timeout(const Duration(seconds: 10));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10824,7 +10788,7 @@ class ApiService {
           .timeout(const Duration(seconds: 10));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10841,7 +10805,7 @@ class ApiService {
           .timeout(const Duration(seconds: 10));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10858,7 +10822,7 @@ class ApiService {
           .timeout(const Duration(seconds: 10));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10873,7 +10837,7 @@ class ApiService {
           .timeout(const Duration(seconds: 10));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10889,7 +10853,7 @@ class ApiService {
           .timeout(const Duration(seconds: 10));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10901,7 +10865,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10924,7 +10888,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10937,7 +10901,7 @@ class ApiService {
           .get(Uri.parse('$baseUrl/api/production/groups'), headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10950,7 +10914,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10963,7 +10927,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10974,7 +10938,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -10988,7 +10952,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11001,7 +10965,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11014,7 +10978,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11025,7 +10989,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11054,7 +11018,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11067,7 +11031,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11080,7 +11044,7 @@ class ApiService {
           body: json.encode({'entries': entries}));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11093,7 +11057,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11104,7 +11068,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11127,7 +11091,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11150,7 +11114,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11165,7 +11129,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11178,7 +11142,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11191,7 +11155,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11204,7 +11168,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11217,7 +11181,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11261,7 +11225,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11298,7 +11262,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11308,7 +11272,7 @@ class ApiService {
           headers: _headers, body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11321,7 +11285,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11334,7 +11298,7 @@ class ApiService {
           body: json.encode({'status': status}));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11344,7 +11308,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11354,7 +11318,7 @@ class ApiService {
           .get(Uri.parse('$baseUrl/api/feedback/managers'), headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11365,7 +11329,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11378,7 +11342,7 @@ class ApiService {
           body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11420,7 +11384,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11431,7 +11395,7 @@ class ApiService {
           headers: _headers, body: jsonEncode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11444,7 +11408,7 @@ class ApiService {
           body: jsonEncode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11455,7 +11419,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11468,7 +11432,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11487,7 +11451,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11509,7 +11473,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11524,7 +11488,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11538,7 +11502,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11548,7 +11512,7 @@ class ApiService {
           headers: _headers, body: jsonEncode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11559,7 +11523,7 @@ class ApiService {
           headers: _headers, body: jsonEncode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11569,7 +11533,7 @@ class ApiService {
           .delete(Uri.parse('$baseUrl/api/meals/menu/$id'), headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11581,7 +11545,7 @@ class ApiService {
           headers: _headers, body: jsonEncode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11594,7 +11558,7 @@ class ApiService {
           body: jsonEncode({'registrations': registrations}));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11616,7 +11580,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11634,7 +11598,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11650,7 +11614,7 @@ class ApiService {
               }));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11668,7 +11632,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11683,7 +11647,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11693,7 +11657,7 @@ class ApiService {
           headers: _headers, body: jsonEncode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11705,7 +11669,7 @@ class ApiService {
           body: jsonEncode({'period': period}));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11717,7 +11681,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11727,7 +11691,7 @@ class ApiService {
           headers: _headers, body: jsonEncode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11740,7 +11704,7 @@ class ApiService {
           body: jsonEncode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11751,7 +11715,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11764,7 +11728,7 @@ class ApiService {
           headers: _headers, body: jsonEncode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11777,7 +11741,7 @@ class ApiService {
           body: jsonEncode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11788,7 +11752,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11808,7 +11772,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11821,7 +11785,7 @@ class ApiService {
           body: jsonEncode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11832,7 +11796,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11856,7 +11820,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11869,7 +11833,7 @@ class ApiService {
           body: jsonEncode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11882,7 +11846,7 @@ class ApiService {
           body: jsonEncode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11893,7 +11857,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11907,7 +11871,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11919,7 +11883,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11932,7 +11896,7 @@ class ApiService {
           body: jsonEncode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11945,7 +11909,7 @@ class ApiService {
           body: jsonEncode({'items': items}));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11958,7 +11922,7 @@ class ApiService {
           body: jsonEncode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11969,7 +11933,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11981,7 +11945,7 @@ class ApiService {
           body: jsonEncode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -11994,7 +11958,7 @@ class ApiService {
           body: jsonEncode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12013,7 +11977,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12024,7 +11988,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12047,7 +12011,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12060,7 +12024,7 @@ class ApiService {
           body: jsonEncode(data));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12077,7 +12041,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12090,7 +12054,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12103,7 +12067,7 @@ class ApiService {
           body: jsonEncode({'points': points}));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12115,7 +12079,7 @@ class ApiService {
           body: jsonEncode({'note': note}));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12126,7 +12090,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12145,7 +12109,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12156,7 +12120,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12167,7 +12131,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12187,7 +12151,7 @@ class ApiService {
           }));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12198,7 +12162,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12211,7 +12175,7 @@ class ApiService {
           body: jsonEncode({'reviewNote': reviewNote}));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12239,7 +12203,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12252,7 +12216,7 @@ class ApiService {
           body: jsonEncode(body));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12263,7 +12227,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12275,7 +12239,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12286,7 +12250,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12297,7 +12261,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12308,7 +12272,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12321,7 +12285,7 @@ class ApiService {
           body: jsonEncode(audience));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12332,7 +12296,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12343,7 +12307,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12354,7 +12318,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12365,7 +12329,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12376,7 +12340,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12391,7 +12355,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12404,7 +12368,7 @@ class ApiService {
           body: jsonEncode(body));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12415,7 +12379,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12426,7 +12390,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12437,7 +12401,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12447,7 +12411,7 @@ class ApiService {
           .get(Uri.parse('$baseUrl/api/maintenance/active'), headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12462,7 +12426,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12475,7 +12439,7 @@ class ApiService {
           body: jsonEncode(body));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12488,7 +12452,7 @@ class ApiService {
           body: jsonEncode(body));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12499,7 +12463,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12512,7 +12476,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12523,7 +12487,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12536,7 +12500,7 @@ class ApiService {
           body: jsonEncode(body));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12547,7 +12511,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12558,7 +12522,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12569,7 +12533,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12583,7 +12547,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12594,7 +12558,7 @@ class ApiService {
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12607,7 +12571,7 @@ class ApiService {
           body: jsonEncode(body));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12622,7 +12586,7 @@ class ApiService {
           headers: _headers, body: jsonEncode(body));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12644,7 +12608,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12657,7 +12621,7 @@ class ApiService {
           body: jsonEncode(body));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12679,7 +12643,7 @@ class ApiService {
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12692,7 +12656,7 @@ class ApiService {
           body: jsonEncode(body));
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 
@@ -12704,7 +12668,7 @@ class ApiService {
       );
       return _handleResponse(response);
     } catch (e) {
-      return {'isSuccess': false, 'message': 'Lỗi kết nối: $e'};
+      return _connectionFailure(e);
     }
   }
 }

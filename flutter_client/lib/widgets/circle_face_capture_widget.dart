@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../services/app_permission_service.dart';
 
 /// iphone-style circular face registration with ML Kit face detection.
 /// Only captures when a face is detected AND matches the required direction.
@@ -52,7 +53,7 @@ enum _FaceStatus {
 enum _AdvanceOutcome { retry, nextStep, allDone }
 
 class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   CameraController? _cameraController;
   bool _isCameraReady = false;
   String? _cameraError;
@@ -131,16 +132,41 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
       vsync: this,
       duration: const Duration(milliseconds: 800),
     );
+    WidgetsBinding.instance.addObserver(this);
     _initCamera();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed &&
+        _cameraError != null &&
+        !_isCameraReady &&
+        mounted) {
+      _initCamera();
+    }
+  }
+
   Future<void> _initCamera() async {
+    if (mounted) {
+      setState(() {
+        _cameraError = null;
+        _isCameraReady = false;
+      });
+    }
     try {
-      final status = await Permission.camera.request();
-      if (status.isDenied || status.isPermanentlyDenied) {
+      final status = await AppPermissionService.ensureCameraPermission();
+      final allowed = status.isGranted ||
+          status.isLimited ||
+          await AppPermissionService.hasCameraAccess();
+      if (!allowed) {
         if (!mounted) return;
-        setState(() => _cameraError =
-            'Cần cấp quyền camera để đăng ký khuôn mặt.\nVui lòng vào Cài đặt > Quyền ứng dụng để cấp quyền.');
+        final needsSettings =
+            status.isPermanentlyDenied || status.isRestricted;
+        setState(() => _cameraError = needsSettings
+            ? 'Cần bật quyền Camera cho SBOX HRM.\n'
+                'Vào Cài đặt > Ứng dụng > SBOX HRM > Quyền > Camera → Cho phép.'
+            : 'Cần cấp quyền camera để đăng ký khuôn mặt.\n'
+                'Nhấn «Thử lại» hoặc cấp quyền khi hệ thống hỏi.');
         return;
       }
 
@@ -393,6 +419,7 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _progressTimer?.cancel();
     _pulseController.dispose();
     _segmentController.dispose();
@@ -1078,13 +1105,27 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 20),
-                      ElevatedButton(
-                        onPressed: () => openAppSettings(),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white24,
-                          foregroundColor: Colors.white,
-                        ),
-                        child: const Text('Mở Cài đặt'),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          ElevatedButton(
+                            onPressed: _initCamera,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white24,
+                              foregroundColor: Colors.white,
+                            ),
+                            child: const Text('Thử lại'),
+                          ),
+                          const SizedBox(width: 12),
+                          ElevatedButton(
+                            onPressed: () => openAppSettings(),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white24,
+                              foregroundColor: Colors.white,
+                            ),
+                            child: const Text('Mở Cài đặt'),
+                          ),
+                        ],
                       ),
                     ],
                   ),

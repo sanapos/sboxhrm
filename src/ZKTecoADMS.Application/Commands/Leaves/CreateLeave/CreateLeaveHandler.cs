@@ -151,7 +151,7 @@ public class CreateLeaveHandler(
 
                 createdLeave.Status = LeaveStatus.Approved;
                 createdLeave.CurrentApprovalStep = totalLevels;
-                createdLeave.UpdatedAt = DateTime.Now;
+                createdLeave.UpdatedAt = DateTime.UtcNow;
                 await leaveRepository.UpdateAsync(createdLeave, cancellationToken);
 
                 var savedRecords = (await approvalRecordRepository.GetAllAsync(
@@ -160,7 +160,7 @@ public class CreateLeaveHandler(
                 foreach (var record in savedRecords)
                 {
                     record.Status = ApprovalStatus.Approved;
-                    record.ActionDate = DateTime.Now;
+                    record.ActionDate = DateTime.UtcNow;
                     record.Note = "Duyệt luôn khi tạo";
                     await approvalRecordRepository.UpdateAsync(record, cancellationToken);
                 }

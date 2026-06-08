@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
+import '../services/app_permission_service.dart';
 import '../widgets/notification_overlay.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -57,6 +58,10 @@ class _LoginScreenState extends State<LoginScreen>
     _animController.forward();
     _loadSavedCredentials();
     _loadPublicSettings();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      AppPermissionService.promptEssentialPermissionsIfNeeded(context);
+    });
   }
 
   Future<void> _loadPublicSettings() async {

@@ -44,7 +44,7 @@ public class CancelLeaveHandler(
             foreach (var record in approvalRecords)
             {
                 record.Status = ApprovalStatus.Cancelled;
-                record.ActionDate = DateTime.Now;
+                record.ActionDate = DateTime.UtcNow;
                 await approvalRecordRepository.UpdateAsync(record, cancellationToken);
             }
 

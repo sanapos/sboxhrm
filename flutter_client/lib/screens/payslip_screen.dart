@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
+import '../utils/api_datetime.dart';
 import '../widgets/hrm_page_chrome.dart';
 
 class PayslipScreen extends StatefulWidget {
@@ -343,10 +344,8 @@ class _PayslipScreenState extends State<PayslipScreen> with SingleTickerProvider
     );
   }
 
-  String _formatDate(dynamic date) {
-    if (date == null) return '';
-    try { return DateFormat('dd/MM/yyyy').format(DateTime.parse(date.toString())); } catch (_) { return date.toString(); }
-  }
+  String _formatDate(dynamic date) =>
+      formatApiDateTime(date, pattern: 'dd/MM/yyyy', empty: '');
 
   String _formatCurrency(dynamic amount) {
     try {

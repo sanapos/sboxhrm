@@ -35,12 +35,12 @@ public static class PenaltyTicketFinanceHelper
                 IsSystem = true,
                 StoreId = ticket.StoreId,
                 IsActive = true,
-                CreatedAt = DateTime.Now
+                CreatedAt = DateTime.UtcNow
             };
             dbContext.TransactionCategories.Add(category);
         }
 
-        var dateStr = DateTime.Now.ToString("yyyyMMdd");
+        var dateStr = DateTime.UtcNow.ToString("yyyyMMdd");
         var txPrefix = $"TC-{dateStr}-";
         var txCount = await dbContext.CashTransactions
             .CountAsync(ct => ct.TransactionCode.StartsWith(txPrefix) && ct.StoreId == ticket.StoreId,
@@ -67,7 +67,7 @@ public static class PenaltyTicketFinanceHelper
             Type = CashTransactionType.Income,
             CategoryId = category.Id,
             Amount = ticket.Amount,
-            TransactionDate = DateTime.Now,
+            TransactionDate = DateTime.UtcNow,
             Description = $"Thu phạt {typeText} - NV {employeeName} - Ngày {ticket.ViolationDate:dd/MM/yyyy} - {ticket.TicketCode}",
             PaymentMethod = PaymentMethodType.Cash,
             Status = CashTransactionStatus.Pending,
@@ -75,7 +75,7 @@ public static class PenaltyTicketFinanceHelper
             StoreId = ticket.StoreId,
             CreatedByUserId = createdByUserId ?? Guid.Empty,
             InternalNote = $"Tạo từ phiếu phạt {ticket.TicketCode}",
-            CreatedAt = DateTime.Now,
+            CreatedAt = DateTime.UtcNow,
             IsActive = true
         };
 
@@ -95,7 +95,7 @@ public static class PenaltyTicketFinanceHelper
         cash.IsPaid = false;
         cash.PaidDate = null;
         cash.IsActive = false;
-        cash.UpdatedAt = DateTime.Now;
+        cash.UpdatedAt = DateTime.UtcNow;
         cash.InternalNote = AppendNote(cash.InternalNote,
             string.IsNullOrWhiteSpace(reason)
                 ? "Hủy theo phiếu phạt"
@@ -111,9 +111,9 @@ public static class PenaltyTicketFinanceHelper
         if (cash == null || cash.Deleted != null)
             return false;
 
-        cash.Deleted = DateTime.Now;
+        cash.Deleted = DateTime.UtcNow;
         cash.IsActive = false;
-        cash.UpdatedAt = DateTime.Now;
+        cash.UpdatedAt = DateTime.UtcNow;
         cash.InternalNote = AppendNote(cash.InternalNote, "Xóa theo phiếu phạt");
         return true;
     }

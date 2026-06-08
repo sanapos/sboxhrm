@@ -291,8 +291,8 @@ public class PenaltyTicketsController(
         ticket.Status = PenaltyTicketStatus.Cancelled;
         ticket.CancellationReason = request.Reason;
         ticket.ProcessedById = CurrentUserId;
-        ticket.ProcessedDate = DateTime.Now;
-        ticket.UpdatedAt = DateTime.Now;
+        ticket.ProcessedDate = DateTime.UtcNow;
+        ticket.UpdatedAt = DateTime.UtcNow;
 
         var linkedCash = ticket.CashTransaction
             ?? await PenaltyTicketFinanceHelper.ResolveLinkedCashTransactionAsync(dbContext, ticket);
@@ -347,8 +347,8 @@ public class PenaltyTicketsController(
 
         ticket.Status = PenaltyTicketStatus.Approved;
         ticket.ProcessedById = CurrentUserId;
-        ticket.ProcessedDate = DateTime.Now;
-        ticket.UpdatedAt = DateTime.Now;
+        ticket.ProcessedDate = DateTime.UtcNow;
+        ticket.UpdatedAt = DateTime.UtcNow;
 
         var cashTransaction = await PenaltyTicketFinanceHelper.CreateCashTransactionAsync(
             dbContext, ticket, CurrentUserId);
@@ -554,8 +554,8 @@ public class PenaltyTicketsController(
             PenaltyTier = 1,
             Description = request.Description ?? $"Phạt thủ công - {employee.LastName} {employee.FirstName}".Trim(),
             StoreId = storeId,
-            CreatedAt = DateTime.Now,
-            UpdatedAt = DateTime.Now
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
         };
 
         dbContext.PenaltyTickets.Add(ticket);
@@ -620,7 +620,7 @@ public class PenaltyTicketsController(
         if (request.Description != null)
             ticket.Description = request.Description;
 
-        ticket.UpdatedAt = DateTime.Now;
+        ticket.UpdatedAt = DateTime.UtcNow;
         dbContext.Update(ticket);
         await dbContext.SaveChangesAsync();
 
@@ -685,8 +685,8 @@ public class PenaltyTicketsController(
 
         await CancelLinkedAttendancePenaltyTransactionsAsync(ticket);
 
-        ticket.Deleted = DateTime.Now;
-        ticket.UpdatedAt = DateTime.Now;
+        ticket.Deleted = DateTime.UtcNow;
+        ticket.UpdatedAt = DateTime.UtcNow;
         dbContext.Update(ticket);
         await dbContext.SaveChangesAsync();
 
@@ -734,7 +734,7 @@ public class PenaltyTicketsController(
         ticket.CashTransactionId = null;
         ticket.ProcessedById = null;
         ticket.ProcessedDate = null;
-        ticket.UpdatedAt = DateTime.Now;
+        ticket.UpdatedAt = DateTime.UtcNow;
         dbContext.Update(ticket);
         await dbContext.SaveChangesAsync();
 

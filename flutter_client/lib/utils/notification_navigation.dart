@@ -11,6 +11,8 @@ class NotificationNavigationTarget {
   final int? scheduleApprovalTab;
   final int? attendanceApprovalTab;
   final int? attendanceApprovalStatusFilter;
+  /// Tab trong [MobileAttendanceSettingsScreen]: 0=cài đặt, 1=vị trí, 2=thiết bị
+  final int? mobileAttendanceSettingsTab;
   /// Mở tab bình luận / báo cáo trong chi tiết công việc
   final bool taskOpenComments;
 
@@ -20,6 +22,7 @@ class NotificationNavigationTarget {
     this.scheduleApprovalTab,
     this.attendanceApprovalTab,
     this.attendanceApprovalStatusFilter,
+    this.mobileAttendanceSettingsTab,
     this.taskOpenComments = false,
   });
 }
@@ -304,6 +307,13 @@ bool _titleLooksLikeEmployeeSelfService(String title) {
       t.contains('bạn có thể chấm công');
 }
 
+/// Thiết lập HRM → Chấm công mobile → tab Thiết bị (duyệt đăng ký / đổi máy).
+const _mobileDeviceManagerSettingsTarget = NotificationNavigationTarget(
+  moduleCode: 'SettingsHub',
+  settingsHubSubIndex: 1,
+  mobileAttendanceSettingsTab: 2,
+);
+
 NotificationNavigationTarget? _mobileDeviceTarget(String? title) {
   if (title != null && title.isNotEmpty) {
     if (_titleLooksLikeEmployeeSelfService(title)) {
@@ -312,16 +322,10 @@ NotificationNavigationTarget? _mobileDeviceTarget(String? title) {
       );
     }
     if (_titleLooksLikeManagerApproval(title)) {
-      return const NotificationNavigationTarget(
-        moduleCode: 'AttendanceApproval',
-        attendanceApprovalTab: 1,
-      );
+      return _mobileDeviceManagerSettingsTarget;
     }
   }
-  return const NotificationNavigationTarget(
-    moduleCode: 'AttendanceApproval',
-    attendanceApprovalTab: 1,
-  );
+  return _mobileDeviceManagerSettingsTarget;
 }
 
 /// Ánh xạ loại thực thể → màn hình SBOX HRM.
@@ -521,6 +525,10 @@ void navigateFromNotification({
   if (target.attendanceApprovalStatusFilter != null) {
     NavigationNotifier.attendanceApprovalStatusFilter.value =
         target.attendanceApprovalStatusFilter!;
+  }
+  if (target.mobileAttendanceSettingsTab != null) {
+    NavigationNotifier.mobileAttendanceSettingsTab.value =
+        target.mobileAttendanceSettingsTab;
   }
   if (relatedEntityId != null && relatedEntityId.isNotEmpty) {
     NavigationNotifier.notificationHighlightId.value = relatedEntityId;

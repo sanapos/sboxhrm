@@ -6,6 +6,7 @@ import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../models/device.dart';
 import '../services/api_service.dart';
+import '../utils/device_setup_guide.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
 
@@ -168,6 +169,11 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
           const Text(
             'Nhập số Serial (SN) trên máy chấm công để kết nối',
             style: TextStyle(color: Color(0xFF71717A), fontSize: 14),
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            DeviceSetupGuide.summary,
+            style: TextStyle(color: Color(0xFF2563EB), fontSize: 13, height: 1.4),
           ),
           const SizedBox(height: 16),
           FilledButton.icon(
@@ -699,7 +705,8 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
                                   } else if (result['isClaimed'] == true) {
                                     checkResult = '❌ Thiết bị đã được đăng ký bởi người khác';
                                   } else if (result['exists'] == false) {
-                                    checkResult = '⚠️ Thiết bị chưa kết nối đến server.\nHãy đảm bảo máy chấm công đã được cấu hình ADMS đúng địa chỉ server và số seri đúng.';
+                                    checkResult =
+                                        '⚠️ Thiết bị chưa kết nối đến server.\n${DeviceSetupGuide.configureBeforeConnect}';
                                   } else {
                                     checkResult = result['message'] ?? 'Không thể kiểm tra';
                                   }

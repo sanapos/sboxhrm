@@ -60,7 +60,11 @@ public class FinanceAnalyticsController(
             if (!string.IsNullOrWhiteSpace(department))
                 rows = rows.Where(r => (r.Department ?? "").Contains(department, StringComparison.OrdinalIgnoreCase)).ToList();
 
-            var byType = rows.GroupBy(r => r.Type)
+            var activeRows = rows
+                .Where(r => r.Status != PenaltyTicketStatus.Cancelled)
+                .ToList();
+
+            var byType = activeRows.GroupBy(r => r.Type)
                 .Select(g => new PenaltyTypeItemDto
                 {
                     Type = g.Key.ToString(),
@@ -78,7 +82,7 @@ public class FinanceAnalyticsController(
                     TotalAmount = g.Sum(x => x.Amount)
                 }).ToList();
 
-            var byEmployee = rows.GroupBy(r => new { r.EmployeeCode, r.FirstName, r.LastName, r.Department })
+            var byEmployee = activeRows.GroupBy(r => new { r.EmployeeCode, r.FirstName, r.LastName, r.Department })
                 .Select(g => new PenaltyEmployeeItemDto
                 {
                     EmployeeCode = g.Key.EmployeeCode,
@@ -100,9 +104,9 @@ public class FinanceAnalyticsController(
             {
                 From = ReportHelpers.ToVn(fromUtc),
                 To = ReportHelpers.ToVn(toUtc.AddTicks(-1)),
-                TotalTickets = rows.Count,
-                TotalAmount = rows.Sum(r => r.Amount),
-                ApprovedAmount = rows.Where(r => r.Status == PenaltyTicketStatus.Approved || r.Status == PenaltyTicketStatus.AutoApproved).Sum(r => r.Amount),
+                TotalTickets = activeRows.Count,
+                TotalAmount = activeRows.Sum(r => r.Amount),
+                ApprovedAmount = activeRows.Where(r => r.Status == PenaltyTicketStatus.Approved || r.Status == PenaltyTicketStatus.AutoApproved).Sum(r => r.Amount),
                 CancelledAmount = rows.Where(r => r.Status == PenaltyTicketStatus.Cancelled).Sum(r => r.Amount),
                 ByType = byType,
                 ByStatus = byStatus,
@@ -182,13 +186,16 @@ public class FinanceAnalyticsController(
             if (!string.IsNullOrWhiteSpace(department))
                 rows = rows.Where(r => (r.Department ?? "").Contains(department, StringComparison.OrdinalIgnoreCase)).ToList();
 
-            var approvedButUnpaid = rows.Where(r => r.Status == AdvanceRequestStatus.Approved && !r.IsPaid).Sum(r => r.Amount);
-            var paid = rows.Where(r => r.IsPaid).Sum(r => r.Amount);
-            var pending = rows.Where(r => r.Status == AdvanceRequestStatus.Pending).Sum(r => r.Amount);
+            var activeRows = rows
+                .Where(r => r.Status != AdvanceRequestStatus.Rejected && r.Status != AdvanceRequestStatus.Cancelled)
+                .ToList();
+
+            var approvedButUnpaid = activeRows.Where(r => r.Status == AdvanceRequestStatus.Approved && !r.IsPaid).Sum(r => r.Amount);
+            var paid = activeRows.Where(r => r.IsPaid).Sum(r => r.Amount);
+            var pending = activeRows.Where(r => r.Status == AdvanceRequestStatus.Pending).Sum(r => r.Amount);
             var rejected = rows.Where(r => r.Status == AdvanceRequestStatus.Rejected).Sum(r => r.Amount);
 
-            var byEmployee = rows
-                .Where(r => r.Status != AdvanceRequestStatus.Rejected && r.Status != AdvanceRequestStatus.Cancelled)
+            var byEmployee = activeRows
                 .GroupBy(r => new { r.EmployeeCode, r.FirstName, r.LastName, r.Department })
                 .Select(g => new AdvanceDebtEmployeeDto
                 {
@@ -207,7 +214,7 @@ public class FinanceAnalyticsController(
             {
                 From = ReportHelpers.ToVn(fromUtc),
                 To = ReportHelpers.ToVn(toUtc.AddTicks(-1)),
-                TotalRequests = rows.Count,
+                TotalRequests = activeRows.Count,
                 PendingAmount = pending,
                 ApprovedUnpaid = approvedButUnpaid,
                 PaidAmount = paid,

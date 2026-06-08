@@ -101,7 +101,7 @@ public class UpdateLeaveHandler(
             leave.Reason = request.Reason;
             leave.ReplacementEmployeeId = request.ReplacementEmployeeId;
             leave.EmployeeId = request.EmployeeId;
-            leave.UpdatedAt = DateTime.Now;
+            leave.UpdatedAt = DateTime.UtcNow;
 
             // Managers can update status
             if (request.IsManager && request.Status.HasValue)

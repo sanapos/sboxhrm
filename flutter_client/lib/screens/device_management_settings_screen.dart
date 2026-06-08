@@ -5,6 +5,7 @@ import '../providers/permission_provider.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../services/api_service.dart';
+import '../utils/device_setup_guide.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/hrm_mini_stat_chip.dart';
 import '../widgets/hrm_page_chrome.dart';
@@ -299,7 +300,8 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
                 }
               } else {
                 setDialogState(() {
-                  serialError = 'Thiết bị chưa từng kết nối đến server.\nVui lòng cấu hình máy chấm công trỏ về server trước.';
+                  serialError =
+                      'Thiết bị chưa từng kết nối đến server.\n${DeviceSetupGuide.configureBeforeConnect}';
                   serialSuccess = null;
                   isCheckingSerial = false;
                 });
@@ -347,7 +349,8 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
                 if (!ctx.mounted) return;
                 if (result['exists'] != true) {
                   setDialogState(() {
-                    serialError = 'Thiết bị chưa từng kết nối đến server.\nVui lòng cấu hình máy chấm công trỏ về server trước.';
+                    serialError =
+                      'Thiết bị chưa từng kết nối đến server.\n${DeviceSetupGuide.configureBeforeConnect}';
                     isCheckingSerial = false;
                   });
                   return;
@@ -629,6 +632,8 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildHeader(),
+                    const SizedBox(height: 16),
+                    _buildSetupGuideCard(),
                     const SizedBox(height: 20),
                     _buildSummaryCards(),
                     const SizedBox(height: 20),
@@ -746,6 +751,49 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
                           horizontal: 20, vertical: 14),
                     ),
                   ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSetupGuideCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFF6FF),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFBFDBFE)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.info_outline, color: Color(0xFF2563EB), size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                Text(
+                  'Hướng dẫn cấu hình máy chấm công',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                    color: Color(0xFF1E3A8A),
+                  ),
+                ),
+                SizedBox(height: 6),
+                Text(
+                  DeviceSetupGuide.summary,
+                  style: TextStyle(
+                    fontSize: 13,
+                    height: 1.45,
+                    color: Color(0xFF1E40AF),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );

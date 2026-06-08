@@ -948,7 +948,7 @@ class _GuideSubTabState extends State<_GuideSubTab> {
     ),
     (
       'Cài đặt thiết bị',
-      'Kết nối máy chấm công ZKTeco vào mạng nội bộ, cấu hình IP server. Hỗ trợ cài đặt từ xa qua Zalo/Teamviewer.'
+      'Trên máy ZKTeco: Thiết lập liên kết → Máy chủ đám mây. Địa chỉ máy chủ: 103.133.224.176, Port: 7070. Hỗ trợ cài đặt từ xa qua Zalo.'
     ),
     (
       'Thêm nhân viên',

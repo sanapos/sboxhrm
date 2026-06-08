@@ -345,6 +345,7 @@ public class CashTransactionsController(
         transaction.Tags = request.Tags;
         transaction.LastModified = DateTime.UtcNow;
 
+        var wasPaid = transaction.IsPaid;
         if (request.IsPaid && !transaction.IsPaid)
         {
             transaction.IsPaid = true;
@@ -358,6 +359,17 @@ public class CashTransactionsController(
         }
 
         await context.SaveChangesAsync();
+
+        if (!wasPaid && transaction.IsPaid)
+        {
+            try
+            {
+                await CashTransactionLinkageHelper.ApplyOnCashPaidAsync(
+                    context, notificationService, transaction, CurrentUserId, storeId);
+            }
+            catch { /* best-effort */ }
+        }
+
         return await GetTransaction(id);
     }
 
@@ -381,6 +393,7 @@ public class CashTransactionsController(
         if (transaction == null)
             return NotFound(AppResponse<CashTransactionDto>.Error("Không tìm thấy giao dịch"));
 
+        var wasPaid = transaction.IsPaid;
         transaction.Status = request.Status;
         transaction.LastModified = DateTime.UtcNow;
 
@@ -424,6 +437,16 @@ public class CashTransactionsController(
         }
 
         await context.SaveChangesAsync();
+
+        if (!wasPaid && transaction.IsPaid)
+        {
+            try
+            {
+                await CashTransactionLinkageHelper.ApplyOnCashPaidAsync(
+                    context, notificationService, transaction, CurrentUserId, storeId);
+            }
+            catch { /* best-effort */ }
+        }
 
         // Notify the creator if someone else changes the status
         try
@@ -472,35 +495,31 @@ public class CashTransactionsController(
         transaction.Deleted = DateTime.UtcNow;
         transaction.DeletedBy = CurrentUserId.ToString();
 
-        // Nếu phiếu chi liên quan đến ứng lương, revert advance request về chờ thanh toán
-        if (transaction.InternalNote != null && transaction.InternalNote.Contains("thanh toán ứng lương #"))
+        // Phiếu chi ứng lương → hoàn trạng thái chờ thanh toán
+        if (CashTransactionLinkageHelper.TryExtractTrailingGuid(
+                transaction.InternalNote, "yêu cầu ứng lương #", out var advanceId)
+            || CashTransactionLinkageHelper.TryExtractTrailingGuid(
+                transaction.InternalNote, "thanh toán ứng lương #", out advanceId))
         {
-            var marker = transaction.InternalNote;
-            var hashIndex = marker.LastIndexOf('#');
-            if (hashIndex >= 0 && Guid.TryParse(marker[(hashIndex + 1)..], out var advanceId))
+            var advance = await context.AdvanceRequests.FindAsync(advanceId);
+            if (advance != null && advance.IsPaid)
             {
-                var advance = await context.AdvanceRequests.FindAsync(advanceId);
-                if (advance != null && advance.IsPaid)
-                {
-                    advance.IsPaid = false;
-                    advance.PaidDate = null;
-                    advance.PaymentMethod = null;
-                }
+                advance.IsPaid = false;
+                advance.PaidDate = null;
+                advance.PaymentMethod = null;
+                advance.UpdatedAt = DateTime.UtcNow;
             }
         }
 
-        // Nếu phiếu thu/chi liên quan đến thưởng/phạt, revert PaymentTransaction về chờ thanh toán
-        if (transaction.InternalNote != null && transaction.InternalNote.Contains("phiếu thưởng/phạt #"))
+        // Phiếu thu/chi thưởng/phạt → bỏ đánh dấu đã thanh toán trên PaymentTransaction
+        if (CashTransactionLinkageHelper.TryExtractTrailingGuid(
+                transaction.InternalNote, "phiếu thưởng/phạt #", out var paymentTxId))
         {
-            var marker = transaction.InternalNote;
-            var hashIndex = marker.LastIndexOf('#');
-            if (hashIndex >= 0 && Guid.TryParse(marker[(hashIndex + 1)..], out var txId))
+            var paymentTx = await context.PaymentTransactions.FindAsync(paymentTxId);
+            if (paymentTx != null && !string.IsNullOrEmpty(paymentTx.PaymentMethod))
             {
-                var paymentTx = await context.PaymentTransactions.FindAsync(txId);
-                if (paymentTx != null && !string.IsNullOrEmpty(paymentTx.PaymentMethod))
-                {
-                    paymentTx.PaymentMethod = null;
-                }
+                paymentTx.PaymentMethod = null;
+                paymentTx.UpdatedAt = DateTime.UtcNow;
             }
         }
 

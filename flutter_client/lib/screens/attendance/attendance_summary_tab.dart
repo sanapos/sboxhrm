@@ -20,6 +20,7 @@ import '../../utils/attendance_record_resolver.dart';
 import '../../utils/attendance_viewport_preserve.dart';
 import '../../utils/shift_records_calculator.dart';
 import '../../services/api_service.dart';
+import '../../widgets/attendance_frozen_employee_name_cell.dart';
 import '../../widgets/hrm_page_chrome.dart';
 import '../../widgets/attendance_correction_reason_field.dart';
 import '../../widgets/attendance_delete_confirm_dialog.dart';
@@ -3902,9 +3903,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
       );
     }
 
-    // Cột NV rộng hơn để tên 2 dòng; trước 130px → ellipsis 1 dòng che tên dài.
-    final empColW =
-        (MediaQuery.sizeOf(context).width * 0.44).clamp(152.0, 200.0);
+    final empColW = attendanceFrozenEmployeeColWidth(context);
     const headerH = 52.0;
     const hrsRowH = 44.0;
     const ctTitleH = 28.0;
@@ -3970,30 +3969,18 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
 
     Widget ctEmployeeNameLabel(
       String name, {
-      int maxLines = 2,
       double fontSize = 10,
       bool showCode = false,
       String? code,
+      String? subtext,
+      Color subtextColor = const Color(0xFF16A34A),
     }) {
-      final label = showCode && code != null && code.isNotEmpty
-          ? '$name\n$code'
-          : name;
-      return Tooltip(
-        message: name,
-        waitDuration: const Duration(milliseconds: 350),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: fontSize,
-            fontWeight: FontWeight.w500,
-            color: const Color(0xFF18181B),
-            height: 1.15,
-          ),
-          maxLines: showCode && code != null && code.isNotEmpty
-              ? math.max(maxLines, 3)
-              : maxLines,
-          overflow: TextOverflow.ellipsis,
-        ),
+      return AttendanceFrozenEmployeeNameCell(
+        name: name,
+        subtext: subtext,
+        subtextColor: subtextColor,
+        showCode: showCode,
+        code: code,
       );
     }
 
@@ -4164,27 +4151,10 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
                 bottom: BorderSide(color: Color(0xFFE4E4E7), width: 0.5),
               ),
             ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ctEmployeeNameLabel(
-                  empName,
-                  maxLines: sub != null ? 1 : 2,
-                ),
-                if (sub != null)
-                  Text(sub,
-                      style: TextStyle(
-                          fontSize: 9,
-                          color: subtextColor,
-                          fontWeight: FontWeight.bold),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis),
-                const Text(
-                  'Chạm xem dọc',
-                  style: TextStyle(fontSize: 8, color: Color(0xFF2563EB)),
-                ),
-              ],
+            child: ctEmployeeNameLabel(
+              empName,
+              subtext: sub,
+              subtextColor: subtextColor,
             ),
           ),
         ),
@@ -4531,7 +4501,6 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
                   padding: const EdgeInsets.symmetric(horizontal: 10),
                   child: ctEmployeeNameLabel(
                     empName,
-                    maxLines: 2,
                     showCode: true,
                     code: empCode,
                   ),

@@ -68,6 +68,7 @@ import '../utils/permission_navigation.dart';
 import '../widgets/module_route_guard.dart';
 import '../utils/notification_sound_stub.dart';
 import '../services/system_notification_service.dart';
+import '../services/app_permission_service.dart';
 
 export '../utils/navigation_notifier.dart';
 
@@ -178,6 +179,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       PendingNotificationLaunch.tryConsume();
+      if (!kIsWeb) {
+        AppPermissionService.promptEssentialPermissionsIfNeeded(context);
+      }
     });
   }
 

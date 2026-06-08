@@ -748,6 +748,15 @@ CREATE INDEX IF NOT EXISTS "IX_FeedbackReplies_FeedbackId" ON "FeedbackReplies" 
 CREATE INDEX IF NOT EXISTS "IX_FeedbackReplies_SenderEmployeeId" ON "FeedbackReplies" ("SenderEmployeeId");
 CREATE INDEX IF NOT EXISTS "IX_FeedbackReplies_StoreId" ON "FeedbackReplies" ("StoreId");
 
+-- Cập nhật hotline / Zalo hỗ trợ kỹ thuật (landing + public settings)
+UPDATE "AppSettings"
+SET "Value" = '0973 024 042', "UpdatedAt" = NOW()
+WHERE "Key" = 'technical_support_phone';
+
+UPDATE "AppSettings"
+SET "Value" = '0973024042', "UpdatedAt" = NOW()
+WHERE "Key" = 'zalo_url';
+
 COMMIT;
 
 SELECT 'Migration script completed successfully' AS status;

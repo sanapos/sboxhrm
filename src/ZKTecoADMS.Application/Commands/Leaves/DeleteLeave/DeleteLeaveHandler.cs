@@ -83,7 +83,7 @@ public class DeleteLeaveHandler(
                                     ws.StartTime = shiftTemplate.StartTime;
                                     ws.EndTime = shiftTemplate.EndTime;
                                     ws.Note = null;
-                                    ws.UpdatedAt = DateTime.Now;
+                                    ws.UpdatedAt = DateTime.UtcNow;
                                     await workScheduleRepository.UpdateAsync(ws, cancellationToken);
                                 }
                             }
@@ -101,7 +101,7 @@ public class DeleteLeaveHandler(
                             {
                                 ws.IsDayOff = false;
                                 ws.Note = null;
-                                ws.UpdatedAt = DateTime.Now;
+                                ws.UpdatedAt = DateTime.UtcNow;
                                 await workScheduleRepository.UpdateAsync(ws, cancellationToken);
                             }
                         }

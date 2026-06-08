@@ -36,8 +36,8 @@ class _LandingScreenState extends State<LandingScreen> {
   String _heroTitle = 'Quản lý nhân sự\nthông minh với SBOX HRM';
   String _heroSubtext =
       'Chấm công ZKTeco, quản lý lương, ca làm, phép năm, KPI và hơn 30 tính năng HR – tất cả trong một nền tảng duy nhất.';
-  String _phoneNumber = '0935 364 556';
-  String _zaloNumber = '0935364556';
+  String _phoneNumber = '0973 024 042';
+  String _zaloNumber = '0973024042';
   String _contactEmail = 'support@sboxhrm.com';
   String _address = '184 Nam Cao, Hòa Khánh, Đà Nẵng';
   String _videoIntroUrl =
@@ -104,8 +104,10 @@ class _LandingScreenState extends State<LandingScreen> {
         // Map API property names (camelCase) to state fields
         _heroTitle = pick('landingHeroTitle', _heroTitle);
         _heroSubtext = pick('landingHeroSubtext', _heroSubtext);
-        _phoneNumber =
-            pick('technicalSupportphone', pick('salesphone', _phoneNumber));
+        _phoneNumber = pick(
+            'technicalSupportPhone',
+            pick('technicalSupportphone',
+                pick('salesPhone', pick('salesphone', _phoneNumber))));
         _zaloNumber = pick('zaloUrl', _zaloNumber)
             .replaceAll('https://zalo.me/', '')
             .replaceAll(' ', '');
@@ -2106,21 +2108,21 @@ class _GuideSection extends StatefulWidget {
       icon: Icons.settings_input_component_rounded,
       title: 'Kết nối máy chấm công',
       desc:
-          'Vào Cài đặt → Thiết bị, nhập địa chỉ IP và Store ID vào máy ZKTeco. Hệ thống tự động nhận dữ liệu qua giao thức ADMS – không cần cài phần mềm thêm.',
+          'Trên máy ZKTeco, vào Thiết lập liên kết → Máy chủ đám mây, nhập Địa chỉ máy chủ: 103.133.224.176 và Port: 7070. Hệ thống tự nhận dữ liệu qua ADMS – không cần cài phần mềm thêm.',
       bullets: [
-        'Hỗ trợ toàn bộ dòng máy ZKTeco có cổng ADMS/PUSH',
-        'Cấu hình từ màn hình máy: Server IP + Port 8089',
+        'Menu máy: Thiết lập liên kết → Máy chủ đám mây',
+        'Địa chỉ máy chủ: 103.133.224.176',
+        'Port: 7070',
         'Kiểm tra kết nối real-time ngay trên dashboard',
-        'Hỗ trợ nhiều máy cùng lúc – không giới hạn (gói Enterprise)',
       ],
       tip:
-          'Chưa biết cách cấu hìnhệ Đội kỹ thuật hỗ trợ từ xa qua Zalo trong 30 phút.',
+          'Chưa biết cách cấu hình? Đội kỹ thuật hỗ trợ từ xa qua Zalo trong 30 phút.',
       accent: Color(0xFF1565C0),
       screenGradient: [Color(0xFF1565C0), Color(0xFF0D47A1)],
       screenItems: [
-        (Icons.router_rounded, 'Server IP: 103.133.224.176'),
-        (Icons.cable_rounded, 'Port ADMS: 8089'),
-        (Icons.fingerprint_rounded, 'ZK-K40 Pro · Online ✓'),
+        (Icons.link_rounded, 'Thiết lập liên kết → Máy chủ đám mây'),
+        (Icons.router_rounded, 'Địa chỉ máy chủ: 103.133.224.176'),
+        (Icons.cable_rounded, 'Port: 7070'),
         (Icons.sync_rounded, 'Đồng bộ lần cuối: 2 phút trước'),
       ],
     ),
@@ -2656,14 +2658,15 @@ class _ContactSection extends StatelessWidget {
           runSpacing: 10,
           children: [
             _quickBtn(Icons.phone_rounded, 'Gọi ngay', onCallPhone),
-            _quickBtn(Icons.chat_rounded, 'Zalo tư vấn', onOpenZalo),
+            _quickBtn(Icons.chat_rounded, 'Nhắn Zalo', onOpenZalo),
           ],
         ),
         const SizedBox(height: 28),
-        _contactItem(Icons.phone_rounded, 'Hotline hỗ trợ', phone, onCallPhone),
+        _contactItem(
+            Icons.phone_rounded, 'Hotline hỗ trợ kỹ thuật', phone, onCallPhone),
         const SizedBox(height: 14),
-        _contactItem(Icons.chat_rounded, 'Zalo OA',
-            'Nhắn tin tư vấn miễn phí — phản hồi trong 5 phút', onOpenZalo),
+        _contactItem(
+            Icons.chat_rounded, 'Zalo hỗ trợ kỹ thuật', _formatZaloPhone, onOpenZalo),
         const SizedBox(height: 14),
         _contactItem(Icons.email_rounded, 'Email', email, onOpenEmail),
         const SizedBox(height: 14),
@@ -2674,6 +2677,14 @@ class _ContactSection extends StatelessWidget {
             'Thứ 2 – Thứ 7: 8:00 – 22:00 | Chủ nhật: 9:00 – 17:00', null),
       ],
     );
+  }
+
+  String get _formatZaloPhone {
+    final digits = zaloNumber.replaceAll(RegExp(r'\D'), '');
+    if (digits.length == 10) {
+      return '${digits.substring(0, 4)} ${digits.substring(4, 7)} ${digits.substring(7)}';
+    }
+    return zaloNumber;
   }
 
   Widget _quickBtn(IconData icon, String label, VoidCallback onTap) {

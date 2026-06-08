@@ -55,7 +55,7 @@ public class PenaltyAutoApproveBackgroundService : BackgroundService
 
         // Lấy PaymentTransaction Type=Penalty, Status=Pending mà TransactionDate < hôm nay (qua ngày hôm sau)
         // Chỉ lấy phiếu tự động tạo từ chấm công (Note chứa "Tự động tạo từ chấm công")
-        var cutoffDate = DateTime.Now.Date;
+        var cutoffDate = DateTime.UtcNow.Date;
         var pendingPenalties = await dbContext.PaymentTransactions
             .Include(pt => pt.Employee)
             .Where(pt => pt.Type == "Penalty"
@@ -117,13 +117,13 @@ public class PenaltyAutoApproveBackgroundService : BackgroundService
                 IsSystem = true,
                 StoreId = penaltyStoreId,
                 IsActive = true,
-                CreatedAt = DateTime.Now
+                CreatedAt = DateTime.UtcNow
             };
             dbContext.TransactionCategories.Add(category);
         }
 
         // Sinh mã phiếu thu
-        var dateStr = DateTime.Now.ToString("yyyyMMdd");
+        var dateStr = DateTime.UtcNow.ToString("yyyyMMdd");
         var txPrefix = $"TC-{dateStr}-";
         var txCount = await dbContext.CashTransactions
             .CountAsync(ct => ct.TransactionCode.StartsWith(txPrefix) && ct.StoreId == penaltyStoreId, stoppingToken);
@@ -139,7 +139,7 @@ public class PenaltyAutoApproveBackgroundService : BackgroundService
             Type = CashTransactionType.Income,
             CategoryId = category.Id,
             Amount = Math.Abs(penalty.Amount),
-            TransactionDate = DateTime.Now,
+            TransactionDate = DateTime.UtcNow,
             Description = $"Thu phạt - NV {employeeName} - {penalty.Description}",
             PaymentMethod = PaymentMethodType.Cash,
             Status = CashTransactionStatus.Pending,
@@ -147,7 +147,7 @@ public class PenaltyAutoApproveBackgroundService : BackgroundService
             CreatedByUserId = penalty.PerformedById ?? Guid.Empty,
             StoreId = penaltyStoreId,
             InternalNote = $"Tự động tạo từ phiếu phạt #{penalty.Id}",
-            CreatedAt = DateTime.Now,
+            CreatedAt = DateTime.UtcNow,
             IsActive = true
         };
 
@@ -177,7 +177,7 @@ public class PenaltyAutoApproveBackgroundService : BackgroundService
 
         _logger.LogInformation("🔔 Found {Count} pending PenaltyTicket(s) to auto-approve", pendingTickets.Count);
 
-        var now = DateTime.Now;
+        var now = DateTime.UtcNow;
         foreach (var ticket in pendingTickets)
         {
             try

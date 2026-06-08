@@ -9,6 +9,7 @@ import '../widgets/hrm_page_chrome.dart';
 import 'package:intl/intl.dart';
 import '../models/hrm.dart';
 import '../services/api_service.dart';
+import '../utils/api_datetime.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/empty_state.dart';
@@ -489,8 +490,7 @@ class _AttendanceCorrectionsScreenState
                     '${request.newCheckIn ?? '--:--'} / ${request.newCheckOut ?? '--:--'}'),
               ],
               _detailRow('Ngày tạo',
-                  DateFormat('dd/MM/yyyy HH:mm')
-                      .format(request.createdAt.toLocal())),
+                  formatApiDateTime(request.createdAt)),
 
               // Multi-level approval progress
               if (request.totalApprovalLevels > 1 ||
@@ -515,10 +515,7 @@ class _AttendanceCorrectionsScreenState
                 if (request.approvedByName != null)
                   _detailRow('Người duyệt', request.approvedByName!),
                 if (request.approvedAt != null)
-                  _detailRow(
-                      'Ngày duyệt',
-                      DateFormat('dd/MM/yyyy HH:mm')
-                          .format(request.approvedAt!)),
+                  _detailRow('Ngày duyệt', formatApiDateTime(request.approvedAt)),
                 if (request.rejectReason != null &&
                     request.rejectReason!.isNotEmpty)
                   _detailRow('Lý do từ chối', request.rejectReason!),
@@ -642,8 +639,7 @@ class _AttendanceCorrectionsScreenState
                         Padding(
                           padding: const EdgeInsets.only(top: 2),
                           child: Text(
-                            DateFormat('dd/MM/yyyy HH:mm')
-                                .format(record.actionDate!.toLocal()),
+                            formatApiDateTime(record.actionDate),
                             style: TextStyle(
                                 fontSize: 11, color: Colors.grey[500]),
                           ),

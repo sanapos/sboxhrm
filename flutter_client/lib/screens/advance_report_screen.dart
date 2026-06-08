@@ -35,6 +35,7 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
   String? _loadError;
   List<AdvanceRequest> _requests = [];
   int _totalCount = 0;
+  int? _summaryTotalRequests;
   List<Map<String, dynamic>> _byEmployee = [];
 
   bool get _teamView {
@@ -106,7 +107,7 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
           _loadError = parsed.error;
         });
       }
-      if (_teamView && _viewTab == 1) await _loadSummary();
+      if (_teamView) await _loadSummary();
     } catch (e) {
       if (mounted) {
         setState(() => _loadError = 'Không tải được báo cáo ứng lương: $e');
@@ -126,11 +127,16 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
       if (res['isSuccess'] == true && res['data'] is Map) {
         final data = res['data'] as Map;
         final raw = data['items'] ?? data['Items'];
-        if (raw is List && mounted) {
+        if (mounted) {
           setState(() {
-            _byEmployee = raw
-                .map((e) => Map<String, dynamic>.from(e as Map))
-                .toList();
+            final total = data['totalRequests'] ?? data['TotalRequests'];
+            _summaryTotalRequests =
+                total is int ? total : int.tryParse('$total');
+            if (raw is List) {
+              _byEmployee = raw
+                  .map((e) => Map<String, dynamic>.from(e as Map))
+                  .toList();
+            }
           });
         }
       }
@@ -138,7 +144,7 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
   }
 
   List<ReportKpiItem> _buildKpis() {
-    final f = _filtered;
+    final f = advanceRowsForReportStats(_filtered, _statusFilter);
     final pending =
         f.where((r) => r.status == AdvanceRequestStatus.pending).length;
     final approved =
@@ -175,7 +181,9 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
     return [
       ReportKpiItem(
           label: 'Tổng yêu cầu',
-          value: '$_totalCount',
+          value: (_statusFilter == null && _summaryTotalRequests != null)
+              ? '$_summaryTotalRequests'
+              : (_statusFilter != null ? '$_totalCount' : '${f.length}'),
           icon: Icons.list_alt,
           color: Colors.blueGrey),
       ReportKpiItem(

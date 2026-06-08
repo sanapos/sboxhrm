@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/app_error_utils.dart';
 
 class EmptyState extends StatelessWidget {
   final IconData icon;
@@ -80,16 +81,41 @@ class ErrorState extends StatelessWidget {
   final String title;
   final String? description;
   final VoidCallback? onRetry;
+  final IconData? icon;
+  final Color? iconColor;
 
   const ErrorState({
     super.key,
     this.title = 'Đã xảy ra lỗi',
     this.description,
     this.onRetry,
+    this.icon,
+    this.iconColor,
   });
+
+  factory ErrorState.fromError(
+    Object error, {
+    VoidCallback? onRetry,
+  }) {
+    final info = AppErrorUtils.fromException(error);
+    return ErrorState(
+      title: info.title,
+      description: info.message,
+      onRetry: onRetry,
+      icon: info.kind == AppErrorKind.network
+          ? Icons.wifi_off_rounded
+          : Icons.error_outline,
+      iconColor: info.kind == AppErrorKind.network
+          ? const Color(0xFFF59E0B)
+          : Colors.red,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final effectiveIcon = icon ?? Icons.error_outline;
+    final effectiveIconColor = iconColor ?? Colors.red;
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -100,13 +126,13 @@ class ErrorState extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: Colors.red.withValues(alpha: 0.1),
+                color: effectiveIconColor.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.error_outline,
+              child: Icon(
+                effectiveIcon,
                 size: 64,
-                color: Colors.red,
+                color: effectiveIconColor,
               ),
             ),
             const SizedBox(height: 24),

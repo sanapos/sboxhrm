@@ -4,6 +4,7 @@ import '../widgets/app_scroll_safe.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
+import '../utils/api_datetime.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
@@ -276,25 +277,16 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
     }
   }
 
-  String _formatDate(dynamic date) {
-    if (date == null) return '';
-    try {
-      final dt = DateTime.parse(date.toString());
-      return DateFormat('dd/MM/yyyy').format(dt);
-    } catch (_) {
-      return date.toString();
-    }
-  }
+  String _formatDate(dynamic date) =>
+      formatApiCalendarDate(date, empty: '');
 
-  String _formatDateTime(dynamic date) {
-    if (date == null) return '\u2014';
-    try {
-      final dt = DateTime.parse(date.toString());
-      return DateFormat('dd/MM/yyyy HH:mm').format(dt);
-    } catch (_) {
-      return date.toString();
-    }
-  }
+  String _formatDateTime(dynamic date) =>
+      formatApiDateTime(date);
+
+  String _formatPunchTime(dynamic date) => formatAttendanceWallClock(
+        date,
+        pattern: 'dd/MM/yyyy HH:mm',
+      );
 
   // ─── Actions ───
   Future<void> _approveTicket(String id) async {
@@ -679,7 +671,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
     String? selectedEmployeeId =
         isEditing ? ticket['employeeId']?.toString() : null;
     DateTime selectedDate = isEditing
-        ? (DateTime.tryParse(ticket['violationDate'] ?? '') ?? DateTime.now())
+        ? (parseApiCalendarDate(ticket['violationDate']) ?? DateTime.now())
         : DateTime.now();
     bool isSaving = false;
 
@@ -1175,7 +1167,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                     '${ticket['shiftStartTime']} - ${ticket['shiftEndTime'] ?? ''}'),
               if (ticket['actualPunchTime'] != null)
                 _detailRow(Icons.fingerprint, 'Giờ chấm thực tế',
-                    _formatDateTime(ticket['actualPunchTime'])),
+                    _formatPunchTime(ticket['actualPunchTime'])),
               _detailRow(Icons.layers, 'Bậc phạt',
                   'Bậc ${ticket['penaltyTier'] ?? 1}'),
               if (ticket['description'] != null &&

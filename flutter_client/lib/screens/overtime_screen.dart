@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
+import '../utils/api_datetime.dart';
 import '../utils/paged_load_utils.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/app_button.dart';
@@ -733,14 +734,8 @@ class _OvertimeScreenState extends State<OvertimeScreen>
     }
   }
 
-  String _formatDate(dynamic date) {
-    if (date == null) return '';
-    try {
-      return DateFormat('dd/MM/yyyy').format(DateTime.parse(date.toString()));
-    } catch (_) {
-      return date.toString();
-    }
-  }
+  String _formatDate(dynamic date) =>
+      formatApiCalendarDate(date, empty: '');
 
   void _showCreateDialog() {
     DateTime? selectedDate;

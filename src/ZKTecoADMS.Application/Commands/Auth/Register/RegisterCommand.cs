@@ -39,7 +39,7 @@ public class RegisterValidator : AbstractValidator<RegisterCommand>
         RuleFor(x => x.RegisterRequest.StoreCode)
             .Matches(@"^[a-z0-9]+$")
             .When(x => !string.IsNullOrEmpty(x.RegisterRequest.StoreCode))
-            .WithMessage("Mã cửa hàng chỉ chấp nhận chữ thường và số, không dấu.")
+            .WithMessage("Mã doanh nghiệp chỉ nhập liền không dấu, không khoảng trắng (a-z, 0-9).")
             .MinimumLength(2)
             .When(x => !string.IsNullOrEmpty(x.RegisterRequest.StoreCode))
             .WithMessage("Mã cửa hàng phải có ít nhất 2 ký tự.")

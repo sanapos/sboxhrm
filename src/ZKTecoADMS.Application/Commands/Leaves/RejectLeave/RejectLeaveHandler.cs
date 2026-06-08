@@ -61,7 +61,7 @@ public class RejectLeaveHandler(
                     currentStep.Status = ApprovalStatus.Rejected;
                     currentStep.ActualUserId = request.RejectedByUserId;
                     currentStep.ActualUserName = rejectorName;
-                    currentStep.ActionDate = DateTime.Now;
+                    currentStep.ActionDate = DateTime.UtcNow;
                     currentStep.Note = request.RejectionReason;
                     await approvalRecordRepository.UpdateAsync(currentStep, cancellationToken);
                 }
@@ -70,13 +70,13 @@ public class RejectLeaveHandler(
                 foreach (var record in approvalRecords.Where(r => r.Status == ApprovalStatus.Pending))
                 {
                     record.Status = ApprovalStatus.Cancelled;
-                    record.ActionDate = DateTime.Now;
+                    record.ActionDate = DateTime.UtcNow;
                     await approvalRecordRepository.UpdateAsync(record, cancellationToken);
                 }
             }
 
             leave.Status = LeaveStatus.Rejected;
-            leave.UpdatedAt = DateTime.Now;
+            leave.UpdatedAt = DateTime.UtcNow;
             leave.RejectionReason = request.RejectionReason;
 
             await leaveRepository.UpdateAsync(leave, cancellationToken);

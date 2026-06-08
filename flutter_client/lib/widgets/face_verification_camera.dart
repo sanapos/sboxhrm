@@ -10,6 +10,7 @@ import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../services/app_permission_service.dart';
 import '../services/face_embedding_service_stub.dart'
     if (dart.library.io) '../services/face_embedding_service.dart';
 import '../services/mlkit_face_signature_service.dart';
@@ -137,10 +138,15 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
 
   Future<void> _initCamera() async {
     try {
-      final permStatus = await Permission.camera.request();
-      if (permStatus.isDenied || permStatus.isPermanentlyDenied) {
+      final permStatus = await AppPermissionService.ensureCameraPermission();
+      final allowed = permStatus.isGranted ||
+          permStatus.isLimited ||
+          await AppPermissionService.hasCameraAccess();
+      if (!allowed) {
         if (!mounted) return;
-        setState(() => _cameraError = 'Cần cấp quyền camera');
+        setState(() => _cameraError = permStatus.isPermanentlyDenied
+            ? 'Cần bật Camera trong Cài đặt > SBOX HRM > Quyền'
+            : 'Cần cấp quyền camera');
         return;
       }
 

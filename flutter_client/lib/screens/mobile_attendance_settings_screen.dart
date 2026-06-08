@@ -17,6 +17,7 @@ import '../widgets/map_location_picker.dart';
 import '../widgets/camera_face_capture.dart';
 import '../widgets/auth_cached_image.dart';
 import '../widgets/hrm_mini_stat_chip.dart';
+import '../utils/navigation_notifier.dart';
 import 'main_layout.dart' show ScreenRefreshNotifier;
 enum _DeviceOutsideCheckInFilter { all, outsideOn, outsideOff }
 
@@ -58,9 +59,30 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    final pendingTab = NavigationNotifier.mobileAttendanceSettingsTab.value;
+    final initialTab =
+        pendingTab != null && pendingTab >= 0 && pendingTab < 3 ? pendingTab : 0;
+    _tabController = TabController(
+      length: 3,
+      vsync: this,
+      initialIndex: initialTab,
+    );
+    if (pendingTab != null) {
+      NavigationNotifier.mobileAttendanceSettingsTab.value = null;
+    }
+    NavigationNotifier.mobileAttendanceSettingsTab
+        .addListener(_onPendingSettingsTab);
     ScreenRefreshNotifier.mobileAttendanceSettings.addListener(_onExternalRefresh);
     _loadData();
+  }
+
+  void _onPendingSettingsTab() {
+    final tab = NavigationNotifier.mobileAttendanceSettingsTab.value;
+    if (tab == null || !mounted || tab < 0 || tab >= 3) return;
+    NavigationNotifier.mobileAttendanceSettingsTab.value = null;
+    if (_tabController.index != tab) {
+      _tabController.animateTo(tab);
+    }
   }
 
   void _onExternalRefresh() {
@@ -234,6 +256,8 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
 
   @override
   void dispose() {
+    NavigationNotifier.mobileAttendanceSettingsTab
+        .removeListener(_onPendingSettingsTab);
     ScreenRefreshNotifier.mobileAttendanceSettings.removeListener(_onExternalRefresh);
     _tabController.dispose();
     _faceSearchController.dispose();

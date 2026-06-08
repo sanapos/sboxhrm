@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
+import '../utils/api_datetime.dart';
 import '../utils/report_access_utils.dart';
 import '../utils/report_screen_helpers.dart';
 import '../widgets/reports/hrm_report_widgets.dart';
@@ -36,6 +37,7 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
   String? _loadError;
   List<Map<String, dynamic>> _leaves = [];
   int _totalCount = 0;
+  int? _summaryTotalRequests;
   List<Map<String, dynamic>> _byEmployee = [];
   String? _annualBalanceText;
 
@@ -150,7 +152,7 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
           _loadError = parsed.error;
         });
       }
-      if (_teamView && _viewTab == 1 && _canLeaveSummary) {
+      if (_teamView && _canLeaveSummary) {
         await _loadSummary();
       }
     } catch (e) {
@@ -171,11 +173,17 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
       if (res['isSuccess'] == true && res['data'] is Map) {
         final data = res['data'] as Map;
         final raw = data['items'] ?? data['Items'];
-        if (raw is List && mounted) {
+        if (mounted) {
           setState(() {
-            _byEmployee = raw
-                .map((e) => Map<String, dynamic>.from(e as Map))
-                .toList();
+            final total =
+                data['totalLeaveRequests'] ?? data['TotalLeaveRequests'];
+            _summaryTotalRequests =
+                total is int ? total : int.tryParse('$total');
+            if (raw is List) {
+              _byEmployee = raw
+                  .map((e) => Map<String, dynamic>.from(e as Map))
+                  .toList();
+            }
           });
         }
       }
@@ -246,8 +254,9 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
 
   int _leaveDays(Map<String, dynamic> l) {
     try {
-      final start = DateTime.parse(l['startDate'].toString());
-      final end = DateTime.parse(l['endDate'].toString());
+      final start = parseApiCalendarDate(l['startDate']);
+      final end = parseApiCalendarDate(l['endDate']);
+      if (start == null || end == null) return 1;
       return end.difference(start).inDays + 1;
     } catch (_) {
       return 1;
@@ -255,10 +264,12 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
   }
 
   List<ReportKpiItem> _buildKpis() {
-    final f = _filtered;
+    final f = leaveRowsForReportStats(_filtered, _statusFilter);
     final pending = f.where((l) => _normalizeStatus(l['status']) == 0).length;
     final approved = f.where((l) => _normalizeStatus(l['status']) == 1).length;
-    final totalDays = f.fold(0, (s, l) => s + _leaveDays(l));
+    final totalDays = f
+        .where((l) => _normalizeStatus(l['status']) == 1)
+        .fold(0, (s, l) => s + _leaveDays(l));
 
     if (!_teamView) {
       return [
@@ -287,7 +298,9 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
     return [
       ReportKpiItem(
           label: 'Tổng đơn',
-          value: '$_totalCount',
+          value: (_statusFilter == null && _summaryTotalRequests != null)
+              ? '$_summaryTotalRequests'
+              : (_statusFilter != null ? '$_totalCount' : '${f.length}'),
           icon: Icons.description_outlined,
           color: Colors.blueGrey),
       ReportKpiItem(
@@ -313,11 +326,8 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
     final rows = <List<dynamic>>[];
     for (int i = 0; i < data.length; i++) {
       final l = data[i];
-      final startDate = l['startDate'] != null
-          ? DateTime.tryParse(l['startDate'].toString())
-          : null;
-      final endDate =
-          l['endDate'] != null ? DateTime.tryParse(l['endDate'].toString()) : null;
+      final startDate = parseApiCalendarDate(l['startDate']);
+      final endDate = parseApiCalendarDate(l['endDate']);
       rows.add([
         i + 1,
         if (_teamView) l['employeeName']?.toString() ?? '',
@@ -486,11 +496,8 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
   }
 
   Widget _leaveCard(Map<String, dynamic> l) {
-    final startDate = l['startDate'] != null
-        ? DateTime.tryParse(l['startDate'].toString())
-        : null;
-    final endDate =
-        l['endDate'] != null ? DateTime.tryParse(l['endDate'].toString()) : null;
+    final startDate = parseApiCalendarDate(l['startDate']);
+    final endDate = parseApiCalendarDate(l['endDate']);
     final days = _leaveDays(l);
     final status = _normalizeStatus(l['status']);
     final range = (startDate != null && endDate != null)

@@ -152,14 +152,12 @@ class Allowance {
       description: json['description'],
       type: AllowanceType.values[json['type'] ?? 0],
       amount: (json['amount'] ?? 0).toDouble(),
-      effectiveFrom: DateTime.parse(json['effectiveFrom']),
-      effectiveTo: json['effectiveTo'] != null
-          ? DateTime.parse(json['effectiveTo'])
-          : null,
+      effectiveFrom:
+          parseApiCalendarDate(json['effectiveFrom']) ?? DateTime.now(),
+      effectiveTo: parseApiCalendarDate(json['effectiveTo']),
       isActive: json['isActive'] ?? false,
-      createdAt: DateTime.parse(json['createdAt']),
-      updatedAt:
-          json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
+      createdAt: parseApiUtcDateTime(json['createdAt']) ?? DateTime.now(),
+      updatedAt: parseApiUtcDateTime(json['updatedAt']),
     );
   }
 
@@ -259,26 +257,20 @@ class AdvanceRequest {
       employeeCode: json['employeeCode'] ?? '',
       amount: (json['amount'] ?? 0).toDouble(),
       reason: json['reason'],
-      requestDate: DateTime.parse(
-          json['requestDate'] ?? DateTime.now().toIso8601String()),
+      requestDate: parseApiUtcDateTime(json['requestDate']) ?? DateTime.now(),
       forMonth: json['forMonth'],
       forYear: json['forYear'],
       status: parseStatus(json['status']),
       approvedById: json['approvedById'],
       approvedByName: json['approvedByName'],
-      approvedDate: json['approvedDate'] != null
-          ? DateTime.parse(json['approvedDate'])
-          : null,
+      approvedDate: parseApiUtcDateTime(json['approvedDate']),
       rejectionReason: json['rejectionReason'],
       note: json['note'],
       isPaid: json['isPaid'] ?? false,
       paymentMethod: json['paymentMethod'],
-      paidDate:
-          json['paidDate'] != null ? DateTime.parse(json['paidDate']) : null,
-      createdAt:
-          DateTime.parse(json['createdAt'] ?? DateTime.now().toIso8601String()),
-      updatedAt:
-          json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
+      paidDate: parseApiUtcDateTime(json['paidDate']),
+      createdAt: parseApiUtcDateTime(json['createdAt']) ?? DateTime.now(),
+      updatedAt: parseApiUtcDateTime(json['updatedAt']),
       totalApprovalLevels: json['totalApprovalLevels'] ?? 1,
       currentApprovalStep: json['currentApprovalStep'] ?? 0,
       approvalRecords: json['approvalRecords'] != null
@@ -374,8 +366,7 @@ class PaymentTransaction {
       forMonth: json['forMonth'] as int?,
       forYear: json['forYear'] as int?,
       transactionDate:
-          DateTime.tryParse(json['transactionDate']?.toString() ?? '') ??
-              DateTime.now(),
+          parseApiCalendarDate(json['transactionDate']) ?? DateTime.now(),
       amount: (json['amount'] as num?)?.toDouble() ?? 0,
       description: json['description']?.toString(),
       paymentMethod: json['paymentMethod']?.toString(),
@@ -384,11 +375,8 @@ class PaymentTransaction {
       note: json['note']?.toString(),
       advanceRequestId: json['advanceRequestId']?.toString(),
       payslipId: json['payslipId']?.toString(),
-      createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
-          DateTime.now(),
-      updatedAt: json['updatedAt'] != null
-          ? DateTime.tryParse(json['updatedAt'].toString())
-          : null,
+      createdAt: parseApiUtcDateTime(json['createdAt']) ?? DateTime.now(),
+      updatedAt: parseApiUtcDateTime(json['updatedAt']),
     );
   }
 
@@ -509,13 +497,14 @@ class AttendanceCorrectionRequest {
       employeeCode: json['employeeCode'] ?? '',
       attendanceId: json['attendanceId'],
       action: CorrectionAction.values[json['action'] ?? 0],
-      correctionDate: DateTime.parse(json['correctionDate']),
+      correctionDate:
+          parseApiCalendarDate(json['correctionDate']) ?? DateTime.now(),
       originalCheckIn: json['originalCheckIn'],
       originalCheckOut: json['originalCheckOut'],
       newCheckIn: json['newCheckIn'],
       newCheckOut: json['newCheckOut'],
       reason: json['reason'],
-      requestDate: DateTime.parse(json['requestDate']),
+      requestDate: parseApiUtcDateTime(json['requestDate']) ?? DateTime.now(),
       status: CorrectionStatus.values[json['status'] ?? 0],
       approvedBy: json['approvedBy'],
       approvedByName: json['approvedByName'],
@@ -604,7 +593,7 @@ class AppNotification {
       message: json['message'] ?? '',
       type: _parseNotificationType(json['type']),
       isRead: json['isRead'] ?? false,
-      readAt: json['readAt'] != null ? DateTime.parse(json['readAt']) : null,
+      readAt: parseApiUtcDateTime(json['readAt']),
       actionUrl: json['actionUrl'] ?? json['relatedUrl'],
       relatedEntityId: json['relatedEntityId']?.toString(),
       relatedEntityType: json['relatedEntityType'],
@@ -683,7 +672,7 @@ class PenaltySetting {
       penaltyAmount: (json['penaltyAmount'] ?? 0).toDouble(),
       isPercentage: json['isPercentage'] ?? false,
       isActive: json['isActive'] ?? false,
-      createdAt: DateTime.parse(json['createdAt']),
+      createdAt: parseApiUtcDateTime(json['createdAt']) ?? DateTime.now(),
     );
   }
 }
@@ -723,7 +712,7 @@ class InsuranceSetting {
           ? (json['maxSalaryBase']).toDouble()
           : null,
       isActive: json['isActive'] ?? false,
-      createdAt: DateTime.parse(json['createdAt']),
+      createdAt: parseApiUtcDateTime(json['createdAt']) ?? DateTime.now(),
     );
   }
 }
@@ -765,7 +754,7 @@ class TaxSetting {
       taxRate: (json['taxRate'] ?? 0).toDouble(),
       deductionAmount: (json['deductionAmount'] ?? 0).toDouble(),
       isActive: json['isActive'] ?? false,
-      createdAt: DateTime.parse(json['createdAt']),
+      createdAt: parseApiUtcDateTime(json['createdAt']) ?? DateTime.now(),
     );
   }
 }
@@ -818,15 +807,14 @@ class WorkSchedule {
       shiftName: json['shiftName'] ?? '',
       shiftStartTime: json['shiftStartTime'] ?? '00:00:00',
       shiftEndTime: json['shiftEndTime'] ?? '00:00:00',
-      date: DateTime.parse(json['date']),
+      date: parseApiCalendarDate(json['date']) ?? DateTime.now(),
       startTime: json['startTime'],
       endTime: json['endTime'],
       isDayOff: json['isDayOff'] ?? false,
       note: json['note'],
       assignedById: json['assignedById'],
-      createdAt: DateTime.parse(json['createdAt']),
-      updatedAt:
-          json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
+      createdAt: parseApiUtcDateTime(json['createdAt']) ?? DateTime.now(),
+      updatedAt: parseApiUtcDateTime(json['updatedAt']),
     );
   }
 
@@ -898,7 +886,7 @@ class ScheduleRegistration {
       employeeUserId: json['employeeUserId'] ?? '',
       employeeName: json['employeeName'] ?? '',
       employeeCode: json['employeeCode'] ?? '',
-      date: DateTime.parse(json['date']),
+      date: parseApiCalendarDate(json['date']) ?? DateTime.now(),
       shiftId: json['shiftId'],
       shiftName: json['shiftName'] ?? '',
       isDayOff: json['isDayOff'] ?? false,
@@ -906,13 +894,10 @@ class ScheduleRegistration {
       status: parseStatus(json['status']),
       approvedById: json['approvedById'],
       approvedByName: json['approvedByName'],
-      approvedDate: json['approvedDate'] != null
-          ? DateTime.parse(json['approvedDate'])
-          : null,
+      approvedDate: parseApiUtcDateTime(json['approvedDate']),
       rejectionReason: json['rejectionReason'],
-      createdAt: DateTime.parse(json['createdAt']),
-      updatedAt:
-          json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
+      createdAt: parseApiUtcDateTime(json['createdAt']) ?? DateTime.now(),
+      updatedAt: parseApiUtcDateTime(json['updatedAt']),
     );
   }
 
@@ -999,9 +984,7 @@ class Shift {
       breakMinutes: json['breakTimeMinutes'] ?? json['breakMinutes'],
       description: json['description'],
       isActive: json['isActive'] ?? true,
-      createdAt: json['createdAt'] != null
-          ? DateTime.parse(json['createdAt'])
-          : DateTime.now(),
+      createdAt: parseApiUtcDateTime(json['createdAt']) ?? DateTime.now(),
       earlyCheckInMinutes: json['earlyCheckInMinutes'],
       maximumAllowedLateMinutes: json['maximumAllowedLateMinutes'],
       maximumAllowedEarlyLeaveMinutes: json['maximumAllowedEarlyLeaveMinutes'],

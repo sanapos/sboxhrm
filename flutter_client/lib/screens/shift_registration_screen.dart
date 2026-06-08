@@ -5,6 +5,7 @@ import '../providers/permission_provider.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
+import '../utils/api_datetime.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/app_scroll_safe.dart';
 import '../widgets/hrm_page_chrome.dart';
@@ -1528,12 +1529,5 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
     return t.toString();
   }
 
-  String _fmtDate(dynamic d) {
-    if (d == null) return '';
-    try {
-      return DateFormat('dd/MM/yyyy').format(DateTime.parse(d.toString()));
-    } catch (_) {
-      return d.toString();
-    }
-  }
+  String _fmtDate(dynamic d) => formatApiCalendarDate(d, empty: '');
 }

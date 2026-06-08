@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
+import '../utils/api_datetime.dart';
 import '../utils/paged_load_utils.dart';
 import '../services/signalr_service.dart';
 import '../utils/responsive_helper.dart';
@@ -329,8 +330,8 @@ class _LeaveScreenState extends State<LeaveScreen>
         if (!empName.contains(_filterEmployeeId!.toLowerCase())) return false;
       }
       if (_filterDateRange != null) {
-        final start = DateTime.tryParse(leave['startDate']?.toString() ?? '');
-        final end = DateTime.tryParse(leave['endDate']?.toString() ?? '');
+        final start = parseApiCalendarDate(leave['startDate']);
+        final end = parseApiCalendarDate(leave['endDate']);
         if (start == null || end == null) return false;
         if (end.isBefore(_filterDateRange!.start) ||
             start.isAfter(_filterDateRange!.end)) {
@@ -1337,14 +1338,14 @@ class _LeaveScreenState extends State<LeaveScreen>
       int cmp;
       switch (_sortColumn) {
         case 'startDate':
-          final da = DateTime.tryParse(a['startDate']?.toString() ?? '');
-          final db = DateTime.tryParse(b['startDate']?.toString() ?? '');
+          final da = parseApiCalendarDate(a['startDate']);
+          final db = parseApiCalendarDate(b['startDate']);
           cmp = (da ?? DateTime(2000)).compareTo(db ?? DateTime(2000));
           break;
         case 'createdAt':
         default:
-          final da = DateTime.tryParse(a['createdAt']?.toString() ?? '');
-          final db = DateTime.tryParse(b['createdAt']?.toString() ?? '');
+          final da = parseApiUtcDateTime(a['createdAt']);
+          final db = parseApiUtcDateTime(b['createdAt']);
           cmp = (da ?? DateTime(2000)).compareTo(db ?? DateTime(2000));
       }
       return _sortAscending ? cmp : -cmp;
@@ -1469,10 +1470,10 @@ class _LeaveScreenState extends State<LeaveScreen>
                             final statusInfo = _getStatusInfo(status);
                             final typeInfo = _getLeaveTypeInfoFromLeave(
                                 Map<String, dynamic>.from(leave as Map));
-                            final startDate = DateTime.tryParse(
-                                leave['startDate']?.toString() ?? '');
-                            final endDate = DateTime.tryParse(
-                                leave['endDate']?.toString() ?? '');
+                            final startDate =
+                                parseApiCalendarDate(leave['startDate']);
+                            final endDate =
+                                parseApiCalendarDate(leave['endDate']);
                             final isHalfShift = leave['isHalfShift'] == true;
                             final empName = leave['employeeName'] ?? 'N/A';
                             final reason = leave['reason'] ?? '';
@@ -1490,8 +1491,8 @@ class _LeaveScreenState extends State<LeaveScreen>
                             final replacementName =
                                 leave['replacementEmployeeName']?.toString() ??
                                     '';
-                            final createdAt = DateTime.tryParse(
-                                leave['createdAt']?.toString() ?? '');
+                            final createdAt =
+                                parseApiUtcDateTime(leave['createdAt']);
 
                             String dateDisplay = 'N/A';
                             if (startDate != null) {
@@ -1636,8 +1637,10 @@ class _LeaveScreenState extends State<LeaveScreen>
                                 DataCell(Center(
                                     child: Text(
                                         createdAt != null
-                                            ? DateFormat('dd/MM/yyyy')
-                                                .format(createdAt)
+                                            ? formatApiDateTime(
+                                                createdAt,
+                                                pattern: 'dd/MM/yyyy',
+                                              )
                                             : '-',
                                         style: const TextStyle(fontSize: 12)))),
                                 DataCell(Center(
@@ -1903,9 +1906,8 @@ class _LeaveScreenState extends State<LeaveScreen>
     final status = _normalizeStatus(leave['status']);
     final statusInfo = _getStatusInfo(status);
     final typeInfo = _getLeaveTypeInfoFromLeave(leave);
-    final startDate =
-        DateTime.tryParse(leave['startDate']?.toString() ?? '');
-    final endDate = DateTime.tryParse(leave['endDate']?.toString() ?? '');
+    final startDate = parseApiCalendarDate(leave['startDate']);
+    final endDate = parseApiCalendarDate(leave['endDate']);
     final isHalfShift = leave['isHalfShift'] == true;
     final dateLine = _formatLeaveDateLine(startDate, endDate,
         isHalfShift: isHalfShift);
@@ -2150,14 +2152,14 @@ class _LeaveScreenState extends State<LeaveScreen>
     final statusInfo = _getStatusInfo(status);
     final typeInfo = _getLeaveTypeInfoFromLeave(leave);
     final payment = LeaveCatalog.displayFor(leave).paymentSource;
-    final startDate = DateTime.tryParse(leave['startDate']?.toString() ?? '');
-    final endDate = DateTime.tryParse(leave['endDate']?.toString() ?? '');
+    final startDate = parseApiCalendarDate(leave['startDate']);
+    final endDate = parseApiCalendarDate(leave['endDate']);
     final duration = startDate != null && endDate != null
         ? endDate.difference(startDate).inDays + 1
         : 0;
     final isHalfShift = leave['isHalfShift'] == true;
-    final createdAt = DateTime.tryParse(leave['createdAt']?.toString() ?? '');
-    final updatedAt = DateTime.tryParse(leave['updatedAt']?.toString() ?? '');
+    final createdAt = parseApiUtcDateTime(leave['createdAt']);
+    final updatedAt = parseApiUtcDateTime(leave['updatedAt']);
     final shiftName = leave['shiftName']?.toString() ?? '';
     final shiftNames = (leave['shiftNames'] as List?)
             ?.map((e) => e.toString())
@@ -2311,11 +2313,9 @@ class _LeaveScreenState extends State<LeaveScreen>
           _detailTableRow('Lý do từ chối', leave['rejectionReason'],
               valueColor: Colors.red),
         if (createdAt != null)
-          _detailTableRow(
-              'Ngày tạo', DateFormat('dd/MM/yyyy HH:mm').format(createdAt)),
+          _detailTableRow('Ngày tạo', formatApiDateTime(createdAt)),
         if (updatedAt != null)
-          _detailTableRow(
-              'Cập nhật', DateFormat('dd/MM/yyyy HH:mm').format(updatedAt)),
+          _detailTableRow('Cập nhật', formatApiDateTime(updatedAt)),
         _detailTableRow('ID', leave['id']?.toString().substring(0, 8) ?? 'N/A'),
       ],
     );
@@ -2374,8 +2374,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                 record['stepName'] ?? 'Cấp ${record['stepOrder'] ?? idx + 1}';
             final assignedUser = record['assignedUserName'] ?? '';
             final actualUser = record['actualUserName'] ?? '';
-            final actionDate =
-                DateTime.tryParse(record['actionDate']?.toString() ?? '');
+            final actionDate = parseApiUtcDateTime(record['actionDate']);
             final note = record['note']?.toString() ?? '';
             final isLast = idx == approvalRecords.length - 1;
 
@@ -2439,8 +2438,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                                     fontSize: 12, color: Colors.grey.shade600)),
                           if (actionDate != null)
                             Text(
-                                DateFormat('dd/MM/yyyy HH:mm')
-                                    .format(actionDate),
+                                formatApiDateTime(actionDate),
                                 style: TextStyle(
                                     fontSize: 11, color: Colors.grey.shade500)),
                           if (note.isNotEmpty)
@@ -2777,8 +2775,8 @@ class _LeaveScreenState extends State<LeaveScreen>
       willDeductAnnual = leave['countAsWork'] != true &&
           (type == 0 || (type == 4 && sm == 1));
       if (willDeductAnnual) {
-        final start = DateTime.tryParse(leave['startDate']?.toString() ?? '');
-        final end = DateTime.tryParse(leave['endDate']?.toString() ?? '');
+        final start = parseApiCalendarDate(leave['startDate']);
+        final end = parseApiCalendarDate(leave['endDate']);
         if (start != null && end != null) {
           final d = end.difference(start).inDays + 1;
           daysNeeded = (leave['isHalfShift'] == true ? d * 0.5 : d.toDouble());

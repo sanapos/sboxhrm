@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
+import '../utils/api_datetime.dart';
 import '../utils/report_access_utils.dart';
 import '../utils/report_screen_helpers.dart';
 import '../utils/vietnamese_font.dart';
@@ -39,6 +40,7 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
   String? _loadError;
   List<Map<String, dynamic>> _tickets = [];
   int _totalCount = 0;
+  int? _summaryTotalTickets;
   List<Map<String, dynamic>> _byEmployee = [];
 
   bool get _teamView {
@@ -107,7 +109,7 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
           _loadError = result.error;
         });
       }
-      if (_teamView && _viewTab == 1) await _loadSummary();
+      if (_teamView) await _loadSummary();
     } catch (e) {
       if (mounted) {
         setState(() => _loadError = 'Không tải được báo cáo phạt: $e');
@@ -123,11 +125,16 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
       if (res['isSuccess'] == true && res['data'] is Map) {
         final data = res['data'] as Map;
         final raw = data['byEmployee'] ?? data['ByEmployee'];
-        if (raw is List && mounted) {
+        if (mounted) {
           setState(() {
-            _byEmployee = raw
-                .map((e) => Map<String, dynamic>.from(e as Map))
-                .toList();
+            final total = data['totalTickets'] ?? data['TotalTickets'];
+            _summaryTotalTickets =
+                total is int ? total : int.tryParse('$total');
+            if (raw is List) {
+              _byEmployee = raw
+                  .map((e) => Map<String, dynamic>.from(e as Map))
+                  .toList();
+            }
           });
         }
       }
@@ -135,7 +142,7 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
   }
 
   List<ReportKpiItem> _buildKpis() {
-    final f = _filtered;
+    final f = penaltyRowsForReportStats(_filtered, _statusFilter);
     final total = f.length;
     final approved = f.where((t) => isApprovedPenaltyStatus(t['status'])).length;
     final totalAmt = f.fold(0.0, (s, t) => s + reportSafeDouble(t['amount']));
@@ -175,7 +182,9 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
     return [
       ReportKpiItem(
           label: 'Tổng phiếu',
-          value: '$_totalCount',
+          value: (_statusFilter == null && _summaryTotalTickets != null)
+              ? '$_summaryTotalTickets'
+              : (_statusFilter != null ? '$_totalCount' : '$total'),
           icon: Icons.receipt_long,
           color: _theme),
       ReportKpiItem(
@@ -202,7 +211,7 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
     for (int i = 0; i < data.length; i++) {
       final t = data[i];
       final date =
-          t['date'] != null ? DateTime.tryParse(t['date'].toString()) : null;
+          parseApiCalendarDate(t['date']);
       rows.add([
         i + 1,
         if (_teamView) t['employeeName']?.toString() ?? '',
@@ -387,7 +396,7 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
 
   Widget _personalCard(Map<String, dynamic> t) {
     final date =
-        t['date'] != null ? DateTime.tryParse(t['date'].toString()) : null;
+        parseApiCalendarDate(t['date']);
     final amt = reportSafeDouble(t['amount']);
     return ReportTimelineCard(
       title: t['penaltyTypeLabel']?.toString() ??
@@ -405,7 +414,7 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
 
   Widget _teamDetailCard(Map<String, dynamic> t) {
     final date =
-        t['date'] != null ? DateTime.tryParse(t['date'].toString()) : null;
+        parseApiCalendarDate(t['date']);
     final name = t['employeeName']?.toString() ?? '-';
     final dept = t['departmentName']?.toString() ?? '';
     return ReportTimelineCard(

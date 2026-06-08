@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../features/leave/leave_catalog.dart';
 import '../l10n/app_localizations.dart';
 import '../services/api_service.dart';
+import '../utils/api_datetime.dart';
 import '../utils/leave_salary_shifts.dart';
 import '../utils/responsive_helper.dart';
 import 'employee_search_picker.dart';
@@ -279,8 +280,8 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
       _reasonController.text = l['reason']?.toString() ?? '';
       _bhxhNoteController.text = l['bhxhDocumentNote']?.toString() ?? '';
       _startDate =
-          DateTime.tryParse(l['startDate']?.toString() ?? '') ?? DateTime.now();
-      _endDate = DateTime.tryParse(l['endDate']?.toString() ?? '') ?? _startDate;
+          parseApiCalendarDate(l['startDate']) ?? DateTime.now();
+      _endDate = parseApiCalendarDate(l['endDate']) ?? _startDate;
       if (_endDate.isBefore(_startDate)) _endDate = _startDate;
       final ids = l['shiftIds'];
       if (ids is List && ids.isNotEmpty) {
@@ -305,10 +306,10 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
     final pre = widget.aiPrefill;
     if (pre != null) {
       if (pre['startDate'] != null) {
-        _startDate = DateTime.tryParse(pre['startDate']!) ?? _startDate;
+        _startDate = parseApiCalendarDate(pre['startDate']) ?? _startDate;
       }
       if (pre['endDate'] != null) {
-        _endDate = DateTime.tryParse(pre['endDate']!) ?? _startDate;
+        _endDate = parseApiCalendarDate(pre['endDate']) ?? _startDate;
       }
       if (pre['reason'] != null) _reasonController.text = pre['reason']!;
       if (pre['isHalfShift'] == 'true') _isHalfShift = true;

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
 import 'utils/vietnamese_font.dart';
+import 'utils/app_error_utils.dart';
+import 'widgets/app_fatal_error_screen.dart';
 import 'app/app.dart';
 import 'providers/auth_provider.dart';
 import 'providers/permission_provider.dart';
@@ -27,35 +29,20 @@ void main() async {
     final exception = details.exception;
     if (exception is FlutterError &&
         exception.toString().contains('overflowed by')) {
-      // Chỉ log, không hiển thị sọc vàng đen
       debugPrint('⚠️ Overflow: ${details.summary}');
       return;
     }
+    AppErrorUtils.logFlutterError(details);
     originalOnError?.call(details);
   };
 
-  // Tránh màn trắng trống khi một widget build lỗi (đặc biệt release iOS).
+  // Widget build lỗi → màn báo rõ (mạng / timeout / chi tiết kỹ thuật).
   ErrorWidget.builder = (FlutterErrorDetails details) {
+    AppErrorUtils.logFlutterError(details);
     if (kDebugMode) {
       return ErrorWidget(details.exception);
     }
-    return Material(
-      color: ThemeProvider.primaryColor,
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(
-            'Đã xảy ra lỗi hiển thị.\nVui lòng đóng và mở lại ứng dụng.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.95),
-              fontSize: 15,
-              height: 1.45,
-            ),
-          ),
-        ),
-      ),
-    );
+    return AppFatalErrorScreen(details: details);
   };
 
   await preloadVietnameseFonts();

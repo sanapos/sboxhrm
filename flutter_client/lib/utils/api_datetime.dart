@@ -58,3 +58,20 @@ String formatApiDateTime(
   if (local == null) return empty;
   return DateFormat(pattern).format(local);
 }
+
+/// Ngày lịch (StartDate, ViolationDate, correctionDate…) — giá trị là ngày VN, không quy đổi TZ.
+DateTime? parseApiCalendarDate(dynamic value) {
+  final local = parseAttendanceWallClock(value);
+  if (local == null) return null;
+  return DateTime(local.year, local.month, local.day);
+}
+
+String formatApiCalendarDate(
+  dynamic value, {
+  String pattern = 'dd/MM/yyyy',
+  String empty = '--',
+}) {
+  final d = parseApiCalendarDate(value);
+  if (d == null) return empty;
+  return DateFormat(pattern).format(d);
+}
