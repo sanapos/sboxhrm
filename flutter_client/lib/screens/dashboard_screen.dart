@@ -11,6 +11,7 @@ import '../models/attendance.dart';
 import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
+import '../utils/api_datetime.dart';
 import '../utils/attendance_load_utils.dart';
 import '../utils/dashboard_ui_capabilities.dart';
 import '../utils/shift_records_calculator.dart';
@@ -74,6 +75,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // Employee dashboard data
   Map<String, dynamic> _employeeDashboard = {};
+  String _employeeStatsPeriod = 'month';
 
   // Data
   Map<String, dynamic> _dailyReport = {};
@@ -193,19 +195,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
     setState(() => _isLoading = true);
     try {
       final results = await Future.wait([
-        _api.getEmployeeDashboard(),
+        _api.getEmployeeDashboard(period: _employeeStatsPeriod),
         _api.getMyLeaves(pageSize: 10),
         _api.getMyEmployee(),
+        _safe(
+            () => _api.getCommunications(page: 1, pageSize: 5),
+            <String, dynamic>{},
+            'employee-comms'),
       ]);
 
       if (mounted) {
         final dashResp = results[0];
         final leavesResp = results[1];
         final empResp = results[2];
+        final commsResp = results[3];
         setState(() {
           _employeeDashboard =
               (dashResp['data'] as Map<String, dynamic>?) ?? {};
           _todayLeaves = _extractList(leavesResp);
+          _communications = _extractList(commsResp);
           if (empResp['isSuccess'] == true && empResp['data'] != null) {
             _employees = [empResp['data']];
           }
@@ -9539,30 +9547,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return days[wd];
   }
 
-  String _fmtTime(dynamic t) {
-    if (t == null) return '';
+  /// Giờ chấm công VN — cùng quy ước màn Chấm công thô.
+  String _fmtAttendanceTime(dynamic t, {String empty = '--:--'}) =>
+      formatAttendanceWallClock(t, pattern: 'HH:mm', empty: empty);
+
+  /// Shift start/end — local VN wall clock, not UTC.
+  String _fmtShiftTime(dynamic t) {
+    if (t == null) return '--:--';
     final raw = t.toString();
-    // TimeSpan values from backend (e.g. shift start "08:30:00") — return as HH:mm.
     if (RegExp(r'^\d{1,2}:\d{2}(:\d{2})?$').hasMatch(raw)) {
       final parts = raw.split(':');
       final h = int.tryParse(parts[0]) ?? 0;
       final m = int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0;
       return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
     }
-    try {
-      // AttendanceTime is stored UTC; Dart's DateTime.parse treats bare ISO strings
-      // (no Z/offset) as local, which shows VN punches 7h off. Force UTC, then shift to VN.
-      final hasTz = raw.endsWith('Z') ||
-          raw.contains('+') ||
-          RegExp(r'-\d{2}:\d{2}$').hasMatch(raw);
-      final dt = hasTz
-          ? DateTime.parse(raw).toUtc()
-          : DateTime.parse('${raw}Z').toUtc();
-      final vn = dt.add(const Duration(hours: 7));
-      return '${vn.hour.toString().padLeft(2, '0')}:${vn.minute.toString().padLeft(2, '0')}';
-    } catch (_) {
-      return raw;
+    final dt = DateTime.tryParse(raw);
+    if (dt == null) return raw;
+    return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+  }
+
+  String _fmtTime(dynamic t) {
+    if (t == null) return '';
+    final raw = t.toString();
+    if (RegExp(r'^\d{1,2}:\d{2}(:\d{2})?$').hasMatch(raw)) {
+      return _fmtShiftTime(t);
     }
+    return _fmtAttendanceTime(t, empty: '');
   }
 
   String _fmtDate(dynamic d) {
@@ -9739,6 +9749,69 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
 
+  Widget _buildEmployeeGreetingHeader(String empName) {
+    final greet = _greetingForTime();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: _homeGreetingBannerDecoration,
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Icon(greet.icon, color: greet.accent, size: 18),
+                    const SizedBox(width: 6),
+                    Text(
+                      greet.greeting,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white.withValues(alpha: 0.82),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  empName.isNotEmpty ? empName : _l10n.loadingOverview,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white.withValues(alpha: 0.95),
+                    letterSpacing: -0.3,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '${_weekday(_now.weekday)}, ${_now.day}/${_now.month}/${_now.year}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.white.withValues(alpha: 0.9),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ===================== EMPLOYEE DASHBOARD =====================
   Widget _buildEmployeeDashboard() {
     final todayShift =
@@ -9762,60 +9835,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header — cùng banner navy như Trang chủ
-            Builder(
-              builder: (context) {
-                final greet = _greetingForTime();
-                return Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  decoration: _homeGreetingBannerDecoration,
-                  child: Row(
-                    children: [
-                      Icon(greet.icon, color: greet.accent, size: 18),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              empName.isNotEmpty
-                                  ? '${greet.greeting}, $empName'
-                                  : _l10n.loadingOverview,
-                              style: TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white.withValues(alpha: 0.95),
-                                letterSpacing: -0.3,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                '${_weekday(_now.weekday)}, ${_now.day}/${_now.month}/${_now.year}',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.white.withValues(alpha: 0.9),
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
+            _buildEmployeeGreetingHeader(empName),
             const SizedBox(height: 16),
 
             // Current Attendance Status
@@ -9827,6 +9847,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               _buildEmployeeStatsCard(stats),
               const SizedBox(height: 16),
             ],
+
+            _buildInternalNewsCard(),
+            const SizedBox(height: 16),
 
             // Today/Next Shift
             _buildEmployeeShiftCard(todayShift, nextShift),
@@ -9845,6 +9868,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final status = attendance?['status']?.toString() ?? 'no-shift';
     final checkIn = attendance?['checkInTime'];
     final checkOut = attendance?['checkOutTime'];
+    final lastPunch = attendance?['lastPunchTime'];
+    final lastPunchIsOut = attendance?['lastPunchIsCheckOut'] == true;
     final isLate = attendance?['isLate'] == true;
     final lateMin = attendance?['lateMinutes'];
 
@@ -9915,18 +9940,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Expanded(
                 child: _buildTimeBox(
                     'Giờ vào',
-                    checkIn != null ? _fmtTime(checkIn) : '--:--',
+                    _fmtAttendanceTime(checkIn),
                     const Color(0xFF22C55E)),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: _buildTimeBox(
                     'Giờ ra',
-                    checkOut != null ? _fmtTime(checkOut) : '--:--',
+                    _fmtAttendanceTime(checkOut),
                     HrmPageChrome.primaryNavy),
               ),
             ],
           ),
+          if (lastPunch != null) ...[
+            const SizedBox(height: 8),
+            _buildTimeBox(
+              'Chấm gần nhất (${lastPunchIsOut ? 'Ra' : 'Vào'})',
+              _fmtAttendanceTime(lastPunch),
+              const Color(0xFF2D5F8B),
+            ),
+          ],
           if (todayShift != null) ...[
             const SizedBox(height: 8),
             Row(
@@ -9934,13 +9967,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Expanded(
                   child: _buildTimeBox(
                       'Ca bắt đầu',
-                      _fmtTime(todayShift['startTime']),
+                      _fmtShiftTime(todayShift['startTime']),
                       const Color(0xFF71717A)),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: _buildTimeBox('Ca kết thúc',
-                      _fmtTime(todayShift['endTime']), const Color(0xFF71717A)),
+                  child: _buildTimeBox(
+                      'Ca kết thúc',
+                      _fmtShiftTime(todayShift['endTime']),
+                      const Color(0xFF71717A)),
                 ),
               ],
             ),
@@ -9979,37 +10014,134 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final lateCnt = stats['lateCheckIns'] ?? 0;
     final rate = (stats['attendanceRate'] ?? 0).toDouble();
     final avgHours = stats['averageWorkHours'] ?? '0.0';
+    final period = (stats['period'] ?? _employeeStatsPeriod).toString();
+
+    String periodLabel;
+    switch (period) {
+      case 'week':
+        periodLabel = '7 ngày qua';
+        break;
+      case 'year':
+        periodLabel = '12 tháng qua';
+        break;
+      default:
+        periodLabel = '30 ngày qua';
+    }
 
     return _DashCard(
       icon: Icons.bar_chart_rounded,
       title: 'Thống kê chấm công',
       color: const Color(0xFF2D5F8B),
-      badge: '${rate.toStringAsFixed(1)}%',
+      badge: periodLabel,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Expanded(
-                  child: _statItem('Tổng ngày', '$totalDays',
-                      Icons.calendar_today, HrmPageChrome.primaryNavy)),
-              Expanded(
-                  child: _statItem('Có mặt', '$present',
-                      Icons.check_circle_rounded, const Color(0xFF22C55E))),
-              Expanded(
-                  child: _statItem('Vắng', '$absent', Icons.cancel_rounded,
-                      const Color(0xFFEF4444))),
+              _employeePeriodChip('Tuần', 'week'),
+              const SizedBox(width: 8),
+              _employeePeriodChip('Tháng', 'month'),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
-                  child: _statItem('Đi trễ', '$lateCnt',
-                      Icons.access_time_filled, const Color(0xFFF59E0B))),
+                  child: _employeeStatTile('Có mặt', '$present',
+                      '$totalDays ca', const Color(0xFF22C55E))),
+              const SizedBox(width: 10),
               Expanded(
-                  child: _statItem('TB giờ/ngày', avgHours,
-                      Icons.schedule_rounded, const Color(0xFF2D5F8B))),
-              const Expanded(child: SizedBox()),
+                  child: _employeeStatTile(
+                      'Vắng', '$absent', 'ca', const Color(0xFFEF4444))),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                  child: _employeeStatTile(
+                      'Đi trễ', '$lateCnt', 'lần', const Color(0xFFF59E0B))),
+              const SizedBox(width: 10),
+              Expanded(
+                  child: _employeeStatTile('TB giờ/ngày', avgHours, '',
+                      const Color(0xFF2D5F8B))),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF2D5F8B).withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              'Tỷ lệ có mặt: ${rate.toStringAsFixed(1)}%',
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF2D5F8B),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _employeePeriodChip(String label, String period) {
+    final selected = _employeeStatsPeriod == period;
+    return ChoiceChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: (v) {
+        if (!v || selected) return;
+        setState(() => _employeeStatsPeriod = period);
+        _loadEmployeeData();
+      },
+      labelStyle: TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+        color: selected ? Colors.white : const Color(0xFF52525B),
+      ),
+      selectedColor: const Color(0xFF2D5F8B),
+      backgroundColor: const Color(0xFFF4F4F5),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      visualDensity: VisualDensity.compact,
+    );
+  }
+
+  Widget _employeeStatTile(
+      String label, String value, String suffix, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.12)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label,
+              style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
+          const SizedBox(height: 4),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(value,
+                  style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: color)),
+              if (suffix.isNotEmpty) ...[
+                const SizedBox(width: 4),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 2),
+                  child: Text(suffix,
+                      style: TextStyle(fontSize: 11, color: color)),
+                ),
+              ],
             ],
           ),
         ],
@@ -10075,7 +10207,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   style: TextStyle(
                       fontSize: 12, color: color, fontWeight: FontWeight.w600)),
               Text(
-                '${_fmtTime(shift['startTime'])} - ${_fmtTime(shift['endTime'])}',
+                '${_fmtShiftTime(shift['startTime'])} - ${_fmtShiftTime(shift['endTime'])}',
                 style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,

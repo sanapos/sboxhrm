@@ -14,11 +14,10 @@ namespace ZKTecoADMS.Application.Queries.Dashboard.GetEmployeeDashboard;
 /// Trả dashboard cho 1 nhân viên: ca hôm nay, ca tiếp theo, trạng thái chấm
 /// công hôm nay và thống kê chấm công cho period (week/month/year).
 ///
-/// Quy ước thời gian (đồng nhất toàn hệ thống):
-///   • Attendance.AttendanceTime lưu UTC (EnableLegacyTimestampBehavior).
-///   • Shift.StartTime/EndTime lưu local VN — không +/- offset khi so sánh.
-///   • Khi so sánh "today" hoặc cắt theo ngày — luôn dùng VN local
-///     (DateTime.UtcNow.AddHours(7)) thay vì DateTime.Now (phụ thuộc giờ server).
+/// Quy ước thời gian (đồng nhất màn Chấm công thô):
+///   • Attendance.AttendanceTime lưu giờ VN (timestamp without time zone).
+///   • Lọc theo ngày lịch: AttendanceTime.Date (không quy đổi UTC).
+///   • Shift.StartTime/EndTime lưu local VN — so sánh trực tiếp với AttendanceTime.
 /// </summary>
 public class GetEmployeeDashboardHandler(
     IRepository<Shift> shiftRepository,
@@ -80,14 +79,13 @@ public class GetEmployeeDashboardHandler(
 
         var nowVn = DateTime.UtcNow.AddHours(VnOffsetHours);
         var todayLocal = nowVn.Date;
-        var utcStart = todayLocal.AddHours(-VnOffsetHours);
-        var utcEnd = todayLocal.AddDays(1).AddHours(-VnOffsetHours);
+        var tomorrowLocal = todayLocal.AddDays(1);
 
         var todayPunches = await attendanceRepository.GetAllAsync(
             filter: a => a.EmployeeId != null
                 && deviceUserIds.Contains(a.EmployeeId.Value)
-                && a.AttendanceTime >= utcStart
-                && a.AttendanceTime < utcEnd,
+                && a.AttendanceTime >= todayLocal
+                && a.AttendanceTime < tomorrowLocal,
             orderBy: q => q.OrderBy(a => a.AttendanceTime),
             cancellationToken: cancellationToken);
 
@@ -102,8 +100,8 @@ public class GetEmployeeDashboardHandler(
         if (checkOut != null && checkOut.AttendanceTime <= checkIn.AttendanceTime)
             checkOut = null;
 
-        var checkInVn = checkIn.AttendanceTime.AddHours(VnOffsetHours);
-        DateTime? checkOutVn = checkOut?.AttendanceTime.AddHours(VnOffsetHours);
+        var checkInLocal = checkIn.AttendanceTime;
+        DateTime? checkOutLocal = checkOut?.AttendanceTime;
 
         bool isLate = false;
         int? lateMinutes = null;
@@ -112,25 +110,28 @@ public class GetEmployeeDashboardHandler(
 
         if (todayShift != null)
         {
-            if (checkInVn > todayShift.StartTime)
+            if (checkInLocal > todayShift.StartTime)
             {
                 isLate = true;
-                lateMinutes = (int)Math.Round((checkInVn - todayShift.StartTime).TotalMinutes);
+                lateMinutes = (int)Math.Round((checkInLocal - todayShift.StartTime).TotalMinutes);
             }
-            if (checkOutVn.HasValue && checkOutVn.Value < todayShift.EndTime)
+            if (checkOutLocal.HasValue && checkOutLocal.Value < todayShift.EndTime)
             {
                 isEarlyOut = true;
-                earlyOutMinutes = (int)Math.Round((todayShift.EndTime - checkOutVn.Value).TotalMinutes);
+                earlyOutMinutes = (int)Math.Round((todayShift.EndTime - checkOutLocal.Value).TotalMinutes);
             }
         }
 
-        var status = checkOutVn.HasValue ? "checked-out" : "checked-in";
+        var status = checkOutLocal.HasValue ? "checked-out" : "checked-in";
+        var lastPunch = todayPunches[^1];
 
         return new AttendanceInfoDto
         {
             Id = checkIn.Id,
-            CheckInTime = checkInVn,
-            CheckOutTime = checkOutVn,
+            CheckInTime = checkInLocal,
+            CheckOutTime = checkOutLocal,
+            LastPunchTime = lastPunch.AttendanceTime,
+            LastPunchIsCheckOut = lastPunch.AttendanceState == AttendanceStates.CheckOut,
             Status = status,
             IsLate = isLate,
             IsEarlyOut = isEarlyOut,
@@ -161,8 +162,7 @@ public class GetEmployeeDashboardHandler(
         }
 
         var (startLocal, endLocal) = GetDateRange(period);
-        var utcStart = startLocal.AddHours(-VnOffsetHours);
-        var utcEnd = endLocal.AddDays(1).AddHours(-VnOffsetHours);
+        var rangeEndExclusive = endLocal.AddDays(1);
 
         // Approved shifts in the VN window (Shift.StartTime is already local).
         var shifts = await shiftRepository.GetAllAsync(
@@ -177,19 +177,19 @@ public class GetEmployeeDashboardHandler(
         if (totalWorkDays == 0)
         {
             return await BuildPunchBasedStatsAsync(
-                deviceUserIds, utcStart, utcEnd, period, cancellationToken);
+                deviceUserIds, startLocal, rangeEndExclusive, period, cancellationToken);
         }
 
         var attendances = await attendanceRepository.GetAllAsync(
             filter: a => a.EmployeeId != null
                 && deviceUserIds.Contains(a.EmployeeId.Value)
-                && a.AttendanceTime >= utcStart
-                && a.AttendanceTime < utcEnd,
+                && a.AttendanceTime >= startLocal
+                && a.AttendanceTime < rangeEndExclusive,
             orderBy: q => q.OrderBy(a => a.AttendanceTime),
             cancellationToken: cancellationToken);
 
         var attendanceByDate = attendances
-            .GroupBy(a => a.AttendanceTime.AddHours(VnOffsetHours).Date)
+            .GroupBy(a => a.AttendanceTime.Date)
             .ToDictionary(g => g.Key, g => g.OrderBy(a => a.AttendanceTime).ToList());
 
         var presentDays = 0;
@@ -210,15 +210,15 @@ public class GetEmployeeDashboardHandler(
             var lastOut = dayPunches.LastOrDefault(a => a.AttendanceState == AttendanceStates.CheckOut)
                 ?? dayPunches.Last();
 
-            var inVn = firstIn.AttendanceTime.AddHours(VnOffsetHours);
-            var outVn = lastOut.AttendanceTime.AddHours(VnOffsetHours);
+            var inLocal = firstIn.AttendanceTime;
+            var outLocal = lastOut.AttendanceTime;
 
-            if (inVn > shift.StartTime) lateCheckIns++;
-            if (outVn < shift.EndTime) earlyCheckOuts++;
+            if (inLocal > shift.StartTime) lateCheckIns++;
+            if (outLocal < shift.EndTime) earlyCheckOuts++;
 
-            if (outVn > inVn)
+            if (outLocal > inLocal)
             {
-                totalWorkHours += (outVn - inVn).TotalHours;
+                totalWorkHours += (outLocal - inLocal).TotalHours;
                 workedFullDays++;
             }
         }
@@ -251,21 +251,21 @@ public class GetEmployeeDashboardHandler(
     /// <summary>Fallback khi chưa có ca duyệt — thống kê theo ngày có log chấm công.</summary>
     private async Task<AttendanceStatsDto> BuildPunchBasedStatsAsync(
         List<Guid> deviceUserIds,
-        DateTime utcStart,
-        DateTime utcEnd,
+        DateTime rangeStart,
+        DateTime rangeEndExclusive,
         string period,
         CancellationToken cancellationToken)
     {
         var attendances = await attendanceRepository.GetAllAsync(
             filter: a => a.EmployeeId != null
                 && deviceUserIds.Contains(a.EmployeeId.Value)
-                && a.AttendanceTime >= utcStart
-                && a.AttendanceTime < utcEnd,
+                && a.AttendanceTime >= rangeStart
+                && a.AttendanceTime < rangeEndExclusive,
             orderBy: q => q.OrderBy(a => a.AttendanceTime),
             cancellationToken: cancellationToken);
 
         var attendanceByDate = attendances
-            .GroupBy(a => a.AttendanceTime.AddHours(VnOffsetHours).Date)
+            .GroupBy(a => a.AttendanceTime.Date)
             .ToDictionary(g => g.Key, g => g.OrderBy(a => a.AttendanceTime).ToList());
 
         var presentDays = attendanceByDate.Count;
@@ -291,12 +291,12 @@ public class GetEmployeeDashboardHandler(
             var lastOut = dayPunches.LastOrDefault(a => a.AttendanceState == AttendanceStates.CheckOut)
                 ?? dayPunches.Last();
 
-            var inVn = firstIn.AttendanceTime.AddHours(VnOffsetHours);
-            var outVn = lastOut.AttendanceTime.AddHours(VnOffsetHours);
+            var inLocal = firstIn.AttendanceTime;
+            var outLocal = lastOut.AttendanceTime;
 
-            if (outVn > inVn)
+            if (outLocal > inLocal)
             {
-                totalWorkHours += (outVn - inVn).TotalHours;
+                totalWorkHours += (outLocal - inLocal).TotalHours;
                 workedFullDays++;
             }
         }

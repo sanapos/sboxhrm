@@ -11,9 +11,7 @@ namespace ZKTecoADMS.Application.Queries.Dashboard.GetCurrentAttendance;
 
 /// <summary>
 /// Trạng thái chấm công của nhân viên hiện tại trong ngày hôm nay (VN).
-///
-/// AttendanceTime được lưu UTC; tất cả phép so sánh ngày + so sánh với
-/// Shift.StartTime/EndTime (lưu local VN) phải quy về VN trước khi so sánh.
+/// AttendanceTime lưu giờ VN — cùng quy ước màn Chấm công thô.
 /// </summary>
 public class GetCurrentAttendanceHandler(
     IRepository<Attendance> attendanceRepository,
@@ -48,17 +46,15 @@ public class GetCurrentAttendanceHandler(
             });
         }
 
-        // VN-local "today" window converted back to UTC for filtering.
         var nowVn = DateTime.UtcNow.AddHours(VnOffsetHours);
         var todayLocal = nowVn.Date;
-        var utcStart = todayLocal.AddHours(-VnOffsetHours);
-        var utcEnd = todayLocal.AddDays(1).AddHours(-VnOffsetHours);
+        var tomorrowLocal = todayLocal.AddDays(1);
 
         var todayPunches = await attendanceRepository.GetAllAsync(
             filter: a => a.EmployeeId != null
                 && deviceUserIds.Contains(a.EmployeeId.Value)
-                && a.AttendanceTime >= utcStart
-                && a.AttendanceTime < utcEnd,
+                && a.AttendanceTime >= todayLocal
+                && a.AttendanceTime < tomorrowLocal,
             orderBy: q => q.OrderBy(a => a.AttendanceTime),
             cancellationToken: cancellationToken);
 
@@ -71,12 +67,9 @@ public class GetCurrentAttendanceHandler(
             });
         }
 
-        // Prefer punches tagged with the correct state; fall back to first/last when device only emits a generic state.
         var checkIn = todayPunches.FirstOrDefault(a => a.AttendanceState == AttendanceStates.CheckIn)
             ?? todayPunches.First();
         var checkOut = todayPunches.LastOrDefault(a => a.AttendanceState == AttendanceStates.CheckOut);
-        // Only count a check-out if it is *after* the check-in to avoid weird patterns
-        // (e.g. user enrolled state wrongly) producing negative work hours.
         if (checkOut != null && checkOut.AttendanceTime <= checkIn.AttendanceTime)
         {
             checkOut = null;
@@ -85,8 +78,8 @@ public class GetCurrentAttendanceHandler(
         var (todayShift, _) = await shiftService.GetTodayShiftAndNextShiftAsync(
             request.UserId, cancellationToken);
 
-        var checkInVn = checkIn.AttendanceTime.AddHours(VnOffsetHours);
-        DateTime? checkOutVn = checkOut?.AttendanceTime.AddHours(VnOffsetHours);
+        var checkInLocal = checkIn.AttendanceTime;
+        DateTime? checkOutLocal = checkOut?.AttendanceTime;
 
         bool isLate = false;
         int? lateMinutes = null;
@@ -95,26 +88,28 @@ public class GetCurrentAttendanceHandler(
 
         if (todayShift != null)
         {
-            if (checkInVn > todayShift.StartTime)
+            if (checkInLocal > todayShift.StartTime)
             {
                 isLate = true;
-                lateMinutes = (int)Math.Round((checkInVn - todayShift.StartTime).TotalMinutes);
+                lateMinutes = (int)Math.Round((checkInLocal - todayShift.StartTime).TotalMinutes);
             }
-            if (checkOutVn.HasValue && checkOutVn.Value < todayShift.EndTime)
+            if (checkOutLocal.HasValue && checkOutLocal.Value < todayShift.EndTime)
             {
                 isEarlyOut = true;
-                earlyOutMinutes = (int)Math.Round((todayShift.EndTime - checkOutVn.Value).TotalMinutes);
+                earlyOutMinutes = (int)Math.Round((todayShift.EndTime - checkOutLocal.Value).TotalMinutes);
             }
         }
 
-        var status = checkOutVn.HasValue ? "checked-out" : "checked-in";
+        var status = checkOutLocal.HasValue ? "checked-out" : "checked-in";
+        var lastPunch = todayPunches[^1];
 
         return AppResponse<AttendanceInfoDto>.Success(new AttendanceInfoDto
         {
             Id = checkIn.Id,
-            // Return VN-local times so the client can display them directly without re-applying offset.
-            CheckInTime = checkInVn,
-            CheckOutTime = checkOutVn,
+            CheckInTime = checkInLocal,
+            CheckOutTime = checkOutLocal,
+            LastPunchTime = lastPunch.AttendanceTime,
+            LastPunchIsCheckOut = lastPunch.AttendanceState == AttendanceStates.CheckOut,
             Status = status,
             IsLate = isLate,
             IsEarlyOut = isEarlyOut,

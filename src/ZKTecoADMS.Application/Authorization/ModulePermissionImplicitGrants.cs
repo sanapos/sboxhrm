@@ -203,6 +203,12 @@ public static class ModulePermissionImplicitGrants
                 return true;
         }
 
+        // Thông báo cá nhân: xem được thì được xóa thông báo của chính mình (API kiểm tra TargetUserId).
+        if (module.Equals("Notification", StringComparison.Ordinal) &&
+            action == ModulePermissionAction.Delete &&
+            HasAction(map, "Notification", ModulePermissionAction.View))
+            return true;
+
         return false;
     }
 

@@ -72,8 +72,8 @@ public class RenewalReminderBackgroundService : BackgroundService
                         Kind = AnnouncementKind.Renewal,
                         Severity = d <= 3 ? AnnouncementSeverity.Critical : AnnouncementSeverity.Warning,
                         Channels = NotificationChannel.InApp | NotificationChannel.Banner,
-                        RequireAck = d <= 1,
-                        AllowDismiss = d > 3,
+                        RequireAck = false,
+                        AllowDismiss = true,
                         Audience = new AudienceSpec
                         {
                             AllUsers = false,

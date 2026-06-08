@@ -215,6 +215,10 @@ class PermissionProvider extends ChangeNotifier {
   }
 
   bool _resolveAction(String moduleCode, String action) {
+    // Thông báo cá nhân: xem được thì được xóa thông báo của chính mình.
+    if (moduleCode == 'Notification' && action == 'canDelete') {
+      if (_flag('Notification', 'canView')) return true;
+    }
     if (PermissionModules.attendanceRead.contains(moduleCode) &&
         (action == 'canView' || action == 'canExport')) {
       if (_anyHas(action, PermissionModules.attendanceRead)) return true;

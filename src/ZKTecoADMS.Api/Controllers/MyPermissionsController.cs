@@ -77,16 +77,22 @@ public class MyPermissionsController(ZKTecoDbContext context) : AuthenticatedCon
             var rolePerm = rolePermissions.FirstOrDefault(rp => rp.PermissionId == module.Id);
             var deptPerm = deptPermissions.FirstOrDefault(dp => dp.PermissionId == module.Id);
 
+            var canView = (rolePerm?.CanView ?? false) || (deptPerm?.CanView ?? false);
+            var canDelete = (rolePerm?.CanDelete ?? false) || (deptPerm?.CanDelete ?? false);
+            // Thông báo cá nhân: xem được thì được xóa thông báo của chính mình.
+            if (module.Module == "Notification" && canView)
+                canDelete = true;
+
             return new ModulePermissionDto
             {
                 PermissionId = module.Id,
                 Module = module.Module,
                 ModuleDisplayName = module.ModuleDisplayName,
                 DisplayOrder = module.DisplayOrder,
-                CanView = (rolePerm?.CanView ?? false) || (deptPerm?.CanView ?? false),
+                CanView = canView,
                 CanCreate = (rolePerm?.CanCreate ?? false) || (deptPerm?.CanCreate ?? false),
                 CanEdit = (rolePerm?.CanEdit ?? false) || (deptPerm?.CanEdit ?? false),
-                CanDelete = (rolePerm?.CanDelete ?? false) || (deptPerm?.CanDelete ?? false),
+                CanDelete = canDelete,
                 CanExport = (rolePerm?.CanExport ?? false) || (deptPerm?.CanExport ?? false),
                 CanApprove = (rolePerm?.CanApprove ?? false) || (deptPerm?.CanApprove ?? false),
             };

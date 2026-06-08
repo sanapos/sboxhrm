@@ -249,7 +249,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
   static const Map<String, Set<String>> _moduleCapabilities = {
     // ── TỔNG QUAN ──
     'Home': {'canView'},
-    'Notification': {'canView'},
+    'Notification': {'canView', 'canDelete'},
     'DashboardAttendanceOverview': {'canView'},
     'DashboardHrInsights': {'canView'},
     'DashboardTodaySchedule': {'canView'},
@@ -1037,14 +1037,18 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
             'canApprove': false
           };
         }
+        if (module == 'Notification') {
+          return {
+            'canView': true,
+            'canCreate': false,
+            'canEdit': false,
+            'canDelete': true,
+            'canExport': false,
+            'canApprove': false
+          };
+        }
         if (_isLegacyDashboardModule(module) ||
-            [
-              'Leave',
-              'Shift',
-              'Holiday',
-              'Overtime',
-              'Notification'
-            ].contains(module)) {
+            ['Leave', 'Shift', 'Holiday', 'Overtime'].contains(module)) {
           return {
             'canView': true,
             'canCreate': false,
@@ -1091,7 +1095,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
             'canView': true,
             'canCreate': true,
             'canEdit': false,
-            'canDelete': false,
+            'canDelete': module == 'Notification',
             'canExport': false,
             'canApprove': false
           };
@@ -1148,6 +1152,16 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
             'canApprove': false
           };
         }
+        if (module == 'Notification') {
+          return {
+            'canView': true,
+            'canCreate': false,
+            'canEdit': false,
+            'canDelete': true,
+            'canExport': false,
+            'canApprove': false
+          };
+        }
         return {
           'canView': true,
           'canCreate': true,
@@ -1158,8 +1172,18 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
         };
 
       case 'employee':
+        if (module == 'Notification') {
+          return {
+            'canView': true,
+            'canCreate': false,
+            'canEdit': false,
+            'canDelete': true,
+            'canExport': false,
+            'canApprove': false
+          };
+        }
         if (_isLegacyDashboardModule(module) ||
-            ['Attendance', 'Payslip', 'Shift', 'Notification'].contains(module)) {
+            ['Attendance', 'Payslip', 'Shift'].contains(module)) {
           return {
             'canView': true,
             'canCreate': false,

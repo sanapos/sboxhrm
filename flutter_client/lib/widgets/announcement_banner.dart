@@ -138,63 +138,88 @@ class _AnnouncementBannerState extends State<AnnouncementBanner> {
     final actionLabel = a['actionLabel']?.toString();
     final requireAck = (a['requireAck'] as bool?) ?? false;
     final allowDismiss = (a['allowDismiss'] as bool?) ?? true;
+    // Gia hạn license: luôn cho khách tắt (kể cả bản ghi cũ AllowDismiss=false).
+    final canDismiss = allowDismiss || kind == 3;
 
     final color = _color(severity);
 
     return Material(
       color: color.withValues(alpha: 0.08),
-      child: InkWell(
-        onTap: () => _showDetail(a),
-        child: Container(
-          decoration: BoxDecoration(
-            border: Border(
-              left: BorderSide(color: color, width: 4),
-              bottom: BorderSide(color: color.withValues(alpha: 0.2)),
-            ),
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border(
+            left: BorderSide(color: color, width: 4),
+            bottom: BorderSide(color: color.withValues(alpha: 0.2)),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Row(children: [
+        ),
+        padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Icon(_icon(kind), color: color, size: 22),
             const SizedBox(width: 10),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: vietnameseTextStyle(const TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 14))),
-                  const SizedBox(height: 2),
-                  Text(content,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: vietnameseTextStyle(const TextStyle(fontSize: 12))),
-                ],
+              child: InkWell(
+                onTap: () => _showDetail(a),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: vietnameseTextStyle(const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 14))),
+                    const SizedBox(height: 2),
+                    Text(content,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style:
+                            vietnameseTextStyle(const TextStyle(fontSize: 12))),
+                    if (actionUrl != null && actionUrl.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        actionLabel?.isNotEmpty == true
+                            ? actionLabel!
+                            : 'Xem chi tiết',
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: color),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
-            if (actionUrl != null && actionUrl.isNotEmpty)
-              TextButton(
-                style: TextButton.styleFrom(foregroundColor: color),
-                onPressed: () => _onAction(id, actionUrl),
-                child: Text(
-                    actionLabel?.isNotEmpty == true ? actionLabel! : 'Xem'),
-              ),
-            if (requireAck)
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                    backgroundColor: color, foregroundColor: Colors.white),
-                onPressed: () => _onAck(id),
-                child: const Text('Đồng ý'),
-              )
-            else if (allowDismiss)
-              IconButton(
-                tooltip: 'Ẩn',
-                icon: const Icon(Icons.close, size: 18),
-                onPressed: () => _onDismiss(id),
-              ),
-          ]),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (canDismiss)
+                  IconButton(
+                    tooltip: 'Tắt thông báo',
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                        minWidth: 36, minHeight: 36),
+                    icon: Icon(Icons.close, size: 20, color: color),
+                    onPressed: () => _onDismiss(id),
+                  ),
+                if (requireAck)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: color,
+                          foregroundColor: Colors.white,
+                          visualDensity: VisualDensity.compact),
+                      onPressed: () => _onAck(id),
+                      child: const Text('Đồng ý'),
+                    ),
+                  ),
+              ],
+            ),
+          ],
         ),
       ),
     );
@@ -220,8 +245,11 @@ class _AnnouncementBannerState extends State<AnnouncementBanner> {
 
   Future<void> _showDetail(Map<String, dynamic> a) async {
     final id = a['id']?.toString() ?? '';
+    final kind =
+        AdminHelpers.parseEnumInt(a['kind'], AdminHelpers.announcementKindMap);
     final requireAck = (a['requireAck'] as bool?) ?? false;
     final allowDismiss = (a['allowDismiss'] as bool?) ?? true;
+    final canDismiss = allowDismiss || kind == 3;
     final actionUrl = a['actionUrl']?.toString();
     final actionLabel = a['actionLabel']?.toString();
     await showDialog(
@@ -251,12 +279,17 @@ class _AnnouncementBannerState extends State<AnnouncementBanner> {
               },
               child: const Text('Tôi đã đọc'),
             )
-          else
+          else if (canDismiss)
             TextButton(
               onPressed: () {
                 Navigator.pop(context);
-                if (allowDismiss) _onDismiss(id);
+                _onDismiss(id);
               },
+              child: const Text('Tắt thông báo'),
+            )
+          else
+            TextButton(
+              onPressed: () => Navigator.pop(context),
               child: const Text('Đóng'),
             ),
         ],

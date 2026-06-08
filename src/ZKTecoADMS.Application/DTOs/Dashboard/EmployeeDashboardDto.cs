@@ -14,8 +14,14 @@ public class ShiftInfoDto
 public class AttendanceInfoDto
 {
     public Guid Id { get; set; }
+    /// <summary>Giờ VN (wall clock) — cùng quy ước Chấm công thô.</summary>
     public DateTime? CheckInTime { get; set; }
+    /// <summary>Giờ VN — lần check-out mới nhất trong ngày, nếu có.</summary>
     public DateTime? CheckOutTime { get; set; }
+    /// <summary>Giờ VN — lần chấm gần nhất trong ngày.</summary>
+    public DateTime? LastPunchTime { get; set; }
+    /// <summary>true = last punch was check-out; false = check-in.</summary>
+    public bool LastPunchIsCheckOut { get; set; }
     public double WorkHours => CheckInTime == null ? 0 : (CheckOutTime == null ? (DateTime.Now - CheckInTime.Value).TotalHours : (CheckOutTime.Value - CheckInTime.Value).TotalHours);
     public string Status { get; set; } = "not-started"; // checked-in, checked-out, not-started
     public bool IsLate { get; set; }

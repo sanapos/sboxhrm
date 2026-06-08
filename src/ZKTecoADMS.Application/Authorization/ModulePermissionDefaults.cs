@@ -70,8 +70,9 @@ public static class ModulePermissionDefaults
             => (true, false, false, false, true, false),
         "employee" or "attendance" or "attendancesummary" or "attendancebyshift"
             => (true, false, false, false, true, false),
+        "notification" => (true, false, false, true, false, false),
         _ when IsDashboardFamily(m) || m is "leave" or "shift" or "workschedule"
-            or "holiday" or "overtime" or "notification" or "settingshub"
+            or "holiday" or "overtime" or "settingshub"
             => (true, false, false, false, false, false),
         _ => (false, false, false, false, false, false)
     };
@@ -82,7 +83,7 @@ public static class ModulePermissionDefaults
             or "shift" or "workschedule" or "overtime" or "attendanceapproval" or "scheduleapproval"
             or "shiftswap" or "task" or "kpi" or "hrdocument" or "penaltytickets"
             => (true, true, true, false, true, true),
-        "notification" or "communication" => (true, true, false, false, false, false),
+        "notification" or "communication" => (true, true, false, true, false, false),
         "hrreport" or "attendancereport" or "payrollreport" or "salarysettings" or "payslip" or "payroll"
             => (true, false, false, false, true, false),
         _ when IsDashboardFamily(m) || m is "allowance" or "holiday" or "insurance"
@@ -97,13 +98,15 @@ public static class ModulePermissionDefaults
     {
         "settings" or "store" or "role" or "usermanagement" or "systemsettings" or "departmentpermission"
             => (true, false, false, false, false, false),
+        "notification" => (true, false, false, true, false, false),
         _ => (true, true, true, false, true, true)
     };
 
     private static (bool, bool, bool, bool, bool, bool) EmployeeDefaults(string m) => m switch
     {
+        "notification" => (true, false, false, true, false, false),
         _ when IsDashboardFamily(m) || m is "attendance" or "attendancesummary" or "attendancebyshift"
-            or "workschedule" or "payslip" or "shift" or "notification" or "home"
+            or "workschedule" or "payslip" or "shift" or "home"
             => (true, false, false, false, false, false),
         "leave" or "shiftswap" or "attendanceapproval" or "attendancecorrection" or "overtime"
             => (true, true, false, false, false, false),
