@@ -747,7 +747,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       height: 1.4,
       color: n.isRead ? Colors.grey.shade500 : Colors.grey.shade700,
     );
-    return _ExpandableText(text: n.message, style: style);
+    return _ExpandableText(text: n.effectiveMessage, style: style);
   }
 
   Widget _buildDateHeader(String label) {
@@ -826,18 +826,38 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                               color: color, shape: BoxShape.circle),
                         ),
                       Expanded(
-                        child: Text(
-                          n.title,
-                          style: TextStyle(
-                            fontWeight:
-                                n.isRead ? FontWeight.w500 : FontWeight.w700,
-                            fontSize: 14,
-                            color: n.isRead
-                                ? Colors.grey.shade600
-                                : Colors.grey.shade900,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (n.categoryLabel != null &&
+                                n.categoryLabel!.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 2),
+                                child: Text(
+                                  n.categoryLabel!,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: n.isRead
+                                        ? Colors.grey.shade400
+                                        : color,
+                                  ),
+                                ),
+                              ),
+                            Text(
+                              n.effectiveTitle,
+                              style: TextStyle(
+                                fontWeight:
+                                    n.isRead ? FontWeight.w500 : FontWeight.w700,
+                                fontSize: 14,
+                                color: n.isRead
+                                    ? Colors.grey.shade600
+                                    : Colors.grey.shade900,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
                         ),
                       ),
                       if (hasNav)

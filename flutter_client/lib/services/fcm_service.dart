@@ -12,6 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../firebase_options.dart';
 import '../screens/main_layout.dart' show ScreenRefreshNotifier;
+import '../utils/notification_display_utils.dart';
 import '../utils/notification_navigation.dart';
 import '../utils/pending_notification_launch.dart';
 import 'api_config.dart';
@@ -242,7 +243,12 @@ class FcmService {
           data['relatedEntityId']?.isNotEmpty == true
               ? data['relatedEntityId']
               : notificationRowId;
-      final title = msg.notification?.title ?? data['title'];
+      final display = resolveNotificationDisplay({
+        ...data,
+        if (msg.notification?.title != null) 'title': msg.notification!.title,
+        if (msg.notification?.body != null) 'message': msg.notification!.body,
+      });
+      final title = display.title;
       if (kDebugMode) {
         debugPrint(
             'FCM tap → entity=$entityType row=$notificationRowId highlight=$highlightId');

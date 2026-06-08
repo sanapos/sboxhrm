@@ -89,8 +89,11 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
   // headEulerAngleY: left/right — front camera mirrors, normalize via [_normalizeYaw].
   // headEulerAngleX: positive = up, negative = down
   static const double _yawThreshold = 15.0;
+  static const double _yawThresholdIos = 10.0;
   static const double _pitchThreshold = 12.0;
+  static const double _pitchThresholdIos = 10.0;
   static const double _frontMaxAngle = 14.0;
+  static const double _lateralMaxPitchIos = 28.0;
   static const double _minFaceAreaRatioAndroid = 0.05;
   static const double _minFaceAreaRatioIos = 0.03;
   static const double _minSharpnessScoreAndroid = 60.0;
@@ -217,19 +220,28 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
       }
 
       final face = faces.first;
-      final yaw = face.headEulerAngleY ?? 0.0;
+      final rawYaw = face.headEulerAngleY ?? 0.0;
       final pitch = face.headEulerAngleX ?? 0.0;
-      final normalizedYaw = _normalizeYaw(yaw);
+      final yaw = _normalizeYaw(rawYaw);
 
       final step = _steps[_currentStep];
-      final isAligned = _checkDirection(step.direction, normalizedYaw, pitch);
+      final isAligned = _checkDirection(
+        step.direction,
+        yaw,
+        pitch,
+        slack: Platform.isIOS ? 6.0 : 0.0,
+        yawThreshold: _activeYawThreshold,
+        pitchThreshold: _activePitchThreshold,
+        lateralMaxPitch: Platform.isIOS ? _lateralMaxPitchIos : null,
+        iosStream: Platform.isIOS,
+      );
 
       if (isAligned) {
         _updateFaceStatus(_FaceStatus.aligned, _getAlignedHint(step.direction));
       } else {
         _updateFaceStatus(
           _FaceStatus.wrongDirection,
-          _getDirectionHint(step.direction, normalizedYaw, pitch),
+          _getDirectionHint(step.direction, yaw, pitch),
         );
       }
     } catch (e) {
@@ -269,12 +281,18 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
     );
   }
 
-  /// Front camera mirrors preview — invert yaw on all platforms for user-facing hints.
+  /// Front camera mirrors preview — invert yaw on Android stream frames.
   double _normalizeYaw(double yaw) {
     final lens = _cameraController?.description.lensDirection;
     if (lens == CameraLensDirection.front) return -yaw;
     return yaw;
   }
+
+  double get _activeYawThreshold =>
+      Platform.isIOS ? _yawThresholdIos : _yawThreshold;
+
+  double get _activePitchThreshold =>
+      Platform.isIOS ? _pitchThresholdIos : _pitchThreshold;
 
   String _directionMismatchMessage(String direction) {
     switch (direction) {
@@ -299,20 +317,34 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
     double yaw,
     double pitch, {
     double slack = 0,
+    double? yawThreshold,
+    double? pitchThreshold,
+    double? lateralMaxPitch,
+    bool iosStream = false,
   }) {
+    final yawMin = (yawThreshold ?? _yawThreshold) - slack;
+    final pitchMin = (pitchThreshold ?? _pitchThreshold) - slack;
+    final maxPitch = lateralMaxPitch ?? double.infinity;
+
     switch (direction) {
       case 'front':
         return yaw.abs() < _frontMaxAngle + slack &&
             pitch.abs() < _frontMaxAngle + slack;
       case 'left':
-        // Front camera mirrors: positive yaw = user's left
-        return yaw > _yawThreshold - slack;
+        // iOS BGRA live stream reports lateral yaw with opposite sign vs Android.
+        if (iosStream) {
+          return yaw < -yawMin && pitch.abs() < maxPitch + slack;
+        }
+        return yaw > yawMin && pitch.abs() < maxPitch + slack;
       case 'right':
-        return yaw < -_yawThreshold + slack;
+        if (iosStream) {
+          return yaw > yawMin && pitch.abs() < maxPitch + slack;
+        }
+        return yaw < -yawMin && pitch.abs() < maxPitch + slack;
       case 'up':
-        return pitch > _pitchThreshold - slack;
+        return pitch > pitchMin;
       case 'down':
-        return pitch < -_pitchThreshold + slack;
+        return pitch < -pitchMin;
       default:
         return false;
     }
@@ -368,6 +400,7 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
 
   void _startStep() {
     if (_currentStep >= _steps.length || !mounted || _isAdvancing) return;
+    unawaited(_ensureStreamRunning());
     setState(() {
       _isCapturing = true;
       _stepProgress = 0.0;
@@ -501,7 +534,6 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
 
     _stepRetryCount = 0;
     _capturedImages.add(base64Image);
-    setState(() => _isCapturing = false);
     _segmentController.forward(from: 0);
 
     await Future.delayed(const Duration(milliseconds: 300));
@@ -539,10 +571,32 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
     return null;
   }
 
+  Future<void> _ensureStreamRunning() async {
+    final controller = _cameraController;
+    if (controller == null || !controller.value.isInitialized) return;
+    if (controller.value.isStreamingImages) return;
+    await _restartImageStream();
+  }
+
   Future<void> _restartImageStream() async {
+    final controller = _cameraController;
+    if (controller == null || !controller.value.isInitialized) return;
+
+    try {
+      if (controller.value.isStreamingImages) {
+        await controller.stopImageStream();
+      }
+    } catch (e) {
+      debugPrint('📸 Stream stop before restart: $e');
+    }
+
+    if (Platform.isIOS) {
+      await Future.delayed(_iosCameraSettleDelay);
+    }
+
     for (var i = 0; i < 3; i++) {
       try {
-        await _cameraController?.startImageStream(_onCameraFrame);
+        await controller.startImageStream(_onCameraFrame);
         return;
       } catch (e) {
         debugPrint('📸 Stream restart error (attempt ${i + 1}/3): $e');

@@ -560,6 +560,10 @@ class AppNotification {
   final String? relatedEntityId;
   final String? relatedEntityType;
   final String? categoryCode;
+  final String? fromUserName;
+  final String? categoryLabel;
+  final String? displayTitle;
+  final String? displayBody;
   final DateTime createdAt;
 
   AppNotification({
@@ -574,8 +578,22 @@ class AppNotification {
     this.relatedEntityId,
     this.relatedEntityType,
     this.categoryCode,
+    this.fromUserName,
+    this.categoryLabel,
+    this.displayTitle,
+    this.displayBody,
     required this.createdAt,
   });
+
+  String get effectiveTitle =>
+      (displayTitle != null && displayTitle!.trim().isNotEmpty)
+          ? displayTitle!.trim()
+          : title;
+
+  String get effectiveMessage =>
+      (displayBody != null && displayBody!.trim().isNotEmpty)
+          ? displayBody!.trim()
+          : message;
 
   factory AppNotification.fromJson(Map<String, dynamic> json) {
     return AppNotification(
@@ -591,6 +609,10 @@ class AppNotification {
       relatedEntityId: json['relatedEntityId']?.toString(),
       relatedEntityType: json['relatedEntityType'],
       categoryCode: json['categoryCode']?.toString(),
+      fromUserName: json['fromUserName']?.toString(),
+      categoryLabel: json['categoryLabel']?.toString(),
+      displayTitle: json['displayTitle']?.toString(),
+      displayBody: json['displayBody']?.toString(),
       createdAt: _parseDateTime(json['createdAt'] ?? json['timestamp']),
     );
   }

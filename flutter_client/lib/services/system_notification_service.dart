@@ -100,6 +100,7 @@ class SystemNotificationService {
   Future<void> show({
     required String title,
     required String body,
+    String? categoryLabel,
     String? channelId,
     String? channelName,
     String? payload,
@@ -132,7 +133,7 @@ class SystemNotificationService {
       styleInformation: BigTextStyleInformation(
         body,
         contentTitle: title,
-        summaryText: 'SBOX HRM',
+        summaryText: categoryLabel ?? 'SBOX HRM',
       ),
       autoCancel: true, // Chỉ dismiss khi user tap vào
     );
@@ -210,6 +211,7 @@ class SystemNotificationService {
   Future<void> showGeneral({
     required String title,
     required String message,
+    String? categoryLabel,
     String? relatedEntityType,
     String? notificationId,
     String? relatedEntityId,
@@ -217,6 +219,7 @@ class SystemNotificationService {
     await show(
       title: title,
       body: message,
+      categoryLabel: categoryLabel,
       channelId: 'sbox_hrm_general',
       channelName: 'Thông báo chung',
       payload: _makePayload(

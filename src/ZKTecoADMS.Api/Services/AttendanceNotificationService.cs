@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using ZKTecoADMS.Api.Hubs;
 using ZKTecoADMS.Application.Interfaces;
+using ZKTecoADMS.Application.Notifications;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Domain.Repositories;
@@ -486,7 +487,8 @@ public class AttendanceNotificationService : IAttendanceNotificationService
         {
             try
             {
-                var dto = NotificationDtoMapper.ToSignalRPayload(n);
+                var display = NotificationPushFormatter.Format(n);
+                var dto = NotificationDtoMapper.ToSignalRPayload(n, display);
                 await _hubContext.Clients.Group($"user_{n.TargetUserId}").SendAsync("NewNotification", dto);
             }
             catch (Exception perUserEx)
@@ -520,7 +522,6 @@ public class AttendanceNotificationService : IAttendanceNotificationService
             var push = pushScope.ServiceProvider.GetService<ZKTecoADMS.Infrastructure.Services.Push.IPushNotificationService>();
             if (push == null) return;
 
-            const string title = "Chấm công";
             var deviceLabel = device.DeviceName ?? device.SerialNumber;
 
             foreach (var (userId, list) in byUser)
@@ -528,18 +529,19 @@ public class AttendanceNotificationService : IAttendanceNotificationService
                 if (list.Count == 0) continue;
 
                 var latest = list.OrderByDescending(n => n.Timestamp).First();
+                var display = NotificationPushFormatter.Format(latest);
                 var body = list.Count == 1
-                    ? latest.Message ?? deviceLabel
+                    ? display.Body
                     : $"{list.Count} lần chấm công mới\n{deviceLabel}";
 
                 var pushData = NotificationDtoMapper.ToFcmData(latest, new Dictionary<string, string>
                 {
                     ["batchCount"] = list.Count.ToString(),
                     ["attendanceId"] = latest.RelatedEntityId?.ToString() ?? string.Empty,
-                });
+                }, display: display);
 
                 await push.PushToUserAsync(
-                    userId, title, body,
+                    userId, display.Title, body,
                     actionUrl: "/attendance",
                     data: pushData,
                     androidTag: "sbox_attendance");

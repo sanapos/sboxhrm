@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using ZKTecoADMS.Api.Hubs;
 using ZKTecoADMS.Application.Interfaces;
+using ZKTecoADMS.Application.Notifications;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Domain.Repositories;
@@ -249,8 +250,9 @@ public class DeviceStatusNotificationService : IDeviceStatusNotificationService
                 {
                     foreach (var n in notifications)
                     {
-                        var pushData = NotificationDtoMapper.ToFcmData(n);
-                        await push.PushToUserAsync(n.TargetUserId!.Value, title, message,
+                        var display = NotificationPushFormatter.Format(n);
+                        var pushData = NotificationDtoMapper.ToFcmData(n, display: display);
+                        await push.PushToUserAsync(n.TargetUserId!.Value, display.Title, display.Body,
                             actionUrl: "/adms-devices", data: pushData);
                     }
                 }
@@ -264,7 +266,8 @@ public class DeviceStatusNotificationService : IDeviceStatusNotificationService
             {
                 try
                 {
-                    var dto = NotificationDtoMapper.ToSignalRPayload(n);
+                    var display = NotificationPushFormatter.Format(n);
+                    var dto = NotificationDtoMapper.ToSignalRPayload(n, display);
                     await _hubContext.Clients.Group($"user_{n.TargetUserId}").SendAsync("NewNotification", dto);
                 }
                 catch (Exception perUserEx)

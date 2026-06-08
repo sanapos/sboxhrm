@@ -144,20 +144,32 @@ public class OvertimesController(
                         .ToListAsync();
                     if (storeManagers.Count > 0)
                     {
+                        var employeeName = result?.EmployeeUser != null
+                            ? $"{result.EmployeeUser.LastName} {result.EmployeeUser.FirstName}".Trim()
+                            : "Nhân viên";
+                        if (string.IsNullOrWhiteSpace(employeeName))
+                            employeeName = result?.EmployeeUser?.UserName ?? "Nhân viên";
+
                         await notificationService.CreateAndSendToUsersAsync(
                             storeManagers, NotificationType.ApprovalRequired,
                             "Đơn tăng ca mới",
-                            $"Có đơn tăng ca mới ngày {request.Date:dd/MM/yyyy} ({request.StartTime:hh\\:mm} - {request.EndTime:hh\\:mm}) cần phê duyệt",
+                            $"{employeeName} đăng ký tăng ca ngày {request.Date:dd/MM/yyyy} ({request.StartTime:hh\\:mm} - {request.EndTime:hh\\:mm})",
                             relatedEntityId: overtime.Id, relatedEntityType: "Overtime",
                             fromUserId: employeeUserId, categoryCode: "overtime", storeId: RequiredStoreId);
                     }
                 }
                 else
                 {
+                    var employeeName = result?.EmployeeUser != null
+                        ? $"{result.EmployeeUser.LastName} {result.EmployeeUser.FirstName}".Trim()
+                        : "Nhân viên";
+                    if (string.IsNullOrWhiteSpace(employeeName))
+                        employeeName = result?.EmployeeUser?.UserName ?? "Nhân viên";
+
                     await notificationService.CreateAndSendAsync(
                         managerId, NotificationType.ApprovalRequired,
                         "Đơn tăng ca mới",
-                        $"Có đơn tăng ca mới ngày {request.Date:dd/MM/yyyy} ({request.StartTime:hh\\:mm} - {request.EndTime:hh\\:mm}) cần phê duyệt",
+                        $"{employeeName} đăng ký tăng ca ngày {request.Date:dd/MM/yyyy} ({request.StartTime:hh\\:mm} - {request.EndTime:hh\\:mm})",
                         relatedEntityId: overtime.Id, relatedEntityType: "Overtime",
                         fromUserId: employeeUserId, categoryCode: "overtime", storeId: RequiredStoreId);
                 }

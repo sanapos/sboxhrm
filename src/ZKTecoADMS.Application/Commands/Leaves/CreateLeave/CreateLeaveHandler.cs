@@ -190,10 +190,17 @@ public class CreateLeaveHandler(
 
                 if (!request.AutoApprove && allApproverIds.Any())
                 {
+                    var employeeUser = await userManager.FindByIdAsync(request.EmployeeUserId.ToString());
+                    var employeeName = employeeUser != null
+                        ? $"{employeeUser.LastName} {employeeUser.FirstName}".Trim()
+                        : "Nhân viên";
+                    if (string.IsNullOrWhiteSpace(employeeName))
+                        employeeName = employeeUser?.UserName ?? "Nhân viên";
+
                     await notificationService.CreateAndSendToUsersAsync(
                         allApproverIds, NotificationType.ApprovalRequired,
                         "Đơn nghỉ phép mới",
-                        $"Có đơn nghỉ phép mới cần phê duyệt từ {request.StartDate:dd/MM/yyyy} đến {request.EndDate:dd/MM/yyyy}" +
+                        $"{employeeName} xin nghỉ từ {request.StartDate:dd/MM/yyyy} đến {request.EndDate:dd/MM/yyyy}" +
                         (totalLevels > 1 ? $" ({totalLevels} cấp duyệt)" : ""),
                         relatedEntityId: createdLeave.Id, relatedEntityType: "Leave",
                         fromUserId: request.EmployeeUserId, categoryCode: "leave", storeId: request.StoreId);

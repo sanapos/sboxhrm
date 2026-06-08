@@ -57,6 +57,7 @@ import 'agent_license_keys_screen.dart';
 import 'production_output_screen.dart';
 import 'feedback_screen.dart';
 import 'mobile_attendance_screen.dart';
+import '../utils/notification_display_utils.dart';
 import '../utils/notification_navigation.dart';
 import '../utils/pending_notification_launch.dart';
 import 'mobile_device_registration_screen.dart';
@@ -619,8 +620,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
   void _handleNewNotification(Map<String, dynamic> data) {
     try {
-      final title = data['title'] ?? 'Thông báo mới';
-      final message = data['message'] ?? '';
+      final display = resolveNotificationDisplay(data);
+      final title = display.title;
+      final message = display.body;
       final typeValue = data['type'] ?? 0;
       final type = _parseNotificationType(typeValue);
       final relatedEntityType = data['relatedEntityType'] as String?;
@@ -673,6 +675,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           _systemNotification.showGeneral(
             title: title,
             message: message,
+            categoryLabel: display.categoryLabel,
             relatedEntityType: relatedEntityType,
             notificationId: notificationId,
             relatedEntityId: data['relatedEntityId']?.toString(),

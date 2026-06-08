@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Hubs;
 using ZKTecoADMS.Application.Constants;
+using ZKTecoADMS.Application.Notifications;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
@@ -41,11 +42,12 @@ public class SystemNotificationService : ISystemNotificationService
 
     public async Task SendToUserAsync(Guid userId, Notification notification)
     {
+        var display = await BuildPushDisplayAsync(notification);
         try
         {
-            var dto = NotificationDtoMapper.ToSignalRPayload(notification);
+            var dto = NotificationDtoMapper.ToSignalRPayload(notification, display);
             await _hubContext.Clients.Group($"user_{userId}").SendAsync("NewNotification", dto);
-            _logger.LogInformation("📢 Sent notification to user {UserId}: {Title}", userId, notification.Title);
+            _logger.LogInformation("📢 Sent notification to user {UserId}: {Title}", userId, display.Title);
         }
         catch (Exception ex)
         {
@@ -59,9 +61,9 @@ public class SystemNotificationService : ISystemNotificationService
         // Best-effort FCM fan-out (silent no-op when Firebase isn't configured).
         try
         {
-            await _push.PushToUserAsync(userId, notification.Title ?? string.Empty, notification.Message,
+            await _push.PushToUserAsync(userId, display.Title, display.Body,
                 notification.RelatedUrl,
-                NotificationDtoMapper.ToFcmData(notification));
+                NotificationDtoMapper.ToFcmData(notification, display: display));
         }
         catch (Exception ex)
         {
@@ -72,12 +74,13 @@ public class SystemNotificationService : ISystemNotificationService
     public async Task SendToUsersAsync(IEnumerable<Guid> userIds, Notification notification)
     {
         var idList = userIds as IList<Guid> ?? userIds.ToList();
+        var display = await BuildPushDisplayAsync(notification);
         try
         {
-            var dto = NotificationDtoMapper.ToSignalRPayload(notification);
+            var dto = NotificationDtoMapper.ToSignalRPayload(notification, display);
             var groupNames = idList.Select(id => $"user_{id}").ToList();
             await _hubContext.Clients.Groups(groupNames).SendAsync("NewNotification", dto);
-            _logger.LogInformation("📢 Sent notification to {Count} users: {Title}", groupNames.Count, notification.Title);
+            _logger.LogInformation("📢 Sent notification to {Count} users: {Title}", groupNames.Count, display.Title);
         }
         catch (Exception ex)
         {
@@ -86,9 +89,9 @@ public class SystemNotificationService : ISystemNotificationService
 
         try
         {
-            await _push.PushToUsersAsync(idList, notification.Title ?? string.Empty, notification.Message,
+            await _push.PushToUsersAsync(idList, display.Title, display.Body,
                 notification.RelatedUrl,
-                NotificationDtoMapper.ToFcmData(notification));
+                NotificationDtoMapper.ToFcmData(notification, display: display));
         }
         catch (Exception ex)
         {
@@ -105,7 +108,8 @@ public class SystemNotificationService : ISystemNotificationService
         // explicitly to avoid the cross-tenant leak that motivated this fix.
         try
         {
-            var dto = NotificationDtoMapper.ToSignalRPayload(notification);
+            var display = await BuildPushDisplayAsync(notification);
+            var dto = NotificationDtoMapper.ToSignalRPayload(notification, display);
             if (notification.StoreId.HasValue)
             {
                 await _hubContext.Clients.Group($"store_{notification.StoreId.Value}")
@@ -143,12 +147,13 @@ public class SystemNotificationService : ISystemNotificationService
                 .ToListAsync();
             if (userIds.Count == 0) return;
 
+            var display = await BuildPushDisplayAsync(notification);
             await _push.PushToUsersAsync(
                 userIds,
-                notification.Title ?? string.Empty,
-                notification.Message ?? string.Empty,
+                display.Title,
+                display.Body,
                 notification.RelatedUrl,
-                NotificationDtoMapper.ToFcmData(notification),
+                NotificationDtoMapper.ToFcmData(notification, display: display),
                 androidTag: notification.CategoryCode ?? "sbox_hrm");
         }
         catch (Exception ex)
@@ -284,6 +289,9 @@ public class SystemNotificationService : ISystemNotificationService
             // recovered by the client via /api/notifications.
             await _notificationRepository.AddRangeAsync(notifications);
 
+            var senderNames = await ResolveSenderNamesAsync(
+                notifications.Select(n => n.FromUserId));
+
             // Send individual notification DTOs to each user's group
             // Each user should receive their own notification with correct userId
             foreach (var notification in notifications)
@@ -292,7 +300,8 @@ public class SystemNotificationService : ISystemNotificationService
                 {
                     try
                     {
-                        var dto = NotificationDtoMapper.ToSignalRPayload(notification);
+                        var display = BuildPushDisplay(notification, senderNames);
+                        var dto = NotificationDtoMapper.ToSignalRPayload(notification, display);
                         await _hubContext.Clients.Group($"user_{notification.TargetUserId.Value}")
                             .SendAsync("NewNotification", dto);
                     }
@@ -312,12 +321,13 @@ public class SystemNotificationService : ISystemNotificationService
                 if (!notification.TargetUserId.HasValue) continue;
                 try
                 {
+                    var display = BuildPushDisplay(notification, senderNames);
                     await _push.PushToUserAsync(
                         notification.TargetUserId.Value,
-                        title,
-                        message,
+                        display.Title,
+                        display.Body,
                         relatedUrl,
-                        NotificationDtoMapper.ToFcmData(notification),
+                        NotificationDtoMapper.ToFcmData(notification, display: display),
                         androidTag: notification.CategoryCode ?? "sbox_hrm");
                 }
                 catch (Exception ex)
@@ -360,5 +370,51 @@ public class SystemNotificationService : ISystemNotificationService
                  && !p.IsEnabled
                  && (p.StoreId == null || p.StoreId == storeId));
         return disabledPrefs.Select(p => p.UserId).ToHashSet();
+    }
+
+    private async Task<NotificationPushDisplay> BuildPushDisplayAsync(Notification notification)
+    {
+        var senderNames = await ResolveSenderNamesAsync(
+            notification.FromUserId.HasValue
+                ? new[] { notification.FromUserId }
+                : Array.Empty<Guid?>());
+        return BuildPushDisplay(notification, senderNames);
+    }
+
+    private static NotificationPushDisplay BuildPushDisplay(
+        Notification notification,
+        IReadOnlyDictionary<Guid, string> senderNames)
+    {
+        string? senderName = null;
+        if (notification.FromUserId.HasValue
+            && senderNames.TryGetValue(notification.FromUserId.Value, out var resolved)
+            && !string.IsNullOrWhiteSpace(resolved))
+        {
+            senderName = resolved;
+        }
+
+        return NotificationPushFormatter.Format(notification, senderName);
+    }
+
+    private async Task<Dictionary<Guid, string>> ResolveSenderNamesAsync(
+        IEnumerable<Guid?> userIds)
+    {
+        var ids = userIds
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .Distinct()
+            .ToList();
+        if (ids.Count == 0) return new Dictionary<Guid, string>();
+
+        var users = await _dbContext.Users
+            .AsNoTracking()
+            .Where(u => ids.Contains(u.Id))
+            .Select(u => new { u.Id, u.LastName, u.FirstName, u.UserName, u.Email })
+            .ToListAsync();
+
+        return users.ToDictionary(
+            u => u.Id,
+            u => NotificationPushFormatter.FormatUserDisplayName(
+                u.LastName, u.FirstName, u.UserName, u.Email));
     }
 }

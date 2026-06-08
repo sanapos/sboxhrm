@@ -14,6 +14,10 @@ public class NotificationDto
     public bool IsRead { get; set; }
     public DateTime? ReadAt { get; set; }
     public Guid? FromUserId { get; set; }
+    public string? FromUserName { get; set; }
+    public string? CategoryLabel { get; set; }
+    public string? DisplayTitle { get; set; }
+    public string? DisplayBody { get; set; }
     public string? RelatedUrl { get; set; }
     public Guid? RelatedEntityId { get; set; }
     public string? RelatedEntityType { get; set; }

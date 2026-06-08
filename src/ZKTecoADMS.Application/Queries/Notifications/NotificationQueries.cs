@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
+using ZKTecoADMS.Application.Notifications;
 using ZKTecoADMS.Application.DTOs.Notifications;
 using ZKTecoADMS.Application.DTOs.Commons;
 using ZKTecoADMS.Domain.Enums;
@@ -85,8 +86,21 @@ public class GetUserNotificationsHandler(
                 .Take(pageSize)
                 .ToList();
 
+            var dtos = paged.Adapt<List<NotificationDto>>();
+            for (var i = 0; i < paged.Count; i++)
+            {
+                var entity = paged[i];
+                var dto = dtos[i];
+                var senderName = NotificationPushFormatter.FormatUserDisplayName(entity.FromUser);
+                var display = NotificationPushFormatter.Format(entity, senderName);
+                dto.FromUserName = string.IsNullOrWhiteSpace(senderName) ? null : senderName;
+                dto.CategoryLabel = display.CategoryLabel;
+                dto.DisplayTitle = display.Title;
+                dto.DisplayBody = display.Body;
+            }
+
             var result = new PagedResult<NotificationDto>(
-                paged.Adapt<List<NotificationDto>>(),
+                dtos,
                 totalCount,
                 page,
                 pageSize);
