@@ -49,6 +49,8 @@ enum _FaceStatus {
   aligned,       // Face detected and correct direction
 }
 
+enum _AdvanceOutcome { retry, nextStep, allDone }
+
 class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
     with TickerProviderStateMixin {
   CameraController? _cameraController;
@@ -97,8 +99,10 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
   static const double _minFaceAreaRatioAndroid = 0.05;
   static const double _minFaceAreaRatioIos = 0.03;
   static const double _minSharpnessScoreAndroid = 60.0;
-  static const int _maxStepRetriesIos = 6;
-  static const Duration _iosCameraSettleDelay = Duration(milliseconds: 180);
+  static const Duration _iosCameraSettleDelay = Duration(milliseconds: 280);
+  static const Duration _iosPreCaptureDelay = Duration(milliseconds: 420);
+  static const int _progressTicksIos = 32; // ~1.6s hold on iOS
+  static const int _progressTicksAndroid = 40;
 
   @override
   void initState() {
@@ -281,7 +285,7 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
     );
   }
 
-  /// Front camera mirrors preview — invert yaw on Android stream frames.
+  /// Front camera mirrors preview — invert yaw for live stream pose checks.
   double _normalizeYaw(double yaw) {
     final lens = _cameraController?.description.lensDirection;
     if (lens == CameraLensDirection.front) return -yaw;
@@ -394,12 +398,19 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
     _segmentController.dispose();
     _successController.dispose();
     _faceDetector.close();
-    _cameraController?.dispose();
+    final controller = _cameraController;
+    _cameraController = null;
+    if (controller != null) {
+      if (controller.value.isStreamingImages) {
+        controller.stopImageStream().catchError((_) {});
+      }
+      controller.dispose();
+    }
     super.dispose();
   }
 
   void _startStep() {
-    if (_currentStep >= _steps.length || !mounted || _isAdvancing) return;
+    if (_currentStep >= _steps.length || !mounted) return;
     unawaited(_ensureStreamRunning());
     setState(() {
       _isCapturing = true;
@@ -411,7 +422,8 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
 
     // Progress timer: only advances when face is aligned
     const tick = Duration(milliseconds: 50);
-    const totalTicks = 40; // 40 * 50ms = 2 seconds of aligned face needed
+    final totalTicks =
+        Platform.isIOS ? _progressTicksIos : _progressTicksAndroid;
 
     _progressTimer?.cancel();
     _progressTimer = Timer.periodic(tick, (t) {
@@ -443,14 +455,41 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
   Future<void> _captureAndAdvance() async {
     if (_isAdvancing) return;
     _isAdvancing = true;
+    if (mounted) {
+      setState(() => _faceHint = 'Đang chụp...');
+    }
+    var outcome = _AdvanceOutcome.retry;
+    String? retryReason;
     try {
-      await _captureAndAdvanceImpl();
+      final result = await _captureAndAdvanceImpl();
+      outcome = result.$1;
+      retryReason = result.$2;
+    } catch (e, st) {
+      debugPrint('📸 Capture advance error: $e\n$st');
+      retryReason = 'Lỗi chụp ảnh — giữ máy ổn định và thử lại';
     } finally {
       _isAdvancing = false;
     }
+
+    if (!mounted) return;
+    switch (outcome) {
+      case _AdvanceOutcome.retry:
+        _stepRetryCount++;
+        setState(() {
+          _isCapturing = true;
+          _stepProgress = 0.0;
+          _faceStatus = _FaceStatus.noFace;
+          _faceHint = retryReason ?? 'Ảnh không hợp lệ, vui lòng chụp lại';
+        });
+        _startStep();
+      case _AdvanceOutcome.nextStep:
+        _startStep();
+      case _AdvanceOutcome.allDone:
+        break;
+    }
   }
 
-  Future<void> _captureAndAdvanceImpl() async {
+  Future<(_AdvanceOutcome, String?)> _captureAndAdvanceImpl() async {
     _progressTimer?.cancel();
 
     // Stop image stream temporarily for clean capture.
@@ -464,6 +503,10 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
 
     // Let any in-flight ML Kit frame finish before we reuse the detector on JPEG.
     await _waitForFrameProcessing();
+
+    if (Platform.isIOS) {
+      await Future.delayed(_iosPreCaptureDelay);
+    }
 
     final stepDirection = _steps[_currentStep].direction;
     String? rejectReason;
@@ -481,12 +524,11 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
         );
         if (rejectReason == null) {
           base64Image = base64Encode(rawBytes);
-        } else if (Platform.isIOS &&
-            _alignedAtCapture &&
-            _stepRetryCount >= _maxStepRetriesIos - 1) {
-          // Live stream already held pose; JPEG checks on iOS are unreliable.
+        } else if (_alignedAtCapture &&
+            _shouldTrustLiveAlignment(rejectReason)) {
+          // Live stream held pose ~2s; still photo pose checks are often wrong.
           debugPrint(
-            '📸 iOS fallback accept step=${_currentStep + 1} '
+            '📸 Trust live alignment step=${_currentStep + 1} '
             'after retries ($_stepRetryCount): $rejectReason',
           );
           rejectReason = null;
@@ -494,7 +536,7 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
         }
       } catch (e) {
         debugPrint('📸 Validate error: $e');
-        if (Platform.isIOS && _alignedAtCapture && rawBytes != null) {
+        if (_alignedAtCapture && rawBytes != null) {
           rejectReason = null;
           base64Image = base64Encode(rawBytes);
         } else {
@@ -505,7 +547,7 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
           await File(xFile.path).delete();
         } catch (_) {}
       }
-    } else if (Platform.isIOS && _alignedAtCapture) {
+    } else if (_alignedAtCapture) {
       rejectReason = 'Không chụp được ảnh — giữ máy ổn định và thử lại';
     } else {
       rejectReason = 'Không chụp được ảnh, vui lòng thử lại';
@@ -518,33 +560,50 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
       await _restartImageStream();
     }
 
-    if (!mounted) return;
+    if (!mounted) return (_AdvanceOutcome.retry, 'Đã hủy');
 
     if (rejectReason != null || base64Image.isEmpty) {
-      _stepRetryCount++;
-      setState(() {
-        _isCapturing = true;
-        _stepProgress = 0.0;
-        _faceStatus = _FaceStatus.noFace;
-        _faceHint = rejectReason ?? 'Ảnh không hợp lệ, vui lòng chụp lại';
-      });
-      _startStep();
-      return;
+      return (_AdvanceOutcome.retry, rejectReason);
     }
 
     _stepRetryCount = 0;
     _capturedImages.add(base64Image);
+    if (Platform.isIOS) {
+      HapticFeedback.mediumImpact();
+    }
     _segmentController.forward(from: 0);
 
     await Future.delayed(const Duration(milliseconds: 300));
-    if (!mounted) return;
+    if (!mounted) return (_AdvanceOutcome.retry, 'Đã hủy');
 
     if (_currentStep < _steps.length - 1) {
       setState(() => _currentStep++);
-      _startStep();
-    } else {
-      _onAllDone();
+      return (_AdvanceOutcome.nextStep, null);
     }
+    _onAllDone();
+    return (_AdvanceOutcome.allDone, null);
+  }
+
+  static const int _maxStepRetriesAndroid = 2;
+
+  bool _shouldTrustLiveAlignment(String? rejectReason) {
+    if (!_alignedAtCapture || rejectReason == null) return false;
+    if (Platform.isIOS) {
+      // Stream gate is authoritative on iOS; JPEG pose checks are unreliable.
+      return true;
+    }
+    if (_stepRetryCount < _maxStepRetriesAndroid) return false;
+
+    const trusted = {
+      'Ảnh chưa nhìn thẳng — giữ mặt vuông với camera',
+      'Ảnh chưa quay trái đủ — thử lại bước này',
+      'Ảnh chưa quay phải đủ — thử lại bước này',
+      'Ảnh chưa ngẩng lên đủ — thử lại bước này',
+      'Ảnh chưa cúi xuống đủ — thử lại bước này',
+      'Tư thế chưa đúng — thử lại bước này',
+      'Ảnh bị mờ — tăng ánh sáng, giữ máy ổn định và thử lại',
+    };
+    return trusted.contains(rejectReason);
   }
 
   Future<void> _waitForFrameProcessing() async {
@@ -557,14 +616,20 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
     final controller = _cameraController;
     if (controller == null || !controller.value.isInitialized) return null;
 
-    const attempts = 2;
+    final attempts = Platform.isIOS ? 3 : 2;
     for (var i = 0; i < attempts; i++) {
       try {
-        return await controller.takePicture();
+        return await controller
+            .takePicture()
+            .timeout(const Duration(seconds: 8));
       } catch (e) {
         debugPrint('📸 Capture error (attempt ${i + 1}/$attempts): $e');
-        if (i < attempts - 1 && Platform.isIOS) {
-          await Future.delayed(_iosCameraSettleDelay);
+        if (i < attempts - 1) {
+          await Future.delayed(
+            Platform.isIOS
+                ? _iosPreCaptureDelay
+                : const Duration(milliseconds: 250),
+          );
         }
       }
     }
@@ -745,12 +810,25 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
   }
 
   void _onAllDone() {
-    setState(() => _allDone = true);
+    setState(() {
+      _allDone = true;
+      _isCapturing = false;
+    });
+    _progressTimer?.cancel();
     _pulseController.stop();
     _successController.forward();
+    unawaited(_stopStreamQuietly());
     Future.delayed(const Duration(milliseconds: 1500), () {
       if (mounted) widget.onComplete?.call(_capturedImages);
     });
+  }
+
+  Future<void> _stopStreamQuietly() async {
+    final controller = _cameraController;
+    if (controller == null || !controller.value.isStreamingImages) return;
+    try {
+      await controller.stopImageStream();
+    } catch (_) {}
   }
 
   Widget _buildCameraPreview(BoxConstraints constraints) {
@@ -876,7 +954,7 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
               ),
 
             // 5. Face status hint (below circle)
-            if (_isCameraReady && !_allDone && _isCapturing)
+            if (_isCameraReady && !_allDone && (_isCapturing || _isAdvancing))
               Positioned(
                 left: 24,
                 right: 24,
@@ -884,7 +962,7 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 200),
                   child: Container(
-                    key: ValueKey(_faceHint),
+                    key: ValueKey('$_faceHint|$_isAdvancing'),
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     decoration: BoxDecoration(
                       color: _statusColor.withValues(alpha: 0.85),
@@ -895,11 +973,13 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
-                          _faceStatus == _FaceStatus.noFace
-                              ? Icons.face_retouching_off
-                              : _faceStatus == _FaceStatus.wrongDirection
-                                  ? Icons.warning_amber_rounded
-                                  : Icons.check_circle,
+                          _isAdvancing
+                              ? Icons.camera_alt
+                              : _faceStatus == _FaceStatus.noFace
+                                  ? Icons.face_retouching_off
+                                  : _faceStatus == _FaceStatus.wrongDirection
+                                      ? Icons.warning_amber_rounded
+                                      : Icons.check_circle,
                           color: Colors.white,
                           size: 20,
                         ),
