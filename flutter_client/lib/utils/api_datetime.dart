@@ -75,3 +75,11 @@ String formatApiCalendarDate(
   if (d == null) return empty;
   return DateFormat(pattern).format(d);
 }
+
+/// Đầu kỳ báo cáo (ngày lịch VN, 00:00 local).
+DateTime apiReportRangeStart(DateTime d) =>
+    DateTime(d.year, d.month, d.day);
+
+/// Cuối kỳ báo cáo inclusive (23:59:59 local).
+DateTime apiReportRangeEnd(DateTime d) =>
+    DateTime(d.year, d.month, d.day, 23, 59, 59, 999);

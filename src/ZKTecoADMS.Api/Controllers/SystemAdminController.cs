@@ -3921,9 +3921,7 @@ public class SystemAdminController : AuthenticatedControllerBase
             new("Feedback", "Phản ánh / Ý kiến", "Phản ánh, góp ý ẩn danh hoặc công khai", "Quản lý Vận hành"),
 
             // ══════════ BÁO CÁO ══════════
-            new("HrReport", "Báo cáo nhân sự", "Thống kê nhân sự, phòng ban", "Báo cáo"),
             new("AttendanceReport", "Báo cáo chấm công", "Ngày, tháng, đi muộn, phòng ban", "Báo cáo"),
-            new("PayrollReport", "Báo cáo lương", "Chi phí lương, phân bổ", "Báo cáo"),
             new("PenaltyReport", "Báo cáo phạt", "Thống kê phiếu phạt, kỷ luật", "Báo cáo"),
             new("AdvanceReport", "Báo cáo ứng lương", "Thống kê ứng lương, tạm ứng", "Báo cáo"),
             new("LeaveReport", "Báo cáo nghỉ phép", "Thống kê nghỉ phép, ngày nghỉ", "Báo cáo"),

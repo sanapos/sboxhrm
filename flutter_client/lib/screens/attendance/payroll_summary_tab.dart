@@ -7,6 +7,7 @@ import 'package:excel/excel.dart' as excel_lib;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/permission_provider.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -106,12 +107,15 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
 
   // ═══ State ═══
   bool _isLoading = true;
+  bool _isFinalizing = false;
   /// NV đang hoạt động nhưng chưa có bảng lương (bị loại khỏi tổng hợp).
   int _notConfiguredSalaryCount = 0;
   bool _showMobileSummary = false;
+  bool _payrollFiltersExpanded = false;
   DateTime _fromDate = DateTime.now();
   DateTime _toDate = DateTime.now();
   String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
   String _selectedPeriod = 'thisMonth';
   String _sortColumn = 'code';
   bool _sortAscending = true;
@@ -312,6 +316,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
 
   @override
   void dispose() {
+    _searchController.dispose();
     _verticalScrollController.dispose();
     _horizontalScrollController.dispose();
     _desktopTableHScrollBody.dispose();
@@ -1522,9 +1527,15 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     final double otTotalHours =
         otHoursWeekday + otHoursWeekend + otHoursHoliday;
 
+    final salaryProfileId =
+        (benefit?['id'] ?? benefit?['Id'])?.toString() ?? '';
+
     return {
       'code': empCode,
       'name': empName,
+      'employeeUserId': emp?.applicationUserId ?? '',
+      'employeeId': emp?.id ?? '',
+      'salaryProfileId': salaryProfileId,
       'department': emp?.department ?? '',
       'position': emp?.position ?? '',
       'salaryType': salaryTypeLabel,
@@ -1752,6 +1763,229 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     if (_selectedEmployeeIds.isEmpty) return;
     final poolIds = _payrollEmployeePool().map((e) => e.id).toSet();
     _selectedEmployeeIds.removeWhere((id) => !poolIds.contains(id));
+  }
+
+  bool _canFinalizePayroll() {
+    if (!mounted) return false;
+    if (_isEmployeeRole(context)) return false;
+    return context.read<PermissionProvider>().canExport('Payroll');
+  }
+
+  List<Map<String, dynamic>> _payrollRowsForFinalize({required bool allInTable}) {
+    final cached = _cachedPayrollData;
+    _cachedPayrollData = null;
+    final savedIds = Set<String>.from(_selectedEmployeeIds);
+    if (allInTable) _selectedEmployeeIds.clear();
+    final rows = List<Map<String, dynamic>>.from(_buildPayrollData());
+    _selectedEmployeeIds = savedIds;
+    _cachedPayrollData = cached;
+    return rows;
+  }
+
+  Future<void> _showFinalizePayrollDialog() async {
+    final hasSelection = _selectedEmployeeIds.isNotEmpty;
+    final selectedCount = hasSelection ? _selectedEmployeeIds.length : 0;
+    final allCount = _payrollRowsForFinalize(allInTable: true).length;
+
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Chốt lương'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Kỳ: ${DateFormat('dd/MM/yyyy').format(_fromDate)} — '
+              '${DateFormat('dd/MM/yyyy').format(_toDate)}',
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Sau khi chốt, hệ thống tạo phiếu lương tại menu Phiếu lương.',
+              style: TextStyle(fontSize: 13, color: Colors.black54),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Hủy'),
+          ),
+          if (hasSelection)
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, 'selected'),
+              child: Text('Chốt $selectedCount NV đã chọn'),
+            ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, 'all'),
+            child: Text('Chốt tất cả ($allCount NV)'),
+          ),
+        ],
+      ),
+    );
+    if (choice == null || !mounted) return;
+
+    final rows = choice == 'selected' && hasSelection
+        ? _payrollRowsForFinalize(allInTable: false)
+        : _payrollRowsForFinalize(allInTable: true);
+    if (rows.isEmpty) {
+      appNotification.showWarning(
+        title: 'Chốt lương',
+        message: 'Không có nhân viên để chốt lương',
+      );
+      return;
+    }
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Xác nhận chốt lương'),
+        content: Text(
+          'Tạo phiếu lương cho ${rows.length} nhân viên?\n'
+          'Phiếu đã tồn tại cùng kỳ sẽ được cập nhật.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Chốt lương'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
+    await _finalizePayrollRows(rows);
+  }
+
+  Future<void> _finalizePayrollRows(List<Map<String, dynamic>> rows) async {
+    setState(() => _isFinalizing = true);
+    try {
+      final items = <Map<String, dynamic>>[];
+      final skipped = <String>[];
+
+      for (final row in rows) {
+        final code = row['code']?.toString() ?? '';
+        final emp = _findEmployee(code);
+        final userId = row['employeeUserId']?.toString() ??
+            emp?.applicationUserId ??
+            '';
+        final employeeId = emp?.id ?? row['employeeId']?.toString() ?? '';
+        final profileId = row['salaryProfileId']?.toString() ?? '';
+        if (employeeId.isEmpty || profileId.isEmpty) {
+          skipped.add(row['name']?.toString() ?? code);
+          continue;
+        }
+        final penalty = _toDouble(row['penalty']) + _toDouble(row['latePenalty']);
+        final advance = _toDouble(row['advance']);
+        final item = <String, dynamic>{
+          'employeeId': employeeId,
+          'salaryProfileId': profileId,
+          'regularWorkUnits': _toDouble(row['workDays']),
+          'overtimeUnits': _toDouble(row['otTotalHours']),
+          'baseSalary': _toDouble(row['baseSalary']),
+          'overtimePay': _toDouble(row['otSalary']),
+          'bonus': _toDouble(row['bonus']),
+          'deductions': penalty + advance,
+          'allowances': _toDouble(row['totalAllowance']),
+          'socialInsurance': _toDouble(row['bhxhPart']),
+          'healthInsurance': _toDouble(row['bhytPart']),
+          'unemploymentInsurance': _toDouble(row['bhtnPart']),
+          'tax': _toDouble(row['pit']),
+          'grossSalary': _toDouble(row['totalSalary']),
+          'netSalary': _toDouble(row['netSalary']),
+        };
+        if (userId.isNotEmpty) item['employeeUserId'] = userId;
+        items.add(item);
+      }
+
+      if (items.isEmpty) {
+        appNotification.showWarning(
+          title: 'Chốt lương',
+          message: 'Không có NV hợp lệ (thiếu hồ sơ hoặc bảng lương)',
+        );
+        return;
+      }
+
+      final periodMonth = _toDate.month;
+      final periodYear = _toDate.year;
+      final res = await _apiService.finalizePayroll({
+        'year': periodYear,
+        'month': periodMonth,
+        'periodStart': DateTime(_fromDate.year, _fromDate.month, _fromDate.day)
+            .toIso8601String(),
+        'periodEnd': DateTime(_toDate.year, _toDate.month, _toDate.day, 23, 59, 59)
+            .toIso8601String(),
+        'overwriteExisting': true,
+        'items': items,
+      });
+
+      if (!mounted) return;
+      if (res['isSuccess'] == true) {
+        final data = res['data'] as Map<String, dynamic>? ?? {};
+        final created = (data['created'] as num?)?.toInt() ?? 0;
+        final updated = (data['updated'] as num?)?.toInt() ?? 0;
+        final skipCount = (data['skipped'] as num?)?.toInt() ?? 0;
+        final serverErrors = (data['errors'] as List?)
+                ?.map((e) => e.toString())
+                .where((e) => e.isNotEmpty)
+                .toList() ??
+            [];
+        var msg = 'Chốt lương: $created mới, $updated cập nhật';
+        if (skipCount > 0) msg += ', $skipCount bỏ qua';
+        if (skipped.isNotEmpty) {
+          msg += '\n${skipped.length} NV thiếu hồ sơ/bảng lương (phía app)';
+        }
+        if (serverErrors.isNotEmpty) {
+          msg += '\n${serverErrors.take(3).join('\n')}';
+        }
+        appNotification.showSuccess(title: 'Chốt lương', message: msg);
+      } else {
+        final data = res['data'] as Map<String, dynamic>? ?? {};
+        final serverErrors = (data['errors'] as List?)
+                ?.map((e) => e.toString())
+                .where((e) => e.isNotEmpty)
+                .toList() ??
+            [];
+        var msg = res['message']?.toString() ?? 'Chốt lương thất bại';
+        if (serverErrors.isNotEmpty) {
+          msg += '\n${serverErrors.take(3).join('\n')}';
+        }
+        appNotification.showError(title: 'Chốt lương', message: msg);
+      }
+    } catch (e) {
+      if (mounted) {
+        appNotification.showError(
+          title: 'Chốt lương',
+          message: 'Lỗi: $e',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isFinalizing = false);
+    }
+  }
+
+  Widget _buildFinalizeButton() {
+    if (!_canFinalizePayroll()) return const SizedBox.shrink();
+    return FilledButton.icon(
+      onPressed: _isFinalizing ? null : _showFinalizePayrollDialog,
+      icon: _isFinalizing
+          ? const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+            )
+          : const Icon(Icons.lock_outline, size: 18),
+      label: Text(_isFinalizing ? 'Đang chốt...' : 'Chốt lương'),
+      style: FilledButton.styleFrom(
+        backgroundColor: const Color(0xFF059669),
+        foregroundColor: Colors.white,
+        minimumSize: const Size(0, 36),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+      ),
+    );
   }
 
   // ──────── Public methods (called from PayrollScreen AppBar) ────────
@@ -2916,7 +3150,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
             else
               RepaintBoundary(
                 key: _tableKey,
-                child: _buildVerticalPayrollTable(payrollData),
+                child: _buildCompactPayrollList(payrollData),
               ),
             const SizedBox(height: 16),
           ],
@@ -2937,7 +3171,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                 ? emptyPayrollWidget()
                 : RepaintBoundary(
                     key: _tableKey,
-                    child: _buildUnifiedPayrollTable(payrollData),
+                    child: _buildCompactPayrollList(payrollData),
                   ),
           ),
         ],
@@ -2964,6 +3198,37 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       default:
         return period;
     }
+  }
+
+  String _payrollFilterSummary() {
+    final parts = <String>[
+      _periodLabel(_selectedPeriod),
+      '${DateFormat('dd/MM/yy').format(_fromDate)} — ${DateFormat('dd/MM/yy').format(_toDate)}',
+    ];
+    if (_selectedDepartment != null && _selectedDepartment!.isNotEmpty) {
+      parts.add(_selectedDepartment!);
+    }
+    if (_selectedEmployeeIds.isEmpty) {
+      parts.add('Tất cả NV (${_payrollEmployeePool().length})');
+    } else {
+      parts.add('${_selectedEmployeeIds.length} NV đã chọn');
+    }
+    if (_searchQuery.trim().isNotEmpty) {
+      parts.add('Tìm: ${_searchQuery.trim()}');
+    }
+    return parts.join(' · ');
+  }
+
+  void _resetPayrollFilters() {
+    _setPeriod('thisMonth');
+    _searchController.clear();
+    setState(() {
+      _selectedDepartment = null;
+      _selectedEmployeeIds.clear();
+      _searchQuery = '';
+      _cachedPayrollData = null;
+      _currentPage = 1;
+    });
   }
 
   void _showEmployeeFilterDialog() {
@@ -3137,6 +3402,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         _periodMenuItem('custom', 'Tùy chọn khác...', Icons.date_range),
       ],
       child: Container(
+        width: isMobile ? double.infinity : null,
         height: 36,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
@@ -3145,19 +3411,20 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           border: Border.all(color: const Color(0xFFE4E4E7)),
         ),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.calendar_today,
                 size: 14, color: Theme.of(context).primaryColor),
             const SizedBox(width: 6),
-            Text(
-              _periodLabel(_selectedPeriod),
-              style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: Theme.of(context).primaryColor),
+            Expanded(
+              child: Text(
+                _periodLabel(_selectedPeriod),
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).primaryColor),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-            const SizedBox(width: 4),
             Icon(Icons.arrow_drop_down,
                 size: 18, color: Theme.of(context).primaryColor),
           ],
@@ -3206,11 +3473,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       onTap: _showEmployeeFilterDialog,
       borderRadius: BorderRadius.circular(8),
       child: Container(
+        width: double.infinity,
         height: 36,
-        constraints: BoxConstraints(
-          minWidth: isMobile ? 0 : 160,
-          maxWidth: isMobile ? double.infinity : 240,
-        ),
         padding: const EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
           color: _selectedEmployeeIds.isNotEmpty
@@ -3224,7 +3488,6 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           borderRadius: BorderRadius.circular(8),
         ),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.people_outline,
                 size: 14,
@@ -3232,7 +3495,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                     ? Theme.of(context).primaryColor
                     : Colors.grey.shade600),
             const SizedBox(width: 6),
-            Flexible(
+            Expanded(
               child: Text(
                 _selectedEmployeeIds.isEmpty
                     ? 'Tất cả NV ($poolCount)'
@@ -3243,6 +3506,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                       ? Theme.of(context).primaryColor
                       : null,
                 ),
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -3272,11 +3536,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     );
 
     final departmentFilter = Container(
+      width: double.infinity,
       height: 36,
-      constraints: BoxConstraints(
-        minWidth: isMobile ? 0 : 150,
-        maxWidth: isMobile ? double.infinity : 200,
-      ),
       padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
         color: _selectedDepartment != null
@@ -3306,10 +3567,10 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
               Icon(Icons.business_outlined,
                   size: 14, color: Colors.grey.shade600),
               const SizedBox(width: 6),
-              Flexible(
+              const Expanded(
                 child: Text(
-                  _l10n.allDepartments,
-                  style: const TextStyle(fontSize: 13),
+                  'Phòng ban',
+                  style: TextStyle(fontSize: 13),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -3322,9 +3583,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                     size: 14,
                     color: Theme.of(context).primaryColor),
                 const SizedBox(width: 6),
-                Flexible(
+                Expanded(
                   child: Text(
-                    _l10n.allDepartments,
+                    'Phòng ban',
                     style: TextStyle(
                       fontSize: 13,
                       color: Theme.of(context).primaryColor,
@@ -3341,7 +3602,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                   Icon(Icons.business_outlined,
                       size: 14, color: Theme.of(context).primaryColor),
                   const SizedBox(width: 6),
-                  Flexible(
+                  Expanded(
                     child: Text(
                       d,
                       style: TextStyle(
@@ -3386,6 +3647,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     final searchField = SizedBox(
       height: 36,
       child: TextField(
+        controller: _searchController,
         decoration: InputDecoration(
           hintText: 'Tìm nhanh...',
           hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
@@ -3434,8 +3696,51 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       ),
     );
 
+    final filterFields = isMobile
+        ? Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              periodDropdown,
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(child: fromDate),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    child: dateSep,
+                  ),
+                  Expanded(child: toDate),
+                ],
+              ),
+              const SizedBox(height: 8),
+              departmentFilter,
+              const SizedBox(height: 8),
+              employeeFilter,
+              const SizedBox(height: 8),
+              searchField,
+            ],
+          )
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  periodDropdown,
+                  fromDate,
+                  dateSep,
+                  toDate,
+                  SizedBox(width: 200, child: departmentFilter),
+                  SizedBox(width: 220, child: employeeFilter),
+                  SizedBox(width: 240, child: searchField),
+                ],
+              ),
+            ],
+          );
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -3446,68 +3751,54 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
               offset: const Offset(0, 2)),
         ],
       ),
-      child: isMobile
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+      clipBehavior: Clip.antiAlias,
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          initiallyExpanded: _payrollFiltersExpanded,
+          onExpansionChanged: (v) => setState(() => _payrollFiltersExpanded = v),
+          tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+          childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          title: const Text(
+            'Bộ lọc',
+            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+          ),
+          subtitle: Text(
+            _payrollFilterSummary(),
+            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              recordCount,
+              const SizedBox(width: 4),
+              Icon(
+                _payrollFiltersExpanded
+                    ? Icons.expand_less
+                    : Icons.expand_more,
+                color: Colors.grey[600],
+                size: 22,
+              ),
+            ],
+          ),
+          children: [
+            filterFields,
+            const SizedBox(height: 10),
+            Row(
               children: [
-                // Row 1: search + count
-                Row(
-                  children: [
-                    Expanded(child: searchField),
-                    const SizedBox(width: 8),
-                    recordCount,
-                  ],
+                TextButton(
+                  onPressed: _resetPayrollFilters,
+                  child: const Text('Xóa lọc'),
                 ),
-                const SizedBox(height: 8),
-                // Row 2: period preset
-                Row(
-                  children: [
-                    Expanded(child: periodDropdown),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                // Row 3: department + employee filters
-                Row(
-                  children: [
-                    Expanded(child: departmentFilter),
-                    const SizedBox(width: 8),
-                    Expanded(child: employeeFilter),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                // Row 4: date range
-                Row(
-                  children: [
-                    Expanded(child: fromDate),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 6),
-                      child: dateSep,
-                    ),
-                    Expanded(child: toDate),
-                  ],
-                ),
-              ],
-            )
-          : Row(
-              children: [
-                periodDropdown,
-                const SizedBox(width: 12),
-                fromDate,
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: dateSep,
-                ),
-                toDate,
-                const SizedBox(width: 12),
-                departmentFilter,
-                const SizedBox(width: 12),
-                employeeFilter,
-                const SizedBox(width: 12),
-                Expanded(child: searchField),
-                const SizedBox(width: 12),
-                recordCount,
+                const Spacer(),
+                if (_canFinalizePayroll()) _buildFinalizeButton(),
               ],
             ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -4859,6 +5150,259 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       vBody.dispose();
       hScroll.dispose();
     });
+  }
+
+  Widget _buildCompactPayrollList(List<Map<String, dynamic>> data) {
+    if (data.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.table_chart, size: 56, color: Colors.grey.shade200),
+            const SizedBox(height: 12),
+            Text('Không có dữ liệu',
+                style: TextStyle(color: Colors.grey.shade500)),
+          ],
+        ),
+      );
+    }
+
+    final detailCols = _visiblePayrollColumns()
+        .where((c) => !{
+              'stt',
+              'name',
+              'code',
+              'department',
+              _employeeSignColumnKey,
+            }.contains(c.key))
+        .toList();
+
+    final totalPages = math.max(1, (data.length / _rowsPerPage).ceil());
+    if (_currentPage > totalPages) _currentPage = totalPages;
+    if (_currentPage < 1) _currentPage = 1;
+    final start = (_currentPage - 1) * _rowsPerPage;
+    final end = math.min(start + _rowsPerPage, data.length);
+    final paged = data.sublist(start, end);
+
+    Widget buildExpandedDetail(Map<String, dynamic> row, int index) {
+      if (detailCols.isEmpty) {
+        return Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: () => _showEmployeeDetail(row),
+            icon: const Icon(Icons.open_in_new, size: 16),
+            label: const Text('Xem chi tiết đầy đủ'),
+          ),
+        );
+      }
+      final detailRows = detailCols
+          .map((col) {
+            final value = _formatCellValue(col.key, row, index);
+            if (value.isEmpty || value == '—') return null;
+            return MapEntry(col, value);
+          })
+          .whereType<MapEntry<PayrollColumn, String>>()
+          .toList();
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFFFAFAFA),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFE4E4E7)),
+            ),
+            child: Column(
+              children: [
+                for (var i = 0; i < detailRows.length; i++) ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          flex: 11,
+                          child: Text(
+                            detailRows[i].key.label,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade700,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          flex: 9,
+                          child: Text(
+                            detailRows[i].value,
+                            textAlign: TextAlign.right,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: _payrollCellDisplayColor(
+                                detailRows[i].key.key,
+                                row,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (i < detailRows.length - 1)
+                    const Divider(height: 1, color: Color(0xFFE4E4E7)),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () => _showEmployeeDetail(row),
+              icon: const Icon(Icons.open_in_new, size: 16),
+              label: const Text('Xem chi tiết đầy đủ'),
+            ),
+          ),
+        ],
+      );
+    }
+
+    final tiles = paged.asMap().entries.map((entry) {
+      final pageIndex = entry.key;
+      final row = entry.value;
+      final globalIndex = start + pageIndex;
+      final code = row['code']?.toString() ?? '';
+      final dept = row['department']?.toString() ?? '';
+      final subtitle = [
+        if (code.isNotEmpty) code,
+        if (dept.isNotEmpty) dept,
+      ].join(' · ');
+      return Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+          childrenPadding:
+              const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          leading: CircleAvatar(
+            radius: 16,
+            backgroundColor: Colors.blue.shade50,
+            child: Text(
+              '${globalIndex + 1}',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Colors.blue.shade700,
+              ),
+            ),
+          ),
+          title: Text(
+            row['name']?.toString() ?? '',
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+          ),
+          subtitle: subtitle.isEmpty
+              ? null
+              : Text(subtitle, style: const TextStyle(fontSize: 12)),
+          trailing: Text(
+            _fmtCurrency(row['netSalary']),
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+              color: Color(0xFF1D4ED8),
+            ),
+          ),
+          children: [buildExpandedDetail(row, globalIndex)],
+        ),
+      );
+    }).toList();
+
+    final totalNet = data.fold<double>(
+      0,
+      (sum, row) => sum + _toDouble(row['netSalary']),
+    );
+    final isMobile = MediaQuery.of(context).size.width < 600;
+    final listView = ListView(
+      padding: EdgeInsets.zero,
+      shrinkWrap: isMobile,
+      physics: isMobile
+          ? const NeverScrollableScrollPhysics()
+          : const AlwaysScrollableScrollPhysics(),
+      children: tiles,
+    );
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE4E4E7)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 4),
+            child: Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Bảng lương',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                  ),
+                ),
+                Text(
+                  '${data.length} NV',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1, color: Color(0xFFE4E4E7)),
+          if (isMobile)
+            listView
+          else
+            Expanded(child: listView),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50.withValues(alpha: 0.35),
+              border: const Border(
+                top: BorderSide(color: Color(0xFFE4E4E7)),
+              ),
+            ),
+            child: Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'TỔNG THỰC NHẬN',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                ),
+                Text(
+                  _fmtCurrency(totalNet),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: Colors.blue.shade800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _buildPagination(data.length, totalPages),
+        ],
+      ),
+    );
   }
 
   Widget _buildUnifiedPayrollTable(List<Map<String, dynamic>> data) {

@@ -1,4 +1,4 @@
-﻿namespace ZKTecoADMS.Domain.Entities.Base;
+namespace ZKTecoADMS.Domain.Entities.Base;
 
 public class Entity<T> : IEntity<T>
 {

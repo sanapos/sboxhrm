@@ -1,8 +1,11 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import '../../services/api_service.dart';
+import '../../utils/landing_guide_url.dart';
+import '../../utils/landing_usage_guide.dart';
 import 'system_admin_helpers.dart';
 
 /// SuperAdmin – Tab quản lý nội dung trang Landing Page của SBOX HRM.
@@ -926,7 +929,7 @@ class _PricingSubTabState extends State<_PricingSubTab> {
 }
 
 // -------------------------------------------------------
-// Sub-tab 4: Hướng dẫn
+// Sub-tab 4: Hướng dẫn (cơ bản + nâng cao)
 // -------------------------------------------------------
 class _GuideSubTab extends StatefulWidget {
   const _GuideSubTab({required this.api});
@@ -936,51 +939,44 @@ class _GuideSubTab extends StatefulWidget {
   State<_GuideSubTab> createState() => _GuideSubTabState();
 }
 
-class _GuideSubTabState extends State<_GuideSubTab> {
+class _GuideSubTabState extends State<_GuideSubTab>
+    with SingleTickerProviderStateMixin {
   bool _loading = false;
   bool _saving = false;
-  List<_StepItem> _steps = [];
-
-  static const _defaultSteps = [
-    (
-      'Đăng ký tài khoản',
-      'Điền thông tin doanh nghiệp, nhận mã cửa hàng và tài khoản admin qua email trong vòng 5 phút.'
-    ),
-    (
-      'Cài đặt thiết bị',
-      'Trên máy ZKTeco: Thiết lập liên kết → Máy chủ đám mây. Địa chỉ máy chủ: 103.133.224.176, Port: 7070. Hỗ trợ cài đặt từ xa qua Zalo.'
-    ),
-    (
-      'Thêm nhân viên',
-      'Nhập danh sách nhân viên, đăng ký vân tay/khuôn mặt. Dữ liệu tự động đồng bộ xuống máy chấm công.'
-    ),
-    (
-      'Thiết lập ca làm việc',
-      'Tạo ca làm việc, phân ca cho nhân viên/phòng ban. Hỗ trợ ca cố định, xoay ca và lịch linh hoạt.'
-    ),
-    (
-      'Xem báo cáo',
-      'Báo cáo chấm công, lương, nghỉ phép cập nhật tự động. Xuất Excel/PDF chỉ với 1 cú nhấp.'
-    ),
-  ];
+  late final TabController _guideTab;
+  List<_GuideStepEditor> _basicSteps = [];
+  List<_GuideStepEditor> _advancedSteps = [];
 
   @override
   void initState() {
     super.initState();
+    _guideTab = TabController(length: 2, vsync: this);
+    _guideTab.addListener(() {
+      if (!_guideTab.indexIsChanging && mounted) setState(() {});
+    });
     _load();
   }
 
   @override
   void dispose() {
-    for (final s in _steps) {
-      s.titleCtrl.dispose();
-      s.descCtrl.dispose();
+    _guideTab.dispose();
+    for (final s in [..._basicSteps, ..._advancedSteps]) {
+      s.dispose();
     }
     super.dispose();
   }
 
+  void _setFromDocument(LandingGuideData doc) {
+    for (final s in [..._basicSteps, ..._advancedSteps]) {
+      s.dispose();
+    }
+    _basicSteps = doc.basic.map(_GuideStepEditor.fromStep).toList();
+    _advancedSteps = doc.advanced.map(_GuideStepEditor.fromStep).toList();
+  }
+
   Future<void> _load() async {
     setState(() => _loading = true);
+    var raw = '';
     try {
       final res = await widget.api.getAllAppSettings();
       if (!mounted) return;
@@ -988,33 +984,22 @@ class _GuideSubTabState extends State<_GuideSubTab> {
         final list = List<Map<String, dynamic>>.from(res['data'] ?? []);
         final entry = list.firstWhere((s) => s['key'] == 'landing_guide_json',
             orElse: () => {});
-        final raw = entry['value']?.toString() ?? '';
-        if (raw.isNotEmpty) {
-          final arr = jsonDecode(raw) as List;
-          _steps = arr
-              .map((e) => _StepItem(e['title'] ?? '', e['desc'] ?? ''))
-              .toList();
-        }
+        raw = entry['value']?.toString() ?? '';
       }
     } catch (_) {}
-    if (_steps.isEmpty) {
-      _steps = _defaultSteps.map((e) => _StepItem(e.$1, e.$2)).toList();
-    }
+    _setFromDocument(LandingGuideData.fromApiJson(raw.isEmpty ? null : raw));
     if (mounted) setState(() => _loading = false);
   }
 
   Future<void> _save() async {
     setState(() => _saving = true);
     try {
-      final json = jsonEncode(_steps
-          .where((s) => s.titleCtrl.text.trim().isNotEmpty)
-          .map((s) => {
-                'title': s.titleCtrl.text.trim(),
-                'desc': s.descCtrl.text.trim()
-              })
-          .toList());
+      final doc = LandingGuideData(
+        basic: _basicSteps.map((e) => e.toStep()).toList(),
+        advanced: _advancedSteps.map((e) => e.toStep()).toList(),
+      );
       final res = await widget.api.updateAppSettingsBatch([
-        {'key': 'landing_guide_json', 'value': json}
+        {'key': 'landing_guide_json', 'value': doc.toJsonString()}
       ]);
       if (!mounted) return;
       if (res['isSuccess'] == true) {
@@ -1028,109 +1013,79 @@ class _GuideSubTabState extends State<_GuideSubTab> {
     if (mounted) setState(() => _saving = false);
   }
 
-  void _addStep() => setState(() => _steps.add(_StepItem('', '')));
-  void _removeStep(int idx) => setState(() {
-        _steps[idx].titleCtrl.dispose();
-        _steps[idx].descCtrl.dispose();
-        _steps.removeAt(idx);
-      });
+  Future<void> _copyGuideLink(String sectionKey, String stepId) async {
+    final link = LandingGuideUrl.buildLink(section: sectionKey, stepId: stepId);
+    await Clipboard.setData(ClipboardData(text: link));
+    if (mounted) {
+      AdminHelpers.showSuccess(context, 'Đã copy link hướng dẫn');
+    }
+  }
+
+  void _resetCurrentSection() {
+    final isBasic = _guideTab.index == 0;
+    final defaults =
+        isBasic ? LandingGuideData.defaults.basic : LandingGuideData.defaults.advanced;
+    setState(() {
+      if (isBasic) {
+        for (final s in _basicSteps) {
+          s.dispose();
+        }
+        _basicSteps = defaults.map(_GuideStepEditor.fromStep).toList();
+      } else {
+        for (final s in _advancedSteps) {
+          s.dispose();
+        }
+        _advancedSteps = defaults.map(_GuideStepEditor.fromStep).toList();
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
     return Column(
       children: [
+        Container(
+          color: AdminHelpers.bgLight,
+          child: TabBar(
+            controller: _guideTab,
+            labelColor: AdminHelpers.primary,
+            unselectedLabelColor: Colors.grey,
+            indicatorColor: AdminHelpers.primary,
+            tabs: [
+              Tab(text: 'Triển khai (${_basicSteps.length})'),
+              Tab(text: 'Nâng cao (${_advancedSteps.length})'),
+            ],
+          ),
+        ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
           child: Row(
             children: [
-              const Text('Các bước hướng dẫn',
-                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-              const Spacer(),
-              FilledButton.icon(
-                onPressed: context.systemAdminCanEdit ? _addStep : null,
-                icon: const Icon(Icons.add_rounded, size: 16),
-                label: const Text('Thêm bước'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AdminHelpers.primary,
-                  foregroundColor: Colors.white,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8)),
+              Expanded(
+                child: Text(
+                  _guideTab.index == 0
+                      ? '12 bước triển khai từ đăng ký đến báo cáo'
+                      : '11 tính năng vận hành nâng cao sau triển khai',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w600, fontSize: 13),
                 ),
+              ),
+              TextButton.icon(
+                onPressed: context.systemAdminCanEdit ? _resetCurrentSection : null,
+                icon: const Icon(Icons.restore_rounded, size: 18),
+                label: const Text('Khôi phục mặc định'),
               ),
             ],
           ),
         ),
         Expanded(
-          child: ReorderableListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: _steps.length,
-            onReorder: (from, to) {
-              setState(() {
-                final item = _steps.removeAt(from);
-                _steps.insert(to > from ? to - 1 : to, item);
-              });
-            },
-            itemBuilder: (_, idx) {
-              final step = _steps[idx];
-              return Card(
-                key: ValueKey(idx),
-                margin: const EdgeInsets.only(bottom: 10),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
-                elevation: 1,
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        margin: const EdgeInsets.only(top: 10, right: 10),
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: AdminHelpers.primary,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text('${idx + 1}',
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12)),
-                      ),
-                      Expanded(
-                        child: Column(children: [
-                          TextField(
-                            controller: step.titleCtrl,
-                            decoration: const InputDecoration(
-                              labelText: 'Tiêu đề bước',
-                              isDense: true,
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          TextField(
-                            controller: step.descCtrl,
-                            maxLines: 2,
-                            decoration: const InputDecoration(
-                              labelText: 'Mô tả chi tiết',
-                              isDense: true,
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-                        ]),
-                      ),
-                      IconButton(
-                        onPressed: context.systemAdminCanEdit ? () => _removeStep(idx) : null,
-                        icon: const Icon(Icons.delete_outline_rounded,
-                            color: Colors.red),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
+          child: TabBarView(
+            controller: _guideTab,
+            children: [
+              _buildStepList(_basicSteps, 'basic'),
+              _buildStepList(_advancedSteps, 'advanced'),
+            ],
           ),
         ),
         Padding(
@@ -1160,14 +1115,245 @@ class _GuideSubTabState extends State<_GuideSubTab> {
       ],
     );
   }
+
+  Widget _buildStepList(List<_GuideStepEditor> steps, String sectionKey) {
+    return ReorderableListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: steps.length,
+      onReorder: context.systemAdminCanEdit
+          ? (from, to) {
+              setState(() {
+                final item = steps.removeAt(from);
+                steps.insert(to > from ? to - 1 : to, item);
+              });
+            }
+          : (_, __) {},
+      itemBuilder: (_, idx) {
+        final step = steps[idx];
+        return Card(
+          key: ValueKey('$sectionKey-${step.id}'),
+          margin: const EdgeInsets.only(bottom: 12),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          elevation: 1,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (context.systemAdminCanEdit)
+                  ReorderableDragStartListener(
+                    index: idx,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 10, right: 10),
+                      child: Icon(Icons.drag_handle_rounded,
+                          color: Colors.grey[500]),
+                    ),
+                  ),
+                Container(
+                  margin: const EdgeInsets.only(top: 6, right: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AdminHelpers.primary,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text('${idx + 1}',
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12)),
+                ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text('ID: ${step.id}',
+                              style: TextStyle(
+                                  fontSize: 11, color: Colors.grey[600])),
+                          const Spacer(),
+                          TextButton.icon(
+                            onPressed: () =>
+                                _copyGuideLink(sectionKey, step.id),
+                            icon: const Icon(Icons.copy_rounded, size: 16),
+                            label: const Text('Copy link'),
+                            style: TextButton.styleFrom(
+                              foregroundColor: AdminHelpers.primary,
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: SelectableText(
+                          LandingGuideUrl.buildLink(
+                            section: sectionKey,
+                            stepId: step.id,
+                          ),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey[700],
+                            height: 1.35,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      TextField(
+                        controller: step.titleCtrl,
+                        readOnly: !context.systemAdminCanEdit,
+                        decoration: const InputDecoration(
+                          labelText: 'Tiêu đề',
+                          isDense: true,
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: step.descCtrl,
+                        readOnly: !context.systemAdminCanEdit,
+                        maxLines: 3,
+                        decoration: const InputDecoration(
+                          labelText: 'Mô tả',
+                          isDense: true,
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: step.bulletsCtrl,
+                        readOnly: !context.systemAdminCanEdit,
+                        maxLines: 4,
+                        decoration: const InputDecoration(
+                          labelText: 'Các bước (mỗi dòng một ý)',
+                          isDense: true,
+                          border: OutlineInputBorder(),
+                          alignLabelWithHint: true,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: step.tipCtrl,
+                        readOnly: !context.systemAdminCanEdit,
+                        maxLines: 2,
+                        decoration: const InputDecoration(
+                          labelText: 'Mẹo / lưu ý (tuỳ chọn)',
+                          isDense: true,
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: step.videoUrlCtrl,
+                        readOnly: !context.systemAdminCanEdit,
+                        decoration: const InputDecoration(
+                          labelText: 'Video (link YouTube)',
+                          isDense: true,
+                          border: OutlineInputBorder(),
+                          hintText: 'https://www.youtube.com/watch?v=...',
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: step.imageUrlsCtrl,
+                        readOnly: !context.systemAdminCanEdit,
+                        maxLines: 3,
+                        decoration: const InputDecoration(
+                          labelText: 'Hình ảnh (mỗi dòng một URL)',
+                          isDense: true,
+                          border: OutlineInputBorder(),
+                          alignLabelWithHint: true,
+                          hintText: 'https://sbox.sana.vn/images/...',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
 
-class _StepItem {
-  _StepItem(String title, String desc)
-      : titleCtrl = TextEditingController(text: title),
-        descCtrl = TextEditingController(text: desc);
+class _GuideStepEditor {
+  _GuideStepEditor({
+    required this.id,
+    required this.icon,
+    required this.accent,
+    required String title,
+    required String desc,
+    required List<String> bullets,
+    required String tip,
+    required List<String> imageUrls,
+    required String videoUrl,
+  })  : titleCtrl = TextEditingController(text: title),
+        descCtrl = TextEditingController(text: desc),
+        bulletsCtrl = TextEditingController(text: bullets.join('\n')),
+        tipCtrl = TextEditingController(text: tip),
+        imageUrlsCtrl = TextEditingController(text: imageUrls.join('\n')),
+        videoUrlCtrl = TextEditingController(text: videoUrl);
+
+  factory _GuideStepEditor.fromStep(LandingUsageGuideStep step) {
+    return _GuideStepEditor(
+      id: step.id,
+      icon: step.icon,
+      accent: step.accent,
+      title: step.title,
+      desc: step.desc,
+      bullets: step.bullets,
+      tip: step.tip,
+      imageUrls: step.imageUrls,
+      videoUrl: step.videoUrl,
+    );
+  }
+
+  final String id;
+  final IconData icon;
+  final Color accent;
   final TextEditingController titleCtrl;
   final TextEditingController descCtrl;
+  final TextEditingController bulletsCtrl;
+  final TextEditingController tipCtrl;
+  final TextEditingController imageUrlsCtrl;
+  final TextEditingController videoUrlCtrl;
+
+  void dispose() {
+    titleCtrl.dispose();
+    descCtrl.dispose();
+    bulletsCtrl.dispose();
+    tipCtrl.dispose();
+    imageUrlsCtrl.dispose();
+    videoUrlCtrl.dispose();
+  }
+
+  LandingUsageGuideStep toStep() {
+    final bullets = bulletsCtrl.text
+        .split('\n')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+    final imageUrls = imageUrlsCtrl.text
+        .split('\n')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+    return LandingUsageGuideStep(
+      id: id,
+      icon: icon,
+      accent: accent,
+      title: titleCtrl.text.trim(),
+      desc: descCtrl.text.trim(),
+      bullets: bullets,
+      tip: tipCtrl.text.trim(),
+      imageUrls: imageUrls,
+      videoUrl: videoUrlCtrl.text.trim(),
+    );
+  }
 }
 
 // -------------------------------------------------------

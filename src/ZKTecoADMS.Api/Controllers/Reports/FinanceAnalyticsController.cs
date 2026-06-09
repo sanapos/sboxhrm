@@ -5,6 +5,7 @@ using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Models;
+using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Infrastructure;
 
@@ -363,14 +364,18 @@ public class FinanceAnalyticsController(
     {
         try
         {
-            var (_, _, fromUtc, toUtc) = ReportHelpers.VnRange(from, to);
+            // TransactionDate lưu theo ngày lịch VN (không phải UTC punch) — lọc theo ngày local.
+            var (fromLocal, toLocal, _, _) = ReportHelpers.VnRange(from, to);
+            var rangeStart = fromLocal.Date;
+            var rangeEndExclusive = toLocal.Date.AddDays(1);
             var storeId = RequiredStoreId;
 
             var query = db.CashTransactions.IgnoreQueryFilters()
                 .Include(x => x.Category)
                 .Include(x => x.CreatedByUser)
                 .Where(x => x.StoreId == storeId && x.IsActive
-                    && x.TransactionDate >= fromUtc && x.TransactionDate < toUtc);
+                    && x.TransactionDate >= rangeStart
+                    && x.TransactionDate < rangeEndExclusive);
 
             if (type.HasValue)
                 query = query.Where(x => x.Type == type.Value);
@@ -399,31 +404,25 @@ public class FinanceAnalyticsController(
             }
 
             var total = await query.CountAsync(ct);
-            var items = await query
+
+            var rangeRows = await query.ToListAsync(ct);
+            var summary = BuildCashReportSummary(rangeRows);
+
+            var items = rangeRows
                 .OrderByDescending(x => x.TransactionDate)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
-                .Select(x => new CashReportItemDto
-                {
-                    Id = x.Id,
-                    TransactionCode = x.TransactionCode,
-                    Type = (int)x.Type,
-                    CategoryName = x.Category != null ? x.Category.Name : "",
-                    Amount = x.Amount,
-                    TransactionDate = x.TransactionDate,
-                    Description = x.Description,
-                    PaymentMethod = (int)x.PaymentMethod,
-                    Status = x.IsPaid ? (int)CashTransactionStatus.Completed : (int)x.Status,
-                    CreatedByUserName = x.CreatedByUser != null ? (x.CreatedByUser.UserName ?? "") : ""
-                })
-                .ToListAsync(ct);
+                .Select(MapCashReportItem)
+                .ToList();
 
             return Ok(AppResponse<CashReportListDto>.Success(new CashReportListDto
             {
                 Items = items,
+                PendingItems = new List<CashReportItemDto>(),
                 TotalCount = total,
                 Page = page,
-                PageSize = pageSize
+                PageSize = pageSize,
+                Summary = summary
             }));
         }
         catch (Exception ex)
@@ -431,6 +430,50 @@ public class FinanceAnalyticsController(
             logger.LogError(ex, "Cash report transactions failed");
             return StatusCode(500, AppResponse<CashReportListDto>.Fail(ex.Message));
         }
+    }
+
+    private static CashReportItemDto MapCashReportItem(CashTransaction x) => new()
+    {
+        Id = x.Id,
+        TransactionCode = x.TransactionCode,
+        Type = (int)x.Type,
+        CategoryId = x.CategoryId,
+        CategoryName = x.Category != null ? x.Category.Name : "",
+        Amount = x.Amount,
+        TransactionDate = x.TransactionDate,
+        Description = x.Description,
+        PaymentMethod = (int)x.PaymentMethod,
+        Status = x.IsPaid ? (int)CashTransactionStatus.Completed : (int)x.Status,
+        IsPaid = x.IsPaid,
+        CreatedByUserName = x.CreatedByUser != null ? (x.CreatedByUser.UserName ?? "") : ""
+    };
+
+    private static CashReportSummaryDto BuildCashReportSummary(List<CashTransaction> rows)
+    {
+        static bool IsCompleted(CashTransaction x) =>
+            x.IsPaid || x.Status == CashTransactionStatus.Completed;
+
+        static bool IsCancelled(CashTransaction x) =>
+            x.Status == CashTransactionStatus.Cancelled;
+
+        var paidIncome = rows.Where(x => !IsCancelled(x) && IsCompleted(x) && x.Type == CashTransactionType.Income);
+        var paidExpense = rows.Where(x => !IsCancelled(x) && IsCompleted(x) && x.Type == CashTransactionType.Expense);
+        var pendingInRange = rows.Where(x => !IsCancelled(x) && !IsCompleted(x)
+            && (x.Status == CashTransactionStatus.Pending || x.Status == CashTransactionStatus.WaitingPayment));
+        var cancelled = rows.Where(IsCancelled);
+
+        return new CashReportSummaryDto
+        {
+            PaidIncome = paidIncome.Sum(x => x.Amount),
+            PaidExpense = paidExpense.Sum(x => x.Amount),
+            PaidIncomeCount = paidIncome.Count(),
+            PaidExpenseCount = paidExpense.Count(),
+            PendingIncome = pendingInRange.Where(x => x.Type == CashTransactionType.Income).Sum(x => x.Amount),
+            PendingExpense = pendingInRange.Where(x => x.Type == CashTransactionType.Expense).Sum(x => x.Amount),
+            PendingIncomeCount = pendingInRange.Count(x => x.Type == CashTransactionType.Income),
+            PendingExpenseCount = pendingInRange.Count(x => x.Type == CashTransactionType.Expense),
+            CancelledCount = cancelled.Count()
+        };
     }
 }
 
@@ -519,9 +562,26 @@ public class MealDebtEmployeeDto
 public class CashReportListDto
 {
     public List<CashReportItemDto> Items { get; set; } = new();
+    /// <summary>Phiếu chờ thu/chi ngoài kỳ lọc ngày (để sổ quỹ đầy đủ).</summary>
+    public List<CashReportItemDto> PendingItems { get; set; } = new();
     public int TotalCount { get; set; }
     public int Page { get; set; }
     public int PageSize { get; set; }
+    public CashReportSummaryDto Summary { get; set; } = new();
+}
+
+public class CashReportSummaryDto
+{
+    public decimal PaidIncome { get; set; }
+    public decimal PaidExpense { get; set; }
+    public decimal FundBalance => PaidIncome - PaidExpense;
+    public int PaidIncomeCount { get; set; }
+    public int PaidExpenseCount { get; set; }
+    public decimal PendingIncome { get; set; }
+    public decimal PendingExpense { get; set; }
+    public int PendingIncomeCount { get; set; }
+    public int PendingExpenseCount { get; set; }
+    public int CancelledCount { get; set; }
 }
 
 public class CashReportItemDto
@@ -529,12 +589,14 @@ public class CashReportItemDto
     public Guid Id { get; set; }
     public string TransactionCode { get; set; } = string.Empty;
     public int Type { get; set; }
+    public Guid CategoryId { get; set; }
     public string CategoryName { get; set; } = string.Empty;
     public decimal Amount { get; set; }
     public DateTime TransactionDate { get; set; }
     public string Description { get; set; } = string.Empty;
     public int PaymentMethod { get; set; }
     public int Status { get; set; }
+    public bool IsPaid { get; set; }
     public string CreatedByUserName { get; set; } = string.Empty;
 }
 

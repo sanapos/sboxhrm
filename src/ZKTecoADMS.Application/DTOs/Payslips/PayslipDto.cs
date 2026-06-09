@@ -5,8 +5,11 @@ namespace ZKTecoADMS.Application.DTOs.Payslips;
 public class PayslipDto
 {
     public Guid Id { get; set; }
-    public Guid EmployeeUserId { get; set; }
+    public Guid EmployeeId { get; set; }
+    public Guid? EmployeeUserId { get; set; }
     public string EmployeeName { get; set; } = string.Empty;
+    public string EmployeeCode { get; set; } = string.Empty;
+    public string Department { get; set; } = string.Empty;
     public Guid SalaryProfileId { get; set; }
     public string SalaryProfileName { get; set; } = string.Empty;
     public int Year { get; set; }
@@ -38,6 +41,10 @@ public class PayslipDto
     public DateTime? ApprovedDate { get; set; }
     public string? ApprovedByUserName { get; set; }
     public DateTime? PaidDate { get; set; }
+    public Guid? CashTransactionId { get; set; }
+    public string? CashTransactionCode { get; set; }
+    public bool IsPaid { get; set; }
+    public string PaymentStatus { get; set; } = "Chưa thanh toán";
     public string? Notes { get; set; }
     public DateTime CreatedAt { get; set; }
 }

@@ -523,6 +523,23 @@ public class CashTransactionsController(
             }
         }
 
+        // Phiếu chi lương → hoàn phiếu lương về đã chốt, chưa thanh toán
+        var linkedPayslip = await context.Payslips
+            .FirstOrDefaultAsync(p => p.CashTransactionId == transaction.Id && p.StoreId == storeId);
+        if (linkedPayslip == null && CashTransactionLinkageHelper.TryExtractTrailingGuid(
+                transaction.InternalNote, "phiếu lương #", out var payslipId))
+        {
+            linkedPayslip = await context.Payslips
+                .FirstOrDefaultAsync(p => p.Id == payslipId && p.StoreId == storeId);
+        }
+        if (linkedPayslip != null)
+        {
+            linkedPayslip.Status = PayslipStatus.Approved;
+            linkedPayslip.PaidDate = null;
+            linkedPayslip.CashTransactionId = null;
+            linkedPayslip.UpdatedAt = DateTime.UtcNow;
+        }
+
         await context.SaveChangesAsync();
 
         return Ok(AppResponse<bool>.Success(true));

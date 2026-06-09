@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/hrm.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
+import 'cash_report_helpers.dart';
 import 'salary_profile_load_utils.dart';
 
 /// Admin/manager xem nhiều NV; nhân viên chỉ xem dữ liệu cá nhân.
@@ -299,8 +300,8 @@ bool shouldUseCashReportApi({
   required String? role,
   required PermissionProvider perm,
 }) {
-  if (isEmployeeUserRole(role)) return true;
-  return perm.canView('CashReport') && !perm.canView('CashTransaction');
+  // Màn báo cáo luôn dùng API reports (có summary + phiếu chờ ngoài kỳ).
+  return perm.canView('CashReport') || isEmployeeUserRole(role);
 }
 
 Widget reportLoadErrorBanner(String? message) {
@@ -354,7 +355,22 @@ Future<({List<Map<String, dynamic>> items, int totalCount, String? error})>
   );
 }
 
-Future<({List<Map<String, dynamic>> items, String? error})> loadCashReportTransactions(
+CashReportSummary? _parseCashReportSummary(Map<String, dynamic> response) {
+  final data = response['data'];
+  if (data is! Map) return null;
+  final summary = data['summary'] ?? data['Summary'];
+  if (summary is Map) {
+    return CashReportSummary.fromJson(Map<String, dynamic>.from(summary));
+  }
+  return null;
+}
+
+Future<
+    ({
+      List<Map<String, dynamic>> items,
+      CashReportSummary? summary,
+      String? error,
+    })> loadCashReportTransactions(
   ApiService api, {
   required DateTime from,
   required DateTime to,
@@ -378,5 +394,10 @@ Future<({List<Map<String, dynamic>> items, String? error})> loadCashReportTransa
       pageSize: pageSize,
     );
   }
-  return parseReportListResponse(r);
+  final parsed = parseReportListResponse(r);
+  final merged = List<Map<String, dynamic>>.from(parsed.items)
+    ..retainWhere((row) => cashReportInDateRange(row, from, to));
+  // Tổng hợp luôn tính từ danh sách trong kỳ — khớp chip và bảng phiếu.
+  final summary = CashReportSummary.fromRows(merged);
+  return (items: merged, summary: summary, error: parsed.error);
 }

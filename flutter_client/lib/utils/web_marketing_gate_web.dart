@@ -23,6 +23,8 @@ bool shouldRedirectToStaticHome() {
 
   final frag = uri.fragment;
   if (frag.isNotEmpty) {
+    if (frag.startsWith('guide/')) return false;
+    if (frag == '/guide' || frag.startsWith('/guide?')) return false;
     const hashRoutes = [
       '/login-app',
       '/register',

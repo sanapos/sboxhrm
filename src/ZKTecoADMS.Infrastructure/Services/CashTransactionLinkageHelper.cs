@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
@@ -13,6 +14,7 @@ public static class CashTransactionLinkageHelper
     private const string AdvanceMarker = "yêu cầu ứng lương #";
     private const string BonusPenaltyMarker = "phiếu thưởng/phạt #";
     private const string PenaltyTicketMarker = "phiếu phạt #";
+    private const string PayslipMarker = PayslipCashTransactionHelper.InternalNoteMarker;
 
     public static async Task ApplyOnCashPaidAsync(
         ZKTecoDbContext context,
@@ -28,6 +30,7 @@ public static class CashTransactionLinkageHelper
         await TrySyncAdvanceOnPaidAsync(context, notificationService, cash, performedByUserId, storeId, cancellationToken);
         await TrySyncPaymentTransactionOnPaidAsync(context, notificationService, cash, performedByUserId, storeId, cancellationToken);
         await TrySyncPenaltyTicketOnPaidAsync(context, notificationService, cash, performedByUserId, storeId, cancellationToken);
+        await TrySyncPayslipOnPaidAsync(context, notificationService, cash, performedByUserId, storeId, cancellationToken);
     }
 
     private static async Task TrySyncAdvanceOnPaidAsync(
@@ -183,6 +186,66 @@ public static class CashTransactionLinkageHelper
                 storeId: storeId);
         }
         catch { /* best-effort */ }
+    }
+
+    private static async Task TrySyncPayslipOnPaidAsync(
+        ZKTecoDbContext context,
+        ISystemNotificationService notificationService,
+        CashTransaction cash,
+        Guid performedByUserId,
+        Guid storeId,
+        CancellationToken cancellationToken)
+    {
+        Payslip? payslip = await context.Payslips
+            .Include(p => p.Employee)
+            .FirstOrDefaultAsync(
+                p => p.CashTransactionId == cash.Id && p.StoreId == storeId,
+                cancellationToken);
+
+        if (payslip == null
+            && TryExtractTrailingGuid(cash.InternalNote, PayslipMarker, out var payslipId))
+        {
+            payslip = await context.Payslips
+                .Include(p => p.Employee)
+                .FirstOrDefaultAsync(p => p.Id == payslipId && p.StoreId == storeId, cancellationToken);
+        }
+
+        if (payslip == null)
+            return;
+
+        var wasPaid = payslip.Status == PayslipStatus.Paid;
+        if (payslip.CashTransactionId != cash.Id)
+        {
+            payslip.CashTransactionId = cash.Id;
+        }
+
+        if (!wasPaid)
+        {
+            payslip.Status = PayslipStatus.Paid;
+            payslip.PaidDate = cash.PaidDate ?? DateTime.UtcNow;
+            payslip.UpdatedAt = DateTime.UtcNow;
+            await context.SaveChangesAsync(cancellationToken);
+        }
+
+        var uid = payslip.EmployeeUserId ?? payslip.Employee?.ApplicationUserId;
+        if (!wasPaid && uid.HasValue && uid != performedByUserId)
+        {
+            try
+            {
+                var monthLabel = $"T{payslip.Month:D2}/{payslip.Year}";
+                await notificationService.CreateAndSendAsync(
+                    uid.Value,
+                    NotificationType.Success,
+                    "Lương đã thanh toán",
+                    $"Phiếu lương kỳ {monthLabel} ({payslip.NetSalary:N0}đ) đã được thanh toán",
+                    relatedEntityType: "Payslip",
+                    relatedEntityId: payslip.Id,
+                    fromUserId: performedByUserId,
+                    categoryCode: "payroll",
+                    storeId: storeId);
+            }
+            catch { /* best-effort */ }
+        }
     }
 
     public static bool TryExtractTrailingGuid(string? note, string markerContains, out Guid id)

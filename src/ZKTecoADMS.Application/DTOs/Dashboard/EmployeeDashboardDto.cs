@@ -1,3 +1,5 @@
+using ZKTecoADMS.Application.DTOs.Attendances;
+
 namespace ZKTecoADMS.Application.DTOs.Dashboard;
 
 public class ShiftInfoDto
@@ -49,4 +51,6 @@ public class EmployeeDashboardDto
     public ShiftInfoDto? NextShift { get; set; }
     public AttendanceInfoDto? CurrentAttendance { get; set; }
     public AttendanceStatsDto AttendanceStats { get; set; } = new();
+    /// <summary>Log chấm công thô của NV trong kỳ thống kê (mới nhất trước, tối đa 50).</summary>
+    public List<AttendanceDto> RecentPunches { get; set; } = new();
 }

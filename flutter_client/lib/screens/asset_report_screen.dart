@@ -8,9 +8,9 @@ import '../utils/excel_report_builder.dart';
 import '../services/api_service.dart';
 import '../utils/file_saver.dart' as file_saver;
 import '../widgets/notification_overlay.dart';
+import '../utils/asset_report_helpers.dart';
 import '../utils/report_screen_helpers.dart';
 import '../utils/responsive_helper.dart';
-import '../widgets/hrm_responsive_list_layout.dart';
 import 'package:excel/excel.dart' as excel_lib;
 
 const _theme = Color(0xFF059669);
@@ -27,7 +27,6 @@ class AssetReportScreen extends StatefulWidget {
 class _AssetReportScreenState extends State<AssetReportScreen>
     with SingleTickerProviderStateMixin {
   final ApiService _api = ApiService();
-  final _fmtDate = DateFormat('dd/MM/yyyy');
   final _fmtMoney = NumberFormat('#,##0', 'vi_VN');
   late TabController _tabs;
 
@@ -44,6 +43,7 @@ class _AssetReportScreenState extends State<AssetReportScreen>
   bool _onlyVariance = true;
   int _warrantyDays = 30;
   bool _includeExpiredWarranty = false;
+  bool _filtersExpanded = false;
 
   bool _loading = false;
   Map<String, dynamic> _summary = {};
@@ -64,7 +64,10 @@ class _AssetReportScreenState extends State<AssetReportScreen>
     super.initState();
     _tabs = TabController(length: 7, vsync: this);
     _tabs.addListener(() {
-      if (!_tabs.indexIsChanging) _loadTab(_tabs.index);
+      if (!_tabs.indexIsChanging) {
+        setState(() {});
+        _loadTab(_tabs.index);
+      }
     });
     _loadCategories();
     _loadInventories();
@@ -218,9 +221,22 @@ class _AssetReportScreenState extends State<AssetReportScreen>
         .toList();
   }
 
-  static double _money(dynamic v) {
-    if (v is num) return v.toDouble();
-    return double.tryParse(v?.toString() ?? '') ?? 0;
+  static double _money(dynamic v) => assetReportMoney(v);
+
+  bool get _useTableLayout => Responsive.preferTableListLayout(context);
+
+  int get _activeFilterCount {
+    var n = 0;
+    if (_statusFilter != null) n++;
+    if (_typeFilter != null) n++;
+    if (_categoryId != null) n++;
+    if (_search.isNotEmpty) n++;
+    if (_department.isNotEmpty) n++;
+    if (_stockTypeFilter != null) n++;
+    if (_inventoryId != null) n++;
+    if (!_onlyVariance && _tabs.index == 5) n++;
+    if (_includeExpiredWarranty && _tabs.index == 6) n++;
+    return n;
   }
 
   Future<void> _exportRegister() async {
@@ -287,7 +303,6 @@ class _AssetReportScreenState extends State<AssetReportScreen>
   Widget build(BuildContext context) {
     final canExport = context.watch<PermissionProvider>().canExport('AssetReport') ||
         context.watch<PermissionProvider>().canExport('Asset');
-    final isMobile = Responsive.isMobile(context);
 
     return Scaffold(
       backgroundColor: HrmPageChrome.background,
@@ -298,40 +313,9 @@ class _AssetReportScreenState extends State<AssetReportScreen>
             child: _loading
                 ? const Center(
                     child: CircularProgressIndicator(color: _theme))
-                : isMobile
-                    ? HrmMobileNestedTabLayout(
-                    headerSections: [_buildFilters()],
-                    tabBar: TabBar(
-                      controller: _tabs,
-                      isScrollable: true,
-                      labelColor: _theme,
-                      unselectedLabelColor: Colors.grey[600],
-                      indicatorColor: _theme,
-                      tabAlignment: TabAlignment.start,
-                      tabs: const [
-                        Tab(text: 'Tổng hợp'),
-                        Tab(text: 'Danh mục'),
-                        Tab(text: 'Cấp phát'),
-                        Tab(text: 'Chuyển giao'),
-                        Tab(text: 'Nhập/xuất kho'),
-                        Tab(text: 'Kiểm kê CL'),
-                        Tab(text: 'Bảo hành'),
-                      ],
-                    ),
-                    tabBarView: TabBarView(
-                      controller: _tabs,
-                      children: [
-                        _buildSummaryTab(),
-                        _buildRegisterTab(),
-                        _buildAssignmentsTab(),
-                        _buildTransfersTab(),
-                        _buildStockLedgerTab(),
-                        _buildInventoryVarianceTab(),
-                        _buildWarrantyTab(),
-                      ],
-                    ),
-                  )
-                : Column(
+                : !_useTableLayout
+                    ? _buildMobileBody()
+                    : Column(
                     children: [
                       _buildFilters(),
                       Material(
@@ -374,6 +358,390 @@ class _AssetReportScreenState extends State<AssetReportScreen>
         ],
       ),
     );
+  }
+
+  Widget _buildMobileBody() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildMobileSectionChips(),
+        _buildMobileFilters(),
+        Expanded(child: _buildActiveTabContent()),
+      ],
+    );
+  }
+
+  Widget _buildMobileSectionChips() {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: SizedBox(
+        height: 44,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          itemCount: assetReportMobileSections.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 6),
+          itemBuilder: (context, i) {
+            final sec = assetReportMobileSections[i];
+            final selected = _tabs.index == i;
+            return FilterChip(
+              label: Text(sec.label, style: const TextStyle(fontSize: 12)),
+              avatar: Icon(sec.icon,
+                  size: 16,
+                  color: selected ? Colors.white : const Color(0xFF6B7280)),
+              selected: selected,
+              showCheckmark: false,
+              visualDensity: VisualDensity.compact,
+              selectedColor: _theme,
+              labelStyle: TextStyle(
+                color: selected ? Colors.white : const Color(0xFF374151),
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+              ),
+              onSelected: (_) {
+                _tabs.animateTo(i);
+              },
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActiveTabContent() {
+    switch (_tabs.index) {
+      case 0:
+        return _buildSummaryTab();
+      case 1:
+        return _buildRegisterTab();
+      case 2:
+        return _buildAssignmentsTab();
+      case 3:
+        return _buildTransfersTab();
+      case 4:
+        return _buildStockLedgerTab();
+      case 5:
+        return _buildInventoryVarianceTab();
+      case 6:
+        return _buildWarrantyTab();
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
+  Widget _buildMobileFilters() {
+    final showDate =
+        _tabs.index == 3 || _tabs.index == 4 || _tabs.index == 5;
+    return Container(
+      color: Colors.white,
+      margin: const EdgeInsets.only(bottom: 1),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          initiallyExpanded: _filtersExpanded,
+          onExpansionChanged: (v) => setState(() => _filtersExpanded = v),
+          tilePadding: const EdgeInsets.symmetric(horizontal: 12),
+          childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+          title: Row(
+            children: [
+              const Icon(Icons.tune, size: 18, color: Color(0xFF6B7280)),
+              const SizedBox(width: 6),
+              const Text('Bộ lọc',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+              if (_activeFilterCount > 0) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: _theme.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text('$_activeFilterCount',
+                      style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: _theme)),
+                ),
+              ],
+            ],
+          ),
+          children: [
+            if (showDate) ...[
+              ReportDateRangeFilterBar(
+                from: _from,
+                to: _to,
+                preset: _datePreset,
+                compact: true,
+                onChanged: (f, t, p) {
+                  setState(() {
+                    _from = f;
+                    _to = t;
+                    _datePreset = p;
+                  });
+                  _loadTab(_tabs.index);
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+            ..._filterFieldsForTab(compact: true),
+            if (_activeFilterCount > 0)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: _clearFilters,
+                  icon: const Icon(Icons.filter_alt_off, size: 16),
+                  label: const Text('Xóa lọc', style: TextStyle(fontSize: 12)),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _clearFilters() {
+    setState(() {
+      _statusFilter = null;
+      _typeFilter = null;
+      _categoryId = null;
+      _search = '';
+      _department = '';
+      _stockTypeFilter = null;
+      _inventoryId = null;
+      _onlyVariance = true;
+      _includeExpiredWarranty = false;
+    });
+    _loadTab(_tabs.index);
+  }
+
+  List<Widget> _filterFieldsForTab({required bool compact}) {
+    final w = compact ? double.infinity : 140.0;
+    final fields = <Widget>[];
+
+    if (_tabs.index <= 2 || _tabs.index == 0) {
+      fields.add(_filterDrop<int?>(
+        width: w,
+        label: 'Trạng thái',
+        value: _statusFilter,
+        items: const [
+          DropdownMenuItem(value: null, child: Text('Tất cả')),
+          DropdownMenuItem(value: 0, child: Text('Đang dùng')),
+          DropdownMenuItem(value: 5, child: Text('Trong kho')),
+          DropdownMenuItem(value: 1, child: Text('Bảo trì')),
+          DropdownMenuItem(value: 2, child: Text('Hỏng')),
+        ],
+        onChanged: (v) {
+          setState(() => _statusFilter = v);
+          _loadTab(_tabs.index);
+        },
+      ));
+    }
+
+    if (_tabs.index <= 1) {
+      fields.add(_filterDrop<int?>(
+        width: w,
+        label: 'Loại TS',
+        value: _typeFilter,
+        items: const [
+          DropdownMenuItem(value: null, child: Text('Tất cả')),
+          DropdownMenuItem(value: 0, child: Text('Điện tử')),
+          DropdownMenuItem(value: 1, child: Text('Nội thất')),
+          DropdownMenuItem(value: 2, child: Text('Phương tiện')),
+          DropdownMenuItem(value: 3, child: Text('Công cụ')),
+          DropdownMenuItem(value: 4, child: Text('Máy móc')),
+          DropdownMenuItem(value: 5, child: Text('Phần mềm')),
+          DropdownMenuItem(value: 6, child: Text('Khác')),
+        ],
+        onChanged: (v) {
+          setState(() => _typeFilter = v);
+          _loadTab(_tabs.index);
+        },
+      ));
+      fields.add(_filterDrop<String?>(
+        width: w,
+        label: 'Danh mục',
+        value: _categoryId,
+        items: [
+          const DropdownMenuItem(value: null, child: Text('Tất cả')),
+          ..._categories.map((c) => DropdownMenuItem(
+                value: c['id']?.toString(),
+                child: Text(c['name']?.toString() ?? '-',
+                    overflow: TextOverflow.ellipsis),
+              )),
+        ],
+        onChanged: (v) {
+          setState(() => _categoryId = v);
+          _loadTab(_tabs.index);
+        },
+      ));
+    }
+
+    if (_tabs.index == 1) {
+      fields.add(_searchField(
+        width: w,
+        label: 'Tìm mã/tên/serial',
+        onSearch: (v) {
+          setState(() => _search = v.trim());
+          _loadTab(1);
+        },
+      ));
+    }
+
+    if (_tabs.index == 2) {
+      fields.add(_searchField(
+        width: w,
+        label: 'Phòng ban',
+        onSearch: (v) {
+          setState(() => _department = v.trim());
+          _loadTab(2);
+        },
+      ));
+    }
+
+    if (_tabs.index == 4) {
+      fields.add(_filterDrop<int?>(
+        width: w,
+        label: 'Loại GD kho',
+        value: _stockTypeFilter,
+        items: const [
+          DropdownMenuItem(value: null, child: Text('Tất cả')),
+          DropdownMenuItem(value: 0, child: Text('Nhập kho')),
+          DropdownMenuItem(value: 1, child: Text('Xuất kho')),
+          DropdownMenuItem(value: 2, child: Text('Điều chỉnh')),
+        ],
+        onChanged: (v) {
+          setState(() => _stockTypeFilter = v);
+          _loadTab(4);
+        },
+      ));
+    }
+
+    if (_tabs.index == 5) {
+      fields.add(_filterDrop<String?>(
+        width: w,
+        label: 'Đợt kiểm kê',
+        value: _inventoryId,
+        items: [
+          const DropdownMenuItem(value: null, child: Text('Tất cả')),
+          ..._inventories.map((inv) => DropdownMenuItem(
+                value: inv['id']?.toString(),
+                child: Text(
+                  '${inv['inventoryCode'] ?? ''} - ${inv['name'] ?? ''}',
+                  overflow: TextOverflow.ellipsis,
+                ),
+              )),
+        ],
+        onChanged: (v) {
+          setState(() => _inventoryId = v);
+          _loadTab(5);
+        },
+      ));
+      fields.add(Align(
+        alignment: Alignment.centerLeft,
+        child: FilterChip(
+          label: const Text('Chỉ chênh lệch', style: TextStyle(fontSize: 12)),
+          selected: _onlyVariance,
+          onSelected: (v) {
+            setState(() => _onlyVariance = v);
+            _loadTab(5);
+          },
+        ),
+      ));
+    }
+
+    if (_tabs.index == 6) {
+      fields.add(_filterDrop<int>(
+        width: w,
+        label: 'Trong (ngày)',
+        value: _warrantyDays,
+        items: const [
+          DropdownMenuItem(value: 7, child: Text('7 ngày')),
+          DropdownMenuItem(value: 30, child: Text('30 ngày')),
+          DropdownMenuItem(value: 60, child: Text('60 ngày')),
+          DropdownMenuItem(value: 90, child: Text('90 ngày')),
+        ],
+        onChanged: (v) {
+          if (v != null) {
+            setState(() => _warrantyDays = v);
+            _loadTab(6);
+          }
+        },
+      ));
+      fields.add(Align(
+        alignment: Alignment.centerLeft,
+        child: FilterChip(
+          label:
+              const Text('Gồm đã hết hạn', style: TextStyle(fontSize: 12)),
+          selected: _includeExpiredWarranty,
+          onSelected: (v) {
+            setState(() => _includeExpiredWarranty = v);
+            _loadTab(6);
+          },
+        ),
+      ));
+    }
+
+    if (compact) {
+      return fields
+          .map((f) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: f,
+              ))
+          .toList();
+    }
+    return fields;
+  }
+
+  Widget _filterDrop<T>({
+    required double width,
+    required String label,
+    required T value,
+    required List<DropdownMenuItem<T>> items,
+    required ValueChanged<T?> onChanged,
+  }) {
+    final child = InputDecorator(
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(fontSize: 11),
+        isDense: true,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<T>(
+          value: value,
+          isExpanded: true,
+          isDense: true,
+          style: const TextStyle(fontSize: 12, color: Color(0xFF111827)),
+          items: items,
+          onChanged: onChanged,
+        ),
+      ),
+    );
+    if (width == double.infinity) return child;
+    return SizedBox(width: width, child: child);
+  }
+
+  Widget _searchField({
+    required double width,
+    required String label,
+    required ValueChanged<String> onSearch,
+  }) {
+    final field = TextField(
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(fontSize: 11),
+        isDense: true,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        prefixIcon: const Icon(Icons.search, size: 18),
+      ),
+      textInputAction: TextInputAction.search,
+      onSubmitted: onSearch,
+    );
+    if (width == double.infinity) return field;
+    return SizedBox(width: width, child: field);
   }
 
   Widget _buildHeader(bool canExport) {
@@ -451,175 +819,7 @@ class _AssetReportScreenState extends State<AssetReportScreen>
             spacing: 8,
             runSpacing: 8,
             crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-          SizedBox(
-            width: 140,
-            child: DropdownButtonFormField<int?>(
-              value: _statusFilter,
-              decoration: const InputDecoration(
-                labelText: 'Trạng thái',
-                isDense: true,
-                border: OutlineInputBorder(),
-              ),
-              items: const [
-                DropdownMenuItem(value: null, child: Text('Tất cả')),
-                DropdownMenuItem(value: 0, child: Text('Đang dùng')),
-                DropdownMenuItem(value: 5, child: Text('Trong kho')),
-                DropdownMenuItem(value: 1, child: Text('Bảo trì')),
-                DropdownMenuItem(value: 2, child: Text('Hỏng')),
-              ],
-              onChanged: (v) {
-                setState(() => _statusFilter = v);
-                _loadTab(_tabs.index);
-              },
-            ),
-          ),
-          if (_tabs.index <= 1)
-            SizedBox(
-              width: 160,
-              child: DropdownButtonFormField<String?>(
-                value: _categoryId,
-                decoration: const InputDecoration(
-                  labelText: 'Danh mục',
-                  isDense: true,
-                  border: OutlineInputBorder(),
-                ),
-                items: [
-                  const DropdownMenuItem(value: null, child: Text('Tất cả')),
-                  ..._categories.map((c) => DropdownMenuItem(
-                        value: c['id']?.toString(),
-                        child: Text(c['name']?.toString() ?? '-',
-                            overflow: TextOverflow.ellipsis),
-                      )),
-                ],
-                onChanged: (v) {
-                  setState(() => _categoryId = v);
-                  _loadTab(_tabs.index);
-                },
-              ),
-            ),
-          if (_tabs.index == 1)
-            SizedBox(
-              width: 180,
-              child: TextField(
-                decoration: const InputDecoration(
-                  labelText: 'Tìm mã/tên/serial',
-                  isDense: true,
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.search, size: 18),
-                ),
-                onSubmitted: (v) {
-                  setState(() => _search = v.trim());
-                  _loadTab(1);
-                },
-              ),
-            ),
-          if (_tabs.index == 2)
-            SizedBox(
-              width: 160,
-              child: TextField(
-                decoration: const InputDecoration(
-                  labelText: 'Phòng ban',
-                  isDense: true,
-                  border: OutlineInputBorder(),
-                ),
-                onSubmitted: (v) {
-                  setState(() => _department = v.trim());
-                  _loadTab(2);
-                },
-              ),
-            ),
-          if (_tabs.index == 4)
-            SizedBox(
-              width: 130,
-              child: DropdownButtonFormField<int?>(
-                value: _stockTypeFilter,
-                decoration: const InputDecoration(
-                  labelText: 'Loại GD',
-                  isDense: true,
-                  border: OutlineInputBorder(),
-                ),
-                items: const [
-                  DropdownMenuItem(value: null, child: Text('Tất cả')),
-                  DropdownMenuItem(value: 0, child: Text('Nhập kho')),
-                  DropdownMenuItem(value: 1, child: Text('Xuất kho')),
-                  DropdownMenuItem(value: 2, child: Text('Điều chỉnh')),
-                ],
-                onChanged: (v) {
-                  setState(() => _stockTypeFilter = v);
-                  _loadTab(4);
-                },
-              ),
-            ),
-          if (_tabs.index == 5) ...[
-            SizedBox(
-              width: 200,
-              child: DropdownButtonFormField<String?>(
-                value: _inventoryId,
-                decoration: const InputDecoration(
-                  labelText: 'Đợt kiểm kê',
-                  isDense: true,
-                  border: OutlineInputBorder(),
-                ),
-                items: [
-                  const DropdownMenuItem(value: null, child: Text('Tất cả')),
-                  ..._inventories.map((inv) => DropdownMenuItem(
-                        value: inv['id']?.toString(),
-                        child: Text(
-                          '${inv['inventoryCode'] ?? ''} - ${inv['name'] ?? ''}',
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      )),
-                ],
-                onChanged: (v) {
-                  setState(() => _inventoryId = v);
-                  _loadTab(5);
-                },
-              ),
-            ),
-            FilterChip(
-              label: const Text('Chỉ chênh lệch'),
-              selected: _onlyVariance,
-              onSelected: (v) {
-                setState(() => _onlyVariance = v);
-                _loadTab(5);
-              },
-            ),
-          ],
-          if (_tabs.index == 6) ...[
-            SizedBox(
-              width: 120,
-              child: DropdownButtonFormField<int>(
-                value: _warrantyDays,
-                decoration: const InputDecoration(
-                  labelText: 'Trong (ngày)',
-                  isDense: true,
-                  border: OutlineInputBorder(),
-                ),
-                items: const [
-                  DropdownMenuItem(value: 7, child: Text('7 ngày')),
-                  DropdownMenuItem(value: 30, child: Text('30 ngày')),
-                  DropdownMenuItem(value: 60, child: Text('60 ngày')),
-                  DropdownMenuItem(value: 90, child: Text('90 ngày')),
-                ],
-                onChanged: (v) {
-                  if (v != null) {
-                    setState(() => _warrantyDays = v);
-                    _loadTab(6);
-                  }
-                },
-              ),
-            ),
-            FilterChip(
-              label: const Text('Gồm đã hết hạn'),
-              selected: _includeExpiredWarranty,
-              onSelected: (v) {
-                setState(() => _includeExpiredWarranty = v);
-                _loadTab(6);
-              },
-            ),
-          ],
-            ],
+            children: _filterFieldsForTab(compact: false),
           ),
         ],
       ),
@@ -631,22 +831,39 @@ class _AssetReportScreenState extends State<AssetReportScreen>
       return const Center(child: Text('Không có dữ liệu'));
     }
     final cards = [
-      ('Tổng TS', '${_summary['totalAssets'] ?? 0}', Icons.inventory),
-      ('Đang dùng', '${_summary['activeAssets'] ?? 0}', Icons.check_circle_outline),
-      ('Trong kho', '${_summary['inStockAssets'] ?? 0}', Icons.warehouse_outlined),
-      ('Đã cấp', '${_summary['assignedAssets'] ?? 0}', Icons.person_outline),
-      ('BH sắp hết', '${_summary['warrantyExpiringSoon'] ?? 0}', Icons.warning_amber),
+      ('Tổng TS', '${_summary['totalAssets'] ?? 0}', Icons.inventory, null),
+      ('Đang dùng', '${_summary['activeAssets'] ?? 0}',
+          Icons.check_circle_outline, 0),
+      ('Trong kho', '${_summary['inStockAssets'] ?? 0}',
+          Icons.warehouse_outlined, 5),
+      ('Đã cấp', '${_summary['assignedAssets'] ?? 0}', Icons.person_outline, null),
+      ('BH sắp hết', '${_summary['warrantyExpiringSoon'] ?? 0}',
+          Icons.warning_amber, null),
     ];
     return ListView(
       padding: const EdgeInsets.all(12),
       children: [
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: cards
-              .map((c) => _statCard(c.$1, c.$2, c.$3))
-              .toList(),
-        ),
+        if (_useTableLayout)
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: cards
+                .map((c) => _statCard(c.$1, c.$2, c.$3, c.$4))
+                .toList(),
+          )
+        else
+          SizedBox(
+            height: 88,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: cards.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (_, i) {
+                final c = cards[i];
+                return _statCard(c.$1, c.$2, c.$3, c.$4, narrow: true);
+              },
+            ),
+          ),
         const SizedBox(height: 12),
         _moneyCard('Tổng giá mua', _money(_summary['totalPurchaseValue'])),
         _moneyCard('Giá trị hiện tại', _money(_summary['totalCurrentValue'])),
@@ -658,9 +875,25 @@ class _AssetReportScreenState extends State<AssetReportScreen>
     );
   }
 
-  Widget _statCard(String label, String value, IconData icon) {
-    return Container(
-      width: 150,
+  void _jumpToTab(int index, {int? statusFilter}) {
+    if (statusFilter != null) _statusFilter = statusFilter;
+    _tabs.animateTo(index);
+  }
+
+  Widget _statCard(String label, String value, IconData icon, int? statusFilter,
+      {bool narrow = false}) {
+    return GestureDetector(
+      onTap: () {
+        if (label == 'BH sắp hết') {
+          _jumpToTab(6);
+        } else if (label == 'Đã cấp') {
+          _jumpToTab(2);
+        } else if (statusFilter != null) {
+          _jumpToTab(1, statusFilter: statusFilter);
+        }
+      },
+      child: Container(
+      width: narrow ? 128 : 150,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -683,6 +916,7 @@ class _AssetReportScreenState extends State<AssetReportScreen>
           Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
         ],
       ),
+    ),
     );
   }
 
@@ -744,7 +978,7 @@ class _AssetReportScreenState extends State<AssetReportScreen>
     );
   }
 
-  Widget _buildRegisterTab() => _dataTable(
+  Widget _buildRegisterTab() => _buildDataView(
         _register,
         ['Mã TS', 'Tên', 'Loại', 'Danh mục', 'Trạng thái', 'Người giữ', 'Giá trị'],
         (r) => [
@@ -756,9 +990,10 @@ class _AssetReportScreenState extends State<AssetReportScreen>
           r['assigneeName']?.toString() ?? '-',
           _fmtMoney.format(_money(r['currentValue'] ?? r['purchasePrice'])),
         ],
+        mobileCard: _registerCard,
       );
 
-  Widget _buildAssignmentsTab() => _dataTable(
+  Widget _buildAssignmentsTab() => _buildDataView(
         _assignments,
         ['Mã TS', 'Tên TS', 'NV', 'Phòng ban', 'Trạng thái', 'Giá trị'],
         (r) => [
@@ -769,70 +1004,46 @@ class _AssetReportScreenState extends State<AssetReportScreen>
           r['statusName']?.toString() ?? '',
           _fmtMoney.format(_money(r['value'])),
         ],
+        mobileCard: _assignmentCard,
       );
 
-  Widget _buildTransfersTab() => _dataTable(
+  Widget _buildTransfersTab() => _buildDataView(
         _transfers,
         ['Ngày', 'Loại', 'Mã TS', 'Tên', 'Từ', 'Đến', 'SL'],
-        (r) {
-          final d = r['transferDate']?.toString() ?? '';
-          DateTime? dt;
-          try {
-            dt = DateTime.parse(d);
-          } catch (_) {}
-          return [
-            dt != null ? _fmtDate.format(dt.toLocal()) : d,
-            r['transferTypeName']?.toString() ?? '',
-            r['assetCode']?.toString() ?? '',
-            r['assetName']?.toString() ?? '',
-            r['fromUserName']?.toString() ?? '-',
-            r['toUserName']?.toString() ?? '-',
-            '${r['quantity'] ?? 1}',
-          ];
-        },
+        (r) => [
+          assetReportFormatDate(r['transferDate']),
+          r['transferTypeName']?.toString() ?? '',
+          r['assetCode']?.toString() ?? '',
+          r['assetName']?.toString() ?? '',
+          r['fromUserName']?.toString() ?? '-',
+          r['toUserName']?.toString() ?? '-',
+          '${r['quantity'] ?? 1}',
+        ],
+        mobileCard: _transferCard,
       );
 
   Widget _buildStockLedgerTab() {
-    return Column(
-      children: [
-        if (_stockSummary.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _miniChip('Giao dịch', '${_stockSummary['totalCount'] ?? 0}'),
-                _miniChip('Nhập', '${_stockSummary['totalStockIn'] ?? 0}'),
-                _miniChip('Xuất', '${_stockSummary['totalStockOut'] ?? 0}'),
-                _miniChip('Điều chỉnh', '${_stockSummary['totalAdjustments'] ?? 0}'),
-              ],
-            ),
-          ),
-        Expanded(
-          child: _dataTable(
-            _stockLedger,
-            ['Ngày', 'Loại', 'Mã TS', 'Tên', 'SL', 'Tồn sau', 'Phiếu', 'Người TH'],
-            (r) {
-              final d = r['transactionDate']?.toString() ?? '';
-              DateTime? dt;
-              try {
-                dt = DateTime.parse(d);
-              } catch (_) {}
-              return [
-                dt != null ? _fmtDate.format(dt.toLocal()) : d,
-                r['transactionTypeName']?.toString() ?? '',
-                r['assetCode']?.toString() ?? '',
-                r['assetName']?.toString() ?? '',
-                '${r['quantity'] ?? 0}',
-                '${r['balanceAfter'] ?? 0}',
-                r['referenceCode']?.toString() ?? '',
-                r['performedByName']?.toString() ?? '',
-              ];
-            },
-          ),
-        ),
+    return _tabWithSummaryChips(
+      chips: [
+        _miniChip('Giao dịch', '${_stockSummary['totalCount'] ?? 0}'),
+        _miniChip('Nhập', '${_stockSummary['totalStockIn'] ?? 0}'),
+        _miniChip('Xuất', '${_stockSummary['totalStockOut'] ?? 0}'),
+        _miniChip('Điều chỉnh', '${_stockSummary['totalAdjustments'] ?? 0}'),
       ],
+      showChips: _stockSummary.isNotEmpty,
+      rows: _stockLedger,
+      headers: ['Ngày', 'Loại', 'Mã TS', 'Tên', 'SL', 'Tồn sau', 'Phiếu', 'Người TH'],
+      rowBuilder: (r) => [
+        assetReportFormatDate(r['transactionDate']),
+        r['transactionTypeName']?.toString() ?? '',
+        r['assetCode']?.toString() ?? '',
+        r['assetName']?.toString() ?? '',
+        '${r['quantity'] ?? 0}',
+        '${r['balanceAfter'] ?? 0}',
+        r['referenceCode']?.toString() ?? '',
+        r['performedByName']?.toString() ?? '',
+      ],
+      mobileCard: _stockCard,
     );
   }
 
@@ -849,91 +1060,286 @@ class _AssetReportScreenState extends State<AssetReportScreen>
   }
 
   Widget _buildInventoryVarianceTab() {
-    return Column(
-      children: [
-        if (_invVarianceSummary.isNotEmpty)
+    return _tabWithSummaryChips(
+      chips: [
+        _miniChip('Dòng', '${_invVarianceSummary['totalCount'] ?? 0}'),
+        _miniChip('SL lệch', '${_invVarianceSummary['varianceCount'] ?? 0}'),
+        _miniChip('Có vấn đề', '${_invVarianceSummary['issueCount'] ?? 0}'),
+      ],
+      showChips: _invVarianceSummary.isNotEmpty,
+      rows: _inventoryVariance,
+      headers: ['Đợt KK', 'Mã TS', 'Tên', 'Kỳ vọng', 'Thực tế', 'Chênh', 'TT', 'Vấn đề'],
+      rowBuilder: (r) => [
+        r['inventoryCode']?.toString() ?? '',
+        r['assetCode']?.toString() ?? '',
+        r['assetName']?.toString() ?? '',
+        '${r['expectedQuantity'] ?? 0}',
+        '${r['actualQuantity'] ?? '-'}',
+        '${r['variance'] ?? 0}',
+        r['conditionName']?.toString() ?? '',
+        r['hasIssue'] == true ? (r['issueDescription']?.toString() ?? 'Có') : '',
+      ],
+      mobileCard: _inventoryCard,
+    );
+  }
+
+  Widget _buildWarrantyTab() {
+    return _tabWithSummaryChips(
+      chips: [
+        _miniChip('Tổng', '${_warrantySummary['totalCount'] ?? 0}'),
+        _miniChip('Sắp hết', '${_warrantySummary['expiringSoonCount'] ?? 0}'),
+        _miniChip('Đã hết', '${_warrantySummary['expiredCount'] ?? 0}'),
+      ],
+      showChips: _warrantySummary.isNotEmpty,
+      rows: _warrantyItems,
+      headers: ['Mã TS', 'Tên', 'Danh mục', 'Hết BH', 'Còn (ngày)', 'Người giữ'],
+      rowBuilder: (r) {
+        final days = r['daysRemaining'];
+        final daysStr = days is num
+            ? '${days.toInt()}'
+            : (r['isExpired'] == true ? 'Hết' : '-');
+        return [
+          r['assetCode']?.toString() ?? '',
+          r['name']?.toString() ?? '',
+          r['categoryName']?.toString() ?? '',
+          assetReportFormatDate(r['warrantyExpiry']),
+          daysStr,
+          r['assigneeName']?.toString() ?? '-',
+        ];
+      },
+      mobileCard: _warrantyCard,
+      rowColor: (r) {
+        if (r['isExpired'] == true) {
+          return Colors.red.withValues(alpha: 0.06);
+        }
+        final d = r['daysRemaining'];
+        if (d is num && d <= 7) {
+          return Colors.orange.withValues(alpha: 0.08);
+        }
+        return null;
+      },
+    );
+  }
+
+  Widget _tabWithSummaryChips({
+    required List<Widget> chips,
+    required bool showChips,
+    required List<Map<String, dynamic>> rows,
+    required List<String> headers,
+    required List<String> Function(Map<String, dynamic>) rowBuilder,
+    required Widget Function(Map<String, dynamic>) mobileCard,
+    Color? Function(Map<String, dynamic>)? rowColor,
+  }) {
+    if (rows.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Text('Không có dữ liệu trong khoảng lọc'),
+        ),
+      );
+    }
+    if (_useTableLayout) {
+      final table = _dataTable(rows, headers, rowBuilder, rowColor: rowColor);
+      if (!showChips) return table;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-            child: Wrap(
-              spacing: 8,
-              children: [
-                _miniChip('Dòng', '${_invVarianceSummary['totalCount'] ?? 0}'),
-                _miniChip('SL lệch', '${_invVarianceSummary['varianceCount'] ?? 0}'),
-                _miniChip('Có vấn đề', '${_invVarianceSummary['issueCount'] ?? 0}'),
-              ],
-            ),
+            child: Wrap(spacing: 8, runSpacing: 8, children: chips),
           ),
-        Expanded(
-          child: _dataTable(
-            _inventoryVariance,
-            ['Đợt KK', 'Mã TS', 'Tên', 'Kỳ vọng', 'Thực tế', 'Chênh', 'TT', 'Vấn đề'],
-            (r) => [
-              r['inventoryCode']?.toString() ?? '',
-              r['assetCode']?.toString() ?? '',
-              r['assetName']?.toString() ?? '',
-              '${r['expectedQuantity'] ?? 0}',
-              '${r['actualQuantity'] ?? '-'}',
-              '${r['variance'] ?? 0}',
-              r['conditionName']?.toString() ?? '',
-              r['hasIssue'] == true ? (r['issueDescription']?.toString() ?? 'Có') : '',
-            ],
+          Expanded(child: table),
+        ],
+      );
+    }
+    return ListView(
+      padding: const EdgeInsets.only(top: 8, bottom: 12),
+      children: [
+        if (showChips)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Wrap(spacing: 8, runSpacing: 8, children: chips),
+          ),
+        if (showChips) const SizedBox(height: 8),
+        ...rows.map(
+          (r) => Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+            child: mobileCard(r),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildWarrantyTab() {
-    return Column(
-      children: [
-        if (_warrantySummary.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-            child: Wrap(
-              spacing: 8,
+  Widget _buildDataView(
+    List<Map<String, dynamic>> rows,
+    List<String> headers,
+    List<String> Function(Map<String, dynamic>) rowBuilder, {
+    required Widget Function(Map<String, dynamic>) mobileCard,
+    Color? Function(Map<String, dynamic>)? rowColor,
+  }) {
+    if (rows.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Text('Không có dữ liệu trong khoảng lọc'),
+        ),
+      );
+    }
+    if (_useTableLayout) {
+      return _dataTable(rows, headers, rowBuilder, rowColor: rowColor);
+    }
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      itemCount: rows.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 6),
+      itemBuilder: (_, i) => mobileCard(rows[i]),
+    );
+  }
+
+  Widget _assetCardBase({
+    required String title,
+    required String code,
+    required String subtitle,
+    String? trailing,
+    Color? trailingColor,
+    Widget? badge,
+  }) {
+    return Card(
+      margin: EdgeInsets.zero,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _miniChip('Tổng', '${_warrantySummary['totalCount'] ?? 0}'),
-                _miniChip('Sắp hết', '${_warrantySummary['expiringSoonCount'] ?? 0}'),
-                _miniChip('Đã hết', '${_warrantySummary['expiredCount'] ?? 0}'),
+                Expanded(
+                  child: Text(title,
+                      style: const TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.w600)),
+                ),
+                if (badge != null) badge,
               ],
             ),
-          ),
-        Expanded(
-          child: _dataTable(
-            _warrantyItems,
-            ['Mã TS', 'Tên', 'Danh mục', 'Hết BH', 'Còn (ngày)', 'Người giữ'],
-            (r) {
-              final d = r['warrantyExpiry']?.toString() ?? '';
-              DateTime? dt;
-              try {
-                dt = DateTime.parse(d);
-              } catch (_) {}
-              final days = r['daysRemaining'];
-              final daysStr = days is num
-                  ? '${days.toInt()}'
-                  : (r['isExpired'] == true ? 'Hết' : '-');
-              return [
-                r['assetCode']?.toString() ?? '',
-                r['name']?.toString() ?? '',
-                r['categoryName']?.toString() ?? '',
-                dt != null ? _fmtDate.format(dt.toLocal()) : d,
-                daysStr,
-                r['assigneeName']?.toString() ?? '-',
-              ];
-            },
-            rowColor: (r) {
-              if (r['isExpired'] == true) {
-                return Colors.red.withValues(alpha: 0.06);
-              }
-              final d = r['daysRemaining'];
-              if (d is num && d <= 7) {
-                return Colors.orange.withValues(alpha: 0.08);
-              }
-              return null;
-            },
-          ),
+            const SizedBox(height: 4),
+            Text(code,
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+            const SizedBox(height: 4),
+            Text(subtitle,
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+            if (trailing != null) ...[
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Text(trailing,
+                    style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: trailingColor ?? _theme)),
+              ),
+            ],
+          ],
         ),
-      ],
+      ),
+    );
+  }
+
+  Widget _statusBadge(String? status) {
+    final color = assetReportStatusColor(status);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Text(status ?? '—',
+          style: TextStyle(
+              fontSize: 10, fontWeight: FontWeight.w600, color: color)),
+    );
+  }
+
+  Widget _registerCard(Map<String, dynamic> r) {
+    final value = _money(r['currentValue'] ?? r['purchasePrice']);
+    return _assetCardBase(
+      title: r['name']?.toString() ?? '—',
+      code: r['assetCode']?.toString() ?? '',
+      subtitle:
+          '${r['categoryName'] ?? ''} · ${r['assetTypeName'] ?? ''}\nNgười giữ: ${r['assigneeName'] ?? '—'}',
+      trailing: '${_fmtMoney.format(value)} đ',
+      badge: _statusBadge(r['statusName']?.toString()),
+    );
+  }
+
+  Widget _assignmentCard(Map<String, dynamic> r) {
+    return _assetCardBase(
+      title: r['assetName']?.toString() ?? '—',
+      code: r['assetCode']?.toString() ?? '',
+      subtitle:
+          '${r['employeeName'] ?? '—'} · ${r['department'] ?? '—'}',
+      trailing: '${_fmtMoney.format(_money(r['value']))} đ',
+      badge: _statusBadge(r['statusName']?.toString()),
+    );
+  }
+
+  Widget _transferCard(Map<String, dynamic> r) {
+    return _assetCardBase(
+      title: r['assetName']?.toString() ?? '—',
+      code: r['assetCode']?.toString() ?? '',
+      subtitle:
+          '${assetReportFormatDate(r['transferDate'])} · ${r['transferTypeName'] ?? ''}\n${r['fromUserName'] ?? '—'} → ${r['toUserName'] ?? '—'}',
+      trailing: 'SL: ${r['quantity'] ?? 1}',
+    );
+  }
+
+  Widget _stockCard(Map<String, dynamic> r) {
+    return _assetCardBase(
+      title: r['assetName']?.toString() ?? '—',
+      code: r['assetCode']?.toString() ?? '',
+      subtitle:
+          '${assetReportFormatDate(r['transactionDate'])} · ${r['transactionTypeName'] ?? ''}\nPhiếu: ${r['referenceCode'] ?? '—'} · ${r['performedByName'] ?? ''}',
+      trailing: 'SL ${r['quantity'] ?? 0} · Tồn ${r['balanceAfter'] ?? 0}',
+    );
+  }
+
+  Widget _inventoryCard(Map<String, dynamic> r) {
+    final variance = r['variance'] ?? 0;
+    final hasIssue = r['hasIssue'] == true;
+    return _assetCardBase(
+      title: r['assetName']?.toString() ?? '—',
+      code: '${r['inventoryCode'] ?? ''} · ${r['assetCode'] ?? ''}',
+      subtitle:
+          'Kỳ vọng ${r['expectedQuantity'] ?? 0} · Thực tế ${r['actualQuantity'] ?? '-'}\n${r['conditionName'] ?? ''}${hasIssue ? ' · ${r['issueDescription'] ?? 'Có vấn đề'}' : ''}',
+      trailing: 'Chênh: $variance',
+      trailingColor:
+          (variance is num && variance != 0) ? const Color(0xFFDC2626) : _theme,
+    );
+  }
+
+  Widget _warrantyCard(Map<String, dynamic> r) {
+    final days = r['daysRemaining'];
+    final expired = r['isExpired'] == true;
+    final daysStr = days is num
+        ? '${days.toInt()} ngày'
+        : (expired ? 'Đã hết hạn' : '—');
+    return _assetCardBase(
+      title: r['name']?.toString() ?? '—',
+      code: r['assetCode']?.toString() ?? '',
+      subtitle:
+          '${r['categoryName'] ?? ''}\nHết BH: ${assetReportFormatDate(r['warrantyExpiry'])} · $daysStr\nNgười giữ: ${r['assigneeName'] ?? '—'}',
+      trailing: daysStr,
+      trailingColor: expired
+          ? const Color(0xFFDC2626)
+          : (days is num && days <= 7
+              ? const Color(0xFFF59E0B)
+              : _theme),
     );
   }
 

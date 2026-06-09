@@ -32,8 +32,6 @@ class PermissionModules {
     'PenaltyReport',
     'AdvanceReport',
     'AssetReport',
-    'HrReport',
-    'PayrollReport',
   };
 
   static const financialTransactions = [
@@ -96,8 +94,6 @@ class PermissionModules {
     'PenaltyReport',
     'AdvanceReport',
     'AssetReport',
-    'HrReport',
-    'PayrollReport',
     'Report',
   ];
 

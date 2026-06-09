@@ -6,6 +6,10 @@ namespace ZKTecoADMS.Application.Queries.Payslips.GetStorePayslips;
 
 public record GetStorePayslipsQuery(
     Guid StoreId,
-    int Year,
-    int? Month
+    int? Year,
+    int? Month,
+    Guid? EmployeeUserId,
+    string? Department,
+    DateTime? PeriodStartFrom,
+    DateTime? PeriodEndTo
 ) : IQuery<AppResponse<List<PayslipDto>>>;

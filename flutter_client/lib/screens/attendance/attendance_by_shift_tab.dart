@@ -86,8 +86,7 @@ class AttendanceByShiftTab extends StatefulWidget {
   State<AttendanceByShiftTab> createState() => _AttendanceByShiftTabState();
 }
 
-class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
-    with SingleTickerProviderStateMixin {
+class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
   late String _selectedPreset;
   Set<String> _selectedEmployeeIds = {};
   // 'all' | 'valid' | 'late' | 'early' | 'late_early' | 'missing' | 'complete' | 'ot'
@@ -104,52 +103,16 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
   List<_DailyShiftRecord>? _cachedShiftData;
   int? _cachedShiftFp;
 
-  // Cross-tab: cuộn ngang đồng bộ 4 bảng; cuộn dọc riêng từng bảng.
-  final ScrollController _ctAttScroll = ScrollController();
-  final ScrollController _ctHrsScroll = ScrollController();
-  final ScrollController _ctLateScroll = ScrollController();
-  final ScrollController _ctWrkScroll = ScrollController();
-  final ScrollController _ctAttVertScroll = ScrollController();
-  final ScrollController _ctHrsVertScroll = ScrollController();
-  final ScrollController _ctLateVertScroll = ScrollController();
-  final ScrollController _ctWrkVertScroll = ScrollController();
   final ScrollController _listScrollController = ScrollController();
   final ScrollController _desktopTableHScrollHeader = ScrollController();
   final ScrollController _desktopTableHScrollBody = ScrollController();
   final AttendanceViewportPreserve _viewportPreserve =
       AttendanceViewportPreserve();
-  bool _ctScrollLinked = false;
   bool _desktopScrollLinked = false;
-  late final TabController _mobileTableTabController;
 
   static const _tableInnerScrollPhysics = ClampingScrollPhysics(
     parent: AlwaysScrollableScrollPhysics(),
   );
-
-  static const int _mobileVisibleEmployeeRows = 10;
-  static const double _mobileSectionTitleH = 28.0;
-  static const double _mobileColumnHeaderH = 52.0;
-  static const double _mobileLegendAndTabBarH = 86.0;
-
-  double _mobileListViewportHeight(double rowHeight) =>
-      _mobileVisibleEmployeeRows * rowHeight;
-
-  double _mobileTabContentHeight(double rowHeight) =>
-      _mobileSectionTitleH +
-      _mobileColumnHeaderH +
-      _mobileListViewportHeight(rowHeight) +
-      rowHeight; // hàng TỔNG CỘNG
-
-  double _mobileTablePanelHeight(double rowHeight) =>
-      _mobileLegendAndTabBarH + _mobileTabContentHeight(rowHeight);
-
-  void _ensureCrossTabScrollLinked() {
-    if (_ctScrollLinked) return;
-    _ctScrollLinked = true;
-    linkHorizontalScrollControllers(_ctAttScroll, _ctHrsScroll);
-    linkHorizontalScrollControllers(_ctHrsScroll, _ctLateScroll);
-    linkHorizontalScrollControllers(_ctLateScroll, _ctWrkScroll);
-  }
 
   void _ensureDesktopTableScrollLinked() {
     if (_desktopScrollLinked) return;
@@ -196,33 +159,19 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
   void initState() {
     super.initState();
     _selectedPreset = widget.dateRangePreset ?? 'month';
-    _mobileTableTabController = TabController(length: 4, vsync: this);
     _buildLookupMaps();
   }
 
   void _notifyDataChanged() {
-    _viewportPreserve.capture(
-      listScroll: _listScrollController,
-      attHoriz: _ctAttScroll,
-      attVert: _ctAttVertScroll,
-    );
+    _viewportPreserve.capture(listScroll: _listScrollController);
     widget.onDataChanged?.call();
   }
 
   @override
   void dispose() {
     _listScrollController.dispose();
-    _ctAttScroll.dispose();
-    _ctHrsScroll.dispose();
-    _ctLateScroll.dispose();
-    _ctWrkScroll.dispose();
-    _ctAttVertScroll.dispose();
-    _ctHrsVertScroll.dispose();
-    _ctLateVertScroll.dispose();
-    _ctWrkVertScroll.dispose();
     _desktopTableHScrollHeader.dispose();
     _desktopTableHScrollBody.dispose();
-    _mobileTableTabController.dispose();
     super.dispose();
   }
 
@@ -307,11 +256,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
     } else if (oldWidget.attendances != widget.attendances ||
         oldWidget.holidays != widget.holidays) {
       _cachedShiftData = null;
-      _viewportPreserve.restore(
-        listScroll: _listScrollController,
-        attHoriz: _ctAttScroll,
-        attVert: _ctAttVertScroll,
-      );
+      _viewportPreserve.restore(listScroll: _listScrollController);
     }
   }
 
@@ -1411,12 +1356,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
           else if (useVerticalLayout)
             ..._buildMobileVerticalShiftSlivers(records)
           else
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                child: _buildMobileCrossTabTablePanel(records),
-              ),
-            ),
+            ..._buildMobileEmployeeShiftSummarySlivers(records),
         ],
       );
     }
@@ -4131,16 +4071,6 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
     }
   }
 
-  Widget _legendItem(IconData icon, Color color, String label) => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: color),
-          const SizedBox(width: 3),
-          Text(label,
-              style: const TextStyle(fontSize: 10, color: Color(0xFF52525B))),
-        ],
-      );
-
   List<Widget> _buildTableSlivers(List<_DailyShiftRecord> records) {
     if (records.isEmpty) {
       return [
@@ -5075,7 +5005,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
               empName: empName,
               empCode: empCode,
               records: records,
-              title: empName,
+              title: 'Chi tiết theo ca',
             ),
           ),
         ),
@@ -5104,11 +5034,74 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
     ];
   }
 
-  Widget _buildMobileCrossTabTablePanel(List<_DailyShiftRecord> records) {
+  // ─── Mobile: danh sách NV theo ca (tap xem chi tiết) ─────────────────────
 
-    // Build employee and code maps
-    final empMap = <String, String>{}; // empId -> empName
-    final empCodeMap = <String, String>{}; // empId -> empCode
+  String _mobileShiftEmployeeInitials(String name) {
+    final parts =
+        name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    if (parts.isEmpty) return '?';
+    String first(String s) => s.isNotEmpty ? s[0] : '';
+    if (parts.length == 1) return first(parts[0]).toUpperCase();
+    return '${first(parts[0])}${first(parts.last)}'.toUpperCase();
+  }
+
+  Widget _mobileShiftMetricChip({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 7),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: color.withValues(alpha: 0.18)),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, size: 13, color: color),
+            const SizedBox(height: 3),
+            Text(
+              value,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                color: color,
+              ),
+            ),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 8,
+                color: color.withValues(alpha: 0.85),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<_DailyShiftRecord> _shiftRecordsForEmployee(
+    List<_DailyShiftRecord> records,
+    String empId,
+  ) =>
+      records.where((r) => r.employeeId == empId).toList();
+
+  List<Widget> _buildMobileEmployeeShiftSummarySlivers(
+    List<_DailyShiftRecord> records,
+  ) {
+    final empMap = <String, String>{};
+    final empCodeMap = <String, String>{};
     for (final r in records) {
       empMap[r.employeeId] = r.employeeName;
       empCodeMap[r.employeeId] = r.employeeCode;
@@ -5116,831 +5109,469 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab>
     final employees = empMap.entries.toList()
       ..sort((a, b) => a.value.compareTo(b.value));
 
-    // Generate all dates in selected range
-    final range = _selectedDateRange;
-    final dates = <DateTime>[];
-    var cur = DateTime(range.start.year, range.start.month, range.start.day);
-    final endDay = DateTime(range.end.year, range.end.month, range.end.day);
-    while (!cur.isAfter(endDay)) {
-      dates.add(cur);
-      cur = cur.add(const Duration(days: 1));
-    }
+    final dates = attendanceDaysInRange(_selectedDateRange);
 
-    // Record lookup map
-    final recordMap = <String, _DailyShiftRecord>{};
-    for (final r in records) {
-      recordMap['${r.employeeId}|${DateFormat('yyyy-MM-dd').format(r.date)}'] =
-          r;
-    }
-    _DailyShiftRecord? getRecord(String empId, DateTime day) =>
-        recordMap['$empId|${DateFormat('yyyy-MM-dd').format(day)}'];
+    double totalHoursFor(String empId) => _shiftRecordsForEmployee(records, empId)
+        .fold<double>(0.0, (sum, r) => sum + r.workHours);
 
-    final leaveLookup = AttendanceLeaveLookup.fromLeaves(
-      widget.approvedLeaves,
-      employeesList: widget.employeesList,
-      includePending: true,
-    );
-    final empUserIdMap = <String, String>{};
-    final hrEmpIdMap = <String, String>{};
-    if (widget.employeesList != null) {
-      for (final e in widget.employeesList!) {
-        final code = e['employeeCode']?.toString() ?? '';
-        final appId = e['applicationUserId']?.toString() ?? '';
-        final hrId = e['id']?.toString() ?? '';
-        if (code.isNotEmpty) {
-          if (appId.isNotEmpty) empUserIdMap[code] = appId;
-          if (hrId.isNotEmpty) hrEmpIdMap[code] = hrId;
-        }
-      }
-    }
+    double totalWorkFor(String empId) => _shiftRecordsForEmployee(records, empId)
+        .fold<double>(0.0, (sum, r) => sum + r.workCount);
 
-    // Absence widget for days with no punch data
-    Widget absenceWidget(String empId, DateTime d) {
-      final code = empCodeMap[empId] ?? empId;
-      final name = empMap[empId] ?? code;
-      final kind = leaveLookup.classify(
-        day: d,
-        employeeCode: code,
-        employeeUserId: empUserIdMap[code] ?? empUserIdMap[empId],
-        hrEmployeeId: hrEmpIdMap[code] ?? hrEmpIdMap[empId],
-        displayEmployeeId: empId,
-        isHoliday: _getHolidayRate(d, code) != null,
-        isWeeklyOff: _isWeeklyOffDay(d, code),
-      );
-      return AttendanceLeaveLookup.buildCell(
-        kind,
-        onUnpaidAbsentTap: kind == AbsenceCellKind.unpaidAbsent
-            ? () {
-                AbsenceDayActions.showForAbsentDay(
-                  context: context,
-                  api: ApiService(),
-                  employeeName: name,
-                  employeeCode: code,
-                  displayEmployeeId: empId,
-                  applicationUserId:
-                      empUserIdMap[code] ?? empUserIdMap[empId],
-                  hrEmployeeId: hrEmpIdMap[code] ?? hrEmpIdMap[empId],
-                  date: d,
-                  employees: widget.employeesList,
-                  onCompleted: _notifyDataChanged,
-                );
-              }
-            : null,
-      );
-    }
-
-    _ensureCrossTabScrollLinked();
-
-    final empColW = attendanceFrozenEmployeeColWidth(context);
-    const dayColW = 72.0;
-    const rowH = 52.0;
-    const headerH = 52.0;
-    const ctTitleH = 28.0;
-    const ctScrollEndPad = 20.0;
-    final dateScrollWidth = dayColW * dates.length + ctScrollEndPad;
-
-    String dayLabel(DateTime d) {
-      const days = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
-      return '${days[d.weekday - 1]}\n${DateFormat('dd/MM').format(d)}';
-    }
-
-    Color headerBg(DateTime d) {
-      if (d.weekday == DateTime.sunday) return Colors.red.shade700;
-      if (d.weekday == DateTime.saturday) return Colors.orange.shade700;
-      return HrmPageChrome.primaryNavy;
-    }
-
-    // BẢNG ĐIỂM DANH cell
-    Widget attCell(String empId, DateTime d, _DailyShiftRecord? r) {
-      if (r == null) return absenceWidget(empId, d);
-      Color? bg;
-      if (r.status.contains('Tăng ca ngày lễ')) {
-        bg = Colors.deepOrange.withValues(alpha: 0.10);
-      } else if (r.status.contains('Tăng ca ngày nghỉ')) {
-        bg = Colors.purple.withValues(alpha: 0.08);
-      }
-      final p1 =
-          r.displayPunchTimes.isNotEmpty ? r.displayPunchTimes.first : null;
-      final p2 =
-          r.displayPunchTimes.length >= 2 ? r.displayPunchTimes[1] : null;
-      return Container(
-        color: bg,
-        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (p1 != null)
-              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                const Icon(Icons.login, size: 10, color: Color(0xFF22C55E)),
-                const SizedBox(width: 2),
-                Text(DateFormat('HH:mm').format(p1),
-                    style: const TextStyle(
-                        fontSize: 9,
-                        color: Color(0xFF22C55E),
-                        fontWeight: FontWeight.w600)),
-              ])
-            else
-              const Text('— v',
-                  style: TextStyle(fontSize: 9, color: Color(0xFFEF4444))),
-            if (p2 != null)
-              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                const Icon(Icons.logout, size: 10, color: Color(0xFF3B82F6)),
-                const SizedBox(width: 2),
-                Text(DateFormat('HH:mm').format(p2),
-                    style: const TextStyle(
-                        fontSize: 9,
-                        color: Color(0xFF3B82F6),
-                        fontWeight: FontWeight.w600)),
-              ])
-            else if (p1 != null)
-              const Text('— r',
-                  style: TextStyle(fontSize: 9, color: Color(0xFFEF4444))),
-          ],
-        ),
-      );
-    }
-
-    // BẢNG GIỜ LÀM cell
-    Widget hrsCell(String empId, DateTime d, _DailyShiftRecord? r) {
-      if (r == null) return absenceWidget(empId, d);
-      if (r.workHours <= 0) {
-        return const Center(
-            child: Text('—',
-                style: TextStyle(color: Color(0xFFA1A1AA), fontSize: 12)));
-      }
-      final h = r.workHours;
-      final color = h >= 8
-          ? const Color(0xFF22C55E)
-          : (h >= 4 ? const Color(0xFFF59E0B) : const Color(0xFFEF4444));
-      final caStr = r.shiftNames.isNotEmpty ? r.shiftNames.first : '';
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(_formatHoursMinutes(h),
-                style: TextStyle(
-                    fontSize: 11, fontWeight: FontWeight.bold, color: color)),
-            if (caStr.isNotEmpty)
-              Text(caStr,
-                  style: const TextStyle(fontSize: 8, color: Color(0xFF71717A)),
-                  overflow: TextOverflow.ellipsis),
-          ],
-        ),
-      );
-    }
-
-    // BẢNG ĐI TRỄ VỀ SỚM cell (NEW)
-    Widget lateEarlyCell(String empId, DateTime d, _DailyShiftRecord? r) {
-      if (r == null) return absenceWidget(empId, d);
-      if (r.lateMinutes <= 0 && r.earlyMinutes <= 0) {
-        return const Center(
-            child: Text('Hợp lệ',
-                style: TextStyle(
-                    fontSize: 9,
-                    color: Color(0xFF22C55E),
-                    fontWeight: FontWeight.w600)));
-      }
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (r.lateMinutes > 0)
-              Text('Trễ ${r.lateMinutes}p',
-                  style: const TextStyle(
-                      fontSize: 9,
-                      color: Color(0xFFF59E0B),
-                      fontWeight: FontWeight.w600)),
-            if (r.earlyMinutes > 0)
-              Text('Sớm ${r.earlyMinutes}p',
-                  style: const TextStyle(
-                      fontSize: 9,
-                      color: Color(0xFFEF4444),
-                      fontWeight: FontWeight.w600)),
-          ],
-        ),
-      );
-    }
-
-    // BẢNG CÔNG CA cell
-    Widget wrkCell(String empId, DateTime d, _DailyShiftRecord? r) {
-      if (r == null) return absenceWidget(empId, d);
-      if (r.workCount <= 0) {
-        return const Center(
-            child: Text('—',
-                style: TextStyle(color: Color(0xFFA1A1AA), fontSize: 12)));
-      }
-      final wc = r.workCount;
-      final str = wc % 1 == 0 ? wc.toInt().toString() : wc.toStringAsFixed(2);
-      final color =
-          wc >= 1.0 ? const Color(0xFF16A34A) : const Color(0xFFF59E0B);
-      return Center(
-        child: Text(str,
-            style: TextStyle(
-                fontSize: 12, fontWeight: FontWeight.bold, color: color)),
-      );
-    }
-
-    Widget ctSectionTitle(String title, Color titleColor, {String? subtitle}) {
-      return SizedBox(
-        height: ctTitleH,
-        width: double.infinity,
-        child: Container(
-          color: titleColor.withValues(alpha: 0.08),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-          alignment: Alignment.centerLeft,
-          child: Row(children: [
-            Container(
-                width: 3,
-                height: 12,
-                color: titleColor,
-                margin: const EdgeInsets.only(right: 6)),
-            Text(title,
-                style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: titleColor)),
-            if (subtitle != null) ...[
-              const SizedBox(width: 6),
-              Text(subtitle,
-                  style: TextStyle(fontSize: 9, color: titleColor)),
-            ],
-          ]),
-        ),
-      );
-    }
-
-    Widget ctFrozenHeader(String label, Color bg) {
-      return Container(
-        width: empColW,
-        height: headerH,
-        alignment: Alignment.centerLeft,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        decoration: BoxDecoration(
-          color: bg,
-          border: const Border(
-            right: BorderSide(color: Colors.white24),
-            bottom: BorderSide(color: Colors.white24, width: 0.5),
-          ),
-        ),
-        child: Text(label,
-            style: const TextStyle(
-                color: Colors.white,
-                fontSize: 11,
-                fontWeight: FontWeight.bold)),
-      );
-    }
-
-    Widget ctFrozenEmpRow(
-      int index, {
-      String? Function(String empId)? subtextFn,
-      Color subtextColor = const Color(0xFF16A34A),
-    }) {
-      final isEven = index.isEven;
-      final empId = employees[index].key;
-      final empName = employees[index].value;
-      final sub = subtextFn?.call(empId);
-      return Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () => _showEmployeeVerticalShiftSheet(
-            empId: empId,
-            empName: empName,
-            empCode: empCodeMap[empId] ?? empId,
-            records: records,
-          ),
-          child: Container(
-            width: empColW,
-            height: rowH,
-            alignment: Alignment.centerLeft,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            decoration: BoxDecoration(
-              color: isEven ? const Color(0xFFF4F4F5) : Colors.white,
-              border: const Border(
-                right: BorderSide(color: Color(0xFFD4D4D8)),
-                bottom: BorderSide(color: Color(0xFFE4E4E7), width: 0.5),
-              ),
-            ),
-            child: AttendanceFrozenEmployeeNameCell(
-              name: empName,
-              subtext: sub,
-              subtextColor: subtextColor,
-            ),
-          ),
-        ),
-      );
-    }
-
-    Widget ctDateHeaderRow() {
-      return Row(
-        children: [
-          ...dates.map((d) {
-            final isToday = d.year == DateTime.now().year &&
-                d.month == DateTime.now().month &&
-                d.day == DateTime.now().day;
-            return Container(
-              width: dayColW,
-              height: headerH,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: isToday ? const Color(0xFF2563EB) : headerBg(d),
-                border: const Border(
-                  right: BorderSide(color: Colors.white12, width: 0.5),
-                  bottom: BorderSide(color: Colors.white24, width: 0.5),
-                ),
-              ),
-              child: Text(
-                dayLabel(d),
-                style: TextStyle(
-                  color: isToday ? Colors.yellow.shade200 : Colors.white,
-                  fontSize: 10,
-                  fontWeight: isToday ? FontWeight.bold : FontWeight.w500,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            );
-          }),
-          const SizedBox(width: ctScrollEndPad),
-        ],
-      );
-    }
-
-    double dayHoursSum(DateTime d) => employees.fold<double>(
-        0.0,
-        (sum, e) => sum + (getRecord(e.key, d)?.workHours ?? 0.0));
-
-    double dayWorkSum(DateTime d) => employees.fold<double>(
-        0.0,
-        (sum, e) => sum + (getRecord(e.key, d)?.workCount ?? 0.0));
-
-    int dayPresentCount(DateTime d) => employees
-        .where((e) =>
-            (getRecord(e.key, d)?.displayPunchTimes ?? []).isNotEmpty)
-        .length;
-
-    int dayLateSum(DateTime d) => employees.fold<int>(
-        0, (sum, e) => sum + (getRecord(e.key, d)?.lateMinutes ?? 0));
-
-    int dayEarlySum(DateTime d) => employees.fold<int>(
-        0, (sum, e) => sum + (getRecord(e.key, d)?.earlyMinutes ?? 0));
-
-    final grandTotalHours =
-        records.fold<double>(0.0, (sum, r) => sum + r.workHours);
-    final grandTotalWork =
-        records.fold<double>(0.0, (sum, r) => sum + r.workCount);
-    final grandPresentDays = records
+    int presentDaysFor(String empId) => _shiftRecordsForEmployee(records, empId)
         .where((r) => r.displayPunchTimes.isNotEmpty)
         .length;
 
-    const totalRowBg = Color(0xFFEFF6FF);
-    const totalFrozenBg = Color(0xFFDBEAFE);
+    int lateMinutesFor(String empId) => _shiftRecordsForEmployee(records, empId)
+        .fold<int>(0, (sum, r) => sum + r.lateMinutes);
 
-    Widget totalDash() => const Center(
-          child: Text('—',
-              style: TextStyle(
-                  color: Color(0xFFA1A1AA),
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold)),
-        );
+    int earlyMinutesFor(String empId) => _shiftRecordsForEmployee(records, empId)
+        .fold<int>(0, (sum, r) => sum + r.earlyMinutes);
 
-    Widget ctFrozenTotalRow({
-      String? subtext,
-      Color subtextColor = HrmPageChrome.primaryNavy,
-    }) {
-      return Container(
-        width: empColW,
-        height: rowH,
-        alignment: Alignment.centerLeft,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        decoration: const BoxDecoration(
-          color: totalFrozenBg,
-          border: Border(
-            top: BorderSide(color: Color(0xFF93C5FD), width: 1),
-            right: BorderSide(color: Color(0xFF93C5FD)),
-            bottom: BorderSide(color: Color(0xFF93C5FD), width: 0.5),
+    int overtimeFor(String empId) => _shiftRecordsForEmployee(records, empId)
+        .fold<int>(0, (sum, r) => sum + r.overtimeMinutes);
+
+    int lateDaysFor(String empId) => _shiftRecordsForEmployee(records, empId)
+        .where((r) => r.lateMinutes > 0)
+        .length;
+
+    String shiftNamesFor(String empId) {
+      final names = <String>{};
+      for (final r in _shiftRecordsForEmployee(records, empId)) {
+        names.addAll(r.shiftNames);
+      }
+      if (names.isEmpty) return '';
+      final list = names.toList()..sort();
+      if (list.length <= 2) return list.join(' · ');
+      return '${list.take(2).join(' · ')} +${list.length - 2}';
+    }
+
+    int expectedDaysFor(String empId) {
+      final code = empCodeMap[empId] ?? '';
+      return dates.where((d) => !_isWeeklyOffDay(d, code)).length;
+    }
+
+    String formatWork(double w) => w <= 0
+        ? '—'
+        : (w % 1 == 0 ? w.toInt().toString() : w.toStringAsFixed(2));
+
+    final grandHours =
+        employees.fold<double>(0.0, (s, e) => s + totalHoursFor(e.key));
+    final grandWork =
+        employees.fold<double>(0.0, (s, e) => s + totalWorkFor(e.key));
+    final grandLate =
+        employees.fold<int>(0, (s, e) => s + lateMinutesFor(e.key));
+    final grandEarly =
+        employees.fold<int>(0, (s, e) => s + earlyMinutesFor(e.key));
+    final grandOt =
+        employees.fold<int>(0, (s, e) => s + overtimeFor(e.key));
+
+    Widget buildEmployeeCard(int index) {
+      final empId = employees[index].key;
+      final empName = employees[index].value;
+      final empCode = empCodeMap[empId] ?? empId;
+      final hours = totalHoursFor(empId);
+      final work = totalWorkFor(empId);
+      final present = presentDaysFor(empId);
+      final lateMin = lateMinutesFor(empId);
+      final earlyMin = earlyMinutesFor(empId);
+      final otMin = overtimeFor(empId);
+      final lateDays = lateDaysFor(empId);
+      final expected = expectedDaysFor(empId);
+      final shifts = shiftNamesFor(empId);
+      final workRatio = expected > 0 ? (work / expected).clamp(0.0, 1.0) : 0.0;
+      final workColor = work <= 0
+          ? const Color(0xFFA1A1AA)
+          : (expected > 0 && work >= expected
+              ? const Color(0xFF16A34A)
+              : const Color(0xFF7C3AED));
+
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Material(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () => _showEmployeeVerticalShiftSheet(
+              empId: empId,
+              empName: empName,
+              empCode: empCode,
+              records: _shiftRecordsForEmployee(records, empId),
+            ),
+            child: Container(
+              decoration: BoxDecoration(
+                border: Border.all(color: const Color(0xFFE4E4E7)),
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.03),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 20,
+                        backgroundColor:
+                            HrmPageChrome.primaryNavy.withValues(alpha: 0.12),
+                        child: Text(
+                          _mobileShiftEmployeeInitials(empName),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: HrmPageChrome.primaryNavy,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              empName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF18181B),
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              empCode,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF71717A),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (lateDays > 0)
+                        Container(
+                          margin: const EdgeInsets.only(right: 6),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 7, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFEF3C7),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                                color: const Color(0xFFF59E0B)
+                                    .withValues(alpha: 0.35)),
+                          ),
+                          child: Text(
+                            'Trễ $lateDays',
+                            style: const TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFFD97706),
+                            ),
+                          ),
+                        ),
+                      const Icon(Icons.chevron_right,
+                          color: Color(0xFF94A3B8), size: 22),
+                    ],
+                  ),
+                  if (shifts.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Icon(Icons.work_history_rounded,
+                            size: 13, color: Colors.grey.shade600),
+                        const SizedBox(width: 5),
+                        Expanded(
+                          child: Text(
+                            'Ca: $shifts',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey.shade700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      _mobileShiftMetricChip(
+                        icon: Icons.schedule_rounded,
+                        label: 'Giờ làm',
+                        value: hours > 0 ? _formatHoursMinutes(hours) : '—',
+                        color: const Color(0xFF2563EB),
+                      ),
+                      const SizedBox(width: 6),
+                      _mobileShiftMetricChip(
+                        icon: Icons.calendar_today_rounded,
+                        label: 'Công ca',
+                        value: formatWork(work),
+                        color: workColor,
+                      ),
+                      const SizedBox(width: 6),
+                      _mobileShiftMetricChip(
+                        icon: Icons.fingerprint_rounded,
+                        label: 'Có chấm',
+                        value: present > 0 ? '$present ngày' : '—',
+                        color: const Color(0xFF16A34A),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      _mobileShiftMetricChip(
+                        icon: Icons.more_time_rounded,
+                        label: 'Đi trễ',
+                        value: lateMin > 0 ? '${lateMin}p' : '—',
+                        color: const Color(0xFFF59E0B),
+                      ),
+                      const SizedBox(width: 6),
+                      _mobileShiftMetricChip(
+                        icon: Icons.logout_rounded,
+                        label: 'Về sớm',
+                        value: earlyMin > 0 ? '${earlyMin}p' : '—',
+                        color: const Color(0xFFEF4444),
+                      ),
+                      const SizedBox(width: 6),
+                      _mobileShiftMetricChip(
+                        icon: Icons.bolt_rounded,
+                        label: 'Tăng ca',
+                        value: otMin > 0 ? '${otMin}p' : '—',
+                        color: const Color(0xFF8B5CF6),
+                      ),
+                    ],
+                  ),
+                  if (expected > 0) ...[
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: workRatio,
+                              minHeight: 5,
+                              backgroundColor: const Color(0xFFE4E4E7),
+                              color: workColor,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${formatWork(work)}/$expected công',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: workColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
           ),
         ),
+      );
+    }
+
+    Widget buildGrandTotalCard() {
+      return Container(
+        margin: const EdgeInsets.only(top: 4),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              HrmPageChrome.primaryNavy.withValues(alpha: 0.08),
+              const Color(0xFFDBEAFE),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFF93C5FD)),
+        ),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('TỔNG CỘNG',
-                style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                    color: HrmPageChrome.primaryNavy)),
-            if (subtext != null)
-              Text(subtext,
-                  style: TextStyle(
-                      fontSize: 9,
-                      color: subtextColor,
-                      fontWeight: FontWeight.bold),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis),
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Tổng cộng',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: HrmPageChrome.primaryNavy,
+                        ),
+                      ),
+                      Text(
+                        '${employees.length} nhân viên',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.grey.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      grandHours > 0 ? _formatHoursMinutes(grandHours) : '—',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF2563EB),
+                      ),
+                    ),
+                    const Text('tổng giờ',
+                        style:
+                            TextStyle(fontSize: 9, color: Color(0xFF71717A))),
+                    const SizedBox(height: 4),
+                    Text(
+                      formatWork(grandWork),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF7C3AED),
+                      ),
+                    ),
+                    const Text('tổng công ca',
+                        style:
+                            TextStyle(fontSize: 9, color: Color(0xFF71717A))),
+                  ],
+                ),
+              ],
+            ),
+            if (grandLate > 0 || grandEarly > 0 || grandOt > 0) ...[
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: [
+                  if (grandLate > 0)
+                    _shiftSummaryBadge(
+                        'Đi trễ ${grandLate}p', const Color(0xFFF59E0B)),
+                  if (grandEarly > 0)
+                    _shiftSummaryBadge(
+                        'Về sớm ${grandEarly}p', const Color(0xFFEF4444)),
+                  if (grandOt > 0)
+                    _shiftSummaryBadge(
+                        'Tăng ca ${grandOt}p', const Color(0xFF8B5CF6)),
+                ],
+              ),
+            ],
           ],
         ),
       );
     }
 
-    Widget ctDateTotalRow({
-      required Widget Function(DateTime d) dayCell,
-    }) {
-      return Row(
-        children: [
-          ...dates.map((d) {
-            return Container(
-              width: dayColW,
-              height: rowH,
-              decoration: const BoxDecoration(
-                color: totalRowBg,
-                border: Border(
-                  top: BorderSide(color: Color(0xFF93C5FD), width: 1),
-                  right: BorderSide(color: Color(0xFFE4E4E7), width: 0.5),
-                  bottom: BorderSide(color: Color(0xFFE4E4E7), width: 0.5),
-                ),
-              ),
-              alignment: Alignment.center,
-              child: dayCell(d),
-            );
-          }),
-          const SizedBox(width: ctScrollEndPad),
-        ],
-      );
-    }
-
-    Widget ctDateBodyRow(
-      int index, {
-      required Widget Function(String empId, DateTime d, _DailyShiftRecord?)
-          cellFn,
-    }) {
-      final empId = employees[index].key;
-      final isEven = index.isEven;
-      return Row(
-        children: [
-          ...dates.map((d) {
-            final r = getRecord(empId, d);
-            return GestureDetector(
-              onTap: r != null ? () => _showRecordDetail(r) : null,
-              child: Container(
-                width: dayColW,
-                height: rowH,
-                decoration: BoxDecoration(
-                  color: isEven ? const Color(0xFFF9F9F9) : Colors.white,
-                  border: const Border(
-                    right: BorderSide(color: Color(0xFFE4E4E7), width: 0.5),
-                    bottom: BorderSide(color: Color(0xFFE4E4E7), width: 0.5),
-                  ),
-                ),
-                child: cellFn(empId, d, r),
-              ),
-            );
-          }),
-          const SizedBox(width: ctScrollEndPad),
-        ],
-      );
-    }
-
-    Widget buildSection({
-      required BuildContext sectionContext,
-      required String title,
-      required Color titleColor,
-      required Widget Function(String empId, DateTime d, _DailyShiftRecord?)
-          cellFn,
-      required ScrollController horizScrollCtrl,
-      required ScrollController vertScrollCtrl,
-      String? subtitle,
-      String? Function(String empId)? subtextFn,
-      Color subtextColor = const Color(0xFF16A34A),
-      String frozenLabel = 'Nhân viên',
-      Color frozenHeaderBg = HrmPageChrome.primaryNavy,
-      Widget Function(DateTime d)? totalDayCellBuilder,
-      String? totalFrozenSubtext,
-      Color totalFrozenSubtextColor = HrmPageChrome.primaryNavy,
-    }) {
-      final empCount = employees.length;
-      final listH = _mobileListViewportHeight(rowH);
-      final showTotal = totalDayCellBuilder != null;
-      final gridH = headerH + listH + (showTotal ? rowH : 0);
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ctSectionTitle(title, titleColor, subtitle: subtitle),
-          SizedBox(
-            height: gridH,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  width: empColW,
-                  child: Column(
-                    children: [
-                      ctFrozenHeader(frozenLabel, frozenHeaderBg),
-                      SizedBox(
-                        height: listH,
-                        child: ScrollConfiguration(
-                          behavior: ScrollConfiguration.of(sectionContext)
-                              .copyWith(scrollbars: false),
-                          child: ListView.builder(
-                            controller: vertScrollCtrl,
-                            primary: false,
-                            physics: _tableInnerScrollPhysics,
-                            itemCount: empCount,
-                            itemExtent: rowH,
-                            itemBuilder: (_, i) => ctFrozenEmpRow(
-                              i,
-                              subtextFn: subtextFn,
-                              subtextColor: subtextColor,
-                            ),
-                          ),
-                        ),
-                      ),
-                      if (showTotal)
-                        ctFrozenTotalRow(
-                          subtext: totalFrozenSubtext,
-                          subtextColor: totalFrozenSubtextColor,
-                        ),
-                    ],
-                  ),
-                ),
-                Container(width: 1, color: const Color(0xFFE4E4E7)),
-                Expanded(
-                  child: SingleChildScrollView(
-                    controller: horizScrollCtrl,
-                    scrollDirection: Axis.horizontal,
-                    physics: const ClampingScrollPhysics(),
-                    child: SizedBox(
-                      width: dateScrollWidth,
-                      height: gridH,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          ctDateHeaderRow(),
-                          SizedBox(
-                            height: listH,
-                            child: SyncedScrollListView(
-                              mainController: vertScrollCtrl,
-                              physics: _tableInnerScrollPhysics,
-                              itemCount: empCount,
-                              itemExtent: rowH,
-                              itemBuilder: (_, i) =>
-                                  ctDateBodyRow(i, cellFn: cellFn),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      );
-    }
-
-    final tabContentH = _mobileTabContentHeight(rowH);
-
-    return SizedBox(
-      height: _mobileTablePanelHeight(rowH),
-      child: Container(
-        decoration: _tableCardDecoration,
-        child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: ColoredBox(
-          color: Colors.white,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+    return [
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+        sliver: SliverToBoxAdapter(
+          child: Row(
             children: [
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                child: Wrap(
-                  spacing: 14,
-                  runSpacing: 4,
-                  children: [
-                    _legendItem(Icons.login, const Color(0xFF22C55E), 'Vào'),
-                    _legendItem(Icons.logout, const Color(0xFF3B82F6), 'Ra'),
-                    _legendItem(Icons.error_outline,
-                        const Color(0xFFEF4444), 'Thiếu lượt'),
-                    _legendItem(Icons.celebration, Colors.deepOrange, 'Lễ'),
-                    _legendItem(Icons.weekend, Colors.purple, 'Nghỉ/T7-CN'),
-                    _legendItem(Icons.beach_access, Colors.teal, 'Nghỉ phép'),
-                  ],
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.groups_rounded,
+                    size: 18, color: HrmPageChrome.primaryNavy),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'Danh sách nhân viên',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF18181B),
+                  ),
                 ),
               ),
-              const Divider(height: 1),
-              TabBar(
-                controller: _mobileTableTabController,
-                isScrollable: true,
-                tabAlignment: TabAlignment.start,
-                labelColor: HrmPageChrome.primaryNavy,
-                unselectedLabelColor: const Color(0xFF71717A),
-                indicatorColor: HrmPageChrome.primaryNavy,
-                indicatorWeight: 3,
-                labelStyle: const TextStyle(
-                    fontWeight: FontWeight.w600, fontSize: 12),
-                unselectedLabelStyle: const TextStyle(
-                    fontWeight: FontWeight.w500, fontSize: 12),
-                tabs: const [
-                  Tab(text: 'Điểm danh'),
-                  Tab(text: 'Giờ làm'),
-                  Tab(text: 'Trễ/sớm'),
-                  Tab(text: 'Công ca'),
-                ],
-              ),
-              const Divider(height: 1),
-              SizedBox(
-                height: tabContentH,
-                child: TabBarView(
-                  controller: _mobileTableTabController,
-                  physics: const NeverScrollableScrollPhysics(),
-                  children: [
-                    ColoredBox(
-                      color: Colors.white,
-                      child: Builder(
-                        builder: (sectionCtx) => buildSection(
-                          sectionContext: sectionCtx,
-                          title: 'BẢNG ĐIỂM DANH',
-                          titleColor: const Color(0xFF16A34A),
-                          cellFn: attCell,
-                          horizScrollCtrl: _ctAttScroll,
-                          vertScrollCtrl: _ctAttVertScroll,
-                          totalFrozenSubtext: grandPresentDays > 0
-                              ? '$grandPresentDays lượt có chấm'
-                              : null,
-                          totalFrozenSubtextColor: const Color(0xFF16A34A),
-                          totalDayCellBuilder: (d) {
-                            final n = dayPresentCount(d);
-                            if (n <= 0) return totalDash();
-                            return Center(
-                              child: Text(
-                                '$n NV',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w800,
-                                  color: Color(0xFF16A34A),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                    ColoredBox(
-                      color: Colors.white,
-                      child: Builder(
-                        builder: (sectionCtx) => buildSection(
-                          sectionContext: sectionCtx,
-                          title: 'BẢNG GIỜ LÀM',
-                          titleColor: const Color(0xFF2563EB),
-                          cellFn: hrsCell,
-                          horizScrollCtrl: _ctHrsScroll,
-                          vertScrollCtrl: _ctHrsVertScroll,
-                          subtextFn: (empId) {
-                            final total = dates.fold<double>(
-                                0.0,
-                                (sum, d) =>
-                                    sum +
-                                    (getRecord(empId, d)?.workHours ?? 0.0));
-                            return total > 0
-                                ? 'Tổng: ${_formatHoursMinutes(total)}'
-                                : null;
-                          },
-                          subtextColor: const Color(0xFF2563EB),
-                          totalFrozenSubtext: grandTotalHours > 0
-                              ? _formatHoursMinutes(grandTotalHours)
-                              : null,
-                          totalFrozenSubtextColor: const Color(0xFF2563EB),
-                          totalDayCellBuilder: (d) {
-                            final h = dayHoursSum(d);
-                            if (h <= 0) return totalDash();
-                            return Center(
-                              child: Text(
-                                _formatHoursMinutes(h),
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w800,
-                                  color: Color(0xFF2563EB),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                    ColoredBox(
-                      color: Colors.white,
-                      child: Builder(
-                        builder: (sectionCtx) => buildSection(
-                          sectionContext: sectionCtx,
-                          title: 'BẢNG ĐI TRỄ VỀ SỚM',
-                          titleColor: const Color(0xFFF59E0B),
-                          cellFn: lateEarlyCell,
-                          horizScrollCtrl: _ctLateScroll,
-                          vertScrollCtrl: _ctLateVertScroll,
-                          totalFrozenSubtext: () {
-                            final late = records.fold<int>(
-                                0, (s, r) => s + r.lateMinutes);
-                            final early = records.fold<int>(
-                                0, (s, r) => s + r.earlyMinutes);
-                            if (late <= 0 && early <= 0) return null;
-                            return 'Trễ ${late}p · Sớm ${early}p';
-                          }(),
-                          totalFrozenSubtextColor: const Color(0xFFF59E0B),
-                          totalDayCellBuilder: (d) {
-                            final late = dayLateSum(d);
-                            final early = dayEarlySum(d);
-                            if (late <= 0 && early <= 0) {
-                              return const Center(
-                                child: Text('—',
-                                    style: TextStyle(
-                                        fontSize: 10,
-                                        color: Color(0xFF22C55E),
-                                        fontWeight: FontWeight.w600)),
-                              );
-                            }
-                            return Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  if (late > 0)
-                                    Text('+$late\'',
-                                        style: const TextStyle(
-                                            fontSize: 9,
-                                            fontWeight: FontWeight.w800,
-                                            color: Color(0xFFF59E0B))),
-                                  if (early > 0)
-                                    Text('-$early\'',
-                                        style: const TextStyle(
-                                            fontSize: 9,
-                                            fontWeight: FontWeight.w800,
-                                            color: Color(0xFFEF4444))),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                    ColoredBox(
-                      color: Colors.white,
-                      child: Builder(
-                        builder: (sectionCtx) => buildSection(
-                          sectionContext: sectionCtx,
-                          title: 'BẢNG CÔNG CA',
-                          titleColor: const Color(0xFF7C3AED),
-                          cellFn: wrkCell,
-                          horizScrollCtrl: _ctWrkScroll,
-                          vertScrollCtrl: _ctWrkVertScroll,
-                          subtextFn: (empId) {
-                            final total = dates.fold<double>(0.0,
-                                (sum, d) =>
-                                    sum +
-                                    (getRecord(empId, d)?.workCount ?? 0.0));
-                            if (total <= 0) return null;
-                            final str = total % 1 == 0
-                                ? '${total.toInt()}'
-                                : total.toStringAsFixed(2);
-                            return 'Tổng: $str công';
-                          },
-                          subtextColor: const Color(0xFF7C3AED),
-                          totalFrozenSubtext: grandTotalWork > 0
-                              ? (grandTotalWork % 1 == 0
-                                  ? '${grandTotalWork.toInt()} công'
-                                  : '${grandTotalWork.toStringAsFixed(2)} công')
-                              : null,
-                          totalFrozenSubtextColor: const Color(0xFF7C3AED),
-                          totalDayCellBuilder: (d) {
-                            final w = dayWorkSum(d);
-                            if (w <= 0) return totalDash();
-                            final str = w % 1 == 0
-                                ? w.toInt().toString()
-                                : w.toStringAsFixed(2);
-                            return Center(
-                              child: Text(
-                                str,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w800,
-                                  color: Color(0xFF7C3AED),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                  ],
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '${employees.length} NV',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: HrmPageChrome.primaryNavy,
+                  ),
                 ),
               ),
             ],
           ),
         ),
       ),
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+        sliver: SliverToBoxAdapter(
+          child: Text(
+            'Chạm thẻ để xem chi tiết: điểm danh, ca, đi trễ, về sớm theo ngày',
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+          ),
+        ),
+      ),
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+        sliver: SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (context, index) => buildEmployeeCard(index),
+            childCount: employees.length,
+          ),
+        ),
+      ),
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+        sliver: SliverToBoxAdapter(child: buildGrandTotalCard()),
+      ),
+    ];
+  }
+
+  Widget _shiftSummaryBadge(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          color: color,
+        ),
       ),
     );
   }
-
   Widget _buildDayBadge(String day, int weekday) {
     final color = weekday == DateTime.sunday
         ? Colors.red

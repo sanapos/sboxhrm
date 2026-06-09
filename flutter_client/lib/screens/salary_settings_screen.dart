@@ -1765,6 +1765,18 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                       _getPaidLeaveTypeDisplayName(employee['benefit']
                               ?['paidLeaveType'] ??
                           employee['paidDayOff'])),
+                  if (_isMonthlySalaryEmployee(employee)) ...[
+                    _buildDetailItem(
+                      'Phép năm / năm',
+                      _formatLeaveDaysEntitlement(
+                          employee['benefit']?['paidLeaveDays']),
+                    ),
+                    _buildDetailItem(
+                      'Phép năm còn lại',
+                      _formatLeaveDaysBalance(
+                          employee['salaryProfile']?['balancedPaidLeaveDays']),
+                    ),
+                  ],
                 ],
               ),
             );
@@ -2183,6 +2195,27 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
       default:
         return 0;
     }
+  }
+
+  bool _isMonthlySalaryEmployee(Map<String, dynamic> employee) {
+    final rateType = employee['benefit']?['rateType'] ??
+        employee['salaryType'] ??
+        employee['salaryProfile']?['benefit']?['rateType'];
+    return rateType?.toString() == '1' || rateType == 1;
+  }
+
+  String _formatLeaveDaysEntitlement(dynamic value) {
+    if (value == null) return '12 ngày (mặc định)';
+    final n = value is num ? value.toDouble() : double.tryParse('$value');
+    if (n == null) return '—';
+    return '${n == n.truncateToDouble() ? n.toInt() : n} ngày';
+  }
+
+  String _formatLeaveDaysBalance(dynamic value) {
+    if (value == null) return 'Chưa gán hồ sơ lương tháng';
+    final n = value is num ? value.toDouble() : double.tryParse('$value');
+    if (n == null) return '—';
+    return '${n == n.truncateToDouble() ? n.toInt() : n} ngày';
   }
 
   String _getPaidLeaveTypeDisplayName(dynamic value) {
@@ -2649,6 +2682,16 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
     final dailyAllowanceController =
         TextEditingController(text: _formatNumber(dailyVal));
 
+    final paidLeaveDaysController = TextEditingController(
+      text: benefit['paidLeaveDays']?.toString() ??
+          ((benefit['rateType'] ?? employee['salaryType'] ?? 1).toString() == '1'
+              ? '12'
+              : '0'),
+    );
+    final unpaidLeaveDaysController = TextEditingController(
+      text: (benefit['unpaidLeaveDays'] ?? 0).toString(),
+    );
+
     String paidLeaveType = benefit['paidLeaveType']?.toString() ?? 'sunday';
     if (![
       'sunday',
@@ -2978,6 +3021,37 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                         completionSalaryController,
                         insuranceSalaryController),
                   ],
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildTextField(
+                          label: 'Phép năm (ngày/năm):',
+                          controller: paidLeaveDaysController,
+                          keyboardType: TextInputType.number,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _buildTextField(
+                          label: 'Phép không lương (ngày/năm):',
+                          controller: unpaidLeaveDaysController,
+                          keyboardType: TextInputType.number,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      'Khi gán hồ sơ lương tháng, số phép năm được đưa vào quỹ nghỉ phép của nhân viên.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[600],
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
                 ],
 
                 // ====== LƯƠNG CA ======
@@ -3416,6 +3490,13 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                 'paidLeaveType': paidLeaveType,
                 'isActive': true,
               };
+
+              if (rateType == 1) {
+                benefitData['paidLeaveDays'] =
+                    int.tryParse(paidLeaveDaysController.text.trim()) ?? 0;
+                benefitData['unpaidLeaveDays'] =
+                    int.tryParse(unpaidLeaveDaysController.text.trim()) ?? 0;
+              }
 
               Map<String, dynamic> result;
               String? benefitId = employee['benefitId']?.toString();

@@ -50,8 +50,6 @@ import 'cash_report_screen.dart';
 import 'advance_report_screen.dart';
 import 'leave_report_screen.dart';
 import 'asset_report_screen.dart';
-import 'hr_report_screen.dart';
-import 'payroll_report_screen.dart';
 import 'downloaded_documents_screen.dart';
 import 'agent_license_keys_screen.dart';
 import 'production_output_screen.dart';
@@ -1152,26 +1150,6 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     ),
 
     // ══════════ BÁO CÁO ══════════
-    NavItem(
-      icon: Icons.groups_outlined,
-      activeIcon: Icons.groups,
-      label: 'Báo cáo nhân sự',
-      subtitle: 'Biến động, cơ cấu, hợp đồng',
-      screen: const HrReportScreen(),
-      group: 'Báo cáo',
-      themeColor: const Color(0xFF7C3AED),
-      moduleCode: 'HrReport',
-    ),
-    NavItem(
-      icon: Icons.pie_chart_outline,
-      activeIcon: Icons.pie_chart,
-      label: 'Báo cáo lương',
-      subtitle: 'Chi phí lương, trạng thái phiếu',
-      screen: const PayrollReportScreen(),
-      group: 'Báo cáo',
-      themeColor: const Color(0xFF7C3AED),
-      moduleCode: 'PayrollReport',
-    ),
     NavItem(
       icon: Icons.receipt_long_outlined,
       activeIcon: Icons.receipt_long,
@@ -2533,8 +2511,6 @@ class NavItem {
     'Communication': (l) => l.communication,
     'KPI': (l) => 'KPI',
     'Feedback': (l) => 'Phản ánh / Ý kiến',
-    'HrReport': (l) => 'Báo cáo nhân sự',
-    'PayrollReport': (l) => 'Báo cáo lương',
     'PenaltyReport': (l) => 'Báo cáo phạt',
     'CashReport': (l) => 'Báo cáo thu chi',
     'AdvanceReport': (l) => 'Báo cáo ứng lương',

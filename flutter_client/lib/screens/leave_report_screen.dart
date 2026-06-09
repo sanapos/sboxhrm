@@ -397,6 +397,7 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
                       _datePreset = p;
                     }),
                     statusFilter: _statusDrop(),
+                    statusSummary: _filterStatusSummary(),
                     showTeamFilters: _teamView,
                     branchFilter: _teamView ? _branchFilter : null,
                     selectedBranchId: _selectedBranchId,
@@ -454,6 +455,11 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
         ],
       ),
     );
+  }
+
+  String? _filterStatusSummary() {
+    if (_statusFilter == null) return null;
+    return _statusLabel(_statusFilter!);
   }
 
   Widget _statusDrop() {

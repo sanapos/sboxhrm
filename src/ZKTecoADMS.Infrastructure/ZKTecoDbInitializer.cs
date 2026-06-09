@@ -1406,9 +1406,7 @@ public class ZKTecoDbInitializer(
             ("Meal", "Chấm cơm", "Quản lý suất ăn ca", 48),
             ("FieldCheckIn", "Check-in điểm bán", "Quản lý check-in tại điểm bán hàng", 49),
             // ══════════ BÁO CÁO ══════════
-            ("HrReport", "Báo cáo nhân sự", "Thống kê nhân sự, phòng ban", 23),
             ("AttendanceReport", "Báo cáo chấm công", "Ngày, tháng, đi muộn, phòng ban", 24),
-            ("PayrollReport", "Báo cáo lương", "Chi phí lương, phân bổ", 25),
             // ══════════ CÀI ĐẶT ══════════
             ("SettingsHub", "Thiết lập HRM", "Trung tâm cài đặt HRM", 26),
             ("ShiftSetup", "Thiết lập ca", "Ca làm việc, vào sớm, đi trễ, về sớm, tăng ca", 27),

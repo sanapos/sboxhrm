@@ -6,7 +6,9 @@ import '../services/api_service.dart';
 import '../models/cash_transaction.dart';
 import '../utils/report_screen_helpers.dart';
 import '../utils/report_access_utils.dart';
+import '../utils/cash_report_helpers.dart';
 import '../providers/auth_provider.dart';
+import '../utils/api_datetime.dart';
 import '../utils/vietnamese_text_fix.dart';
 
 const _cRowH = 54.0;
@@ -29,34 +31,147 @@ class _CashReportScreenState extends State<CashReportScreen> {
   DateTime _to = DateTime.now();
   String _datePreset = 'this_month';
   int? _typeFilter;
+  String? _statusFilter;
+  String? _categoryFilter;
+  int? _amountMinFilter;
+  bool _filtersExpanded = false;
   bool _loading = false;
   String? _loadError;
   List<Map<String, dynamic>> _items = [];
-  // ignore: unused_field
-  Map<String, dynamic> _summary = {};
+  List<Map<String, dynamic>> _categories = [];
+  CashReportSummary _summary = const CashReportSummary();
   String _empSearch = '';
+  Map<String, double> _runningBalances = {};
+  final _listSectionKey = GlobalKey();
 
-  List<Map<String, dynamic>> get _filtered => _empSearch.isEmpty
-      ? _items
-      : _items
-          .where((t) => (t['createdByUserName']?.toString() ?? '')
+  List<Map<String, dynamic>> get _filtered {
+    Iterable<Map<String, dynamic>> rows = _items.where(
+        (t) => cashReportInDateRange(t, _from, _to));
+    if (_typeFilter != null) {
+      rows = rows.where((t) => cashReportRowType(t).value == _typeFilter);
+    }
+    if (_statusFilter != null && _statusFilter!.isNotEmpty) {
+      rows = rows.where((t) => cashReportMatchesStatusFilter(t, _statusFilter));
+    }
+    if (_categoryFilter != null && _categoryFilter!.isNotEmpty) {
+      rows = rows.where(
+          (t) => cashReportMatchesCategoryFilter(t, _categoryFilter));
+    }
+    if (_amountMinFilter != null) {
+      rows = rows.where(
+          (t) => cashReportMatchesAmountFilter(t, _amountMinFilter));
+    }
+    if (_empSearch.isNotEmpty) {
+      final q = _empSearch.toLowerCase();
+      rows = rows.where((t) =>
+          (t['createdByUserName']?.toString() ?? '')
               .toLowerCase()
-              .contains(_empSearch.toLowerCase()))
-          .toList();
+              .contains(q) ||
+          (t['transactionCode']?.toString() ?? '')
+              .toLowerCase()
+              .contains(q) ||
+          (t['description']?.toString() ?? '').toLowerCase().contains(q));
+    }
+    return rows.toList();
+  }
 
-  double get _totalIncome => _items
-      .where((t) => _safeInt(t['type']) == 1)
-      .fold(0.0, (s, t) => s + _safeDouble(t['amount']));
-  double get _totalExpense => _items
-      .where((t) => _safeInt(t['type']) == 2)
-      .fold(0.0, (s, t) => s + _safeDouble(t['amount']));
-  // ignore: unused_element
-  double get _balance => _totalIncome - _totalExpense;
+  int get _clientFilterCount {
+    var n = 0;
+    if (_statusFilter != null) n++;
+    if (_categoryFilter != null) n++;
+    if (_amountMinFilter != null) n++;
+    if (_empSearch.isNotEmpty) n++;
+    return n;
+  }
+
+  List<Map<String, dynamic>> get _categoryOptions {
+    final seen = <String, String>{};
+    for (final c in _categories) {
+      final id = c['id']?.toString() ?? '';
+      final name = fixVietnameseMojibake(c['name']?.toString() ?? '');
+      if (name.isEmpty) continue;
+      seen[id.isNotEmpty ? id : name] = name;
+    }
+    for (final t in _items) {
+      final name = fixVietnameseMojibake(t['categoryName']?.toString() ?? '');
+      if (name.isEmpty) continue;
+      final id = t['categoryId']?.toString() ?? '';
+      seen[id.isNotEmpty ? id : name] = name;
+    }
+    final out = seen.entries
+        .map((e) => {'key': e.key, 'name': e.value})
+        .toList();
+    out.sort((a, b) =>
+        (a['name'] as String).compareTo(b['name'] as String));
+    return out;
+  }
 
   @override
   void initState() {
     super.initState();
+    _loadCategories();
     _load();
+  }
+
+  Future<void> _loadCategories() async {
+    try {
+      final r = await _api.getTransactionCategories();
+      if (!mounted) return;
+      if (r['isSuccess'] == true && r['data'] is List) {
+        final raw = r['data'] as List;
+        final flat = <Map<String, dynamic>>[];
+        void walk(List list) {
+          for (final item in list) {
+            if (item is! Map) continue;
+            final m = Map<String, dynamic>.from(item);
+            flat.add(m);
+            final subs = m['subCategories'];
+            if (subs is List && subs.isNotEmpty) walk(subs);
+          }
+        }
+        walk(raw);
+        setState(() => _categories = flat);
+      }
+    } catch (_) {}
+  }
+
+  void _onDateChanged(DateTime f, DateTime t, String p) {
+    setState(() {
+      _from = f;
+      _to = t;
+      _datePreset = p;
+    });
+    _load();
+  }
+
+  void _onTypeChanged(int? v) {
+    setState(() => _typeFilter = v);
+    _load();
+  }
+
+  void _applyStatusFilter(String? filter) {
+    setState(() => _statusFilter = filter);
+    _scrollToList();
+  }
+
+  void _clearClientFilters() {
+    setState(() {
+      _statusFilter = null;
+      _categoryFilter = null;
+      _amountMinFilter = null;
+      _empSearch = '';
+    });
+  }
+
+  void _scrollToList() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = _listSectionKey.currentContext;
+      if (ctx != null) {
+        Scrollable.ensureVisible(ctx,
+            duration: const Duration(milliseconds: 280),
+            curve: Curves.easeOut);
+      }
+    });
   }
 
   @override
@@ -71,19 +186,6 @@ class _CashReportScreenState extends State<CashReportScreen> {
       .toList()
     ..sort();
 
-  /// Safe parse: handles int, num, String, null — no TypeError
-  static int _safeInt(dynamic v) {
-    if (v is int) return v;
-    if (v is num) return v.toInt();
-    return int.tryParse(v?.toString() ?? '') ?? -1;
-  }
-
-  static double _safeDouble(dynamic v) {
-    if (v is double) return v;
-    if (v is num) return v.toDouble();
-    return double.tryParse(v?.toString() ?? '') ?? 0.0;
-  }
-
   Future<void> _load() async {
     setState(() {
       _loading = true;
@@ -96,16 +198,26 @@ class _CashReportScreenState extends State<CashReportScreen> {
         role: auth.user?.role,
         perm: perm,
       );
+      final rangeStart = apiReportRangeStart(_from);
+      final rangeEnd = apiReportRangeEnd(_to);
       final result = await loadCashReportTransactions(
         _api,
-        from: _from,
-        to: _to,
+        from: rangeStart,
+        to: rangeEnd,
         typeFilter: _typeFilter,
         useReportApi: useReportApi,
       );
+
+      final periodItems = result.items
+          .where((t) => cashReportInDateRange(t, _from, _to))
+          .toList();
+      final summary = CashReportSummary.fromRows(periodItems);
+
       if (mounted) {
         setState(() {
-          _items = result.items;
+          _items = periodItems;
+          _summary = summary;
+          _runningBalances = cashReportRunningBalances(periodItems);
           _loadError = result.error;
         });
       }
@@ -117,14 +229,6 @@ class _CashReportScreenState extends State<CashReportScreen> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
-    // Load summary separately — failure here won't block the main data
-    try {
-      final s =
-          await _api.getCashTransactionSummary(fromDate: _from, toDate: _to);
-      if (mounted && s['isSuccess'] == true && s['data'] is Map) {
-        setState(() => _summary = Map<String, dynamic>.from(s['data'] as Map));
-      }
-    } catch (_) {}
   }
 
   Future<void> _exportExcel() async {
@@ -132,20 +236,21 @@ class _CashReportScreenState extends State<CashReportScreen> {
     final rows = <List<dynamic>>[];
     for (int i = 0; i < data.length; i++) {
       final t = data[i];
-      final date = t['transactionDate'] != null
-          ? DateTime.tryParse(t['transactionDate'].toString())
-          : null;
-      final typeVal = _safeInt(t['type']);
+      final date = cashReportRowDate(t);
+      final type = cashReportRowType(t);
+      final st = cashReportRowStatus(t);
+      final bal = _runningBalances[t['id']?.toString() ?? ''];
       rows.add([
         i + 1,
         t['transactionCode']?.toString() ?? '',
         fixVietnameseMojibake(t['categoryName']?.toString() ?? ''),
-        typeVal == 1 ? 'Thu' : 'Chi',
+        type.label,
         date != null ? _fmtDate.format(date) : '',
-        _safeDouble(t['amount']),
+        cashReportRowAmount(t),
+        st.label,
+        bal != null ? bal : '',
         t['description']?.toString() ?? '',
         _paymentLabel(t['paymentMethod']),
-        _statusLabel(t['status']),
         t['createdByUserName']?.toString() ?? '',
       ]);
     }
@@ -161,16 +266,20 @@ class _CashReportScreenState extends State<CashReportScreen> {
         'Loại',
         'Ngày',
         'Số tiền (đ)',
+        'Trạng thái',
+        'Số dư quỹ',
         'Mô tả',
         'Phương thức',
-        'Trạng thái',
         'Người tạo',
       ],
       rows: rows,
       periodLabel: '${_fmtDate.format(_from)} – ${_fmtDate.format(_to)}',
       summaryLines: [
-        'Tổng thu: ${_fmtMoney.format(_totalIncome)} đ',
-        'Tổng chi: ${_fmtMoney.format(_totalExpense)} đ',
+        'Đã thu: ${_fmtMoney.format(_summary.paidIncome)} đ',
+        'Đã chi: ${_fmtMoney.format(_summary.paidExpense)} đ',
+        'Số dư quỹ: ${_fmtMoney.format(_summary.fundBalance)} đ',
+        'Chờ thu: ${_fmtMoney.format(_summary.pendingIncome)} đ',
+        'Chờ chi: ${_fmtMoney.format(_summary.pendingExpense)} đ',
       ],
     );
   }
@@ -184,18 +293,15 @@ class _CashReportScreenState extends State<CashReportScreen> {
     }
   }
 
-  String _statusLabel(dynamic v) {
-    final val = (v is num) ? v.toInt() : int.tryParse(v?.toString() ?? '') ?? 1;
-    try {
-      return CashTransactionStatus.fromValue(val).label;
-    } catch (_) {
-      return v?.toString() ?? '';
-    }
-  }
+  Color _typeColor(CashTransactionType type) =>
+      type == CashTransactionType.income
+          ? const Color(0xFF16A34A)
+          : const Color(0xFFDC2626);
 
-  Color _typeColor(dynamic v) {
-    final val = (v is num) ? v.toInt() : int.tryParse(v?.toString() ?? '') ?? 1;
-    return val == 1 ? const Color(0xFF16A34A) : const Color(0xFFDC2626);
+  Color _statusColor(Map<String, dynamic> row) {
+    if (cashReportRowIsCancelled(row)) return const Color(0xFF9CA3AF);
+    if (cashReportRowIsPending(row)) return const Color(0xFFF59E0B);
+    return const Color(0xFF16A34A);
   }
 
   @override
@@ -227,13 +333,17 @@ class _CashReportScreenState extends State<CashReportScreen> {
                 _buildFilters(),
                 reportLoadErrorBanner(_loadError),
                 _buildSummary(),
+                _buildFilterResultBar(),
                 if (_loading)
                   const Padding(
                     padding: EdgeInsets.all(48),
                     child: Center(child: CircularProgressIndicator()),
                   )
                 else
-                  _buildTable(),
+                  KeyedSubtree(
+                    key: _listSectionKey,
+                    child: _buildListSection(),
+                  ),
               ],
             ),
           ),
@@ -243,44 +353,238 @@ class _CashReportScreenState extends State<CashReportScreen> {
   }
 
   Widget _buildFilters() {
+    final cats = _categoryOptions;
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-      child: Column(children: [
-        ReportDateRangeFilterBar(
-          from: _from,
-          to: _to,
-          preset: _datePreset,
-          onChanged: (f, t, p) => setState(() {
-            _from = f;
-            _to = t;
-            _datePreset = p;
-          }),
-        ),
-        const SizedBox(height: 8),
-        Row(children: [
-          Expanded(child: _typeDrop()),
-          const SizedBox(width: 8),
-          SizedBox(
-            height: 40,
-            child: FilledButton.icon(
-              icon: const Icon(Icons.search, size: 16),
-              label: const Text('Tìm', style: TextStyle(fontSize: 13)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _cTheme,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8)),
-                minimumSize: const Size(0, 40),
+      padding: const EdgeInsets.fromLTRB(8, 6, 8, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ReportDateRangeFilterBar(
+            from: _from,
+            to: _to,
+            preset: _datePreset,
+            compact: true,
+            onChanged: _onDateChanged,
+          ),
+          Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              initiallyExpanded: _filtersExpanded,
+              onExpansionChanged: (v) => setState(() => _filtersExpanded = v),
+              tilePadding: const EdgeInsets.symmetric(horizontal: 4),
+              childrenPadding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+              title: Row(
+                children: [
+                  const Icon(Icons.tune, size: 18, color: Color(0xFF6B7280)),
+                  const SizedBox(width: 6),
+                  const Text('Bộ lọc',
+                      style: TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w600)),
+                  if (_clientFilterCount > 0) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 7, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: _cTheme.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text('$_clientFilterCount',
+                          style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: _cTheme)),
+                    ),
+                  ],
+                  const Spacer(),
+                  Text('${_filtered.length}/${_items.length}',
+                      style: TextStyle(
+                          fontSize: 11, color: Colors.grey.shade600)),
+                ],
               ),
-              onPressed: _load,
+              children: [
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _filterDrop<int?>(
+                      width: 108,
+                      label: 'Loại',
+                      value: _typeFilter,
+                      items: const [
+                        DropdownMenuItem(value: null, child: Text('Tất cả')),
+                        DropdownMenuItem(value: 1, child: Text('Thu')),
+                        DropdownMenuItem(value: 2, child: Text('Chi')),
+                      ],
+                      onChanged: _onTypeChanged,
+                    ),
+                    _filterDrop<String?>(
+                      width: 148,
+                      label: 'Danh mục',
+                      value: _categoryFilter,
+                      items: [
+                        const DropdownMenuItem(
+                            value: null, child: Text('Tất cả')),
+                        ...cats.map((c) => DropdownMenuItem(
+                              value: c['key'] as String,
+                              child: Text(c['name'] as String,
+                                  overflow: TextOverflow.ellipsis),
+                            )),
+                      ],
+                      onChanged: (v) => setState(() => _categoryFilter = v),
+                    ),
+                    _filterDrop<String?>(
+                      width: 148,
+                      label: 'Trạng thái',
+                      value: _statusFilter,
+                      items: const [
+                        DropdownMenuItem(value: null, child: Text('Tất cả')),
+                        DropdownMenuItem(
+                            value: 'paid_income', child: Text('Đã thu')),
+                        DropdownMenuItem(
+                            value: 'paid_expense', child: Text('Đã chi')),
+                        DropdownMenuItem(
+                            value: 'pending_income', child: Text('Chờ thu')),
+                        DropdownMenuItem(
+                            value: 'pending_expense', child: Text('Chờ chi')),
+                        DropdownMenuItem(
+                            value: 'pending', child: Text('Chờ thanh toán')),
+                        DropdownMenuItem(
+                            value: 'completed', child: Text('Đã vào/ra quỹ')),
+                        DropdownMenuItem(
+                            value: 'cancelled', child: Text('Đã hủy')),
+                      ],
+                      onChanged: (v) => _applyStatusFilter(v),
+                    ),
+                    _filterDrop<int?>(
+                      width: 132,
+                      label: 'Giá trị',
+                      value: _amountMinFilter,
+                      items: const [
+                        DropdownMenuItem(value: null, child: Text('Tất cả')),
+                        DropdownMenuItem(
+                            value: CashReportAmountThresholds.oneMillion,
+                            child: Text('≥ 1 triệu')),
+                        DropdownMenuItem(
+                            value: CashReportAmountThresholds.fiveMillion,
+                            child: Text('≥ 5 triệu')),
+                        DropdownMenuItem(
+                            value: CashReportAmountThresholds.tenMillion,
+                            child: Text('≥ 10 triệu')),
+                        DropdownMenuItem(
+                            value: CashReportAmountThresholds.fiftyMillion,
+                            child: Text('≥ 50 triệu')),
+                      ],
+                      onChanged: (v) => setState(() => _amountMinFilter = v),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                _buildEmpSearch('Người tạo / mã / mô tả...'),
+                if (_clientFilterCount > 0)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: _clearClientFilters,
+                      icon: const Icon(Icons.filter_alt_off, size: 16),
+                      label: const Text('Xóa bộ lọc',
+                          style: TextStyle(fontSize: 12)),
+                    ),
+                  ),
+              ],
             ),
           ),
-        ]),
-        const SizedBox(height: 6),
-        _buildEmpSearch('Lọc theo người tạo...'),
-      ]),
+        ],
+      ),
+    );
+  }
+
+  Widget _filterDrop<T>({
+    required double width,
+    required String label,
+    required T value,
+    required List<DropdownMenuItem<T>> items,
+    required ValueChanged<T?> onChanged,
+  }) {
+    return SizedBox(
+      width: width,
+      child: InputDecorator(
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: const TextStyle(fontSize: 11),
+          isDense: true,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<T>(
+            value: value,
+            isExpanded: true,
+            isDense: true,
+            style: const TextStyle(fontSize: 12, color: Color(0xFF111827)),
+            icon: const Icon(Icons.keyboard_arrow_down,
+                size: 18, color: Color(0xFF9CA3AF)),
+            items: items,
+            onChanged: onChanged,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterResultBar() {
+    if (_clientFilterCount == 0 && _typeFilter == null) {
+      return const SizedBox.shrink();
+    }
+    final parts = <String>[];
+    if (_typeFilter == 1) parts.add('Thu');
+    if (_typeFilter == 2) parts.add('Chi');
+    if (_statusFilter != null) {
+      parts.add(cashReportStatusFilterLabel(_statusFilter!));
+    }
+    if (_categoryFilter != null) {
+      var catLabel = 'Danh mục';
+      for (final c in _categoryOptions) {
+        if (c['key'] == _categoryFilter) {
+          catLabel = c['name'] as String;
+          break;
+        }
+      }
+      parts.add(catLabel);
+    }
+    if (_amountMinFilter != null) {
+      parts.add(cashReportAmountFilterLabel(_amountMinFilter));
+    }
+    if (_empSearch.isNotEmpty) parts.add('Tìm: $_empSearch');
+
+    return Container(
+      color: const Color(0xFFE0F2FE),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              '${_filtered.length} phiếu · ${parts.join(' · ')}',
+              style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF0C4A6E)),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              setState(() => _typeFilter = null);
+              _clearClientFilters();
+              _load();
+            },
+            child: const Text('Bỏ lọc', style: TextStyle(fontSize: 12)),
+          ),
+        ],
+      ),
     );
   }
 
@@ -366,110 +670,247 @@ class _CashReportScreenState extends State<CashReportScreen> {
     );
   }
 
-  Widget _typeDrop() {
-    return Container(
-      height: 40,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      decoration: BoxDecoration(
-          border: Border.all(color: const Color(0xFFD1D5DB)),
-          borderRadius: BorderRadius.circular(8)),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<int?>(
-          value: _typeFilter,
-          isExpanded: true,
-          hint: const Text('Loại',
-              style: TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
-          style: const TextStyle(fontSize: 12, color: Color(0xFF111827)),
-          icon: const Icon(Icons.keyboard_arrow_down,
-              size: 18, color: Color(0xFF9CA3AF)),
-          items: const [
-            DropdownMenuItem(value: null, child: Text('Tất cả')),
-            DropdownMenuItem(value: 1, child: Text('Thu')),
-            DropdownMenuItem(value: 2, child: Text('Chi')),
-          ],
-          onChanged: (v) => setState(() => _typeFilter = v),
-        ),
-      ),
-    );
-  }
-
   Widget _buildSummary() {
-    final f = _filtered;
-    final sIncome = f
-        .where((t) => _safeInt(t['type']) == 1)
-        .fold(0.0, (s, t) => s + _safeDouble(t['amount']));
-    final sExpense = f
-        .where((t) => _safeInt(t['type']) == 2)
-        .fold(0.0, (s, t) => s + _safeDouble(t['amount']));
-    final sBalance = sIncome - sExpense;
-    final sCount = f.length;
+    final s = _summary;
+    final period = ReportDateRangePresets.presetLabel(_datePreset);
     return Container(
-      height: 78,
       color: Colors.white,
       margin: const EdgeInsets.only(top: 1),
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sumCard('Giao dịch', sCount.toString(), Icons.receipt_outlined,
-              Colors.blueGrey),
-          _sumCard('Tổng thu', '${_fmtMoney.format(sIncome)}đ',
-              Icons.arrow_circle_down, const Color(0xFF16A34A)),
-          _sumCard('Tổng chi', '${_fmtMoney.format(sExpense)}đ',
-              Icons.arrow_circle_up, const Color(0xFFDC2626)),
-          _sumCard(
-              'Còn lại',
-              '${_fmtMoney.format(sBalance)}đ',
-              Icons.account_balance_wallet,
-              sBalance >= 0
-                  ? const Color(0xFF16A34A)
-                  : const Color(0xFFDC2626)),
+          Row(
+            children: [
+              const Icon(Icons.account_balance_wallet_outlined,
+                  size: 16, color: Color(0xFF0EA5E9)),
+              const SizedBox(width: 6),
+              Text('Sổ quỹ · $period',
+                  style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF111827))),
+              const Spacer(),
+              Text('${_filtered.length}/${_items.length} dòng',
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 82,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: [
+                _sumCard(
+                  'Đã thu',
+                  '${_fmtMoney.format(s.paidIncome)}đ',
+                  '${s.paidIncomeCount} GD',
+                  Icons.arrow_circle_down,
+                  const Color(0xFF16A34A),
+                  filter: 'paid_income',
+                ),
+                _sumCard(
+                  'Đã chi',
+                  '${_fmtMoney.format(s.paidExpense)}đ',
+                  '${s.paidExpenseCount} GD',
+                  Icons.arrow_circle_up,
+                  const Color(0xFFDC2626),
+                  filter: 'paid_expense',
+                ),
+                _sumCard(
+                  'Số dư quỹ',
+                  '${_fmtMoney.format(s.fundBalance)}đ',
+                  'Đã thu − Đã chi',
+                  Icons.savings_outlined,
+                  s.fundBalance >= 0
+                      ? const Color(0xFF0284C7)
+                      : const Color(0xFFDC2626),
+                  filter: 'completed',
+                ),
+                if (s.pendingIncome > 0 || s.pendingIncomeCount > 0)
+                  _sumCard(
+                    'Chờ thu',
+                    '${_fmtMoney.format(s.pendingIncome)}đ',
+                    '${s.pendingIncomeCount} phiếu',
+                    Icons.hourglass_top,
+                    const Color(0xFF0D9488),
+                    filter: 'pending_income',
+                  ),
+                if (s.pendingExpense > 0 || s.pendingExpenseCount > 0)
+                  _sumCard(
+                    'Chờ chi',
+                    '${_fmtMoney.format(s.pendingExpense)}đ',
+                    '${s.pendingExpenseCount} phiếu',
+                    Icons.payments_outlined,
+                    const Color(0xFFF59E0B),
+                    filter: 'pending_expense',
+                  ),
+                if (s.cancelledCount > 0)
+                  _sumCard(
+                    'Đã hủy',
+                    '${s.cancelledCount}',
+                    'phiếu',
+                    Icons.block,
+                    const Color(0xFF9CA3AF),
+                    filter: 'cancelled',
+                  ),
+              ],
+            ),
+          ),
+          if (_statusFilter != null) ...[
+            const SizedBox(height: 6),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: InputChip(
+                label: Text(
+                    'Lọc: ${cashReportStatusFilterLabel(_statusFilter!)}',
+                    style: const TextStyle(fontSize: 11)),
+                deleteIcon: const Icon(Icons.close, size: 14),
+                onDeleted: () => setState(() => _statusFilter = null),
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _sumCard(String title, String value, IconData icon, Color color) {
-    return Container(
-      width: 148,
-      margin: const EdgeInsets.only(right: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withValues(alpha: 0.22)),
+  Widget _sumCard(
+    String title,
+    String value,
+    String subtitle,
+    IconData icon,
+    Color color, {
+    String? filter,
+  }) {
+    final selected = filter != null && _statusFilter == filter;
+    return GestureDetector(
+      onTap: filter == null
+          ? null
+          : () => _applyStatusFilter(selected ? null : filter),
+      child: Container(
+        width: 152,
+        margin: const EdgeInsets.only(right: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? color.withValues(alpha: 0.16) : color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+              color: selected ? color : color.withValues(alpha: 0.22),
+              width: selected ? 1.5 : 1),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: color, size: 18),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(title,
+                      style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey.shade700),
+                      overflow: TextOverflow.ellipsis),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(value,
+                style: TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.bold, color: color),
+                overflow: TextOverflow.ellipsis),
+            Text(subtitle,
+                style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+                overflow: TextOverflow.ellipsis),
+          ],
+        ),
       ),
-      child: Row(children: [
-        Icon(icon, color: color, size: 26),
-        const SizedBox(width: 8),
-        Expanded(
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-              Text(title,
-                  style: TextStyle(fontSize: 10, color: Colors.grey.shade700),
-                  overflow: TextOverflow.ellipsis),
-              Text(value,
-                  style: TextStyle(
-                      fontSize: 13, fontWeight: FontWeight.bold, color: color),
-                  overflow: TextOverflow.ellipsis),
-            ])),
-      ]),
+    );
+  }
+
+  Widget _buildListSection() {
+    final narrow = MediaQuery.sizeOf(context).width < 720;
+    return narrow ? _buildMobileList() : _buildTable();
+  }
+
+  Widget _buildMobileList() {
+    final rows = _filtered;
+    if (rows.isEmpty) return _emptyListState();
+    return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      itemCount: rows.length,
+      separatorBuilder: (_, __) => const Divider(height: 1),
+      itemBuilder: (context, i) {
+        final t = rows[i];
+        final type = cashReportRowType(t);
+        final amt = cashReportRowAmount(t);
+        final st = cashReportRowStatus(t);
+        final date = cashReportRowDate(t);
+        final bal = _runningBalances[t['id']?.toString() ?? ''];
+        final catName =
+            fixVietnameseMojibake(t['categoryName']?.toString() ?? '—');
+        return ListTile(
+          dense: true,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+          title: Text(catName,
+              style: const TextStyle(
+                  fontSize: 13, fontWeight: FontWeight.w600)),
+          subtitle: Text(
+            '${date != null ? _fmtDate.format(date) : '—'} · ${t['transactionCode'] ?? ''}\n${st.label}${bal != null ? ' · SD: ${_fmtMoney.format(bal)}đ' : ''}',
+            style: const TextStyle(fontSize: 11, height: 1.35),
+          ),
+          trailing: Text(
+            '${type == CashTransactionType.income ? '+' : '-'}${_fmtMoney.format(amt)}đ',
+            style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: _typeColor(type)),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _emptyListState() {
+    final hasFilter = _clientFilterCount > 0 || _typeFilter != null;
+    return Padding(
+      padding: const EdgeInsets.all(32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.inbox_outlined,
+              size: 56, color: Colors.grey.shade300),
+          const SizedBox(height: 12),
+          Text(
+            hasFilter ? 'Không có phiếu phù hợp bộ lọc' : 'Không có dữ liệu',
+            style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+            textAlign: TextAlign.center,
+          ),
+          if (hasFilter) ...[
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () {
+                setState(() => _typeFilter = null);
+                _clearClientFilters();
+              },
+              child: const Text('Xóa bộ lọc'),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
   Widget _buildTable() {
     final rows = _filtered;
-    if (rows.isEmpty) {
-      return Center(
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Icon(Icons.inbox_outlined, size: 64, color: Colors.grey.shade300),
-        const SizedBox(height: 12),
-        Text('Không có dữ liệu',
-            style: TextStyle(color: Colors.grey.shade500, fontSize: 15)),
-      ]));
-    }
+    if (rows.isEmpty) return _emptyListState();
 
     const hdrBg = Color(0xFFE0F2FE);
     const evenBg = Colors.white;
@@ -536,10 +977,10 @@ class _CashReportScreenState extends State<CashReportScreen> {
                     ),
                     ...List.generate(rows.length, (i) {
                       final t = rows[i];
-                      final typeVal = _safeInt(t['type']);
+                      final type = cashReportRowType(t);
                       final catName = fixVietnameseMojibake(
                           t['categoryName']?.toString() ?? '—');
-                      final typeColor = _typeColor(typeVal);
+                      final typeColor = _typeColor(type);
                       return Container(
                         width: _cStickyW,
                         height: _cRowH,
@@ -566,7 +1007,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
                                   border: Border.all(
                                       color: typeColor.withValues(alpha: 0.35)),
                                 ),
-                                child: Text(typeVal == 1 ? 'Thu' : 'Chi',
+                                child: Text(type.label,
                                     style: TextStyle(
                                         fontSize: 10,
                                         fontWeight: FontWeight.w700,
@@ -587,28 +1028,36 @@ class _CashReportScreenState extends State<CashReportScreen> {
                       Row(children: [
                         hCell('Mã GD', 108),
                         hCell('Ngày', 104),
-                        hCell('Số tiền', 128),
+                        hCell('Số tiền', 120),
+                        hCell('Trạng thái', 112),
+                        hCell('Số dư quỹ', 120),
                         hCell('Mô tả', 180),
-                        hCell('Phương thức', 120),
-                        hCell('Trạng thái', 108),
+                        hCell('PTTT', 100),
                       ]),
                       ...List.generate(rows.length, (i) {
                         final t = rows[i];
-                        final date = t['transactionDate'] != null
-                            ? DateTime.tryParse(t['transactionDate'].toString())
-                            : null;
-                        final typeVal = _safeInt(t['type']);
-                        final amt = _safeDouble(t['amount']);
+                        final date = cashReportRowDate(t);
+                        final type = cashReportRowType(t);
+                        final amt = cashReportRowAmount(t);
+                        final st = cashReportRowStatus(t);
+                        final bal =
+                            _runningBalances[t['id']?.toString() ?? ''];
+                        final balText = bal != null
+                            ? '${_fmtMoney.format(bal)}đ'
+                            : '—';
                         return Row(children: [
                           dCell(
                               t['transactionCode']?.toString() ?? '—', 108, i),
                           dCell(date != null ? _fmtDate.format(date) : '—', 104,
                               i),
-                          dCell('${_fmtMoney.format(amt)}đ', 128, i,
-                              textColor: _typeColor(typeVal)),
+                          dCell('${_fmtMoney.format(amt)}đ', 120, i,
+                              textColor: _typeColor(type)),
+                          dCell(st.label, 112, i,
+                              textColor: _statusColor(t)),
+                          dCell(balText, 120, i,
+                              textColor: const Color(0xFF0284C7)),
                           dCell(t['description']?.toString() ?? '', 180, i),
-                          dCell(_paymentLabel(t['paymentMethod']), 120, i),
-                          dCell(_statusLabel(t['status']), 108, i),
+                          dCell(_paymentLabel(t['paymentMethod']), 100, i),
                         ]);
                       }),
                     ]),

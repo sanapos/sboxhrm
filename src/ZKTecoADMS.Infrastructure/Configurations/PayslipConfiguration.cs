@@ -73,10 +73,16 @@ public class PayslipConfiguration : IEntityTypeConfiguration<Payslip>
             .HasMaxLength(1000);
 
         // Relationships
+        builder.HasOne(p => p.Employee)
+            .WithMany()
+            .HasForeignKey(p => p.EmployeeId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         builder.HasOne(p => p.EmployeeUser)
             .WithMany()
             .HasForeignKey(p => p.EmployeeUserId)
-            .OnDelete(DeleteBehavior.Restrict);
+            .OnDelete(DeleteBehavior.Restrict)
+            .IsRequired(false);
 
         builder.HasOne(p => p.SalaryProfile)
             .WithMany()
@@ -93,8 +99,13 @@ public class PayslipConfiguration : IEntityTypeConfiguration<Payslip>
             .HasForeignKey(p => p.ApprovedByUserId)
             .OnDelete(DeleteBehavior.SetNull);
 
+        builder.HasOne(p => p.CashTransaction)
+            .WithMany()
+            .HasForeignKey(p => p.CashTransactionId)
+            .OnDelete(DeleteBehavior.SetNull);
+
         // Index for faster lookups
-        builder.HasIndex(p => new { p.EmployeeUserId, p.Year, p.Month })
+        builder.HasIndex(p => new { p.EmployeeId, p.Year, p.Month })
             .IsUnique();
 
         builder.HasIndex(p => new { p.Year, p.Month });

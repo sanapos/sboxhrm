@@ -276,6 +276,7 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
                       _datePreset = p;
                     }),
                     statusFilter: _statusDrop(),
+                    statusSummary: _filterStatusSummary(),
                     showTeamFilters: _teamView,
                     branchFilter: _teamView ? _branchFilter : null,
                     selectedBranchId: _selectedBranchId,
@@ -334,6 +335,22 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
       ),
     ),
     );
+  }
+
+  String? _filterStatusSummary() {
+    if (_statusFilter == null) return null;
+    switch (_statusFilter) {
+      case '0':
+        return 'Chờ duyệt';
+      case '1':
+        return 'Đã duyệt';
+      case '3':
+        return 'Tự động duyệt';
+      case '2':
+        return 'Đã hủy';
+      default:
+        return null;
+    }
   }
 
   Widget _statusDrop() {

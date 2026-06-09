@@ -5,7 +5,11 @@ import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
+import '../utils/landing_guide_url.dart';
+import '../utils/landing_public_url.dart';
+import '../utils/landing_usage_guide.dart';
 import '../widgets/landing_product_image.dart';
+import 'landing_guide_screen.dart';
 import '../widgets/landing_youtube_player.dart';
 
 /// Landing/Marketing page for SBOX HRM.
@@ -24,7 +28,6 @@ class _LandingScreenState extends State<LandingScreen> {
   final GlobalKey _featuresKey = GlobalKey();
   final GlobalKey _pricingKey = GlobalKey();
   final GlobalKey _videoKey = GlobalKey();
-  final GlobalKey _guideKey = GlobalKey();
   final GlobalKey _devicesKey = GlobalKey();
   final GlobalKey _downloadKey = GlobalKey();
   final GlobalKey _contactKey = GlobalKey();
@@ -69,6 +72,9 @@ class _LandingScreenState extends State<LandingScreen> {
       })>? _dynamicPricing;
   List<_ProductData>? _dynamicProducts;
   List<_DownloadItemData>? _dynamicDownloads;
+  LandingGuideData _guideData = LandingGuideData.defaults;
+  GuideDeepLink? _initialGuideLink;
+  bool _guideDeepLinkOpened = false;
 
   // Brand colors – Blue theme matching LoginScreen
   static const Color kBlue = Color(0xFF0C56D0);
@@ -82,7 +88,30 @@ class _LandingScreenState extends State<LandingScreen> {
       if (scrolled != _isScrolled) setState(() => _isScrolled = scrolled);
       if (_mobileMenuOpen) setState(() => _mobileMenuOpen = false);
     });
+    _initialGuideLink = LandingGuideUrl.parseCurrent();
     _loadPublicSettings();
+    if (_initialGuideLink != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _maybeOpenGuideFromUrl());
+    }
+  }
+
+  void _openGuide([GuideDeepLink? link]) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => LandingGuideScreen(
+          guideData: _guideData,
+          initialLink: link,
+        ),
+      ),
+    );
+  }
+
+  void _maybeOpenGuideFromUrl() {
+    if (_guideDeepLinkOpened || _initialGuideLink == null || !mounted) return;
+    final nav = Navigator.of(context);
+    if (nav.canPop()) return;
+    _guideDeepLinkOpened = true;
+    _openGuide(_initialGuideLink);
   }
 
   Future<void> _loadPublicSettings() async {
@@ -237,7 +266,11 @@ class _LandingScreenState extends State<LandingScreen> {
             if (parsed.isNotEmpty) _dynamicDownloads = parsed;
           }
         } catch (_) {}
+
+        _guideData = LandingGuideData.fromApiJson(data['landingGuideJson']);
+        _initialGuideLink ??= LandingGuideUrl.parseCurrent();
       });
+      _maybeOpenGuideFromUrl();
     } catch (_) {}
   }
 
@@ -347,8 +380,8 @@ class _LandingScreenState extends State<LandingScreen> {
                         _NavLink('Bảng giá',
                             onTap: () => _scrollTo(_pricingKey),
                             dark: _isScrolled),
-                        _NavLink('Hướng dẫn',
-                            onTap: () => _scrollTo(_guideKey),
+                        _NavLink('Hướng dẫn sử dụng',
+                            onTap: _openGuide,
                             dark: _isScrolled),
                         _NavLink('Thiết bị',
                             onTap: () => _scrollTo(_devicesKey),
@@ -409,7 +442,6 @@ class _LandingScreenState extends State<LandingScreen> {
                       dynamicPlans: _dynamicPricing,
                       onContact: () => _scrollTo(_contactKey),
                       onRegister: _goToRegister),
-                  _GuideSection(key: _guideKey, isMobile: isMobile),
                   _DevicesSection(
                       key: _devicesKey,
                       isMobile: isMobile,
@@ -433,7 +465,7 @@ class _LandingScreenState extends State<LandingScreen> {
                     isMobile: isMobile,
                     onFeatures: () => _scrollTo(_featuresKey),
                     onPricing: () => _scrollTo(_pricingKey),
-                    onGuide: () => _scrollTo(_guideKey),
+                    onGuide: _openGuide,
                     onDevices: () => _scrollTo(_devicesKey),
                     onContact: () => _scrollTo(_contactKey),
                     onLogin: _goToLogin,
@@ -455,7 +487,7 @@ class _LandingScreenState extends State<LandingScreen> {
               },
               onGuide: () {
                 setState(() => _mobileMenuOpen = false);
-                _scrollTo(_guideKey);
+                _openGuide();
               },
               onDevices: () {
                 setState(() => _mobileMenuOpen = false);
@@ -527,7 +559,7 @@ class _MobileMenuOverlay extends StatelessWidget {
                   _divider(),
                   _item(Icons.local_offer_outlined, 'Bảng giá', onPricing),
                   _divider(),
-                  _item(Icons.menu_book_outlined, 'Hướng dẫn', onGuide),
+                  _item(Icons.menu_book_outlined, 'Hướng dẫn sử dụng', onGuide),
                   _divider(),
                   _item(Icons.devices_rounded, 'Thiết bị', onDevices),
                   _divider(),
@@ -2054,522 +2086,6 @@ class _LandingVideoPlayerDialog extends StatelessWidget {
   }
 }
 
-// ─── GUIDE ────────────────────────────────────────────────────────────────────
-/// Mỗi step gồm: tiêu đề, mô tả, danh sách điểm nổi bật, tip, màu accent,
-/// icon đại diện và một màu gradient để vẽ mock-screen minh hoạ.
-class _GuideStep {
-  const _GuideStep({
-    required this.icon,
-    required this.title,
-    required this.desc,
-    required this.bullets,
-    required this.tip,
-    required this.accent,
-    required this.screenGradient,
-    required this.screenItems,
-  });
-  final IconData icon;
-  final String title, desc, tip;
-  final List<String> bullets;
-  final Color accent;
-  final List<Color> screenGradient;
-
-  /// Fake UI elements shown on the mock screen
-  final List<(IconData, String)> screenItems;
-}
-
-class _GuideSection extends StatefulWidget {
-  const _GuideSection({super.key, required this.isMobile});
-  final bool isMobile;
-
-  static final steps = <_GuideStep>[
-    const _GuideStep(
-      icon: Icons.app_registration_rounded,
-      title: 'Đăng ký tài khoản',
-      desc:
-          'Truy cập sboxhrm.com, điền thông tin cửa hàng/công ty, số điện thoại và mật khẩu. Hệ thống tự tạo mã cửa hàng và tài khoản quản trị trong vòng 5 phút – hoàn toàn miễn phí.',
-      bullets: [
-        'Không cần thẻ tín dụng, không cam kết dài hạn',
-        'Nhận ngay mã Store ID để cấu hình thiết bị',
-        'Tài khoản Admin mặc định được tạo tự động',
-        'Có thể thêm Sub-admin phân quyền theo bộ phận',
-      ],
-      tip: 'Dùng số điện thoại thật – OTP kích hoạt gửi về SMS trong 60 giây.',
-      accent: Color(0xFF0C56D0),
-      screenGradient: [Color(0xFF0C56D0), Color(0xFF1976D2)],
-      screenItems: [
-        (Icons.storefront_rounded, 'Tên cửa hàng / công ty'),
-        (Icons.phone_rounded, 'Số điện thoại quản trị'),
-        (Icons.lock_rounded, 'Mật khẩu (≥ 8 ký tự)'),
-        (Icons.badge_rounded, 'Store ID: SBOX-00123'),
-      ],
-    ),
-    const _GuideStep(
-      icon: Icons.settings_input_component_rounded,
-      title: 'Kết nối máy chấm công',
-      desc:
-          'Trên máy ZKTeco, vào Thiết lập liên kết → Máy chủ đám mây, nhập Địa chỉ máy chủ: 103.133.224.176 và Port: 7070. Hệ thống tự nhận dữ liệu qua ADMS – không cần cài phần mềm thêm.',
-      bullets: [
-        'Menu máy: Thiết lập liên kết → Máy chủ đám mây',
-        'Địa chỉ máy chủ: 103.133.224.176',
-        'Port: 7070',
-        'Kiểm tra kết nối real-time ngay trên dashboard',
-      ],
-      tip:
-          'Chưa biết cách cấu hình? Đội kỹ thuật hỗ trợ từ xa qua Zalo trong 30 phút.',
-      accent: Color(0xFF1565C0),
-      screenGradient: [Color(0xFF1565C0), Color(0xFF0D47A1)],
-      screenItems: [
-        (Icons.link_rounded, 'Thiết lập liên kết → Máy chủ đám mây'),
-        (Icons.router_rounded, 'Địa chỉ máy chủ: 103.133.224.176'),
-        (Icons.cable_rounded, 'Port: 7070'),
-        (Icons.sync_rounded, 'Đồng bộ lần cuối: 2 phút trước'),
-      ],
-    ),
-    const _GuideStep(
-      icon: Icons.group_add_rounded,
-      title: 'Thêm nhân viên & sinh trắc học',
-      desc:
-          'Import danh sách nhân viên qua file Excel mẫu hoặc nhập thủ công. Đăng ký vân tay / khuôn mặt trực tiếp trên máy ZKTeco – dữ liệu đồng bộ lên hệ thống tức thì.',
-      bullets: [
-        'Import Excel hàng loạt – cập nhật hàng trăm nhân viên/lần',
-        'Vân tay & khuôn mặt tự đẩy từ máy vào profile nhân viên',
-        'Phân công phòng ban, chức vụ, mức lương cơ bản',
-        'Tự động tạo tài khoản App mobile cho từng nhân viên',
-      ],
-      tip: 'File Excel mẫu tải tại Nhân viên → Nhập dữ liệu → Tải mẫu.',
-      accent: Color(0xFF00897B),
-      screenGradient: [Color(0xFF00897B), Color(0xFF00695C)],
-      screenItems: [
-        (Icons.upload_file_rounded, 'Import Excel – 45 nhân viên'),
-        (Icons.person_add_rounded, 'Nguyễn Văn A · KD-001'),
-        (Icons.fingerprint_rounded, 'Vân tay: 2 ngón đã đăng ký'),
-        (Icons.face_retouching_natural_rounded, 'Face ID: Đã kích hoạt ✓'),
-      ],
-    ),
-    const _GuideStep(
-      icon: Icons.tune_rounded,
-      title: 'Thiết lập ca làm việc',
-      desc:
-          'Tạo ca linh hoạt theo giờ vào/ra, thời gian trễ cho phép và quy tắc tăng ca. Phân ca cho từng nhân viên hoặc cả phòng ban. Hỗ trợ ca qua đêm và lịch xoay ca tự động.',
-      bullets: [
-        'Ca cố định, ca xoay tuần, ca qua đêm đều hỗ trợ',
-        'Cài thời gian làm thêm giờ và hệ số lương OT',
-        'Phân ca theo phòng ban hoặc từng cá nhân',
-        'Lịch làm việc tự động tính ngày nghỉ bù và phép năm',
-      ],
-      tip:
-          'Dùng tính năng "Nhân bản ca" để tạo nhanh ca tương tự mà không cần nhập lại.',
-      accent: Color(0xFF6A1B9A),
-      screenGradient: [Color(0xFF6A1B9A), Color(0xFF4A148C)],
-      screenItems: [
-        (Icons.schedule_rounded, 'Ca Sáng: 07:30 – 16:30'),
-        (Icons.nights_stay_rounded, 'Ca Đêm: 22:00 – 06:00'),
-        (Icons.repeat_rounded, 'Xoay ca: Tuần A / Tuần B'),
-        (Icons.people_rounded, 'Phân ca: Bộ phận Kho (12 NV)'),
-      ],
-    ),
-    const _GuideStep(
-      icon: Icons.bar_chart_rounded,
-      title: 'Theo dõi & xuất báo cáo',
-      desc:
-          'Dashboard real-time hiển thị chấm công, đi muộn, vắng mặt ngay trong ngày. Lương và nghỉ phép tính tự động cuối tháng. Xuất Excel / PDF một cú nhấp.',
-      bullets: [
-        'Dashboard: tổng hợp toàn công ty theo ngày/tuần/tháng',
-        'Báo cáo lương tự động: ngày công × đơn giá + phụ cấp',
-        'Xuất Excel chi tiết gửi kế toán, xuất PDF gửi nhân viên',
-        'Cảnh báo tự động qua App khi nhân viên đi muộn hoặc quên chấm',
-      ],
-      tip:
-          'Bật thông báo push trên App để nhận cảnh báo đi muộn ngay khi xảy ra.',
-      accent: Color(0xFF1976D2),
-      screenGradient: [Color(0xFF1976D2), Color(0xFF0D47A1)],
-      screenItems: [
-        (Icons.check_circle_rounded, 'Đúng giờ: 38 / 45 NV'),
-        (Icons.watch_later_rounded, 'Đi muộn: 4 NV · Trung bình 12\''),
-        (Icons.money_rounded, 'Lương tháng: 285.500.000 đ'),
-        (Icons.picture_as_pdf_rounded, 'Xuất PDF · Xuất Excel'),
-      ],
-    ),
-  ];
-
-  @override
-  State<_GuideSection> createState() => _GuideSectionState();
-}
-
-class _GuideSectionState extends State<_GuideSection> {
-  int _active = 0;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: const Color(0xFF0A0F1E),
-      padding: EdgeInsets.symmetric(
-        horizontal: widget.isMobile ? 20 : 80,
-        vertical: 80,
-      ),
-      child: Column(
-        children: [
-          const _SectionBadge('Hướng dẫn sử dụng', dark: true),
-          const SizedBox(height: 12),
-          const _SectionTitle('Bắt đầu trong\n5 bước đơn giản', dark: true),
-          const SizedBox(height: 8),
-          const _SectionSubtext(
-            'Không cần kỹ năng IT · Hỗ trợ cài đặt tận nơi hoặc từ xa · Vận hành trong 2–4 giờ',
-            dark: true,
-          ),
-          const SizedBox(height: 48),
-          widget.isMobile ? _buildMobile() : _buildDesktop(),
-        ],
-      ),
-    );
-  }
-
-  // ── DESKTOP: step tabs on left, content+screen on right ──────────────────
-  Widget _buildDesktop() {
-    final step = _GuideSection.steps[_active];
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Step tab list
-        SizedBox(
-          width: 260,
-          child: Column(
-            children: _GuideSection.steps.asMap().entries.map((e) {
-              final i = e.key;
-              final s = e.value;
-              final active = i == _active;
-              return GestureDetector(
-                onTap: () => setState(() => _active = i),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  decoration: BoxDecoration(
-                    color: active
-                        ? s.accent.withValues(alpha: 0.15)
-                        : Colors.white.withValues(alpha: 0.04),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: active
-                          ? s.accent.withValues(alpha: 0.6)
-                          : Colors.white.withValues(alpha: 0.08),
-                    ),
-                  ),
-                  child: Row(children: [
-                    Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color:
-                            active ? s.accent : Colors.white.withValues(alpha: 0.08),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Center(
-                        child: Text('${i + 1}',
-                            style: TextStyle(
-                              color: active ? Colors.white : Colors.white54,
-                              fontWeight: FontWeight.w900,
-                              fontSize: 13,
-                            )),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        s.title,
-                        style: TextStyle(
-                          color: active ? Colors.white : Colors.white60,
-                          fontWeight:
-                              active ? FontWeight.w700 : FontWeight.w500,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                    if (active)
-                      Icon(Icons.arrow_forward_ios_rounded,
-                          color: s.accent, size: 12),
-                  ]),
-                ),
-              );
-            }).toList(),
-          ),
-        ),
-        const SizedBox(width: 40),
-        // Detail + mock screen
-        Expanded(child: _buildDetail(step, false)),
-      ],
-    );
-  }
-
-  // ── MOBILE: accordion steps ───────────────────────────────────────────────
-  Widget _buildMobile() {
-    return Column(
-      children: _GuideSection.steps.asMap().entries.map((e) {
-        final i = e.key;
-        final s = e.value;
-        final open = i == _active;
-        return GestureDetector(
-          onTap: () => setState(() => _active = open ? -1 : i),
-          child: Container(
-            margin: const EdgeInsets.only(bottom: 10),
-            decoration: BoxDecoration(
-              color: open
-                  ? s.accent.withValues(alpha: 0.12)
-                  : Colors.white.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: open
-                    ? s.accent.withValues(alpha: 0.5)
-                    : Colors.white.withValues(alpha: 0.08),
-              ),
-            ),
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(children: [
-                    Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                          color: open ? s.accent : Colors.white12,
-                          shape: BoxShape.circle),
-                      child: Center(
-                          child: Text('${i + 1}',
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 14))),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                        child: Text(s.title,
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontWeight:
-                                    open ? FontWeight.w700 : FontWeight.w500,
-                                fontSize: 14))),
-                    Icon(
-                        open
-                            ? Icons.keyboard_arrow_up_rounded
-                            : Icons.keyboard_arrow_down_rounded,
-                        color: Colors.white54),
-                  ]),
-                ),
-                if (open) ...[
-                  const Divider(color: Colors.white12, height: 1),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-                    child: _buildDetail(s, true),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  // ── Shared detail panel ───────────────────────────────────────────────────
-  Widget _buildDetail(_GuideStep step, bool mobile) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Mock screen UI
-        _MockScreen(step: step, isMobile: mobile),
-        const SizedBox(height: 28),
-        // Description
-        Text(step.desc,
-            style: const TextStyle(
-                color: Colors.white70, fontSize: 14, height: 1.65)),
-        const SizedBox(height: 20),
-        // Bullet points
-        ...step.bullets.map((b) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child:
-                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Container(
-                  margin: const EdgeInsets.only(top: 4),
-                  width: 6,
-                  height: 6,
-                  decoration:
-                      BoxDecoration(color: step.accent, shape: BoxShape.circle),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                    child: Text(b,
-                        style: const TextStyle(
-                            color: Colors.white70, fontSize: 13, height: 1.5))),
-              ]),
-            )),
-        const SizedBox(height: 16),
-        // Tip box
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: step.accent.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: step.accent.withValues(alpha: 0.35)),
-          ),
-          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Icon(Icons.tips_and_updates_rounded, color: step.accent, size: 16),
-            const SizedBox(width: 8),
-            Expanded(
-                child: Text(step.tip,
-                    style: TextStyle(
-                        color: step.accent, fontSize: 12.5, height: 1.5))),
-          ]),
-        ),
-      ],
-    );
-  }
-}
-
-// ── Mock screen widget (drawn UI, no real images) ─────────────────────────────
-class _MockScreen extends StatelessWidget {
-  const _MockScreen({required this.step, required this.isMobile});
-  final _GuideStep step;
-  final bool isMobile;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-              color: step.accent.withValues(alpha: 0.3),
-              blurRadius: 32,
-              offset: const Offset(0, 8))
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          color: const Color(0xFF111827),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Title bar
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(colors: step.screenGradient),
-                ),
-                child: Row(children: [
-                  Icon(step.icon, color: Colors.white, size: 18),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(step.title,
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 13)),
-                  ),
-                  // Fake window controls
-                  Row(children: [
-                    _dot(Colors.white30),
-                    const SizedBox(width: 5),
-                    _dot(Colors.white30),
-                    const SizedBox(width: 5),
-                    _dot(Colors.white30),
-                  ]),
-                ]),
-              ),
-              // Content rows
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  children: step.screenItems.asMap().entries.map((e) {
-                    final i = e.key;
-                    final item = e.value;
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 11),
-                      decoration: BoxDecoration(
-                        color: i == 0
-                            ? step.accent.withValues(alpha: 0.18)
-                            : Colors.white.withValues(alpha: 0.05),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: i == 0
-                              ? step.accent.withValues(alpha: 0.45)
-                              : Colors.white.withValues(alpha: 0.06),
-                        ),
-                      ),
-                      child: Row(children: [
-                        Icon(item.$1,
-                            size: 16,
-                            color: i == 0 ? step.accent : Colors.white38),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(item.$2,
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                color: i == 0 ? Colors.white : Colors.white60,
-                                fontWeight:
-                                    i == 0 ? FontWeight.w600 : FontWeight.w400,
-                              )),
-                        ),
-                        if (i == 0)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 7, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: step.accent,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: const Text('MỚI',
-                                style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w800)),
-                          ),
-                      ]),
-                    );
-                  }).toList(),
-                ),
-              ),
-              // Bottom status bar
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                color: Colors.white.withValues(alpha: 0.04),
-                child: Row(children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: const BoxDecoration(
-                        color: Color(0xFF22C55E), shape: BoxShape.circle),
-                  ),
-                  const SizedBox(width: 6),
-                  const Text('Kết nối thành công · SBOX HRM',
-                      style:
-                          TextStyle(color: Colors.white38, fontSize: 11)),
-                  const Spacer(),
-                  const Text('v3.2.1',
-                      style:
-                          TextStyle(color: Colors.white24, fontSize: 10)),
-                ]),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _dot(Color c) => Container(
-      width: 10,
-      height: 10,
-      decoration: BoxDecoration(color: c, shape: BoxShape.circle));
-}
-
 // ─── CONTACT ──────────────────────────────────────────────────────────────────
 class _ContactSection extends StatelessWidget {
   const _ContactSection({
@@ -3368,15 +2884,7 @@ typedef _ProductData = ({
   String brand
 });
 
-String _normalizePublicUrl(String raw) {
-  final value = raw.trim();
-  if (value.isEmpty) return '';
-  if (value.startsWith('//')) return 'https:$value';
-  if (kIsWeb && value.startsWith('http://')) {
-    return 'https://${value.substring(7)}';
-  }
-  return value;
-}
+String _normalizePublicUrl(String raw) => normalizeLandingPublicUrl(raw);
 
 String _deltaJsonToPlainText(String raw) {
   if (raw.isEmpty) return '';

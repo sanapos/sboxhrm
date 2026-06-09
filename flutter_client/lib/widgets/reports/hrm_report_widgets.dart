@@ -387,13 +387,14 @@ class ReportEmployeeSummaryCard extends StatelessWidget {
   }
 }
 
-/// Bộ lọc chung: ngày + trạng thái + (tuỳ chọn) chi nhánh & tìm NV.
-class ReportFilterSection extends StatelessWidget {
+/// Bộ lọc chung: thu gọn mặc định, bấm mở ra để chỉnh.
+class ReportFilterSection extends StatefulWidget {
   final DateTime from;
   final DateTime to;
   final String datePreset;
   final void Function(DateTime from, DateTime to, String preset) onDateChanged;
   final Widget statusFilter;
+  final String? statusSummary;
   final bool showTeamFilters;
   final ReportBranchFilter? branchFilter;
   final String? selectedBranchId;
@@ -411,6 +412,7 @@ class ReportFilterSection extends StatelessWidget {
     required this.datePreset,
     required this.onDateChanged,
     required this.statusFilter,
+    this.statusSummary,
     this.showTeamFilters = true,
     this.branchFilter,
     this.selectedBranchId,
@@ -423,60 +425,114 @@ class ReportFilterSection extends StatelessWidget {
   });
 
   @override
+  State<ReportFilterSection> createState() => _ReportFilterSectionState();
+}
+
+class _ReportFilterSectionState extends State<ReportFilterSection> {
+  bool _expanded = false;
+
+  String _filterSummary() {
+    final fmt = DateFormat('dd/MM/yy');
+    final parts = <String>[
+      ReportDateRangePresets.presetLabel(widget.datePreset),
+      '${fmt.format(widget.from)} — ${fmt.format(widget.to)}',
+    ];
+    if (widget.statusSummary != null && widget.statusSummary!.isNotEmpty) {
+      parts.add(widget.statusSummary!);
+    }
+    if (widget.selectedBranchId != null && widget.branchFilter != null) {
+      final match = widget.branchFilter!.branches.where(
+        (b) => b['id']?.toString() == widget.selectedBranchId,
+      );
+      if (match.isNotEmpty) {
+        final name = match.first['name']?.toString() ?? '';
+        if (name.isNotEmpty) parts.add(name);
+      }
+    }
+    if (widget.empSearch.isNotEmpty) {
+      parts.add('NV: ${widget.empSearch}');
+    }
+    return parts.join(' · ');
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final hasExtraFilters = widget.empSearch.isNotEmpty ||
+        widget.selectedBranchId != null;
+
     return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          ReportDateRangeFilterBar(
-            from: from,
-            to: to,
-            preset: datePreset,
-            onChanged: onDateChanged,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          initiallyExpanded: _expanded,
+          onExpansionChanged: (v) => setState(() => _expanded = v),
+          tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+          childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          title: const Text(
+            'Bộ lọc',
+            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
           ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(child: statusFilter),
-              const SizedBox(width: 8),
-              SizedBox(
-                height: 40,
-                child: FilledButton.icon(
+          subtitle: Text(
+            _filterSummary(),
+            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          trailing: Icon(
+            _expanded ? Icons.expand_less : Icons.expand_more,
+            color: Colors.grey[600],
+            size: 22,
+          ),
+          children: [
+            ReportDateRangeFilterBar(
+              from: widget.from,
+              to: widget.to,
+              preset: widget.datePreset,
+              compact: true,
+              onChanged: widget.onDateChanged,
+            ),
+            const SizedBox(height: 10),
+            widget.statusFilter,
+            if (widget.showTeamFilters) ...[
+              if (widget.branchFilter != null &&
+                  widget.branchFilter!.branches.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                _branchDropdown(),
+              ],
+              const SizedBox(height: 8),
+              _empSearchField(),
+            ],
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                if (widget.onClearFilters != null && hasExtraFilters)
+                  TextButton.icon(
+                    onPressed: widget.onClearFilters,
+                    icon: const Icon(Icons.filter_alt_off, size: 15),
+                    label: Text('Xóa lọc',
+                        style:
+                            vietnameseTextStyle(const TextStyle(fontSize: 12))),
+                  ),
+                const Spacer(),
+                FilledButton.icon(
                   icon: const Icon(Icons.search, size: 16),
                   label: Text('Áp dụng',
                       style: vietnameseTextStyle(const TextStyle(fontSize: 13))),
                   style: FilledButton.styleFrom(
                     backgroundColor: HrmPageChrome.primaryNavy,
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    minimumSize: const Size(0, 40),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
                   ),
-                  onPressed: onApply,
+                  onPressed: widget.onApply,
                 ),
-              ),
-            ],
-          ),
-          if (showTeamFilters) ...[
-            if (branchFilter != null && branchFilter!.branches.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              _branchDropdown(),
-            ],
-            const SizedBox(height: 8),
-            _empSearchField(),
-          ],
-          if (onClearFilters != null &&
-              (empSearch.isNotEmpty || selectedBranchId != null))
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                onPressed: onClearFilters,
-                icon: const Icon(Icons.filter_alt_off, size: 15),
-                label: Text('Xóa lọc',
-                    style: vietnameseTextStyle(const TextStyle(fontSize: 12))),
-              ),
+              ],
             ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -492,7 +548,7 @@ class ReportFilterSection extends StatelessWidget {
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String?>(
-          value: selectedBranchId,
+          value: widget.selectedBranchId,
           isExpanded: true,
           isDense: true,
           hint: Text('Tất cả chi nhánh',
@@ -503,13 +559,13 @@ class ReportFilterSection extends StatelessWidget {
           items: [
             const DropdownMenuItem<String?>(
                 value: null, child: Text('Tất cả chi nhánh')),
-            ...branchFilter!.branches.map((b) => DropdownMenuItem<String?>(
+            ...widget.branchFilter!.branches.map((b) => DropdownMenuItem<String?>(
                   value: b['id']?.toString(),
                   child: Text(b['name']?.toString() ?? '',
                       overflow: TextOverflow.ellipsis),
                 )),
           ],
-          onChanged: onBranchChanged,
+          onChanged: widget.onBranchChanged,
         ),
       ),
     );
@@ -518,14 +574,14 @@ class ReportFilterSection extends StatelessWidget {
   Widget _empSearchField() {
     return Autocomplete<String>(
       optionsBuilder: (v) {
-        if (empSuggestions.isEmpty) return const Iterable<String>.empty();
-        if (v.text.isEmpty) return empSuggestions;
+        if (widget.empSuggestions.isEmpty) return const Iterable<String>.empty();
+        if (v.text.isEmpty) return widget.empSuggestions;
         final q = v.text.toLowerCase();
-        return empSuggestions.where((s) => s.toLowerCase().contains(q));
+        return widget.empSuggestions.where((s) => s.toLowerCase().contains(q));
       },
-      onSelected: onEmpSearchChanged,
+      onSelected: widget.onEmpSearchChanged,
       fieldViewBuilder: (context, ctrl, node, _) {
-        if (empSearch.isEmpty && ctrl.text.isNotEmpty) ctrl.clear();
+        if (widget.empSearch.isEmpty && ctrl.text.isNotEmpty) ctrl.clear();
         return Container(
           height: 40,
           decoration: BoxDecoration(
@@ -542,12 +598,12 @@ class ReportFilterSection extends StatelessWidget {
                   const TextStyle(fontSize: 12, color: Color(0xFF9CA3AF))),
               prefixIcon: const Icon(Icons.person_search_outlined,
                   size: 18, color: Color(0xFF9CA3AF)),
-              suffixIcon: empSearch.isNotEmpty
+              suffixIcon: widget.empSearch.isNotEmpty
                   ? IconButton(
                       icon: const Icon(Icons.clear, size: 16),
                       onPressed: () {
                         ctrl.clear();
-                        onEmpSearchChanged('');
+                        widget.onEmpSearchChanged('');
                       })
                   : null,
               border: InputBorder.none,
@@ -555,7 +611,7 @@ class ReportFilterSection extends StatelessWidget {
                   const EdgeInsets.symmetric(vertical: 0, horizontal: 4),
               isDense: true,
             ),
-            onChanged: onEmpSearchChanged,
+            onChanged: widget.onEmpSearchChanged,
           ),
         );
       },

@@ -208,6 +208,16 @@
 
   <script src="config.js"></script>
   <script>
+    // Deep link hướng dẫn: hash cũ → query (Zalo/messenger thường cắt phần sau #)
+    (function () {
+      var hash = (location.hash || '').replace(/^#\/?/, '');
+      var hm = /^guide\/(basic|advanced)\/([a-z0-9_]+)$/.exec(hash);
+      if (hm) {
+        location.replace('/?guide=' + encodeURIComponent(hm[1]) + '&step=' + encodeURIComponent(hm[2]));
+      }
+    })();
+  </script>
+  <script>
     // Google Search Console – bỏ meta nếu chưa cấu hình
     (function () {
       var v = window.GOOGLE_SITE_VERIFICATION || '';

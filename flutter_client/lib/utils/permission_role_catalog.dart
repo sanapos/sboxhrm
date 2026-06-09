@@ -139,8 +139,6 @@ class PermissionRoleCatalog {
         'PenaltyReport',
         'AdvanceReport',
         'AssetReport',
-        'HrReport',
-        'PayrollReport',
       ],
     ),
     PermissionUiGroup(

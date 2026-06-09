@@ -8,6 +8,7 @@ public interface IPayslipRepository
     Task<List<Payslip>> GetAllAsync(Guid storeId, CancellationToken cancellationToken = default);
     Task<List<Payslip>> GetByEmployeeUserIdAsync(Guid storeId, Guid employeeUserId, CancellationToken cancellationToken = default);
     Task<Payslip?> GetByEmployeeUserAndPeriodAsync(Guid storeId, Guid employeeUserId, int year, int month, CancellationToken cancellationToken = default);
+    Task<Payslip?> GetByEmployeeAndPeriodAsync(Guid storeId, Guid employeeId, int year, int month, CancellationToken cancellationToken = default);
     Task<List<Payslip>> GetByPeriodAsync(Guid storeId, int year, int month, CancellationToken cancellationToken = default);
     Task<Payslip> CreateAsync(Payslip payslip, CancellationToken cancellationToken = default);
     Task<Payslip> UpdateAsync(Payslip payslip, CancellationToken cancellationToken = default);
@@ -15,4 +16,13 @@ public interface IPayslipRepository
     Task<bool> ExistsForEmployeeUserAndPeriodAsync(Guid storeId, Guid employeeUserId, int year, int month, CancellationToken cancellationToken = default);
     Task<List<Payslip>> GetPayslipsByManagerIdAsync(Guid storeId, Guid managerId, int year, int month, CancellationToken cancellationToken = default);
     Task<List<Payslip>> GetByStoreAndPeriodAsync(Guid storeId, int year, int? month, CancellationToken cancellationToken = default);
+    Task<List<Payslip>> SearchAsync(
+        Guid storeId,
+        int? year,
+        int? month,
+        Guid? employeeUserId,
+        string? department,
+        DateTime? periodStartFrom,
+        DateTime? periodEndTo,
+        CancellationToken cancellationToken = default);
 }

@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Application.DTOs.Dashboard;
+using AttendanceLogDto = ZKTecoADMS.Application.DTOs.Attendances.AttendanceDto;
 using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
@@ -23,6 +24,7 @@ public class GetEmployeeDashboardHandler(
     IRepository<Shift> shiftRepository,
     IRepository<Attendance> attendanceRepository,
     IRepository<DeviceUser> deviceUserRepository,
+    IRepository<Device> deviceRepository,
     UserManager<ApplicationUser> userManager,
     IShiftService shiftService
 ) : IQueryHandler<GetEmployeeDashboardQuery, AppResponse<EmployeeDashboardDto>>
@@ -47,13 +49,15 @@ public class GetEmployeeDashboardHandler(
 
         var currentAttendance = await BuildCurrentAttendance(user, todayShift, cancellationToken);
         var stats = await BuildAttendanceStats(user, request.Period, cancellationToken);
+        var recentPunches = await BuildRecentPunches(user, request.Period, cancellationToken);
 
         var dashboardData = new EmployeeDashboardDto
         {
             TodayShift = todayShift.Adapt<ShiftInfoDto>(),
             NextShift = nextShift.Adapt<ShiftInfoDto>(),
             CurrentAttendance = currentAttendance,
-            AttendanceStats = stats
+            AttendanceStats = stats,
+            RecentPunches = recentPunches
         };
 
         return AppResponse<EmployeeDashboardDto>.Success(dashboardData);
@@ -317,6 +321,61 @@ public class GetEmployeeDashboardHandler(
             AverageWorkHours = avgWorkHours,
             Period = period
         };
+    }
+
+    private async Task<List<AttendanceLogDto>> BuildRecentPunches(
+        ApplicationUser user,
+        string period,
+        CancellationToken cancellationToken)
+    {
+        if (user.Employee == null) return [];
+
+        var deviceUserIds = await AttendanceLogResolveHelper.GetDeviceUserIdsForHrEmployeeAsync(
+            deviceUserRepository, user.Employee.Id, cancellationToken);
+        if (deviceUserIds.Count == 0) return [];
+
+        var (startLocal, endLocal) = GetDateRange(period);
+        var rangeEndExclusive = endLocal.AddDays(1);
+
+        var punches = await attendanceRepository.GetAllAsync(
+            filter: a => a.EmployeeId != null
+                && deviceUserIds.Contains(a.EmployeeId.Value)
+                && a.AttendanceTime >= startLocal
+                && a.AttendanceTime < rangeEndExclusive,
+            orderBy: q => q.OrderByDescending(a => a.AttendanceTime),
+            take: 50,
+            cancellationToken: cancellationToken);
+
+        if (punches.Count == 0) return [];
+
+        var deviceIds = punches.Select(p => p.DeviceId).Distinct().ToList();
+        var devices = await deviceRepository.GetAllAsync(
+            d => deviceIds.Contains(d.Id),
+            cancellationToken: cancellationToken);
+        var deviceNames = devices.ToDictionary(d => d.Id, d => d.DeviceName);
+
+        var emp = user.Employee;
+        var fullName = $"{emp.LastName} {emp.FirstName}".Trim();
+
+        return punches.Select(a => new AttendanceLogDto(
+            a.Id,
+            a.AttendanceTime,
+            deviceNames.GetValueOrDefault(a.DeviceId, "—"),
+            a.PIN,
+            emp.EmployeeCode,
+            fullName,
+            null,
+            0,
+            a.VerifyMode,
+            a.AttendanceState,
+            a.WorkCode,
+            a.Note,
+            a.MobileAttendanceRecordId,
+            null,
+            null,
+            null,
+            null
+        )).ToList();
     }
 
     private static (DateTime startLocal, DateTime endLocal) GetDateRange(string period)

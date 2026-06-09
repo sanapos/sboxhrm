@@ -13,6 +13,8 @@ import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import '../utils/api_datetime.dart';
 import '../utils/attendance_load_utils.dart';
+import '../utils/attendance_date_range_presets.dart';
+import '../utils/salary_profile_load_utils.dart';
 import '../utils/dashboard_ui_capabilities.dart';
 import '../utils/shift_records_calculator.dart';
 import '../widgets/hrm_page_chrome.dart';
@@ -20,6 +22,8 @@ import '../widgets/loading_widget.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/app_scroll_safe.dart';
 import '../widgets/ai_assistant_sheet.dart';
+import '../widgets/dashboard/employee_module_grid.dart';
+import '../utils/navigation_notifier.dart';
 import 'main_layout.dart';
 import 'leave_screen.dart';
 import 'attendance_corrections_screen.dart';
@@ -76,6 +80,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // Employee dashboard data
   Map<String, dynamic> _employeeDashboard = {};
   String _employeeStatsPeriod = 'month';
+  List<Attendance> _employeeRawPunches = [];
+  List<DailyShiftRecord> _employeeShiftRecords = [];
 
   // Data
   Map<String, dynamic> _dailyReport = {};
@@ -191,9 +197,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
+  (DateTime, DateTime) _employeeStatsDateRange() {
+    final now = DateTime.now();
+    final end = DateTime(now.year, now.month, now.day, 23, 59, 59);
+    switch (_employeeStatsPeriod) {
+      case 'week':
+        return (
+          DateTime(now.year, now.month, now.day).subtract(const Duration(days: 7)),
+          end,
+        );
+      case 'year':
+        return (DateTime(now.year - 1, now.month, now.day), end);
+      default:
+        if (now.month == 1) {
+          return (DateTime(now.year - 1, 12, now.day), end);
+        }
+        return (DateTime(now.year, now.month - 1, now.day), end);
+    }
+  }
+
   Future<void> _loadEmployeeData() async {
     setState(() => _isLoading = true);
     try {
+      final (rangeStart, rangeEnd) = _employeeStatsDateRange();
+
       final results = await Future.wait([
         _api.getEmployeeDashboard(period: _employeeStatsPeriod),
         _api.getMyLeaves(pageSize: 10),
@@ -202,16 +229,99 @@ class _DashboardScreenState extends State<DashboardScreen> {
             () => _api.getCommunications(page: 1, pageSize: 5),
             <String, dynamic>{},
             'employee-comms'),
+        _safe(
+            () => _api.getAppSetting('day_end_time'),
+            <String, dynamic>{},
+            'employee-day-end'),
+        _safe(() => _api.getShifts(), <dynamic>[], 'employee-shifts'),
+        _safe(
+            () => _api.getShiftSalaryLevels(),
+            <String, dynamic>{},
+            'employee-shift-levels'),
+        loadAttendanceSalaryProfiles(_api, preferSelfServiceApi: true),
+        _safe(() => _api.getHolidaySettings(0), <dynamic>[], 'employee-holidays'),
       ]);
 
+      var dayEndHour = 0;
+      var dayEndMinute = 0;
+      final dayEndResp = results[4] as Map<String, dynamic>;
+      if (dayEndResp['isSuccess'] == true && dayEndResp['data'] is Map) {
+        final value =
+            (dayEndResp['data'] as Map)['value']?.toString() ?? '00:00:00';
+        final parts = value.split(':');
+        if (parts.length >= 2) {
+          dayEndHour = int.tryParse(parts[0]) ?? 0;
+          dayEndMinute = int.tryParse(parts[1]) ?? 0;
+        }
+      }
+
+      final attLoad = await loadAttendancesForPeriodResult(
+        _api,
+        deviceIds: const [],
+        fromDate: rangeStart,
+        toDate: rangeEnd,
+        dayEndHour: dayEndHour,
+        dayEndMinute: dayEndMinute,
+        pageSize: 500,
+        maxPagesHardCap: 8,
+      );
+
+      final shiftsRaw = results[5] as List<dynamic>;
+      final shiftTemplates = shiftsRaw
+          .whereType<Map>()
+          .map((s) => Map<String, dynamic>.from(s))
+          .toList();
+
+      final sslResp = results[6] as Map<String, dynamic>;
+      final sslData = sslResp['data'];
+      final shiftSalaryLevels = (sslData is Map
+              ? (sslData['items'] as List? ?? const [])
+              : (sslData is List ? sslData : const []))
+          .whereType<Map>()
+          .map((s) => Map<String, dynamic>.from(s))
+          .toList();
+
+      final salaryProfiles = results[7] as List<Map<String, dynamic>>;
+      final holidays = results[8] as List<dynamic>;
+
+      final empResp = results[2] as Map<String, dynamic>;
+      final employeesList = <Map<String, dynamic>>[];
+      if (empResp['isSuccess'] == true && empResp['data'] is Map) {
+        employeesList.add(Map<String, dynamic>.from(empResp['data'] as Map));
+      }
+
+      final fetchFrom = AttendanceDateRangePresets.fetchFromDate(
+        rangeStart,
+        dayEndHour: dayEndHour,
+        dayEndMinute: dayEndMinute,
+      );
+      final shiftRecords = computeDailyShiftRecords(
+        attendances: attLoad.items,
+        fromDate: fetchFrom,
+        toDate: rangeEnd,
+        shiftTemplates: shiftTemplates,
+        shiftSalaryLevels: shiftSalaryLevels,
+        salaryProfiles: salaryProfiles,
+        holidays: holidays,
+        dayEndHour: dayEndHour,
+        dayEndMinute: dayEndMinute,
+        employeesList: employeesList,
+      )..sort((a, b) => b.date.compareTo(a.date));
+
       if (mounted) {
-        final dashResp = results[0];
-        final leavesResp = results[1];
-        final empResp = results[2];
-        final commsResp = results[3];
+        final dashResp = results[0] as Map<String, dynamic>;
+        final leavesResp = results[1] as Map<String, dynamic>;
+        final commsResp = results[3] as Map<String, dynamic>;
         setState(() {
           _employeeDashboard =
               (dashResp['data'] as Map<String, dynamic>?) ?? {};
+          final punchList =
+              (_employeeDashboard['recentPunches'] as List?) ?? const [];
+          _employeeRawPunches = punchList
+              .whereType<Map>()
+              .map((m) => Attendance.fromJson(Map<String, dynamic>.from(m)))
+              .toList();
+          _employeeShiftRecords = shiftRecords;
           _todayLeaves = _extractList(leavesResp);
           _communications = _extractList(commsResp);
           if (empResp['isSuccess'] == true && empResp['data'] != null) {
@@ -1212,7 +1322,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         );
 
         final body = _isEmployee
-            ? _buildEmployeeDashboard()
+            ? _buildEmployeeDashboard(caps)
             : RefreshIndicator(
                 onRefresh: () => _loadAllData(caps),
                 child: SingleChildScrollView(
@@ -9749,13 +9859,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
 
-  Widget _buildEmployeeGreetingHeader(String empName) {
+  Widget _buildEmployeeGreetingHeader(String empName, {String? deptName}) {
     final greet = _greetingForTime();
+    final initials = _employeeInitials(empName);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: _homeGreetingBannerDecoration,
       child: Row(
         children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white.withValues(alpha: 0.18),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.35),
+                width: 1.5,
+              ),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              initials,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: Colors.white.withValues(alpha: 0.95),
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -9775,7 +9908,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 Text(
                   empName.isNotEmpty ? empName : _l10n.loadingOverview,
                   style: TextStyle(
@@ -9787,6 +9920,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
+                if (deptName != null && deptName.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    deptName,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.white.withValues(alpha: 0.78),
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
                 const SizedBox(height: 8),
                 Container(
                   padding:
@@ -9812,8 +9958,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  String _employeeInitials(String name) {
+    final list =
+        name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    if (list.isEmpty) return '?';
+    if (list.length == 1) return list.first[0].toUpperCase();
+    return '${list.first[0]}${list.last[0]}'.toUpperCase();
+  }
+
   // ===================== EMPLOYEE DASHBOARD =====================
-  Widget _buildEmployeeDashboard() {
+  Widget _buildEmployeeDashboard(DashboardUiCapabilities caps) {
     final todayShift =
         _employeeDashboard['todayShift'] as Map<String, dynamic>?;
     final nextShift = _employeeDashboard['nextShift'] as Map<String, dynamic>?;
@@ -9821,44 +9975,547 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _employeeDashboard['currentAttendance'] as Map<String, dynamic>?;
     final stats =
         _employeeDashboard['attendanceStats'] as Map<String, dynamic>?;
-    final empName = _employees.isNotEmpty
-        ? (_employees[0] is Map ? (_employees[0] as Map)['fullName'] : null) ??
-            ''
-        : '';
+    final empMap =
+        _employees.isNotEmpty && _employees[0] is Map ? _employees[0] as Map : null;
+    final empName = empMap?['fullName']?.toString() ?? '';
+    final deptName = empMap?['departmentName']?.toString() ??
+        empMap?['department']?.toString();
+    final isWide = MediaQuery.of(context).size.width >= 768;
 
     return RefreshIndicator(
       onRefresh: _loadEmployeeData,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding:
-            EdgeInsets.all(MediaQuery.of(context).size.width < 768 ? 12 : 20),
+        padding: EdgeInsets.fromLTRB(
+          isWide ? 20 : 12,
+          isWide ? 20 : 12,
+          isWide ? 20 : 12,
+          100,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildEmployeeGreetingHeader(empName),
-            const SizedBox(height: 16),
-
-            // Current Attendance Status
+            _buildEmployeeGreetingHeader(empName, deptName: deptName),
+            const SizedBox(height: 14),
+            if (caps.showQuickActions) ...[
+              _buildQuickActions(caps),
+              const SizedBox(height: 14),
+            ],
             _buildEmployeeAttendanceCard(attendance, todayShift),
+            _buildEmployeePunchCta(),
             const SizedBox(height: 16),
-
-            // Attendance Stats
+            const EmployeeModuleGrid(),
+            const SizedBox(height: 16),
             if (stats != null) ...[
               _buildEmployeeStatsCard(stats),
               const SizedBox(height: 16),
             ],
-
-            _buildInternalNewsCard(),
+            _buildEmployeeShiftSummaryCard(),
             const SizedBox(height: 16),
-
-            // Today/Next Shift
-            _buildEmployeeShiftCard(todayShift, nextShift),
+            _buildEmployeeRawAttendanceCard(),
             const SizedBox(height: 16),
-
-            // Recent Leaves
+            if (isWide)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: _buildInternalNewsCard()),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: _buildEmployeeShiftCard(todayShift, nextShift),
+                  ),
+                ],
+              )
+            else ...[
+              _buildInternalNewsCard(),
+              const SizedBox(height: 16),
+              _buildEmployeeShiftCard(todayShift, nextShift),
+            ],
+            const SizedBox(height: 16),
             _buildEmployeeLeavesCard(),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildEmployeePunchCta() {
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    if (!perm.canView('MobileAttendance')) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: NavigationNotifier.goToMobileAttendance,
+          borderRadius: BorderRadius.circular(14),
+          child: Ink(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF0284C7), Color(0xFF0369A1)],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              ),
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF0284C7).withValues(alpha: 0.28),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              child: Row(
+                children: [
+                  Icon(Icons.fingerprint_rounded, color: Colors.white, size: 26),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Chấm công ngay',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Mở chấm công mobile',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.white70,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(Icons.chevron_right_rounded, color: Colors.white70),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _employeeStatsPeriodLabel() {
+    switch (_employeeStatsPeriod) {
+      case 'week':
+        return '7 ngày qua';
+      case 'year':
+        return '12 tháng qua';
+      default:
+        return '30 ngày qua';
+    }
+  }
+
+  Widget _buildEmployeeShiftSummaryCard() {
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    final records = _employeeShiftRecords;
+    const previewCount = 14;
+
+    return _DashCard(
+      icon: Icons.view_week_rounded,
+      title: 'Tổng hợp chấm công theo ca',
+      color: const Color(0xFF7C3AED),
+      badge: _employeeStatsPeriodLabel(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (records.isEmpty)
+            _emptyState('Chưa có dữ liệu tổng hợp theo ca')
+          else ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF4F4F5),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Row(
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: Text('Ngày',
+                        style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF71717A))),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Text('Ca',
+                        style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF71717A))),
+                  ),
+                  Expanded(
+                    child: Text('Vào',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF71717A))),
+                  ),
+                  Expanded(
+                    child: Text('Ra',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF71717A))),
+                  ),
+                  Expanded(
+                    child: Text('Giờ',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF71717A))),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 6),
+            ...records.take(previewCount).map(_employeeShiftSummaryRow),
+            if (records.length > previewCount)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  'và ${records.length - previewCount} ngày/ca khác',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF71717A),
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ),
+          ],
+          if (perm.canView('AttendanceByShift') && records.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: () =>
+                    NavigationNotifier.goToModule('AttendanceByShift'),
+                icon: const Icon(Icons.open_in_new_rounded, size: 16),
+                label: const Text('Mở báo cáo theo ca'),
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFF7C3AED),
+                  textStyle: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _employeeShiftSummaryRow(DailyShiftRecord record) {
+    final dateStr =
+        '${record.date.day.toString().padLeft(2, '0')}/${record.date.month.toString().padLeft(2, '0')}';
+    final weekday = _weekday(record.date.weekday).replaceFirst('Thứ ', 'T');
+    final shiftLabel = record.shiftNames.isNotEmpty
+        ? record.shiftNames.join(', ')
+        : '—';
+    final checkIn = record.punchTimes.isNotEmpty ? record.punchTimes.first : null;
+    final checkOut =
+        record.punchTimes.length > 1 ? record.punchTimes.last : null;
+    final inText = checkIn == null
+        ? '--:--'
+        : formatAttendanceWallClock(checkIn, pattern: 'HH:mm');
+    final outText = checkOut == null
+        ? '--:--'
+        : formatAttendanceWallClock(checkOut, pattern: 'HH:mm');
+    final hoursText = '${record.workHours.toStringAsFixed(1)}h';
+
+    final hasIssue = record.lateMinutes > 0 ||
+        record.earlyMinutes > 0 ||
+        record.status.toLowerCase().contains('thiếu');
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: hasIssue
+              ? record.statusColor.withValues(alpha: 0.25)
+              : const Color(0xFFE4E4E7),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                flex: 2,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      dateStr,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF18181B),
+                      ),
+                    ),
+                    Text(
+                      weekday,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: Color(0xFF71717A),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                flex: 2,
+                child: Text(
+                  shiftLabel,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF3F3F46),
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  inText,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF22C55E),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  outText,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF2D5F8B),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  hoursText,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF18181B),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (hasIssue) ...[
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: record.statusColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    record.status,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: record.statusColor,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (record.lateMinutes > 0) ...[
+                  const SizedBox(width: 6),
+                  Text(
+                    'Trễ ${record.lateMinutes}p',
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFFF59E0B),
+                    ),
+                  ),
+                ],
+                if (record.earlyMinutes > 0) ...[
+                  const SizedBox(width: 6),
+                  Text(
+                    'Sớm ${record.earlyMinutes}p',
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFFEF4444),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmployeeRawAttendanceCard() {
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    final punches = _employeeRawPunches;
+    const previewCount = 12;
+
+    return _DashCard(
+      icon: Icons.list_alt_rounded,
+      title: 'Chấm công thô chi tiết',
+      color: const Color(0xFF0284C7),
+      badge: _employeeStatsPeriodLabel(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (punches.isEmpty)
+            _emptyState('Chưa có log chấm công trong kỳ này')
+          else ...[
+            ...punches.take(previewCount).map(_employeePunchRow),
+            if (punches.length > previewCount)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  'và ${punches.length - previewCount} bản ghi khác',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF71717A),
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ),
+          ],
+          if (perm.canView('Attendance') && punches.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: NavigationNotifier.goToAttendance,
+                icon: const Icon(Icons.open_in_new_rounded, size: 16),
+                label: const Text('Mở chấm công thô'),
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFF0284C7),
+                  textStyle: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _employeePunchRow(Attendance punch) {
+    final isCheckIn = punch.attendanceState == 0;
+    final isCheckOut = punch.attendanceState == 1;
+    final badgeColor = isCheckIn
+        ? const Color(0xFF22C55E)
+        : isCheckOut
+            ? HrmPageChrome.primaryNavy
+            : const Color(0xFFF59E0B);
+    final timeText = formatAttendanceWallClock(
+      punch.attendanceTime,
+      pattern: 'dd/MM/yyyy HH:mm:ss',
+      empty: '--',
+    );
+    final device = punch.deviceName?.trim();
+    final verify = punch.isFromMobile ? 'Mobile' : punch.verifyTypeText;
+    final location = punch.locationName?.trim();
+    final subtitleParts = <String>[
+      if (device != null && device.isNotEmpty) device,
+      verify,
+      if (location != null && location.isNotEmpty) location,
+    ];
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: badgeColor.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: badgeColor.withValues(alpha: 0.12)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: badgeColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              punch.punchTypeText,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: badgeColor,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  timeText,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF18181B),
+                  ),
+                ),
+                if (subtitleParts.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitleParts.join(' · '),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF71717A),
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (punch.isFromMobile)
+            const Icon(Icons.phone_android_rounded,
+                size: 16, color: Color(0xFF0284C7)),
+        ],
       ),
     );
   }

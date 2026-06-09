@@ -15,6 +15,7 @@ import '../screens/reset_password_screen.dart';
 import '../screens/system_admin_screen.dart';
 import '../screens/admin_login_screen.dart';
 import '../screens/landing_screen.dart';
+import '../screens/landing_guide_screen.dart';
 import '../widgets/app_boot_screen.dart';
 
 class ZKTecoApp extends StatelessWidget {
@@ -61,6 +62,7 @@ class ZKTecoApp extends StatelessWidget {
             '/admin': (context) => const _AdminRouteGuard(),
             '/login-app': (context) => const LoginScreen(),
             '/landing': (context) => const LandingScreen(),
+            '/guide': (context) => const LandingGuideScreen(),
           },
           onGenerateRoute: (settings) {
             if (settings.name == '/reset-password') {

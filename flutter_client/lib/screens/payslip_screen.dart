@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 import '../utils/api_datetime.dart';
 import '../widgets/hrm_page_chrome.dart';
@@ -11,37 +13,85 @@ class PayslipScreen extends StatefulWidget {
   State<PayslipScreen> createState() => _PayslipScreenState();
 }
 
-class _PayslipScreenState extends State<PayslipScreen> with SingleTickerProviderStateMixin {
+class _PayslipScreenState extends State<PayslipScreen> {
   final ApiService _apiService = ApiService();
-  late TabController _tabController;
   bool _isLoading = false;
+  bool _isManager = false;
 
-  List<Map<String, dynamic>> _myPayslips = [];
-  Map<String, dynamic>? _selectedPayslip;
-  int _filterYear = DateTime.now().year;
+  List<Map<String, dynamic>> _payslips = [];
+  List<Map<String, dynamic>> _employees = [];
+
+  int? _filterYear;
   int? _filterMonth;
+  String? _filterEmployeeUserId;
+  String? _filterDepartment;
+  DateTime? _filterFromDate;
+  DateTime? _filterToDate;
+  bool _filtersExpanded = false;
+  final Set<String> _expandedPayslipIds = {};
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _loadData();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _initAndLoad());
   }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
+  Future<void> _initAndLoad() async {
+    final role = context.read<AuthProvider>().user?.role ?? '';
+    _isManager = role == 'Admin' ||
+        role == 'Manager' ||
+        role == 'SuperAdmin' ||
+        role == 'Agent' ||
+        role == 'DepartmentHead' ||
+        role == 'HR';
+    if (_isManager) await _loadEmployees();
+    await _loadData();
+  }
+
+  Future<void> _loadEmployees() async {
+    try {
+      final list = await _apiService.getEmployees(pageSize: 1000);
+      if (!mounted) return;
+      setState(() {
+        _employees = list
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+      });
+    } catch (_) {}
   }
 
   Future<void> _loadData() async {
     if (!mounted) return;
     setState(() => _isLoading = true);
     try {
-      final res = await _apiService.getMyPayslips();
+      Map<String, dynamic> res;
+      if (_isManager) {
+        res = await _apiService.getStorePayslips(
+          year: _filterYear,
+          month: _filterMonth,
+          employeeUserId: _filterEmployeeUserId,
+          department: _filterDepartment,
+          periodStartFrom: _filterFromDate,
+          periodEndTo: _filterToDate != null
+              ? DateTime(
+                  _filterToDate!.year,
+                  _filterToDate!.month,
+                  _filterToDate!.day,
+                  23,
+                  59,
+                  59,
+                )
+              : null,
+        );
+      } else {
+        res = await _apiService.getMyPayslips();
+      }
       if (!mounted) return;
       if (res['isSuccess'] == true) {
-        setState(() => _myPayslips = List<Map<String, dynamic>>.from(res['data'] ?? []));
+        setState(() {
+          _payslips = List<Map<String, dynamic>>.from(res['data'] ?? []);
+        });
       }
     } catch (e) {
       debugPrint('Error loading payslips: $e');
@@ -50,43 +100,272 @@ class _PayslipScreenState extends State<PayslipScreen> with SingleTickerProvider
     }
   }
 
-  Future<void> _loadPayslipDetail(String id) async {
-    final res = await _apiService.getPayslipById(id);
-    if (!mounted) return;
-    if (res['isSuccess'] == true) {
-      setState(() {
-        _selectedPayslip = res['data'];
-        _tabController.animateTo(1);
+  List<String> get _departments {
+    final depts = _employees
+        .map((e) => (e['department'] ?? e['departmentName'])?.toString().trim())
+        .where((d) => d != null && d.isNotEmpty)
+        .cast<String>()
+        .toSet()
+        .toList();
+    depts.sort();
+    return depts;
+  }
+
+  List<Map<String, dynamic>> get _filteredPayslips {
+    return _payslips.where((p) {
+      final y = (p['year'] as num?)?.toInt();
+      final m = (p['month'] as num?)?.toInt();
+      if (_filterYear != null && y != _filterYear) return false;
+      if (_filterMonth != null && m != _filterMonth) return false;
+      if (_filterEmployeeUserId != null &&
+          p['employeeUserId']?.toString() != _filterEmployeeUserId) {
+        return false;
+      }
+      if (_filterDepartment != null &&
+          (p['department']?.toString() ?? '') != _filterDepartment) {
+        return false;
+      }
+      if (_filterFromDate != null || _filterToDate != null) {
+        final start = parseApiUtcDateTime(p['periodStart']);
+        final end = parseApiUtcDateTime(p['periodEnd']);
+        if (_filterFromDate != null &&
+            end != null &&
+            end.isBefore(_filterFromDate!)) {
+          return false;
+        }
+        if (_filterToDate != null &&
+            start != null &&
+            start.isAfter(DateTime(
+              _filterToDate!.year,
+              _filterToDate!.month,
+              _filterToDate!.day,
+              23,
+              59,
+              59,
+            ))) {
+          return false;
+        }
+      }
+      return true;
+    }).toList()
+      ..sort((a, b) {
+        final ay = (a['year'] as num?)?.toInt() ?? 0;
+        final by = (b['year'] as num?)?.toInt() ?? 0;
+        if (ay != by) return by.compareTo(ay);
+        final am = (a['month'] as num?)?.toInt() ?? 0;
+        final bm = (b['month'] as num?)?.toInt() ?? 0;
+        if (am != bm) return bm.compareTo(am);
+        return (a['employeeName']?.toString() ?? '')
+            .compareTo(b['employeeName']?.toString() ?? '');
       });
-    }
+  }
+
+  void _resetFilters() {
+    setState(() {
+      _filterYear = null;
+      _filterMonth = null;
+      _filterEmployeeUserId = null;
+      _filterDepartment = null;
+      _filterFromDate = null;
+      _filterToDate = null;
+    });
+    if (_isManager) _loadData();
+  }
+
+  Future<void> _pickDate({required bool isFrom}) async {
+    final initial = isFrom
+        ? (_filterFromDate ?? DateTime.now())
+        : (_filterToDate ?? DateTime.now());
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2035),
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      if (isFrom) {
+        _filterFromDate = picked;
+      } else {
+        _filterToDate = picked;
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 768;
+    final list = _filteredPayslips;
     return Scaffold(
       backgroundColor: const Color(0xFFF0F4F8),
       body: Column(
         children: [
-          _buildHeader(),
-          TabBar(
-            controller: _tabController,
-            labelColor: const Color(0xFF059669),
-            unselectedLabelColor: Colors.grey[600],
-            indicatorColor: const Color(0xFF059669),
-            indicatorWeight: 3,
-            tabs: const [
-              Tab(icon: Icon(Icons.list_alt), text: 'Phiếu lương'),
-              Tab(icon: Icon(Icons.receipt_long), text: 'Chi tiết'),
-            ],
-          ),
+          _buildHeader(isMobile, list.length),
+          _buildFilterPanel(isMobile),
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : TabBarView(
-                    controller: _tabController,
+                : list.isEmpty
+                    ? _buildEmptyState()
+                    : RefreshIndicator(
+                        onRefresh: _loadData,
+                        child: ListView.builder(
+                          padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
+                          itemCount: list.length,
+                          itemBuilder: (_, i) => Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: _buildPayslipCard(list[i]),
+                          ),
+                        ),
+                      ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeader(bool isMobile, int count) {
+    return Container(
+      padding:
+          EdgeInsets.fromLTRB(isMobile ? 16 : 24, 20, isMobile ? 16 : 24, 12),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF059669), HrmPageChrome.primaryNavy],
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.receipt_long, color: Colors.white, size: 24),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Phiếu lương ($count)',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  _isManager
+                      ? 'Danh sách phiếu lương đã chốt'
+                      : 'Phiếu lương của bạn',
+                  style: const TextStyle(color: Colors.white70, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: _isLoading ? null : _loadData,
+            icon: const Icon(Icons.refresh, color: Colors.white),
+            tooltip: 'Tải lại',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.receipt_long, size: 72, color: Colors.grey[300]),
+          const SizedBox(height: 16),
+          Text(
+            'Chưa có phiếu lương',
+            style: TextStyle(color: Colors.grey[500], fontSize: 16),
+          ),
+          if (_isManager) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Chốt lương tại Tổng hợp lương để tạo phiếu',
+              style: TextStyle(color: Colors.grey[400], fontSize: 13),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterPanel(bool isMobile) {
+    return Material(
+      color: Colors.white,
+      child: ExpansionTile(
+        initiallyExpanded: _filtersExpanded,
+        onExpansionChanged: (v) => setState(() => _filtersExpanded = v),
+        title: const Text(
+          'Bộ lọc',
+          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+        ),
+        subtitle: Text(
+          _filterSummary(),
+          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextButton(onPressed: _resetFilters, child: const Text('Xóa lọc')),
+            Icon(
+              _filtersExpanded ? Icons.expand_less : Icons.expand_more,
+              color: Colors.grey[600],
+            ),
+          ],
+        ),
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: isMobile
+                ? Column(
                     children: [
-                      _buildPayslipList(),
-                      _buildPayslipDetail(),
+                      _yearMonthRow(),
+                      const SizedBox(height: 8),
+                      if (_isManager) ...[
+                        _employeeDropdown(),
+                        const SizedBox(height: 8),
+                        _departmentDropdown(),
+                        const SizedBox(height: 8),
+                      ],
+                      _dateRangeRow(),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          onPressed: _isLoading ? null : _loadData,
+                          icon: const Icon(Icons.search, size: 18),
+                          label: const Text('Áp dụng bộ lọc'),
+                        ),
+                      ),
+                    ],
+                  )
+                : Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      _yearMonthRow(),
+                      if (_isManager) ...[
+                        _employeeDropdown(),
+                        _departmentDropdown(),
+                      ],
+                      _dateRangeRow(),
+                      FilledButton.icon(
+                        onPressed: _isLoading ? null : _loadData,
+                        icon: const Icon(Icons.search, size: 18),
+                        label: const Text('Áp dụng'),
+                      ),
                     ],
                   ),
           ),
@@ -95,236 +374,435 @@ class _PayslipScreenState extends State<PayslipScreen> with SingleTickerProvider
     );
   }
 
-  Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(colors: [Color(0xFF059669), HrmPageChrome.primaryNavy]),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(12)),
-            child: const Icon(Icons.receipt_long, color: Colors.white, size: 24),
-          ),
-          const SizedBox(width: 16),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Phiếu lương', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-                Text('Xem chi tiết phiếu lương hàng tháng', style: TextStyle(color: Colors.white70, fontSize: 14)),
-              ],
-            ),
-          ),
-          DropdownButton<int>(
+  String _filterSummary() {
+    final parts = <String>[];
+    if (_filterYear != null) {
+      parts.add('Năm $_filterYear');
+    } else {
+      parts.add('Tất cả năm');
+    }
+    if (_filterMonth != null) parts.add('T$_filterMonth');
+    if (_filterDepartment != null) parts.add(_filterDepartment!);
+    if (_filterFromDate != null) {
+      parts.add('Từ ${DateFormat('dd/MM/yy').format(_filterFromDate!)}');
+    }
+    if (_filterToDate != null) {
+      parts.add('Đến ${DateFormat('dd/MM/yy').format(_filterToDate!)}');
+    }
+    return parts.join(' · ');
+  }
+
+  Widget _yearMonthRow() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 130,
+          child: DropdownButtonFormField<int?>(
             value: _filterYear,
-            dropdownColor: Colors.white,
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-            underline: const SizedBox.shrink(),
-            items: List.generate(5, (i) {
-              final y = DateTime.now().year - 2 + i;
-              return DropdownMenuItem(value: y, child: Text('$y'));
-            }),
-            onChanged: (v) {
-              if (v == null) return;
-              setState(() => _filterYear = v);
-            },
-          ),
-          const SizedBox(width: 8),
-          DropdownButton<int?>(
-            value: _filterMonth,
-            dropdownColor: Colors.white,
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-            underline: const SizedBox.shrink(),
-            hint: const Text('Tất cả', style: TextStyle(color: Colors.white70)),
+            decoration: _filterDecoration('Năm'),
             items: [
-              const DropdownMenuItem<int?>(value: null, child: Text('Tất cả tháng')),
+              const DropdownMenuItem<int?>(
+                value: null,
+                child: Text('Tất cả năm'),
+              ),
+              ...List.generate(6, (i) {
+                final y = DateTime.now().year - 3 + i;
+                return DropdownMenuItem(value: y, child: Text('$y'));
+              }),
+            ],
+            onChanged: (v) => setState(() => _filterYear = v),
+          ),
+        ),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 130,
+          child: DropdownButtonFormField<int?>(
+            value: _filterMonth,
+            decoration: _filterDecoration('Tháng'),
+            items: [
+              const DropdownMenuItem(value: null, child: Text('Tất cả tháng')),
               ...List.generate(
                 12,
-                (i) => DropdownMenuItem(value: i + 1, child: Text('Tháng ${i + 1}')),
+                (i) => DropdownMenuItem(
+                  value: i + 1,
+                  child: Text('Tháng ${i + 1}'),
+                ),
               ),
             ],
             onChanged: (v) => setState(() => _filterMonth = v),
           ),
+        ),
+      ],
+    );
+  }
+
+  Widget _employeeDropdown() {
+    final withUser = _employees
+        .where((e) => (e['applicationUserId']?.toString() ?? '').isNotEmpty)
+        .toList();
+    return SizedBox(
+      width: 260,
+      child: DropdownButtonFormField<String?>(
+        value: _filterEmployeeUserId,
+        isExpanded: true,
+        decoration: _filterDecoration('Nhân viên'),
+        items: [
+          const DropdownMenuItem(value: null, child: Text('Tất cả nhân viên')),
+          ...withUser.map((e) {
+            final uid = e['applicationUserId']?.toString() ?? '';
+            final name =
+                '${e['lastName'] ?? ''} ${e['firstName'] ?? ''}'.trim();
+            final code = e['employeeCode']?.toString() ?? '';
+            final label = name.isNotEmpty ? '$name ($code)' : code;
+            return DropdownMenuItem(value: uid, child: Text(label));
+          }),
         ],
+        onChanged: (v) => setState(() => _filterEmployeeUserId = v),
       ),
     );
   }
 
-  List<Map<String, dynamic>> get _filteredPayslips {
-    return _myPayslips.where((p) {
-      final y = (p['year'] as num?)?.toInt();
-      final m = (p['month'] as num?)?.toInt();
-      if (y != _filterYear) return false;
-      if (_filterMonth != null && m != _filterMonth) return false;
-      return true;
-    }).toList();
+  Widget _departmentDropdown() {
+    return SizedBox(
+      width: 200,
+      child: DropdownButtonFormField<String?>(
+        value: _departments.contains(_filterDepartment)
+            ? _filterDepartment
+            : null,
+        isExpanded: true,
+        decoration: _filterDecoration('Phòng ban'),
+        items: [
+          const DropdownMenuItem(value: null, child: Text('Tất cả phòng ban')),
+          ..._departments.map(
+            (d) => DropdownMenuItem(value: d, child: Text(d)),
+          ),
+        ],
+        onChanged: (v) => setState(() => _filterDepartment = v),
+      ),
+    );
   }
 
-  Widget _buildPayslipList() {
-    final list = _filteredPayslips;
-    if (list.isEmpty) {
-      return Center(
-        child: Column(
+  Widget _dateRangeRow() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _dateChip('Từ ngày', _filterFromDate, () => _pickDate(isFrom: true)),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 6),
+          child: Text('—'),
+        ),
+        _dateChip('Đến ngày', _filterToDate, () => _pickDate(isFrom: false)),
+      ],
+    );
+  }
+
+  Widget _dateChip(String label, DateTime? date, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          border: Border.all(color: const Color(0xFFE4E4E7)),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.receipt_long, size: 72, color: Colors.grey[300]),
-            const SizedBox(height: 16),
-            Text('Chưa có phiếu lương', style: TextStyle(color: Colors.grey[500], fontSize: 16)),
-          ],
-        ),
-      );
-    }
-    return RefreshIndicator(
-      onRefresh: _loadData,
-      child: ListView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        itemCount: list.length,
-        itemBuilder: (ctx, i) => Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE4E4E7)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
-                ),
-              ],
+            Icon(Icons.calendar_today, size: 14, color: Colors.grey[600]),
+            const SizedBox(width: 6),
+            Text(
+              date != null
+                  ? DateFormat('dd/MM/yyyy').format(date)
+                  : label,
+              style: const TextStyle(fontSize: 13),
             ),
-            child: _buildPayslipDeckItem(list[i]),
-          ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildPayslipDeckItem(Map<String, dynamic> payslip) {
-    final netSalary = payslip['netSalary'] ?? payslip['totalAmount'] ?? 0;
-    final month = payslip['month'];
-    final year = payslip['year'];
-    final monthDisplay = month != null && year != null ? 'T${month.toString().padLeft(2, '0')}/$year' : (payslip['payPeriod'] ?? '');
-    final status = payslip['statusName']?.toString() ?? payslip['status']?.toString() ?? 'Draft';
-    final isPaid = status == 'Paid';
-    final statusColor = isPaid ? HrmPageChrome.primaryNavy : const Color(0xFFF59E0B);
-    return InkWell(
-      onTap: () => _loadPayslipDetail(payslip['id']?.toString() ?? ''),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        child: Row(
-          children: [
-            Container(
-              width: 36, height: 36,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [Color(0xFF059669), HrmPageChrome.primaryNavy]),
-                borderRadius: BorderRadius.circular(8),
+  InputDecoration _filterDecoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      isDense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+    );
+  }
+
+  String _payslipCardId(Map<String, dynamic> p) {
+    return p['id']?.toString() ??
+        '${p['employeeId']}_${p['year']}_${p['month']}';
+  }
+
+  Widget _buildPayslipCard(Map<String, dynamic> p) {
+    final id = _payslipCardId(p);
+    final expanded = _expandedPayslipIds.contains(id);
+    final month = p['month'];
+    final year = p['year'];
+    final monthDisplay = month != null && year != null
+        ? 'T${month.toString().padLeft(2, '0')}/$year'
+        : '';
+    final empName = p['employeeName']?.toString() ?? '';
+    final dept = p['department']?.toString() ?? '';
+    final code = p['employeeCode']?.toString() ?? '';
+    final status = p['status']?.toString() ?? 'Draft';
+    final periodStart =
+        formatApiDateTime(p['periodStart'], pattern: 'dd/MM/yyyy');
+    final periodEnd = formatApiDateTime(p['periodEnd'], pattern: 'dd/MM/yyyy');
+    final paymentStatus = p['paymentStatus']?.toString() ??
+        ((p['isPaid'] == true) ? 'Đã thanh toán' : 'Chưa thanh toán');
+    final isPaid = p['isPaid'] == true || paymentStatus == 'Đã thanh toán';
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE4E4E7)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => setState(() {
+                if (expanded) {
+                  _expandedPayslipIds.remove(id);
+                } else {
+                  _expandedPayslipIds.add(id);
+                }
+              }),
+              child: Ink(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF059669), HrmPageChrome.primaryNavy],
+                  ),
+                ),
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              empName.isNotEmpty ? empName : 'Nhân viên',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                height: 1.25,
+                              ),
+                            ),
+                            if (code.isNotEmpty || dept.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                [
+                                  if (code.isNotEmpty) code,
+                                  if (dept.isNotEmpty) dept,
+                                ].join(' · '),
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                            if (monthDisplay.isNotEmpty) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                'Kỳ $monthDisplay',
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                            if (periodStart.isNotEmpty &&
+                                periodEnd.isNotEmpty) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                '$periodStart — $periodEnd',
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
+                              children: [
+                                _buildStatusChip(
+                                  _statusLabel(status),
+                                  Colors.white.withValues(alpha: 0.2),
+                                ),
+                                _buildStatusChip(
+                                  paymentStatus,
+                                  isPaid
+                                      ? const Color(0xFF16A34A)
+                                      : const Color(0xFFF59E0B),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            _formatCurrency(p['netSalary'] ?? 0),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Icon(
+                            expanded
+                                ? Icons.keyboard_arrow_up
+                                : Icons.keyboard_arrow_down,
+                            color: Colors.white70,
+                            size: 22,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
               ),
-              child: const Icon(Icons.receipt, color: Colors.white, size: 18),
             ),
-            const SizedBox(width: 12),
-            Expanded(
+          ),
+          if (expanded) ...[
+            const Divider(height: 1, color: Color(0xFFE4E4E7)),
+            Padding(
+              padding: const EdgeInsets.all(16),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Phiếu lương $monthDisplay', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                  const SizedBox(height: 2),
-                  Text(_formatDate(payslip['createdAt']), style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+                  _buildInlineSection(
+                    'Thu nhập',
+                    Icons.add_circle,
+                    HrmPageChrome.primaryNavy,
+                    [
+                      _detailRow('Lương cơ bản', p['baseSalary']),
+                      _detailRow('Phụ cấp', p['allowances']),
+                      _detailRow('Thưởng', p['bonus']),
+                      _detailRow('Tăng ca', p['overtimePay']),
+                      _detailRow('Tổng thu nhập (Gross)', p['grossSalary']),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  _buildInlineSection(
+                    'Khấu trừ',
+                    Icons.remove_circle,
+                    const Color(0xFFEF4444),
+                    [
+                      _detailRow('BHXH', p['socialInsurance']),
+                      _detailRow('BHYT', p['healthInsurance']),
+                      _detailRow('BHTN', p['unemploymentInsurance']),
+                      _detailRow('Thuế TNCN', p['tax']),
+                      _detailRow('Khấu trừ khác', p['deductions']),
+                    ],
+                  ),
+                  if (p['cashTransactionCode']?.toString().isNotEmpty == true) ...[
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Phiếu chi: ${p['cashTransactionCode']}',
+                        style:
+                            TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      ),
+                    ),
+                  ],
+                  if ((p['notes']?.toString() ?? '').isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        p['notes'].toString(),
+                        style:
+                            TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
-            Text(_formatCurrency(netSalary), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF059669))),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
-              child: Text(isPaid ? 'Đã TT' : 'Chưa TT', style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.w600)),
-            ),
-            const SizedBox(width: 4),
-            const Icon(Icons.chevron_right, size: 18, color: Colors.grey),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPayslipDetail() {
-    if (_selectedPayslip == null) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.touch_app, size: 64, color: Colors.grey[300]),
-            const SizedBox(height: 16),
-            Text('Chọn phiếu lương để xem chi tiết', style: TextStyle(color: Colors.grey[500], fontSize: 16)),
-          ],
-        ),
-      );
-    }
-    final p = _selectedPayslip!;
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        children: [
-          // Summary card
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [Color(0xFF059669), HrmPageChrome.primaryNavy]),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Column(
-              children: [
-                const Text('LƯƠNG THỰC NHẬN', style: TextStyle(color: Colors.white70, fontSize: 14, letterSpacing: 1)),
-                const SizedBox(height: 8),
-                Text(_formatCurrency(p['netSalary'] ?? 0), style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                Text('Kỳ lương: T${p['month']?.toString().padLeft(2, '0') ?? ''}/${p['year'] ?? ''}', style: const TextStyle(color: Colors.white70)),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-          _buildDetailSection('Thu nhập', Icons.add_circle, HrmPageChrome.primaryNavy, [
-            _detailRow('Lương cơ bản', p['baseSalary']),
-            _detailRow('Phụ cấp', p['allowances']),
-            _detailRow('Thưởng', p['bonus']),
-            _detailRow('Tăng ca', p['overtimePay']),
-            _detailRow('Tổng thu nhập (Gross)', p['grossSalary']),
-          ]),
-          const SizedBox(height: 16),
-          _buildDetailSection('Khấu trừ', Icons.remove_circle, const Color(0xFFEF4444), [
-            _detailRow('BHXH', p['socialInsurance']),
-            _detailRow('BHYT', p['healthInsurance']),
-            _detailRow('BHTN', p['unemploymentInsurance']),
-            _detailRow('Thuế TNCN', p['tax']),
-            _detailRow('Khấu trừ khác', p['deductions']),
-          ]),
         ],
       ),
     );
   }
 
-  Widget _buildDetailSection(String title, IconData icon, Color color, List<Widget> rows) {
+  Widget _buildStatusChip(String label, Color bg) {
     return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.grey.shade200)),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInlineSection(
+    String title,
+    IconData icon,
+    Color color,
+    List<Widget> rows,
+  ) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFFFAFAFA),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(children: [
-              Icon(icon, color: color, size: 20),
-              const SizedBox(width: 8),
-              Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 15)),
-            ]),
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
+            child: Row(
+              children: [
+                Icon(icon, color: color, size: 18),
+                const SizedBox(width: 6),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
           ),
-          const Divider(height: 24),
           ...rows,
         ],
       ),
@@ -333,19 +811,36 @@ class _PayslipScreenState extends State<PayslipScreen> with SingleTickerProvider
 
   Widget _detailRow(String label, dynamic value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(color: Colors.grey[700])),
-          Text(_formatCurrency(value ?? 0), style: const TextStyle(fontWeight: FontWeight.w600)),
+          Text(label, style: TextStyle(color: Colors.grey[700], fontSize: 13)),
+          Text(
+            _formatCurrency(value ?? 0),
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+          ),
         ],
       ),
     );
   }
 
-  String _formatDate(dynamic date) =>
-      formatApiDateTime(date, pattern: 'dd/MM/yyyy', empty: '');
+  String _statusLabel(String status) {
+    switch (status) {
+      case 'Approved':
+        return 'Đã chốt';
+      case 'Paid':
+        return 'Đã thanh toán';
+      case 'PendingApproval':
+        return 'Chờ duyệt';
+      case 'Draft':
+        return 'Nháp';
+      case 'Cancelled':
+        return 'Đã hủy';
+      default:
+        return status;
+    }
+  }
 
   String _formatCurrency(dynamic amount) {
     try {

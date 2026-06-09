@@ -300,6 +300,7 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
                       _datePreset = p;
                     }),
                     statusFilter: _statusDrop(),
+                    statusSummary: _filterStatusSummary(),
                     showTeamFilters: _teamView,
                     branchFilter: _teamView ? _branchFilter : null,
                     selectedBranchId: _selectedBranchId,
@@ -357,6 +358,11 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
         ],
       ),
     );
+  }
+
+  String? _filterStatusSummary() {
+    if (_statusFilter == null) return null;
+    return _statusLabel(_statusFilter!);
   }
 
   Widget _statusDrop() {

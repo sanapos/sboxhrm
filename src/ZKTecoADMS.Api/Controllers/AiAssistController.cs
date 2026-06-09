@@ -31,7 +31,7 @@ public class AiAssistController(
 
     /// <summary>
     /// Generic AI text assist - dùng cho soạn thảo văn bản ở nhiều màn hình:
-    /// feedback, leave, attendance, schedule, attendance_report, payroll_report, ...
+    /// feedback, leave, attendance, schedule, attendance_report, ...
     /// </summary>
     [HttpPost("assist")]
     public async Task<IActionResult> Assist([FromBody] AiAssistRequest dto)
@@ -135,12 +135,6 @@ public class AiAssistController(
                 "chuyên gia HR tóm tắt báo cáo chấm công",
                 "- Viết đoạn tóm tắt, nhận xét, khuyến nghị dựa trên số liệu chấm công do người dùng cung cấp.\n" +
                 "- Cấu trúc: (1) Tổng quan, (2) Điểm đáng chú ý, (3) Khuyến nghị.\n" +
-                "- Văn phong chuyên nghiệp, súc tích, dạng plain text có gạch đầu dòng."
-            ),
-            "payroll_report" => (
-                "chuyên gia C&B tóm tắt báo cáo lương",
-                "- Viết đoạn tóm tắt báo cáo lương dựa trên số liệu người dùng cung cấp.\n" +
-                "- Cấu trúc: (1) Tổng chi, (2) Biến động so với kỳ trước (nếu có), (3) Điểm bất thường cần lưu ý.\n" +
                 "- Văn phong chuyên nghiệp, súc tích, dạng plain text có gạch đầu dòng."
             ),
             _ => (

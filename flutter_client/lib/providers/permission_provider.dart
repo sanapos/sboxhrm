@@ -243,14 +243,6 @@ class PermissionProvider extends ChangeNotifier {
         (action == 'canView' || action == 'canExport')) {
       if (_flag('CashTransaction', action)) return true;
     }
-    if (moduleCode == 'PayrollReport' &&
-        (action == 'canView' || action == 'canExport')) {
-      if (_flag('Payroll', action)) return true;
-    }
-    if (moduleCode == 'Payroll' &&
-        (action == 'canView' || action == 'canExport')) {
-      if (_flag('PayrollReport', action)) return true;
-    }
     if (PermissionModules.attendanceApproval.contains(moduleCode)) {
       if (_anyHas(action, PermissionModules.attendanceApproval)) return true;
     }

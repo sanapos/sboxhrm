@@ -77,7 +77,14 @@ enum CashTransactionStatus {
 }
 
 CashTransactionStatus resolveCashTransactionStatus(Map<String, dynamic> json) {
-  if (json['isPaid'] == true) return CashTransactionStatus.completed;
+  final paid = json['isPaid'] ?? json['IsPaid'];
+  if (paid == true || paid is num && paid != 0) {
+    return CashTransactionStatus.completed;
+  }
+  final paidStr = paid?.toString().trim().toLowerCase() ?? '';
+  if (paidStr == 'true' || paidStr == '1') {
+    return CashTransactionStatus.completed;
+  }
   return CashTransactionStatus.parse(json['status'] ?? json['statusName'] ?? 1);
 }
 

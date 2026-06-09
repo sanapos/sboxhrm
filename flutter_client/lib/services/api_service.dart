@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart' show MediaType;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api_config.dart';
+import '../utils/api_datetime.dart';
 import '../utils/app_error_utils.dart';
 import '../utils/attendance_correction_dates.dart';
 
@@ -4775,8 +4776,21 @@ class ApiService {
         'page': page.toString(),
         'pageSize': pageSize.toString(),
       };
-      if (fromDate != null) params['from'] = fromDate.toIso8601String();
-      if (toDate != null) params['to'] = toDate.toIso8601String();
+      if (fromDate != null) {
+        final d = fromDate is DateTime
+            ? fromDate
+            : DateTime.tryParse(fromDate.toString());
+        if (d != null) {
+          params['from'] = apiReportRangeStart(d).toIso8601String();
+        }
+      }
+      if (toDate != null) {
+        final d =
+            toDate is DateTime ? toDate : DateTime.tryParse(toDate.toString());
+        if (d != null) {
+          params['to'] = apiReportRangeEnd(d).toIso8601String();
+        }
+      }
       if (type != null) params['type'] = type.toString();
       final uri = Uri.parse('$baseUrl/api/reports/finance/cash-transactions')
           .replace(queryParameters: params);
@@ -4823,76 +4837,6 @@ class ApiService {
       }
       if (status != null) params['status'] = status.toString();
       final uri = Uri.parse('$baseUrl/api/reports/finance/advance-debt')
-          .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
-      return _handleResponse(response);
-    } catch (e) {
-      return _connectionFailure(e);
-    }
-  }
-
-  Future<Map<String, dynamic>> getHrHeadcountMovement({int? year}) async {
-    try {
-      final params = <String, String>{};
-      if (year != null) params['year'] = year.toString();
-      final uri = Uri.parse('$baseUrl/api/reports/hr/headcount-movement')
-          .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
-      return _handleResponse(response);
-    } catch (e) {
-      return _connectionFailure(e);
-    }
-  }
-
-  Future<Map<String, dynamic>> getHrContractExpiry({int days = 90}) async {
-    try {
-      final uri = Uri.parse('$baseUrl/api/reports/hr/contract-expiry')
-          .replace(queryParameters: {'days': days.toString()});
-      final response = await http.get(uri, headers: _headers);
-      return _handleResponse(response);
-    } catch (e) {
-      return _connectionFailure(e);
-    }
-  }
-
-  Future<Map<String, dynamic>> getHrOrgHeadcount() async {
-    try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/api/reports/hr/org-headcount'),
-        headers: _headers,
-      );
-      return _handleResponse(response);
-    } catch (e) {
-      return _connectionFailure(e);
-    }
-  }
-
-  Future<Map<String, dynamic>> getPayrollCostByDepartment({
-    int? year,
-    int? month,
-  }) async {
-    try {
-      final params = <String, String>{};
-      if (year != null) params['year'] = year.toString();
-      if (month != null) params['month'] = month.toString();
-      final uri = Uri.parse('$baseUrl/api/reports/payroll/cost-by-department')
-          .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
-      return _handleResponse(response);
-    } catch (e) {
-      return _connectionFailure(e);
-    }
-  }
-
-  Future<Map<String, dynamic>> getPayrollStatusDistribution({
-    int? year,
-    int? month,
-  }) async {
-    try {
-      final params = <String, String>{};
-      if (year != null) params['year'] = year.toString();
-      if (month != null) params['month'] = month.toString();
-      final uri = Uri.parse('$baseUrl/api/reports/payroll/status-distribution')
           .replace(queryParameters: params.isNotEmpty ? params : null);
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
@@ -8877,7 +8821,7 @@ class ApiService {
   }
 
   /// Generic AI text assist (feedback, leave_reason, attendance_reason,
-  /// schedule_request, schedule_approval, attendance_report, payroll_report, generic)
+  /// schedule_request, schedule_approval, attendance_report, generic)
   Future<Map<String, dynamic>> aiAssist({
     required String kind,
     required String prompt,
@@ -9846,16 +9790,49 @@ class ApiService {
     }
   }
 
-  /// Get all payslips in current store for a period (year + optional month).
-  /// Manager/Admin only. Used by payroll report dashboard.
-  Future<Map<String, dynamic>> getStorePayslips(
-      {required int year, int? month}) async {
+  /// Search payslips in current store (manager/admin).
+  Future<Map<String, dynamic>> getStorePayslips({
+    int? year,
+    int? month,
+    String? employeeUserId,
+    String? department,
+    DateTime? periodStartFrom,
+    DateTime? periodEndTo,
+  }) async {
     try {
-      final params = <String, String>{'year': year.toString()};
+      final params = <String, String>{};
+      if (year != null) params['year'] = year.toString();
       if (month != null) params['month'] = month.toString();
+      if (employeeUserId != null && employeeUserId.isNotEmpty) {
+        params['employeeUserId'] = employeeUserId;
+      }
+      if (department != null && department.isNotEmpty) {
+        params['department'] = department;
+      }
+      if (periodStartFrom != null) {
+        params['periodStartFrom'] = periodStartFrom.toIso8601String();
+      }
+      if (periodEndTo != null) {
+        params['periodEndTo'] = periodEndTo.toIso8601String();
+      }
       final uri = Uri.parse('$baseUrl/api/payslips/store')
-          .replace(queryParameters: params);
+          .replace(queryParameters: params.isNotEmpty ? params : null);
       final response = await http.get(uri, headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Chốt lương — tạo/cập nhật phiếu lương từ dữ liệu tổng hợp.
+  Future<Map<String, dynamic>> finalizePayroll(
+      Map<String, dynamic> body) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/payslips/finalize'),
+        headers: _headers,
+        body: jsonEncode(body),
+      );
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);

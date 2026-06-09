@@ -1,4 +1,4 @@
-﻿using ZKTecoADMS.Application.CQRS;
+using ZKTecoADMS.Application.CQRS;
 using ZKTecoADMS.Application.DTOs.Auth;
 using ZKTecoADMS.Application.Models;
 using FluentValidation;

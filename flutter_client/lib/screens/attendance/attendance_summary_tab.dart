@@ -140,8 +140,7 @@ class AttendanceSummaryTab extends StatefulWidget {
   State<AttendanceSummaryTab> createState() => _AttendanceSummaryTabState();
 }
 
-class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
-    with SingleTickerProviderStateMixin {
+class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
   late String _selectedPreset;
   Set<String> _selectedEmployeeIds =
       {}; // Set of selected employee IDs for multi-select
@@ -195,31 +194,17 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
   Map<String, String> _codeOrPinToApplicationUserId = {};
   Map<String, String> _codeOrPinToHrEmployeeCode = {};
 
-  /// Cuộn ngang/dọc 3 bảng mobile (Điểm danh / Giờ làm / Ngày công).
-  final ScrollController _ctAttScroll = ScrollController();
-  final ScrollController _ctHrsScroll = ScrollController();
-  final ScrollController _ctWrkScroll = ScrollController();
-  final ScrollController _ctSumVertScroll = ScrollController();
-  final ScrollController _ctAttVertScroll = ScrollController();
-  final ScrollController _ctHrsVertScroll = ScrollController();
-  final ScrollController _ctWrkVertScroll = ScrollController();
   final ScrollController _desktopTableHScrollHeader = ScrollController();
   final ScrollController _desktopTableHScrollBody = ScrollController();
   final ScrollController _listScrollController = ScrollController();
   final AttendanceViewportPreserve _viewportPreserve =
       AttendanceViewportPreserve();
-  bool _ctScrollLinked = false;
   bool _desktopScrollLinked = false;
-  late final TabController _mobileTableTabController;
 
   @override
   void initState() {
     super.initState();
     _selectedPreset = widget.dateRangePreset ?? 'month';
-    _mobileTableTabController = TabController(length: 4, vsync: this)
-      ..addListener(() {
-        if (mounted) setState(() {});
-      });
     _buildLookupMaps();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scheduleSummaryBuild();
@@ -270,13 +255,6 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
     }
   }
 
-  void _ensureCrossTabScrollLinked() {
-    if (_ctScrollLinked) return;
-    _ctScrollLinked = true;
-    linkHorizontalScrollControllers(_ctAttScroll, _ctHrsScroll);
-    linkHorizontalScrollControllers(_ctHrsScroll, _ctWrkScroll);
-  }
-
   void _ensureDesktopTableScrollLinked() {
     if (_desktopScrollLinked) return;
     _desktopScrollLinked = true;
@@ -287,27 +265,15 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
   }
 
   void _notifyDataChanged() {
-    _viewportPreserve.capture(
-      listScroll: _listScrollController,
-      attHoriz: _ctAttScroll,
-      attVert: _ctAttVertScroll,
-    );
+    _viewportPreserve.capture(listScroll: _listScrollController);
     widget.onDataChanged?.call();
   }
 
   @override
   void dispose() {
     _listScrollController.dispose();
-    _ctAttScroll.dispose();
-    _ctHrsScroll.dispose();
-    _ctWrkScroll.dispose();
-    _ctSumVertScroll.dispose();
-    _ctAttVertScroll.dispose();
-    _ctHrsVertScroll.dispose();
-    _ctWrkVertScroll.dispose();
     _desktopTableHScrollHeader.dispose();
     _desktopTableHScrollBody.dispose();
-    _mobileTableTabController.dispose();
     super.dispose();
   }
 
@@ -391,11 +357,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
       _invalidateDisplayDerivedCache();
       _shiftRecordByKey = null;
       if (oldWidget.attendances != widget.attendances) {
-        _viewportPreserve.restore(
-          listScroll: _listScrollController,
-          attHoriz: _ctAttScroll,
-          attVert: _ctAttVertScroll,
-        );
+        _viewportPreserve.restore(listScroll: _listScrollController);
       }
     }
     if (_cachedSummaryRows == null ||
@@ -457,11 +419,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
       AttendanceCorrectionRequest request) async {
     final handler = widget.onCorrectionRequest;
     if (handler == null) return;
-    _viewportPreserve.capture(
-      listScroll: _listScrollController,
-      attHoriz: _ctAttScroll,
-      attVert: _ctAttVertScroll,
-    );
+    _viewportPreserve.capture(listScroll: _listScrollController);
     await handler(request);
     if (!mounted) return;
     _cachedSummaryRows = null;
@@ -1063,84 +1021,6 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
     return hours.toStringAsFixed(2);
   }
 
-  /// Ô BẢNG ĐIỂM DANH (mobile): mỗi ca một dòng `C1 08:05·17:30`, đủ tối đa [maxShiftSlots] ca.
-  Widget _buildCrossTabAttendanceCell(
-    _DailySummary s,
-    int maxShiftSlots, {
-    Color? background,
-  }) {
-    final lines = <Widget>[];
-    for (var si = 0; si < maxShiftSlots; si++) {
-      final pin = s.getPunch(si * 2 + 1);
-      final pout = s.getPunch(si * 2 + 2);
-      if (pin == null && pout == null) continue;
-      final inStr =
-          pin != null ? DateFormat('HH:mm').format(pin) : '—';
-      final outStr =
-          pout != null ? DateFormat('HH:mm').format(pout) : '—';
-      lines.add(
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 1),
-          child: RichText(
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            text: TextSpan(
-              style: const TextStyle(fontSize: 9.5, height: 1.2),
-              children: [
-                if (maxShiftSlots > 1)
-                  TextSpan(
-                    text: 'C${si + 1} ',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 8,
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-                TextSpan(
-                  text: inStr,
-                  style: const TextStyle(
-                    color: Color(0xFF16A34A),
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const TextSpan(
-                  text: ' · ',
-                  style: TextStyle(
-                    color: Color(0xFF94A3B8),
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-                TextSpan(
-                  text: outStr,
-                  style: const TextStyle(
-                    color: Color(0xFF2563EB),
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Container(
-      color: background,
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 3),
-      alignment: Alignment.center,
-      child: lines.isEmpty
-          ? const Text('—',
-              style: TextStyle(fontSize: 10, color: Color(0xFFA1A1AA)))
-          : Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: lines,
-            ),
-    );
-  }
-
   /// Số cặp ca (1–5) có ít nhất một lần chấm trong [_DailySummary].
   int _summaryShiftPairCount(_DailySummary s) {
     var n = 0;
@@ -1313,38 +1193,30 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
               : useVerticalLayout
                   ? _buildMobileVerticalAttendanceSlivers(
                       summaries, maxPunches, maxShifts)
-                  : _buildMobileCrossTabSlivers(
+                  : _buildMobileEmployeeSummarySlivers(
                       summaries, maxPunches, maxShifts);
 
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            child: CustomScrollView(
-              controller: _listScrollController,
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                  sliver: SliverToBoxAdapter(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        if (widget.mobileLeadingSections != null) ...[
-                          ...widget.mobileLeadingSections!,
-                          const SizedBox(height: 12),
-                        ],
-                        buildMobileOverviewCard(),
-                        const SizedBox(height: 8),
-                      ],
-                    ),
-                  ),
-                ),
-                ...tableSlivers,
-              ],
+      return CustomScrollView(
+        controller: _listScrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            sliver: SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (widget.mobileLeadingSections != null) ...[
+                    ...widget.mobileLeadingSections!,
+                    const SizedBox(height: 12),
+                  ],
+                  buildMobileOverviewCard(),
+                  const SizedBox(height: 8),
+                ],
+              ),
             ),
           ),
-          if (!useVerticalLayout) _buildMobileBottomTabBar(),
+          ...tableSlivers,
         ],
       );
     }
@@ -3819,13 +3691,68 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
     ];
   }
 
-  // ─── Cross-tab table view (mobile) ────────────────────────────────────────
+  // ─── Mobile: danh sách NV (tap xem chi tiết) ─────────────────────────────
 
-  List<Widget> _buildMobileCrossTabSlivers(
-      List<_DailySummary> summaries, int maxPunches, int maxShifts) {
-    // Collect unique employees sorted by name
-    final empMap = <String, String>{}; // empId -> empName
-    final empCodeMap = <String, String>{}; // empId -> empCode
+  String _mobileEmployeeInitials(String name) {
+    final parts =
+        name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    if (parts.isEmpty) return '?';
+    String first(String s) => s.isNotEmpty ? s[0] : '';
+    if (parts.length == 1) return first(parts[0]).toUpperCase();
+    return '${first(parts[0])}${first(parts.last)}'.toUpperCase();
+  }
+
+  Widget _mobileEmployeeMetricChip({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: color.withValues(alpha: 0.18)),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, size: 14, color: color),
+            const SizedBox(height: 4),
+            Text(
+              value,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                color: color,
+              ),
+            ),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 9,
+                color: color.withValues(alpha: 0.85),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _buildMobileEmployeeSummarySlivers(
+    List<_DailySummary> summaries,
+    int maxPunches,
+    int maxShifts,
+  ) {
+    final empMap = <String, String>{};
+    final empCodeMap = <String, String>{};
     for (final s in summaries) {
       empMap[s.employeeId] = s.employeeName;
       empCodeMap[s.employeeId] = s.employeeCode;
@@ -3833,14 +3760,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
     final employees = empMap.entries.toList()
       ..sort((a, b) => a.value.compareTo(b.value));
 
-    // Collect unique dates sorted
-    final dateSet = <String>{};
-    for (final s in summaries) {
-      dateSet.add(DateFormat('yyyy-MM-dd').format(s.date));
-    }
-    final dates = dateSet.map((d) => DateTime.parse(d)).toList()..sort();
-
-    // Quick lookup
+    final dates = attendanceDaysInRange(_selectedDateRange);
     final lookup = <String, _DailySummary>{};
     for (final s in summaries) {
       lookup['${s.employeeId}|${DateFormat('yyyy-MM-dd').format(s.date)}'] = s;
@@ -3849,1022 +3769,323 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab>
     _DailySummary? getSummary(String empId, DateTime day) =>
         lookup['$empId|${DateFormat('yyyy-MM-dd').format(day)}'];
 
-    final leaveLookup = AttendanceLeaveLookup.fromLeaves(
-      widget.approvedLeaves,
-      employeesList: widget.employeesList,
-      includePending: true,
-    );
-    final empUserIdMap = <String, String>{};
-    final hrEmpIdMap = <String, String>{};
-    if (widget.employeesList != null) {
-      for (final e in widget.employeesList!) {
-        final code = e['employeeCode']?.toString() ?? '';
-        final appId = e['applicationUserId']?.toString() ?? '';
-        final hrId = e['id']?.toString() ?? '';
-        if (code.isNotEmpty) {
-          if (appId.isNotEmpty) empUserIdMap[code] = appId;
-          if (hrId.isNotEmpty) hrEmpIdMap[code] = hrId;
-        }
-      }
-    }
+    double totalHoursFor(String empId) => dates.fold<double>(
+        0.0, (sum, d) => sum + (getSummary(empId, d)?.totalHours ?? 0.0));
 
-    // Returns a colored label widget for days with no punch data
-    Widget absenceWidget(String empId, DateTime d) {
-      final code = empCodeMap[empId] ?? empId;
-      final name = empMap[empId] ?? code;
-      final kind = leaveLookup.classify(
-        day: d,
-        employeeCode: code,
-        employeeUserId: empUserIdMap[code] ?? empUserIdMap[empId],
-        hrEmployeeId: hrEmpIdMap[code] ?? hrEmpIdMap[empId],
-        displayEmployeeId: empId,
-        isHoliday: _getHolidayRate(d, code) != null,
-        isWeeklyOff: _isWeeklyOffDay(d, code),
-      );
-      return AttendanceLeaveLookup.buildCell(
-        kind,
-        onUnpaidAbsentTap: kind == AbsenceCellKind.unpaidAbsent
-            ? () {
-                AbsenceDayActions.showForAbsentDay(
-                  context: context,
-                  api: ApiService(),
-                  employeeName: name,
-                  employeeCode: code,
-                  displayEmployeeId: empId,
-                  applicationUserId:
-                      empUserIdMap[code] ?? empUserIdMap[empId],
-                  hrEmployeeId: hrEmpIdMap[code] ?? hrEmpIdMap[empId],
-                  date: d,
-                  employees: widget.employeesList,
-                  onCompleted: _notifyDataChanged,
-                );
-              }
-            : null,
-      );
-    }
+    double totalWorkFor(String empId) => dates.fold<double>(
+        0.0, (sum, d) => sum + (getSummary(empId, d)?.workCount ?? 0.0));
 
-    final empColW = attendanceFrozenEmployeeColWidth(context);
-    const headerH = 52.0;
-    const hrsRowH = 44.0;
-    const ctTitleH = 28.0;
-    const ctScrollEndPad = 20.0;
+    int presentDaysFor(String empId) => dates
+        .where((d) => (getSummary(empId, d)?.totalPunches ?? 0) > 0)
+        .length;
 
-    var attMaxPairs = 1;
-    for (final s in summaries) {
-      attMaxPairs = math.max(attMaxPairs, _summaryShiftPairCount(s));
-    }
-    attMaxPairs = math.min(5, attMaxPairs);
-    final ctDayColW =
-        attMaxPairs >= 4 ? 100.0 : (attMaxPairs >= 3 ? 92.0 : 84.0);
-    final attRowH = math.max(48.0, 12.0 * attMaxPairs + 18.0);
-    final dateScrollWidth = ctDayColW * dates.length + ctScrollEndPad;
-
-    String dayLabel(DateTime d) {
-      const days = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
-      return '${days[d.weekday - 1]}\n${DateFormat('dd/MM').format(d)}';
-    }
-
-    Color headerBg(DateTime d) {
-      if (d.weekday == DateTime.sunday) return Colors.red.shade700;
-      if (d.weekday == DateTime.saturday) return Colors.orange.shade700;
-      return HrmPageChrome.primaryNavy;
-    }
-
-    Widget attCell(String empId, DateTime d, _DailySummary? s) {
-      if (s == null) return absenceWidget(empId, d);
-      Color? bg;
-      if (s.isHoliday) {
-        bg = Colors.deepOrange.withValues(alpha: 0.10);
-      } else if (s.isRestDay) {
-        bg = Colors.purple.withValues(alpha: 0.08);
-      }
-      return _buildCrossTabAttendanceCell(
-        s,
-        maxShifts,
-        background: bg,
-      );
-    }
-
-    Widget hrsCell(String empId, DateTime d, _DailySummary? s) {
-      if (s == null) return absenceWidget(empId, d);
-      if (s.totalHours <= 0) {
-        return const Center(
-            child: Text('—',
-                style: TextStyle(color: Color(0xFFA1A1AA), fontSize: 12)));
-      }
-      final h = s.totalHours;
-      final color = h >= 8
-          ? const Color(0xFF22C55E)
-          : (h >= 4 ? const Color(0xFFF59E0B) : const Color(0xFFEF4444));
-      final workStr = s.effectiveMultiplier != 1.0
-          ? '${_formatHours(h)}\n×${s.effectiveMultiplier.toStringAsFixed(s.effectiveMultiplier % 1 == 0 ? 0 : 1)}'
-          : _formatHours(h);
-      return Center(
-        child: Text(workStr,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-                fontSize: 11, fontWeight: FontWeight.bold, color: color)),
-      );
-    }
-
-    Widget ctEmployeeNameLabel(
-      String name, {
-      double fontSize = 10,
-      bool showCode = false,
-      String? code,
-      String? subtext,
-      Color subtextColor = const Color(0xFF16A34A),
-    }) {
-      return AttendanceFrozenEmployeeNameCell(
-        name: name,
-        subtext: subtext,
-        subtextColor: subtextColor,
-        showCode: showCode,
-        code: code,
-      );
-    }
-
-    Widget ctSectionTitle(String title, Color titleColor,
-        {String? subtitle, bool fullWidth = false}) {
-      return SizedBox(
-        height: ctTitleH,
-        width: fullWidth ? double.infinity : empColW,
-        child: Container(
-          color: titleColor.withValues(alpha: 0.08),
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          alignment: Alignment.centerLeft,
-          child: Row(
-            children: [
-              Container(
-                  width: 3,
-                  height: 12,
-                  color: titleColor,
-                  margin: const EdgeInsets.only(right: 6)),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title,
-                        style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: titleColor)),
-                    if (subtitle != null)
-                      Text(subtitle,
-                          style: TextStyle(fontSize: 8, color: titleColor)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    Widget ctDateHeaderRow() {
-      return Row(
-        children: [
-          ...dates.map((d) {
-            final isToday = d.year == DateTime.now().year &&
-                d.month == DateTime.now().month &&
-                d.day == DateTime.now().day;
-            return Container(
-              width: ctDayColW,
-              height: headerH,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: isToday ? const Color(0xFF2563EB) : headerBg(d),
-                border: const Border(
-                  right: BorderSide(color: Colors.white12, width: 0.5),
-                  bottom: BorderSide(color: Colors.white24, width: 0.5),
-                ),
-              ),
-              child: Text(
-                dayLabel(d),
-                style: TextStyle(
-                  color:
-                      isToday ? Colors.yellow.shade200 : Colors.white,
-                  fontSize: 10,
-                  fontWeight: isToday ? FontWeight.bold : FontWeight.w500,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            );
-          }),
-          const SizedBox(width: ctScrollEndPad),
-        ],
-      );
-    }
-
-    Widget ctDateBodyRow(
-      int index, {
-      required double rowHeight,
-      required Widget Function(String empId, DateTime d, _DailySummary?) cellFn,
-      Color evenRowColor = const Color(0xFFF9F9F9),
-      Color oddRowColor = Colors.white,
-    }) {
-      final empId = employees[index].key;
-      final isEven = index.isEven;
-      return Row(
-        children: [
-          ...dates.map((d) {
-            final s = getSummary(empId, d);
-            return GestureDetector(
-              onTap: s != null
-                  ? () => _showRowDetailDialog(s, maxPunches, maxShifts)
-                  : null,
-              child: Container(
-                width: ctDayColW,
-                height: rowHeight,
-                decoration: BoxDecoration(
-                  color: isEven ? evenRowColor : oddRowColor,
-                  border: const Border(
-                    right: BorderSide(color: Color(0xFFE4E4E7), width: 0.5),
-                    bottom: BorderSide(color: Color(0xFFE4E4E7), width: 0.5),
-                  ),
-                ),
-                alignment: Alignment.center,
-                child: cellFn(empId, d, s),
-              ),
-            );
-          }),
-          const SizedBox(width: ctScrollEndPad),
-        ],
-      );
-    }
-
-    Widget ctFrozenHeader(String label, Color bg) {
-      return Container(
-        width: empColW,
-        height: headerH,
-        alignment: Alignment.centerLeft,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        decoration: BoxDecoration(
-          color: bg,
-          border: const Border(
-            right: BorderSide(color: Colors.white24),
-            bottom: BorderSide(color: Colors.white24, width: 0.5),
-          ),
-        ),
-        child: Text(label,
-            style: const TextStyle(
-                color: Colors.white,
-                fontSize: 11,
-                fontWeight: FontWeight.bold)),
-      );
-    }
-
-    Widget ctFrozenEmpRow(
-      int index, {
-      required double rowHeight,
-      required int maxPunches,
-      required int maxShifts,
-      String? Function(String empId)? subtextFn,
-      Color subtextColor = const Color(0xFF16A34A),
-      String? Function(String empId, String empName)? workSubtextFn,
-    }) {
-      final isEven = index.isEven;
-      final empId = employees[index].key;
-      final empName = employees[index].value;
-      final sub = workSubtextFn?.call(empId, empName) ?? subtextFn?.call(empId);
-      return Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () => _showEmployeeVerticalAttendanceSheet(
-            empId: empId,
-            empName: empName,
-            empCode: empCodeMap[empId] ?? empId,
-            summaries: summaries,
-            maxPunches: maxPunches,
-            maxShifts: maxShifts,
-          ),
-          child: Container(
-            width: empColW,
-            height: rowHeight,
-            alignment: Alignment.centerLeft,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            decoration: BoxDecoration(
-              color: isEven ? const Color(0xFFF4F4F5) : Colors.white,
-              border: const Border(
-                right: BorderSide(color: Color(0xFFD4D4D8)),
-                bottom: BorderSide(color: Color(0xFFE4E4E7), width: 0.5),
-              ),
-            ),
-            child: ctEmployeeNameLabel(
-              empName,
-              subtext: sub,
-              subtextColor: subtextColor,
-            ),
-          ),
-        ),
-      );
-    }
-
-    int expectedDays(String empId) {
+    int expectedDaysFor(String empId) {
       final code = empCodeMap[empId] ?? '';
       return dates.where((d) => !_isWeeklyOffDay(d, code)).length;
     }
 
-    double totalWork(String empId) => dates.fold(
-        0.0, (acc, d) => acc + (getSummary(empId, d)?.workCount ?? 0.0));
+    String formatWork(double w) => w <= 0
+        ? '—'
+        : (w % 1 == 0 ? w.toInt().toString() : w.toStringAsFixed(1));
 
-    double dayHoursSum(DateTime d) => employees.fold<double>(
-        0.0,
-        (sum, e) => sum + (getSummary(e.key, d)?.totalHours ?? 0.0));
+    final grandHours =
+        employees.fold<double>(0.0, (s, e) => s + totalHoursFor(e.key));
+    final grandWork =
+        employees.fold<double>(0.0, (s, e) => s + totalWorkFor(e.key));
 
-    double dayWorkSum(DateTime d) => employees.fold<double>(
-        0.0,
-        (sum, e) => sum + (getSummary(e.key, d)?.workCount ?? 0.0));
+    Widget buildEmployeeCard(int index) {
+      final empId = employees[index].key;
+      final empName = employees[index].value;
+      final empCode = empCodeMap[empId] ?? empId;
+      final hours = totalHoursFor(empId);
+      final work = totalWorkFor(empId);
+      final present = presentDaysFor(empId);
+      final expected = expectedDaysFor(empId);
+      final workRatio = expected > 0 ? (work / expected).clamp(0.0, 1.0) : 0.0;
+      final workColor = work <= 0
+          ? const Color(0xFFA1A1AA)
+          : (expected > 0 && work >= expected
+              ? const Color(0xFF16A34A)
+              : const Color(0xFF7C3AED));
 
-    int dayPresentCount(DateTime d) => employees
-        .where((e) => (getSummary(e.key, d)?.totalPunches ?? 0) > 0)
-        .length;
-
-    final grandTotalHours =
-        summaries.fold<double>(0.0, (sum, s) => sum + s.totalHours);
-    final grandTotalWork =
-        summaries.fold<double>(0.0, (sum, s) => sum + s.workCount);
-    final grandPresentDays = summaries
-        .where((s) => s.totalPunches > 0)
-        .length;
-
-    const totalRowBg = Color(0xFFEFF6FF);
-    const totalFrozenBg = Color(0xFFDBEAFE);
-
-    Widget ctFrozenTotalRow({
-      required double rowHeight,
-      String? subtext,
-      Color subtextColor = HrmPageChrome.primaryNavy,
-    }) {
-      return Container(
-        width: empColW,
-        height: rowHeight,
-        alignment: Alignment.centerLeft,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        decoration: const BoxDecoration(
-          color: totalFrozenBg,
-          border: Border(
-            top: BorderSide(color: Color(0xFF93C5FD), width: 1),
-            right: BorderSide(color: Color(0xFF93C5FD)),
-            bottom: BorderSide(color: Color(0xFF93C5FD), width: 0.5),
-          ),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('TỔNG CỘNG',
-                style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                    color: HrmPageChrome.primaryNavy)),
-            if (subtext != null)
-              Text(subtext,
-                  style: TextStyle(
-                      fontSize: 9,
-                      color: subtextColor,
-                      fontWeight: FontWeight.bold),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis),
-          ],
-        ),
-      );
-    }
-
-    Widget ctDateTotalRow({
-      required double rowHeight,
-      required Widget Function(DateTime d) dayCell,
-    }) {
-      return Row(
-        children: [
-          ...dates.map((d) {
-            return Container(
-              width: ctDayColW,
-              height: rowHeight,
-              decoration: const BoxDecoration(
-                color: totalRowBg,
-                border: Border(
-                  top: BorderSide(color: Color(0xFF93C5FD), width: 1),
-                  right: BorderSide(color: Color(0xFFE4E4E7), width: 0.5),
-                  bottom: BorderSide(color: Color(0xFFE4E4E7), width: 0.5),
-                ),
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Material(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () => _showEmployeeVerticalAttendanceSheet(
+              empId: empId,
+              empName: empName,
+              empCode: empCode,
+              summaries:
+                  summaries.where((s) => s.employeeId == empId).toList(),
+              maxPunches: maxPunches,
+              maxShifts: maxShifts,
+            ),
+            child: Container(
+              decoration: BoxDecoration(
+                border: Border.all(color: const Color(0xFFE4E4E7)),
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.03),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
-              alignment: Alignment.center,
-              child: dayCell(d),
-            );
-          }),
-          const SizedBox(width: ctScrollEndPad),
-        ],
-      );
-    }
-
-    Widget totalDash() => const Center(
-          child: Text('—',
-              style: TextStyle(
-                  color: Color(0xFFA1A1AA),
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold)),
-        );
-
-    Widget wrkCell(_DailySummary s) {
-      if (s.workCount <= 0) {
-        return const Center(
-            child: Text('—',
-                style: TextStyle(color: Color(0xFFA1A1AA), fontSize: 12)));
-      }
-      final wc = s.workCount;
-      final str =
-          wc % 1 == 0 ? wc.toInt().toString() : wc.toStringAsFixed(1);
-      final color =
-          wc >= 1.0 ? const Color(0xFF16A34A) : const Color(0xFFF59E0B);
-      return Center(
-        child: Text(str,
-            style: TextStyle(
-                fontSize: 12, fontWeight: FontWeight.bold, color: color)),
-      );
-    }
-
-    Widget wrkDateCell(String empId, DateTime d, _DailySummary? s) {
-      if (s == null) return absenceWidget(empId, d);
-      return wrkCell(s);
-    }
-
-    _ensureCrossTabScrollLinked();
-
-    List<Widget> buildDateGridSectionSlivers({
-      required String title,
-      required Color titleColor,
-      String? subtitle,
-      required double rowHeight,
-      required Widget Function(String empId, DateTime d, _DailySummary?) cellFn,
-      required ScrollController horizScrollCtrl,
-      required ScrollController vertScrollCtrl,
-      String frozenLabel = 'Nhân viên',
-      Color frozenHeaderBg = HrmPageChrome.primaryNavy,
-      String? Function(String empId)? subtextFn,
-      Color subtextColor = const Color(0xFF16A34A),
-      String? Function(String empId, String empName)? workSubtextFn,
-      Color evenRowColor = const Color(0xFFF9F9F9),
-      Color oddRowColor = Colors.white,
-      Widget Function(DateTime d)? totalDayCellBuilder,
-      String? totalFrozenSubtext,
-      Color totalFrozenSubtextColor = HrmPageChrome.primaryNavy,
-    }) {
-      final empCount = employees.length;
-      final showTotal = totalDayCellBuilder != null;
-      final listH = _mobileListViewportHeight(rowHeight);
-      final gridH = headerH + listH + (showTotal ? rowHeight : 0);
-
-      Widget buildDateGridSection(BuildContext sectionContext) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ctSectionTitle(title, titleColor,
-                subtitle: subtitle, fullWidth: true),
-            SizedBox(
-              height: gridH,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  SizedBox(
-                    width: empColW,
-                    child: Column(
-                      children: [
-                        ctFrozenHeader(frozenLabel, frozenHeaderBg),
-                        SizedBox(
-                          height: listH,
-                          child: ScrollConfiguration(
-                            behavior: ScrollConfiguration.of(sectionContext)
-                                .copyWith(scrollbars: false),
-                            child: ListView.builder(
-                              controller: vertScrollCtrl,
-                              primary: false,
-                              physics: _tableInnerScrollPhysics,
-                              itemCount: empCount,
-                              itemExtent: rowHeight,
-                              itemBuilder: (_, i) => ctFrozenEmpRow(
-                                i,
-                                rowHeight: rowHeight,
-                                maxPunches: maxPunches,
-                                maxShifts: maxShifts,
-                                subtextFn: subtextFn,
-                                subtextColor: subtextColor,
-                                workSubtextFn: workSubtextFn,
-                              ),
-                            ),
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 20,
+                        backgroundColor:
+                            HrmPageChrome.primaryNavy.withValues(alpha: 0.12),
+                        child: Text(
+                          _mobileEmployeeInitials(empName),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: HrmPageChrome.primaryNavy,
                           ),
                         ),
-                        if (showTotal)
-                          ctFrozenTotalRow(
-                            rowHeight: rowHeight,
-                            subtext: totalFrozenSubtext,
-                            subtextColor: totalFrozenSubtextColor,
-                          ),
-                      ],
-                    ),
-                  ),
-                  Container(width: 1, color: const Color(0xFFE4E4E7)),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      controller: horizScrollCtrl,
-                      scrollDirection: Axis.horizontal,
-                      physics: const ClampingScrollPhysics(),
-                      child: SizedBox(
-                        width: dateScrollWidth,
-                        height: gridH,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            ctDateHeaderRow(),
-                            SizedBox(
-                              height: listH,
-                              child: SyncedScrollListView(
-                                mainController: vertScrollCtrl,
-                                physics: _tableInnerScrollPhysics,
-                                itemCount: empCount,
-                                itemExtent: rowHeight,
-                                itemBuilder: (_, i) => ctDateBodyRow(
-                                  i,
-                                  rowHeight: rowHeight,
-                                  cellFn: cellFn,
-                                  evenRowColor: evenRowColor,
-                                  oddRowColor: oddRowColor,
-                                ),
+                            Text(
+                              empName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF18181B),
                               ),
                             ),
-                            if (showTotal)
-                              ctDateTotalRow(
-                                rowHeight: rowHeight,
-                                dayCell: totalDayCellBuilder!,
+                            const SizedBox(height: 2),
+                            Text(
+                              empCode,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF71717A),
                               ),
+                            ),
                           ],
                         ),
                       ),
+                      const Icon(Icons.chevron_right,
+                          color: Color(0xFF94A3B8), size: 22),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      _mobileEmployeeMetricChip(
+                        icon: Icons.schedule_rounded,
+                        label: 'Giờ làm',
+                        value: hours > 0 ? _formatHours(hours) : '—',
+                        color: const Color(0xFF2563EB),
+                      ),
+                      const SizedBox(width: 8),
+                      _mobileEmployeeMetricChip(
+                        icon: Icons.calendar_today_rounded,
+                        label: 'Ngày công',
+                        value: formatWork(work),
+                        color: workColor,
+                      ),
+                      const SizedBox(width: 8),
+                      _mobileEmployeeMetricChip(
+                        icon: Icons.fingerprint_rounded,
+                        label: 'Có chấm',
+                        value: present > 0 ? '$present ngày' : '—',
+                        color: const Color(0xFF16A34A),
+                      ),
+                    ],
+                  ),
+                  if (expected > 0) ...[
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: workRatio,
+                              minHeight: 5,
+                              backgroundColor: const Color(0xFFE4E4E7),
+                              color: workColor,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${formatWork(work)}/$expected công',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: workColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    Widget buildGrandTotalCard() {
+      return Container(
+        margin: const EdgeInsets.only(top: 4),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              HrmPageChrome.primaryNavy.withValues(alpha: 0.08),
+              const Color(0xFFDBEAFE),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFF93C5FD)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Tổng cộng',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: HrmPageChrome.primaryNavy,
+                    ),
+                  ),
+                  Text(
+                    '${employees.length} nhân viên',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.grey.shade700,
                     ),
                   ),
                 ],
               ),
             ),
-          ],
-        );
-      }
-
-      return [
-        SliverToBoxAdapter(
-          child: Builder(
-            builder: buildDateGridSection,
-          ),
-        ),
-      ];
-    }
-
-    List<Widget> buildPeriodSummarySlivers() {
-      const sumRowH = 52.0;
-      const titleColor = Color(0xFF0F172A);
-      final empCount = employees.length;
-
-      double totalHoursFor(String empId) => dates.fold<double>(
-          0.0, (sum, d) => sum + (getSummary(empId, d)?.totalHours ?? 0.0));
-
-      Widget sumHeaderCell(String label, {TextAlign align = TextAlign.left}) {
-        return Container(
-          height: headerH,
-          alignment: align == TextAlign.center
-              ? Alignment.center
-              : Alignment.centerLeft,
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          decoration: const BoxDecoration(
-            color: HrmPageChrome.primaryNavy,
-            border: Border(
-              right: BorderSide(color: Colors.white24),
-              bottom: BorderSide(color: Colors.white24, width: 0.5),
-            ),
-          ),
-          child: Text(label,
-              textAlign: align,
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold)),
-        );
-      }
-
-      Widget sumBodyRow(int index) {
-        final isEven = index.isEven;
-        final empId = employees[index].key;
-        final empName = employees[index].value;
-        final empCode = empCodeMap[empId] ?? empId;
-        final h = totalHoursFor(empId);
-        final w = totalWork(empId);
-        final hoursStr = h > 0 ? _formatHours(h) : '—';
-        final workStr = w > 0
-            ? (w % 1 == 0 ? w.toInt().toString() : w.toStringAsFixed(1))
-            : '—';
-        final hoursColor = h <= 0
-            ? const Color(0xFFA1A1AA)
-            : const Color(0xFF2563EB);
-        final expected = expectedDays(empId);
-        final workColor = w <= 0
-            ? const Color(0xFFA1A1AA)
-            : (expected > 0 && w >= expected
-                ? const Color(0xFF16A34A)
-                : const Color(0xFF7C3AED));
-
-        Widget metricCell(String text, Color color) {
-          return Container(
-            alignment: Alignment.center,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Text(text,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: color)),
-          );
-        }
-
-        return Container(
-          height: sumRowH,
-          decoration: BoxDecoration(
-            color: isEven ? const Color(0xFFF8FAFC) : Colors.white,
-            border: const Border(
-              bottom: BorderSide(color: Color(0xFFE4E4E7), width: 0.5),
-            ),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                flex: 55,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  child: ctEmployeeNameLabel(
-                    empName,
-                    showCode: true,
-                    code: empCode,
-                  ),
-                ),
-              ),
-              Expanded(flex: 22, child: metricCell(hoursStr, hoursColor)),
-              Expanded(flex: 23, child: metricCell(workStr, workColor)),
-            ],
-          ),
-        );
-      }
-
-      final pinnedH = ctTitleH + headerH;
-      return [
-        SliverPersistentHeader(
-          pinned: true,
-          delegate: PinnedBoxHeaderDelegate(
-            extent: pinnedH,
-            backgroundColor: Colors.white,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                ctSectionTitle('TỔNG HỢP CHẤM CÔNG', titleColor,
-                    subtitle: 'theo bộ lọc', fullWidth: true),
-                Row(
-                  children: [
-                    Expanded(flex: 55, child: sumHeaderCell('Họ và tên')),
-                    Expanded(
-                        flex: 22,
-                        child: sumHeaderCell('Tổng giờ',
-                            align: TextAlign.center)),
-                    Expanded(
-                        flex: 23,
-                        child: sumHeaderCell('Tổng công',
-                            align: TextAlign.center)),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-        SliverList(
-          delegate: SliverChildBuilderDelegate(
-            (context, index) {
-              if (index < empCount) return sumBodyRow(index);
-              final gHours = employees.fold<double>(
-                  0.0, (sum, e) => sum + totalHoursFor(e.key));
-              final gWork = employees.fold<double>(
-                  0.0, (sum, e) => sum + totalWork(e.key));
-              final hoursStr = gHours > 0 ? _formatHours(gHours) : '—';
-              final workStr = gWork > 0
-                  ? (gWork % 1 == 0
-                      ? gWork.toInt().toString()
-                      : gWork.toStringAsFixed(1))
-                  : '—';
-              return Container(
-                height: sumRowH,
-                decoration: const BoxDecoration(
-                  color: totalRowBg,
-                  border: Border(
-                    top: BorderSide(color: Color(0xFF93C5FD), width: 1),
-                    bottom: BorderSide(color: Color(0xFFE4E4E7), width: 0.5),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      flex: 55,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        child: const Text('TỔNG CỘNG',
-                            style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w800,
-                                color: HrmPageChrome.primaryNavy)),
-                      ),
-                    ),
-                    Expanded(
-                      flex: 22,
-                      child: Text(hoursStr,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800,
-                              color: gHours > 0
-                                  ? const Color(0xFF2563EB)
-                                  : const Color(0xFFA1A1AA))),
-                    ),
-                    Expanded(
-                      flex: 23,
-                      child: Text(workStr,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800,
-                              color: gWork > 0
-                                  ? const Color(0xFF7C3AED)
-                                  : const Color(0xFFA1A1AA))),
-                    ),
-                  ],
-                ),
-              );
-            },
-            childCount: empCount + 1,
-          ),
-        ),
-      ];
-    }
-
-    List<Widget> buildMobileTabSlivers(int tabIndex) {
-      switch (tabIndex) {
-        case 0:
-          return buildPeriodSummarySlivers();
-        case 1:
-          return buildDateGridSectionSlivers(
-            title: 'BẢNG ĐIỂM DANH',
-            titleColor: const Color(0xFF16A34A),
-            rowHeight: attRowH,
-            cellFn: attCell,
-            horizScrollCtrl: _ctAttScroll,
-            vertScrollCtrl: _ctAttVertScroll,
-            totalFrozenSubtext:
-                grandPresentDays > 0 ? '$grandPresentDays lượt có chấm' : null,
-            totalFrozenSubtextColor: const Color(0xFF16A34A),
-            totalDayCellBuilder: (d) {
-              final n = dayPresentCount(d);
-              if (n <= 0) return totalDash();
-              return Center(
-                child: Text(
-                  '$n NV',
-                  textAlign: TextAlign.center,
+                Text(
+                  grandHours > 0 ? _formatHours(grandHours) : '—',
                   style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF16A34A),
-                  ),
-                ),
-              );
-            },
-          );
-        case 2:
-          return buildDateGridSectionSlivers(
-            title: 'BẢNG GIỜ LÀM',
-            titleColor: const Color(0xFF2563EB),
-            rowHeight: hrsRowH,
-            cellFn: hrsCell,
-            horizScrollCtrl: _ctHrsScroll,
-            vertScrollCtrl: _ctHrsVertScroll,
-            subtextFn: (empId) {
-              final total = dates.fold<double>(
-                  0.0,
-                  (sum, d) =>
-                      sum + (getSummary(empId, d)?.totalHours ?? 0.0));
-              return total > 0 ? _formatHours(total) : null;
-            },
-            subtextColor: const Color(0xFF2563EB),
-            totalFrozenSubtext: grandTotalHours > 0
-                ? _formatHours(grandTotalHours)
-                : null,
-            totalFrozenSubtextColor: const Color(0xFF2563EB),
-            totalDayCellBuilder: (d) {
-              final h = dayHoursSum(d);
-              if (h <= 0) return totalDash();
-              return Center(
-                child: Text(
-                  _formatHours(h),
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 11,
+                    fontSize: 14,
                     fontWeight: FontWeight.w800,
                     color: Color(0xFF2563EB),
                   ),
                 ),
-              );
-            },
-          );
-        case 3:
-        default:
-          return buildDateGridSectionSlivers(
-            title: 'BẢNG NGÀY CÔNG',
-            titleColor: const Color(0xFF7C3AED),
-            subtitle: 'lương tháng/ngày',
-            rowHeight: hrsRowH,
-            cellFn: wrkDateCell,
-            horizScrollCtrl: _ctWrkScroll,
-            vertScrollCtrl: _ctWrkVertScroll,
-            frozenLabel: 'NV / Tổng công',
-            frozenHeaderBg: const Color(0xFF4C1D95),
-            subtextColor: const Color(0xFF7C3AED),
-            workSubtextFn: (empId, _) {
-              final total = totalWork(empId);
-              final expected = expectedDays(empId);
-              final totalStr = total % 1 == 0
-                  ? total.toInt().toString()
-                  : total.toStringAsFixed(1);
-              return '$totalStr/$expected ngày';
-            },
-            evenRowColor: const Color(0xFFF5F3FF),
-            totalFrozenSubtext: grandTotalWork > 0
-                ? (grandTotalWork % 1 == 0
-                    ? '${grandTotalWork.toInt()} công'
-                    : '${grandTotalWork.toStringAsFixed(1)} công')
-                : null,
-            totalFrozenSubtextColor: const Color(0xFF7C3AED),
-            totalDayCellBuilder: (d) {
-              final w = dayWorkSum(d);
-              if (w <= 0) return totalDash();
-              final str =
-                  w % 1 == 0 ? w.toInt().toString() : w.toStringAsFixed(1);
-              return Center(
-                child: Text(
-                  str,
-                  textAlign: TextAlign.center,
+                const Text('tổng giờ',
+                    style: TextStyle(fontSize: 9, color: Color(0xFF71717A))),
+                const SizedBox(height: 4),
+                Text(
+                  formatWork(grandWork),
                   style: const TextStyle(
-                    fontSize: 11,
+                    fontSize: 14,
                     fontWeight: FontWeight.w800,
                     color: Color(0xFF7C3AED),
                   ),
                 ),
-              );
-            },
-          );
-      }
+                const Text('tổng công',
+                    style: TextStyle(fontSize: 9, color: Color(0xFF71717A))),
+              ],
+            ),
+          ],
+        ),
+      );
     }
-
-    List<Widget> tabContentSlivers() =>
-        buildMobileTabSlivers(_mobileTableTabController.index);
 
     return [
       SliverPadding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
         sliver: SliverToBoxAdapter(
-          child: Container(
-            decoration: _tableCardDecoration,
-            child: ClipRRect(
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(12),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.groups_rounded,
+                    size: 18, color: HrmPageChrome.primaryNavy),
               ),
-              child: ColoredBox(
-                color: Colors.white,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
-                      child: Wrap(
-                        spacing: 14,
-                        runSpacing: 4,
-                        children: [
-                          _legendItem(
-                              Icons.login, const Color(0xFF22C55E), 'Vào'),
-                          _legendItem(
-                              Icons.logout, const Color(0xFF3B82F6), 'Ra'),
-                          _legendItem(Icons.error_outline,
-                              const Color(0xFFEF4444), 'Thiếu lượt'),
-                          _legendItem(Icons.celebration,
-                              Colors.deepOrange, 'Lễ'),
-                          _legendItem(
-                              Icons.weekend, Colors.purple, 'Nghỉ/T7-CN'),
-                        ],
-                      ),
-                    ),
-                  ],
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'Danh sách nhân viên',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF18181B),
+                  ),
                 ),
               ),
-            ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '${employees.length} NV',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: HrmPageChrome.primaryNavy,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
       SliverPadding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-        sliver: SliverMainAxisGroup(
-          slivers: tabContentSlivers(),
-        ),
-      ),
-      if (attMaxPairs > 1)
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-          sliver: SliverToBoxAdapter(
-            child: Text(
-              'Chạm tên NV để xem bảng dọc. Vuốt ngang xem thêm ngày; vuốt dọc xem thêm NV.',
-              style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
-            ),
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+        sliver: SliverToBoxAdapter(
+          child: Text(
+            'Chạm thẻ nhân viên để xem bảng chi tiết điểm danh theo ngày',
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
           ),
         ),
+      ),
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+        sliver: SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (context, index) => buildEmployeeCard(index),
+            childCount: employees.length,
+          ),
+        ),
+      ),
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+        sliver: SliverToBoxAdapter(child: buildGrandTotalCard()),
+      ),
     ];
   }
-
-  static const _mobileQuickTabLabels = [
-    'Tổng hợp',
-    'Điểm danh',
-    'Giờ làm',
-    'Ngày công',
-  ];
-
-  Widget _buildMobileBottomTabBar() {
-    final idx = _mobileTableTabController.index;
-    return Material(
-      elevation: 8,
-      color: Colors.white,
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
-          height: 48,
-          child: Row(
-            children: List.generate(_mobileQuickTabLabels.length, (i) {
-              final selected = i == idx;
-              return Expanded(
-                child: InkWell(
-                  onTap: () {
-                    if (_mobileTableTabController.index == i) return;
-                    _mobileTableTabController.animateTo(i);
-                    setState(() {});
-                  },
-                  child: Column(
-                    children: [
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 180),
-                        height: 3,
-                        color: selected
-                            ? HrmPageChrome.primaryNavy
-                            : Colors.transparent,
-                      ),
-                      Expanded(
-                        child: Center(
-                          child: Text(
-                            _mobileQuickTabLabels[i],
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: selected
-                                  ? FontWeight.w700
-                                  : FontWeight.w500,
-                              color: selected
-                                  ? HrmPageChrome.primaryNavy
-                                  : const Color(0xFF71717A),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _legendItem(IconData icon, Color color, String label) => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: color),
-          const SizedBox(width: 3),
-          Text(label,
-              style: const TextStyle(fontSize: 10, color: Color(0xFF52525B))),
-        ],
-      );
-
   void _showRowDetailDialog(
       _DailySummary summary, int maxPunches, int maxShifts) {
     final isMobile = MediaQuery.of(context).size.width < 600;

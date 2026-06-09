@@ -17,6 +17,9 @@ class AnnouncementBanner extends StatefulWidget {
 }
 
 class _AnnouncementBannerState extends State<AnnouncementBanner> {
+  static const _renewalPhone = '0973024042';
+  static const _renewalPhoneDisplay = '0973 024 042';
+
   final _api = ApiService();
   Timer? _timer;
   List<Map<String, dynamic>> _items = [];
@@ -243,13 +246,71 @@ class _AnnouncementBannerState extends State<AnnouncementBanner> {
     setState(() => _hidden.add(id));
   }
 
+  Future<void> _launchTel(String phone) async {
+    final uri = Uri.parse('tel:+84${phone.startsWith('0') ? phone.substring(1) : phone}');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    }
+  }
+
+  Future<void> _launchZalo(String phone) async {
+    final uri = Uri.parse('https://zalo.me/$phone');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  Widget _renewalContactPanel() {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0F9FF),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFF0891B2).withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Liên hệ gia hạn ngay',
+            style: vietnameseTextStyle(const TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 14,
+              color: Color(0xFF0C4A6E),
+            )),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton.icon(
+                onPressed: () => _launchTel(_renewalPhone),
+                icon: const Icon(Icons.phone_rounded, size: 18),
+                label: Text('Gọi $_renewalPhoneDisplay'),
+              ),
+              OutlinedButton.icon(
+                onPressed: () => _launchZalo(_renewalPhone),
+                icon: const Icon(Icons.chat_rounded, size: 18),
+                label: const Text('Chat Zalo'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _showDetail(Map<String, dynamic> a) async {
     final id = a['id']?.toString() ?? '';
     final kind =
         AdminHelpers.parseEnumInt(a['kind'], AdminHelpers.announcementKindMap);
+    final isRenewal = kind == 3;
     final requireAck = (a['requireAck'] as bool?) ?? false;
     final allowDismiss = (a['allowDismiss'] as bool?) ?? true;
-    final canDismiss = allowDismiss || kind == 3;
+    final canDismiss = allowDismiss || isRenewal;
     final actionUrl = a['actionUrl']?.toString();
     final actionLabel = a['actionLabel']?.toString();
     await showDialog(
@@ -258,9 +319,33 @@ class _AnnouncementBannerState extends State<AnnouncementBanner> {
       builder: (_) => ScrollableAlertDialog(
         title: Text(_formatRenewalTitle(a, a['title']?.toString() ?? '')),
         content: SingleChildScrollView(
-          child: Text(_clean(a['content']?.toString() ?? '')),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(_clean(a['content']?.toString() ?? '')),
+              if (isRenewal) _renewalContactPanel(),
+            ],
+          ),
         ),
         actions: [
+          if (isRenewal) ...[
+            TextButton.icon(
+              onPressed: () {
+                Navigator.pop(context);
+                _launchTel(_renewalPhone);
+              },
+              icon: const Icon(Icons.phone_rounded, size: 18),
+              label: Text('Gọi $_renewalPhoneDisplay'),
+            ),
+            TextButton.icon(
+              onPressed: () {
+                Navigator.pop(context);
+                _launchZalo(_renewalPhone);
+              },
+              icon: const Icon(Icons.chat_rounded, size: 18),
+              label: const Text('Zalo'),
+            ),
+          ],
           if (actionUrl != null && actionUrl.isNotEmpty)
             TextButton(
               onPressed: () {

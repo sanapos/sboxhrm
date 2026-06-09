@@ -6,6 +6,7 @@ using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Queries.Payslips.GetEmployeePayslips;
 using ZKTecoADMS.Application.Queries.Payslips.GetPayslipById;
 using ZKTecoADMS.Application.Queries.Payslips.GetStorePayslips;
+using ZKTecoADMS.Application.Commands.Payslips.FinalizePayroll;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.DTOs.Payslips;
 using ZKTecoADMS.Application.Models;
@@ -18,20 +19,16 @@ public class PayslipsController(IMediator mediator) : AuthenticatedControllerBas
 {
     /// <summary>
     /// Get all payslips for a specific employee by user ID
-    /// Employees can only view their own payslips, managers can view any employee's payslips
     /// </summary>
     [HttpGet("employee/{employeeUserId}")]
     [RequireModulePermission("Payslip", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<PayslipDto>>>> GetEmployeePayslips(Guid employeeUserId)
     {
-        // Check if user is viewing their own payslips or is a manager
         var isManagerOrAdmin = IsManager || IsAdmin;
         var currentUserId = CurrentUserId;
 
         if (!isManagerOrAdmin && currentUserId != employeeUserId)
-        {
             return Forbid();
-        }
 
         var query = new GetEmployeePayslipsQuery(RequiredStoreId, employeeUserId, isManagerOrAdmin);
         var result = await mediator.Send(query);
@@ -51,18 +48,39 @@ public class PayslipsController(IMediator mediator) : AuthenticatedControllerBas
     }
 
     /// <summary>
-    /// Get all payslips in the current store for a given period (year + optional month).
-    /// Manager/Admin only. Used by payroll report dashboard.
+    /// Search payslips in the current store with optional filters.
+    /// Manager/Admin only.
     /// </summary>
     [HttpGet("store")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
     [RequireModulePermission("Payslip", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<PayslipDto>>>> GetStorePayslips(
-        [FromQuery] int year,
-        [FromQuery] int? month)
+        [FromQuery] int? year,
+        [FromQuery] int? month,
+        [FromQuery] Guid? employeeUserId,
+        [FromQuery] string? department,
+        [FromQuery] DateTime? periodStartFrom,
+        [FromQuery] DateTime? periodEndTo)
     {
-        var query = new GetStorePayslipsQuery(RequiredStoreId, year, month);
+        var query = new GetStorePayslipsQuery(
+            RequiredStoreId, year, month, employeeUserId, department, periodStartFrom, periodEndTo);
         var result = await mediator.Send(query);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Chốt lương — tạo/cập nhật phiếu lương từ dữ liệu tổng hợp lương đã tính.
+    /// </summary>
+    [HttpPost("finalize")]
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Payroll", ModulePermissionAction.Export)]
+    public async Task<ActionResult<AppResponse<FinalizePayrollResultDto>>> FinalizePayroll(
+        [FromBody] FinalizePayrollRequest request)
+    {
+        var command = new FinalizePayrollCommand(RequiredStoreId, CurrentUserId, request);
+        var result = await mediator.Send(command);
+        if (!result.IsSuccess)
+            return BadRequest(result);
         return Ok(result);
     }
 
@@ -73,7 +91,6 @@ public class PayslipsController(IMediator mediator) : AuthenticatedControllerBas
     [RequireModulePermission("Payslip", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<PayslipDto>>> GetPayslipById(Guid id)
     {
-        // Check authorization before querying data
         var isManagerOrAdmin = IsManager || IsAdmin;
         var currentUserId = CurrentUserId;
 
@@ -81,14 +98,10 @@ public class PayslipsController(IMediator mediator) : AuthenticatedControllerBas
         var result = await mediator.Send(query);
 
         if (!result.IsSuccess)
-        {
             return NotFound(result);
-        }
 
         if (!isManagerOrAdmin && currentUserId != result.Data?.EmployeeUserId)
-        {
             return Forbid();
-        }
 
         return Ok(result);
     }

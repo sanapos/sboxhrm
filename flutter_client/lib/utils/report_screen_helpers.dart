@@ -74,6 +74,8 @@ class ReportDateRangeFilterBar extends StatelessWidget {
   final DateTime to;
   final String preset;
   final void Function(DateTime from, DateTime to, String preset) onChanged;
+  /// Ẩn dòng lịch thứ hai — gọn hơn trên mobile.
+  final bool compact;
 
   const ReportDateRangeFilterBar({
     super.key,
@@ -81,6 +83,7 @@ class ReportDateRangeFilterBar extends StatelessWidget {
     required this.to,
     required this.preset,
     required this.onChanged,
+    this.compact = false,
   });
 
   Future<void> _pickCustomRange(BuildContext context) async {
@@ -174,51 +177,53 @@ class ReportDateRangeFilterBar extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 6),
-        Material(
-          color: const Color(0xFFF8FAFC),
-          borderRadius: BorderRadius.circular(8),
-          child: InkWell(
-            onTap: () => _pickCustomRange(context),
+        if (!compact) ...[
+          const SizedBox(height: 6),
+          Material(
+            color: const Color(0xFFF8FAFC),
             borderRadius: BorderRadius.circular(8),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFE4E4E7)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.calendar_month_outlined,
-                      size: 18, color: Color(0xFF6B7280)),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      rangeText,
-                      style: vietnameseTextStyle(const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF111827),
-                      )),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  if (!isCustom) ...[
-                    const SizedBox(width: 6),
-                    Text(
-                      ReportDateRangePresets.presetLabel(preset),
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Color(0xFF9CA3AF),
+            child: InkWell(
+              onTap: () => _pickCustomRange(context),
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFE4E4E7)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.calendar_month_outlined,
+                        size: 18, color: Color(0xFF6B7280)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        rangeText,
+                        style: vietnameseTextStyle(const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF111827),
+                        )),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    if (!isCustom) ...[
+                      const SizedBox(width: 6),
+                      Text(
+                        ReportDateRangePresets.presetLabel(preset),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF9CA3AF),
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
-        ),
+        ],
       ],
     );
   }

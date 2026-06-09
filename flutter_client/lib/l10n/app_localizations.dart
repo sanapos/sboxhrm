@@ -48,12 +48,8 @@ class AppLocalizations {
   String get assets => get('assets');
   String get tasks => get('tasks');
   String get communication => get('communication');
-  String get hrReport => get('hrReport');
-  String get hrReportSubtitle => get('hrReportSubtitle');
   String get attendanceReport => get('attendanceReport');
   String get attendanceReportSubtitle => get('attendanceReportSubtitle');
-  String get payrollReport => get('payrollReport');
-  String get payrollReportSubtitle => get('payrollReportSubtitle');
   String get hrmSetup => get('hrmSetup');
   String get settings => get('settings');
   String get systemAdmin => get('systemAdmin');
@@ -469,12 +465,8 @@ class AppLocalizations {
       'assets': 'Tài sản',
       'tasks': 'Công việc',
       'communication': 'Truyền thông',
-      'hrReport': 'Phân tích HR nâng cao',
-      'hrReportSubtitle': '29 báo cáo chuyên sâu',
       'attendanceReport': 'Báo cáo chấm công',
       'attendanceReportSubtitle': 'Ngày, tháng, đi muộn, phòng ban',
-      'payrollReport': 'Báo cáo lương',
-      'payrollReportSubtitle': 'Chi phí lương, phân bổ',
       'hrmSetup': 'Thiết lập HRM',
       'settings': 'Cài đặt',
       'systemAdmin': 'Quản trị hệ thống',
@@ -892,12 +884,8 @@ class AppLocalizations {
       'assets': 'Assets',
       'tasks': 'Tasks',
       'communication': 'Communication',
-      'hrReport': 'Advanced HR analytics',
-      'hrReportSubtitle': '29 in-depth reports',
       'attendanceReport': 'Attendance Report',
       'attendanceReportSubtitle': 'Daily, monthly, late, by department',
-      'payrollReport': 'Payroll Report',
-      'payrollReportSubtitle': 'Salary costs, allocation',
       'hrmSetup': 'HRM Setup',
       'settings': 'Settings',
       'systemAdmin': 'System Admin',

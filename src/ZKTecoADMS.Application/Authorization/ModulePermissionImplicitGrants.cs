@@ -50,7 +50,7 @@ public static class ModulePermissionImplicitGrants
 
     private static readonly string[] ModernReportModules =
     [
-        "HrReport", "AttendanceReport", "PayrollReport", "LeaveReport",
+        "AttendanceReport", "LeaveReport",
         "CashReport", "PenaltyReport", "AdvanceReport", "AssetReport"
     ];
 

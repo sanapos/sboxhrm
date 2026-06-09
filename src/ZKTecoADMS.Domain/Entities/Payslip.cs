@@ -7,8 +7,12 @@ namespace ZKTecoADMS.Domain.Entities;
 public class Payslip : AuditableEntity<Guid>
 {
     [Required]
-    public Guid EmployeeUserId { get; set; }
-    public virtual ApplicationUser EmployeeUser { get; set; } = null!;
+    public Guid EmployeeId { get; set; }
+    public virtual Employee Employee { get; set; } = null!;
+
+    /// <summary>Tài khoản đăng nhập (nếu NV có); không bắt buộc để chốt lương.</summary>
+    public Guid? EmployeeUserId { get; set; }
+    public virtual ApplicationUser? EmployeeUser { get; set; }
 
     [Required]
     public Guid SalaryProfileId { get; set; }
@@ -149,6 +153,10 @@ public class Payslip : AuditableEntity<Guid>
     /// When the payment was made
     /// </summary>
     public DateTime? PaidDate { get; set; }
+
+    /// <summary>Phiếu chi thu/chi chờ thanh toán lương.</summary>
+    public Guid? CashTransactionId { get; set; }
+    public virtual CashTransaction? CashTransaction { get; set; }
 
     [MaxLength(1000)]
     public string? Notes { get; set; }

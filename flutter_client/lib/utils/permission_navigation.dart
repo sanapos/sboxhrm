@@ -59,10 +59,6 @@ class PermissionNavigation {
         return 'Thu chi';
       case 'Production':
         return 'Sản lượng';
-      case 'HrReport':
-        return 'Báo cáo nhân sự';
-      case 'PayrollReport':
-        return 'Báo cáo lương';
       case 'PenaltyReport':
         return 'Báo cáo phạt';
       case 'CashReport':
