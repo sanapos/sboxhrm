@@ -99,26 +99,56 @@ class _AnnouncementBannerState extends State<AnnouncementBanner> {
   String _clean(String text) =>
       text.replaceAll(_markerRe, ' ').replaceAll(RegExp(r'\s{2,}'), ' ').trim();
 
-  /// Tính lại số ngày còn lại từ `expiresAt` (chính xác theo ngày hiện tại)
-  /// và chuẩn hoá title cho thông báo gia hạn.
+  static final RegExp _licenseExpiryInContentRe = RegExp(
+    r'hết hạn vào\s*(\d{2})/(\d{2})/(\d{4})',
+    caseSensitive: false,
+  );
+
+  /// Ngày hết hạn license (lịch VN), ưu tiên parse từ nội dung thông báo.
+  DateTime? _licenseExpiryDate(Map<String, dynamic> a) {
+    final content = a['content']?.toString() ?? '';
+    final m = _licenseExpiryInContentRe.firstMatch(_clean(content));
+    if (m != null) {
+      return DateTime(
+        int.parse(m.group(3)!),
+        int.parse(m.group(2)!),
+        int.parse(m.group(1)!),
+      );
+    }
+
+    // Fallback: ExpiresAt trên server = ngày hết hạn license + 1 (ẩn banner)
+    final expiresAtStr = a['expiresAt']?.toString();
+    if (expiresAtStr == null || expiresAtStr.isEmpty) return null;
+    final expiresAt = DateTime.tryParse(expiresAtStr);
+    if (expiresAt == null) return null;
+    final local = expiresAt.toLocal();
+    return DateTime(local.year, local.month, local.day)
+        .subtract(const Duration(days: 1));
+  }
+
+  int? _daysLeftForRenewal(Map<String, dynamic> a) {
+    final exp = _licenseExpiryDate(a);
+    if (exp == null) return null;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    return exp.difference(today).inDays;
+  }
+
+  String _storeNameFromTitle(String rawTitle) {
+    final cleaned = _clean(rawTitle);
+    final m = RegExp(r'^[\u23F0\s]*([^:]+):').firstMatch(cleaned);
+    return m != null ? m.group(1)!.trim() : 'Cửa hàng';
+  }
+
+  /// Tính lại số ngày còn lại theo ngày hết hạn license trong content.
   String _formatRenewalTitle(Map<String, dynamic> a, String rawTitle) {
     final kind =
         AdminHelpers.parseEnumInt(a['kind'], AdminHelpers.announcementKindMap);
-    if (kind != 3) return _clean(rawTitle); // chỉ áp dụng cho Renewal
-    final expiresAtStr = a['expiresAt']?.toString();
-    if (expiresAtStr == null || expiresAtStr.isEmpty) return _clean(rawTitle);
-    final expiresAt = DateTime.tryParse(expiresAtStr);
-    if (expiresAt == null) return _clean(rawTitle);
+    if (kind != 3) return _clean(rawTitle);
 
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final exp = DateTime(expiresAt.year, expiresAt.month, expiresAt.day);
-    final daysLeft = exp.difference(today).inDays;
-
-    // Lấy phần tên cửa hàng: "⏰ <Name>: ..." → trích Name
-    final cleaned = _clean(rawTitle);
-    final m = RegExp(r'^[\u23F0\s]*([^:]+):').firstMatch(cleaned);
-    final storeName = m != null ? m.group(1)!.trim() : 'Cửa hàng';
+    final daysLeft = _daysLeftForRenewal(a);
+    final storeName = _storeNameFromTitle(rawTitle);
+    if (daysLeft == null) return _clean(rawTitle);
 
     if (daysLeft < 0) {
       return '⏰ $storeName: license đã hết hạn ${-daysLeft} ngày';
@@ -129,6 +159,27 @@ class _AnnouncementBannerState extends State<AnnouncementBanner> {
     return '⏰ $storeName: license còn $daysLeft ngày';
   }
 
+  /// Bỏ dòng liên hệ trùng trong content (panel/dialog đã có nút Gọi/Zalo).
+  String _formatRenewalContent(Map<String, dynamic> a) {
+    final kind =
+        AdminHelpers.parseEnumInt(a['kind'], AdminHelpers.announcementKindMap);
+    var text = _clean(a['content']?.toString() ?? '');
+    if (kind != 3) return text;
+
+    final lines = text.split('\n');
+    final kept = <String>[];
+    for (final line in lines) {
+      final lower = line.toLowerCase();
+      final isContactLine = lower.contains('0973') ||
+          lower.contains('zalo') ||
+          lower.contains('gọi ngay') ||
+          lower.contains('chat zalo') ||
+          lower.contains('liên hệ gia hạn');
+      if (!isContactLine) kept.add(line);
+    }
+    return kept.join('\n').replaceAll(RegExp(r'\n{3,}'), '\n\n').trim();
+  }
+
   Widget _buildBanner(Map<String, dynamic> a) {
     final id = a['id']?.toString() ?? '';
     final severity = AdminHelpers.parseEnumInt(
@@ -136,7 +187,7 @@ class _AnnouncementBannerState extends State<AnnouncementBanner> {
     final kind =
         AdminHelpers.parseEnumInt(a['kind'], AdminHelpers.announcementKindMap);
     final title = _formatRenewalTitle(a, a['title']?.toString() ?? '');
-    final content = _clean(a['content']?.toString() ?? '');
+    final content = _formatRenewalContent(a);
     final actionUrl = a['actionUrl']?.toString();
     final actionLabel = a['actionLabel']?.toString();
     final requireAck = (a['requireAck'] as bool?) ?? false;
@@ -322,30 +373,12 @@ class _AnnouncementBannerState extends State<AnnouncementBanner> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(_clean(a['content']?.toString() ?? '')),
+              Text(_formatRenewalContent(a)),
               if (isRenewal) _renewalContactPanel(),
             ],
           ),
         ),
         actions: [
-          if (isRenewal) ...[
-            TextButton.icon(
-              onPressed: () {
-                Navigator.pop(context);
-                _launchTel(_renewalPhone);
-              },
-              icon: const Icon(Icons.phone_rounded, size: 18),
-              label: Text('Gọi $_renewalPhoneDisplay'),
-            ),
-            TextButton.icon(
-              onPressed: () {
-                Navigator.pop(context);
-                _launchZalo(_renewalPhone);
-              },
-              icon: const Icon(Icons.chat_rounded, size: 18),
-              label: const Text('Zalo'),
-            ),
-          ],
           if (actionUrl != null && actionUrl.isNotEmpty)
             TextButton(
               onPressed: () {

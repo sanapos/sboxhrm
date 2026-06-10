@@ -1,6 +1,7 @@
+import 'dart:convert';
+
 /// Ca làm việc gắn trong thiết lập lương (Benefit.Description: shifts:...).
-class LeaveSalaryShifts {
-  static String parseDescField(String? description, String key) {
+class LeaveSalaryShifts {  static String parseDescField(String? description, String key) {
     if (description == null || description.isEmpty) return '';
     for (final part in description.split('|')) {
       final idx = part.indexOf(':');
@@ -50,5 +51,98 @@ class LeaveSalaryShifts {
       if (id != null && !ids.contains(id)) ids.add(id);
     }
     return ids;
+  }
+
+  /// Gộp ca từ ShiftSalaryLevel (employeeIds JSON) — fallback legacy.
+  static void mergeShiftSalaryLevels(
+    Map<String, List<String>> employeeGuidToShiftIds,
+    List<Map<String, dynamic>> shiftSalaryLevels,
+  ) {
+    for (final ssl in shiftSalaryLevels) {
+      final shiftTemplateId = ssl['shiftTemplateId']?.toString() ?? '';
+      if (shiftTemplateId.isEmpty) continue;
+
+      final employeeIdsRaw = ssl['employeeIds'];
+      List<String> empIds = [];
+      if (employeeIdsRaw is String && employeeIdsRaw.isNotEmpty) {
+        try {
+          final parsed = json.decode(employeeIdsRaw);
+          if (parsed is List) {
+            empIds = parsed.map((e) => e.toString()).toList();
+          }
+        } catch (_) {}
+      } else if (employeeIdsRaw is List) {
+        empIds = employeeIdsRaw.map((e) => e.toString()).toList();
+      }
+
+      for (final empGuid in empIds) {
+        if (empGuid.isEmpty) continue;
+        final list = employeeGuidToShiftIds.putIfAbsent(empGuid, () => []);
+        if (!list.contains(shiftTemplateId)) list.add(shiftTemplateId);
+      }
+    }
+  }
+
+  /// Map Employee.Id → danh sách ShiftTemplate id từ batch hồ sơ lương.
+  static Map<String, List<String>> buildEmployeeShiftAssignmentMap({
+    required List<Map<String, dynamic>> salaryProfiles,
+    required List<dynamic> shiftTemplates,
+    List<Map<String, dynamic>> shiftSalaryLevels = const [],
+  }) {
+    final map = <String, List<String>>{};
+
+    for (final profile in salaryProfiles) {
+      final profileShiftIds = templateIdsFromSalaryProfile(
+        profile,
+        shiftTemplates,
+      );
+      if (profileShiftIds.isEmpty) continue;
+
+      final employees = profile['employees'] as List? ?? [];
+      for (final emp in employees) {
+        if (emp is! Map) continue;
+        final guid = emp['id']?.toString() ?? '';
+        if (guid.isEmpty) continue;
+        final list = map.putIfAbsent(guid, () => []);
+        for (final id in profileShiftIds) {
+          if (!list.contains(id)) list.add(id);
+        }
+      }
+    }
+
+    mergeShiftSalaryLevels(map, shiftSalaryLevels);
+    return map;
+  }
+
+  /// Ca được gán cho một nhân viên (hồ sơ lương + ShiftSalaryLevel).
+  static List<String> assignedShiftIdsForEmployee({
+    required String employeeGuid,
+    required List<dynamic> shiftTemplates,
+    Map<String, dynamic>? employeeBenefit,
+    List<Map<String, dynamic>> salaryProfiles = const [],
+    List<Map<String, dynamic>> shiftSalaryLevels = const [],
+  }) {
+    if (employeeGuid.isEmpty) return [];
+
+    final ids = <String>{};
+
+    if (employeeBenefit != null) {
+      ids.addAll(templateIdsFromSalaryProfile(employeeBenefit, shiftTemplates));
+    }
+
+    for (final profile in salaryProfiles) {
+      final employees = profile['employees'] as List? ?? [];
+      final inProfile = employees.any(
+        (e) => e is Map && (e['id']?.toString() ?? '') == employeeGuid,
+      );
+      if (!inProfile) continue;
+      ids.addAll(templateIdsFromSalaryProfile(profile, shiftTemplates));
+    }
+
+    final levelMap = <String, List<String>>{};
+    mergeShiftSalaryLevels(levelMap, shiftSalaryLevels);
+    ids.addAll(levelMap[employeeGuid] ?? const []);
+
+    return ids.toList();
   }
 }

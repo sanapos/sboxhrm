@@ -16,18 +16,15 @@ import '../widgets/app_scroll_safe.dart';
 import '../widgets/shift_swap_panel.dart';
 import '../widgets/shift_swap_ui.dart';
 import 'main_layout.dart';
+import '../utils/staffing_quota_utils.dart';
 
 // =====================================================
-// SCHEDULE APPROVAL SCREEN - BẢN NÂNG CẤP
+// DUYỆT LỊCH LÀM VIỆC
 // =====================================================
-// Tab 1: Tổng quan theo ca (Shift Overview with Quotas)
-//   - Mỗi ca hiển thị bảng 7 ngày với chỉ số định biên
-//   - Thanh tiến trình (đã xếp / max) cho mỗi ngày
-//   - Cảnh báo vượt định biên
-//
-// Tab 2: Phân bổ nhân viên (Employee Distribution)
-//   - Thống kê trung bình ca/NV, min, max
-//   - Cảnh báo mất cân bằng phân ca
+// Tab 0: Chờ duyệt — hàng đợi đăng ký, duyệt nhanh từng mục / theo ngày
+// Tab 1: Lưới ca — ma trận NV × 7 ngày theo từng ca (+ định mức)
+// Tab 2: Phân bổ nhân viên — thống kê cân bằng ca
+// Tab 3: Đổi ca
 // =====================================================
 
 class _EmployeeSummary {
@@ -84,10 +81,10 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
   @override
   void initState() {
     super.initState();
-    final initialTab = NavigationNotifier.scheduleApprovalTab.value.clamp(0, 2);
+    final initialTab = NavigationNotifier.scheduleApprovalTab.value.clamp(0, 3);
     NavigationNotifier.scheduleApprovalTab.value = 0;
     _tabController = TabController(
-      length: 3,
+      length: 4,
       vsync: this,
       initialIndex: initialTab,
     );
@@ -166,25 +163,60 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
     }
   }
 
-  Future<void> _loadRegistrations() async {
-    int? statusInt;
-    if (_selectedStatusFilter != null) {
-      switch (_selectedStatusFilter) {
-        case 'Pending':
-          statusInt = 0;
-          break;
-        case 'Approved':
-          statusInt = 1;
-          break;
-        case 'Rejected':
-          statusInt = 2;
-          break;
-      }
+  List<ScheduleRegistration> get _filteredRegistrations {
+    switch (_selectedStatusFilter) {
+      case 'Pending':
+        return _registrations
+            .where((r) => r.status == ScheduleRegistrationStatus.pending)
+            .toList();
+      case 'Approved':
+        return _registrations
+            .where((r) => r.status == ScheduleRegistrationStatus.approved)
+            .toList();
+      case 'Rejected':
+        return _registrations
+            .where((r) => r.status == ScheduleRegistrationStatus.rejected)
+            .toList();
+      default:
+        return _registrations;
     }
+  }
+
+  void _mergeRegistrationUpdate(dynamic data) {
+    if (data is! Map) return;
+    final updated =
+        ScheduleRegistration.fromJson(Map<String, dynamic>.from(data));
+    final idx = _registrations.indexWhere((r) => r.id == updated.id);
+    if (idx >= 0) {
+      _registrations[idx] = updated;
+    } else {
+      _registrations.add(updated);
+    }
+  }
+
+  String _registrationApprovalMessage(Map<String, dynamic> data,
+      {required bool approved}) {
+    final reg = ScheduleRegistration.fromJson(data);
+    if (!approved || reg.status == ScheduleRegistrationStatus.rejected) {
+      return 'Đã từ chối đăng ký';
+    }
+    if (reg.status == ScheduleRegistrationStatus.approved) {
+      return 'Đã duyệt đăng ký';
+    }
+    final current = data['currentApprovalStep'] ?? data['CurrentApprovalStep'];
+    final total =
+        data['totalApprovalLevels'] ?? data['TotalApprovalLevels'] ?? 1;
+    if (current != null) {
+      return 'Đã duyệt bước $current/$total — chờ cấp tiếp theo';
+    }
+    return 'Đã ghi nhận duyệt — đang chờ cấp tiếp theo';
+  }
+
+  Future<void> _loadRegistrations() async {
     final fromDate = _selectedWeekStart;
     final toDate = _selectedWeekStart.add(const Duration(days: 6));
     final result = await _apiService.getScheduleRegistrations(
-      status: statusInt,
+      pageSize: 200,
       fromDate: fromDate,
       toDate: toDate,
     );
@@ -227,12 +259,48 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
   }
 
   // ==================== COMPUTED HELPERS ====================
-  Map<String, dynamic>? _getQuotaForShift(String shiftId) {
-    return _staffingQuotas
-        .where((q) =>
-            q['shiftTemplateId'] == shiftId &&
-            (q['department'] == null || q['department'] == ''))
-        .firstOrNull;
+  Map<String, dynamic>? _getQuotaForShift(String shiftId, {String? department}) {
+    return StaffingQuotaUtils.pickQuotaForDepartment(
+      _staffingQuotas,
+      shiftId,
+      department: department,
+    );
+  }
+
+  Map<String, int> _uniqueEmployeeCountsByDept(String shiftId, DateTime day) {
+    final seen = <String>{};
+    final counts = <String, int>{};
+    void add(String userId) {
+      if (userId.isEmpty || !seen.add(userId)) return;
+      final dept = (_findEmployee(userId).department ?? '').trim();
+      counts[dept] = (counts[dept] ?? 0) + 1;
+    }
+
+    final dateStr = DateFormat('yyyy-MM-dd').format(day);
+    for (final s in _schedules) {
+      if (s.shiftId == shiftId &&
+          DateFormat('yyyy-MM-dd').format(s.date) == dateStr &&
+          !s.isDayOff) {
+        add(s.employeeUserId);
+      }
+    }
+    for (final r in _registrations) {
+      if (r.shiftId == shiftId &&
+          DateFormat('yyyy-MM-dd').format(r.date) == dateStr &&
+          !r.isDayOff) {
+        add(r.employeeUserId);
+      }
+    }
+    return counts;
+  }
+
+  ShiftDayStaffingStatus _evaluateShiftDayStaffing(String shiftId, DateTime day) {
+    return StaffingQuotaUtils.evaluateShiftDay(
+      quotas: _staffingQuotas,
+      shiftId: shiftId,
+      date: day,
+      countByDepartment: _uniqueEmployeeCountsByDept(shiftId, day),
+    );
   }
 
   int _scheduledCount(String? shiftId, DateTime date) {
@@ -267,16 +335,11 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
         .toList();
   }
 
-  Color _getQuotaColor(int scheduled, Map<String, dynamic>? quota) {
+  Color _getQuotaColor(int count, Map<String, dynamic>? quota, DateTime date) {
     if (quota == null) return const Color(0xFF71717A);
-    final maxEmp = (quota['maxEmployees'] ?? 0) as int;
-    final minEmp = (quota['minEmployees'] ?? 0) as int;
-    final warnThreshold = (quota['warningThreshold'] ?? 2) as int;
-    if (maxEmp == 0) return const Color(0xFF71717A);
-    if (scheduled >= maxEmp) return const Color(0xFFEF4444);
-    if (maxEmp - scheduled <= warnThreshold) return const Color(0xFFF59E0B);
-    if (scheduled < minEmp) return const Color(0xFF3B82F6);
-    return const Color(0xFF22C55E);
+    return StaffingQuotaUtils.colorForStatus(
+      StaffingQuotaUtils.statusForCount(quota, date, count),
+    );
   }
 
   Map<String, _EmployeeSummary> _computeEmployeeSummaries() {
@@ -324,9 +387,46 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
     return result;
   }
 
-  int _getPendingCount() => _registrations
-      .where((r) => r.status == ScheduleRegistrationStatus.pending)
-      .length;
+  int _getPendingCount() => _pendingRegistrations.length;
+
+  List<ScheduleRegistration> get _pendingRegistrations {
+    var list = _registrations
+        .where((r) => r.status == ScheduleRegistrationStatus.pending)
+        .toList();
+    if (_selectedBranchId != null) {
+      list = list
+          .where((r) =>
+              _findEmployee(r.employeeUserId).branchId == _selectedBranchId)
+          .toList();
+    }
+    list.sort((a, b) {
+      final byDate = a.date.compareTo(b.date);
+      if (byDate != 0) return byDate;
+      return a.createdAt.compareTo(b.createdAt);
+    });
+    return list;
+  }
+
+  String _shiftLabel(ScheduleRegistration reg) {
+    if (reg.isDayOff) return 'Nghỉ phép';
+    if (reg.shiftName.isNotEmpty) return reg.shiftName;
+    for (final s in _shifts) {
+      if (s.id == reg.shiftId) return s.name;
+    }
+    return 'Ca làm việc';
+  }
+
+  String _pendingDateGroupLabel(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final d = DateTime(date.year, date.month, date.day);
+    final diff = d.difference(today).inDays;
+    final formatted = DateFormat('EEEE, dd/MM/yyyy', 'vi').format(date);
+    if (diff == 0) return 'Hôm nay — $formatted';
+    if (diff == 1) return 'Ngày mai — $formatted';
+    if (diff == -1) return 'Hôm qua — $formatted';
+    return formatted;
+  }
 
   bool get _canApprove =>
       Provider.of<PermissionProvider>(context, listen: false)
@@ -389,64 +489,84 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
         backgroundColor: Colors.white,
         elevation: 0,
         toolbarHeight: 0,
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: HrmPageChrome.primaryNavy,
-          labelColor: HrmPageChrome.primaryNavy,
-          unselectedLabelColor: const Color(0xFF71717A),
-          tabs: [
-            Tab(
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                const Icon(Icons.dashboard, size: 18),
-                const SizedBox(width: 6),
-                const Text('Tổng quan ca'),
-                if (_getPendingCount() > 0) ...[
-                  const SizedBox(width: 6),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                    decoration: BoxDecoration(
-                        color: const Color(0xFFF59E0B),
-                        borderRadius: BorderRadius.circular(10)),
-                    child: Text('${_getPendingCount()}',
-                        style: const TextStyle(
-                            fontSize: 10,
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold)),
-                  ),
-                ],
-              ]),
-            ),
-            const Tab(
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.people, size: 18),
-                SizedBox(width: 6),
-                Text('Phân bổ nhân viên'),
-              ]),
-            ),
-            Tab(
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                const Icon(Icons.swap_horiz, size: 18),
-                const SizedBox(width: 6),
-                const Text('Đổi ca'),
-                if (_swapPendingCount > 0) ...[
-                  const SizedBox(width: 6),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                    decoration: BoxDecoration(
-                        color: const Color(0xFF8B5CF6),
-                        borderRadius: BorderRadius.circular(10)),
-                    child: Text('$_swapPendingCount',
-                        style: const TextStyle(
-                            fontSize: 10,
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold)),
-                  ),
-                ],
-              ]),
-            ),
-          ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(48),
+          child: TabBar(
+            controller: _tabController,
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
+            indicatorColor: HrmPageChrome.primaryNavy,
+            labelColor: HrmPageChrome.primaryNavy,
+            unselectedLabelColor: const Color(0xFF71717A),
+            labelStyle:
+                const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+            unselectedLabelStyle: const TextStyle(fontSize: 12),
+            labelPadding: const EdgeInsets.symmetric(horizontal: 10),
+            tabs: [
+              Tab(
+                height: 44,
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.pending_actions, size: 16),
+                  const SizedBox(width: 4),
+                  const Text('Chờ duyệt'),
+                  if (_getPendingCount() > 0) ...[
+                    const SizedBox(width: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 1),
+                      decoration: BoxDecoration(
+                          color: const Color(0xFFF59E0B),
+                          borderRadius: BorderRadius.circular(8)),
+                      child: Text('${_getPendingCount()}',
+                          style: const TextStyle(
+                              fontSize: 9,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ]),
+              ),
+              const Tab(
+                height: 44,
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.grid_view, size: 16),
+                  SizedBox(width: 4),
+                  Text('Lưới ca'),
+                ]),
+              ),
+              const Tab(
+                height: 44,
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.people, size: 16),
+                  SizedBox(width: 4),
+                  Text('Phân bổ'),
+                ]),
+              ),
+              Tab(
+                height: 44,
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.swap_horiz, size: 16),
+                  const SizedBox(width: 4),
+                  const Text('Đổi ca'),
+                  if (_swapPendingCount > 0) ...[
+                    const SizedBox(width: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 1),
+                      decoration: BoxDecoration(
+                          color: const Color(0xFF8B5CF6),
+                          borderRadius: BorderRadius.circular(8)),
+                      child: Text('$_swapPendingCount',
+                          style: const TextStyle(
+                              fontSize: 9,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ]),
+              ),
+            ],
+          ),
         ),
       ),
       body: _isLoading
@@ -454,6 +574,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
           : TabBarView(
               controller: _tabController,
               children: [
+                _buildPendingQueueTab(),
                 _buildShiftOverviewTab(),
                 _buildEmployeeDistributionTab(),
                 Column(
@@ -468,7 +589,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                 ),
               ],
             ),
-      floatingActionButton: _tabController.index == 2 &&
+      floatingActionButton: _tabController.index == 3 &&
               Provider.of<PermissionProvider>(context, listen: false)
                   .canCreate('ShiftSwap')
           ? FloatingActionButton.extended(
@@ -485,7 +606,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
   }
 
   // ==================== WEEK SELECTOR ====================
-  Widget _buildWeekSelector() {
+  Widget _buildWeekSelector({bool hideStatusFilter = false}) {
     final weekEnd = _selectedWeekStart.add(const Duration(days: 6));
     final weekNumber = _getWeekNumber(_selectedWeekStart);
     final dateFormat = DateFormat('dd/MM');
@@ -557,8 +678,10 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                     textAlign: TextAlign.center,
                   ),
                 )),
-                const SizedBox(width: 8),
-                Expanded(child: _buildStatusFilterDropdown()),
+                if (!hideStatusFilter) ...[
+                  const SizedBox(width: 8),
+                  Expanded(child: _buildStatusFilterDropdown()),
+                ],
               ]),
               if (_branches.isNotEmpty) ...[
                 const SizedBox(height: 8),
@@ -666,7 +789,8 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                           fontSize: 13),
                     ),
                   ),
-                  SizedBox(width: 180, child: _buildStatusFilterDropdown()),
+                  if (!hideStatusFilter)
+                    SizedBox(width: 180, child: _buildStatusFilterDropdown()),
                   if (_branches.isNotEmpty)
                     SizedBox(
                       width: 180,
@@ -758,19 +882,332 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
         DropdownMenuItem<String>(value: 'Rejected', child: Text('Từ chối')),
       ],
       onChanged: (value) {
-        setState(() {
-          _selectedStatusFilter = value;
-        });
-        _loadRegistrations();
+        setState(() => _selectedStatusFilter = value);
       },
     );
   }
 
-  // ==================== TAB 1: TỔNG QUAN THEO CA ====================
+  // ==================== TAB 0: CHỜ DUYỆT ====================
+  Widget _buildPendingQueueTab() {
+    final pending = _pendingRegistrations;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildWeekSelector(hideStatusFilter: true),
+        if (pending.isNotEmpty) _buildPendingBulkBar(pending),
+        Expanded(
+          child: pending.isEmpty
+              ? const EmptyState(
+                  icon: Icons.task_alt,
+                  title: 'Không có đăng ký chờ duyệt',
+                  description:
+                      'Mọi đăng ký trong tuần này đã được xử lý. Chọn tuần khác hoặc xem tab Lưới ca.',
+                )
+              : ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
+                  children: _buildPendingGroupedSections(pending),
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPendingBulkBar(List<ScheduleRegistration> pending) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xFFF59E0B).withValues(alpha: 0.12),
+            const Color(0xFFFEF3C7).withValues(alpha: 0.5),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.hourglass_top, color: Color(0xFFD97706), size: 22),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${pending.length} đăng ký chờ duyệt',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: Color(0xFF92400E),
+                  ),
+                ),
+                Text(
+                  'Tuần ${_getWeekNumber(_selectedWeekStart)} · ${DateFormat('dd/MM').format(_selectedWeekStart)} – ${DateFormat('dd/MM').format(_selectedWeekStart.add(const Duration(days: 6)))}',
+                  style: const TextStyle(fontSize: 11, color: Color(0xFFB45309)),
+                ),
+              ],
+            ),
+          ),
+          if (_canApprove)
+            FilledButton.icon(
+              onPressed: () => _approveAllForShift(pending),
+              icon: const Icon(Icons.done_all, size: 16),
+              label: const Text('Duyệt tất cả'),
+              style: FilledButton.styleFrom(
+                backgroundColor: HrmPageChrome.primaryNavy,
+                foregroundColor: Colors.white,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildPendingGroupedSections(
+      List<ScheduleRegistration> pending) {
+    final groups = <String, List<ScheduleRegistration>>{};
+    for (final r in pending) {
+      final key = DateFormat('yyyy-MM-dd').format(r.date);
+      groups.putIfAbsent(key, () => []).add(r);
+    }
+    final keys = groups.keys.toList()..sort();
+
+    final widgets = <Widget>[];
+    for (final key in keys) {
+      final regs = groups[key]!;
+      final date = regs.first.date;
+      widgets.add(
+        Padding(
+          padding: const EdgeInsets.only(top: 14, bottom: 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  _pendingDateGroupLabel(date),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    color: Color(0xFF18181B),
+                  ),
+                ),
+              ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '${regs.length}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                    color: Color(0xFFD97706),
+                  ),
+                ),
+              ),
+              if (_canApprove && regs.length > 1) ...[
+                const SizedBox(width: 8),
+                TextButton(
+                  onPressed: () => _approveAllForShift(regs),
+                  style: TextButton.styleFrom(
+                    foregroundColor: HrmPageChrome.primaryNavy,
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text('Duyệt nhóm', style: TextStyle(fontSize: 12)),
+                ),
+              ],
+            ],
+          ),
+        ),
+      );
+      for (final reg in regs) {
+        widgets.add(_buildPendingCard(reg));
+      }
+    }
+    return widgets;
+  }
+
+  Widget _buildPendingCard(ScheduleRegistration reg) {
+    final employee = _findEmployee(reg.employeeUserId);
+    final shiftLabel = _shiftLabel(reg);
+    final dateLabel = DateFormat('dd/MM/yyyy').format(reg.date);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE4E4E7)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CircleAvatar(
+              radius: 20,
+              backgroundColor: HrmPageChrome.primaryNavy,
+              child: Text(
+                employee.firstName.isNotEmpty
+                    ? employee.firstName[0].toUpperCase()
+                    : '?',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    employee.fullName,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                      color: Color(0xFF18181B),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: [
+                      _pendingMetaChip(Icons.badge_outlined, employee.employeeCode),
+                      _pendingMetaChip(
+                        reg.isDayOff ? Icons.beach_access : Icons.schedule,
+                        shiftLabel,
+                        accent: reg.isDayOff
+                            ? const Color(0xFFEF4444)
+                            : HrmPageChrome.primaryNavy,
+                      ),
+                      _pendingMetaChip(Icons.calendar_today, dateLabel),
+                    ],
+                  ),
+                  if (reg.note != null && reg.note!.trim().isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      reg.note!.trim(),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF71717A),
+                        fontStyle: FontStyle.italic,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                  if (employee.department != null &&
+                      employee.department!.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      employee.department!,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFFA1A1AA),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (_canApprove) ...[
+              const SizedBox(width: 8),
+              Column(
+                children: [
+                  _pendingActionBtn(
+                    icon: Icons.check_rounded,
+                    color: const Color(0xFF22C55E),
+                    tooltip: 'Duyệt',
+                    onTap: () => _approveRegistration(reg.id),
+                  ),
+                  const SizedBox(height: 6),
+                  _pendingActionBtn(
+                    icon: Icons.close_rounded,
+                    color: const Color(0xFFEF4444),
+                    tooltip: 'Từ chối',
+                    onTap: () => _rejectRegistration(reg.id),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _pendingMetaChip(IconData icon, String label, {Color? accent}) {
+    final c = accent ?? const Color(0xFF71717A);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: c.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: c),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: c),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _pendingActionBtn({
+    required IconData icon,
+    required Color color,
+    required String tooltip,
+    required VoidCallback onTap,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: color,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
+          child: SizedBox(
+            width: 36,
+            height: 36,
+            child: Icon(icon, color: Colors.white, size: 20),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ==================== TAB 1: LƯỚI CA ====================
   Widget _buildShiftOverviewTab() {
+    final visibleRegs = _filteredRegistrations;
     // Collect shifts that have registrations or schedules
     final shiftIdsWithActivity = <String>{};
-    for (var r in _registrations) {
+    for (var r in visibleRegs) {
       if (r.shiftId != null) shiftIdsWithActivity.add(r.shiftId!);
     }
     for (var s in _schedules) {
@@ -781,11 +1218,50 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
 
     final activeShifts =
         _shifts.where((s) => shiftIdsWithActivity.contains(s.id)).toList();
-    final hasDayOffRegs = _registrations.any((r) => r.isDayOff);
+    final hasDayOffRegs = visibleRegs.any((r) => r.isDayOff);
+
+    final pendingCount = _getPendingCount();
 
     return Column(
       children: [
         _buildWeekSelector(),
+        if (pendingCount > 0)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF7ED),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFFED7AA)),
+              ),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(10),
+                onTap: () => _tabController.animateTo(0),
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.lightbulb_outline,
+                          size: 18, color: Color(0xFFD97706)),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          '$pendingCount đăng ký chờ duyệt — chuyển sang tab Chờ duyệt để xử lý nhanh',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF92400E),
+                          ),
+                        ),
+                      ),
+                      const Icon(Icons.chevron_right,
+                          size: 18, color: Color(0xFFD97706)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
         Expanded(
           child: activeShifts.isEmpty && !hasDayOffRegs
               ? const EmptyState(
@@ -817,250 +1293,172 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
     final warnThreshold = (quota?['warningThreshold'] ?? 2) as int;
     final days =
         List.generate(7, (i) => _selectedWeekStart.add(Duration(days: i)));
+    final visibleRegs = _filteredRegistrations;
 
-    final allPending = _registrations
+    final allPending = visibleRegs
         .where((r) =>
             r.shiftId == shift.id &&
             r.status == ScheduleRegistrationStatus.pending)
         .toList();
-    final allProcessed = _registrations
+    final allProcessed = visibleRegs
         .where((r) =>
             r.shiftId == shift.id &&
             r.status != ScheduleRegistrationStatus.pending)
         .toList();
     final allForShift =
-        _registrations.where((r) => r.shiftId == shift.id).toList();
+        visibleRegs.where((r) => r.shiftId == shift.id).toList();
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFE4E4E7)),
-        boxShadow: [
-          BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2))
-        ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // === SHIFT HEADER ===
-          Container(
-            padding: EdgeInsets.symmetric(
-                horizontal: isMobile ? 12 : 16, vertical: 10),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          initiallyExpanded: allPending.isNotEmpty,
+          tilePadding: EdgeInsets.symmetric(
+              horizontal: isMobile ? 10 : 14, vertical: 2),
+          childrenPadding: EdgeInsets.zero,
+          leading: Container(
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: HrmPageChrome.primaryNavy.withValues(alpha: 0.05),
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(12)),
-              border:
-                  const Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+              color: HrmPageChrome.primaryNavy,
+              borderRadius: BorderRadius.circular(8),
             ),
-            child: isMobile
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                        Row(children: [
-                          Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                                color: HrmPageChrome.primaryNavy,
-                                borderRadius: BorderRadius.circular(8)),
-                            child: const Icon(Icons.schedule,
-                                color: Colors.white, size: 18),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                              child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                Text(shift.name,
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                        color: Color(0xFF18181B))),
-                                Text(
-                                    '${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)}',
-                                    style: const TextStyle(
-                                        fontSize: 12,
-                                        color: Color(0xFF71717A))),
-                              ])),
-                          if (quota != null)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: HrmPageChrome.primaryNavy
-                                    .withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                    color: HrmPageChrome.primaryNavy
-                                        .withValues(alpha: 0.3)),
-                              ),
-                              child: Text('$minEmp-$maxEmp người',
-                                  style: const TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      color: HrmPageChrome.primaryNavy)),
-                            ),
-                        ]),
-                        if (allPending.isNotEmpty ||
-                            allProcessed.isNotEmpty) ...[
-                          const SizedBox(height: 8),
-                          SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: Row(children: [
-                                if (allPending.isNotEmpty)
-                                  _buildCountBadge(
-                                      '${allPending.length} chờ duyệt',
-                                      const Color(0xFFF59E0B)),
-                                if (allProcessed.isNotEmpty) ...[
-                                  const SizedBox(width: 6),
-                                  _buildCountBadge(
-                                      '${allProcessed.length} đã xử lý',
-                                      HrmPageChrome.primaryNavy)
-                                ],
-                                const SizedBox(width: 12),
-                                if (allPending.isNotEmpty && _canApprove) ...[
-                                  _batchBtn(
-                                      'Duyệt tất cả',
-                                      Icons.check,
-                                      HrmPageChrome.primaryNavy,
-                                      () => _approveAllForShift(allPending),
-                                      filled: true),
-                                  const SizedBox(width: 6),
-                                  _batchBtn(
-                                      'Từ chối tất cả',
-                                      Icons.close,
-                                      const Color(0xFFEF4444),
-                                      () => _rejectAllForShift(allPending)),
-                                  const SizedBox(width: 6)
-                                ],
-                                if (allProcessed.isNotEmpty && _canApprove) ...[
-                                  _batchBtn(
-                                      'Hoàn duyệt',
-                                      Icons.undo,
-                                      const Color(0xFFF59E0B),
-                                      () => _undoAllApprovals(allProcessed)),
-                                  const SizedBox(width: 6)
-                                ],
-                                if (allForShift.isNotEmpty && _canDelete)
-                                  _batchBtn(
-                                      'Xóa tất cả',
-                                      Icons.delete_outline,
-                                      const Color(0xFFEF4444),
-                                      () =>
-                                          _deleteAllRegistrations(allForShift)),
-                              ])),
-                        ],
-                      ])
-                : Row(children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                          color: HrmPageChrome.primaryNavy,
-                          borderRadius: BorderRadius.circular(8)),
-                      child: const Icon(Icons.schedule,
-                          color: Colors.white, size: 20),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(shift.name,
-                        style: const TextStyle(
-                            color: Color(0xFF18181B),
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16)),
-                    const SizedBox(width: 8),
-                    Text(
-                        '(${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)})',
-                        style: const TextStyle(
-                            color: Color(0xFF71717A), fontSize: 13)),
-                    if (quota != null) ...[
-                      const SizedBox(width: 12),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                              color: HrmPageChrome.primaryNavy
-                                  .withValues(alpha: 0.3)),
-                        ),
-                        child: Row(mainAxisSize: MainAxisSize.min, children: [
-                          const Icon(Icons.groups,
-                              size: 14, color: HrmPageChrome.primaryNavy),
-                          const SizedBox(width: 4),
-                          Text('Định biên: $minEmp-$maxEmp',
-                              style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: HrmPageChrome.primaryNavy)),
-                        ]),
-                      ),
-                    ],
-                    const Spacer(),
-                    if (allPending.isNotEmpty) ...[
-                      _buildCountBadge('${allPending.length} chờ duyệt',
-                          const Color(0xFFF59E0B)),
-                      const SizedBox(width: 6),
-                    ],
-                    if (allProcessed.isNotEmpty) ...[
-                      _buildCountBadge('${allProcessed.length} đã xử lý',
-                          HrmPageChrome.primaryNavy),
-                      const SizedBox(width: 6),
-                    ],
-                    if (allProcessed.isNotEmpty && _canApprove) ...[
-                      _batchBtn(
-                          'Hoàn duyệt',
-                          Icons.undo,
-                          const Color(0xFFF59E0B),
-                          () => _undoAllApprovals(allProcessed)),
-                      const SizedBox(width: 6),
-                    ],
-                    if (allForShift.isNotEmpty && _canDelete) ...[
-                      _batchBtn(
-                          'Xóa tất cả',
-                          Icons.delete_outline,
-                          const Color(0xFFEF4444),
-                          () => _deleteAllRegistrations(allForShift)),
-                      const SizedBox(width: 6),
-                    ],
-                    if (allPending.isNotEmpty && _canApprove) ...[
-                      _batchBtn(
-                          'Từ chối tất cả',
-                          Icons.close,
-                          const Color(0xFFEF4444),
-                          () => _rejectAllForShift(allPending)),
-                      const SizedBox(width: 6),
-                      _batchBtn(
-                          'Duyệt tất cả',
-                          Icons.check,
-                          HrmPageChrome.primaryNavy,
-                          () => _approveAllForShift(allPending),
-                          filled: true),
-                    ],
-                  ]),
+            child: const Icon(Icons.schedule, color: Colors.white, size: 18),
           ),
+          title: Text(
+            shift.name,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 15,
+              color: Color(0xFF18181B),
+            ),
+          ),
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  '${_formatTime(shift.startTime)} – ${_formatTime(shift.endTime)}',
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
+                ),
+                if (allPending.isNotEmpty)
+                  _buildCountBadge(
+                      '${allPending.length} chờ', const Color(0xFFF59E0B)),
+                if (allProcessed.isNotEmpty)
+                  _buildCountBadge(
+                      '${allProcessed.length} đã xử lý',
+                      HrmPageChrome.primaryNavy),
+                if (quota != null)
+                  _buildCountBadge('Định biên $minEmp–$maxEmp', HrmPageChrome.primaryNavy),
+                if (_shiftActionsAvailable(
+                    allPending, allProcessed, allForShift))
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                        minWidth: 32, minHeight: 32),
+                    icon: const Icon(Icons.more_horiz,
+                        size: 20, color: Color(0xFF71717A)),
+                    onPressed: () => _showShiftActionsSheet(
+                      allPending: allPending,
+                      allProcessed: allProcessed,
+                      allForShift: allForShift,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          children: [
+            if (isMobile)
+              ..._buildMobileDaySections(
+                  shift, days, quota, maxEmp, minEmp, warnThreshold)
+            else
+              _buildDesktopShiftTable(
+                  shift, days, quota, maxEmp, warnThreshold),
+          ],
+        ),
+      ),
+    );
+  }
 
-          // === WEEK QUOTA SUMMARY STRIP ===
-          _buildWeekQuotaStrip(
-              shift, days, quota, maxEmp, minEmp, warnThreshold),
+  bool _shiftActionsAvailable(
+    List<ScheduleRegistration> allPending,
+    List<ScheduleRegistration> allProcessed,
+    List<ScheduleRegistration> allForShift,
+  ) =>
+      (_canApprove &&
+          (allPending.isNotEmpty || allProcessed.isNotEmpty)) ||
+      (_canDelete && allForShift.isNotEmpty);
 
-          // === PER-DAY DETAILS ===
-          if (isMobile)
-            ..._buildMobileDaySections(
-                shift, days, quota, maxEmp, minEmp, warnThreshold)
-          else
-            _buildDesktopShiftTable(shift, days, quota, maxEmp, warnThreshold),
-        ],
+  Future<void> _showShiftActionsSheet({
+    required List<ScheduleRegistration> allPending,
+    required List<ScheduleRegistration> allProcessed,
+    required List<ScheduleRegistration> allForShift,
+  }) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_canApprove && allPending.isNotEmpty) ...[
+              ListTile(
+                leading: const Icon(Icons.done_all,
+                    color: HrmPageChrome.primaryNavy),
+                title: const Text('Duyệt tất cả ca này'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _approveAllForShift(allPending);
+                },
+              ),
+              ListTile(
+                leading:
+                    const Icon(Icons.close, color: Color(0xFFEF4444)),
+                title: const Text('Từ chối tất cả'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _rejectAllForShift(allPending);
+                },
+              ),
+            ],
+            if (_canApprove && allProcessed.isNotEmpty)
+              ListTile(
+                leading: const Icon(Icons.undo, color: Color(0xFFF59E0B)),
+                title: const Text('Hoàn duyệt tất cả'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _undoAllApprovals(allProcessed);
+                },
+              ),
+            if (_canDelete && allForShift.isNotEmpty)
+              ListTile(
+                leading: const Icon(Icons.delete_outline,
+                    color: Color(0xFFEF4444)),
+                title: const Text('Xóa tất cả đăng ký'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _deleteAllRegistrations(allForShift);
+                },
+              ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildDayOffPanel() {
-    final dayOffRegs = _registrations.where((r) => r.isDayOff).toList();
+    final dayOffRegs = _filteredRegistrations.where((r) => r.isDayOff).toList();
     if (dayOffRegs.isEmpty) return const SizedBox.shrink();
     dayOffRegs.sort((a, b) => a.date.compareTo(b.date));
     final pending = dayOffRegs
@@ -1130,6 +1528,10 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
           final day = days[i];
           final scheduled = _scheduledCount(shift.id, day);
           final pending = _pendingCountForShiftDay(shift.id, day);
+          final total = scheduled + pending;
+          final (_, maxForDay) = quota != null
+              ? StaffingQuotaUtils.limitsForDate(quota, day)
+              : (0, 0);
           final isToday = day.year == today.year &&
               day.month == today.month &&
               day.day == today.day;
@@ -1137,7 +1539,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
 
           Color dotColor;
           if (quota != null) {
-            dotColor = _getQuotaColor(scheduled, quota);
+            dotColor = _getQuotaColor(total, quota, day);
           } else {
             dotColor = scheduled > 0
                 ? const Color(0xFF22C55E)
@@ -1179,20 +1581,22 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                             : const Color(0xFFA1A1AA))),
                 const SizedBox(height: 4),
                 Text(
-                  quota != null ? '$scheduled/$maxEmp' : '$scheduled',
+                  quota != null && maxForDay > 0
+                      ? '$total/$maxForDay'
+                      : '$scheduled',
                   style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
                       color: dotColor),
                 ),
-                if (quota != null && maxEmp > 0) ...[
+                if (quota != null && maxForDay > 0) ...[
                   const SizedBox(height: 3),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(2),
                     child: SizedBox(
                       height: 4,
                       child: LinearProgressIndicator(
-                        value: (scheduled / maxEmp).clamp(0.0, 1.0),
+                        value: (total / maxForDay).clamp(0.0, 1.0),
                         backgroundColor: Colors.grey.shade200,
                         valueColor: AlwaysStoppedAnimation(dotColor),
                       ),
@@ -1246,7 +1650,11 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
       if (regs.isEmpty && scheduled == 0) continue;
 
       final projected = scheduled + pending.length;
-      final overQuota = quota != null && maxEmp > 0 && projected > maxEmp;
+      final (_, maxForDay) = quota != null
+          ? StaffingQuotaUtils.limitsForDate(quota, day)
+          : (0, 0);
+      final overQuota =
+          quota != null && maxForDay > 0 && projected > maxForDay;
 
       widgets.add(Container(
         decoration: BoxDecoration(
@@ -1275,8 +1683,8 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                         : const Color(0xFF18181B),
                   )),
               const Spacer(),
-              if (quota != null && maxEmp > 0) ...[
-                _buildMiniQuotaChip(scheduled, maxEmp, quota),
+              if (quota != null && maxForDay > 0) ...[
+                _buildMiniQuotaChip(projected, quota, day),
                 const SizedBox(width: 6),
               ],
               if (pending.isNotEmpty)
@@ -1335,8 +1743,9 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
   }
 
   Widget _buildMiniQuotaChip(
-      int scheduled, int maxEmp, Map<String, dynamic> quota) {
-    final color = _getQuotaColor(scheduled, quota);
+      int count, Map<String, dynamic> quota, DateTime date) {
+    final (_, maxForDay) = StaffingQuotaUtils.limitsForDate(quota, date);
+    final color = _getQuotaColor(count, quota, date);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
@@ -1344,7 +1753,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
         borderRadius: BorderRadius.circular(6),
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
-      child: Text('$scheduled/$maxEmp',
+      child: Text('$count/$maxForDay',
           style: TextStyle(
               fontSize: 11, fontWeight: FontWeight.bold, color: color)),
     );
@@ -1484,9 +1893,10 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
     final dateFormat = DateFormat('d/M');
     final today = DateTime.now();
 
+    final visibleRegs = _filteredRegistrations;
     // Collect unique employees for this shift
     final Set<String> employeeIds = {};
-    for (var reg in _registrations.where((r) => r.shiftId == shift.id)) {
+    for (var reg in visibleRegs.where((r) => r.shiftId == shift.id)) {
       employeeIds.add(reg.employeeUserId);
     }
     final employees = employeeIds.map((id) => _findEmployee(id)).toList();
@@ -1494,7 +1904,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
 
     // Build lookup: empId_dateKey → ScheduleRegistration
     final Map<String, ScheduleRegistration> regLookup = {};
-    for (var reg in _registrations.where((r) => r.shiftId == shift.id)) {
+    for (var reg in visibleRegs.where((r) => r.shiftId == shift.id)) {
       regLookup[
               '${reg.employeeUserId}_${DateFormat('yyyy-MM-dd').format(reg.date)}'] =
           reg;
@@ -1526,8 +1936,12 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                 final isSunday = i == 6;
                 final scheduled = _scheduledCount(shift.id, day);
                 final pending = _pendingCountForShiftDay(shift.id, day);
+                final total = scheduled + pending;
+                final (_, maxForDay) = quota != null
+                    ? StaffingQuotaUtils.limitsForDate(quota, day)
+                    : (0, 0);
                 final qColor = quota != null
-                    ? _getQuotaColor(scheduled, quota)
+                    ? _getQuotaColor(total, quota, day)
                     : const Color(0xFF71717A);
 
                 return TableCell(
@@ -1567,7 +1981,9 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
-                            quota != null ? '$scheduled/$maxEmp' : '$scheduled',
+                            quota != null && maxForDay > 0
+                                ? '$total/$maxForDay'
+                                : '$scheduled',
                             style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.bold,
@@ -1585,7 +2001,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                           const SizedBox(height: 3),
                           InkWell(
                             onTap: () {
-                              final dayRegs = _registrations
+                              final dayRegs = visibleRegs
                                   .where((r) =>
                                       r.shiftId == shift.id &&
                                       r.status ==
@@ -1618,7 +2034,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
           ),
           // EMPLOYEE ROWS
           ...employees.map((employee) {
-            final empRegs = _registrations
+            final empRegs = visibleRegs
                 .where((r) =>
                     r.shiftId == shift.id && r.employeeUserId == employee.id)
                 .toList();
@@ -2648,14 +3064,25 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
         HrmPageChrome.primaryNavy);
     if (confirmed != true) return;
     try {
-      await _apiService
+      final result = await _apiService
           .approveScheduleRegistration(regId, {'isApproved': true});
-      if (mounted) {
-        appNotification.showSuccess(
-            title: 'Duyệt đăng ký', message: 'Đã duyệt đăng ký');
+      if (!mounted) return;
+      if (result['isSuccess'] == true) {
+        final data = result['data'];
+        if (data is Map) {
+          setState(() => _mergeRegistrationUpdate(data));
+        }
+        final message = data is Map<String, dynamic>
+            ? _registrationApprovalMessage(data, approved: true)
+            : 'Đã duyệt đăng ký';
+        appNotification.showSuccess(title: 'Duyệt đăng ký', message: message);
+        await _loadSchedules();
+        await _loadRegistrations();
+      } else {
+        appNotification.showError(
+            title: 'Không thể duyệt',
+            message: result['message']?.toString() ?? 'Duyệt thất bại');
       }
-      await _loadSchedules();
-      await _loadRegistrations();
     } catch (e) {
       if (mounted) appNotification.showError(title: 'Lỗi', message: '$e');
     }
@@ -2706,14 +3133,23 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
         : 'Từ chối bởi quản lý';
     reasonController.dispose();
     try {
-      await _apiService.approveScheduleRegistration(
+      final result = await _apiService.approveScheduleRegistration(
           regId, {'isApproved': false, 'rejectionReason': reason});
-      if (mounted) {
+      if (!mounted) return;
+      if (result['isSuccess'] == true) {
+        final data = result['data'];
+        if (data is Map) {
+          setState(() => _mergeRegistrationUpdate(data));
+        }
         appNotification.showWarning(
             title: 'Từ chối đăng ký', message: 'Đã từ chối đăng ký');
+        await _loadSchedules();
+        await _loadRegistrations();
+      } else {
+        appNotification.showError(
+            title: 'Không thể từ chối',
+            message: result['message']?.toString() ?? 'Từ chối thất bại');
       }
-      await _loadSchedules();
-      await _loadRegistrations();
     } catch (e) {
       if (mounted) appNotification.showError(title: 'Lỗi', message: '$e');
     }
@@ -2722,18 +3158,21 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
   Future<void> _undoRegistrationApproval(String regId) async {
     try {
       final result = await _apiService.undoScheduleRegistrationApproval(regId);
-      if (mounted) {
-        if (result['isSuccess'] == true) {
-          appNotification.showSuccess(
-              title: 'Hoàn duyệt', message: 'Đã hoàn duyệt đăng ký');
-        } else {
-          appNotification.showError(
-              title: 'Lỗi',
-              message: result['message'] ?? 'Không thể hoàn duyệt');
+      if (!mounted) return;
+      if (result['isSuccess'] == true) {
+        final data = result['data'];
+        if (data is Map) {
+          setState(() => _mergeRegistrationUpdate(data));
         }
+        appNotification.showSuccess(
+            title: 'Hoàn duyệt', message: 'Đã hoàn duyệt đăng ký');
+        await _loadSchedules();
+        await _loadRegistrations();
+      } else {
+        appNotification.showError(
+            title: 'Lỗi',
+            message: result['message'] ?? 'Không thể hoàn duyệt');
       }
-      await _loadSchedules();
-      await _loadRegistrations();
     } catch (e) {
       if (mounted) appNotification.showError(title: 'Lỗi', message: '$e');
     }
@@ -2775,21 +3214,42 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
     if (confirmed != true) return;
     setState(() => _isLoading = true);
     try {
+      var ok = 0;
+      var fail = 0;
+      String? lastError;
       for (var reg in regs) {
-        await _apiService
+        final result = await _apiService
             .approveScheduleRegistration(reg.id, {'isApproved': true});
+        if (result['isSuccess'] == true) {
+          ok++;
+          if (result['data'] is Map) {
+            _mergeRegistrationUpdate(result['data']);
+          }
+        } else {
+          fail++;
+          lastError = result['message']?.toString();
+        }
       }
-      if (mounted) {
+      if (!mounted) return;
+      setState(() {});
+      if (fail == 0) {
         appNotification.showSuccess(
-            title: 'Duyệt hàng loạt',
-            message: 'Đã duyệt ${regs.length} đăng ký');
+            title: 'Duyệt hàng loạt', message: 'Đã duyệt $ok đăng ký');
+      } else if (ok == 0) {
+        appNotification.showError(
+            title: 'Duyệt hàng loạt thất bại',
+            message: lastError ?? 'Không duyệt được đăng ký nào');
+      } else {
+        appNotification.showWarning(
+            title: 'Duyệt một phần',
+            message: 'Thành công $ok, thất bại $fail');
       }
       await _loadSchedules();
       await _loadRegistrations();
     } catch (e) {
       if (mounted) appNotification.showError(title: 'Lỗi', message: '$e');
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -2802,21 +3262,42 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
     if (confirmed != true) return;
     setState(() => _isLoading = true);
     try {
+      var ok = 0;
+      var fail = 0;
+      String? lastError;
       for (var reg in regs) {
-        await _apiService.approveScheduleRegistration(reg.id,
+        final result = await _apiService.approveScheduleRegistration(reg.id,
             {'isApproved': false, 'rejectionReason': 'Từ chối hàng loạt'});
+        if (result['isSuccess'] == true) {
+          ok++;
+          if (result['data'] is Map) {
+            _mergeRegistrationUpdate(result['data']);
+          }
+        } else {
+          fail++;
+          lastError = result['message']?.toString();
+        }
       }
-      if (mounted) {
+      if (!mounted) return;
+      setState(() {});
+      if (fail == 0) {
         appNotification.showWarning(
-            title: 'Từ chối hàng loạt',
-            message: 'Đã từ chối ${regs.length} đăng ký');
+            title: 'Từ chối hàng loạt', message: 'Đã từ chối $ok đăng ký');
+      } else if (ok == 0) {
+        appNotification.showError(
+            title: 'Từ chối hàng loạt thất bại',
+            message: lastError ?? 'Không từ chối được đăng ký nào');
+      } else {
+        appNotification.showWarning(
+            title: 'Từ chối một phần',
+            message: 'Thành công $ok, thất bại $fail');
       }
       await _loadSchedules();
       await _loadRegistrations();
     } catch (e) {
       if (mounted) appNotification.showError(title: 'Lỗi', message: '$e');
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 

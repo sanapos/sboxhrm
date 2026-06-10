@@ -788,7 +788,15 @@ public class AttendancesController(
                 return []; // No employee linked → no data
             }
             var myDeviceUsers = await deviceUserRepository.GetAllAsync(du => du.EmployeeId == employeeId.Value);
-            return myDeviceUsers.Select(du => du.Pin).Distinct().ToList();
+            var pins = myDeviceUsers.Select(du => du.Pin).Distinct().ToList();
+            if (pins.Count > 0)
+                return pins;
+
+            // NV chỉ chấm mobile — có thể chưa có DeviceUser cho đến khi sync log đầu tiên.
+            var emp = await employeeRepository.GetByIdAsync(employeeId.Value, cancellationToken: default);
+            if (!string.IsNullOrWhiteSpace(emp?.EmployeeCode))
+                return [emp.EmployeeCode.Trim()];
+            return [];
         }
 
         // Manager role: xem PIN của NV thuộc phạm vi quản lý

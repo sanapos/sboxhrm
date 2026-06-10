@@ -21,6 +21,10 @@ import '../providers/auth_provider.dart';
 import 'main_layout.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/shift_swap_ui.dart';
+import '../utils/leave_salary_shifts.dart';
+import '../utils/staffing_quota_utils.dart';
+import '../utils/navigation_notifier.dart';
+import 'settings_hub_screen.dart';
 
 class WorkScheduleScreen extends StatefulWidget {
   const WorkScheduleScreen({super.key});
@@ -49,6 +53,10 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
   List<WorkSchedule> _schedules = [];
   List<ScheduleRegistration> _registrations = [];
   List<Shift> _shifts = [];
+  List<Shift> _allShifts = [];
+  List<dynamic> _shiftTemplatesRaw = [];
+  String? _myEmployeeHrId;
+  List<String> _myAssignedShiftIds = [];
   List<Employee> _employees = [];
   List<Map<String, dynamic>> _departments = [];
   List<Map<String, dynamic>> _branches = [];
@@ -114,8 +122,9 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
     try {
       _pendingRegistrations.clear();
       if (_isEmployee) {
+        await _loadShifts();
         await Future.wait([
-          _loadShifts(),
+          _loadEmployeeShiftAssignments(),
           _loadSchedules(),
           _loadRegistrations(),
           _loadSwapColleagues(),
@@ -141,14 +150,83 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
     final shifts = await _apiService.getShifts();
     if (!mounted) return;
     setState(() {
-      _shifts = shifts.map((s) => Shift.fromJson(s)).toList();
-      // Sort by startTime so shifts display in chronological order
-      _shifts.sort((a, b) {
+      _shiftTemplatesRaw = shifts;
+      _allShifts = shifts.map((s) => Shift.fromJson(s)).toList();
+      _allShifts.sort((a, b) {
         final aTime = a.startTime.replaceAll(RegExp(r'[^0-9:]'), '');
         final bTime = b.startTime.replaceAll(RegExp(r'[^0-9:]'), '');
         return aTime.compareTo(bTime);
       });
+      _applyEmployeeShiftFilter();
     });
+  }
+
+  Future<void> _loadEmployeeShiftAssignments() async {
+    try {
+      final results = await Future.wait([
+        _apiService.getMyEmployee(),
+        _apiService.getMyEmployeeSalaryProfile(),
+        _apiService.getShiftSalaryLevels().catchError((_) => <String, dynamic>{}),
+      ]);
+
+      var hrId = '';
+      final empResp = results[0] as Map<String, dynamic>;
+      if (empResp['isSuccess'] == true && empResp['data'] is Map) {
+        hrId = (empResp['data'] as Map)['id']?.toString() ?? '';
+      }
+
+      final benefit = results[1] as Map<String, dynamic>?;
+      final sslResp = results[2] as Map<String, dynamic>;
+      final sslData = sslResp['data'];
+      final shiftSalaryLevels = (sslData is Map
+              ? (sslData['items'] as List? ?? const [])
+              : (sslData is List ? sslData : const []))
+          .whereType<Map>()
+          .map((s) => Map<String, dynamic>.from(s))
+          .toList();
+
+      final assigned = LeaveSalaryShifts.assignedShiftIdsForEmployee(
+        employeeGuid: hrId,
+        shiftTemplates: _shiftTemplatesRaw,
+        employeeBenefit: benefit,
+        shiftSalaryLevels: shiftSalaryLevels,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _myEmployeeHrId = hrId.isEmpty ? null : hrId;
+        _myAssignedShiftIds = assigned;
+        _applyEmployeeShiftFilter();
+      });
+    } catch (e) {
+      debugPrint('Load employee shift assignments error: $e');
+    }
+  }
+
+  void _applyEmployeeShiftFilter() {
+    if (!_isEmployee) {
+      _shifts = List<Shift>.from(_allShifts);
+      return;
+    }
+    if (_myAssignedShiftIds.isEmpty) {
+      _shifts = [];
+      return;
+    }
+    final allowed = _myAssignedShiftIds.toSet();
+    _shifts = _allShifts.where((s) => allowed.contains(s.id)).toList();
+  }
+
+  Shift? _shiftById(String? shiftId) {
+    if (shiftId == null || shiftId.isEmpty) return null;
+    for (final s in _allShifts) {
+      if (s.id == shiftId) return s;
+    }
+    return null;
+  }
+
+  String _employeeShiftEmptyMessage() {
+    if (_allShifts.isEmpty) return 'Chưa có ca làm việc';
+    return 'Chưa cấu hình ca trong thiết lập lương';
   }
 
   Future<void> _loadEmployees() async {
@@ -223,20 +301,51 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
   /// Get staffing quota for a specific shift (and optionally department)
   Map<String, dynamic>? _getQuotaForShift(String shiftId,
       {String? department}) {
-    // First try department-specific quota
-    if (department != null) {
-      final deptQuota = _staffingQuotas
-          .where((q) =>
-              q['shiftTemplateId'] == shiftId && q['department'] == department)
-          .firstOrNull;
-      if (deptQuota != null) return deptQuota;
+    return StaffingQuotaUtils.pickQuotaForDepartment(
+      _staffingQuotas,
+      shiftId,
+      department: department ?? _selectedDepartment,
+    );
+  }
+
+  String? _departmentOfEmployee(String employeeUserId) {
+    for (final e in _employees) {
+      if (_effectiveUserId(e) == employeeUserId || e.id == employeeUserId) {
+        return e.department;
+      }
     }
-    // Fall back to global quota (department == null)
-    return _staffingQuotas
-        .where((q) =>
-            q['shiftTemplateId'] == shiftId &&
-            (q['department'] == null || q['department'] == ''))
-        .firstOrNull;
+    return null;
+  }
+
+  Map<String, int> _uniqueEmployeeCountsByDept(String shiftId, DateTime day) {
+    final seen = <String>{};
+    final counts = <String, int>{};
+    void add(String userId) {
+      if (userId.isEmpty || !seen.add(userId)) return;
+      final dept = (_departmentOfEmployee(userId) ?? '').trim();
+      counts[dept] = (counts[dept] ?? 0) + 1;
+    }
+
+    for (final s in _getSchedulesForShiftDay(shiftId, day)) {
+      add(s.employeeUserId);
+    }
+    for (final r in _getRegistrationsForShiftDay(shiftId, day)) {
+      if (!r.isDayOff) add(r.employeeUserId);
+    }
+    for (final r in _getPendingForShiftDay(shiftId, day)) {
+      add(r['employeeUserId']?.toString() ?? '');
+    }
+    return counts;
+  }
+
+  ShiftDayStaffingStatus _evaluateShiftDayStaffing(String shiftId, DateTime day) {
+    return StaffingQuotaUtils.evaluateShiftDay(
+      quotas: _staffingQuotas,
+      shiftId: shiftId,
+      date: day,
+      countByDepartment: _uniqueEmployeeCountsByDept(shiftId, day),
+      filterDepartment: _selectedDepartment,
+    );
   }
 
   Future<void> _loadSchedules() async {
@@ -520,8 +629,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 _buildLegendDot(const Color(0xFFD97706), 'Chờ duyệt'),
                 _buildLegendDot(const Color(0xFF8B5CF6), 'Chưa gửi'),
                 if (_staffingQuotas.isNotEmpty) ...[
-                  _buildLegendDot(const Color(0xFFEF4444), 'Thiếu nhân sự'),
-                  _buildLegendDot(const Color(0xFFF59E0B), 'Vượt định mức'),
+                  _buildLegendDot(const Color(0xFF3B82F6), 'Thiếu nhân sự'),
+                  _buildLegendDot(const Color(0xFFF59E0B), 'Gần/vượt định mức'),
                 ],
               ],
             ),
@@ -675,7 +784,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           child: ShiftSwapFlowHelpBanner(
             compact: true,
             onTapDetail: () {
-              NavigationNotifier.scheduleApprovalTab.value = 2;
+              NavigationNotifier.scheduleApprovalTab.value = 3;
               NavigationNotifier.goTo(NavigationNotifier.scheduleApproval);
             },
           ),
@@ -848,10 +957,11 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       ),
                       // Shift rows
                       if (_shifts.isEmpty)
-                        const Padding(
-                            padding: EdgeInsets.all(24),
-                            child: Text('Chưa có ca làm việc',
-                                style: TextStyle(color: Color(0xFF71717A))))
+                        Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Text(_employeeShiftEmptyMessage(),
+                                style: const TextStyle(
+                                    color: Color(0xFF71717A))))
                       else
                         ..._shifts.asMap().entries.map((entry) {
                           final si = entry.key;
@@ -1700,11 +1810,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   color: Color(0xFF18181B))),
           const Divider(height: 12),
           ...weekRegs.map((reg) {
-            final shift = reg.shiftId != null
-                ? _shifts
-                    .cast<Shift?>()
-                    .firstWhere((s) => s!.id == reg.shiftId, orElse: () => null)
-                : null;
+            final shift = _shiftById(reg.shiftId);
             Color statusColor;
             String statusText;
             IconData statusIcon;
@@ -5275,13 +5381,15 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
     final totalCount =
         confirmedCount + approvedCount + pendingCount + localCount;
 
-    // Quota check
+    // Quota check (theo thứ + phòng ban)
+    final staffing = _evaluateShiftDayStaffing(shift.id, day);
     final quota = _getQuotaForShift(shift.id);
-    final bool belowWarning = quota != null &&
-        totalCount <= (quota['warningThreshold'] ?? 0) &&
-        totalCount < (quota['minEmployees'] ?? 0);
-    final bool aboveMax =
-        quota != null && totalCount > (quota['maxEmployees'] ?? 999);
+    final (_, maxForDay) = quota != null
+        ? StaffingQuotaUtils.limitsForDate(quota, day)
+        : (0, 0);
+    final bool belowWarning = staffing.hasUnderMin;
+    final bool aboveMax = staffing.hasOverMax;
+    final bool nearMax = staffing.hasNearMax && !aboveMax;
 
     Color bgColor;
     Color borderColor;
@@ -5289,12 +5397,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
 
     if (totalCount == 0) {
       bgColor = belowWarning
-          ? const Color(0xFFFEE2E2)
+          ? const Color(0xFFEFF6FF)
           : (isToday ? const Color(0xFFF1F5F9) : Colors.white);
       borderColor =
-          belowWarning ? const Color(0xFFEF4444) : const Color(0xFFE4E4E7);
+          belowWarning ? const Color(0xFF3B82F6) : const Color(0xFFE4E4E7);
       content = belowWarning
-          ? const Icon(Icons.warning_amber, size: 14, color: Color(0xFFEF4444))
+          ? const Icon(Icons.warning_amber, size: 14, color: Color(0xFF3B82F6))
           : Icon(Icons.add, size: 14, color: Colors.grey[300]);
     } else {
       // Primary color by highest-priority status present
@@ -5314,9 +5422,9 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
 
       // Override colors for quota violations
       if (belowWarning) {
-        bgColor = const Color(0xFFFEE2E2);
-        borderColor = const Color(0xFFEF4444);
-      } else if (aboveMax) {
+        bgColor = const Color(0xFFEFF6FF);
+        borderColor = const Color(0xFF3B82F6);
+      } else if (aboveMax || nearMax) {
         bgColor = const Color(0xFFFEF3C7);
         borderColor = const Color(0xFFF59E0B);
       }
@@ -5332,8 +5440,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 const Padding(
                     padding: EdgeInsets.only(right: 2),
                     child: Icon(Icons.arrow_downward,
-                        size: 10, color: Color(0xFFEF4444))),
-              if (aboveMax)
+                        size: 10, color: Color(0xFF3B82F6))),
+              if (aboveMax || nearMax)
                 const Padding(
                     padding: EdgeInsets.only(right: 2),
                     child: Icon(Icons.arrow_upward,
@@ -5343,12 +5451,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       fontWeight: FontWeight.w800,
                       fontSize: 15,
                       color: belowWarning
-                          ? const Color(0xFFEF4444)
-                          : (aboveMax
+                          ? const Color(0xFF3B82F6)
+                          : (aboveMax || nearMax
                               ? const Color(0xFFF59E0B)
                               : borderColor))),
-              if (quota != null)
-                Text('/${quota['maxEmployees']}',
+              if (quota != null && maxForDay > 0)
+                Text('/$maxForDay',
                     style:
                         const TextStyle(fontSize: 9, color: Color(0xFF71717A))),
             ],
@@ -9069,292 +9177,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
     );
   }
 
-  // ══════════════════════════════════════════════
-  // Staffing Quota Settings Dialog
-  // ══════════════════════════════════════════════
   void _showStaffingQuotaDialog() {
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) {
-          return ScrollableAlertDialog(
-            backgroundColor: Colors.white,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            title: const Row(children: [
-              Icon(Icons.tune, color: Color(0xFF7C3AED)),
-              SizedBox(width: 8),
-              Expanded(
-                  child: Text('Định mức nhân sự',
-                      style: TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 16))),
-            ]),
-            content: SizedBox(
-              width: 500,
-              height: 400,
-              child: Column(
-                children: [
-                  const Text(
-                      'Cài đặt số lượng nhân viên tối thiểu, tối đa cho mỗi ca theo phòng ban.',
-                      style: TextStyle(fontSize: 13, color: Color(0xFF71717A))),
-                  const SizedBox(height: 12),
-                  Expanded(
-                    child: _staffingQuotas.isEmpty
-                        ? const Center(
-                            child: Text('Chưa có định mức nào',
-                                style: TextStyle(color: Color(0xFF71717A))))
-                        : ListView.separated(
-                            itemCount: _staffingQuotas.length,
-                            separatorBuilder: (_, __) =>
-                                const Divider(height: 1),
-                            itemBuilder: (_, i) {
-                              final q = _staffingQuotas[i];
-                              return ListTile(
-                                dense: true,
-                                title: Text(q['shiftName'] ?? '',
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 13)),
-                                subtitle: Text(
-                                  '${q['department'] ?? 'Tất cả'} | Min: ${q['minEmployees']} - Max: ${q['maxEmployees']} | Cảnh báo ≤ ${q['warningThreshold']}',
-                                  style: const TextStyle(
-                                      fontSize: 11, color: Color(0xFF71717A)),
-                                ),
-                                trailing: IconButton(
-                                  icon: const Icon(Icons.delete_outline,
-                                      size: 18, color: Color(0xFFEF4444)),
-                                  onPressed: () async {
-                                    final result = await _apiService
-                                        .deleteStaffingQuota(q['id']);
-                                    if (result['isSuccess'] == true) {
-                                      await _loadStaffingQuotas();
-                                      if (ctx.mounted) setDialogState(() {});
-                                    }
-                                  },
-                                ),
-                              );
-                            },
-                          ),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Đóng')),
-              FilledButton.icon(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  _showAddQuotaDialog();
-                },
-                icon: const Icon(Icons.add, size: 16),
-                label: const Text('Thêm định mức'),
-                style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF7C3AED),
-                    foregroundColor: Colors.white),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  void _showAddQuotaDialog() {
-    Shift? selectedShift = _shifts.isNotEmpty ? _shifts.first : null;
-    String? selectedDept;
-    int minEmployees = 1;
-    int maxEmployees = 10;
-    int warningThreshold = 2;
-    bool isSaving = false;
-
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => ScrollableAlertDialog(
-          backgroundColor: Colors.white,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(children: [
-            Icon(Icons.add_circle, color: Color(0xFF7C3AED)),
-            SizedBox(width: 8),
-            Expanded(
-                child: Text('Thêm định mức nhân sự',
-                    style:
-                        TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
-          ]),
-          content: SizedBox(
-            width: 400,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Ca làm việc:',
-                      style:
-                          TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                  const SizedBox(height: 4),
-                  DropdownButtonFormField<Shift>(
-                    initialValue: selectedShift,
-                    decoration: InputDecoration(
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 10),
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8)),
-                    ),
-                    items: _shifts
-                        .map((s) => DropdownMenuItem<Shift>(
-                              value: s,
-                              child: Text(
-                                  '${s.name} (${_formatTime(s.startTime)}-${_formatTime(s.endTime)})',
-                                  style: const TextStyle(fontSize: 13)),
-                            ))
-                        .toList(),
-                    onChanged: (v) => setDialogState(() => selectedShift = v),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text('Phòng ban:',
-                      style:
-                          TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                  const SizedBox(height: 4),
-                  DropdownButtonFormField<String?>(
-                    initialValue: selectedDept,
-                    decoration: InputDecoration(
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 10),
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8)),
-                    ),
-                    items: [
-                      const DropdownMenuItem<String?>(
-                          value: null, child: Text('Tất cả phòng ban')),
-                      ..._departments.map((d) => DropdownMenuItem<String?>(
-                            value: d['name']?.toString(),
-                            child: Text(d['name']?.toString() ?? ''),
-                          )),
-                    ],
-                    onChanged: (v) => setDialogState(() => selectedDept = v),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(children: [
-                    Expanded(
-                        child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Tối thiểu:',
-                            style: TextStyle(
-                                fontWeight: FontWeight.w600, fontSize: 13)),
-                        const SizedBox(height: 4),
-                        TextFormField(
-                          initialValue: '$minEmployees',
-                          keyboardType: TextInputType.number,
-                          decoration: InputDecoration(
-                            isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 10),
-                            border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8)),
-                          ),
-                          onChanged: (v) => minEmployees = int.tryParse(v) ?? 1,
-                        ),
-                      ],
-                    )),
-                    const SizedBox(width: 12),
-                    Expanded(
-                        child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Tối đa:',
-                            style: TextStyle(
-                                fontWeight: FontWeight.w600, fontSize: 13)),
-                        const SizedBox(height: 4),
-                        TextFormField(
-                          initialValue: '$maxEmployees',
-                          keyboardType: TextInputType.number,
-                          decoration: InputDecoration(
-                            isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 10),
-                            border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8)),
-                          ),
-                          onChanged: (v) =>
-                              maxEmployees = int.tryParse(v) ?? 10,
-                        ),
-                      ],
-                    )),
-                  ]),
-                  const SizedBox(height: 12),
-                  const Text(
-                      'Ngưỡng cảnh báo (≤ giá trị này sẽ cảnh báo thiếu):',
-                      style:
-                          TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                  const SizedBox(height: 4),
-                  TextFormField(
-                    initialValue: '$warningThreshold',
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 10),
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8)),
-                      helperText:
-                          'Nếu số nhân viên ≤ giá trị này, ô lịch sẽ hiện cảnh báo đỏ',
-                      helperStyle: const TextStyle(fontSize: 11),
-                    ),
-                    onChanged: (v) => warningThreshold = int.tryParse(v) ?? 2,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
-            FilledButton.icon(
-              onPressed: (isSaving || selectedShift == null)
-                  ? null
-                  : () async {
-                      setDialogState(() => isSaving = true);
-                      final result = await _apiService.upsertStaffingQuota({
-                        'shiftTemplateId': selectedShift!.id,
-                        if (selectedDept != null) 'department': selectedDept,
-                        'minEmployees': minEmployees,
-                        'maxEmployees': maxEmployees,
-                        'warningThreshold': warningThreshold,
-                      });
-                      if (!ctx.mounted) return;
-                      Navigator.pop(ctx);
-                      if (result['isSuccess'] == true) {
-                        await _loadStaffingQuotas();
-                        appNotification.showSuccess(
-                            title: 'Thành công',
-                            message: 'Đã lưu định mức nhân sự');
-                        _showStaffingQuotaDialog(); // Re-open list
-                      } else {
-                        appNotification.showError(
-                            title: 'Lỗi',
-                            message: result['message'] ?? 'Không thể lưu');
-                      }
-                    },
-              icon: isSaving
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Icon(Icons.save, size: 16),
-              label: const Text('Lưu'),
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF7C3AED),
-                  foregroundColor: Colors.white),
-            ),
-          ],
-        ),
-      ),
-    );
+    SettingsHubScreen.pendingSubIndex.value = 14;
+    NavigationNotifier.goTo(NavigationNotifier.settingsHub);
   }
 }

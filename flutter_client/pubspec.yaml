@@ -3,7 +3,7 @@ description: ZKTeco ADMS Flutter Client - Hệ thống quản lý chấm công
 
 publish_to: 'none'
 
-version: 1.0.7+12
+version: 1.0.8+13
 
 environment:
   sdk: '>=3.0.0 <4.0.0'

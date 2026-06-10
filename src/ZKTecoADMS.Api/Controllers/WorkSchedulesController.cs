@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Commands.WorkSchedules;
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.Queries.WorkSchedules;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.DTOs.WorkSchedules;
@@ -252,9 +253,17 @@ public class WorkSchedulesController(IMediator mediator) : AuthenticatedControll
     [RequireModulePermission("WorkSchedule", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<ShiftStaffingQuotaDto>>> UpsertStaffingQuota([FromBody] UpsertShiftStaffingQuotaDto request)
     {
+        var daily = request.DailyQuotas?
+            .Select(d => new StaffingDailyQuotaDto
+            {
+                DayOfWeek = d.DayOfWeek,
+                MinEmployees = d.MinEmployees,
+                MaxEmployees = d.MaxEmployees,
+            })
+            .ToList();
         var command = new UpsertShiftStaffingQuotaCommand(
             RequiredStoreId, request.ShiftTemplateId, request.Department,
-            request.MinEmployees, request.MaxEmployees, request.WarningThreshold);
+            request.MinEmployees, request.MaxEmployees, request.WarningThreshold, daily);
         var result = await mediator.Send(command);
         return Ok(result);
     }

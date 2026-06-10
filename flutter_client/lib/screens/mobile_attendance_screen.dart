@@ -21,6 +21,7 @@ import '../widgets/face_verification_camera.dart';
 import '../widgets/site_photo_capture_screen.dart';
 import '../widgets/mobile_attendance_record_detail_sheet.dart';
 import '../widgets/notification_overlay.dart';
+import 'main_layout.dart' show ScreenRefreshNotifier;
 import 'mobile_attendance_history_screen.dart';
 
 class MobileAttendanceScreen extends StatefulWidget {
@@ -874,6 +875,9 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
         );
 
         _loadTodayRecords();
+        ScreenRefreshNotifier.refreshDashboardScreen();
+        ScreenRefreshNotifier.refreshAttendanceSummaryScreen();
+        ScreenRefreshNotifier.refreshAttendanceScreen();
         // Reset face verification for next punch
         setState(() {
           _isFaceVerified = false;

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using ZKTecoADMS.Application.DTOs.WorkSchedules;
 using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.Interfaces;
+using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 
 namespace ZKTecoADMS.Application.Commands.WorkSchedules;
@@ -1017,6 +1018,13 @@ public class GetShiftStaffingQuotasHandler(
                 MinEmployees = q.MinEmployees,
                 MaxEmployees = q.MaxEmployees,
                 WarningThreshold = q.WarningThreshold,
+                DailyQuotas = StaffingQuotaResolver.ParseDailyQuotas(q.DailyQuotasJson)
+                    .Select(d => new ShiftStaffingDailyQuotaDto
+                    {
+                        DayOfWeek = d.DayOfWeek,
+                        MinEmployees = d.MinEmployees,
+                        MaxEmployees = d.MaxEmployees,
+                    }).ToList(),
             }).ToList();
 
             return AppResponse<List<ShiftStaffingQuotaDto>>.Success(result);
@@ -1030,7 +1038,8 @@ public class GetShiftStaffingQuotasHandler(
 
 public record UpsertShiftStaffingQuotaCommand(
     Guid StoreId, Guid ShiftTemplateId, string? Department,
-    int MinEmployees, int MaxEmployees, int WarningThreshold
+    int MinEmployees, int MaxEmployees, int WarningThreshold,
+    List<StaffingDailyQuotaDto>? DailyQuotas
 ) : ICommand<AppResponse<ShiftStaffingQuotaDto>>;
 
 public class UpsertShiftStaffingQuotaHandler(
@@ -1052,21 +1061,18 @@ public class UpsertShiftStaffingQuotaHandler(
                      && ((q.Department == null && request.Department == null) || q.Department == request.Department),
                 cancellationToken: cancellationToken);
 
+            var dailyJson = StaffingQuotaResolver.SerializeDailyQuotas(request.DailyQuotas);
+
             if (existing != null)
             {
                 existing.MinEmployees = request.MinEmployees;
                 existing.MaxEmployees = request.MaxEmployees;
                 existing.WarningThreshold = request.WarningThreshold;
+                existing.DailyQuotasJson = dailyJson;
                 existing.UpdatedAt = DateTime.Now;
                 await quotaRepository.UpdateAsync(existing, cancellationToken);
 
-                return AppResponse<ShiftStaffingQuotaDto>.Success(new ShiftStaffingQuotaDto
-                {
-                    Id = existing.Id, ShiftTemplateId = existing.ShiftTemplateId,
-                    ShiftName = shift.Name, Department = existing.Department,
-                    MinEmployees = existing.MinEmployees, MaxEmployees = existing.MaxEmployees,
-                    WarningThreshold = existing.WarningThreshold,
-                });
+                return AppResponse<ShiftStaffingQuotaDto>.Success(MapQuotaDto(existing, shift.Name));
             }
 
             var quota = new ShiftStaffingQuota
@@ -1077,22 +1083,36 @@ public class UpsertShiftStaffingQuotaHandler(
                 MinEmployees = request.MinEmployees,
                 MaxEmployees = request.MaxEmployees,
                 WarningThreshold = request.WarningThreshold,
+                DailyQuotasJson = dailyJson,
             };
             var created = await quotaRepository.AddAsync(quota, cancellationToken);
 
-            return AppResponse<ShiftStaffingQuotaDto>.Success(new ShiftStaffingQuotaDto
-            {
-                Id = created.Id, ShiftTemplateId = created.ShiftTemplateId,
-                ShiftName = shift.Name, Department = created.Department,
-                MinEmployees = created.MinEmployees, MaxEmployees = created.MaxEmployees,
-                WarningThreshold = created.WarningThreshold,
-            });
+            return AppResponse<ShiftStaffingQuotaDto>.Success(MapQuotaDto(created, shift.Name));
         }
         catch (Exception ex)
         {
             return AppResponse<ShiftStaffingQuotaDto>.Error(ex.Message);
         }
     }
+
+    private static ShiftStaffingQuotaDto MapQuotaDto(ShiftStaffingQuota q, string shiftName) =>
+        new()
+        {
+            Id = q.Id,
+            ShiftTemplateId = q.ShiftTemplateId,
+            ShiftName = shiftName,
+            Department = q.Department,
+            MinEmployees = q.MinEmployees,
+            MaxEmployees = q.MaxEmployees,
+            WarningThreshold = q.WarningThreshold,
+            DailyQuotas = StaffingQuotaResolver.ParseDailyQuotas(q.DailyQuotasJson)
+                .Select(d => new ShiftStaffingDailyQuotaDto
+                {
+                    DayOfWeek = d.DayOfWeek,
+                    MinEmployees = d.MinEmployees,
+                    MaxEmployees = d.MaxEmployees,
+                }).ToList(),
+        };
 }
 
 public record DeleteShiftStaffingQuotaCommand(Guid StoreId, Guid Id) : ICommand<AppResponse<bool>>;

@@ -40,10 +40,14 @@ public static class ScheduleStaffingQuotaHelper
                 && string.Equals(q.Department, department, StringComparison.OrdinalIgnoreCase))
             ?? quotas.FirstOrDefault(q => string.IsNullOrWhiteSpace(q.Department));
 
-        if (quota == null || quota.MaxEmployees <= 0)
+        if (quota == null)
             return null;
 
         var workDate = registration.Date.Date;
+        var (minLimit, maxLimit) = StaffingQuotaResolver.ResolveLimitsForDate(quota, workDate);
+        if (maxLimit <= 0)
+            return null;
+
         var shiftId = registration.ShiftId.Value;
 
         var workSchedules = (await workScheduleRepository.GetAllAsync(
@@ -77,10 +81,11 @@ public static class ScheduleStaffingQuotaHelper
         var scheduledCount = workSchedules.Count(ws => InQuotaScope(ws.Employee));
         var pendingCount = pendingRegs.Count(r => InQuotaScope(r.Employee));
 
-        if (scheduledCount + pendingCount + 1 > quota.MaxEmployees)
+        if (scheduledCount + pendingCount + 1 > maxLimit)
         {
-            return $"Ca đã đủ định mức tối đa {quota.MaxEmployees} nhân viên ngày {workDate:dd/MM/yyyy} "
-                   + $"(hiện {scheduledCount} đã xếp + {pendingCount} chờ duyệt).";
+            var deptLabel = string.IsNullOrWhiteSpace(quota.Department) ? "" : $" ({quota.Department})";
+            return $"Ca đã đủ định mức tối đa {maxLimit} nhân viên{deptLabel} ngày {workDate:dd/MM/yyyy} "
+                   + $"(hiện {scheduledCount} đã xếp + {pendingCount} chờ duyệt, tối thiểu {minLimit}).";
         }
 
         return null;

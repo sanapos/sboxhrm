@@ -81,6 +81,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Map<String, dynamic> _employeeDashboard = {};
   String _employeeStatsPeriod = 'month';
   List<Attendance> _employeeRawPunches = [];
+  bool _employeeRawPunchesExpanded = false;
   List<DailyShiftRecord> _employeeShiftRecords = [];
 
   // Data
@@ -174,13 +175,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _clockTimer = Timer.periodic(const Duration(minutes: 5), (_) {
       if (mounted) setState(() => _now = DateTime.now());
     });
+    ScreenRefreshNotifier.dashboard.addListener(_onExternalDashboardRefresh);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _resolveDashboardMode(context);
     });
   }
 
+  void _onExternalDashboardRefresh() {
+    if (!mounted) return;
+    if (_isEmployee) {
+      _loadEmployeeData();
+    } else {
+      _loadAllData(_caps(context));
+    }
+  }
+
   @override
   void dispose() {
+    ScreenRefreshNotifier.dashboard.removeListener(_onExternalDashboardRefresh);
     _clockTimer?.cancel();
     _bannerTimer?.cancel();
     super.dispose();
@@ -312,15 +324,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final dashResp = results[0] as Map<String, dynamic>;
         final leavesResp = results[1] as Map<String, dynamic>;
         final commsResp = results[3] as Map<String, dynamic>;
+        final rawPunches = List<Attendance>.from(attLoad.items)
+          ..sort((a, b) => b.attendanceTime.compareTo(a.attendanceTime));
+
         setState(() {
           _employeeDashboard =
               (dashResp['data'] as Map<String, dynamic>?) ?? {};
-          final punchList =
-              (_employeeDashboard['recentPunches'] as List?) ?? const [];
-          _employeeRawPunches = punchList
-              .whereType<Map>()
-              .map((m) => Attendance.fromJson(Map<String, dynamic>.from(m)))
-              .toList();
+          _employeeRawPunches = rawPunches;
+          _employeeRawPunchesExpanded = false;
           _employeeShiftRecords = shiftRecords;
           _todayLeaves = _extractList(leavesResp);
           _communications = _extractList(commsResp);
@@ -1721,7 +1732,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           if (perm.canView('ShiftSwap')) {
             NavigationNotifier.goToShiftSwap();
           } else {
-            NavigationNotifier.scheduleApprovalTab.value = 2;
+            NavigationNotifier.scheduleApprovalTab.value = 3;
             NavigationNotifier.goTo(NavigationNotifier.scheduleApproval);
           }
         }),
@@ -10386,35 +10397,59 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildEmployeeRawAttendanceCard() {
     final perm = Provider.of<PermissionProvider>(context, listen: false);
     final punches = _employeeRawPunches;
-    const previewCount = 12;
+    const previewCount = 10;
+    final hasMore = punches.length > previewCount;
+    final visible = _employeeRawPunchesExpanded || !hasMore
+        ? punches
+        : punches.take(previewCount).toList();
 
     return _DashCard(
       icon: Icons.list_alt_rounded,
       title: 'Chấm công thô chi tiết',
       color: const Color(0xFF0284C7),
-      badge: _employeeStatsPeriodLabel(),
+      badge: punches.isEmpty
+          ? _employeeStatsPeriodLabel()
+          : '${punches.length} bản ghi',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (punches.isEmpty)
             _emptyState('Chưa có log chấm công trong kỳ này')
           else ...[
-            ...punches.take(previewCount).map(_employeePunchRow),
-            if (punches.length > previewCount)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(
-                  'và ${punches.length - previewCount} bản ghi khác',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF71717A),
-                    fontStyle: FontStyle.italic,
+            ...visible.map(_employeePunchRow),
+            if (hasMore) ...[
+              const SizedBox(height: 4),
+              Align(
+                alignment: Alignment.center,
+                child: TextButton.icon(
+                  onPressed: () => setState(
+                    () => _employeeRawPunchesExpanded =
+                        !_employeeRawPunchesExpanded,
+                  ),
+                  icon: Icon(
+                    _employeeRawPunchesExpanded
+                        ? Icons.expand_less_rounded
+                        : Icons.expand_more_rounded,
+                    size: 18,
+                  ),
+                  label: Text(
+                    _employeeRawPunchesExpanded
+                        ? 'Thu gọn'
+                        : 'Xem thêm (${punches.length - previewCount} bản ghi)',
+                  ),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFF0284C7),
+                    textStyle: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),
+            ],
           ],
           if (perm.canView('Attendance') && punches.isNotEmpty) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: 4),
             Align(
               alignment: Alignment.centerRight,
               child: TextButton.icon(

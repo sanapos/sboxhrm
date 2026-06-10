@@ -23,6 +23,7 @@ import 'device_management_settings_screen.dart';
 
 import 'product_salary_settings_screen.dart';
 import 'branch_management_screen.dart';
+import 'staffing_quota_settings_screen.dart';
 
 class SettingsHubScreen extends StatefulWidget {
   const SettingsHubScreen({super.key});
@@ -175,6 +176,13 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
             desc: 'Kết nối, quản lý, điều khiển máy chấm công',
             accent: HrmPageChrome.primaryNavy,
             moduleCode: 'Device'),
+        _SidebarItem(
+            index: 14,
+            icon: Icons.groups,
+            label: 'Định mức nhân sự',
+            desc: 'Min/Max nhân sự theo ca, phòng ban, từng thứ T2–CN',
+            accent: Color(0xFF7C3AED),
+            moduleCode: 'WorkSchedule'),
       ],
     ),
     _SidebarGroup(
@@ -300,6 +308,8 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
         return const AiSettingsScreen();
       case 12:
         return const DeviceManagementSettingsScreen();
+      case 14:
+        return const StaffingQuotaSettingsScreen();
       default:
         return const SizedBox();
     }

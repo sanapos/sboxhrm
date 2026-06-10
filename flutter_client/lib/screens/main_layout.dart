@@ -77,6 +77,12 @@ class ScreenRefreshNotifier {
   static final ValueNotifier<int> attendanceByShift = ValueNotifier<int>(0);
   static final ValueNotifier<int> attendanceSummary = ValueNotifier<int>(0);
   static final ValueNotifier<int> payroll = ValueNotifier<int>(0);
+  static final ValueNotifier<int> dashboard = ValueNotifier<int>(0);
+
+  static void refreshDashboardScreen() {
+    dashboard.value++;
+    debugPrint('🔄 Triggered dashboard screen refresh: ${dashboard.value}');
+  }
 
   static void refreshAttendanceScreen() {
     attendance.value++;
@@ -563,6 +569,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     ScreenRefreshNotifier.refreshAttendanceSummaryScreen();
     ScreenRefreshNotifier.refreshAttendanceByShiftScreen();
     ScreenRefreshNotifier.refreshPayrollScreen();
+    ScreenRefreshNotifier.refreshDashboardScreen();
     // Cập nhật badge chuông vì attendance notification đã lưu vào DB
     _loadNotificationCount();
   }

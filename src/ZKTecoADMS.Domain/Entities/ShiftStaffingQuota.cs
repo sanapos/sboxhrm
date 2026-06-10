@@ -36,6 +36,12 @@ public class ShiftStaffingQuota : AuditableEntity<Guid>
     /// </summary>
     public int WarningThreshold { get; set; } = 2;
 
+    /// <summary>
+    /// JSON định mức theo thứ: [{dayOfWeek:1,min:2,max:5},...] (1=T2, 7=CN).
+    /// Null/rỗng → dùng MinEmployees/MaxEmployees cho mọi ngày.
+    /// </summary>
+    public string? DailyQuotasJson { get; set; }
+
     public virtual Store Store { get; set; } = null!;
     public virtual ShiftTemplate ShiftTemplate { get; set; } = null!;
 }

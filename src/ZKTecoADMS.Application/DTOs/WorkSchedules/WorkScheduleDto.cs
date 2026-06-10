@@ -127,6 +127,14 @@ public class ScheduleRegistrationQueryParams
 }
 
 // Shift Staffing Quota DTOs
+public class ShiftStaffingDailyQuotaDto
+{
+    /// <summary>1=Thứ 2 … 7=Chủ nhật (ISO).</summary>
+    public int DayOfWeek { get; set; }
+    public int MinEmployees { get; set; }
+    public int MaxEmployees { get; set; }
+}
+
 public class ShiftStaffingQuotaDto
 {
     public Guid Id { get; set; }
@@ -136,6 +144,7 @@ public class ShiftStaffingQuotaDto
     public int MinEmployees { get; set; }
     public int MaxEmployees { get; set; }
     public int WarningThreshold { get; set; }
+    public List<ShiftStaffingDailyQuotaDto> DailyQuotas { get; set; } = [];
 }
 
 public class UpsertShiftStaffingQuotaDto
@@ -145,6 +154,7 @@ public class UpsertShiftStaffingQuotaDto
     public int MinEmployees { get; set; } = 1;
     public int MaxEmployees { get; set; } = 10;
     public int WarningThreshold { get; set; } = 2;
+    public List<ShiftStaffingDailyQuotaDto>? DailyQuotas { get; set; }
 }
 
 /// <summary>

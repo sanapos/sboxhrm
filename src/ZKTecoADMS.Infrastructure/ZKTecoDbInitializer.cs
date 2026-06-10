@@ -235,6 +235,9 @@ public class ZKTecoDbInitializer(
                             ALTER TABLE ""Holidays"" ADD COLUMN IF NOT EXISTS ""EmployeeIds"" TEXT;
                             ALTER TABLE ""Holidays"" ADD COLUMN IF NOT EXISTS ""SalaryRate"" DOUBLE PRECISION NOT NULL DEFAULT 3.0;
                         END IF;
+                        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'ShiftStaffingQuotas') THEN
+                            ALTER TABLE ""ShiftStaffingQuotas"" ADD COLUMN IF NOT EXISTS ""DailyQuotasJson"" TEXT;
+                        END IF;
                         IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'ShiftTemplates') THEN
                             ALTER TABLE ""ShiftTemplates"" ADD COLUMN IF NOT EXISTS ""Description"" TEXT;
                             ALTER TABLE ""ShiftTemplates"" ADD COLUMN IF NOT EXISTS ""Code"" TEXT;
