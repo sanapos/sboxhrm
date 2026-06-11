@@ -281,6 +281,19 @@ public class ZKTecoDbInitializer(
                         ALTER TABLE ""Payslips"" ADD COLUMN IF NOT EXISTS ""Tax"" numeric;
                         ALTER TABLE ""Payslips"" ADD COLUMN IF NOT EXISTS ""UnemploymentInsurance"" numeric;
 
+                        CREATE TABLE IF NOT EXISTS ""PayslipAttendanceSnapshots"" (
+                            ""Id"" uuid NOT NULL PRIMARY KEY,
+                            ""PayslipId"" uuid NOT NULL,
+                            ""StoreId"" uuid NULL,
+                            ""PeriodStart"" timestamp without time zone NOT NULL,
+                            ""PeriodEnd"" timestamp without time zone NOT NULL,
+                            ""SnapshotJson"" text NOT NULL,
+                            ""CapturedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                            ""CapturedByUserId"" uuid NULL
+                        );
+                        CREATE UNIQUE INDEX IF NOT EXISTS ""IX_PayslipAttendanceSnapshots_PayslipId""
+                            ON ""PayslipAttendanceSnapshots"" (""PayslipId"");
+
                         -- Leaves approval columns
                         ALTER TABLE ""Leaves"" ADD COLUMN IF NOT EXISTS ""CurrentApprovalStep"" integer NOT NULL DEFAULT 0;
                         ALTER TABLE ""Leaves"" ADD COLUMN IF NOT EXISTS ""TotalApprovalLevels"" integer NOT NULL DEFAULT 0;

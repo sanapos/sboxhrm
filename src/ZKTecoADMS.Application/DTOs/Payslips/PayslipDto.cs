@@ -47,4 +47,5 @@ public class PayslipDto
     public string PaymentStatus { get; set; } = "Chưa thanh toán";
     public string? Notes { get; set; }
     public DateTime CreatedAt { get; set; }
+    public bool HasAttendanceSnapshot { get; set; }
 }

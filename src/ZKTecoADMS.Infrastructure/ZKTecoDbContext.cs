@@ -59,6 +59,7 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     
     // Payroll & Finance
     public DbSet<Payslip> Payslips => Set<Payslip>();
+    public DbSet<PayslipAttendanceSnapshot> PayslipAttendanceSnapshots => Set<PayslipAttendanceSnapshot>();
     public DbSet<AdvanceRequest> AdvanceRequests => Set<AdvanceRequest>();
     public DbSet<AdvanceApprovalRecord> AdvanceApprovalRecords => Set<AdvanceApprovalRecord>();
     public DbSet<PaymentTransaction> PaymentTransactions => Set<PaymentTransaction>();

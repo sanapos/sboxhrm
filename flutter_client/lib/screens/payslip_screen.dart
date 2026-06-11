@@ -744,6 +744,17 @@ class _PayslipScreenState extends State<PayslipScreen> {
                       ),
                     ),
                   ],
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: () => _showAttendanceSnapshot(p),
+                    icon: const Icon(Icons.fact_check_outlined, size: 18),
+                    label: const Text('Xem bảng chấm công kỳ lương'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: HrmPageChrome.primaryNavy,
+                      side: BorderSide(
+                          color: HrmPageChrome.primaryNavy.withValues(alpha: 0.4)),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -819,6 +830,250 @@ class _PayslipScreenState extends State<PayslipScreen> {
           Text(
             _formatCurrency(value ?? 0),
             style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showAttendanceSnapshot(Map<String, dynamic> payslip) async {
+    final id = payslip['id']?.toString();
+    if (id == null || id.isEmpty) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const AlertDialog(
+        content: Row(
+          children: [
+            SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2)),
+            SizedBox(width: 16),
+            Expanded(child: Text('Đang tải bảng chấm công...')),
+          ],
+        ),
+      ),
+    );
+
+    Map<String, dynamic>? snapshotData;
+    String? errorMessage;
+    try {
+      final res = await _apiService.getPayslipAttendanceSnapshot(id);
+      if (res['isSuccess'] == true && res['data'] != null) {
+        final payload = Map<String, dynamic>.from(res['data'] as Map);
+        final inner = payload['data'];
+        snapshotData = inner is Map
+            ? Map<String, dynamic>.from(inner)
+            : payload;
+      } else {
+        errorMessage =
+            res['message']?.toString() ?? 'Chưa có bản chấm công đính kèm';
+      }
+    } catch (e) {
+      errorMessage = 'Lỗi tải dữ liệu: $e';
+    }
+
+    if (!mounted) return;
+    Navigator.of(context).pop(); // close loading
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: 720,
+            maxHeight: MediaQuery.of(ctx).size.height * 0.85,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 8, 8),
+                child: Row(
+                  children: [
+                    const Icon(Icons.calendar_month,
+                        color: HrmPageChrome.primaryNavy),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Chấm công kỳ lương ${payslip['month']}/${payslip['year']}',
+                        style: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: snapshotData == null
+                    ? Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Center(
+                          child: Text(
+                            errorMessage ??
+                                'Phiếu lương này chưa có bản chấm công (chốt trước khi cập nhật tính năng).',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.grey[700]),
+                          ),
+                        ),
+                      )
+                    : _buildAttendanceSnapshotBody(snapshotData),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAttendanceSnapshotBody(Map<String, dynamic> data) {
+    final summary = data['summary'] is Map
+        ? Map<String, dynamic>.from(data['summary'] as Map)
+        : <String, dynamic>{};
+    final daily = (data['dailyRecords'] as List?)
+            ?.whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList() ??
+        [];
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        if (summary.isNotEmpty)
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0F9FF),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFBAE6FD)),
+            ),
+            child: Wrap(
+              spacing: 16,
+              runSpacing: 8,
+              children: [
+                _snapChip('Tổng công', '${summary['workDays'] ?? '-'}'),
+                _snapChip('Tăng ca',
+                    '${(summary['otTotalHours'] as num?)?.toStringAsFixed(1) ?? '-'}h'),
+                _snapChip('Đi trễ',
+                    '${summary['lateCount'] ?? 0} lần (${summary['lateMinutes'] ?? 0}p)'),
+                _snapChip('Vắng', '${summary['absentDays'] ?? 0} ngày'),
+              ],
+            ),
+          ),
+        const SizedBox(height: 12),
+        Text(
+          'Chi tiết theo ngày (${daily.length})',
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+        ),
+        const SizedBox(height: 8),
+        if (daily.isEmpty)
+          Text('Không có dòng chấm công',
+              style: TextStyle(color: Colors.grey[600], fontSize: 13))
+        else
+          ...daily.map((d) => _dailySnapshotTile(d)),
+        if (data['attendanceLogs'] is List &&
+            (data['attendanceLogs'] as List).isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Text(
+            'Log chấm công gốc (${(data['attendanceLogs'] as List).length})',
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+          ),
+          const SizedBox(height: 8),
+          ...(data['attendanceLogs'] as List).whereType<Map>().map((raw) {
+            final log = Map<String, dynamic>.from(raw);
+            final time = parseApiUtcDateTime(log['time']);
+            return ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(
+                (log['state'] as num?)?.toInt() == 1
+                    ? Icons.logout
+                    : Icons.login,
+                size: 18,
+                color: HrmPageChrome.primaryNavy,
+              ),
+              title: Text(
+                time != null
+                    ? DateFormat('dd/MM/yyyy HH:mm').format(time.toLocal())
+                    : log['time']?.toString() ?? '',
+                style: const TextStyle(fontSize: 13),
+              ),
+              subtitle: Text(
+                '${log['stateLabel'] ?? ''} • ${log['deviceName'] ?? ''}',
+                style: const TextStyle(fontSize: 11),
+              ),
+            );
+          }),
+        ],
+      ],
+    );
+  }
+
+  Widget _snapChip(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+        Text(value,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+      ],
+    );
+  }
+
+  Widget _dailySnapshotTile(Map<String, dynamic> d) {
+    final shifts = (d['shiftNames'] as List?)?.join(', ') ?? '';
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE4E4E7)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 2,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  DateFormat('dd/MM/yyyy').format(
+                    DateTime.tryParse(d['date']?.toString() ?? '') ??
+                        DateTime.now(),
+                  ),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w600, fontSize: 13),
+                ),
+                if (shifts.isNotEmpty)
+                  Text(shifts,
+                      style:
+                          TextStyle(fontSize: 11, color: Colors.grey[600])),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Text(
+              '${d['checkIn'] ?? '--'} → ${d['checkOut'] ?? '--'}',
+              style: const TextStyle(fontSize: 12),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              '${(d['workHours'] as num?)?.toStringAsFixed(1) ?? '0'}h • ${d['status'] ?? ''}',
+              style: const TextStyle(fontSize: 11),
+              textAlign: TextAlign.end,
+            ),
           ),
         ],
       ),

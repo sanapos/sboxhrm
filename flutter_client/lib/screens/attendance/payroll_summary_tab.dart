@@ -683,6 +683,76 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     return list;
   }
 
+  /// Bản chụp chấm công kỳ lương — lưu độc lập khi chốt phiếu lương.
+  Map<String, dynamic> _buildAttendanceSnapshot(
+      String empCode, Map<String, dynamic> row) {
+    final shiftRecords = _shiftRecordsForEmployee(empCode)
+      ..sort((a, b) => a.date.compareTo(b.date));
+
+    final attendances = (_periodAttendances.isNotEmpty
+            ? _periodAttendances
+            : widget.attendances)
+        .where((a) => _resolveAttEmployeeCode(a) == empCode)
+        .toList()
+      ..sort((a, b) => a.attendanceTime.compareTo(b.attendanceTime));
+
+    String fmtTime(DateTime dt) =>
+        '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+
+    return {
+      'periodStart': DateTime(_fromDate.year, _fromDate.month, _fromDate.day)
+          .toIso8601String(),
+      'periodEnd': DateTime(
+              _toDate.year, _toDate.month, _toDate.day, 23, 59, 59)
+          .toIso8601String(),
+      'employeeCode': empCode,
+      'employeeName': row['name']?.toString() ?? '',
+      'summary': {
+        'workDays': row['workDays'],
+        'standardDays': row['standardDays'],
+        'paidLeaveDays': row['paidLeaveDays'],
+        'absentDays': row['absentDays'],
+        'totalHours': row['totalHours'],
+        'standardHours': row['standardHours'],
+        'otTotalHours': row['otTotalHours'],
+        'lateCount': row['lateCount'],
+        'lateMinutes': row['lateMinutes'],
+        'earlyCount': row['earlyCount'],
+        'earlyMinutes': row['earlyMinutes'],
+      },
+      'dailyRecords': shiftRecords.map((r) {
+        final punches = r.punchTimes;
+        return {
+          'date': DateFormat('yyyy-MM-dd').format(r.date),
+          'dayOfWeek': r.dayOfWeek,
+          'shiftNames': r.shiftNames,
+          'checkIn': punches.isNotEmpty ? fmtTime(punches.first) : null,
+          'checkOut': punches.length > 1 ? fmtTime(punches.last) : null,
+          'punchTimes':
+              punches.map((t) => t.toIso8601String()).toList(growable: false),
+          'workHours': r.workHours,
+          'workCount': r.workCount,
+          'lateMinutes': r.lateMinutes,
+          'earlyMinutes': r.earlyMinutes,
+          'overtimeMinutes': r.overtimeMinutes,
+          'status': r.status,
+        };
+      }).toList(),
+      'attendanceLogs': attendances
+          .map((a) => {
+                'id': a.id,
+                'time': a.attendanceTime.toIso8601String(),
+                'state': a.attendanceState,
+                'stateLabel': a.attendanceState == 1 ? 'Ra' : 'Vào',
+                'deviceName': a.deviceName ?? '',
+                'verifyMode': a.verifyMode,
+                'note': a.note,
+                'locationName': a.locationName,
+              })
+          .toList(),
+    };
+  }
+
   // ──────── Helper: check if a date is holiday ────────
   bool _isHoliday(DateTime date) {
     for (final h in _holidays) {
@@ -1898,6 +1968,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           'netSalary': _toDouble(row['netSalary']),
         };
         if (userId.isNotEmpty) item['employeeUserId'] = userId;
+        item['attendanceSnapshot'] = _buildAttendanceSnapshot(code, row);
         items.add(item);
       }
 

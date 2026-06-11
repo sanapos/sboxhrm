@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace ZKTecoADMS.Application.DTOs.Payslips;
 
 public class FinalizePayrollRequest
@@ -29,6 +31,8 @@ public class FinalizePayrollItemDto
     public decimal GrossSalary { get; set; }
     public decimal NetSalary { get; set; }
     public string? Notes { get; set; }
+    /// <summary>Bản chụp chấm công kỳ lương (JSON) — lưu độc lập khi chốt.</summary>
+    public JsonElement? AttendanceSnapshot { get; set; }
 }
 
 public class FinalizePayrollResultDto

@@ -4,6 +4,7 @@ using MediatR;
 using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Queries.Payslips.GetEmployeePayslips;
+using ZKTecoADMS.Application.Queries.Payslips.GetPayslipAttendanceSnapshot;
 using ZKTecoADMS.Application.Queries.Payslips.GetPayslipById;
 using ZKTecoADMS.Application.Queries.Payslips.GetStorePayslips;
 using ZKTecoADMS.Application.Commands.Payslips.FinalizePayroll;
@@ -103,6 +104,28 @@ public class PayslipsController(IMediator mediator) : AuthenticatedControllerBas
         if (!isManagerOrAdmin && currentUserId != result.Data?.EmployeeUserId)
             return Forbid();
 
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Bản chấm công đính kèm phiếu lương (snapshot độc lập khi chốt lương).
+    /// </summary>
+    [HttpGet("{id}/attendance-snapshot")]
+    [RequireModulePermission("Payslip", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<PayslipAttendanceSnapshotDto>>> GetPayslipAttendanceSnapshot(Guid id)
+    {
+        var isManagerOrAdmin = IsManager || IsAdmin;
+        var payslipResult = await mediator.Send(new GetPayslipByIdQuery(RequiredStoreId, id));
+        if (!payslipResult.IsSuccess || payslipResult.Data == null)
+            return NotFound(payslipResult);
+
+        if (!isManagerOrAdmin && CurrentUserId != payslipResult.Data.EmployeeUserId)
+            return Forbid();
+
+        var query = new GetPayslipAttendanceSnapshotQuery(RequiredStoreId, id);
+        var result = await mediator.Send(query);
+        if (!result.IsSuccess)
+            return NotFound(result);
         return Ok(result);
     }
 }

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Application.DTOs.Payslips;
+using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Domain.Repositories;
@@ -18,7 +19,9 @@ public class FinalizePayrollHandler(
     IRepository<Benefit> benefitRepository,
     IRepository<Employee> employeeRepository,
     IRepository<CashTransaction> cashTransactionRepository,
-    IRepository<TransactionCategory> categoryRepository
+    IRepository<TransactionCategory> categoryRepository,
+    IRepository<PayslipAttendanceSnapshot> snapshotRepository,
+    ISystemNotificationService notificationService
 ) : ICommandHandler<FinalizePayrollCommand, AppResponse<FinalizePayrollResultDto>>
 {
     public async Task<AppResponse<FinalizePayrollResultDto>> Handle(
@@ -123,6 +126,23 @@ public class FinalizePayrollHandler(
                     cashTransactionRepository,
                     categoryRepository,
                     cancellationToken);
+
+                await PayslipAttendanceSnapshotHelper.SaveSnapshotAsync(
+                    snapshotRepository,
+                    payslip.Id,
+                    command.StoreId,
+                    command.UserId,
+                    req.PeriodStart,
+                    req.PeriodEnd,
+                    item.AttendanceSnapshot,
+                    cancellationToken);
+
+                await TryNotifyEmployeeAsync(
+                    employee,
+                    payslip,
+                    req,
+                    command.UserId,
+                    command.StoreId);
             }
             catch (DbUpdateException ex)
             {
@@ -205,5 +225,36 @@ public class FinalizePayrollHandler(
         payslip.GeneratedByUserId = userId;
         payslip.ApprovedDate = now;
         payslip.ApprovedByUserId = userId;
+    }
+
+    private async Task TryNotifyEmployeeAsync(
+        Employee employee,
+        Payslip payslip,
+        FinalizePayrollRequest req,
+        Guid fromUserId,
+        Guid storeId)
+    {
+        if (!employee.ApplicationUserId.HasValue)
+            return;
+
+        try
+        {
+            var net = payslip.NetSalary.ToString("N0");
+            await notificationService.CreateAndSendAsync(
+                employee.ApplicationUserId.Value,
+                NotificationType.Success,
+                "Phiếu lương đã chốt",
+                $"Phiếu lương tháng {req.Month}/{req.Year} đã được chốt. Thực lĩnh: {net} VND. " +
+                "Mở menu Phiếu lương để xem chi tiết và bảng chấm công kỳ.",
+                relatedEntityId: payslip.Id,
+                relatedEntityType: "Payslip",
+                fromUserId: fromUserId,
+                categoryCode: "payroll",
+                storeId: storeId);
+        }
+        catch
+        {
+            // Notification failure must not block payroll finalize
+        }
     }
 }

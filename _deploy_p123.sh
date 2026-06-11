@@ -43,7 +43,7 @@ if [ -f /root/ensure_employee_live_locations.sql ]; then
   docker cp /root/ensure_employee_live_locations.sql zkteco_postgres:/tmp/ensure_employee_live_locations.sql
   docker exec zkteco_postgres psql -U postgres -d ZKTecoADMS -f /tmp/ensure_employee_live_locations.sql 2>&1 | tail -3
 fi
-for f in add_payslip_employee_id.sql add_payslip_cash_transaction.sql add_system_announcements.sql add_maintenance_windows.sql add_marketing_p3.sql; do
+for f in add_payslip_employee_id.sql add_payslip_cash_transaction.sql add_payslip_attendance_snapshot.sql add_system_announcements.sql add_maintenance_windows.sql add_marketing_p3.sql; do
   if [ -f /root/$f ]; then
     echo "--- $f ---"
     docker cp /root/$f zkteco_postgres:/tmp/$f

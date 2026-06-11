@@ -8,7 +8,8 @@ namespace ZKTecoADMS.Application.Queries.Payslips.GetPayslipById;
 public class GetPayslipByIdHandler(
     IPayslipRepository payslipRepository,
     IRepository<Employee> employeeRepository,
-    IRepository<CashTransaction> cashTransactionRepository
+    IRepository<CashTransaction> cashTransactionRepository,
+    IRepository<PayslipAttendanceSnapshot> snapshotRepository
 ) : IQueryHandler<GetPayslipByIdQuery, AppResponse<PayslipDto>>
 {
     public async Task<AppResponse<PayslipDto>> Handle(
@@ -31,6 +32,10 @@ public class GetPayslipByIdHandler(
                 payslip.CashTransactionId.Value, cancellationToken: cancellationToken);
         }
 
-        return AppResponse<PayslipDto>.Success(PayslipDtoMapper.Map(payslip, employee, cash));
+        var hasSnapshot = await snapshotRepository.ExistsAsync(
+            s => s.PayslipId == payslip.Id, cancellationToken);
+
+        return AppResponse<PayslipDto>.Success(
+            PayslipDtoMapper.Map(payslip, employee, cash, hasSnapshot));
     }
 }

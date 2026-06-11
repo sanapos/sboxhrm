@@ -66,6 +66,7 @@ Invoke-PuttyScp -Pscp $pscp -Password $Password -LocalPath "$RepoRoot\scripts\fi
 Invoke-PuttyScp -Pscp $pscp -Password $Password -LocalPath "$RepoRoot\scripts\cleanup_duplicate_attendance_logs.sql" -RemotePath "${User}@${Server}:/root/cleanup_duplicate_attendance_logs.sql"
 Invoke-PuttyScp -Pscp $pscp -Password $Password -LocalPath "$RepoRoot\scripts\add_payslip_employee_id.sql" -RemotePath "${User}@${Server}:/root/add_payslip_employee_id.sql"
 Invoke-PuttyScp -Pscp $pscp -Password $Password -LocalPath "$RepoRoot\scripts\add_payslip_cash_transaction.sql" -RemotePath "${User}@${Server}:/root/add_payslip_cash_transaction.sql"
+Invoke-PuttyScp -Pscp $pscp -Password $Password -LocalPath "$RepoRoot\scripts\add_payslip_attendance_snapshot.sql" -RemotePath "${User}@${Server}:/root/add_payslip_attendance_snapshot.sql"
 if (Test-Path "$RepoRoot\apply_all_migrations.sql") {
     Invoke-PuttyScp -Pscp $pscp -Password $Password -LocalPath "$RepoRoot\apply_all_migrations.sql" -RemotePath "${User}@${Server}:/root/apply_all_migrations.sql"
 }

@@ -9790,6 +9790,17 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> getPayslipAttendanceSnapshot(String id) async {
+    try {
+      final response = await http.get(
+          Uri.parse('$baseUrl/api/payslips/$id/attendance-snapshot'),
+          headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   /// Search payslips in current store (manager/admin).
   Future<Map<String, dynamic>> getStorePayslips({
     int? year,
