@@ -38,9 +38,26 @@ class _LoginScreenState extends State<LoginScreen>
   static const String _prefEmail = 'saved_email';
 
   // Footer link URLs (loaded from /api/publicsettings, with safe defaults)
-  String _learnMoreUrl = 'https://sboxhrm.com';
-  String _contactUrl = 'https://sboxhrm.com/lien-he';
-  String _supportUrl = 'https://sboxhrm.com/ho-tro';
+  String? _learnMoreUrl;
+  String? _contactUrl;
+  String? _supportUrl;
+  String? _websiteUrl;
+  String _phoneNumber = '0973 024 042';
+  String _zaloNumber = '0973024042';
+
+  String get _siteOrigin {
+    var origin = ApiService.baseUrl.replaceFirst(RegExp(r'/api/?$'), '');
+    if (!origin.startsWith('http')) origin = 'https://$origin';
+    return origin.replaceAll(RegExp(r'/+$'), '');
+  }
+
+  String get _phoneDigits => _phoneNumber.replaceAll(RegExp(r'\s+'), '');
+
+  String get _zaloDigits =>
+      _zaloNumber.replaceAll('https://zalo.me/', '').replaceAll(RegExp(r'\s+'), '');
+
+  bool _isLicenseExpiredMessage(String message) =>
+      message.toLowerCase().contains('hết hạn sử dụng');
 
   @override
   void initState() {
@@ -77,17 +94,27 @@ class _LoginScreenState extends State<LoginScreen>
       final body = json.decode(res.body) as Map<String, dynamic>;
       final data = body['data'] as Map<String, dynamic>?;
       if (data == null) return;
-      String pick(String key, String fallback) {
+      String? pickNullable(String key) {
         final v = data[key];
         if (v is String && v.trim().isNotEmpty) return v.trim();
-        return fallback;
+        return null;
       }
 
       if (!mounted) return;
       setState(() {
-        _learnMoreUrl = pick('learnMoreUrl', _learnMoreUrl);
-        _contactUrl = pick('contactUrl', _contactUrl);
-        _supportUrl = pick('supportUrl', _supportUrl);
+        _learnMoreUrl = pickNullable('learnMoreUrl');
+        _contactUrl = pickNullable('contactUrl');
+        _supportUrl = pickNullable('supportUrl');
+        _websiteUrl = pickNullable('websiteUrl');
+        _phoneNumber = pickNullable('technicalSupportPhone') ??
+            pickNullable('salesPhone') ??
+            _phoneNumber;
+        final zaloRaw = pickNullable('zaloUrl');
+        if (zaloRaw != null) {
+          _zaloNumber = zaloRaw
+              .replaceAll('https://zalo.me/', '')
+              .replaceAll(RegExp(r'\s+'), '');
+        }
       });
     } catch (e) {
       debugPrint('LoginScreen public settings load failed: $e');
@@ -831,19 +858,8 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Future<void> _handleFooterLinkTap(String label) async {
-    String? raw;
-    switch (label) {
-      case 'TÌM HIỂU THÊM':
-        raw = _learnMoreUrl;
-        break;
-      case 'LIÊN HỆ':
-        raw = _contactUrl;
-        break;
-      case 'HỖ TRỢ':
-        raw = _supportUrl;
-        break;
-    }
-    if (raw == null || raw.trim().isEmpty) return;
+    final raw = _footerUrlFor(label);
+    if (raw.isEmpty) return;
     Uri? uri = Uri.tryParse(raw.trim());
     if (uri == null || (!uri.hasScheme)) {
       uri = Uri.tryParse('https://${raw.trim()}');
@@ -864,6 +880,44 @@ class _LoginScreenState extends State<LoginScreen>
           message: e.toString(),
         );
       }
+    }
+  }
+
+  /// URL thực tế cho chip footer — ưu tiên cấu hình SuperAdmin, fallback liên hệ thật.
+  String _footerUrlFor(String label) {
+    switch (label) {
+      case 'TÌM HIỂU THÊM':
+        return _learnMoreUrl ??
+            _websiteUrl ??
+            '$_siteOrigin/landing';
+      case 'LIÊN HỆ':
+        if (_contactUrl != null) return _contactUrl!;
+        if (kIsWeb) {
+          return '$_siteOrigin/landing';
+        }
+        return 'tel:+84${_phoneDigits.startsWith('0') ? _phoneDigits.substring(1) : _phoneDigits}';
+      case 'HỖ TRỢ':
+        if (_supportUrl != null) return _supportUrl!;
+        return 'https://zalo.me/$_zaloDigits';
+    }
+    return '';
+  }
+
+  Future<void> _launchTel(String phone) async {
+    final digits = phone.replaceAll(RegExp(r'\s+'), '');
+    final uri = Uri.parse(
+      'tel:+84${digits.startsWith('0') ? digits.substring(1) : digits}',
+    );
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    }
+  }
+
+  Future<void> _launchZalo(String phone) async {
+    final digits = phone.replaceAll(RegExp(r'\s+'), '');
+    final uri = Uri.parse('https://zalo.me/$digits');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
   }
 
@@ -903,6 +957,7 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Widget _buildErrorBanner(String message) {
+    final isLicenseExpired = _isLicenseExpiredMessage(message);
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -910,16 +965,73 @@ class _LoginScreenState extends State<LoginScreen>
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFFECACA)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.error_outline_rounded,
-              color: Color(0xFFDC2626), size: 20),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(message,
-                style: const TextStyle(
-                    color: Color(0xFFDC2626), fontSize: 13, height: 1.4)),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.error_outline_rounded,
+                  color: Color(0xFFDC2626), size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(message,
+                    style: const TextStyle(
+                        color: Color(0xFFDC2626), fontSize: 13, height: 1.4)),
+              ),
+            ],
           ),
+          if (isLicenseExpired) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0F9FF),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                    color: const Color(0xFF0891B2).withValues(alpha: 0.35)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Liên hệ gia hạn ngay',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      color: Color(0xFF0C4A6E),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: () => _launchTel(_phoneDigits),
+                        icon: const Icon(Icons.phone_rounded, size: 16),
+                        label: Text('Gọi $_phoneNumber'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF0C4A6E),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: () => _launchZalo(_zaloDigits),
+                        icon: const Icon(Icons.chat_rounded, size: 16),
+                        label: Text('Zalo $_phoneNumber'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF0C4A6E),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );

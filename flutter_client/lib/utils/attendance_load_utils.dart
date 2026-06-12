@@ -1,5 +1,6 @@
 import '../models/attendance.dart';
 import '../services/api_service.dart';
+import 'attendance_date_range_presets.dart';
 
 /// Kết quả tải log chấm công — [truncated] khi dừng sớm vì giới hạn trang.
 class AttendanceLoadResult {
@@ -34,9 +35,16 @@ Future<AttendanceLoadResult> loadAttendancesForPeriodResult(
 }) async {
   // deviceIds rỗng: server tự lấy máy trong store + lọc PIN theo role (Employee).
 
-  final fetchFrom = (dayEndHour > 0 || dayEndMinute > 0)
-      ? fromDate.subtract(const Duration(days: 1))
-      : fromDate;
+  final fetchFrom = AttendanceDateRangePresets.fetchFromDate(
+    fromDate,
+    dayEndHour: dayEndHour,
+    dayEndMinute: dayEndMinute,
+  );
+  final fetchTo = AttendanceDateRangePresets.fetchToDate(
+    toDate,
+    dayEndHour: dayEndHour,
+    dayEndMinute: dayEndMinute,
+  );
 
   List<Attendance> parsePage(Map<String, dynamic> result) {
     final items = (result['items'] as List?) ?? [];
@@ -48,7 +56,7 @@ Future<AttendanceLoadResult> loadAttendancesForPeriodResult(
   Future<Map<String, dynamic>> fetchPage(int page) => api.getAttendances(
         deviceIds: deviceIds,
         fromDate: fetchFrom,
-        toDate: toDate,
+        toDate: fetchTo,
         page: page,
         pageSize: pageSize,
       );

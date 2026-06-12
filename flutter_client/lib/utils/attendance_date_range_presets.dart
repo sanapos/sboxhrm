@@ -12,7 +12,9 @@ class AttendanceDateRangePresets {
   static DateTime endOfDay(DateTime d) =>
       DateTime(d.year, d.month, d.day, 23, 59, 59);
 
-  /// Ngày làm việc logic (cắt ca qua đêm).
+  /// Ngày làm việc logic theo [day_end_time].
+  /// VD day_end=05:00 → mọi chấm trước 05:00 thuộc ngày làm việc hôm trước
+  /// (ca 22:00–03:00: Vào 22:00 + Ra 03:00 sáng hôm sau cùng một ngày làm việc).
   static DateTime logicalWorkDay(
     DateTime punchTime, {
     int dayEndHour = 0,
@@ -81,7 +83,7 @@ class AttendanceDateRangePresets {
     }
   }
 
-  /// Từ ngày gọi API — lùi 1 ngày khi có cắt ca để đủ log đêm.
+  /// Từ ngày gọi API — lùi 1 ngày khi có cắt ca để đủ log Vào ca đêm.
   static DateTime fetchFromDate(
     DateTime rangeStart, {
     int dayEndHour = 0,
@@ -92,5 +94,19 @@ class AttendanceDateRangePresets {
       return start.subtract(const Duration(days: 1));
     }
     return start;
+  }
+
+  /// Đến ngày gọi API — cộng 1 ngày khi có cắt ca để lấy Ra ca đêm sáng hôm sau
+  /// (VD ngày làm việc 31/03 kết thúc 01/04 lúc 05:00 cần log 01/04 03:00).
+  static DateTime fetchToDate(
+    DateTime rangeEnd, {
+    int dayEndHour = 0,
+    int dayEndMinute = 0,
+  }) {
+    final end = DateTime(rangeEnd.year, rangeEnd.month, rangeEnd.day);
+    if (dayEndHour > 0 || dayEndMinute > 0) {
+      return end.add(const Duration(days: 1));
+    }
+    return end;
   }
 }

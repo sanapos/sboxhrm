@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/attendance.dart';
+import 'attendance_load_utils.dart';
 
 /// Một dòng tổng hợp ca trong ngày cho một nhân viên.
 /// Đây là single source of truth dùng chung cho:
@@ -207,13 +208,21 @@ Map<String, dynamic>? matchShiftForOrphanCheckOut({
     final startMin = _parseTimeSpanToMinutes(st['startTime']?.toString());
     final endMin = _parseTimeSpanToMinutes(st['endTime']?.toString());
     final isCrossMidnight = startMin > endMin;
-    if (isCrossMidnight) continue;
-
-    final earlyGrace =
-        (st['earlyLeaveGraceMinutes'] as num?)?.toInt() ?? 5;
     final otThreshold =
         (st['overtimeMinutesThreshold'] as num?)?.toInt() ?? 30;
     final earlyCheckIn = (st['earlyCheckInMinutes'] as num?)?.toInt() ?? 30;
+
+    if (isCrossMidnight) {
+      // Ra sáng hôm sau (VD 03:00) thuộc ca 22:00–03:00
+      if (checkOutMinutes <= endMin + otThreshold) {
+        final distToEnd = (checkOutMinutes - endMin).abs();
+        if (distToEnd < bestScore) {
+          bestScore = distToEnd;
+          best = st;
+        }
+      }
+      continue;
+    }
 
     if (checkOutMinutes < startMin - earlyCheckIn) continue;
     if (checkOutMinutes > endMin + otThreshold) continue;
@@ -236,10 +245,23 @@ DateTime? inferAdminCheckInForOrphanOut({
 }) {
   final shiftStartMin =
       _parseTimeSpanToMinutes(matchedShift['startTime']?.toString());
+  final shiftEndMin =
+      _parseTimeSpanToMinutes(matchedShift['endTime']?.toString());
+  final isCrossMidnight = shiftStartMin > shiftEndMin;
+
+  var startDay = checkOut;
+  if (isCrossMidnight) {
+    final outMin = _dateTimeToMinutes(checkOut);
+    // Ra trước giờ tan ca (03:00) → Vào ca tối hôm trước (22:00)
+    if (outMin <= shiftEndMin) {
+      startDay = checkOut.subtract(const Duration(days: 1));
+    }
+  }
+
   final shiftStart = DateTime(
-    checkOut.year,
-    checkOut.month,
-    checkOut.day,
+    startDay.year,
+    startDay.month,
+    startDay.day,
     shiftStartMin ~/ 60,
     shiftStartMin % 60,
   );
@@ -706,6 +728,47 @@ DateTime _getLogicalDate(DateTime punchTime, int dayEndHour, int dayEndMinute) {
   return DateTime(punchTime.year, punchTime.month, punchTime.day);
 }
 
+List<Attendance> _filterByLogicalWorkDayRange(
+  List<Attendance> attendances,
+  DateTime fromDate,
+  DateTime toDate, {
+  required int dayEndHour,
+  required int dayEndMinute,
+}) {
+  final rangeStart = DateTime(fromDate.year, fromDate.month, fromDate.day);
+  final rangeEnd = DateTime(toDate.year, toDate.month, toDate.day);
+  return attendances.where((att) {
+    final logical = _getLogicalDate(att.punchTime, dayEndHour, dayEndMinute);
+    return !logical.isBefore(rangeStart) && !logical.isAfter(rangeEnd);
+  }).toList();
+}
+
+List<DayAttendancePair> _logicalDayPairsFromAttendances(
+  List<Attendance> dayAtts, {
+  int dayEndHour = 0,
+  int dayEndMinute = 0,
+}) {
+  if (dayEndHour > 0 || dayEndMinute > 0) {
+    return buildSummaryDayPairs(
+      dayAtts,
+      dayEndHour: dayEndHour,
+      dayEndMinute: dayEndMinute,
+    ).map((p) {
+      if (p.checkIn != null && p.checkOut != null) {
+        return DayAttendancePair(
+          checkIn: p.checkIn!.punchTime,
+          checkOut: p.checkOut!.punchTime,
+        );
+      }
+      if (p.checkIn != null) {
+        return DayAttendancePair(checkIn: p.checkIn!.punchTime);
+      }
+      return DayAttendancePair(checkOut: p.checkOut!.punchTime);
+    }).toList();
+  }
+  return buildDayAttendancePairs(dayAtts);
+}
+
 /// Tính toàn bộ records ca/ngày cho danh sách attendances.
 /// Cùng thuật toán với tab "Tổng hợp theo ca" để Dashboard hiển thị
 /// đồng nhất số "Đi trễ / Về sớm" với tab.
@@ -728,14 +791,14 @@ List<DailyShiftRecord> computeDailyShiftRecords({
     employeesList: employeesList,
   );
 
-  // Filter by date range first
-  final fromInclusive = fromDate.subtract(const Duration(seconds: 1));
-  final toInclusive = toDate.add(const Duration(seconds: 1));
-  final filtered = attendances
-      .where((att) =>
-          att.punchTime.isAfter(fromInclusive) &&
-          att.punchTime.isBefore(toInclusive))
-      .toList();
+  // Lọc theo ngày làm việc logic (day_end_time), không theo ngày lịch thuần.
+  final filtered = _filterByLogicalWorkDayRange(
+    attendances,
+    fromDate,
+    toDate,
+    dayEndHour: dayEndHour,
+    dayEndMinute: dayEndMinute,
+  );
 
   final Map<String, Map<String, List<Attendance>>> grouped = {};
   for (final att in filtered) {
@@ -773,7 +836,11 @@ List<DailyShiftRecord> computeDailyShiftRecords({
       final shiftNames = <String>[];
       final missingOutShiftNames = <String>[];
       final usedShiftIds = <String>{};
-      final dayPairs = buildDayAttendancePairs(dayAttendances);
+      final dayPairs = _logicalDayPairsFromAttendances(
+        dayAttendances,
+        dayEndHour: dayEndHour,
+        dayEndMinute: dayEndMinute,
+      );
 
       for (var pairIndex = 0; pairIndex < dayPairs.length; pairIndex++) {
         final pair = dayPairs[pairIndex];
@@ -886,7 +953,11 @@ List<DailyShiftRecord> computeDailyShiftRecords({
         }
 
         final outMinutes = punchOutMinutes!;
-        final actualWorkedMinutes = punchOut.difference(punchIn).inMinutes;
+        var effectiveOut = punchOut;
+        if (effectiveOut.isBefore(punchIn)) {
+          effectiveOut = effectiveOut.add(const Duration(days: 1));
+        }
+        final actualWorkedMinutes = effectiveOut.difference(punchIn).inMinutes;
 
         // Ca Tăng ca: không tính đi trễ/về sớm — chỉ cộng giờ làm thực tế vào OT.
         if (matchedShift != null && isOtShift) {
@@ -1179,13 +1250,13 @@ List<DailyShiftPair> computeDailyShiftPairs({
     employeesList: employeesList,
   );
 
-  final fromInclusive = fromDate.subtract(const Duration(seconds: 1));
-  final toInclusive = toDate.add(const Duration(seconds: 1));
-  final filtered = attendances
-      .where((att) =>
-          att.punchTime.isAfter(fromInclusive) &&
-          att.punchTime.isBefore(toInclusive))
-      .toList();
+  final filtered = _filterByLogicalWorkDayRange(
+    attendances,
+    fromDate,
+    toDate,
+    dayEndHour: dayEndHour,
+    dayEndMinute: dayEndMinute,
+  );
 
   final Map<String, Map<String, List<Attendance>>> grouped = {};
   for (final att in filtered) {
@@ -1209,7 +1280,11 @@ List<DailyShiftPair> computeDailyShiftPairs({
       final assignedShiftIds =
           lookups.employeeGuidToShiftTemplateIds[empGuid] ?? [];
       final usedShiftIds = <String>{};
-      final dayPairs = buildDayAttendancePairs(dayAttendances);
+      final dayPairs = _logicalDayPairsFromAttendances(
+        dayAttendances,
+        dayEndHour: dayEndHour,
+        dayEndMinute: dayEndMinute,
+      );
 
       for (var pairIndex = 0; pairIndex < dayPairs.length; pairIndex++) {
         final pair = dayPairs[pairIndex];
