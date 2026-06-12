@@ -61,6 +61,10 @@ class _LoginScreenState extends State<LoginScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       AppPermissionService.promptEssentialPermissionsIfNeeded(context);
+      final authError = context.read<AuthProvider>().error;
+      if (authError != null && authError.isNotEmpty) {
+        setState(() => _errorMessage = authError);
+      }
     });
   }
 

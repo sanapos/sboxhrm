@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Application.DTOs.Auth;
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.Interfaces.Auth;
 
 namespace ZKTecoADMS.Application.Commands.Auth.Refresh;
@@ -39,6 +40,12 @@ public class RefreshCommandHandler(
         if (user == null)
         {
             return AppResponse<AuthenticateResponse>.Error("User not found.");
+        }
+
+        if (user.Store != null &&
+            (!user.Store.IsActive || StoreLicenseHelper.IsExpired(user.Store)))
+        {
+            return AppResponse<AuthenticateResponse>.Error(StoreLicenseHelper.ExpiredMessage);
         }
 
         return await authenticateService.Authenticate(user, cancellationToken);

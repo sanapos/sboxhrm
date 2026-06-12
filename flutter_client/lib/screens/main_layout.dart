@@ -208,6 +208,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     } else if (state == AppLifecycleState.resumed) {
       // Record foreground time; _isFcmDuplicate() uses this as the suppression cutoff.
       _lastForegroundedAt = DateTime.now();
+      // Kiểm tra license cửa hàng — chặn ngay nếu đã hết hạn trong lúc app nền
+      if (mounted) {
+        context.read<AuthProvider>().verifyStoreLicense();
+      }
       // Khi app quay lại foreground: kết nối lại SignalR nếu bị mất và cập nhật badge
       if (!_signalRService.isConnected) {
         _connectSignalR();

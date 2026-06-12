@@ -104,9 +104,11 @@ class AuthProvider extends ChangeNotifier {
     _checkAuthStatus();
     // Register global 401/session-expired handler so expired sessions get logged out.
     ApiService.onUnauthorized = _handleSessionExpired;
+    ApiService.onLicenseExpired = _handleLicenseExpired;
   }
 
   bool _sessionExpiredHandling = false;
+  bool _licenseExpiredHandling = false;
   Future<void> _handleSessionExpired() async {
     if (_sessionExpiredHandling) return;
     _sessionExpiredHandling = true;
@@ -117,6 +119,26 @@ class AuthProvider extends ChangeNotifier {
     } finally {
       _sessionExpiredHandling = false;
     }
+  }
+
+  Future<void> _handleLicenseExpired(String message) async {
+    if (_licenseExpiredHandling) return;
+    _licenseExpiredHandling = true;
+    try {
+      if (_token == null && _user == null) return;
+      debugPrint('🚪 AuthProvider: Store license expired → auto logout');
+      await logout();
+      _error = message;
+      notifyListeners();
+    } finally {
+      _licenseExpiredHandling = false;
+    }
+  }
+
+  /// Kiểm tra license khi app resume — logout ngay nếu cửa hàng hết hạn.
+  Future<void> verifyStoreLicense() async {
+    if (_token == null) return;
+    await _apiService.checkStoreLicenseExpired();
   }
 
   /// Giới hạn thời gian restore phiên — tránh màn boot kéo dài khi mạng chậm.
@@ -169,6 +191,8 @@ class AuthProvider extends ChangeNotifier {
   /// Chạy sau khi UI đã thoát trạng thái initializing.
   void _runPostAuthSideEffects() {
     if (_token == null || _user == null) return;
+    // ignore: discarded_futures
+    verifyStoreLicense();
     // ignore: discarded_futures
     _fetchAllowedModules().then((_) {
       if (_user != null) notifyListeners();
@@ -370,6 +394,9 @@ class AuthProvider extends ChangeNotifier {
     // Clear global callback to prevent stale reference after provider is destroyed
     if (ApiService.onUnauthorized == _handleSessionExpired) {
       ApiService.onUnauthorized = null;
+    }
+    if (ApiService.onLicenseExpired == _handleLicenseExpired) {
+      ApiService.onLicenseExpired = null;
     }
     GlobalLocationReporter.instance.stop();
     super.dispose();

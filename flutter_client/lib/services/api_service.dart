@@ -26,6 +26,11 @@ class ApiService {
   /// AuthProvider registers this to perform auto-logout on session expiry.
   static Future<void> Function()? onUnauthorized;
 
+  /// Invoked when store license expired (403 LICENSE_EXPIRED).
+  static Future<void> Function(String message)? onLicenseExpired;
+
+  static const String licenseExpiredCode = 'LICENSE_EXPIRED';
+
   String? _token;
 
   // Singleton pattern
@@ -151,18 +156,27 @@ class ApiService {
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         final result = json.decode(response.body);
-        if (result['isSuccess'] == true && result['data'] != null) {
-          final data = result['data'];
-          // Update in-memory token
-          _token = data['accessToken'] ?? data['token'];
-          if (_token != null) {
-            await saveToken(_token!);
+        if (result is Map<String, dynamic>) {
+          final normalized = _normalizeResponseMap(result);
+          if (result['isSuccess'] == true && result['data'] != null) {
+            final data = result['data'];
+            // Update in-memory token
+            _token = data['accessToken'] ?? data['token'];
+            if (_token != null) {
+              await saveToken(_token!);
+            }
+            // Save new refresh token
+            if (data['refreshToken'] != null) {
+              await saveRefreshToken(data['refreshToken']);
+            }
+            return data;
           }
-          // Save new refresh token
-          if (data['refreshToken'] != null) {
-            await saveRefreshToken(data['refreshToken']);
+          if (_isLicenseExpiredResponse(response, normalized)) {
+            await _triggerLicenseExpired(
+              normalized['message']?.toString() ??
+                  'Cửa hàng đã hết hạn sử dụng. Vui lòng liên hệ quản trị viên để gia hạn.',
+            );
           }
-          return data;
         }
       }
     } catch (e) {
@@ -191,7 +205,85 @@ class ApiService {
         await _triggerSessionExpired();
       }
     }
+    await _maybeTriggerLicenseExpired(response);
     return response;
+  }
+
+  bool _isLicenseExpiredResponse(
+      http.Response response, Map<String, dynamic> normalized) {
+    final header = response.headers['x-sbox-error-code'] ??
+        response.headers['X-SBOX-Error-Code'];
+    if (header?.toUpperCase() == licenseExpiredCode) return true;
+    final errors = normalized['errors'] ?? normalized['Errors'];
+    if (errors is List &&
+        errors.any((e) => e.toString().toUpperCase() == licenseExpiredCode)) {
+      return true;
+    }
+    final msg = (normalized['message'] ?? '').toString().toLowerCase();
+    return msg.contains('hết hạn sử dụng');
+  }
+
+  bool _licenseExpiredTriggered = false;
+
+  Future<void> _maybeTriggerLicenseExpired(http.Response response) async {
+    if (response.statusCode != 403) return;
+    try {
+      final rawBody = utf8.decode(response.bodyBytes, allowMalformed: true);
+      if (rawBody.isEmpty) return;
+      final data = json.decode(rawBody);
+      if (data is! Map<String, dynamic>) return;
+      final normalized = _normalizeResponseMap(data);
+      if (!_isLicenseExpiredResponse(response, normalized)) return;
+      await _triggerLicenseExpired(
+          normalized['message']?.toString() ??
+              'Cửa hàng đã hết hạn sử dụng. Vui lòng liên hệ quản trị viên để gia hạn.');
+    } catch (_) {}
+  }
+
+  Future<void> _triggerLicenseExpired(String message) async {
+    if (_licenseExpiredTriggered) return;
+    _licenseExpiredTriggered = true;
+    try {
+      final cb = onLicenseExpired;
+      if (cb != null) {
+        await cb(message);
+      }
+    } catch (e) {
+      debugPrint('❌ ApiService: onLicenseExpired callback error: $e');
+    } finally {
+      Future<void>.delayed(const Duration(seconds: 10), () {
+        _licenseExpiredTriggered = false;
+      });
+    }
+  }
+
+  /// Gọi khi app mở/resume — trả true nếu license đã hết hạn (đã kích logout).
+  Future<bool> checkStoreLicenseExpired() async {
+    if (_token == null) return false;
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/api/store/license-status'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 8));
+      await _maybeTriggerLicenseExpired(response);
+      if (response.statusCode == 403) return true;
+      final data = _handleResponse(response);
+      if (data['isSuccess'] == true && data['data'] is Map) {
+        final payload = data['data'] as Map;
+        if (payload['isExpired'] == true) {
+          await _triggerLicenseExpired(
+            payload['message']?.toString() ??
+                'Cửa hàng đã hết hạn sử dụng. Vui lòng liên hệ quản trị viên để gia hạn.',
+          );
+          return true;
+        }
+      }
+    } catch (e) {
+      debugPrint('⚠️ checkStoreLicenseExpired: $e');
+    }
+    return false;
   }
 
   bool _sessionExpiredTriggered = false;

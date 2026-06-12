@@ -32,24 +32,9 @@ public class LoginCommandHandler(
         }
 
         // ===== Kiểm tra hết hạn sử dụng (expiry) =====
-        var now = DateTime.UtcNow;
-        bool isExpired = false;
-        if (store.ExpiryDate.HasValue)
+        if (StoreLicenseHelper.IsExpired(store))
         {
-            // Nếu có ExpiryDate thì chỉ cần kiểm tra ngày này
-            if (store.ExpiryDate.Value.Date < now.Date)
-                isExpired = true;
-        }
-        else if (store.TrialStartDate.HasValue && store.TrialDays > 0)
-        {
-            // Nếu không có ExpiryDate thì kiểm tra hết hạn dùng thử
-            var trialEnd = store.TrialStartDate.Value.Date.AddDays(store.TrialDays);
-            if (trialEnd < now.Date)
-                isExpired = true;
-        }
-        if (isExpired)
-        {
-            return AppResponse<AuthenticateResponse>.Error("Cửa hàng đã hết hạn sử dụng. Vui lòng liên hệ quản trị viên để gia hạn.");
+            return AppResponse<AuthenticateResponse>.Error(StoreLicenseHelper.ExpiredMessage);
         }
 
         // First, find the user by username/email AND store (lightweight query for validation)

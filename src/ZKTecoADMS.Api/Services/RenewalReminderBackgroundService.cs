@@ -15,7 +15,7 @@ public class RenewalReminderBackgroundService : BackgroundService
     private readonly IServiceProvider _sp;
     private readonly ILogger<RenewalReminderBackgroundService> _logger;
     private readonly TimeSpan _interval = TimeSpan.FromHours(6);
-    private static readonly int[] Thresholds = { 30, 15, 7, 3, 1 };
+    private static readonly int[] Thresholds = { 30, 15, 7, 3, 1, 0 };
 
     public RenewalReminderBackgroundService(IServiceProvider sp, ILogger<RenewalReminderBackgroundService> logger)
     {
@@ -63,7 +63,9 @@ public class RenewalReminderBackgroundService : BackgroundService
                 try
                 {
                     // Title: ngắn gọn, không kèm marker. Frontend sẽ tự tính lại số ngày từ ExpiresAt.
-                    var title = $"⏰ {s.Name}: license sắp hết hạn ({d} ngày)";
+                    var title = d == 0
+                        ? $"⏰ {s.Name}: license hết hạn hôm nay"
+                        : $"⏰ {s.Name}: license sắp hết hạn ({d} ngày)";
                     if (title.Length > 180) title = title.Substring(0, 180) + "…";
                     await svc.CreateAsync(new CreateSystemAnnouncementDto
                     {
@@ -72,16 +74,18 @@ public class RenewalReminderBackgroundService : BackgroundService
                         Kind = AnnouncementKind.Renewal,
                         Severity = d <= 3 ? AnnouncementSeverity.Critical : AnnouncementSeverity.Warning,
                         Channels = NotificationChannel.InApp | NotificationChannel.Banner,
-                        RequireAck = false,
-                        AllowDismiss = true,
+                        RequireAck = d == 0,
+                        AllowDismiss = d != 0,
                         Audience = new AudienceSpec
                         {
                             AllUsers = false,
                             StoreIds = new List<Guid> { s.Id }
                         },
                         SendNow = true,
-                        // Hiển thị banner đến hết ngày hết hạn (UTC date + 1 ngày)
-                        ExpiresAt = s.ExpiryDate?.Date.AddDays(1)
+                        // T-0: giữ banner 14 ngày sau hết hạn; trước đó đến ExpiryDate+1
+                        ExpiresAt = d == 0
+                            ? s.ExpiryDate?.Date.AddDays(14)
+                            : s.ExpiryDate?.Date.AddDays(1)
                     }, Guid.Empty, ct);
                     _logger.LogInformation("Sent renewal reminder T-{D} for store {Store}", d, s.Name);
                 }
