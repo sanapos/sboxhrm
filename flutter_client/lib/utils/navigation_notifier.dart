@@ -7,6 +7,10 @@ class NavigationNotifier {
   /// True khi [MainLayout] đã mount và lắng nghe [navigateTo].
   static final ValueNotifier<bool> mainLayoutReady = ValueNotifier<bool>(false);
 
+  /// Mobile: màn mở từ drawer (không phải tab bottom) — AppBar [MainLayout] đã có tiêu đề.
+  static final ValueNotifier<bool> mobileDrawerModuleActive =
+      ValueNotifier<bool>(false);
+
   /// Nhãn màn hình hiện tại (sidebar tab) — hiển thị trên màn lỗi fatal.
   static final ValueNotifier<String?> currentScreenLabel =
       ValueNotifier<String?>(null);

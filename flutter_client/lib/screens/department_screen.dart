@@ -332,7 +332,45 @@ class _DepartmentScreenState extends State<DepartmentScreen>
           ),
           ...[ 
           const SizedBox(height: 12),
-          Row(
+          if (Responsive.isMobile(context))
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextField(
+                  decoration: InputDecoration(
+                    hintText: _l10n.searchDept,
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 12),
+                  ),
+                  onChanged: (value) {
+                    _searchQuery = value;
+                  },
+                  onSubmitted: (_) {
+                    _currentPage = 1;
+                    _loadData();
+                  },
+                ),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: FilterChip(
+                    label: Text(_l10n.inactive),
+                    selected: _showInactive,
+                    onSelected: (selected) {
+                      setState(() => _showInactive = selected);
+                      _currentPage = 1;
+                      _loadData();
+                    },
+                  ),
+                ),
+              ],
+            )
+          else
+            Row(
             children: [
               Expanded(
                 child: TextField(
@@ -758,7 +796,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
       // Calculate scale to fit content in viewport with some padding
       final scaleX = viewportSize.width / contentSize.width;
       final scaleY = viewportSize.height / contentSize.height;
-      final scale = (scaleX < scaleY ? scaleX : scaleY).clamp(0.1, 1.0);
+      final scale = (scaleX < scaleY ? scaleX : scaleY).clamp(0.45, 1.15) * 0.92;
 
       // Center the content
       final scaledWidth = contentSize.width * scale;

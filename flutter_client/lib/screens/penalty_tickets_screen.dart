@@ -1665,6 +1665,8 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
           // Date preset chips
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
+            padding: Responsive.horizontalScrollPadding,
+            clipBehavior: Clip.none,
             child: Row(
               children: [
                 _datePresetChip('today', 'Hôm nay'),
@@ -1714,7 +1716,66 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          Row(
+          if (Responsive.isMobile(context))
+            ...HrmFilterBar.mobileStack([
+              DropdownButtonFormField<String?>(
+                initialValue: _filterStatus,
+                isExpanded: true,
+                dropdownColor: Colors.white,
+                decoration: const InputDecoration(
+                  labelText: 'Trạng thái',
+                  contentPadding:
+                      EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+                items: const [
+                  DropdownMenuItem(value: null, child: Text('Tất cả')),
+                  DropdownMenuItem(value: '0', child: Text('Chờ duyệt')),
+                  DropdownMenuItem(value: '1', child: Text('Đã duyệt')),
+                  DropdownMenuItem(value: '3', child: Text('Tự động duyệt')),
+                  DropdownMenuItem(value: '2', child: Text('Đã hủy')),
+                ],
+                onChanged: (v) {
+                  setState(() {
+                    _filterStatus = v;
+                    _currentPage = 1;
+                  });
+                  _loadTickets();
+                },
+              ),
+              DropdownButtonFormField<String?>(
+                initialValue: _filterType,
+                isExpanded: true,
+                dropdownColor: Colors.white,
+                decoration: const InputDecoration(
+                  labelText: 'Loại',
+                  contentPadding:
+                      EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+                items: const [
+                  DropdownMenuItem(value: null, child: Text('Tất cả')),
+                  DropdownMenuItem(value: '1', child: Text('Đi trễ')),
+                  DropdownMenuItem(value: '2', child: Text('Về sớm')),
+                  DropdownMenuItem(value: '3', child: Text('Quên chấm công')),
+                  DropdownMenuItem(
+                      value: '4', child: Text('Nghỉ không phép')),
+                  DropdownMenuItem(value: '5', child: Text('Vi phạm')),
+                  DropdownMenuItem(value: '6', child: Text('Tái phạm')),
+                ],
+                onChanged: (v) {
+                  setState(() {
+                    _filterType = v;
+                    _currentPage = 1;
+                  });
+                  _loadTickets();
+                },
+              ),
+            ])
+          else
+            Row(
             children: [
               Expanded(
                 child: DropdownButtonFormField<String?>(

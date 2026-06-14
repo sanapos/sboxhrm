@@ -21,22 +21,30 @@ class HrmResponsiveListLayout extends StatelessWidget {
   final Widget desktopBody;
   final List<Widget> Function(BuildContext context) mobileSlivers;
   final ScrollPhysics? physics;
-  /// Thêm padding phải/dưới trên mobile khi có FAB che menu ⋮.
+  /// Thêm padding dưới/phải cho **danh sách** khi có FAB.
   final bool fabAware;
   final bool extendedFab;
 
   EdgeInsets? _mobilePadding(BuildContext context) {
     if (!Responsive.useUnifiedPageScroll(context)) return null;
-    final base =
-        padding?.resolve(Directionality.of(context)) ?? EdgeInsets.zero;
-    if (!fabAware) {
-      return padding != null ? base : null;
+    if (padding == null) return null;
+    return padding!.resolve(Directionality.of(context));
+  }
+
+  List<Widget> _wrapMobileSlivers(BuildContext context) {
+    final slivers = mobileSlivers(context);
+    if (!fabAware || !Responsive.useUnifiedPageScroll(context)) {
+      return slivers;
     }
-    return Responsive.fabListInsets(
-      context,
-      base: base,
-      extendedFab: extendedFab,
-    );
+    return [
+      SliverPadding(
+        padding: Responsive.fabListInsets(
+          context,
+          extendedFab: extendedFab,
+        ),
+        sliver: SliverMainAxisGroup(slivers: slivers),
+      ),
+    ];
   }
 
   @override
@@ -45,7 +53,7 @@ class HrmResponsiveListLayout extends StatelessWidget {
       final headers = headerSections
           .map((w) => SliverToBoxAdapter(child: w))
           .toList();
-      final slivers = <Widget>[...headers, ...mobileSlivers(context)];
+      final slivers = <Widget>[...headers, ..._wrapMobileSlivers(context)];
       final scroll = CustomScrollView(
         physics: physics ?? const AlwaysScrollableScrollPhysics(),
         slivers: slivers,
@@ -95,7 +103,10 @@ class HrmMobileNestedTabLayout extends StatelessWidget {
       return tabBarView;
     }
     return Padding(
-      padding: Responsive.fabListInsets(context, extendedFab: extendedFab),
+      padding: Responsive.fabListInsets(
+        context,
+        extendedFab: extendedFab,
+      ),
       child: tabBarView,
     );
   }
@@ -204,7 +215,6 @@ class HrmScrollSlivers {
 
   static Widget toBox(Widget child) => SliverToBoxAdapter(child: child);
 
-  /// Wraps tab list content for [HrmMobileNestedTabLayout] on mobile.
   static Widget nestedTabList({
     required Widget child,
   }) {
@@ -224,7 +234,6 @@ class HrmScrollSlivers {
     );
   }
 
-  /// ListView.builder → slivers for mobile unified scroll.
   static List<Widget> fromListViewBuilder({
     required int itemCount,
     required IndexedWidgetBuilder itemBuilder,

@@ -1352,27 +1352,22 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
     );
 
     if (isMobile) {
+      final canCreate = Provider.of<PermissionProvider>(context, listen: false)
+          .canCreate('CashTransaction');
       return HrmFilterBar(
         margin: EdgeInsets.zero,
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-        children: [
-            Row(children: [
-              Expanded(child: dateDropdown),
-              const SizedBox(width: 8),
-              Expanded(child: typeDropdown),
-            ]),
-            const SizedBox(height: 8),
-            Row(children: [
-              Expanded(child: statusDropdown),
-              const SizedBox(width: 8),
-              Expanded(child: categoryDropdown),
-            ]),
-            const SizedBox(height: 8),
+        children: HrmFilterBar.mobileStack([
+          dateDropdown,
+          typeDropdown,
+          statusDropdown,
+          categoryDropdown,
+          if (!canCreate)
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [actionButtons],
             ),
-        ],
+        ]),
       );
     }
 

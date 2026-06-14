@@ -6,6 +6,8 @@ import '../models/hrm.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 import '../widgets/notification_overlay.dart';
+import '../utils/navigation_notifier.dart';
+import '../utils/responsive_helper.dart';
 import 'hrm_page_chrome.dart';
 import 'shift_swap_ui.dart';
 
@@ -99,10 +101,28 @@ class ShiftSwapPanelState extends State<ShiftSwapPanel>
       children: [
         Padding(
           padding: EdgeInsets.fromLTRB(
-              widget.embedded ? 12 : 16, 12, widget.embedded ? 12 : 16, 8),
-          child: ShiftSwapFlowHelpBanner(
-            compact: widget.embedded,
-            onTapDetail: () => _showFlowDialog(context),
+              widget.embedded ? 12 : 16, 8, widget.embedded ? 12 : 16, 4),
+          child: ListenableBuilder(
+            listenable: NavigationNotifier.mobileDrawerModuleActive,
+            builder: (context, _) {
+              final iconOnly = Responsive.isMobile(context) &&
+                  (NavigationNotifier.mobileDrawerModuleActive.value ||
+                      widget.embedded);
+              if (iconOnly) {
+                return Align(
+                  alignment: Alignment.centerRight,
+                  child: IconButton.filledTonal(
+                    tooltip: 'Quy trình đổi ca',
+                    icon: const Icon(Icons.info_outline, size: 20),
+                    onPressed: () => _showFlowDialog(context),
+                  ),
+                );
+              }
+              return ShiftSwapFlowHelpBanner(
+                compact: widget.embedded,
+                onTapDetail: () => _showFlowDialog(context),
+              );
+            },
           ),
         ),
         TabBar(

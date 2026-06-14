@@ -442,6 +442,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   @override
   void dispose() {
     NavigationNotifier.mainLayoutReady.value = false;
+    NavigationNotifier.mobileDrawerModuleActive.value = false;
     WidgetsBinding.instance.removeObserver(this);
     _notificationSubscription?.cancel();
     _attendanceSubscription?.cancel();
@@ -1517,8 +1518,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final bottomNavIndex = visibleBottomDefs.indexWhere(
       (d) => _navIndexForModule(d.moduleCode) == _selectedIndex,
     );
-    final safeBottomIndex =
-        bottomNavIndex == -1 ? visibleBottomDefs.length : bottomNavIndex;
+    final isBottomNav = bottomNavIndex >= 0;
+    NavigationNotifier.mobileDrawerModuleActive.value = !isBottomNav;
+    final safeBottomIndex = isBottomNav ? bottomNavIndex : -1;
 
     return PopScope(
       canPop: false,
@@ -1644,7 +1646,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           child: Row(
             children: List.generate(allItems.length, (index) {
               final item = allItems[index];
-              final isSelected = index == selectedIndex;
+              final isSelected = selectedIndex >= 0 && index == selectedIndex;
 
               // Center punch button with special elevated style
               if (item.isCenterAction) {

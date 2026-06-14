@@ -598,18 +598,14 @@ class _FeedbackScreenState extends State<FeedbackScreen>
           ),
           // ===== Content =====
           Expanded(
-            child: HrmFabClearance(
-              fabVisible: canCreateFeedback,
-              extendedFab: true,
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : TabBarView(
-                      controller: _tabCtl,
-                      children: [
-                        _buildFeedbackList(_myFeedbacks, isMine: true),
-                        _buildFeedbackList(_allFeedbacks, isMine: false),
-                      ],
-                    ),
+            child: TabBarView(
+              controller: _tabCtl,
+              children: [
+                _buildFeedbackList(_myFeedbacks, isMine: true,
+                    fabClearance: canCreateFeedback),
+                _buildFeedbackList(_allFeedbacks, isMine: false,
+                    fabClearance: canCreateFeedback),
+              ],
             ),
           ),
         ],
@@ -686,9 +682,12 @@ class _FeedbackScreenState extends State<FeedbackScreen>
   }
 
   Widget _buildFeedbackList(List<Map<String, dynamic>> list,
-      {required bool isMine}) {
+      {required bool isMine, bool fabClearance = false}) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
     if (list.isEmpty) {
-      return Center(
+      final empty = Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -709,12 +708,25 @@ class _FeedbackScreenState extends State<FeedbackScreen>
           ],
         ),
       );
+      if (fabClearance) {
+        return HrmFabClearance(
+          fabVisible: true,
+          extendedFab: true,
+          child: empty,
+        );
+      }
+      return empty;
     }
 
     return RefreshIndicator(
       onRefresh: () async => _reloadCurrentTab(),
       child: ListView.builder(
-        padding: const EdgeInsets.all(16),
+        padding: Responsive.fabListInsets(
+          context,
+          base: const EdgeInsets.all(16),
+          extendedFab: fabClearance,
+          trailingClearance: fabClearance,
+        ),
         itemCount: list.length,
         itemBuilder: (ctx, i) => _buildFeedbackCard(list[i], isMine: isMine),
       ),
@@ -767,7 +779,8 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                       style: const TextStyle(
                           fontSize: 15, fontWeight: FontWeight.w600)),
                 ),
-                Container(
+                Flexible(
+                  child: Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
@@ -777,12 +790,15 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                   ),
                   child: Text(
                     _statusLabels[status] ?? status,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                       color: _statusColors[status] ?? Colors.grey,
                     ),
                   ),
+                ),
                 ),
               ],
             ),

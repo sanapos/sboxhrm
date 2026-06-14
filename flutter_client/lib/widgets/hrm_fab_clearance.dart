@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../utils/responsive_helper.dart';
 
-/// Tránh FAB góc phải che menu ⋮ / action cuối danh sách trên mobile.
+/// Chỉ thêm khoảng trống **dưới** FAB — không padding phải (tránh lệch cả trang).
 class HrmFabClearance extends StatelessWidget {
   const HrmFabClearance({
     super.key,
@@ -21,7 +21,7 @@ class HrmFabClearance extends StatelessWidget {
       return child;
     }
     return Padding(
-      padding: Responsive.fabListInsets(
+      padding: Responsive.fabBodyInsets(
         context,
         extendedFab: extendedFab,
       ),

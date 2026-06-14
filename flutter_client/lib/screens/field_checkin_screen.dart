@@ -84,6 +84,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
 
   Timer? _refreshTimer;
   Timer? _elapsedTimer;
+  int _openBottomSheetCount = 0;
 
   static const _routeColors = [
     HrmPageChrome.primaryNavy,
@@ -126,11 +127,17 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
     super.dispose();
   }
 
+  void _onBottomSheetClosed() {
+    if (_openBottomSheetCount > 0) _openBottomSheetCount--;
+  }
+
   void _collapseEmployeeList() {
-    Navigator.of(context).maybePop();
+    if (_openBottomSheetCount <= 0) return;
+    Navigator.of(context).pop();
   }
 
   void _showEmployeeListPanel() {
+    _openBottomSheetCount++;
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -143,10 +150,11 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
         builder: (_, scrollController) =>
             _buildEmployeeListSheet(scrollController),
       ),
-    );
+    ).whenComplete(_onBottomSheetClosed);
   }
 
   void _showEmployeesAtLocation(List<Map<String, dynamic>> group) {
+    _openBottomSheetCount++;
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -189,7 +197,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
           ),
         ),
       ),
-    );
+    ).whenComplete(_onBottomSheetClosed);
   }
 
   void _startRefresh() {

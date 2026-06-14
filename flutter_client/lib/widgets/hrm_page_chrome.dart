@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../screens/settings_hub_screen.dart';
+import '../utils/navigation_notifier.dart';
+import '../utils/responsive_helper.dart';
 
 /// Shared layout tokens and helpers for HRM settings sub-pages.
 class HrmPageChrome {
@@ -13,6 +15,10 @@ class HrmPageChrome {
 
   /// Hub sub-page is open — [main_layout] already shows back + title.
   static bool get isEmbedded => SettingsHubScreen.isEmbeddedSubPage;
+
+  /// Mobile drawer module: AppBar ngoài đã hiển thị tiêu đề trang.
+  static bool get usesMainLayoutAppBar =>
+      NavigationNotifier.mobileDrawerModuleActive.value;
 
   /// AppBar for standalone entry only; returns null when embedded in hub.
   static PreferredSizeWidget? appBar({
@@ -71,6 +77,8 @@ class HrmPageChrome {
         if (constraints.maxWidth < 560) {
           return SingleChildScrollView(
             scrollDirection: Axis.horizontal,
+            padding: Responsive.horizontalScrollPadding,
+            clipBehavior: Clip.none,
             child: Row(
               children: [
                 for (var i = 0; i < cards.length; i++) ...[
@@ -119,80 +127,111 @@ class HrmPageHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = MediaQuery.sizeOf(context).width < 768;
-    final colors = gradientColors ??
-        const [HrmPageChrome.primaryNavy, Color(0xFF2A5298)];
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.fromLTRB(
-        isMobile ? 16 : 20,
-        isMobile ? 14 : 16,
-        isMobile ? 16 : 20,
-        isMobile ? 14 : 16,
-      ),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: colors,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
+    return ListenableBuilder(
+      listenable: NavigationNotifier.mobileDrawerModuleActive,
+      builder: (context, _) {
+        final isMobile = MediaQuery.sizeOf(context).width < 768;
+        final hideDuplicateTitle =
+            isMobile && (HrmPageChrome.usesMainLayoutAppBar || HrmPageChrome.isEmbedded);
+        final colors = gradientColors ??
+            const [HrmPageChrome.primaryNavy, Color(0xFF2A5298)];
+
+        if (hideDuplicateTitle &&
+            actions.isEmpty &&
+            bottom == null &&
+            subtitle == null &&
+            icon == null) {
+          return const SizedBox.shrink();
+        }
+
+        return Container(
+          width: double.infinity,
+          padding: EdgeInsets.fromLTRB(
+            isMobile ? 16 : 20,
+            isMobile ? (hideDuplicateTitle ? 8 : 14) : 16,
+            isMobile ? 16 : 20,
+            isMobile ? (hideDuplicateTitle ? 8 : 14) : 16,
+          ),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: colors,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              if (icon != null) ...[
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.18),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(icon, color: Colors.white, size: 22),
-                ),
-                const SizedBox(width: 12),
-              ],
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: isMobile ? 18 : 20,
-                        fontWeight: FontWeight.bold,
+              Row(
+                children: [
+                  if (icon != null && !hideDuplicateTitle) ...[
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.18),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      child: Icon(icon, color: Colors.white, size: 22),
                     ),
-                    if (subtitle != null) ...[
-                      const SizedBox(height: 2),
-                      Text(
+                    const SizedBox(width: 12),
+                  ],
+                  if (!hideDuplicateTitle)
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            title,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: isMobile ? 18 : 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          if (subtitle != null) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              subtitle!,
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.85),
+                                fontSize: 13,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ],
+                      ),
+                    )
+                  else if (subtitle != null)
+                    Expanded(
+                      child: Text(
                         subtitle!,
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.85),
+                          color: Colors.white.withValues(alpha: 0.9),
                           fontSize: 13,
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                    ],
-                  ],
-                ),
+                    )
+                  else
+                    const Spacer(),
+                  ...actions,
+                ],
               ),
-              ...actions,
+              if (bottom != null) ...[
+                const SizedBox(height: 12),
+                bottom!,
+              ],
             ],
           ),
-          if (bottom != null) ...[
-            const SizedBox(height: 12),
-            bottom!,
-          ],
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -290,5 +329,18 @@ class HrmFilterBar extends StatelessWidget {
         children: children,
       ),
     );
+  }
+
+  /// Mobile: xếp filter full-width (tránh cắt chữ trong 2 cột hẹp).
+  static List<Widget> mobileStack(
+    List<Widget> fields, {
+    double gap = 8,
+  }) {
+    return [
+      for (var i = 0; i < fields.length; i++) ...[
+        if (i > 0) SizedBox(height: gap),
+        fields[i],
+      ],
+    ];
   }
 }

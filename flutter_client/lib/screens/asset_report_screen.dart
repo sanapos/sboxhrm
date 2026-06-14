@@ -379,7 +379,8 @@ class _AssetReportScreenState extends State<AssetReportScreen>
         height: 44,
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 10),
+          padding: Responsive.horizontalScrollPadding,
+          clipBehavior: Clip.none,
           itemCount: assetReportMobileSections.length,
           separatorBuilder: (_, __) => const SizedBox(width: 6),
           itemBuilder: (context, i) {
@@ -856,6 +857,8 @@ class _AssetReportScreenState extends State<AssetReportScreen>
             height: 88,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
+              padding: Responsive.horizontalScrollPadding,
+              clipBehavior: Clip.none,
               itemCount: cards.length,
               separatorBuilder: (_, __) => const SizedBox(width: 8),
               itemBuilder: (_, i) {

@@ -560,6 +560,7 @@ class _LeaveScreenState extends State<LeaveScreen>
   TabBar _leaveTabBar(ThemeData theme) {
     return TabBar(
       controller: _tabController,
+      tabAlignment: TabAlignment.fill,
       labelColor: theme.primaryColor,
       unselectedLabelColor: Colors.grey,
       indicatorColor: theme.primaryColor,
@@ -1346,6 +1347,10 @@ class _LeaveScreenState extends State<LeaveScreen>
                 onPressed: () => _showLeaveFormDialog(),
                 icon: const Icon(Icons.add_rounded),
                 label: Text(_l10n.createNewRequest),
+                style: FilledButton.styleFrom(
+                  backgroundColor: theme.primaryColor,
+                  foregroundColor: Colors.white,
+                ),
               ),
             ],
           ],

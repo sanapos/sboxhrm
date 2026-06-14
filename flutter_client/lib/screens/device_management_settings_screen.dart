@@ -808,6 +808,8 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
     if (Responsive.isMobile(context)) {
       return SingleChildScrollView(
         scrollDirection: Axis.horizontal,
+        padding: Responsive.horizontalScrollPadding,
+        clipBehavior: Clip.none,
         child: Row(
           children: [
             for (var i = 0; i < cards.length; i++) ...[

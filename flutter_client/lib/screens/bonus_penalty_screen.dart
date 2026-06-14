@@ -703,21 +703,13 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
       children: [
         isMobile
           ? Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(children: [
-                  Expanded(child: timeDropdown),
-                  const SizedBox(width: 8),
-                  Expanded(child: typeDropdown)
-                ]),
-                const SizedBox(height: 8),
-                Row(children: [
-                  Expanded(child: searchField),
-                  const SizedBox(width: 8),
-                  selectBtn
-                ]),
-                if (_branches.isNotEmpty) ...[
-                  const SizedBox(height: 8),
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: HrmFilterBar.mobileStack([
+                timeDropdown,
+                if (!_bonusOnly) typeDropdown,
+                searchField,
+                selectBtn,
+                if (_branches.isNotEmpty)
                   DropdownButtonFormField<String?>(
                     key: ValueKey('branch_$_selectedBranchId'),
                     initialValue: _selectedBranchId,
@@ -740,8 +732,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                     ],
                     onChanged: (v) => setState(() => _selectedBranchId = v),
                   ),
-                ],
-              ],
+              ]),
             )
           : Row(
               children: [

@@ -99,20 +99,39 @@ class Responsive {
     return fabHeight + 16 + safe + 8;
   }
 
-  /// Padding thêm cho vùng cuộn khi có [FloatingActionButton] trên mobile.
+  /// Chỉ khoảng trống dưới FAB — không lệch ngang cả trang.
+  static EdgeInsets fabBodyInsets(
+    BuildContext context, {
+    bool extendedFab = false,
+    bool enabled = true,
+  }) {
+    if (!enabled || !useUnifiedPageScroll(context)) return EdgeInsets.zero;
+    return EdgeInsets.only(
+      bottom: fabBottomClearance(context, extendedFab: extendedFab),
+    );
+  }
+
+  /// Padding list (cuối danh sách): bottom + trailing để FAB không che ⋮.
   static EdgeInsets fabListInsets(
     BuildContext context, {
     EdgeInsets base = EdgeInsets.zero,
     bool enabled = true,
     bool extendedFab = false,
+    bool trailingClearance = true,
   }) {
     if (!enabled || !useUnifiedPageScroll(context)) return base;
     return base.copyWith(
-      right: base.right + fabHorizontalInset,
+      right: trailingClearance
+          ? base.right + fabHorizontalInset
+          : base.right,
       bottom: base.bottom +
           fabBottomClearance(context, extendedFab: extendedFab),
     );
   }
+
+  /// Padding hai bên cho hàng cuộn ngang (stat cards, tab chips).
+  static const EdgeInsets horizontalScrollPadding =
+      EdgeInsets.symmetric(horizontal: 16);
 }
 
 /// Widget that rebuilds when orientation or size changes
