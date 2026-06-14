@@ -1348,7 +1348,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                 icon: const Icon(Icons.add_rounded),
                 label: Text(_l10n.createNewRequest),
                 style: FilledButton.styleFrom(
-                  backgroundColor: theme.primaryColor,
+                  backgroundColor: Theme.of(context).primaryColor,
                   foregroundColor: Colors.white,
                 ),
               ),
