@@ -28,6 +28,7 @@ import 'main_layout.dart';
 import 'leave_screen.dart';
 import 'attendance_corrections_screen.dart';
 import 'attendance_approval_screen.dart';
+import '../widgets/hrm_pushed_screen_shell.dart';
 import 'attendance_by_shift_screen.dart';
 import 'advance_requests_screen.dart';
 import 'hr_documents_screen.dart';
@@ -60,6 +61,25 @@ List<dynamic> _pendingApprovalItemsOnly(List<dynamic> items) => items
       return _isPendingApprovalStatus(status);
     })
     .toList();
+
+bool _canApprovePendingType(String type, PermissionProvider perm) {
+  switch (type) {
+    case 'leave':
+      return perm.canApprove('Leave');
+    case 'correction':
+      return perm.canApprove('AttendanceApproval');
+    case 'swap':
+      return perm.canApprove('ScheduleApproval') ||
+          perm.canApprove('ShiftSwap');
+    case 'advance':
+      return perm.canApprove('AdvanceRequests');
+    case 'mobile':
+      return perm.canApprove('MobileAttendanceApproval') ||
+          perm.canApprove('MobileAttendance');
+    default:
+      return false;
+  }
+}
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -129,6 +149,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<dynamic> _pendingCorrections = [];
   List<dynamic> _pendingSwaps = [];
   List<dynamic> _pendingAdvances = [];
+  List<dynamic> _pendingMobileAttendance = [];
+  int _pendingMobileAttendanceCount = 0;
   Map<String, dynamic> _taskStats = {};
   Map<String, dynamic> _overtimeStats = {};
   Map<String, dynamic> _penaltyStats = {};
@@ -554,6 +576,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           'corrections'));
       queue('swaps', _safe(
           () => _api.getShiftSwapsPendingApproval(), emptyMap, 'swaps'));
+      queue('mobile-pending', _safe(
+          () => _api.getPendingMobileAttendance(), emptyMap, 'mobile-pending'));
     }
     if (c.loadTasks) {
       queue('tasks', _safe(() => _api.getTaskStatistics(), emptyMap, 'tasks'));
@@ -671,6 +695,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _pendingSwaps = c.loadPendingApprovals
           ? _pendingApprovalItemsOnly(_extractList(mapOf('swaps')))
           : const [];
+      _pendingMobileAttendance = const [];
+      _pendingMobileAttendanceCount = 0;
+      if (c.loadPendingApprovals) {
+        final mp = mapOf('mobile-pending');
+        if (mp['isSuccess'] == true && mp['data'] != null) {
+          final d = mp['data'];
+          final items = d is List ? d : (d['items'] as List? ?? []);
+          _pendingMobileAttendance = items;
+          _pendingMobileAttendanceCount = items.length;
+        }
+      }
       _taskStats = c.loadTasks
           ? (mapOf('tasks')['data'] as Map<String, dynamic>?) ?? mapOf('tasks')
           : {};
@@ -1192,7 +1227,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       items.add({
         'icon': '🎂',
         'color': 0xFFEC4899,
-        'text': 'Sinh nhật hôm nay: $name'
+        'text': 'Sinh nhật hôm nay: $name',
+        'kind': 'birthday_detail',
       });
     }
 
@@ -1214,7 +1250,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             'icon': '📄',
             'color': 0xFFEA580C,
             'text':
-                'Sắp hết hạn ($days ngày): $docType${empName.isNotEmpty ? ' – $empName' : ''}'
+                'Sắp hết hạn ($days ngày): $docType${empName.isNotEmpty ? ' – $empName' : ''}',
+            'kind': 'docs_detail',
           });
         }
       }
@@ -1224,12 +1261,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final pendingTotal = _pendingLeaves.length +
         _pendingCorrections.length +
         _pendingSwaps.length +
-        _pendingAdvances.length;
+        _pendingAdvances.length +
+        _pendingMobileAttendanceCount;
     if (pendingTotal > 0) {
       items.add({
         'icon': '⏳',
         'color': 0xFFEF4444,
-        'text': 'Có $pendingTotal yêu cầu chờ duyệt'
+        'text': 'Có $pendingTotal yêu cầu chờ duyệt',
+        'kind': 'pending_all',
       });
     }
 
@@ -1362,12 +1401,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         const SizedBox(height: 16),
                       ],
                       if (caps.showAttendanceHero) ...[
-                        _buildHeroOverview(),
+                        _buildHeroOverview(caps),
                         const SizedBox(height: 14),
                       ],
                       if (caps.showShiftSchedule) ...[
                         _buildTodayShiftSchedule(),
                         const SizedBox(height: 20),
+                      ],
+                      if (caps.loadPendingApprovals && caps.insightPending) ...[
+                        _buildPendingApprovalsCard(),
+                        const SizedBox(height: 16),
                       ],
                       if (caps.showInsightSection && !caps.showAttendanceHero) ...[
                         _buildInsightSectionTitle(),
@@ -1651,6 +1694,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   // ===================== ROLLING BANNER =====================
+  void _onBannerTap(Map<String, dynamic> item) {
+    final kind = (item['kind'] ?? '').toString();
+    if (kind.isEmpty) return;
+    switch (kind) {
+      case 'birthday_detail':
+        _showInsightDetail(_InsightChipData(
+            Icons.cake_outlined,
+            'Sinh nhật',
+            '${_todayBirthdays.length}',
+            const Color(0xFFEC4899),
+            'birthday_detail'));
+        break;
+      case 'docs_detail':
+        _showInsightDetail(_InsightChipData(
+            Icons.assignment_late_outlined,
+            'HĐ hết hạn',
+            '${_expiringDocs.length + _expiredContracts.length}',
+            const Color(0xFFEA580C),
+            'docs_detail'));
+        break;
+      case 'pending_all':
+        final pendingTotal = _pendingLeaves.length +
+            _pendingCorrections.length +
+            _pendingSwaps.length +
+            _pendingAdvances.length +
+            _pendingMobileAttendanceCount;
+        _showInsightDetail(_InsightChipData(
+            Icons.pending_actions_outlined,
+            'Chờ duyệt',
+            '$pendingTotal',
+            const Color(0xFFEF4444),
+            'pending_all'));
+        break;
+    }
+  }
+
   Widget _buildRollingBanner() {
     final items = _bannerItems;
     if (items.isEmpty) return const SizedBox.shrink();
@@ -1668,7 +1747,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         child: FadeTransition(opacity: anim, child: child),
       ),
-      child: Container(
+      child: GestureDetector(
+        onTap: () => _onBannerTap(item),
+        child: Container(
         key: ValueKey(idx),
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
@@ -1712,8 +1793,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         )),
               ),
             ],
+            const Icon(Icons.chevron_right, size: 16, color: Color(0xFF94A3B8)),
           ],
         ),
+      ),
       ),
     );
   }
@@ -1835,7 +1918,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   // ===================== HERO OVERVIEW (donut + KPI + date filter) =====================
-  Widget _buildHeroOverview() {
+  Widget _buildHeroOverview(DashboardUiCapabilities caps) {
     final rate = _attendanceRate.clamp(0, 100).toDouble();
 
     return Container(
@@ -1953,15 +2036,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
               final donutCard = _buildDonutCard(rate);
               final tiles = _buildHeroKpiTiles();
               if (useSideBySide) {
-                return IntrinsicHeight(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(width: 272, child: donutCard),
-                      const SizedBox(width: 14),
-                      Expanded(child: tiles),
-                    ],
-                  ),
+                // Row + CrossAxisAlignment.start — tránh Stack Overflow từ IntrinsicHeight.
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(width: 272, child: donutCard),
+                    const SizedBox(width: 14),
+                    Expanded(child: tiles),
+                  ],
                 );
               }
               return Column(
@@ -1975,18 +2057,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
             },
           ),
           const SizedBox(height: 16),
-          const Divider(height: 1, color: Color(0xFFE4E9F0)),
-          const SizedBox(height: 12),
-          const Text(
-            'Chỉ số nhân sự & vận hành',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF475569),
+          if (caps.showInsightSection) ...[
+            const Divider(height: 1, color: Color(0xFFE4E9F0)),
+            const SizedBox(height: 12),
+            const Text(
+              'Chỉ số nhân sự & vận hành',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF475569),
+              ),
             ),
-          ),
-          const SizedBox(height: 10),
-          _buildInsightChipsRow(_caps(context)),
+            const SizedBox(height: 10),
+            _buildInsightChipsRow(caps),
+          ],
         ],
       ),
     );
@@ -2476,13 +2560,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final pendingTotal = _pendingLeaves.length +
         _pendingCorrections.length +
         _pendingSwaps.length +
-        _pendingAdvances.length;
-    // Backend OvertimeStatistics returns: totalRequests, pendingCount, approvedCount,
-    // rejectedCount, completedCount, totalPlannedHours, totalActualHours.
-    final otCount = _toInt(_overtimeStats['totalRequests'] ??
-        _overtimeStats['totalOvertimeCount'] ??
-        _overtimeStats['employeesWithOvertime'] ??
-        _overtimeStats['count'] ??
+        _pendingAdvances.length +
+        _pendingMobileAttendanceCount;
+    // Backend OvertimeStatistics: pendingCount = chờ duyệt trong tháng.
+    final otCount = _toInt(_overtimeStats['pendingCount'] ??
+        _overtimeStats['totalPending'] ??
         0);
     final taskTotal =
         _toInt(_taskStats['totalTasks'] ?? _taskStats['total'] ?? 0);
@@ -2490,12 +2572,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _taskStats['completed'] ??
         _taskStats['done'] ??
         0);
-    // Backend PenaltyTicketStats returns: totalPending, totalApproved, totalAutoApproved,
-    // totalCancelled, pendingAmount, approvedAmount.
-    final penaltyCount = _toInt(_penaltyStats['totalPending'] ?? 0) +
-        _toInt(_penaltyStats['totalApproved'] ?? 0) +
-        _toInt(_penaltyStats['totalAutoApproved'] ?? 0) +
-        _toInt(_penaltyStats['totalCancelled'] ?? 0);
+    // Backend PenaltyTicketStats: chỉ hiển thị phiếu chờ duyệt trên chip.
+    final penaltyCount = _toInt(_penaltyStats['totalPending'] ?? 0);
     final cashIn =
         ((_cashSummary['totalIncome'] ?? _cashSummary['totalIn'] ?? 0) as num)
             .toDouble();
@@ -2524,7 +2602,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const Color(0xFFEC4899),
             'birthday_detail'),
       if (caps.insightOvertime)
-        _InsightChipData(Icons.av_timer_outlined, 'OT tháng', '$otCount NV',
+        _InsightChipData(Icons.av_timer_outlined, 'OT chờ duyệt', '$otCount',
             const Color(0xFF8B5CF6), 'overtime_detail'),
       if (caps.insightTask)
         _InsightChipData(
@@ -2553,7 +2631,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (caps.insightNewHires)
         _InsightChipData(
             Icons.groups_outlined,
-            'NV mới',
+            'NV mới (90 ngày)',
             '${_newHiresThisMonth()}',
             HrmPageChrome.primaryNavy,
             'newhires_detail'),
@@ -2920,8 +2998,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                         onPressed: () {
                           Navigator.pop(ctx);
-                          Navigator.of(context).push(
-                              MaterialPageRoute(builder: (_) => cta.screen));
+                          if (cta.onNavigate != null) {
+                            cta.onNavigate!();
+                          } else if (cta.screen != null) {
+                            Navigator.of(context).push(
+                                MaterialPageRoute(builder: (_) => cta.screen!));
+                          }
                         },
                         icon: Icon(cta.icon, size: 18),
                         label: Text(cta.label,
@@ -3052,62 +3134,94 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   /// Navigate from an insight-detail row to the source screen so the user can
   /// review / approve / edit the underlying record.
+  void _openPendingRecord(String typeKey, Map<String, dynamic> item) {
+    Navigator.of(context, rootNavigator: false).maybePop();
+    final id = (item['id'] ?? item['Id'] ?? '').toString();
+    final hi = id.isEmpty ? null : id;
+    switch (typeKey) {
+      case 'leave':
+        NavigationNotifier.goToLeaves(highlightId: hi, pendingOnly: true);
+        break;
+      case 'correction':
+        NavigationNotifier.goToAttendanceApproval(
+            statusFilter: 0, tab: 0, highlightId: hi);
+        break;
+      case 'swap':
+        NavigationNotifier.goToScheduleApproval(tab: 3, highlightId: hi);
+        break;
+      case 'advance':
+        NavigationNotifier.goToAdvanceRequestsNav(
+            highlightId: hi, pendingOnly: true);
+        break;
+      case 'mobile':
+        NavigationNotifier.goToAttendanceApproval(
+            statusFilter: 0, tab: 1, highlightId: hi);
+        break;
+    }
+  }
+
   void _navigateFromInsightRow(String kind, Map<String, dynamic> item) {
     // Close the bottom sheet first.
     Navigator.of(context, rootNavigator: false).maybePop();
     final type = (item['_type'] ?? '').toString();
     final itemId = (item['id'] ?? item['Id'] ?? '').toString();
-
-    Widget? target;
-    String resolved = kind;
     final hi = itemId.isEmpty ? null : itemId;
+
+    String? resolved;
     if (kind == 'pending_all') {
-      // Pick the right screen based on the kind embedded in the row (_type).
       switch (type) {
         case 'Đơn nghỉ phép':
-          target = LeaveScreen(highlightId: hi);
           resolved = 'leave';
+          NavigationNotifier.goToLeaves(highlightId: hi, pendingOnly: true);
           break;
         case 'Chỉnh sửa CC':
-          target = AttendanceApprovalScreen(
-              highlightId: hi, initialStatusFilter: 0);
           resolved = 'corrections';
+          NavigationNotifier.goToAttendanceApproval(
+              statusFilter: 0, tab: 0, highlightId: hi);
           break;
         case 'Đổi ca':
-          target = AttendanceApprovalScreen(
-              highlightId: hi, initialStatusFilter: 0);
           resolved = 'swap';
+          NavigationNotifier.goToScheduleApproval(tab: 3, highlightId: hi);
           break;
         case 'Ứng lương':
-          target = AdvanceRequestsScreen(highlightId: hi);
           resolved = 'advance';
+          NavigationNotifier.goToAdvanceRequestsNav(
+              highlightId: hi, pendingOnly: true);
           break;
       }
     } else {
       switch (kind) {
         case 'leave_today':
-          target = LeaveScreen(highlightId: hi);
+          resolved = 'leave';
+          NavigationNotifier.goToLeaves(highlightId: hi);
           break;
         case 'advance_detail':
-          target = AdvanceRequestsScreen(highlightId: hi);
+          resolved = 'advance';
+          NavigationNotifier.goToAdvanceRequestsNav(highlightId: hi);
           break;
         case 'docs_detail':
+          resolved = 'docs';
           if (Provider.of<PermissionProvider>(context, listen: false)
               .canView('HrDocument')) {
-            target = HrDocumentsScreen(highlightId: hi);
+            Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => HrmPushedScreenShell(
+                title: 'Tài liệu HR',
+                child: HrDocumentsScreen(highlightId: hi),
+              ),
+            ));
           } else {
-            target = EmployeesScreen(highlightId: hi);
+            NavigationNotifier.goToEmployeesHighlight(hi);
           }
           break;
         case 'birthday_detail':
         case 'newhires_detail':
-          // For these kinds the row id is the employee id.
-          target = EmployeesScreen(highlightId: hi);
+          resolved = 'employee';
+          NavigationNotifier.goToEmployeesHighlight(hi);
           break;
       }
     }
 
-    if (target == null) return;
+    if (resolved == null) return;
     final empName =
         (item['employeeName'] ?? item['fullName'] ?? item['name'] ?? '')
             .toString();
@@ -3119,59 +3233,75 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
       );
     }
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => target!));
   }
 
   /// Returns CTA configuration mapping a chip kind to the management screen
   /// the user should be taken to from the insight bottom sheet.
   _InsightCta? _ctaForKind(String kind) {
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
     switch (kind) {
       case 'leave_today':
-        return const _InsightCta(
-            'Mở quản lý nghỉ phép', Icons.event_busy, LeaveScreen());
+        return _InsightCta('Mở quản lý nghỉ phép', Icons.event_busy, null,
+            onNavigate: () => NavigationNotifier.goToLeaves());
       case 'pending_all':
-        return _InsightCta('Mở duyệt chấm công', Icons.fact_check_outlined,
-            AttendanceApprovalScreen(initialStatusFilter: 0));
+        return _InsightCta(
+            'Mở duyệt chấm công (CC/Mobile)',
+            Icons.fact_check_outlined,
+            null,
+            onNavigate: NavigationNotifier.goToAttendanceCorrections);
       case 'birthday_detail':
       case 'newhires_detail':
-        return const _InsightCta('Mở danh sách nhân viên',
-            Icons.people_alt_outlined, EmployeesScreen());
+        return _InsightCta('Mở danh sách nhân viên',
+            Icons.people_alt_outlined, null,
+            onNavigate: NavigationNotifier.goToEmployees);
       case 'overtime_detail':
-        if (!Provider.of<PermissionProvider>(context, listen: false)
-            .canView('Overtime')) {
+        if (!perm.canView('Overtime')) {
           return null;
         }
-        return const _InsightCta(
-            'Mở quản lý tăng ca', Icons.access_time, OvertimeScreen());
+        return _InsightCta('Mở quản lý tăng ca', Icons.access_time, null,
+            onNavigate: NavigationNotifier.goToOvertimeFromDashboard);
       case 'task_detail':
-        return const _InsightCta(
-            'Mở quản lý công việc', Icons.checklist, TaskManagementScreen());
+        return _InsightCta('Mở quản lý công việc', Icons.checklist, null,
+            onNavigate: () => NavigationNotifier.goToTaskManagementNav());
       case 'penalty_detail':
-        return const _InsightCta('Mở phiếu vi phạm', Icons.report_gmailerrorred,
-            PenaltyTicketsScreen());
+        return _InsightCta(
+            'Mở phiếu vi phạm',
+            Icons.report_gmailerrorred,
+            null,
+            onNavigate: () =>
+                NavigationNotifier.goToPenaltyTicketsNav(filterStatus: '0'));
       case 'docs_detail':
         return _InsightCta(
-          Provider.of<PermissionProvider>(context, listen: false)
-                  .canView('HrDocument')
+          perm.canView('HrDocument')
               ? 'Mở tài liệu HR'
               : 'Mở danh sách nhân viên',
-          Provider.of<PermissionProvider>(context, listen: false)
-                  .canView('HrDocument')
+          perm.canView('HrDocument')
               ? Icons.folder_open_outlined
               : Icons.people_alt_outlined,
-          Provider.of<PermissionProvider>(context, listen: false)
-                  .canView('HrDocument')
-              ? HrDocumentsScreen()
-              : const EmployeesScreen(),
+          null,
+          onNavigate: () {
+            if (perm.canView('HrDocument')) {
+              Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => const HrmPushedScreenShell(
+                  title: 'Tài liệu HR',
+                  child: HrDocumentsScreen(),
+                ),
+              ));
+            } else {
+              NavigationNotifier.goToEmployees();
+            }
+          },
         );
       case 'advance_detail':
-        return const _InsightCta('Mở phiếu ứng lương', Icons.payments_outlined,
-            AdvanceRequestsScreen());
+        return _InsightCta('Mở phiếu ứng lương', Icons.payments_outlined, null,
+            onNavigate: () =>
+                NavigationNotifier.goToAdvanceRequestsNav(pendingOnly: true));
       case 'finance_detail':
       case 'receipt_detail':
       case 'payment_detail':
-        return const _InsightCta('Mở thu chi',
-            Icons.account_balance_wallet_outlined, CashTransactionScreen());
+        return _InsightCta('Mở thu chi',
+            Icons.account_balance_wallet_outlined, null,
+            onNavigate: NavigationNotifier.goToCashTransaction);
     }
     return null;
   }
@@ -3183,11 +3313,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final swaps = _pendingSwaps.whereType<Map<String, dynamic>>().toList();
     final advances =
         _pendingAdvances.whereType<Map<String, dynamic>>().toList();
+    final mobile =
+        _pendingMobileAttendance.whereType<Map<String, dynamic>>().toList();
 
     if (leaves.isEmpty &&
         corrections.isEmpty &&
         swaps.isEmpty &&
-        advances.isEmpty) {
+        advances.isEmpty &&
+        mobile.isEmpty) {
       return _emptyState('Không có phiếu chờ duyệt');
     }
 
@@ -3220,6 +3353,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
             result = await _api.approveAdvanceRequest(
                 requestId: id, isApproved: approve, rejectionReason: reason);
             break;
+          case 'mobile':
+            result = await _api.approveMobileAttendance(
+              recordId: id,
+              approved: approve,
+              rejectionReason: reason,
+            );
+            break;
           default:
             return;
         }
@@ -3235,7 +3375,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ));
           if (ok) _loadAllData(); // refresh
         }
-      } catch (_) {}
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Lỗi: $e'),
+            backgroundColor: const Color(0xFFEF4444),
+          ));
+        }
+      }
     }
 
     Widget pendingCard({
@@ -3263,7 +3410,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           String? reason;
           if (typeKey == 'leave' ||
               typeKey == 'advance' ||
-              typeKey == 'correction') {
+              typeKey == 'correction' ||
+              typeKey == 'mobile') {
             final ctrl = TextEditingController();
             final confirmed = await showDialog<bool>(
               context: context,
@@ -3309,7 +3457,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child:
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             // Header
-            Padding(
+            InkWell(
+              onTap: () => _openPendingRecord(typeKey, item),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(10)),
+              child: Padding(
               padding: const EdgeInsets.fromLTRB(10, 10, 10, 6),
               child: Row(children: [
                 Container(
@@ -3332,7 +3484,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             fontSize: 13, fontWeight: FontWeight.w600),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis)),
+                const Icon(Icons.open_in_new_rounded,
+                    size: 14, color: Color(0xFF94A3B8)),
               ]),
+            ),
             ),
             // Details
             Padding(
@@ -3383,7 +3538,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         height: 20,
                         child: CircularProgressIndicator(strokeWidth: 2))),
               )
-            else
+            else if (_canApprovePendingType(
+                typeKey, Provider.of<PermissionProvider>(context)))
               Padding(
                 padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
                 child: Row(children: [
@@ -3593,6 +3749,41 @@ class _DashboardScreenState extends State<DashboardScreen> {
             );
           }),
         ],
+        // ── Chấm công Mobile ──
+        if (mobile.isNotEmpty) ...[
+          sectionHeader(
+              'Chấm công Mobile', mobile.length, HrmPageChrome.primaryNavy),
+          ...mobile.map((item) {
+            final name =
+                (item['employeeName'] ?? item['fullName'] ?? '').toString();
+            final dept =
+                (item['department'] ?? item['departmentName'] ?? '').toString();
+            final punchType =
+                (item['punchType'] ?? item['type'] ?? item['action'] ?? '')
+                    .toString();
+            final punchTime = item['punchTime'] ??
+                item['checkTime'] ??
+                item['attendanceTime'] ??
+                item['createdAt'];
+            return pendingCard(
+              item: item,
+              typeKey: 'mobile',
+              typeLabel: 'Mobile',
+              color: HrmPageChrome.primaryNavy,
+              title: name.isEmpty ? 'N/A' : name,
+              subtitle: [dept, punchType]
+                  .where((s) => s.isNotEmpty)
+                  .join(' • '),
+              dateStr: punchTime != null ? fmtDateRange(punchTime, null) : '',
+              extraInfo: (item['note'] ?? item['reason'] ?? '')
+                  .toString()
+                  .trim()
+                  .isNotEmpty
+                  ? (item['note'] ?? item['reason']).toString()
+                  : null,
+            );
+          }),
+        ],
       ],
     );
   }
@@ -3714,7 +3905,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         return; // item gone, no need to setS remove
                       }
                     }
-                  } catch (_) {}
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text('Lỗi: $e'),
+                        backgroundColor: const Color(0xFFEF4444),
+                      ));
+                    }
+                  }
                   setS(() => loadingIds.remove(id));
                 }
 
@@ -3862,7 +4060,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     child: CircularProgressIndicator(
                                         strokeWidth: 2))),
                           )
-                        else
+                        else if (_canApprovePendingType(
+                            'advance',
+                            Provider.of<PermissionProvider>(context)))
                           Padding(
                             padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
                             child: Row(children: [
@@ -4037,7 +4237,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
         daysStr = 'Nửa ca';
       }
 
-      return Container(
+      return InkWell(
+        onTap: () {
+          Navigator.of(context, rootNavigator: false).maybePop();
+          final empId = (d['employeeId'] ??
+                  d['employeeUserId'] ??
+                  d['userId'] ??
+                  d['leaveId'] ??
+                  d['id'] ??
+                  '')
+              .toString();
+          NavigationNotifier.goToLeaves(
+              highlightId: empId.isEmpty ? null : empId);
+        },
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
@@ -4116,6 +4330,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ]),
           ],
         ]),
+        ),
       );
     }
 
@@ -4174,8 +4389,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return InkWell(
         onTap: () {
           Navigator.of(context, rootNavigator: false).maybePop();
-          Navigator.of(context)
-              .push(MaterialPageRoute(builder: (_) => const EmployeesScreen()));
+          final empId = (d['employeeId'] ??
+                  d['userId'] ??
+                  d['employeeUserId'] ??
+                  d['id'] ??
+                  '')
+              .toString();
+          final hi = empId.isEmpty ? null : empId;
+          final perm =
+              Provider.of<PermissionProvider>(context, listen: false);
+          if (perm.canView('HrDocument')) {
+            Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => HrmPushedScreenShell(
+                title: 'Tài liệu HR',
+                child: HrDocumentsScreen(highlightId: hi),
+              ),
+            ));
+          } else {
+            NavigationNotifier.goToEmployeesHighlight(hi);
+          }
         },
         borderRadius: BorderRadius.circular(10),
         child: Container(
@@ -4315,15 +4547,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final displayName = name.isNotEmpty ? name : (fp.isNotEmpty ? fp : '-');
       final dept = (e['departmentName'] ?? e['department'] ?? '').toString();
       final day = e['_birthdayDay'] as int? ?? 0;
+      final id = (e['id'] ?? e['Id'] ?? '').toString();
 
       return InkWell(
         onTap: () {
           Navigator.of(context).maybePop();
-          final id = (e['id'] ?? e['Id'] ?? '').toString();
-          Navigator.of(context).push(MaterialPageRoute(
-            builder: (_) =>
-                EmployeesScreen(highlightId: id.isEmpty ? null : id),
-          ));
+          NavigationNotifier.goToEmployeesHighlight(
+              id.isEmpty ? null : id);
         },
         borderRadius: BorderRadius.circular(10),
         child: Container(
@@ -4493,22 +4723,61 @@ class _DashboardScreenState extends State<DashboardScreen> {
         0);
     final overdue =
         _toInt(_taskStats['overdueCount'] ?? _taskStats['overdue'] ?? 0);
+    final assigned = _toInt(_taskStats['assignedCount'] ?? 0);
     final rate = total > 0 ? (done / total * 100) : 0.0;
+
+    void openTask({int? statusIndex, bool overdueOnly = false}) {
+      Navigator.of(context, rootNavigator: false).maybePop();
+      NavigationNotifier.goToTaskManagementNav(
+        statusIndex: statusIndex,
+        overdueOnly: overdueOnly,
+      );
+    }
+
+    Widget tappableRow(IconData icon, String label, String value, Color color,
+        {int? statusIndex, bool overdueOnly = false}) {
+      return InkWell(
+        onTap: () => openTask(
+            statusIndex: statusIndex, overdueOnly: overdueOnly),
+        borderRadius: BorderRadius.circular(10),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2),
+          child: Row(
+            children: [
+              Expanded(
+                  child: _detailStatRow(icon, label, value, color)),
+              const Icon(Icons.chevron_right,
+                  size: 16, color: Color(0xFFCBD5E1)),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Column(children: [
-      _detailStatRow(
-          Icons.checklist, 'Tổng công việc', '$total', const Color(0xFF2D5F8B)),
+      tappableRow(Icons.checklist, 'Tổng công việc', '$total',
+          const Color(0xFF2D5F8B)),
       const SizedBox(height: 8),
-      _detailStatRow(Icons.radio_button_unchecked, 'Chưa bắt đầu', '$todo',
-          const Color(0xFF71717A)),
+      tappableRow(Icons.radio_button_unchecked, 'Chờ làm', '$todo',
+          const Color(0xFF71717A),
+          statusIndex: WorkTaskStatus.todo.index),
+      if (assigned > 0) ...[
+        const SizedBox(height: 8),
+        tappableRow(Icons.assignment_late_outlined, 'Chờ xác nhận', '$assigned',
+            const Color(0xFFF59E0B),
+            statusIndex: WorkTaskStatus.assigned.index),
+      ],
       const SizedBox(height: 8),
-      _detailStatRow(
-          Icons.autorenew, 'Đang làm', '$inProg', const Color(0xFFF59E0B)),
+      tappableRow(Icons.autorenew, 'Đang làm', '$inProg', const Color(0xFFF59E0B),
+          statusIndex: WorkTaskStatus.inProgress.index),
       const SizedBox(height: 8),
-      _detailStatRow(
-          Icons.check_circle, 'Hoàn thành', '$done', const Color(0xFF22C55E)),
+      tappableRow(Icons.check_circle, 'Hoàn thành', '$done',
+          const Color(0xFF22C55E),
+          statusIndex: WorkTaskStatus.completed.index),
       const SizedBox(height: 8),
-      _detailStatRow(
-          Icons.warning_amber, 'Quá hạn', '$overdue', const Color(0xFFEF4444)),
+      tappableRow(Icons.warning_amber, 'Quá hạn', '$overdue',
+          const Color(0xFFEF4444),
+          overdueOnly: true),
       const SizedBox(height: 12),
       ClipRRect(
         borderRadius: BorderRadius.circular(8),
@@ -4545,9 +4814,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     // statusFilter: null=all, '0'=Pending, '1'=Approved, '2'=Cancelled, '3'=AutoApproved
     void openFiltered(String? statusFilter) {
       Navigator.of(context, rootNavigator: false).maybePop();
-      Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => PenaltyTicketsScreen(initialFilterStatus: statusFilter),
-      ));
+      NavigationNotifier.goToPenaltyTicketsNav(filterStatus: statusFilter);
     }
 
     Widget tappableRow(IconData icon, String label, String value, Color color,
@@ -4723,7 +4990,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     switch (key) {
       case 'today':
-        single = today;
+        single = effectiveToday;
         break;
       case 'yesterday':
         // "Hôm qua" = ngày làm việc trước ngày làm việc hiệu dụng hiện tại.
@@ -4733,20 +5000,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
         break;
       case 'thisWeek':
         // Monday = 1 ... Sunday = 7
-        start = today.subtract(Duration(days: today.weekday - 1));
+        start = effectiveToday.subtract(Duration(days: effectiveToday.weekday - 1));
         end = start.add(const Duration(days: 6));
         break;
       case 'lastWeek':
-        final thisMon = today.subtract(Duration(days: today.weekday - 1));
+        final thisMon =
+            effectiveToday.subtract(Duration(days: effectiveToday.weekday - 1));
         start = thisMon.subtract(const Duration(days: 7));
         end = thisMon.subtract(const Duration(days: 1));
         break;
       case 'thisMonth':
-        start = DateTime(today.year, today.month, 1);
-        end = DateTime(today.year, today.month + 1, 0);
+        start = DateTime(effectiveToday.year, effectiveToday.month, 1);
+        end = DateTime(effectiveToday.year, effectiveToday.month + 1, 0);
         break;
       case 'lastMonth':
-        final firstThis = DateTime(today.year, today.month, 1);
+        final firstThis = DateTime(effectiveToday.year, effectiveToday.month, 1);
         final lastDayPrev = firstThis.subtract(const Duration(days: 1));
         start = DateTime(lastDayPrev.year, lastDayPrev.month, 1);
         end = lastDayPrev;
@@ -4762,7 +5030,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _rangeEnd = null;
       } else if (start != null && end != null) {
         _rangeStart = start;
-        _rangeEnd = end.isAfter(today) ? today : end;
+        _rangeEnd = end.isAfter(effectiveToday) ? effectiveToday : end;
         // Use the end of the range (capped to today) as the "target" day
         // for the daily snapshot.
         _selectedDate = _rangeEnd;
@@ -5375,12 +5643,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             onTap: () {
                               Navigator.pop(ctx);
                               if (k.kind == 'late') {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        const AttendanceByShiftScreen(),
-                                  ),
-                                );
+                                NavigationNotifier.goToModule(
+                                    'AttendanceByShift');
                               }
                             },
                             borderRadius: BorderRadius.circular(10),
@@ -7458,19 +7722,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
         Widget gap16() => const SizedBox(height: 16);
 
-        Widget rowRealtimeAbsent() => IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (caps.gridRealtime)
-                    Expanded(
-                        flex: 2, child: _buildRealtimeAttendanceCard()),
-                  if (caps.gridRealtime && caps.gridAbsent)
-                    const SizedBox(width: 16),
-                  if (caps.gridAbsent)
-                    Expanded(flex: 1, child: _buildAbsentCard()),
-                ],
-              ),
+        Widget rowRealtimeAbsent() => Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (caps.gridRealtime)
+                  Expanded(
+                      flex: 2, child: _buildRealtimeAttendanceCard()),
+                if (caps.gridRealtime && caps.gridAbsent)
+                  const SizedBox(width: 16),
+                if (caps.gridAbsent)
+                  Expanded(flex: 1, child: _buildAbsentCard()),
+              ],
             );
 
         Widget colRealtimeAbsent() => Column(
@@ -7485,15 +7747,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
             );
 
-        Widget rowKpiNews() => IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (caps.gridKpi) Expanded(child: _buildKpiCard()),
-                  if (caps.gridKpi && caps.gridNews) const SizedBox(width: 16),
-                  if (caps.gridNews) Expanded(child: _buildInternalNewsCard()),
-                ],
-              ),
+        Widget rowKpiNews() => Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (caps.gridKpi) Expanded(child: _buildKpiCard()),
+                if (caps.gridKpi && caps.gridNews) const SizedBox(width: 16),
+                if (caps.gridNews) Expanded(child: _buildInternalNewsCard()),
+              ],
             );
 
         Widget colKpiNews() => Column(
@@ -7662,9 +7922,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return InkWell(
       onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const AttendanceByShiftScreen()),
-        );
+        NavigationNotifier.goToModule('AttendanceByShift');
       },
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 6),
@@ -7732,9 +7990,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return InkWell(
       onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const AttendanceByShiftScreen()),
-        );
+        NavigationNotifier.goToModule('AttendanceByShift');
       },
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 6),
@@ -8831,8 +9087,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final correctionCount = _pendingCorrections.length;
     final swapCount = _pendingSwaps.length;
     final advanceCount = _pendingAdvances.length;
-    final totalPending =
-        leaveCount + correctionCount + swapCount + advanceCount;
+    final mobileCount = _pendingMobileAttendanceCount;
+    final totalPending = leaveCount +
+        correctionCount +
+        swapCount +
+        advanceCount +
+        mobileCount;
 
     return _DashCard(
       icon: Icons.pending_actions_outlined,
@@ -8841,23 +9101,53 @@ class _DashboardScreenState extends State<DashboardScreen> {
       badge: totalPending > 0 ? '$totalPending đơn' : null,
       child: Column(children: [
         _approvalRow(Icons.event_busy, 'Đơn nghỉ phép', leaveCount,
-            const Color(0xFFF59E0B)),
+            const Color(0xFFF59E0B),
+            onTap: leaveCount > 0
+                ? () => NavigationNotifier.goToLeaves(pendingOnly: true)
+                : null),
         const SizedBox(height: 8),
         _approvalRow(Icons.edit_note, 'Chỉnh sửa chấm công', correctionCount,
-            const Color(0xFF2D5F8B)),
+            const Color(0xFF2D5F8B),
+            onTap: correctionCount > 0
+                ? NavigationNotifier.goToAttendanceCorrections
+                : null),
         const SizedBox(height: 8),
         _approvalRow(Icons.swap_horiz, 'Đổi ca làm việc', swapCount,
-            const Color(0xFFEC4899)),
+            const Color(0xFFEC4899),
+            onTap: swapCount > 0
+                ? () => NavigationNotifier.goToScheduleApproval(tab: 3)
+                : null),
         const SizedBox(height: 8),
         _approvalRow(Icons.account_balance_wallet_outlined, 'Yêu cầu ứng lương',
-            advanceCount, const Color(0xFF10B981)),
+            advanceCount, const Color(0xFF10B981),
+            onTap: advanceCount > 0
+                ? () => NavigationNotifier.goToAdvanceRequestsNav(
+                    pendingOnly: true)
+                : null),
+        if (mobileCount > 0) ...[
+          const SizedBox(height: 8),
+          _approvalRow(Icons.phone_android, 'Chấm công Mobile', mobileCount,
+              HrmPageChrome.primaryNavy,
+              onTap: () => NavigationNotifier.goToAttendanceApproval(
+                  statusFilter: 0, tab: 1)),
+        ],
         if (totalPending == 0) ...[
           const SizedBox(height: 12),
           _emptyState('Không có đơn chờ duyệt'),
         ],
         if (totalPending > 0) ...[
           const SizedBox(height: 16),
-          Container(
+          InkWell(
+            onTap: () {
+              _showInsightDetail(_InsightChipData(
+                  Icons.pending_actions_outlined,
+                  'Chờ duyệt',
+                  '$totalPending',
+                  const Color(0xFFEF4444),
+                  'pending_all'));
+            },
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: const Color(0xFFF59E0B).withValues(alpha: 0.08),
@@ -8875,15 +9165,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                           color: Color(0xFFD97706)))),
+              const Icon(Icons.chevron_right,
+                  size: 18, color: Color(0xFFD97706)),
             ]),
+          ),
           ),
         ],
       ]),
     );
   }
 
-  Widget _approvalRow(IconData icon, String label, int count, Color color) {
-    return Container(
+  Widget _approvalRow(IconData icon, String label, int count, Color color,
+      {VoidCallback? onTap}) {
+    final row = Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.06),
@@ -8915,6 +9209,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   color: count > 0 ? Colors.white : const Color(0xFFA1A1AA))),
         ),
       ]),
+    );
+    if (onTap == null) return row;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: row,
     );
   }
 
@@ -9021,13 +9321,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     WorkTaskStatus? status,
     bool overdueOnly = false,
   }) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => TaskManagementScreen(
-          initialStatus: overdueOnly ? null : status,
-          initialOverdueOnly: overdueOnly,
-        ),
-      ),
+    NavigationNotifier.goToTaskManagementNav(
+      statusIndex: overdueOnly ? null : status?.index,
+      overdueOnly: overdueOnly,
     );
   }
 
@@ -11114,7 +11410,8 @@ class _InsightChipData {
 class _InsightCta {
   final String label;
   final IconData icon;
-  final Widget screen;
-  const _InsightCta(this.label, this.icon, this.screen);
+  final Widget? screen;
+  final VoidCallback? onNavigate;
+  const _InsightCta(this.label, this.icon, this.screen, {this.onNavigate});
 }
 

@@ -41,6 +41,10 @@ android {
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName("release")
+            ndk {
+                // Required for Play Store AAB + Flutter release bundle validation.
+                debugSymbolLevel = "SYMBOL_TABLE"
+            }
         }
     }
 }

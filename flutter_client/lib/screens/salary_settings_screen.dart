@@ -933,7 +933,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                           (employee['baseSalary'] as num?)?.toDouble() ?? 0;
                       final employeeId = employee['id']?.toString() ?? '';
                       final fixedAllowance =
-                          _calculateEmployeeAllowanceTotal(employeeId, 0);
+                          _calculateEmployeeAllowanceTotal(employeeId, 0,
+                              employee: employee);
                       final shifts = employee['shifts']?.toString() ?? '';
                       final shiftsPerDay =
                           (employee['shiftsPerDay'] as num?)?.toInt() ?? 1;
@@ -1459,8 +1460,10 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
     final baseSalary = (employee['baseSalary'] as num?)?.toDouble() ?? 0;
     // Calculate allowance totals dynamically from assigned allowances
     final employeeId = employee['id']?.toString() ?? '';
-    final fixedAllowance = _calculateEmployeeAllowanceTotal(employeeId, 0);
-    final dailyAllowance = _calculateEmployeeAllowanceTotal(employeeId, 1);
+    final fixedAllowance =
+        _calculateEmployeeAllowanceTotal(employeeId, 0, employee: employee);
+    final dailyAllowance =
+        _calculateEmployeeAllowanceTotal(employeeId, 1, employee: employee);
     final shifts = employee['shifts']?.toString() ?? '';
 
     return Container(
@@ -1557,6 +1560,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                     () => _showViewAllowanceDetail(
                           allowanceType: 0,
                           employeeId: employeeId,
+                          employeeCode: employee['employeeCode']?.toString(),
                           onChanged: () => setState(() {}),
                         )),
                 const SizedBox(height: 8),
@@ -1568,6 +1572,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                     () => _showViewAllowanceDetail(
                           allowanceType: 1,
                           employeeId: employeeId,
+                          employeeCode: employee['employeeCode']?.toString(),
                           onChanged: () => setState(() {}),
                         )),
                 const SizedBox(height: 8),
@@ -1717,69 +1722,84 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setViewState) {
-            final formContent = SingleChildScrollView(
-              padding: isMobile ? const EdgeInsets.all(16) : EdgeInsets.zero,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildDetailItem(
-                      'Mã nhân viên', employee['employeeCode'] ?? '-'),
-                  _buildDetailItem(
-                      'Loại lương', _getSalaryTypeName(employee['salaryType'])),
-                  _buildDetailItem(
-                      'Lương cơ bản',
-                      _formatCurrency(
-                          (employee['baseSalary'] as num?)?.toDouble() ?? 0)),
-                  _buildTappableDetailItem(
-                    'Phụ cấp cố định',
+            final formBody = Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildDetailItem(
+                    'Mã nhân viên', employee['employeeCode'] ?? '-'),
+                _buildDetailItem(
+                    'Loại lương', _getSalaryTypeName(employee['salaryType'])),
+                _buildDetailItem(
+                    'Lương cơ bản',
                     _formatCurrency(
-                        _calculateEmployeeAllowanceTotal(employeeId, 0)),
-                    () => _showViewAllowanceDetail(
-                      allowanceType: 0,
-                      employeeId: employeeId,
-                      onChanged: () => setViewState(() {}),
-                    ),
+                        (employee['baseSalary'] as num?)?.toDouble() ?? 0)),
+                _buildTappableDetailItem(
+                  'Phụ cấp cố định',
+                  _formatCurrency(
+                      _calculateEmployeeAllowanceTotal(employeeId, 0,
+                          employee: employee)),
+                  () => _showViewAllowanceDetail(
+                    allowanceType: 0,
+                    employeeId: employeeId,
+                    employeeCode: employee['employeeCode']?.toString(),
+                    onChanged: () => setViewState(() {}),
                   ),
-                  _buildTappableDetailItem(
-                    'Phụ cấp theo ngày',
-                    _formatCurrency(
-                        _calculateEmployeeAllowanceTotal(employeeId, 1)),
-                    () => _showViewAllowanceDetail(
-                      allowanceType: 1,
-                      employeeId: employeeId,
-                      onChanged: () => setViewState(() {}),
-                    ),
+                ),
+                _buildTappableDetailItem(
+                  'Phụ cấp theo ngày',
+                  _formatCurrency(
+                      _calculateEmployeeAllowanceTotal(employeeId, 1,
+                          employee: employee)),
+                  () => _showViewAllowanceDetail(
+                    allowanceType: 1,
+                    employeeId: employeeId,
+                    employeeCode: employee['employeeCode']?.toString(),
+                    onChanged: () => setViewState(() {}),
                   ),
-                  ..._buildSalaryTypeDetails(employee),
-                  const Divider(color: Color(0xFFE4E4E7), height: 24),
-                  _buildDetailItem('Chấm công',
-                      _getAttendanceModeName(employee['attendanceType'])),
+                ),
+                ..._buildSalaryTypeDetails(employee),
+                const Divider(color: Color(0xFFE4E4E7), height: 24),
+                _buildDetailItem('Chấm công',
+                    _getAttendanceModeName(employee['attendanceType'])),
+                _buildDetailItem(
+                    'Ca làm việc',
+                    _formatShiftsDisplay(employee['shifts']?.toString())),
+                _buildDetailItem('Số ca / 1 công',
+                    (employee['shiftsPerDay'] ?? 1).toString()),
+                _buildDetailItem(
+                    'Ngày nghỉ có lương',
+                    _getPaidLeaveTypeDisplayName(employee['benefit']
+                            ?['paidLeaveType'] ??
+                        employee['paidDayOff'])),
+                _buildDetailItem(
+                  'Ngày nghỉ không lương / tháng',
+                  (employee['benefit']?['unpaidLeaveDays'] ?? 0).toString(),
+                ),
+                if (_isMonthlySalaryEmployee(employee)) ...[
                   _buildDetailItem(
-                      'Ca làm việc',
-                      _formatShiftsDisplay(employee['shifts']?.toString())),
-                  _buildDetailItem('Số ca / 1 công',
-                      (employee['shiftsPerDay'] ?? 1).toString()),
+                    'Phép năm / năm',
+                    _formatLeaveDaysEntitlement(
+                        employee['benefit']?['paidLeaveDays']),
+                  ),
                   _buildDetailItem(
-                      'Ngày nghỉ có lương',
-                      _getPaidLeaveTypeDisplayName(employee['benefit']
-                              ?['paidLeaveType'] ??
-                          employee['paidDayOff'])),
-                  if (_isMonthlySalaryEmployee(employee)) ...[
-                    _buildDetailItem(
-                      'Phép năm / năm',
-                      _formatLeaveDaysEntitlement(
-                          employee['benefit']?['paidLeaveDays']),
-                    ),
-                    _buildDetailItem(
-                      'Phép năm còn lại',
-                      _formatLeaveDaysBalance(
-                          employee['salaryProfile']?['balancedPaidLeaveDays']),
-                    ),
-                  ],
+                    'Phép năm còn lại',
+                    _formatLeaveDaysBalance(
+                        employee['salaryProfile']?['balancedPaidLeaveDays']),
+                  ),
                 ],
-              ),
+                if ((employee['salaryType'] ?? 1).toString() == '3' &&
+                    (employee['benefit']?['shiftSalaryType'] ?? 0).toString() ==
+                        '1') ...[
+                  const SizedBox(height: 12),
+                  _buildShiftSalaryLevelsInfo(),
+                ],
+              ],
             );
+            final formContent = isMobile
+                ? SingleChildScrollView(
+                    padding: const EdgeInsets.all(16), child: formBody)
+                : formBody;
             final canEditSalary =
                 Provider.of<PermissionProvider>(context, listen: false)
                     .canEdit('SalarySettings');
@@ -1828,6 +1848,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
             }
             return ScrollableAlertDialog(
               backgroundColor: Colors.white,
+              maxContentWidth: 560,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16)),
               title: Row(
@@ -1846,8 +1867,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                 ],
               ),
               content: SizedBox(
-                width: math.min(500, MediaQuery.of(context).size.width - 32),
-                child: formContent,
+                width: math.min(560, MediaQuery.of(context).size.width - 32),
+                child: formBody,
               ),
               actions: actionButtons,
             );
@@ -2294,6 +2315,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
     required int allowanceType,
     required String employeeId,
     required VoidCallback onChanged,
+    String? employeeCode,
   }) {
     final isMobileView = Responsive.isMobile(context);
     showDialog(
@@ -2308,7 +2330,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
               final isActive = a['isActive'] ?? true;
               return type == allowanceType &&
                   isActive &&
-                  _isAllowanceAssignedToEmployee(a, employeeId);
+                  _isAllowanceAssignedToEmployee(a, employeeId,
+                      employeeCode: employeeCode);
             }).toList();
 
             double total = 0;
@@ -2672,8 +2695,10 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
     // Common fields
     // Calculate totals from individual allowances assigned to this employee
     final employeeId = employee['id']?.toString() ?? '';
-    final calcFixedTotal = _calculateEmployeeAllowanceTotal(employeeId, 0);
-    final calcDailyTotal = _calculateEmployeeAllowanceTotal(employeeId, 1);
+    final calcFixedTotal =
+        _calculateEmployeeAllowanceTotal(employeeId, 0, employee: employee);
+    final calcDailyTotal =
+        _calculateEmployeeAllowanceTotal(employeeId, 1, employee: employee);
     // Always use calculated total from assigned allowances (fields are read-only)
     final fixedVal = calcFixedTotal;
     final dailyVal = calcDailyTotal;
@@ -2738,12 +2763,10 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) {
-          final formContent = SingleChildScrollView(
-            padding: isMobileEdit ? const EdgeInsets.all(16) : EdgeInsets.zero,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+          final formBody = Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
                 // Employee info (read-only)
                 Row(
                   children: [
@@ -3384,8 +3407,11 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                   ],
                 ),
               ],
-            ),
-          );
+            );
+          final formContent = isMobileEdit
+              ? SingleChildScrollView(
+                  padding: const EdgeInsets.all(16), child: formBody)
+              : formBody;
           Future<void> onSave() async {
             Navigator.pop(dialogContext);
 
@@ -3597,6 +3623,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
           }
           return ScrollableAlertDialog(
             backgroundColor: Colors.white,
+            maxContentWidth: 620,
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: Row(
@@ -3618,8 +3645,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
               ],
             ),
             content: SizedBox(
-              width: math.min(550, MediaQuery.of(context).size.width - 64),
-              child: formContent,
+              width: math.min(620, MediaQuery.of(context).size.width - 64),
+              child: formBody,
             ),
             actions: [
               TextButton(
@@ -3825,17 +3852,34 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
   }
 
   double _calculateEmployeeAllowanceTotal(
-      String employeeId, int allowanceType) {
+    String employeeId,
+    int allowanceType, {
+    Map<String, dynamic>? employee,
+  }) {
+    final benefit = employee?['benefit'] as Map<String, dynamic>?;
     return AllowanceCalculator.sumForEmployee(
       allowances: _allowances,
       employeeId: employeeId,
+      employeeCode: employee?['employeeCode']?.toString(),
       allowanceType: allowanceType,
+      benefitFallback: benefit ??
+          (employee != null
+              ? {
+                  'mealAllowance': employee['fixedAllowance'],
+                  'responsibilityAllowance': employee['dailyAllowance'],
+                }
+              : null),
     );
   }
 
   bool _isAllowanceAssignedToEmployee(
-      Map<String, dynamic> allowance, String employeeId) {
-    return AllowanceCalculator.isAssignedToEmployee(allowance, employeeId);
+      Map<String, dynamic> allowance, String employeeId,
+      {String? employeeCode}) {
+    return AllowanceCalculator.isAssignedToEmployee(
+      allowance,
+      employeeId,
+      employeeCode: employeeCode,
+    );
   }
 
   // Show dialog to select allowances and calculate total

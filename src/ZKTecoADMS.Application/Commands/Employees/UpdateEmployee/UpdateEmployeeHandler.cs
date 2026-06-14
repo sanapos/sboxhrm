@@ -1,6 +1,7 @@
 using MediatR;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
+using ZKTecoADMS.Application.Services;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Domain.Repositories;
@@ -45,8 +46,16 @@ public class UpdateEmployeeHandler(
         var oldWorkStatus = employee.WorkStatus;
 
         employee.EmployeeCode = request.EmployeeCode;
-        employee.FirstName = request.FirstName;
-        employee.LastName = request.LastName;
+        employee.FirstName = request.FirstName?.Trim() ?? string.Empty;
+        employee.LastName = request.LastName?.Trim() ?? string.Empty;
+        if (employee.FirstName == ".") employee.FirstName = string.Empty;
+        if (employee.LastName == ".") employee.LastName = string.Empty;
+        if (string.IsNullOrWhiteSpace(employee.LastName) &&
+            !string.IsNullOrWhiteSpace(employee.FirstName))
+        {
+            employee.LastName = employee.FirstName;
+            employee.FirstName = string.Empty;
+        }
         employee.Gender = request.Gender;
         employee.DateOfBirth = request.DateOfBirth;
         employee.PhotoUrl = request.PhotoUrl;
@@ -68,15 +77,14 @@ public class UpdateEmployeeHandler(
         employee.BankAccountNumber = request.BankAccountNumber;
         employee.IdCardFrontUrl = request.IdCardFrontUrl;
         employee.IdCardBackUrl = request.IdCardBackUrl;
-        employee.Department = request.Department;
+        employee.Department = request.Department?.Trim();
 
-        // Auto-resolve DepartmentId from Department name
         if (!string.IsNullOrWhiteSpace(request.Department))
         {
-            var dept = await departmentRepository.GetSingleAsync(
-                d => d.StoreId == request.StoreId && d.Name == request.Department,
-                cancellationToken: cancellationToken);
+            var dept = await DepartmentImportHelper.ResolveOrCreateAsync(
+                departmentRepository, request.StoreId, request.Department, cancellationToken);
             employee.DepartmentId = dept?.Id;
+            if (dept != null) employee.Department = dept.Name;
         }
         else
         {

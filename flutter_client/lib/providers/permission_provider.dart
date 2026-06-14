@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../utils/dashboard_permission_modules.dart';
 import '../utils/permission_modules.dart';
+import '../utils/store_role_helper.dart';
 
 /// Provider quản lý quyền hiệu lực của user hiện tại.
 /// Lưu cache danh sách module permissions (canView, canCreate, canEdit, ...)
@@ -33,8 +34,8 @@ class PermissionProvider extends ChangeNotifier {
     _startRefreshTimer();
 
     try {
-      // SuperAdmin/Agent/Admin có toàn quyền - không cần gọi API
-      if (normalizedRole == 'superadmin' || normalizedRole == 'agent' || normalizedRole == 'admin') {
+      // Admin cửa hàng / giám đốc / SuperAdmin — toàn quyền module
+      if (StoreRoleHelper.isFullAccess(role)) {
         _isSuperUser = true;
         _permissions = {};
         _loadError = false;

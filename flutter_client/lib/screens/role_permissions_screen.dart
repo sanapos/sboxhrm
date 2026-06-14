@@ -260,8 +260,12 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
     'DashboardInternalNews': {'canView'},
     // ── HỒ SƠ NHÂN SỰ ──
     'Employee': {'canView', 'canCreate', 'canEdit', 'canDelete', 'canExport'},
-    'DeviceUser': {'canView', 'canCreate', 'canEdit', 'canDelete'},
     'Department': {'canView', 'canCreate', 'canEdit', 'canDelete'},
+    'SalarySettings': {'canView', 'canCreate', 'canEdit', 'canDelete'},
+    'HrDocument': {'canView', 'canCreate', 'canEdit', 'canDelete'},
+    'OrgChart': {'canView', 'canCreate', 'canEdit', 'canDelete'},
+    // ── CHẤM CÔNG ──
+    'DeviceUser': {'canView', 'canCreate', 'canEdit', 'canDelete'},
     'Leave': {
       'canView',
       'canCreate',
@@ -270,11 +274,8 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
       'canExport',
       'canApprove',
     },
-    'Payslip': {'canView', 'canExport'},
     'Overtime': {'canView', 'canCreate', 'canApprove'},
     'ShiftSwap': {'canView', 'canCreate', 'canApprove'},
-    'SalarySettings': {'canView', 'canCreate', 'canEdit', 'canDelete'},
-    // ── CHẤM CÔNG ──
     'Attendance': {
       'canView',
       'canCreate',
@@ -303,8 +304,11 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
       'canExport',
       'canDelete',
     },
-    'ScheduleApproval': {'canView', 'canApprove'},
+    'ScheduleApproval': {'canView', 'canApprove', 'canDelete'},
     'Payroll': {'canView', 'canExport'},
+    'Payslip': {'canView', 'canExport'},
+    // ── BÁO CÁO ──
+    'AttendanceReport': {'canView', 'canExport'},
     // ── TÀI CHÍNH ──
     'BonusPenalty': {
       'canView',
@@ -381,8 +385,6 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
     },
     'Branch': {'canView', 'canCreate', 'canEdit', 'canDelete'},
     'Geofence': {'canView', 'canCreate', 'canEdit', 'canDelete'},
-    'HrDocument': {'canView', 'canCreate', 'canEdit', 'canDelete'},
-    'OrgChart': {'canView', 'canCreate', 'canEdit', 'canDelete'},
     'DepartmentPermission': {'canView', 'canCreate', 'canDelete'},
     'Allowance': {'canView', 'canCreate', 'canEdit', 'canDelete'},
     'PenaltySetup': {'canView', 'canCreate', 'canEdit', 'canDelete'},
@@ -405,419 +407,8 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
     return caps.contains(permType);
   }
 
-  static List<Map<String, dynamic>> _getAllModules() {
-    return [
-      // ══════════ TỔNG QUAN ══════════
-      {
-        'id': '001',
-        'module': 'Home',
-        'moduleDisplayName': 'Trang chủ',
-        'displayOrder': 1
-      },
-      {
-        'id': '002',
-        'module': 'Notification',
-        'moduleDisplayName': 'Thông báo',
-        'displayOrder': 2
-      },
-      // ══════════ HỒ SƠ NHÂN SỰ ══════════
-      {
-        'id': '075',
-        'module': 'DashboardAttendanceOverview',
-        'moduleDisplayName': 'Tổng quan chấm công',
-        'displayOrder': 4
-      },
-      {
-        'id': '076',
-        'module': 'DashboardHrInsights',
-        'moduleDisplayName': 'Chỉ số nhân sự & vận hành',
-        'displayOrder': 5
-      },
-      {
-        'id': '077',
-        'module': 'DashboardTodaySchedule',
-        'moduleDisplayName': 'Lịch làm việc hôm nay',
-        'displayOrder': 6
-      },
-      {
-        'id': '078',
-        'module': 'DashboardRealtimeAttendance',
-        'moduleDisplayName': 'Chấm công thời gian thực',
-        'displayOrder': 7
-      },
-      {
-        'id': '079',
-        'module': 'DashboardAbsent',
-        'moduleDisplayName': 'Nhân viên vắng mặt',
-        'displayOrder': 8
-      },
-      {
-        'id': '080',
-        'module': 'DashboardLateEarly',
-        'moduleDisplayName': 'Đi trễ / về sớm',
-        'displayOrder': 9
-      },
-      {
-        'id': '081',
-        'module': 'DashboardKpiPanel',
-        'moduleDisplayName': 'KPI (Dashboard)',
-        'displayOrder': 10
-      },
-      {
-        'id': '082',
-        'module': 'DashboardInternalNews',
-        'moduleDisplayName': 'Bản tin nội bộ',
-        'displayOrder': 11
-      },
-      {
-        'id': '004',
-        'module': 'Employee',
-        'moduleDisplayName': 'Hồ sơ nhân sự',
-        'displayOrder': 4
-      },
-      {
-        'id': '005',
-        'module': 'DeviceUser',
-        'moduleDisplayName': 'Nhân sự chấm công',
-        'displayOrder': 5
-      },
-      {
-        'id': '006',
-        'module': 'Department',
-        'moduleDisplayName': 'Phòng ban',
-        'displayOrder': 6
-      },
-      {
-        'id': '007',
-        'module': 'Leave',
-        'moduleDisplayName': 'Nghỉ phép',
-        'displayOrder': 7
-      },
-      {
-        'id': '008',
-        'module': 'SalarySettings',
-        'moduleDisplayName': 'Thiết lập lương',
-        'displayOrder': 8
-      },
-      {
-        'id': '007b',
-        'module': 'Payslip',
-        'moduleDisplayName': 'Phiếu lương',
-        'displayOrder': 8
-      },
-      // ══════════ CHẤM CÔNG ══════════
-      {
-        'id': '009',
-        'module': 'Attendance',
-        'moduleDisplayName': 'Chấm công thô',
-        'displayOrder': 9
-      },
-      {
-        'id': '010',
-        'module': 'WorkSchedule',
-        'moduleDisplayName': 'Lịch làm việc',
-        'displayOrder': 10
-      },
-      {
-        'id': '011',
-        'module': 'AttendanceSummary',
-        'moduleDisplayName': 'Tổng hợp chấm công',
-        'displayOrder': 11
-      },
-      {
-        'id': '012',
-        'module': 'AttendanceByShift',
-        'moduleDisplayName': 'Tổng hợp chấm công theo ca',
-        'displayOrder': 12
-      },
-      {
-        'id': '012b',
-        'module': 'AttendanceCorrection',
-        'moduleDisplayName': 'Chỉnh sửa chấm công',
-        'displayOrder': 12
-      },
-      {
-        'id': '013',
-        'module': 'AttendanceApproval',
-        'moduleDisplayName': 'Duyệt chấm công',
-        'displayOrder': 13
-      },
-      {
-        'id': '047b',
-        'module': 'MobileAttendanceApproval',
-        'moduleDisplayName': 'Duyệt chấm công Mobile',
-        'displayOrder': 47
-      },
-      {
-        'id': '014',
-        'module': 'ScheduleApproval',
-        'moduleDisplayName': 'Duyệt lịch làm việc',
-        'displayOrder': 14
-      },
-      {
-        'id': '015',
-        'module': 'Payroll',
-        'moduleDisplayName': 'Tổng hợp lương',
-        'displayOrder': 15
-      },
-      {
-        'id': '021b',
-        'module': 'Overtime',
-        'moduleDisplayName': 'Tăng ca',
-        'displayOrder': 21
-      },
-      {
-        'id': '024b',
-        'module': 'ShiftSwap',
-        'moduleDisplayName': 'Đổi ca',
-        'displayOrder': 24
-      },
-      // ══════════ TÀI CHÍNH ══════════
-      {
-        'id': '016',
-        'module': 'BonusPenalty',
-        'moduleDisplayName': 'Phiếu thưởng',
-        'displayOrder': 16
-      },
-      {
-        'id': '043',
-        'module': 'PenaltyTickets',
-        'moduleDisplayName': 'Phiếu phạt',
-        'displayOrder': 43
-      },
-      {
-        'id': '017',
-        'module': 'AdvanceRequests',
-        'moduleDisplayName': 'Ứng lương',
-        'displayOrder': 17
-      },
-      {
-        'id': '018',
-        'module': 'CashTransaction',
-        'moduleDisplayName': 'Thu chi',
-        'displayOrder': 18
-      },
-      // ══════════ QUẢN LÝ VẬN HÀNH ══════════
-      {
-        'id': '019',
-        'module': 'Asset',
-        'moduleDisplayName': 'Tài sản',
-        'displayOrder': 19
-      },
-      {
-        'id': '020',
-        'module': 'Task',
-        'moduleDisplayName': 'Công việc',
-        'displayOrder': 20
-      },
-      {
-        'id': '021',
-        'module': 'Communication',
-        'moduleDisplayName': 'Truyền thông',
-        'displayOrder': 21
-      },
-      {
-        'id': '022',
-        'module': 'KPI',
-        'moduleDisplayName': 'KPI',
-        'displayOrder': 22
-      },
-      {
-        'id': '044',
-        'module': 'Production',
-        'moduleDisplayName': 'Sản lượng',
-        'displayOrder': 43
-      },
-      {
-        'id': '045',
-        'module': 'MobileDeviceRegistration',
-        'moduleDisplayName': 'Đăng ký chấm công Mobile',
-        'displayOrder': 46
-      },
-      {
-        'id': '047',
-        'module': 'Meal',
-        'moduleDisplayName': 'Chấm cơm',
-        'displayOrder': 48
-      },
-      {
-        'id': '048',
-        'module': 'FieldCheckIn',
-        'moduleDisplayName': 'Check-in điểm bán',
-        'displayOrder': 49
-      },
-      // ══════════ BÁO CÁO ══════════
-      {
-        'id': '051',
-        'module': 'LeaveReport',
-        'moduleDisplayName': 'Báo cáo nghỉ phép',
-        'displayOrder': 51
-      },
-      {
-        'id': '052',
-        'module': 'CashReport',
-        'moduleDisplayName': 'Báo cáo thu chi',
-        'displayOrder': 52
-      },
-      {
-        'id': '053',
-        'module': 'PenaltyReport',
-        'moduleDisplayName': 'Báo cáo phạt',
-        'displayOrder': 53
-      },
-      {
-        'id': '054',
-        'module': 'AdvanceReport',
-        'moduleDisplayName': 'Báo cáo ứng lương',
-        'displayOrder': 54
-      },
-      {
-        'id': '055',
-        'module': 'AssetReport',
-        'moduleDisplayName': 'Báo cáo tài sản',
-        'displayOrder': 55
-      },
-      {
-        'id': '059',
-        'module': 'HrDocument',
-        'moduleDisplayName': 'Tài liệu HR',
-        'displayOrder': 59
-      },
-      {
-        'id': '060',
-        'module': 'OrgChart',
-        'moduleDisplayName': 'Sơ đồ tổ chức',
-        'displayOrder': 60
-      },
-      {
-        'id': '061',
-        'module': 'Branch',
-        'moduleDisplayName': 'Chi nhánh',
-        'displayOrder': 61
-      },
-      {
-        'id': '062',
-        'module': 'Geofence',
-        'moduleDisplayName': 'Vùng chấm công',
-        'displayOrder': 62
-      },
-      {
-        'id': '063',
-        'module': 'BankAccount',
-        'moduleDisplayName': 'Tài khoản ngân hàng',
-        'displayOrder': 63
-      },
-      {
-        'id': '064',
-        'module': 'DepartmentPermission',
-        'moduleDisplayName': 'PQ Phòng ban',
-        'displayOrder': 64
-      },
-      // ══════════ CÀI ĐẶT ══════════
-      {
-        'id': '026',
-        'module': 'SettingsHub',
-        'moduleDisplayName': 'Thiết lập HRM',
-        'displayOrder': 26
-      },
-      {
-        'id': '027',
-        'module': 'ShiftSetup',
-        'moduleDisplayName': 'Thiết lập ca',
-        'displayOrder': 27
-      },
-      {
-        'id': '028',
-        'module': 'MobileAttendance',
-        'moduleDisplayName': 'Chấm công Mobile',
-        'displayOrder': 28
-      },
-      {
-        'id': '029',
-        'module': 'Holiday',
-        'moduleDisplayName': 'Ngày lễ',
-        'displayOrder': 29
-      },
-      {
-        'id': '030',
-        'module': 'Device',
-        'moduleDisplayName': 'Máy chấm công',
-        'displayOrder': 30
-      },
-      {
-        'id': '031',
-        'module': 'Allowance',
-        'moduleDisplayName': 'Phụ cấp',
-        'displayOrder': 31
-      },
-      {
-        'id': '032',
-        'module': 'PenaltySetup',
-        'moduleDisplayName': 'Phạt',
-        'displayOrder': 32
-      },
-      {
-        'id': '033',
-        'module': 'Insurance',
-        'moduleDisplayName': 'Bảo hiểm',
-        'displayOrder': 33
-      },
-      {
-        'id': '034',
-        'module': 'Tax',
-        'moduleDisplayName': 'Thuế TNCN',
-        'displayOrder': 34
-      },
-      {
-        'id': '049',
-        'module': 'ProductSalary',
-        'moduleDisplayName': 'Lương sản phẩm',
-        'displayOrder': 44
-      },
-      {
-        'id': '050',
-        'module': 'Feedback',
-        'moduleDisplayName': 'Phản ánh / Ý kiến',
-        'displayOrder': 45
-      },
-      {
-        'id': '035',
-        'module': 'UserManagement',
-        'moduleDisplayName': 'Tài khoản',
-        'displayOrder': 35
-      },
-      {
-        'id': '036',
-        'module': 'Role',
-        'moduleDisplayName': 'Phân quyền',
-        'displayOrder': 36
-      },
-      {
-        'id': '038',
-        'module': 'SystemSettings',
-        'moduleDisplayName': 'Hệ thống',
-        'displayOrder': 38
-      },
-      {
-        'id': '039',
-        'module': 'NotificationSettings',
-        'moduleDisplayName': 'Thiết lập thông báo',
-        'displayOrder': 39
-      },
-      {
-        'id': '041',
-        'module': 'AIGemini',
-        'moduleDisplayName': 'Thiết lập AI',
-        'displayOrder': 41
-      },
-      {
-        'id': '042',
-        'module': 'Settings',
-        'moduleDisplayName': 'Cài đặt',
-        'displayOrder': 42
-      },
-    ];
-  }
+  static List<Map<String, dynamic>> _getAllModules() =>
+      PermissionRoleCatalog.buildDefaultModuleList();
 
   Future<void> _selectRole(String roleName) async {
     setState(() {

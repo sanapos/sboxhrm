@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/hrm_fab_clearance.dart';
 import '../widgets/shift_swap_panel.dart';
 
 /// Màn hình đổi ca làm việc (danh sách + tạo yêu cầu).
@@ -17,6 +18,9 @@ class _ShiftSwapScreenState extends State<ShiftSwapScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final canCreateSwap =
+        Provider.of<PermissionProvider>(context, listen: false)
+            .canCreate('ShiftSwap');
     return Scaffold(
       backgroundColor: const Color(0xFFF0F4F8),
       body: Column(
@@ -59,7 +63,13 @@ class _ShiftSwapScreenState extends State<ShiftSwapScreen> {
               ),
             ),
           ),
-          Expanded(child: ShiftSwapPanel(key: _panelKey)),
+          Expanded(
+            child: HrmFabClearance(
+              fabVisible: canCreateSwap,
+              extendedFab: true,
+              child: ShiftSwapPanel(key: _panelKey),
+            ),
+          ),
         ],
       ),
       floatingActionButton:

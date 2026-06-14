@@ -3917,7 +3917,7 @@ public class SystemAdminController : AuthenticatedControllerBase
             new("KPI", "KPI", "Đánh giá KPI", "Quản lý Vận hành"),
             new("Production", "Sản lượng", "Nhập sản lượng, tính lương sản phẩm", "Quản lý Vận hành"),
             new("Meal", "Chấm cơm", "Quản lý suất ăn ca", "Quản lý Vận hành"),
-            new("FieldCheckIn", "Check-in điểm bán", "Quản lý check-in tại điểm bán hàng", "Quản lý Vận hành"),
+            new("FieldCheckIn", "Bản đồ nhân sự", "Vị trí trực tuyến NV chấm ngoài CT trên bản đồ", "Quản lý Vận hành"),
             new("Feedback", "Phản ánh / Ý kiến", "Phản ánh, góp ý ẩn danh hoặc công khai", "Quản lý Vận hành"),
 
             // ══════════ BÁO CÁO ══════════

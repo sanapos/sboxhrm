@@ -7,6 +7,21 @@ class NavigationNotifier {
   /// True khi [MainLayout] đã mount và lắng nghe [navigateTo].
   static final ValueNotifier<bool> mainLayoutReady = ValueNotifier<bool>(false);
 
+  /// Nhãn màn hình hiện tại (sidebar tab) — hiển thị trên màn lỗi fatal.
+  static final ValueNotifier<String?> currentScreenLabel =
+      ValueNotifier<String?>(null);
+
+  static void reportScreen(String label, {String? moduleCode}) {
+    final trimmed = label.trim();
+    if (trimmed.isEmpty) return;
+    currentScreenLabel.value = trimmed;
+    if (moduleCode != null && moduleCode.isNotEmpty) {
+      debugPrint('📍 Screen: $trimmed ($moduleCode)');
+    } else {
+      debugPrint('📍 Screen: $trimmed');
+    }
+  }
+
   static final ValueNotifier<int?> navigateTo = ValueNotifier<int?>(null);
   /// Điều hướng theo [NavItem.moduleCode] — tránh lệch index khi thêm màn mới.
   static final ValueNotifier<String?> navigateToModule =
@@ -21,6 +36,18 @@ class NavigationNotifier {
   /// Bộ lọc trạng thái khi mở Duyệt chấm công (-1=tất cả, 0=chờ duyệt)
   static final ValueNotifier<int> attendanceApprovalStatusFilter =
       ValueNotifier<int>(-1);
+  /// Tab Nghỉ phép khi mở từ Tổng quan (-1=mặc định, 1=chờ duyệt cho QL)
+  static final ValueNotifier<int> leaveInitialTab = ValueNotifier<int>(-1);
+  /// Lọc ứng lương: -1=không đổi, 0=pending, 1=approved, 2=rejected, 3=cancelled
+  static final ValueNotifier<int> advanceRequestsStatusFilter =
+      ValueNotifier<int>(-1);
+  /// Lọc phiếu phạt: null=không đổi, '0'=chờ, '1'=duyệt, ...
+  static final ValueNotifier<String?> penaltyTicketsFilterStatus =
+      ValueNotifier<String?>(null);
+  /// Lọc công việc từ Tổng quan (-1=không đổi, index [WorkTaskStatus])
+  static final ValueNotifier<int> taskFilterStatusIndex = ValueNotifier<int>(-1);
+  static final ValueNotifier<bool> taskFilterOverdueOnly =
+      ValueNotifier<bool>(false);
   /// Highlight bản ghi (id) sau khi mở từ thông báo
   static final ValueNotifier<String?> notificationHighlightId =
       ValueNotifier<String?>(null);
@@ -95,11 +122,85 @@ class NavigationNotifier {
   }
 
   static void goToAttendance() => goTo(attendance);
-  static void goToAdvanceRequests() => goTo(advanceRequests);
-  static void goToAttendanceCorrections() {
-    attendanceApprovalTab.value = 0;
-    attendanceApprovalStatusFilter.value = 0;
-    goTo(attendanceApproval);
+  static void goToAdvanceRequests() => goToAdvanceRequestsNav();
+  static void goToAttendanceCorrections({String? highlightId}) {
+    goToAttendanceApproval(
+      statusFilter: 0,
+      tab: 0,
+      highlightId: highlightId,
+    );
+  }
+
+  /// Mở màn Duyệt chấm công (tab chỉnh CC hoặc Mobile, lọc trạng thái, highlight).
+  static void goToAttendanceApproval({
+    int statusFilter = -1,
+    int tab = 0,
+    String? highlightId,
+  }) {
+    attendanceApprovalTab.value = tab.clamp(0, 1);
+    attendanceApprovalStatusFilter.value = statusFilter;
+    notificationHighlightId.value =
+        (highlightId != null && highlightId.isNotEmpty) ? highlightId : null;
+    goToModule('AttendanceApproval');
+  }
+
+  static void goToScheduleApproval({int tab = 0, String? highlightId}) {
+    scheduleApprovalTab.value = tab.clamp(0, 3);
+    if (highlightId != null && highlightId.isNotEmpty) {
+      notificationHighlightId.value = highlightId;
+    }
+    goToModule('ScheduleApproval');
+  }
+
+  static void goToLeaves({String? highlightId, bool pendingOnly = false}) {
+    leaveInitialTab.value = pendingOnly ? 1 : -1;
+    notificationHighlightId.value =
+        (highlightId != null && highlightId.isNotEmpty) ? highlightId : null;
+    goToModule('Leave');
+  }
+
+  static void goToAdvanceRequestsNav({
+    String? highlightId,
+    bool pendingOnly = false,
+  }) {
+    advanceRequestsStatusFilter.value = pendingOnly ? 0 : -1;
+    notificationHighlightId.value =
+        (highlightId != null && highlightId.isNotEmpty) ? highlightId : null;
+    goToModule('AdvanceRequests');
+  }
+
+  static void goToPenaltyTicketsNav({
+    String? highlightId,
+    String? filterStatus,
+  }) {
+    penaltyTicketsFilterStatus.value = filterStatus;
+    notificationHighlightId.value =
+        (highlightId != null && highlightId.isNotEmpty) ? highlightId : null;
+    goToModule('PenaltyTickets');
+  }
+
+  static void goToEmployeesHighlight(String? highlightId) {
+    notificationHighlightId.value =
+        (highlightId != null && highlightId.isNotEmpty) ? highlightId : null;
+    goToModule('Employee');
+  }
+
+  static void goToTaskManagementNav({
+    int? statusIndex,
+    bool overdueOnly = false,
+    String? highlightId,
+  }) {
+    taskFilterStatusIndex.value = statusIndex ?? -1;
+    taskFilterOverdueOnly.value = overdueOnly;
+    if (highlightId != null && highlightId.isNotEmpty) {
+      notificationHighlightId.value = highlightId;
+    }
+    goToModule('Task');
+  }
+
+  static void goToOvertimeFromDashboard() {
+    pendingOpenOvertime.value = true;
+    goToModule('Dashboard');
   }
 
   static void goToMobileDeviceRegistration() =>
@@ -107,9 +208,8 @@ class NavigationNotifier {
   static void goToMobileAttendance() => goToModule('MobileAttendance');
   static void goToWorkSchedule() => goTo(workSchedule);
   static void goToNotifications() => goTo(notifications);
-  static void goToEmployees() => goTo(employees);
+  static void goToEmployees() => goToModule('Employee');
   static void goToDepartments() => goTo(departments);
-  static void goToLeaves() => goTo(leaves);
   static void goToTaskManagement() => goToModule('Task');
   static void goToAssetManagement() => goTo(assetManagement);
   static void goToCashTransaction() => goTo(cashTransaction);

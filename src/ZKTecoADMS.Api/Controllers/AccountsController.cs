@@ -13,6 +13,7 @@ using ZKTecoADMS.Application.Queries.Users.GetCurrentUserProfile;
 using ZKTecoADMS.Application.Queries.Users.GetStoreAccounts;
 using ZKTecoADMS.Application.DTOs.Commons;
 using ZKTecoADMS.Application.Commands.Accounts;
+using ZKTecoADMS.Application.Commands.Accounts.BulkCreateEmployeeAccounts;
 using ZKTecoADMS.Application.DTOs.Employees;
 using ZKTecoADMS.Application.DTOs.Accounts;
 using ZKTecoADMS.Application.Interfaces;
@@ -53,6 +54,22 @@ public class AccountsController(IMediator mediator, UserManager<ApplicationUser>
         var command = request.Adapt<CreateEmployeeAccountCommand>();
         command.ManagerId = CurrentUserId;
         
+        return await mediator.Send(command, cancellationToken);
+    }
+
+    [HttpPost("bulk")]
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    public async Task<AppResponse<BulkCreateEmployeeAccountsResult>> BulkCreateEmployeeAccounts(
+        [FromBody] BulkCreateEmployeeAccountsRequest request,
+        CancellationToken cancellationToken)
+    {
+        var command = new BulkCreateEmployeeAccountsCommand
+        {
+            EmployeeIds = request.EmployeeIds,
+            Password = request.Password,
+            Role = request.Role,
+            ManagerId = CurrentUserId
+        };
         return await mediator.Send(command, cancellationToken);
     }
 

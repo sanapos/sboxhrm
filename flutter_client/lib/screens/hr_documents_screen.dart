@@ -7,6 +7,8 @@ import '../widgets/app_button.dart';
 import '../widgets/app_responsive_dialog.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/hrm_fab_clearance.dart';
+import '../utils/responsive_helper.dart';
 
 class HrDocumentsScreen extends StatefulWidget {
   final String? highlightId;
@@ -145,18 +147,25 @@ class _HrDocumentsScreenState extends State<HrDocumentsScreen>
 
   @override
   Widget build(BuildContext context) {
+    final canCreateDoc =
+        Provider.of<PermissionProvider>(context, listen: false)
+            .canCreate('HrDocument');
     return Scaffold(
       backgroundColor: const Color(0xFFF0F4F8),
       body: Column(
         children: [
           _buildHeader(),
           Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : TabBarView(controller: _tabController, children: [
-                    _buildDocumentsList(_documents),
-                    _buildExpiringList(),
-                  ]),
+            child: HrmFabClearance(
+              fabVisible: canCreateDoc,
+              extendedFab: true,
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : TabBarView(controller: _tabController, children: [
+                      _buildDocumentsList(_documents),
+                      _buildExpiringList(),
+                    ]),
+            ),
           ),
         ],
       ),

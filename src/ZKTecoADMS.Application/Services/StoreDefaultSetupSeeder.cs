@@ -1,3 +1,4 @@
+using ZKTecoADMS.Application.Authorization;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Domain.Repositories;
@@ -10,7 +11,8 @@ public record StoreSetupSeedResult(
     bool ShiftsSeeded,
     bool HolidaysSeeded,
     bool PenaltySeeded,
-    bool AllowancesSeeded);
+    bool AllowancesSeeded,
+    bool RolePermissionsSeeded = false);
 
 public record StoreSetupDeleteResult(
     string Message,
@@ -26,6 +28,17 @@ public record StoreSetupDeleteResult(
 public static class StoreDefaultSetupSeeder
 {
     public static readonly string[] SetupCreatedByMarkers = ["Register", "StoreSetup"];
+
+    private static readonly string[] DefaultSeedRoles =
+    [
+        nameof(Roles.Admin),
+        nameof(Roles.Director),
+        nameof(Roles.Accountant),
+        nameof(Roles.DepartmentHead),
+        nameof(Roles.Manager),
+        nameof(Roles.Employee),
+        nameof(Roles.User),
+    ];
     private static readonly (string Code, string Name, string Description, int SortOrder)[] DepartmentTemplates =
     [
         ("GD", "Giám đốc", "Ban lãnh đạo / điều hành", 1),
@@ -243,6 +256,67 @@ public static class StoreDefaultSetupSeeder
         await repository.AddRangeAsync(allowances, cancellationToken);
     }
 
+    public static async Task<bool> SeedRolePermissionsIfEmptyAsync(
+        IRepository<Permission> permissionRepository,
+        IRepository<RolePermission> rolePermissionRepository,
+        Guid storeId,
+        CancellationToken cancellationToken = default)
+    {
+        var existing = await rolePermissionRepository.GetSingleAsync(
+            rp => rp.StoreId == storeId && rp.RoleName == nameof(Roles.Employee),
+            cancellationToken: cancellationToken);
+        if (existing != null)
+            return false;
+
+        var modules = await permissionRepository.GetAllAsync(
+            orderBy: q => q.OrderBy(p => p.DisplayOrder),
+            cancellationToken: cancellationToken);
+        if (modules.Count == 0)
+            return false;
+
+        var now = DateTime.UtcNow;
+        var entries = new List<RolePermission>();
+        foreach (var roleName in DefaultSeedRoles)
+        {
+            foreach (var module in modules)
+            {
+                var (canView, canCreate, canEdit, canDelete, canExport, canApprove) =
+                    ModulePermissionDefaults.Get(roleName, module.Module);
+                entries.Add(new RolePermission
+                {
+                    Id = Guid.NewGuid(),
+                    StoreId = storeId,
+                    RoleName = roleName,
+                    RoleDisplayName = GetRoleDisplayName(roleName),
+                    PermissionId = module.Id,
+                    CanView = canView,
+                    CanCreate = canCreate,
+                    CanEdit = canEdit,
+                    CanDelete = canDelete,
+                    CanExport = canExport,
+                    CanApprove = canApprove,
+                    CreatedAt = now,
+                    CreatedBy = "StoreSetup",
+                });
+            }
+        }
+
+        await rolePermissionRepository.AddRangeAsync(entries, cancellationToken);
+        return true;
+    }
+
+    static string GetRoleDisplayName(string roleName) => roleName.ToLowerInvariant() switch
+    {
+        "admin" => "Quản trị viên",
+        "director" => "Giám đốc",
+        "accountant" => "Kế toán",
+        "departmenthead" => "Trưởng phòng",
+        "manager" => "Quản lý",
+        "employee" => "Nhân viên",
+        "user" => "Người dùng",
+        _ => roleName
+    };
+
     public static async Task<StoreSetupSeedResult> SeedAllIfEmptyAsync(
         Guid storeId,
         Guid ownerId,
@@ -251,6 +325,8 @@ public static class StoreDefaultSetupSeeder
         IRepository<Holiday> holidayRepository,
         IRepository<PenaltySetting> penaltySettingRepository,
         IRepository<Allowance> allowanceRepository,
+        IRepository<Permission>? permissionRepository = null,
+        IRepository<RolePermission>? rolePermissionRepository = null,
         string createdBy = "StoreSetup",
         CancellationToken cancellationToken = default)
     {
@@ -272,6 +348,13 @@ public static class StoreDefaultSetupSeeder
             penaltySettingRepository, allowanceRepository,
             createdBy, cancellationToken);
 
+        var rolePermAdded = false;
+        if (permissionRepository != null && rolePermissionRepository != null)
+        {
+            rolePermAdded = await SeedRolePermissionsIfEmptyAsync(
+                permissionRepository, rolePermissionRepository, storeId, cancellationToken);
+        }
+
         var deptAdded = !hadDept && await departmentRepository.GetSingleAsync(
             d => d.StoreId == storeId, cancellationToken: cancellationToken) != null;
         var shiftAdded = !hadShift && await shiftTemplateRepository.GetSingleAsync(
@@ -283,11 +366,11 @@ public static class StoreDefaultSetupSeeder
         var allowanceAdded = !hadAllowance && await allowanceRepository.GetSingleAsync(
             a => a.StoreId == storeId, cancellationToken: cancellationToken) != null;
 
-        if (!deptAdded && !shiftAdded && !holidayAdded && !penaltyAdded && !allowanceAdded)
+        if (!deptAdded && !shiftAdded && !holidayAdded && !penaltyAdded && !allowanceAdded && !rolePermAdded)
         {
             return new StoreSetupSeedResult(
                 "Cửa hàng đã có đủ thiết lập. Chỉ thêm phần còn thiếu — không ghi đè dữ liệu hiện có.",
-                false, false, false, false, false);
+                false, false, false, false, false, false);
         }
 
         var parts = new List<string>();
@@ -296,11 +379,12 @@ public static class StoreDefaultSetupSeeder
         if (allowanceAdded) parts.Add("phụ cấp/thưởng");
         if (penaltyAdded) parts.Add("phạt");
         if (holidayAdded) parts.Add("ngày lễ");
+        if (rolePermAdded) parts.Add("phân quyền");
 
         return new StoreSetupSeedResult(
             parts.Count > 0
                 ? $"Đã tạo mẫu thiết lập: {string.Join(", ", parts)}."
                 : "Không có mục mới được thêm.",
-            deptAdded, shiftAdded, holidayAdded, penaltyAdded, allowanceAdded);
+            deptAdded, shiftAdded, holidayAdded, penaltyAdded, allowanceAdded, rolePermAdded);
     }
 }

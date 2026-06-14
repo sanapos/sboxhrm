@@ -12,6 +12,7 @@ import '../widgets/notification_overlay.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/hrm_fab_clearance.dart';
 import '../widgets/app_scroll_safe.dart';
 import '../widgets/shift_swap_panel.dart';
 import '../widgets/shift_swap_ui.dart';
@@ -483,6 +484,11 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
   // ==================== BUILD ====================
   @override
   Widget build(BuildContext context) {
+    final isMobile = Responsive.isMobile(context);
+    final showSwapFab = isMobile &&
+        _tabController.index == 3 &&
+        Provider.of<PermissionProvider>(context, listen: false)
+            .canCreate('ShiftSwap');
     return Scaffold(
       backgroundColor: const Color(0xFFFAFAFA),
       appBar: AppBar(
@@ -571,23 +577,27 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
       ),
       body: _isLoading
           ? const LoadingWidget()
-          : TabBarView(
-              controller: _tabController,
-              children: [
-                _buildPendingQueueTab(),
-                _buildShiftOverviewTab(),
-                _buildEmployeeDistributionTab(),
-                Column(
-                  children: [
-                    Expanded(
-                      child: ShiftSwapPanel(
-                        key: _swapPanelKey,
-                        embedded: true,
+          : HrmFabClearance(
+              fabVisible: showSwapFab,
+              extendedFab: true,
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildPendingQueueTab(),
+                  _buildShiftOverviewTab(),
+                  _buildEmployeeDistributionTab(),
+                  Column(
+                    children: [
+                      Expanded(
+                        child: ShiftSwapPanel(
+                          key: _swapPanelKey,
+                          embedded: true,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                    ],
+                  ),
+                ],
+              ),
             ),
       floatingActionButton: _tabController.index == 3 &&
               Provider.of<PermissionProvider>(context, listen: false)

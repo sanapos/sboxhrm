@@ -3,12 +3,13 @@ import '../utils/file_saver.dart' as file_saver;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
-import 'package:excel/excel.dart' as excel_lib;
+import '../utils/employee_excel_import.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:crop_your_image/crop_your_image.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import '../utils/navigation_notifier.dart';
 import '../models/employee.dart';
 import '../models/department.dart';
 import '../services/api_service.dart';
@@ -467,7 +468,9 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
   bool _highlightOpened = false;
   void _maybeOpenHighlight() {
     if (_highlightOpened) return;
-    final id = widget.highlightId;
+    final id = widget.highlightId ??
+        NavigationNotifier.notificationHighlightId.value;
+    NavigationNotifier.notificationHighlightId.value = null;
     if (id == null || id.isEmpty) return;
     Employee? match;
     for (final e in _employees) {
@@ -564,22 +567,19 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('File Excel cần có các cột theo thứ tự sau:',
+              Text('Hỗ trợ 2 định dạng file:',
                   style: TextStyle(fontWeight: FontWeight.w600)),
               SizedBox(height: 8),
               Text(
-                'A: Mã NV*  |  B: Họ*  |  C: Tên*  |  D: Email công ty*\n'
-                'E: Giới tính  |  F: Ngày sinh (dd/MM/yyyy)  |  G: CCCD\n'
-                'H: Quê quán  |  I: Trình độ HV  |  J: Tình trạng HN\n'
-                'K: SĐT  |  L: Email cá nhân  |  M: Địa chỉ thường trú\n'
-                'N: Phòng ban  |  O: Chức vụ  |  P: Cấp bậc\n'
-                'Q: Ngày vào làm (dd/MM/yyyy)  |  R: Ngân hàng\n'
-                'S: Số TK  |  T: Tên TK ngân hàng',
+                '1) File Export từ SBOX (có dòng tiêu đề "DANH SÁCH NHÂN VIÊN", cột STT + Mã NV + Họ và tên…)\n'
+                '2) File mẫu Import (cột A: Mã NV*, B: Họ và tên*, C: Email công ty…)',
                 style: TextStyle(fontSize: 12, color: Colors.black87),
               ),
               SizedBox(height: 12),
               Text(
-                  '• Hàng đầu tiên là tiêu đề (bỏ qua khi import)\n• Các cột đánh dấu * là bắt buộc',
+                  '• Bắt buộc: Họ và tên (hoặc Họ + Tên riêng)\n'
+                  '• Mã NV: nếu trống sẽ lấy SĐT hoặc CCCD làm mã\n'
+                  '• Ngày sinh / ngày vào làm: dd/MM/yyyy',
                   style: TextStyle(fontSize: 12, color: Colors.grey)),
             ],
           ),
@@ -604,6 +604,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     if (fileResult == null || fileResult.files.isEmpty) return;
 
     final bytes = fileResult.files.first.bytes;
+    final fileName = fileResult.files.first.name;
     if (bytes == null) {
       _showError('Không thể đọc file');
       return;
@@ -612,82 +613,14 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     setState(() => _isImporting = true);
 
     try {
-      final excelFile = excel_lib.Excel.decodeBytes(bytes);
-      final records = <Map<String, dynamic>>[];
-
-      for (final tableName in excelFile.tables.keys) {
-        final sheet = excelFile.tables[tableName];
-        if (sheet == null || sheet.rows.length < 2) continue;
-
-        for (int i = 1; i < sheet.rows.length; i++) {
-          final row = sheet.rows[i];
-          if (row.isEmpty) continue;
-
-          String cellStr(int col) =>
-              (col < row.length ? row[col]?.value?.toString().trim() : null) ??
-              '';
-          DateTime? parseDate(String s) {
-            if (s.isEmpty) return null;
-            try {
-              final parts = s.split(RegExp(r'[/\-.]'));
-              if (parts.length == 3) {
-                final d = int.parse(parts[0]),
-                    m = int.parse(parts[1]),
-                    y = int.parse(parts[2]);
-                return DateTime(y, m, d);
-              }
-            } catch (_) {}
-            return null;
-          }
-
-          final employeeCode = cellStr(0);
-          final lastName = cellStr(1);
-          final firstName = cellStr(2);
-          final companyEmail = cellStr(3);
-          if (employeeCode.isEmpty || firstName.isEmpty || lastName.isEmpty) {
-            continue;
-          }
-
-          records.add({
-            'employeeCode': employeeCode,
-            'lastName': lastName,
-            'firstName': firstName,
-            'companyEmail': companyEmail.isNotEmpty
-                ? companyEmail
-                : '$employeeCode@company.com',
-            'gender': cellStr(4).isNotEmpty ? cellStr(4) : null,
-            'dateOfBirth': parseDate(cellStr(5))?.toIso8601String(),
-            'nationalIdNumber': cellStr(6).isNotEmpty ? cellStr(6) : null,
-            'hometown': cellStr(7).isNotEmpty ? cellStr(7) : null,
-            'educationLevel': cellStr(8).isNotEmpty ? cellStr(8) : null,
-            'maritalStatus': cellStr(9).isNotEmpty ? cellStr(9) : null,
-            'phoneNumber': cellStr(10).isNotEmpty ? cellStr(10) : null,
-            'personalEmail': cellStr(11).isNotEmpty ? cellStr(11) : null,
-            'permanentAddress': cellStr(12).isNotEmpty ? cellStr(12) : null,
-            'department': cellStr(13).isNotEmpty ? cellStr(13) : null,
-            'position': cellStr(14).isNotEmpty ? cellStr(14) : null,
-            'level': cellStr(15).isNotEmpty ? cellStr(15) : null,
-            'joinDate': parseDate(cellStr(16))?.toIso8601String(),
-            'bankName': cellStr(17).isNotEmpty ? cellStr(17) : null,
-            'bankAccountNumber': cellStr(18).isNotEmpty ? cellStr(18) : null,
-            'bankAccountName': cellStr(19).isNotEmpty ? cellStr(19) : null,
-            'employmentType': 0,
-            'workStatus': 0,
-          });
-        }
-        break; // only first sheet
-      }
-
-      if (records.isEmpty) {
-        _showError('Không tìm thấy dữ liệu hợp lệ trong file');
-        return;
-      }
-
-      final result = await _apiService.importEmployeesFromExcel(records);
+      final result =
+          await _apiService.importEmployeesExcelFile(bytes, fileName);
       if (result['success'] == true) {
         final imported = result['imported'] ?? 0;
+        final updated = result['updated'] ?? 0;
         final failed = result['failed'] ?? 0;
         final errors = result['errors'] as List? ?? [];
+        final summary = result['message']?.toString().trim();
 
         if (!mounted) return;
 
@@ -695,7 +628,8 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
           showDialog(
             context: context,
             builder: (ctx) => ScrollableAlertDialog(
-              title: Text('Import: $imported thành công, $failed lỗi'),
+              title: Text(
+                  'Import: $imported mới, $updated cập nhật, $failed lỗi'),
               content: SizedBox(
                 width: MediaQuery.of(context).size.width < 600
                     ? MediaQuery.of(context).size.width - 32
@@ -720,7 +654,11 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
             ),
           );
         } else {
-          _showSuccess('Import thành công $imported nhân viên!');
+          _showSuccess(
+            summary?.isNotEmpty == true
+                ? summary!
+                : 'Import xong: $imported mới, $updated cập nhật.',
+          );
         }
         await _loadEmployees(showLoading: false);
       } else {
@@ -4359,37 +4297,115 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
       ],
     );
 
-    final actionButtons = [
-      if (employee.phone != null && employee.phone!.isNotEmpty)
+    void openCareer() {
+      Navigator.pop(context);
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => EmployeeCareerScreen(employee: employee),
+        ),
+      );
+    }
+
+    void closeDetails() => Navigator.pop(context);
+
+    void openEdit() {
+      Navigator.pop(context);
+      _showEmployeeForm(employee);
+    }
+
+    final hasPhone = employee.phone != null && employee.phone!.isNotEmpty;
+    final canEdit = _perm.canEdit(_module);
+
+    Widget buildMobileActionBar() {
+      return SafeArea(
+        top: false,
+        child: Material(
+          color: Colors.white,
+          elevation: 6,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    if (hasPhone) ...[
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => _callEmployee(employee),
+                          icon: const Icon(Icons.phone, size: 18),
+                          label: const Text('Gọi'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.green,
+                            side: const BorderSide(color: Colors.green),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: openCareer,
+                        icon: const Icon(Icons.work_history_outlined, size: 18),
+                        label: const Text('Quá trình CT'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF0369A1),
+                          side: const BorderSide(color: Color(0xFF0369A1)),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: closeDetails,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: HrmPageChrome.primaryNavy,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                        ),
+                        child: const Text('Đóng'),
+                      ),
+                    ),
+                  ],
+                ),
+                if (canEdit) ...[
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: openEdit,
+                      icon: const Icon(Icons.edit_outlined, size: 18),
+                      label: const Text('Chỉnh sửa'),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    final desktopActionButtons = [
+      if (hasPhone)
         TextButton.icon(
           onPressed: () => _callEmployee(employee),
           icon: const Icon(Icons.phone, color: Colors.green),
-          label: const Text('Gọi điện', style: TextStyle(color: Colors.green)),
+          label:
+              const Text('Gọi điện', style: TextStyle(color: Colors.green)),
         ),
       TextButton.icon(
-        onPressed: () {
-          Navigator.pop(context);
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => EmployeeCareerScreen(employee: employee),
-            ),
-          );
-        },
+        onPressed: openCareer,
         icon: const Icon(Icons.work_history_outlined, color: Color(0xFF0369A1)),
         label: const Text('Quá trình CT',
             style: TextStyle(color: Color(0xFF0369A1))),
       ),
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: const Text('Đóng'),
-      ),
-      if (_perm.canEdit(_module))
+      TextButton(onPressed: closeDetails, child: const Text('Đóng')),
+      if (canEdit)
         FilledButton.icon(
-          onPressed: () {
-            Navigator.pop(context);
-            _showEmployeeForm(employee);
-          },
+          onPressed: openEdit,
           icon: const Icon(Icons.edit),
           label: const Text('Chỉnh sửa'),
         ),
@@ -4404,12 +4420,12 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
             appBar: AppBar(
               leading: IconButton(
                 icon: const Icon(Icons.close),
-                onPressed: () => Navigator.pop(context),
+                onPressed: closeDetails,
               ),
               title: Text(employee.fullName, overflow: TextOverflow.ellipsis),
             ),
             body: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -4419,18 +4435,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                 ],
               ),
             ),
-            bottomNavigationBar: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: actionButtons
-                    .map((btn) => Padding(
-                          padding: const EdgeInsets.only(left: 8),
-                          child: btn,
-                        ))
-                    .toList(),
-              ),
-            ),
+            bottomNavigationBar: buildMobileActionBar(),
           ),
         ),
       );
@@ -4439,11 +4444,22 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
         context: context,
         builder: (context) => ScrollableAlertDialog(
           title: titleRow,
+          maxContentWidth: 680,
           content: SizedBox(
             width: 650,
-            child: SingleChildScrollView(child: contentBody),
+            child: contentBody,
           ),
-          actions: actionButtons,
+          actions: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.end,
+                children: desktopActionButtons,
+              ),
+            ),
+          ],
         ),
       );
     }

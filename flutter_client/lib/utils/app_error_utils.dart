@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import 'navigation_notifier.dart';
+
 /// Phân loại lỗi để hiển thị thông báo dễ hiểu (mạng / timeout / khác).
 enum AppErrorKind {
   network,
@@ -108,6 +110,10 @@ class AppErrorUtils {
     var raw = error.toString().trim();
     raw = raw.replaceFirst(RegExp(r'^Exception:\s*'), '');
     raw = raw.replaceFirst(RegExp(r'^Error:\s*'), '');
+    final screen = NavigationNotifier.currentScreenLabel.value?.trim();
+    if (screen != null && screen.isNotEmpty) {
+      raw = raw.isEmpty ? 'Màn: $screen' : 'Màn: $screen · $raw';
+    }
     if (raw.isEmpty) return null;
     const maxLen = 180;
     if (raw.length > maxLen) {
@@ -119,8 +125,10 @@ class AppErrorUtils {
   static void logFlutterError(FlutterErrorDetails details) {
     final ex = details.exception;
     final info = fromException(ex);
+    final screen = NavigationNotifier.currentScreenLabel.value;
     debugPrint(
       '🛑 APP_ERROR [${info.kind.name}] ${details.library ?? "?"} '
+      '${screen != null ? "màn=$screen " : ""}'
       '${details.context ?? ""}',
     );
     debugPrint('   → ${info.technicalHint ?? ex}');

@@ -69,7 +69,7 @@ bool canDirectAttendanceCorrection({
         permissions.canApprove('AttendanceApproval')) {
       return true;
     }
-    if (permissions.canEdit('Attendance') && permissions.canDelete('Attendance')) {
+    if (permissions.canEdit('Attendance') || permissions.canDelete('Attendance')) {
       return true;
     }
   }

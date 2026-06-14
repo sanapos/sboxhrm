@@ -16,7 +16,9 @@ class TaskAssignmentTab extends StatefulWidget {
     bool overdue,
     bool toggle,
     bool clearFilters,
+    bool assignedByMe,
   })? onFilterList;
+  final void Function(String employeeId)? onFilterByAssignee;
   final VoidCallback? onRefreshParent;
 
   const TaskAssignmentTab({
@@ -26,6 +28,7 @@ class TaskAssignmentTab extends StatefulWidget {
     required this.isManager,
     required this.onOpenTask,
     this.onFilterList,
+    this.onFilterByAssignee,
     this.onRefreshParent,
   });
 
@@ -142,42 +145,7 @@ class _TaskAssignmentTabState extends State<TaskAssignmentTab> {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: [
-              _metricCard(
-                'Chờ tôi xác nhận',
-                d.pendingAcceptanceCount,
-                Colors.orange,
-                onTap: () => widget.onFilterList?.call(
-                  status: WorkTaskStatus.assigned,
-                ),
-              ),
-              if (widget.isManager) ...[
-                _metricCard(
-                  'Đã giao',
-                  d.assignedByMeCount,
-                  HrmPageChrome.primaryNavy,
-                  onTap: () => widget.onFilterList?.call(clearFilters: true),
-                ),
-                _metricCard(
-                  'Quá hạn (đã giao)',
-                  d.overdueAssignedCount,
-                  Colors.red,
-                  onTap: () => widget.onFilterList?.call(overdue: true),
-                ),
-              ],
-              _metricCard(
-                'Đang làm',
-                d.myActiveCount,
-                const Color(0xFF6366F1),
-                onTap: () => widget.onFilterList?.call(
-                  status: WorkTaskStatus.inProgress,
-                ),
-              ),
-            ],
-          ),
+          _buildMetricGrid(d),
           const SizedBox(height: 20),
           if (d.pendingAcceptance.isNotEmpty) ...[
             _sectionTitle('Chờ xác nhận nhận việc'),
@@ -200,6 +168,61 @@ class _TaskAssignmentTabState extends State<TaskAssignmentTab> {
     );
   }
 
+  Widget _buildMetricGrid(TaskAssignmentDashboard d) {
+    final cards = <Widget>[
+      _metricCard(
+        'Chờ tôi xác nhận',
+        d.pendingAcceptanceCount,
+        Colors.orange,
+        onTap: () => widget.onFilterList?.call(
+          status: WorkTaskStatus.assigned,
+        ),
+      ),
+      if (widget.isManager)
+        _metricCard(
+          'Đã giao',
+          d.assignedByMeCount,
+          HrmPageChrome.primaryNavy,
+          onTap: () => widget.onFilterList?.call(assignedByMe: true),
+        ),
+      if (widget.isManager)
+        _metricCard(
+          'Quá hạn (đã giao)',
+          d.overdueAssignedCount,
+          Colors.red,
+          onTap: () => widget.onFilterList?.call(overdue: true),
+        ),
+      _metricCard(
+        'Đang làm',
+        d.myActiveCount,
+        const Color(0xFF6366F1),
+        onTap: () => widget.onFilterList?.call(
+          status: WorkTaskStatus.inProgress,
+        ),
+      ),
+    ];
+
+    return Column(
+      children: [
+        for (var i = 0; i < cards.length; i += 2) ...[
+          if (i > 0) const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: cards[i]),
+              const SizedBox(width: 12),
+              Expanded(
+                child: i + 1 < cards.length
+                    ? cards[i + 1]
+                    : const SizedBox.shrink(),
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+
   Widget _metricCard(
     String label,
     int value,
@@ -207,7 +230,7 @@ class _TaskAssignmentTabState extends State<TaskAssignmentTab> {
     VoidCallback? onTap,
   }) {
     final card = Container(
-      width: 160,
+      width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -284,6 +307,9 @@ class _TaskAssignmentTabState extends State<TaskAssignmentTab> {
             'Tổng ${a.totalTasks} · Đang làm ${a.inProgressTasks} · Quá hạn ${a.overdueTasks}'),
         trailing: Text('$rate%',
             style: const TextStyle(fontWeight: FontWeight.w600)),
+        onTap: a.employeeId.isNotEmpty
+            ? () => widget.onFilterByAssignee?.call(a.employeeId)
+            : null,
       ),
     );
   }

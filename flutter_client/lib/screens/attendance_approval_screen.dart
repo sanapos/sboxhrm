@@ -19,6 +19,7 @@ import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../utils/attendance_correction_privilege.dart';
 import '../screens/main_layout.dart' show NavigationNotifier;
+import '../widgets/hrm_pushed_screen_shell.dart';
 import 'mobile_attendance_approval_screen.dart';
 
 class AttendanceApprovalScreen extends StatefulWidget {
@@ -315,6 +316,12 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
   // ?? Actions ??
 
   Future<void> _approveRequest(Map<String, dynamic> req) async {
+    final requestId = (req['id'] ?? req['Id'] ?? '').toString();
+    if (requestId.isEmpty) {
+      appNotification.showError(
+          title: 'Lỗi', message: 'Không tìm thấy mã yêu cầu');
+      return;
+    }
     final noteController = TextEditingController();
     final confirmed = await showDialog<bool>(
       context: context,
@@ -360,7 +367,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
     }
 
     final result = await _apiService.approveAttendanceCorrection(
-      requestId: req['id'],
+      requestId: requestId,
       isApproved: true,
       approverNote: noteController.text.isNotEmpty ? noteController.text : null,
     );
@@ -376,6 +383,12 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
   }
 
   Future<void> _rejectRequest(Map<String, dynamic> req) async {
+    final requestId = (req['id'] ?? req['Id'] ?? '').toString();
+    if (requestId.isEmpty) {
+      appNotification.showError(
+          title: 'Lỗi', message: 'Không tìm thấy mã yêu cầu');
+      return;
+    }
     final noteController = TextEditingController();
     final confirmed = await showDialog<bool>(
       context: context,
@@ -426,7 +439,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
     }
 
     final result = await _apiService.approveAttendanceCorrection(
-      requestId: req['id'],
+      requestId: requestId,
       isApproved: false,
       approverNote: noteController.text.trim(),
     );
@@ -897,6 +910,45 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                 _detailRow('Ngày duyệt', _formatDateTime(req['approvedDate'])),
                 _detailRow('Ghi chú duyệt', req['approverNote'] ?? '--'),
               ],
+              if (statusInt == 0 &&
+                  Provider.of<PermissionProvider>(context, listen: false)
+                      .canApprove('AttendanceApproval')) ...[
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _rejectRequest(req);
+                        },
+                        icon: const Icon(Icons.close, size: 18),
+                        label: const Text('Từ chối'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red,
+                          side: const BorderSide(color: Colors.red),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _approveRequest(req);
+                        },
+                        icon: const Icon(Icons.check, size: 18),
+                        label: const Text('Duyệt'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),
@@ -1095,6 +1147,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
     final perm = Provider.of<PermissionProvider>(context);
     final showMobileTab = canViewMobileAttendanceApprovalTab(perm);
     final isMobile = Responsive.isMobile(context);
+    final canPop = Navigator.of(context).canPop();
 
     final correctionPane = Column(
       children: [
@@ -1113,6 +1166,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
             color: Theme.of(context).cardColor,
             child: TabBar(
               controller: topTab,
+              labelPadding: const EdgeInsets.symmetric(horizontal: 8),
               labelColor: Theme.of(context).primaryColor,
               unselectedLabelColor: Colors.grey[600],
               indicatorColor: Theme.of(context).primaryColor,
@@ -1125,11 +1179,13 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
               )),
               tabs: const [
                 Tab(
-                  icon: Icon(Icons.fact_check_outlined, size: 16),
+                  height: 48,
+                  icon: Icon(Icons.fact_check_outlined, size: 18),
                   text: 'Duyệt chấm công',
                 ),
                 Tab(
-                  icon: Icon(Icons.how_to_reg_outlined, size: 16),
+                  height: 48,
+                  icon: Icon(Icons.how_to_reg_outlined, size: 18),
                   text: 'Chấm công Mobile',
                 ),
               ],
@@ -1163,13 +1219,22 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
       );
     }
 
+    body = HrmPushedScreenShell.maybeWrap(
+      context,
+      title: 'Duyệt chấm công',
+      child: body,
+    );
+
     return Scaffold(
       backgroundColor: HrmPageChrome.background,
-      body: Theme(
-        data: vietnameseThemeOverlay(context),
-        child: DefaultTextStyle(
-          style: kDefaultVietnameseTextStyle,
-          child: body,
+      body: SafeArea(
+        top: !canPop,
+        child: Theme(
+          data: vietnameseThemeOverlay(context),
+          child: DefaultTextStyle(
+            style: kDefaultVietnameseTextStyle,
+            child: body,
+          ),
         ),
       ),
     );
@@ -1999,6 +2064,9 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
 
   Widget _buildMobileApprovalCard(Map<String, dynamic> req) {
     final status = _parseStatus(req['status']);
+    final canApprove = status == 0 &&
+        Provider.of<PermissionProvider>(context, listen: false)
+            .canApprove('AttendanceApproval');
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -2015,7 +2083,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
         borderRadius: BorderRadius.circular(12),
         onTap: () => _showRequestDetail(req),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          padding: EdgeInsets.fromLTRB(14, 10, 14, canApprove ? 12 : 10),
           child: Column(
             children: [
               Row(children: [
@@ -2062,26 +2130,45 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                           fontWeight: FontWeight.w600,
                           color: _getStatusColor(req['status']))),
                 ),
-                if (status == 0) ...[
-                  const SizedBox(width: 6),
-                  if (Provider.of<PermissionProvider>(context, listen: false)
-                      .canApprove('AttendanceApproval'))
-                    InkWell(
-                        onTap: () => _approveRequest(req),
-                        child: const Icon(Icons.check_circle_outline,
-                            size: 22, color: Colors.green)),
-                  const SizedBox(width: 4),
-                  if (Provider.of<PermissionProvider>(context, listen: false)
-                      .canApprove('AttendanceApproval'))
-                    InkWell(
-                        onTap: () => _rejectRequest(req),
-                        child: const Icon(Icons.cancel_outlined,
-                            size: 22, color: Colors.red)),
-                ],
               ]),
               if ((req['totalApprovalLevels'] ?? 1) > 1) ...[
                 const SizedBox(height: 8),
                 _buildApprovalProgress(req),
+              ],
+              if (canApprove) ...[
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => _rejectRequest(req),
+                        icon: const Icon(Icons.close, size: 16),
+                        label: const Text('Từ chối',
+                            style: TextStyle(fontSize: 12)),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red,
+                          side: const BorderSide(color: Colors.red),
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: () => _approveRequest(req),
+                        icon: const Icon(Icons.check, size: 16),
+                        label:
+                            const Text('Duyệt', style: TextStyle(fontSize: 12)),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ],
           ),

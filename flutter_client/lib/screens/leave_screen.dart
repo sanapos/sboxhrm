@@ -9,6 +9,7 @@ import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import '../utils/api_datetime.dart';
 import '../utils/paged_load_utils.dart';
+import '../utils/store_role_helper.dart';
 import '../services/signalr_service.dart';
 import '../utils/responsive_helper.dart';
 import '../l10n/app_localizations.dart';
@@ -18,6 +19,8 @@ import '../widgets/app_scroll_safe.dart';
 import '../widgets/hrm_mini_stat_chip.dart';
 import '../widgets/leave_request_form.dart';
 import '../features/leave/leave_catalog.dart';
+import '../utils/navigation_notifier.dart';
+import '../widgets/hrm_pushed_screen_shell.dart';
 class LeaveScreen extends StatefulWidget {
   final String? highlightId;
   const LeaveScreen({super.key, this.highlightId});
@@ -63,6 +66,8 @@ class _LeaveScreenState extends State<LeaveScreen>
   // Tổng quan + bộ lọc (ẩn/hiện cùng nhau)
   bool _showOverviewPanel = false;
   double? _myAnnualLeaveBalance;
+  String? _effectiveHighlightId;
+  bool _navExtrasApplied = false;
 
   AppLocalizations get _l10n => AppLocalizations.of(context);
 
@@ -77,17 +82,14 @@ class _LeaveScreenState extends State<LeaveScreen>
     if (!_initialized) {
       _initialized = true;
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final role = authProvider.user?.role ?? '';
-      _isManager = role == 'Admin' ||
-          role == 'Manager' ||
-          role == 'SuperAdmin' ||
-          role == 'Agent' ||
-          role == 'DepartmentHead';
+      final role = authProvider.userRole;
+      _isManager = StoreRoleHelper.isManagerOrAbove(role);
       _currentUserId = authProvider.user?.id;
       _tabController = TabController(
         length: _isManager ? 3 : 1,
         vsync: this,
       );
+      _applyNavigationExtras();
       // Listen for leave-related SignalR notifications to auto-refresh
       _notificationSub = SignalRService().onNewNotification.listen((data) {
         final category = (data['categoryCode'] ?? data['category'] ?? '')
@@ -111,6 +113,30 @@ class _LeaveScreenState extends State<LeaveScreen>
     _refreshTimer?.cancel();
     _tabController?.dispose();
     super.dispose();
+  }
+
+  void _applyNavigationExtras() {
+    if (_navExtrasApplied) return;
+    _navExtrasApplied = true;
+    _effectiveHighlightId = widget.highlightId;
+    final fromNotif = NavigationNotifier.notificationHighlightId.value;
+    if ((_effectiveHighlightId == null || _effectiveHighlightId!.isEmpty) &&
+        fromNotif != null &&
+        fromNotif.isNotEmpty) {
+      _effectiveHighlightId = fromNotif;
+    }
+    NavigationNotifier.notificationHighlightId.value = null;
+
+    final leaveTab = NavigationNotifier.leaveInitialTab.value;
+    NavigationNotifier.leaveInitialTab.value = -1;
+    if (leaveTab >= 0 && _isManager && _tabController != null) {
+      final idx = leaveTab.clamp(0, _tabController!.length - 1);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _tabController != null) {
+          _tabController!.animateTo(idx);
+        }
+      });
+    }
   }
 
   Future<void> _loadData() async {
@@ -192,14 +218,18 @@ class _LeaveScreenState extends State<LeaveScreen>
   bool _highlightOpened = false;
   void _maybeOpenHighlight() {
     if (_highlightOpened) return;
-    final id = widget.highlightId;
+    final id = _effectiveHighlightId ?? widget.highlightId;
     if (id == null || id.isEmpty) return;
     dynamic match;
     bool isAllTab = false;
     bool showApprovalActions = false;
     bool isMyLeaves = false;
+    bool idMatch(Map l) {
+      final sid = id.toString();
+      return l['id']?.toString() == sid || l['Id']?.toString() == sid;
+    }
     for (final l in _pendingLeaves) {
-      if (l is Map && (l['id']?.toString() == id)) {
+      if (l is Map && idMatch(l)) {
         match = l;
         showApprovalActions = true;
         break;
@@ -207,7 +237,7 @@ class _LeaveScreenState extends State<LeaveScreen>
     }
     if (match == null) {
       for (final l in _allLeaves) {
-        if (l is Map && (l['id']?.toString() == id)) {
+        if (l is Map && idMatch(l)) {
           match = l;
           isAllTab = true;
           break;
@@ -216,7 +246,7 @@ class _LeaveScreenState extends State<LeaveScreen>
     }
     if (match == null) {
       for (final l in _myLeaves) {
-        if (l is Map && (l['id']?.toString() == id)) {
+        if (l is Map && idMatch(l)) {
           match = l;
           isMyLeaves = true;
           break;
@@ -392,7 +422,10 @@ class _LeaveScreenState extends State<LeaveScreen>
 
     return Scaffold(
       backgroundColor: HrmPageChrome.background,
-      body: Column(
+      body: HrmPushedScreenShell.maybeWrap(
+        context,
+        title: _l10n.leaveManagement,
+        child: Column(
         children: [
           _buildHeader(theme),
           if (!isMobile) _buildTabBar(theme),
@@ -468,6 +501,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                   ),
           ),
         ],
+      ),
       ),
     );
   }
@@ -2126,10 +2160,13 @@ class _LeaveScreenState extends State<LeaveScreen>
       buttons.add(const SizedBox(width: 6));
     }
 
-    // Delete: pending in myLeaves, any status in allTab/pendingTab for manager
-    if (((isMyLeaves && isPending) ||
-            ((isAllTab || showApprovalActions) && _isManager)) &&
-        permProv.canDelete('Leave')) {
+    // Delete: có quyền xóa module — NV xóa đơn pending của mình; QL xóa trên tab quản lý
+    final canDeleteLeave = permProv.canDelete('Leave');
+    if (canDeleteLeave &&
+        ((isMyLeaves && isPending) ||
+            isAllTab ||
+            showApprovalActions ||
+            permProv.canApprove('Leave'))) {
       buttons.add(_ActionBtn(
           icon: Icons.delete_forever_outlined,
           label: 'Xóa',
@@ -2246,9 +2283,11 @@ class _LeaveScreenState extends State<LeaveScreen>
       dialogActions.add(const SizedBox(width: 6));
     }
     // Delete
-    if (((isMyLeaves && isPending) ||
-            ((isAllTab || showApprovalActions) && _isManager)) &&
-        dlgPerm.canDelete('Leave')) {
+    if (dlgPerm.canDelete('Leave') &&
+        ((isMyLeaves && isPending) ||
+            isAllTab ||
+            showApprovalActions ||
+            dlgPerm.canApprove('Leave'))) {
       dialogActions.add(_ActionBtn(
           icon: Icons.delete_forever_outlined,
           label: 'Xóa',

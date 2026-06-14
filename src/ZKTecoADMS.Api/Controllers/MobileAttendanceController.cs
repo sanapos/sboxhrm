@@ -1730,6 +1730,12 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
         var storeId = RequiredStoreId;
 
 
+        var (canonicalEmployeeId, canonicalEmployeeName) =
+            await ResolveCanonicalEmployeeIdAsync(storeId, request.EmployeeId);
+        if (string.IsNullOrWhiteSpace(canonicalEmployeeId))
+            return BadRequest(AppResponse<object>.Fail("Không xác định được nhân viên"));
+
+
 
 
 
@@ -1763,10 +1769,12 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
             existing.DeviceModel = request.DeviceModel ?? existing.DeviceModel;
 
 
-            existing.EmployeeId = request.EmployeeId;
+            existing.EmployeeId = canonicalEmployeeId;
 
 
-            existing.EmployeeName = request.EmployeeName;
+            existing.EmployeeName = !string.IsNullOrWhiteSpace(request.EmployeeName)
+                ? request.EmployeeName
+                : canonicalEmployeeName ?? existing.EmployeeName;
 
 
             existing.CanUseFaceId = request.CanUseFaceId;
@@ -1785,6 +1793,10 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
 
             existing.UpdatedBy = CurrentUserEmail;
+
+
+            if (!request.AllowOutsideCheckIn)
+                await ClearEmployeeLiveLocationsIfNoOutsideDevicesAsync(storeId, existing.EmployeeId);
 
 
         }
@@ -1820,10 +1832,12 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
                 OsVersion = request.OsVersion,
 
 
-                EmployeeId = request.EmployeeId,
+                EmployeeId = canonicalEmployeeId,
 
 
-                EmployeeName = request.EmployeeName,
+                EmployeeName = !string.IsNullOrWhiteSpace(request.EmployeeName)
+                    ? request.EmployeeName
+                    : canonicalEmployeeName ?? request.EmployeeName,
 
 
                 IsAuthorized = true,
@@ -1940,6 +1954,48 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
         device.UpdatedAt = DateTime.UtcNow;
         device.UpdatedBy = CurrentUserEmail;
         await _dbContext.SaveChangesAsync();
+
+        return Ok(AppResponse<object>.Success(new
+        {
+            id = device.Id.ToString(),
+            deviceId = device.DeviceId,
+            deviceName = device.DeviceName,
+            deviceModel = device.DeviceModel,
+            osVersion = device.OsVersion,
+            employeeId = device.EmployeeId,
+            employeeName = device.EmployeeName,
+            isAuthorized = device.IsAuthorized,
+            canUseFaceId = device.CanUseFaceId,
+            canUseGps = device.CanUseGps,
+            allowOutsideCheckIn = device.AllowOutsideCheckIn,
+            requirePhotoProof = device.RequirePhotoProof,
+            wifiBssid = device.WifiBssid,
+            authorizedAt = device.AuthorizedAt,
+            lastUsedAt = device.LastUsedAt,
+        }));
+    }
+
+    /// <summary>Chỉ cập nhật cờ chấm ngoài CT (tránh ghi đè IsAuthorized / field khác).</summary>
+    [HttpPatch("devices/{id}/allow-outside-checkin")]
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireAnyModulePermission(ModulePermissionAction.Edit, "MobileAttendance", "MobileDeviceRegistration")]
+    public async Task<ActionResult> SetDeviceAllowOutsideCheckIn(Guid id, [FromBody] SetDeviceAllowOutsideCheckInRequest request)
+    {
+        var storeId = RequiredStoreId;
+        var device = await _dbContext.AuthorizedMobileDevices
+            .AsTracking()
+            .FirstOrDefaultAsync(d => d.Id == id && d.StoreId == storeId && d.Deleted == null);
+
+        if (device == null)
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy thiết bị"));
+
+        device.AllowOutsideCheckIn = request.AllowOutsideCheckIn;
+        device.UpdatedAt = DateTime.UtcNow;
+        device.UpdatedBy = CurrentUserEmail;
+        await _dbContext.SaveChangesAsync();
+
+        if (!request.AllowOutsideCheckIn)
+            await ClearEmployeeLiveLocationsIfNoOutsideDevicesAsync(storeId, device.EmployeeId);
 
         return Ok(AppResponse<object>.Success(new
         {
@@ -2094,6 +2150,14 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
 
         var employeeName = request.EmployeeName;
+
+
+        var (regCanonicalId, regCanonicalName) =
+            await ResolveCanonicalEmployeeIdAsync(storeId, employeeId);
+        if (!string.IsNullOrWhiteSpace(regCanonicalId))
+            employeeId = regCanonicalId;
+        if (string.IsNullOrWhiteSpace(employeeName) && !string.IsNullOrWhiteSpace(regCanonicalName))
+            employeeName = regCanonicalName;
 
 
 
@@ -2689,13 +2753,16 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
         var storeId = RequiredStoreId;
 
 
-        var empId = employeeId ?? CurrentUserId.ToString();
-
-
         var currentId = currentDeviceId?.Trim();
+        var rawEmpId = employeeId ?? CurrentUserId.ToString();
+        var (canonicalEmpId, _) = await ResolveCanonicalEmployeeIdAsync(storeId, rawEmpId);
 
+        var empKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (!string.IsNullOrWhiteSpace(rawEmpId)) empKeys.Add(rawEmpId);
+        if (!string.IsNullOrWhiteSpace(canonicalEmpId)) empKeys.Add(canonicalEmpId);
+        empKeys.Add(CurrentUserId.ToString());
 
-        // Ưu tiên đúng thiết bị đang chấm (theo hardware id), sau đó mới theo nhân viên.
+        // Ưu tiên đúng thiết bị đang chấm (theo hardware id), sau đó mọi thiết bị gắn NV.
         AuthorizedMobileDevice? device = null;
         if (!string.IsNullOrEmpty(currentId))
         {
@@ -2708,8 +2775,9 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
         device ??= await _dbContext.AuthorizedMobileDevices
             .AsNoTracking()
-            .Where(d => d.EmployeeId == empId && d.StoreId == storeId && d.Deleted == null)
-            .OrderByDescending(d => d.AuthorizedAt)
+            .Where(d => empKeys.Contains(d.EmployeeId) && d.StoreId == storeId && d.Deleted == null)
+            .OrderByDescending(d => d.IsAuthorized)
+            .ThenByDescending(d => d.AuthorizedAt)
             .FirstOrDefaultAsync();
 
 
@@ -2762,7 +2830,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
             .AsNoTracking()
 
 
-            .Where(f => f.OdooEmployeeId == empId && f.StoreId == storeId && f.Deleted == null)
+            .Where(f => empKeys.Contains(f.OdooEmployeeId) && f.StoreId == storeId && f.Deleted == null)
 
 
             .FirstOrDefaultAsync();
@@ -2823,10 +2891,10 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
         {
 
 
-            registered = deviceMatchesCurrent,
+            registered = deviceMatchesCurrent && device.IsAuthorized,
 
 
-            approved = deviceMatchesCurrent && device.IsAuthorized,
+            approved = device.IsAuthorized && (deviceMatchesCurrent || device.AllowOutsideCheckIn),
 
 
             registeredOnOtherDevice = !deviceMatchesCurrent && !string.IsNullOrEmpty(currentId),
@@ -2933,7 +3001,18 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
 
         if (request.Approved)
+        {
+            var (canonicalEmployeeId, canonicalEmployeeName) =
+                await ResolveCanonicalEmployeeIdAsync(storeId, device.EmployeeId);
+            if (!string.IsNullOrWhiteSpace(canonicalEmployeeId))
+            {
+                device.EmployeeId = canonicalEmployeeId;
+                if (!string.IsNullOrWhiteSpace(canonicalEmployeeName))
+                    device.EmployeeName = canonicalEmployeeName;
+            }
+
             await SyncEmployeeLocationsFromDeviceAsync(storeId, device, approved: true);
+        }
 
 
 
@@ -3240,7 +3319,18 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
-        var changeSelfErr = ValidateSelfServiceEmployeeAction(employeeId);
+        var (changeReqCanonicalId, changeReqCanonicalName) =
+            await ResolveCanonicalEmployeeIdAsync(storeId, employeeId);
+        if (!string.IsNullOrWhiteSpace(changeReqCanonicalId))
+            employeeId = changeReqCanonicalId;
+        if (string.IsNullOrWhiteSpace(employeeName) && !string.IsNullOrWhiteSpace(changeReqCanonicalName))
+            employeeName = changeReqCanonicalName;
+
+
+
+
+
+                var changeSelfErr = ValidateSelfServiceEmployeeAction(employeeId);
 
 
         if (changeSelfErr != null)
@@ -4179,6 +4269,13 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
             // 5. Create new device (already approved)
 
 
+            var (changeCanonicalId, changeCanonicalName) =
+                await ResolveCanonicalEmployeeIdAsync(storeId, changeReq.EmployeeId);
+            var normalizedEmployeeId = changeCanonicalId ?? changeReq.EmployeeId;
+            var normalizedEmployeeName = !string.IsNullOrWhiteSpace(changeCanonicalName)
+                ? changeCanonicalName
+                : changeReq.EmployeeName;
+
             var newDevice = new AuthorizedMobileDevice
 
 
@@ -4203,10 +4300,10 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
                 OsVersion = changeReq.NewOsVersion,
 
 
-                EmployeeId = changeReq.EmployeeId,
+                EmployeeId = normalizedEmployeeId,
 
 
-                EmployeeName = changeReq.EmployeeName,
+                EmployeeName = normalizedEmployeeName,
 
 
                 IsAuthorized = true,
@@ -7879,6 +7976,64 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
         _cache.Remove($"face_reg_emb_{storeId:N}_{employeeId}");
     }
 
+    /// <summary>Normalize device EmployeeId to Employees.Id (GUID string).</summary>
+    private async Task<(string? canonicalId, string? employeeName)> ResolveCanonicalEmployeeIdAsync(
+        Guid storeId, string? employeeIdOrCodeOrUserId)
+    {
+        if (string.IsNullOrWhiteSpace(employeeIdOrCodeOrUserId))
+            return (null, null);
+
+        var employee = await _dbContext.Employees.AsNoTracking()
+            .FirstOrDefaultAsync(e => e.StoreId == storeId && e.Deleted == null &&
+                (e.Id.ToString() == employeeIdOrCodeOrUserId ||
+                 e.EmployeeCode == employeeIdOrCodeOrUserId ||
+                 (e.ApplicationUserId != null && e.ApplicationUserId.ToString() == employeeIdOrCodeOrUserId)));
+
+        if (employee != null)
+            return (employee.Id.ToString(), $"{employee.LastName} {employee.FirstName}".Trim());
+
+        return (employeeIdOrCodeOrUserId, null);
+    }
+
+    /// <summary>Xóa GPS live khi NV không còn thiết bị nào bật chấm ngoài CT.</summary>
+    private async Task ClearEmployeeLiveLocationsIfNoOutsideDevicesAsync(Guid storeId, string? employeeId)
+    {
+        if (string.IsNullOrWhiteSpace(employeeId))
+            return;
+
+        var employee = await _dbContext.Employees.AsNoTracking()
+            .FirstOrDefaultAsync(e => e.StoreId == storeId && e.Deleted == null &&
+                (e.Id.ToString() == employeeId ||
+                 e.EmployeeCode == employeeId ||
+                 (e.ApplicationUserId != null && e.ApplicationUserId.ToString() == employeeId)));
+
+        var matchIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { employeeId };
+        if (employee != null)
+        {
+            matchIds.Add(employee.Id.ToString());
+            if (!string.IsNullOrEmpty(employee.EmployeeCode))
+                matchIds.Add(employee.EmployeeCode);
+            if (employee.ApplicationUserId.HasValue)
+                matchIds.Add(employee.ApplicationUserId.Value.ToString());
+        }
+
+        var stillOutside = await _dbContext.AuthorizedMobileDevices.AsNoTracking()
+            .AnyAsync(d => d.StoreId == storeId && d.Deleted == null && d.IsAuthorized && d.AllowOutsideCheckIn
+                && matchIds.Contains(d.EmployeeId));
+
+        if (stillOutside)
+            return;
+
+        var stale = await _dbContext.EmployeeLiveLocations
+            .Where(l => l.StoreId == storeId && matchIds.Contains(l.EmployeeId))
+            .ToListAsync();
+        if (stale.Count == 0)
+            return;
+
+        _dbContext.EmployeeLiveLocations.RemoveRange(stale);
+        await _dbContext.SaveChangesAsync();
+    }
+
     /// <summary>Resolve Application User Id for push/in-app notifications from employee id stored on mobile devices.</summary>
     private async Task<Guid?> ResolveEmployeeNotificationUserIdAsync(string employeeId, Guid storeId)
     {
@@ -8754,6 +8909,11 @@ public class AuthorizeDeviceRequest
 public class SetDeviceRequirePhotoProofRequest
 {
     public bool RequirePhotoProof { get; set; }
+}
+
+public class SetDeviceAllowOutsideCheckInRequest
+{
+    public bool AllowOutsideCheckIn { get; set; }
 }
 
 public class MobilePunchRequest

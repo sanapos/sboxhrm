@@ -9,9 +9,11 @@ import '../l10n/app_localizations.dart';
 import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
+import '../services/global_location_reporter.dart';
 import '../services/signalr_service.dart';
 import '../widgets/announcement_banner.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/hrm_pushed_screen_shell.dart';
 import '../models/hrm.dart';
 import '../models/attendance.dart';
 import '../widgets/notification_overlay.dart';
@@ -182,11 +184,23 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     ScreenRefreshNotifier.notifications.addListener(_loadNotificationCount);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _reportCurrentScreen();
       PendingNotificationLaunch.tryConsume();
       if (!kIsWeb) {
         AppPermissionService.promptEssentialPermissionsIfNeeded(context);
       }
     });
+  }
+
+  void _reportCurrentScreen() {
+    if (_selectedIndex < 0 || _selectedIndex >= _navItems.length) return;
+    final item = _navItems[_selectedIndex];
+    var label = item.label;
+    if (_selectedIndex == NavigationNotifier.settingsHub) {
+      final sub = SettingsHubScreen.activeSubPageTitle;
+      if (sub != null && sub.isNotEmpty) label = sub;
+    }
+    NavigationNotifier.reportScreen(label, moduleCode: item.moduleCode);
   }
 
   /// Load quyền hiệu lực cho user hiện tại
@@ -217,6 +231,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         _connectSignalR();
       }
       _loadNotificationCount();
+      final user = context.read<AuthProvider>().currentUser;
+      GlobalLocationReporter.instance.resume(
+        employeeId: user?.employeeId ?? user?.id,
+      );
     }
   }
 
@@ -252,7 +270,12 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       return;
     }
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const OvertimeScreen()),
+      MaterialPageRoute(
+        builder: (_) => const HrmPushedScreenShell(
+          title: 'Quản lý tăng ca',
+          child: OvertimeScreen(),
+        ),
+      ),
     );
   }
 
@@ -378,6 +401,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       }
       _selectedIndex = index;
     });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _reportCurrentScreen();
+    });
   }
 
   void _goBack() {
@@ -393,6 +419,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     if (_navigationHistory.isNotEmpty && mounted) {
       setState(() {
         _selectedIndex = _navigationHistory.removeLast();
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _reportCurrentScreen();
       });
     }
   }
@@ -1150,10 +1179,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
     // ══════════ CHECK-IN ĐIỂM BÁN ══════════
     NavItem(
-      icon: Icons.location_on_outlined,
-      activeIcon: Icons.location_on,
-      label: 'Check-in điểm bán',
-      subtitle: 'Check-in, báo cáo tại điểm bán',
+      icon: Icons.map_outlined,
+      activeIcon: Icons.map,
+      label: 'Bản đồ nhân sự',
+      subtitle: 'Vị trí trực tuyến NV chấm ngoài CT trên bản đồ',
       screen: const FieldCheckInScreen(),
       group: 'Quản lý Vận hành',
       themeColor: const Color(0xFF059669),

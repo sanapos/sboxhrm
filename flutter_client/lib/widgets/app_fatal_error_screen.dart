@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../utils/app_error_utils.dart';
+import '../utils/navigation_notifier.dart';
 
 /// Màn hình thay thế [ErrorWidget] mặc định — tránh nền xanh/tối chung chung.
 class AppFatalErrorScreen extends StatelessWidget {
@@ -11,6 +12,7 @@ class AppFatalErrorScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final info = AppErrorUtils.fromException(details.exception);
+    final screen = NavigationNotifier.currentScreenLabel.value?.trim();
     final icon = switch (info.kind) {
       AppErrorKind.network => Icons.wifi_off_rounded,
       AppErrorKind.timeout => Icons.hourglass_disabled_rounded,
@@ -51,6 +53,18 @@ class AppFatalErrorScreen extends StatelessWidget {
                     color: Color(0xFF18181B),
                   ),
                 ),
+                if (screen != null && screen.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Màn hình: $screen',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF71717A),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 10),
                 Text(
                   info.message,

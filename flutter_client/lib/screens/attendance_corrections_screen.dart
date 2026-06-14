@@ -6,6 +6,7 @@ import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
 import '../utils/attendance_correction_privilege.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/hrm_fab_clearance.dart';
 import 'package:intl/intl.dart';
 import '../models/hrm.dart';
 import '../services/api_service.dart';
@@ -810,6 +811,13 @@ class _AttendanceCorrectionsScreenState
 
   @override
   Widget build(BuildContext context) {
+    final showCreateFab = _allowManualCorrection &&
+        canShowCorrectionButtons(
+          role: Provider.of<AuthProvider>(context, listen: false).userRole,
+          allowManualSetting: _allowManualCorrection,
+          permissions:
+              Provider.of<PermissionProvider>(context, listen: false),
+        );
     return Scaffold(
       appBar: AppBar(
         title: const Text('Sửa chấm công',
@@ -845,21 +853,18 @@ class _AttendanceCorrectionsScreenState
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildRequestsList(_pendingRequests),
-          _buildRequestsList(_requests),
-        ],
+      body: HrmFabClearance(
+        fabVisible: showCreateFab,
+        extendedFab: true,
+        child: TabBarView(
+          controller: _tabController,
+          children: [
+            _buildRequestsList(_pendingRequests),
+            _buildRequestsList(_requests),
+          ],
+        ),
       ),
-      floatingActionButton: _allowManualCorrection &&
-              canShowCorrectionButtons(
-                role: Provider.of<AuthProvider>(context, listen: false)
-                    .userRole,
-                allowManualSetting: _allowManualCorrection,
-                permissions:
-                    Provider.of<PermissionProvider>(context, listen: false),
-              )
+      floatingActionButton: showCreateFab
           ? FloatingActionButton.extended(
               onPressed: _showCreateDialog,
               icon: const Icon(Icons.add),

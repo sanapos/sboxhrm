@@ -5,6 +5,7 @@ import '../../l10n/app_localizations.dart';
 import '../../providers/permission_provider.dart';
 import '../../screens/overtime_screen.dart';
 import '../../utils/navigation_notifier.dart';
+import '../../widgets/hrm_pushed_screen_shell.dart';
 import '../hrm_page_chrome.dart';
 
 class EmployeeModuleGrid extends StatelessWidget {
@@ -127,8 +128,8 @@ class EmployeeModuleGrid extends StatelessWidget {
       color: Color(0xFF059669),
     ),
     'FieldCheckIn': (
-      icon: Icons.location_on_outlined,
-      label: 'Check-in',
+      icon: Icons.map_outlined,
+      label: 'Bản đồ NS',
       color: Color(0xFF059669),
     ),
     'Meal': (
@@ -187,7 +188,7 @@ class EmployeeModuleGrid extends StatelessWidget {
       case 'Production':
         return 'Sản lượng';
       case 'FieldCheckIn':
-        return 'Check-in';
+        return 'Bản đồ nhân sự';
       case 'Meal':
         return 'Chấm cơm';
       case 'MobileDeviceRegistration':
@@ -245,7 +246,12 @@ class EmployeeModuleGrid extends StatelessWidget {
   static void _openModule(BuildContext context, _EmployeeModuleTile tile) {
     if (tile.moduleCode == 'Overtime') {
       Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const OvertimeScreen()),
+        MaterialPageRoute(
+          builder: (_) => const HrmPushedScreenShell(
+            title: 'Quản lý tăng ca',
+            child: OvertimeScreen(),
+          ),
+        ),
       );
       return;
     }

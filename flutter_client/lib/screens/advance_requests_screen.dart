@@ -18,6 +18,8 @@ import '../utils/responsive_helper.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../providers/auth_provider.dart';
+import '../utils/navigation_notifier.dart';
+import '../widgets/hrm_pushed_screen_shell.dart';
 
 class AdvanceRequestsScreen extends StatefulWidget {
   final String? highlightId;
@@ -63,6 +65,11 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
   @override
   void initState() {
     super.initState();
+    final sf = NavigationNotifier.advanceRequestsStatusFilter.value;
+    if (sf >= 0 && sf < AdvanceRequestStatus.values.length) {
+      _selectedStatus = AdvanceRequestStatus.values[sf];
+    }
+    NavigationNotifier.advanceRequestsStatusFilter.value = -1;
     _loadData();
     _loadEmployees();
     // Load own employee info for employee-role auto-selection in create dialog
@@ -245,7 +252,9 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
   bool _highlightOpened = false;
   void _maybeOpenHighlight() {
     if (_highlightOpened) return;
-    final id = widget.highlightId;
+    final id = widget.highlightId ??
+        NavigationNotifier.notificationHighlightId.value;
+    NavigationNotifier.notificationHighlightId.value = null;
     if (id == null || id.isEmpty) return;
     AdvanceRequest? match;
     for (final r in _allRequests) {
@@ -1552,10 +1561,11 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
       );
     }
 
-    if (((_isOwnAdvance(request) &&
+    if (p.canDelete('AdvanceRequests') &&
+        ((_isOwnAdvance(request) &&
                 request.status == AdvanceRequestStatus.pending) ||
-            _isManagerOrAbove) &&
-        p.canDelete('AdvanceRequests')) {
+            _isManagerOrAbove ||
+            p.canApprove('AdvanceRequests'))) {
       actions.add(
         TextButton.icon(
           onPressed: () {
@@ -1767,7 +1777,10 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
 
     return Scaffold(
       backgroundColor: HrmPageChrome.background,
-      body: Column(
+      body: HrmPushedScreenShell.maybeWrap(
+        context,
+        title: _l10n.advanceManagement,
+        child: Column(
         children: [
           // ── Gradient Header ──
           Container(
@@ -1886,6 +1899,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
             ),
           ),
         ],
+      ),
       ),
     );
   }
@@ -2578,11 +2592,12 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                                       _l10n.payment,
                                       () => _payRequest(r)),
                                 ],
-                                if (((_isOwnAdvance(r) &&
+                                if (p.canDelete('AdvanceRequests') &&
+                                    ((_isOwnAdvance(r) &&
                                             r.status ==
                                                 AdvanceRequestStatus.pending) ||
-                                        _isManagerOrAbove) &&
-                                    p.canDelete('AdvanceRequests')) ...[
+                                        _isManagerOrAbove ||
+                                        p.canApprove('AdvanceRequests'))) ...[
                                   const SizedBox(width: 6),
                                   _miniBtn(Icons.delete_outline, Colors.grey,
                                       _l10n.delete, () => _deleteRequest(r)),
@@ -2796,10 +2811,11 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
           _miniBtn(Icons.payment, HrmPageChrome.primaryNavy, _l10n.payment,
               () => _payRequest(r)),
         ],
-        if (((_isOwnAdvance(r) &&
+        if (p.canDelete('AdvanceRequests') &&
+            ((_isOwnAdvance(r) &&
                     r.status == AdvanceRequestStatus.pending) ||
-                _isManagerOrAbove) &&
-            p.canDelete('AdvanceRequests')) ...[
+                _isManagerOrAbove ||
+                p.canApprove('AdvanceRequests'))) ...[
           const SizedBox(width: 4),
           _miniBtn(Icons.delete_outline, Colors.grey, _l10n.delete,
               () => _deleteRequest(r)),

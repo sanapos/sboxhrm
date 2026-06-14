@@ -68,7 +68,7 @@ public class PermissionConfiguration : IEntityTypeConfiguration<Permission>
             new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111039"), Module = "DeviceUser", ModuleDisplayName = "Nhân sự chấm công", Description = "Nhân sự trên máy chấm công", DisplayOrder = 39 },
             new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111040"), Module = "UserManagement", ModuleDisplayName = "Tài khoản", Description = "Người dùng, kích hoạt, vai trò", DisplayOrder = 40 },
             new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111041"), Module = "DepartmentPermission", ModuleDisplayName = "PQ Phòng ban", Description = "Phân quyền theo phòng ban", DisplayOrder = 41 },
-            new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111042"), Module = "FieldCheckIn", ModuleDisplayName = "Check-in điểm bán", Description = "Quản lý check-in điểm bán, giao điểm, báo cáo tại điểm", DisplayOrder = 42 },
+            new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111042"), Module = "FieldCheckIn", ModuleDisplayName = "Bản đồ nhân sự", Description = "Vị trí trực tuyến NV chấm ngoài CT trên bản đồ", DisplayOrder = 42 },
             // ══════════ MODULES BỔ SUNG (đồng bộ DbInitializer) ══════════
             new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111043"), Module = "Home", ModuleDisplayName = "Trang chủ", Description = "Màn hình tổng quan menu", DisplayOrder = 1 },
             new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111044"), Module = "SalarySettings", ModuleDisplayName = "Thiết lập lương", Description = "Cấu hình bảng lương", DisplayOrder = 8 },

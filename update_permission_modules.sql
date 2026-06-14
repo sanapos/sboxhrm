@@ -1,3 +1,5 @@
+-- DEPRECATED: Do not run on production. Source of truth is ZKTecoDbInitializer.SeedPermissionModulesAsync
+-- and flutter PermissionRoleCatalog. This script has stale GUID mappings and module list.
 -- Update Permissions table to match 42 modules (aligned with menu structure)
 -- This script uses UPSERT (INSERT ... ON CONFLICT) to add new modules
 -- and update existing ones to match the current menu structure.

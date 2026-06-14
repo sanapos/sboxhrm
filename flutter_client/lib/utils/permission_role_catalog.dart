@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'dashboard_permission_modules.dart';
+import 'permission_module_catalog.dart';
+import 'permission_module_labels.dart';
 
-/// Nhóm chức năng — khớp menu app (Tổng quan tách từng widget, Thiết lập HRM, …).
+/// Nhóm chức năng — khớp menu app (`main_layout.dart`, `settings_hub_screen.dart`).
 class PermissionUiGroup {
   final String id;
   final String title;
@@ -24,8 +26,7 @@ class PermissionUiGroup {
 class PermissionRoleCatalog {
   PermissionRoleCatalog._();
 
-  /// Module legacy trên DB — ẩn khỏi UI phân quyền.
-  /// Module alias thuần API — không hiện trên UI phân quyền.
+  /// Module legacy / alias API — ẩn khỏi UI phân quyền.
   static const Set<String> legacyHiddenModules = {
     'Dashboard',
     'Salary',
@@ -60,16 +61,13 @@ class PermissionRoleCatalog {
     PermissionUiGroup(
       id: 'hr_profile',
       title: 'Hồ sơ nhân sự',
-      description: 'Nhân viên, phòng ban, nghỉ phép, thiết lập lương',
+      description: 'Nhân viên, phòng ban, thiết lập lương, tài liệu',
       icon: Icons.people_outline,
       color: Color(0xFF0284C7),
       moduleCodes: [
         'Employee',
         'Department',
-        'Leave',
         'SalarySettings',
-        'Payslip',
-        'DeviceUser',
         'HrDocument',
         'OrgChart',
       ],
@@ -77,31 +75,47 @@ class PermissionRoleCatalog {
     PermissionUiGroup(
       id: 'attendance',
       title: 'Chấm công',
-      description: 'Chấm thô, lịch, tổng hợp, duyệt, lương',
+      description: 'Chấm thô, lịch, duyệt, mobile, tăng ca, đổi ca',
       icon: Icons.access_time,
       color: Color(0xFF0369A1),
       moduleCodes: [
+        'DeviceUser',
+        'Leave',
         'Attendance',
         'WorkSchedule',
-        'AttendanceSummary',
-        'AttendanceByShift',
         'AttendanceCorrection',
         'AttendanceApproval',
         'MobileAttendanceApproval',
         'ScheduleApproval',
-        'Payroll',
         'Overtime',
         'ShiftSwap',
         'MobileDeviceRegistration',
         'MobileAttendance',
-        'Meal',
-        'FieldCheckIn',
+      ],
+    ),
+    PermissionUiGroup(
+      id: 'reports',
+      title: 'Báo cáo & lương',
+      description: 'Tổng hợp công, phiếu lương, báo cáo thống kê',
+      icon: Icons.assessment_outlined,
+      color: Color(0xFF7C3AED),
+      moduleCodes: [
+        'AttendanceSummary',
+        'AttendanceByShift',
+        'Payslip',
+        'Payroll',
+        'AttendanceReport',
+        'LeaveReport',
+        'CashReport',
+        'PenaltyReport',
+        'AdvanceReport',
+        'AssetReport',
       ],
     ),
     PermissionUiGroup(
       id: 'finance',
       title: 'Tài chính',
-      description: 'Thưởng, phạt, ứng lương, thu chi',
+      description: 'Thưởng, phạt, ứng lương, thu chi, tài khoản NH',
       icon: Icons.account_balance_wallet_outlined,
       color: Color(0xFFEC4899),
       moduleCodes: [
@@ -115,42 +129,29 @@ class PermissionRoleCatalog {
     PermissionUiGroup(
       id: 'operations',
       title: 'Quản lý vận hành',
-      description: 'Tài sản, công việc, truyền thông, KPI, sản lượng',
+      description: 'Chấm cơm, tài sản, công việc, KPI, sản lượng',
       icon: Icons.business_center_outlined,
       color: Color(0xFF059669),
       moduleCodes: [
+        'Meal',
         'Asset',
         'Task',
         'Communication',
         'KPI',
         'Production',
         'Feedback',
-      ],
-    ),
-    PermissionUiGroup(
-      id: 'reports',
-      title: 'Báo cáo',
-      description: 'Nghỉ phép, thu chi, phạt, ứng lương',
-      icon: Icons.assessment_outlined,
-      color: Color(0xFF7C3AED),
-      moduleCodes: [
-        'LeaveReport',
-        'CashReport',
-        'PenaltyReport',
-        'AdvanceReport',
-        'AssetReport',
+        'FieldCheckIn',
       ],
     ),
     PermissionUiGroup(
       id: 'hrm_settings',
       title: 'Thiết lập HRM',
-      description: 'Trung tâm cài đặt: ca, mobile, lương, máy, hệ thống',
+      description: 'Ca, ngày lễ, máy chấm công, phụ cấp, thuế, chi nhánh',
       icon: Icons.tune,
       color: Color(0xFF64748B),
       moduleCodes: [
         'SettingsHub',
         'ShiftSetup',
-        'MobileAttendance',
         'Holiday',
         'Device',
         'Allowance',
@@ -169,7 +170,7 @@ class PermissionRoleCatalog {
     PermissionUiGroup(
       id: 'admin',
       title: 'Quản trị hệ thống',
-      description: 'Tài khoản, phân quyền',
+      description: 'Tài khoản, phân quyền, PQ phòng ban',
       icon: Icons.admin_panel_settings_outlined,
       color: Color(0xFF475569),
       moduleCodes: ['UserManagement', 'Role', 'DepartmentPermission'],
@@ -194,6 +195,27 @@ class PermissionRoleCatalog {
   static bool showInPermissionUi(String? module) {
     if (module == null || module.isEmpty) return false;
     return !legacyHiddenModules.contains(module);
+  }
+
+  /// Danh sách module mặc định cho UI — thứ tự theo nhóm menu.
+  static List<Map<String, dynamic>> buildDefaultModuleList({
+    Map<String, String>? idsByModule,
+  }) {
+    final ids = idsByModule ?? PermissionModuleCatalog.idsByModule;
+    var order = 0;
+    final list = <Map<String, dynamic>>[];
+    for (final g in groups) {
+      for (final code in g.moduleCodes) {
+        if (!showInPermissionUi(code)) continue;
+        list.add({
+          'id': ids[code],
+          'module': code,
+          'moduleDisplayName': PermissionModuleLabels.resolve(code),
+          'displayOrder': ++order,
+        });
+      }
+    }
+    return list;
   }
 
   static List<Map<String, dynamic>> sortForUi(

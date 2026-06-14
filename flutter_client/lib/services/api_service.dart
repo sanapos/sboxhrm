@@ -1016,6 +1016,49 @@ class ApiService {
     }
   }
 
+  /// Upload .xlsx file — server parses with ClosedXML (matches SBOX export format).
+  Future<Map<String, dynamic>> importEmployeesExcelFile(
+      List<int> fileBytes, String fileName) async {
+    try {
+      debugPrint('📤 Uploading employee Excel: $fileName (${fileBytes.length} bytes)');
+      final uri = Uri.parse('$baseUrl/api/employees/import/excel/file');
+      final request = http.MultipartRequest('POST', uri);
+      final authHeaders = _headers;
+      if (authHeaders.containsKey('Authorization')) {
+        request.headers['Authorization'] = authHeaders['Authorization']!;
+      }
+      request.files.add(http.MultipartFile.fromBytes(
+        'file',
+        fileBytes,
+        filename: fileName.endsWith('.xlsx') || fileName.endsWith('.xls')
+            ? fileName
+            : '$fileName.xlsx',
+      ));
+      final streamedResponse =
+          await request.send().timeout(const Duration(seconds: 120));
+      final response = await http.Response.fromStream(streamedResponse);
+      debugPrint('📥 Import employees file response: ${response.statusCode}');
+      final data = _handleResponse(response);
+      if (data['isSuccess'] == true) {
+        return {
+          'success': true,
+          'imported': data['data']?['imported'] ?? 0,
+          'updated': data['data']?['updated'] ?? 0,
+          'failed': data['data']?['failed'] ?? 0,
+          'withDepartment': data['data']?['withDepartment'] ?? 0,
+          'errors': data['data']?['errors'] ?? [],
+          'message': data['message'] ?? '',
+        };
+      }
+      return {
+        'success': false,
+        'message': data['message'] ?? 'Import thất bại'
+      };
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
   /// Import employees from a list of employee records (parsed from Excel)
   Future<Map<String, dynamic>> importEmployeesFromExcel(
       List<Map<String, dynamic>> records) async {
@@ -1034,6 +1077,7 @@ class ApiService {
         return {
           'success': true,
           'imported': data['data']?['imported'] ?? 0,
+          'updated': data['data']?['updated'] ?? 0,
           'failed': data['data']?['failed'] ?? 0,
           'errors': data['data']?['errors'] ?? [],
           'message': data['message'] ?? '',
@@ -3107,6 +3151,31 @@ class ApiService {
     }
   }
 
+  /// Đăng ký tài khoản hàng loạt: nhiều nhân viên, 1 mật khẩu, 1 quyền.
+  Future<Map<String, dynamic>> createBulkAccounts({
+    required List<String> employeeIds,
+    required String password,
+    required String role,
+  }) async {
+    try {
+      final response = await _retryOnUnauthorized(() => http
+          .post(
+            Uri.parse('$baseUrl/api/accounts/bulk'),
+            headers: _headers,
+            body: json.encode({
+              'employeeIds': employeeIds,
+              'password': password,
+              'role': role,
+            }),
+          )
+          .timeout(const Duration(seconds: 120)));
+      return _handleResponse(response);
+    } catch (e) {
+      debugPrint('Error creating bulk accounts: $e');
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> updateAccount(
       String id, Map<String, dynamic> data) async {
     try {
@@ -3876,6 +3945,27 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error setDeviceRequirePhotoProof: $e');
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Bật/tắt chấm ngoài CT cho một thiết bị (theo id bản ghi).
+  Future<Map<String, dynamic>> setDeviceAllowOutsideCheckIn({
+    required String deviceRecordId,
+    required bool allowOutsideCheckIn,
+  }) async {
+    try {
+      final response = await http
+          .patch(
+            Uri.parse(
+                '$baseUrl/api/mobile-attendance/devices/$deviceRecordId/allow-outside-checkin'),
+            headers: _headers,
+            body: json.encode({'allowOutsideCheckIn': allowOutsideCheckIn}),
+          )
+          .timeout(const Duration(seconds: 10));
+      return _handleResponse(response);
+    } catch (e) {
+      debugPrint('Error setDeviceAllowOutsideCheckIn: $e');
       return _connectionFailure(e);
     }
   }
@@ -6868,7 +6958,8 @@ class ApiService {
       dynamic toDate,
       bool? isOverdue,
       String? branchId,
-      bool? onlyAssignedToMe}) async {
+      bool? onlyAssignedToMe,
+      bool? onlyAssignedByMe}) async {
     try {
       final params = <String, String>{};
       if (page != null) params['page'] = page.toString();
@@ -6881,6 +6972,7 @@ class ApiService {
       if (isOverdue == true) params['isOverdue'] = 'true';
       if (branchId != null && branchId.isNotEmpty) params['branchId'] = branchId;
       if (onlyAssignedToMe == true) params['onlyAssignedToMe'] = 'true';
+      if (onlyAssignedByMe == true) params['onlyAssignedByMe'] = 'true';
       if (fromDate != null) {
         params['fromDate'] = fromDate is DateTime
             ? fromDate.toIso8601String()
@@ -12193,6 +12285,23 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> getMyJourneyHistory({
+    DateTime? fromDate,
+    DateTime? toDate,
+  }) async {
+    try {
+      final params = <String, String>{};
+      if (fromDate != null) params['fromDate'] = fromDate.toIso8601String();
+      if (toDate != null) params['toDate'] = toDate.toIso8601String();
+      final uri = Uri.parse('$baseUrl/api/field-checkin/journey/my-history')
+          .replace(queryParameters: params.isEmpty ? null : params);
+      final response = await http.get(uri, headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> getActiveJourneys() async {
     try {
       final response = await http.get(
@@ -12204,11 +12313,14 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> getEmployeeLocations() async {
+  Future<Map<String, dynamic>> getEmployeeLocations(
+      {bool fieldStaffOnly = true}) async {
     try {
-      final response = await http.get(
-          Uri.parse('$baseUrl/api/field-checkin/employee-locations'),
-          headers: _headers);
+      final uri = Uri.parse('$baseUrl/api/field-checkin/employee-locations')
+          .replace(
+              queryParameters:
+                  fieldStaffOnly ? {'fieldStaffOnly': 'true'} : null);
+      final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);

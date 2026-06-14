@@ -25,6 +25,8 @@ public class StoreSetupController(
     IRepository<Holiday> holidayRepository,
     IRepository<PenaltySetting> penaltySettingRepository,
     IRepository<Allowance> allowanceRepository,
+    IRepository<Permission> permissionRepository,
+    IRepository<RolePermission> rolePermissionRepository,
     ILogger<StoreSetupController> logger) : AuthenticatedControllerBase
 {
     static readonly string[] SetupMarkers = StoreDefaultSetupSeeder.SetupCreatedByMarkers;
@@ -56,6 +58,8 @@ public class StoreSetupController(
                 holidayRepository,
                 penaltySettingRepository,
                 allowanceRepository,
+                permissionRepository,
+                rolePermissionRepository,
                 "StoreSetup",
                 ct);
 

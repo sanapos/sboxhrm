@@ -233,6 +233,8 @@ class _DepartmentScreenState extends State<DepartmentScreen>
           Expanded(
             child: isMobile
                 ? HrmMobileNestedTabLayout(
+                    fabAware: canAddDept,
+                    extendedFab: true,
                     headerSections: [_buildHeader()],
                     tabBar: TabBar(
                       controller: _tabController,

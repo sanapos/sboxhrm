@@ -306,12 +306,47 @@ public class EmployeesController(IMediator mediator, IDataScopeService dataScope
     [HttpPost("import/excel")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
     [RequireModulePermission("Employee", ModulePermissionAction.Create)]
-    public async Task<IActionResult> ImportEmployeesExcel([FromBody] List<CreateEmployeeRequest> records)
+    public Task<IActionResult> ImportEmployeesExcel([FromBody] List<CreateEmployeeRequest> records)
+        => ImportEmployeesInternalAsync(records);
+
+    /// <summary>Upload file .xlsx — server parse bằng ClosedXML (khớp file Export SBOX).</summary>
+    [HttpPost("import/excel/file")]
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Employee", ModulePermissionAction.Create)]
+    [RequestSizeLimit(20_000_000)]
+    public async Task<IActionResult> ImportEmployeesExcelFile(IFormFile file)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest(new { isSuccess = false, message = "Chưa chọn file Excel." });
+
+        List<CreateEmployeeRequest> records;
+        try
+        {
+            await using var stream = file.OpenReadStream();
+            records = EmployeeExcelImportParser.Parse(stream);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { isSuccess = false, message = $"Không đọc được file Excel: {ex.Message}" });
+        }
+
+        if (records.Count == 0)
+            return BadRequest(new
+            {
+                isSuccess = false,
+                message = "Không tìm thấy dữ liệu hợp lệ. Kiểm tra cột Mã NV, Họ và tên và dòng tiêu đề."
+            });
+
+        return await ImportEmployeesInternalAsync(records);
+    }
+
+    async Task<IActionResult> ImportEmployeesInternalAsync(List<CreateEmployeeRequest>? records)
     {
         if (records == null || records.Count == 0)
             return BadRequest(new { isSuccess = false, message = "Không có dữ liệu để import." });
 
         int imported = 0, updated = 0, failed = 0;
+        var withDepartment = records.Count(r => !string.IsNullOrWhiteSpace(r.Department));
         var errors = new List<string>();
         var storeId = RequiredStoreId;
 
@@ -333,6 +368,11 @@ public class EmployeesController(IMediator mediator, IDataScopeService dataScope
                         updateCmd.WorkStatus = existing.WorkStatus;
                     if (IsPlaceholderImportEmail(req.EmployeeCode, req.CompanyEmail))
                         updateCmd.CompanyEmail = existing.CompanyEmail;
+                    // Giữ phòng ban/chức vụ cũ nếu ô Excel trống (import bổ sung, không xóa dữ liệu)
+                    if (string.IsNullOrWhiteSpace(req.Department))
+                        updateCmd.Department = existing.Department;
+                    if (string.IsNullOrWhiteSpace(req.Position))
+                        updateCmd.Position = existing.Position;
                     var updateResult = await mediator.Send(updateCmd);
                     if (updateResult.IsSuccess) updated++;
                     else
@@ -361,8 +401,10 @@ public class EmployeesController(IMediator mediator, IDataScopeService dataScope
         return Ok(new
         {
             isSuccess = true,
-            data = new { imported, updated, failed, errors },
-            message = $"Import hoàn tất: {imported} mới, {updated} cập nhật, {failed} lỗi."
+            data = new { imported, updated, failed, withDepartment, errors },
+            message = withDepartment > 0
+                ? $"Import hoàn tất: {imported} mới, {updated} cập nhật, {failed} lỗi ({withDepartment} dòng có phòng ban)."
+                : $"Import hoàn tất: {imported} mới, {updated} cập nhật, {failed} lỗi. Cảnh báo: không đọc được cột Phòng ban — kiểm tra file Excel."
         });
     }
 

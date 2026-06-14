@@ -108,7 +108,13 @@ class Employee {
   });
 
   // Computed property for full name (Vietnamese order: Họ rồi đến Tên)
-  String get fullName => '$lastName $firstName'.trim();
+  String get fullName {
+    final parts = [lastName, firstName]
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty && s != '.')
+        .toList();
+    return parts.join(' ');
+  }
 
   // Computed property for enrollNumber (PIN)
   String get enrollNumber => pin ?? employeeCode;

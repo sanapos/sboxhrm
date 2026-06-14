@@ -1,8 +1,8 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/attendance.dart';
 import 'attendance_load_utils.dart';
+import 'leave_salary_shifts.dart';
 
 /// Một dòng tổng hợp ca trong ngày cho một nhân viên.
 /// Đây là single source of truth dùng chung cho:
@@ -44,21 +44,6 @@ class DailyShiftRecord {
     required this.statusColor,
     required this.workCount,
   });
-}
-
-String _normalizeShiftName(String s) =>
-    s.toLowerCase().replaceAll(RegExp(r'\s+'), ' ').trim();
-
-String _parseDescField(String? description, String key) {
-  if (description == null || description.isEmpty) return '';
-  for (final part in description.split('|')) {
-    final idx = part.indexOf(':');
-    if (idx <= 0) continue;
-    if (part.substring(0, idx).trim() == key) {
-      return part.substring(idx + 1).trim();
-    }
-  }
-  return '';
 }
 
 int _parseTimeSpanToMinutes(String? timeStr) {
@@ -192,9 +177,8 @@ Map<String, dynamic>? matchShiftForOrphanCheckOut({
   Map<String, dynamic>? best;
   var bestScore = 1 << 30;
 
-  final primaryIds =
-      candidateIds.isNotEmpty ? candidateIds : shiftTemplateMap.keys.toList();
-  final ordered = _sortShiftIdsByStart(primaryIds, shiftTemplateMap);
+  if (candidateIds.isEmpty) return null;
+  final ordered = _sortShiftIdsByStart(candidateIds, shiftTemplateMap);
   final scoped = pairIndex > 0 && pairIndex < ordered.length
       ? ordered.sublist(pairIndex)
       : ordered;
@@ -441,8 +425,11 @@ Map<String, dynamic>? findBestMatchingShift({
   required Map<String, Map<String, dynamic>> shiftTemplateMap,
   Set<String> usedShiftIds = const {},
   int pairIndex = 0,
+  /// When true (default), never fall back to shifts outside [candidateIds].
+  bool assignedOnly = true,
 }) {
-  if (candidateIds.isEmpty && shiftTemplateMap.isEmpty) return null;
+  if (candidateIds.isEmpty) return null;
+  if (shiftTemplateMap.isEmpty) return null;
 
   _ShiftPunchFit? pickBest(Iterable<String> ids) {
     _ShiftPunchFit? best;
@@ -469,18 +456,17 @@ Map<String, dynamic>? findBestMatchingShift({
     return best;
   }
 
-  final primaryIds = candidateIds.isNotEmpty
-      ? candidateIds
-      : shiftTemplateMap.keys.toList();
   // Cặp chấm thứ i (0=sáng, 1=chiều, …) chỉ xét ca có thứ tự >= i sau khi
   // sắp xếp theo giờ vào — tránh ca chiều 13:24 bị gán ca sáng 07:00/11:00.
-  final orderedPrimary = _sortShiftIdsByStart(primaryIds, shiftTemplateMap);
+  final orderedPrimary = _sortShiftIdsByStart(candidateIds, shiftTemplateMap);
   final scopedPrimary = pairIndex > 0 && pairIndex < orderedPrimary.length
       ? orderedPrimary.sublist(pairIndex)
       : orderedPrimary;
   var best = pickBest(scopedPrimary);
 
-  if (best == null || best.distanceToStart > 180) {
+  // Legacy: only when explicitly allowed — never match unassigned HRM shifts.
+  if (!assignedOnly &&
+      (best == null || best.distanceToStart > 180)) {
     final orderedAll =
         _sortShiftIdsByStart(shiftTemplateMap.keys, shiftTemplateMap);
     final scopedAll = pairIndex > 0 && pairIndex < orderedAll.length
@@ -529,13 +515,10 @@ class _ShiftLookups {
     List<Map<String, dynamic>>? employeesList,
   }) {
     final shiftTemplateMap = <String, Map<String, dynamic>>{};
-    final shiftNameToId = <String, String>{};
     for (final st in shiftTemplates) {
       final id = st['id']?.toString() ?? '';
       if (id.isNotEmpty) {
         shiftTemplateMap[id] = st;
-        final name = st['name']?.toString() ?? '';
-        if (name.isNotEmpty) shiftNameToId[_normalizeShiftName(name)] = id;
       }
     }
 
@@ -554,20 +537,6 @@ class _ShiftLookups {
       final holidayOvertimeType =
           (profile['holidayOvertimeType'] as num?)?.toInt() ?? 1;
 
-      final shiftsStr =
-          _parseDescField(profile['description']?.toString(), 'shifts');
-      final List<String> profileShiftIds = [];
-      if (shiftsStr.isNotEmpty) {
-        for (final raw in shiftsStr.split(',')) {
-          final norm = _normalizeShiftName(raw);
-          if (norm.isEmpty) continue;
-          final id = shiftNameToId[norm];
-          if (id != null && !profileShiftIds.contains(id)) {
-            profileShiftIds.add(id);
-          }
-        }
-      }
-
       final employees = profile['employees'] as List? ?? [];
       for (final emp in employees) {
         if (emp is Map<String, dynamic>) {
@@ -579,17 +548,19 @@ class _ShiftLookups {
             employeeCodeToWeeklyOffDays[code] = weeklyOffDays;
             employeeCodeToHolidayMultiplier[code] = holidayMultiplier;
             employeeCodeToHolidayOvertimeType[code] = holidayOvertimeType;
-            if (profileShiftIds.isNotEmpty) {
-              final list =
-                  employeeGuidToShiftTemplateIds.putIfAbsent(guid, () => []);
-              for (final id in profileShiftIds) {
-                if (!list.contains(id)) list.add(id);
-              }
-            }
           }
         }
       }
     }
+
+    // Ca gán trong thiết lập lương HRM (Benefit.Description + ShiftSalaryLevel).
+    employeeGuidToShiftTemplateIds.addAll(
+      LeaveSalaryShifts.buildEmployeeShiftAssignmentMap(
+        salaryProfiles: salaryProfiles,
+        shiftTemplates: shiftTemplates,
+        shiftSalaryLevels: shiftSalaryLevels,
+      ),
+    );
 
     // Log chấm công thường dùng PIN (enrollNumber) — alias sang GUID hồ sơ lương.
     if (employeesList != null) {
@@ -601,6 +572,10 @@ class _ShiftLookups {
         final mappedGuid = employeeCodeToGuid[code];
         if (mappedGuid == null || mappedGuid.isEmpty) continue;
         employeeCodeToGuid[pin] = mappedGuid;
+        if (employeeGuidToShiftTemplateIds.containsKey(mappedGuid)) {
+          employeeGuidToShiftTemplateIds[pin] =
+              List<String>.from(employeeGuidToShiftTemplateIds[mappedGuid]!);
+        }
         if (!employeeCodeToWeeklyOffDays.containsKey(pin) &&
             employeeCodeToWeeklyOffDays.containsKey(code)) {
           employeeCodeToWeeklyOffDays[pin] =
@@ -615,30 +590,6 @@ class _ShiftLookups {
             employeeCodeToHolidayOvertimeType.containsKey(code)) {
           employeeCodeToHolidayOvertimeType[pin] =
               employeeCodeToHolidayOvertimeType[code]!;
-        }
-      }
-    }
-
-    for (final ssl in shiftSalaryLevels) {
-      final shiftTemplateId = ssl['shiftTemplateId']?.toString() ?? '';
-      if (shiftTemplateId.isEmpty) continue;
-      final employeeIdsRaw = ssl['employeeIds'];
-      List<String> empIds = [];
-      if (employeeIdsRaw is String && employeeIdsRaw.isNotEmpty) {
-        try {
-          final parsed = json.decode(employeeIdsRaw);
-          if (parsed is List) {
-            empIds = parsed.map((e) => e.toString()).toList();
-          }
-        } catch (_) {}
-      } else if (employeeIdsRaw is List) {
-        empIds = employeeIdsRaw.map((e) => e.toString()).toList();
-      }
-      for (final empGuid in empIds) {
-        employeeGuidToShiftTemplateIds.putIfAbsent(empGuid, () => []);
-        if (!employeeGuidToShiftTemplateIds[empGuid]!
-            .contains(shiftTemplateId)) {
-          employeeGuidToShiftTemplateIds[empGuid]!.add(shiftTemplateId);
         }
       }
     }

@@ -12,6 +12,7 @@ import '../providers/auth_provider.dart';
 import '../utils/navigation_notifier.dart';
 import 'feedback_detail_screen.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/hrm_fab_clearance.dart';
 
 class FeedbackScreen extends StatefulWidget {
   const FeedbackScreen({super.key});
@@ -507,10 +508,13 @@ class _FeedbackScreenState extends State<FeedbackScreen>
     const primary = HrmPageChrome.primaryNavy;
     final hasActiveFilter = _hasActiveFilters;
     final showSenderFilter = _isFeedbackManager() && _senders.isNotEmpty;
+    final canCreateFeedback = isMobile &&
+        Provider.of<PermissionProvider>(context, listen: false)
+            .canCreate('Feedback');
 
     return Scaffold(
       backgroundColor: HrmPageChrome.background,
-      floatingActionButton: isMobile && Provider.of<PermissionProvider>(context, listen: false).canCreate('Feedback')
+      floatingActionButton: canCreateFeedback
           ? FloatingActionButton.extended(
               onPressed: _showCreateDialog,
               icon: const Icon(Icons.add),
@@ -594,15 +598,19 @@ class _FeedbackScreenState extends State<FeedbackScreen>
           ),
           // ===== Content =====
           Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : TabBarView(
-                    controller: _tabCtl,
-                    children: [
-                      _buildFeedbackList(_myFeedbacks, isMine: true),
-                      _buildFeedbackList(_allFeedbacks, isMine: false),
-                    ],
-                  ),
+            child: HrmFabClearance(
+              fabVisible: canCreateFeedback,
+              extendedFab: true,
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : TabBarView(
+                      controller: _tabCtl,
+                      children: [
+                        _buildFeedbackList(_myFeedbacks, isMine: true),
+                        _buildFeedbackList(_allFeedbacks, isMine: false),
+                      ],
+                    ),
+            ),
           ),
         ],
       ),
@@ -877,7 +885,8 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                   style: TextButton.styleFrom(
                       foregroundColor: HrmPageChrome.primaryNavy),
                 ),
-                if (isMine && status == 'Pending' && Provider.of<PermissionProvider>(context, listen: false).canDelete('Feedback'))
+                if (Provider.of<PermissionProvider>(context, listen: false)
+                    .canDelete('Feedback'))
                   TextButton.icon(
                     onPressed: () => _confirmDelete(fb),
                     icon: const Icon(Icons.delete_outline, size: 16),

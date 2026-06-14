@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/hrm_fab_clearance.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:excel/excel.dart' as xl;
@@ -189,11 +190,12 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
   Widget build(BuildContext context) {
     final isMobile = Responsive.isMobile(context);
     const primary = Color(0xFF059669);
+    final canCreateProduction = isMobile &&
+        Provider.of<PermissionProvider>(context, listen: false)
+            .canCreate('Production');
     return Scaffold(
       backgroundColor: HrmPageChrome.background,
-      floatingActionButton: isMobile &&
-              Provider.of<PermissionProvider>(context, listen: false)
-                  .canCreate('Production')
+      floatingActionButton: canCreateProduction
           ? FloatingActionButton.extended(
               onPressed: () {
                 if (_items.isEmpty) {
@@ -274,31 +276,35 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
           _buildToolbarRow(),
 
           Expanded(
-            child: Column(
-              children: [
-                Container(
-                  color: Colors.white,
-                  child: TabBar(
-                    controller: _tabCtl,
-                    labelColor: primary,
-                    unselectedLabelColor: const Color(0xFF71717A),
-                    indicatorColor: primary,
-                    tabs: const [
-                      Tab(text: 'Chi tiết'),
-                      Tab(text: 'Tổng hợp'),
-                    ],
+            child: HrmFabClearance(
+              fabVisible: canCreateProduction,
+              extendedFab: true,
+              child: Column(
+                children: [
+                  Container(
+                    color: Colors.white,
+                    child: TabBar(
+                      controller: _tabCtl,
+                      labelColor: primary,
+                      unselectedLabelColor: const Color(0xFF71717A),
+                      indicatorColor: primary,
+                      tabs: const [
+                        Tab(text: 'Chi tiết'),
+                        Tab(text: 'Tổng hợp'),
+                      ],
+                    ),
                   ),
-                ),
-                Expanded(
-                  child: TabBarView(
-                    controller: _tabCtl,
-                    children: [
-                      _buildEntriesTab(),
-                      _buildSummaryTab(),
-                    ],
+                  Expanded(
+                    child: TabBarView(
+                      controller: _tabCtl,
+                      children: [
+                        _buildEntriesTab(),
+                        _buildSummaryTab(),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ],

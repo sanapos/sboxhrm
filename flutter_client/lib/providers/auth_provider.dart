@@ -197,7 +197,9 @@ class AuthProvider extends ChangeNotifier {
     _fetchAllowedModules().then((_) {
       if (_user != null) notifyListeners();
     });
-    GlobalLocationReporter.instance.start();
+    GlobalLocationReporter.instance.startIfEligible(
+      employeeId: _user?.employeeId ?? _user?.id,
+    );
     // ignore: discarded_futures
     FcmService.instance.registerForCurrentUser();
   }
@@ -284,7 +286,9 @@ class AuthProvider extends ChangeNotifier {
 
           // Start global location reporting for employees/managers so the
           // manager map can see real-time positions.
-          GlobalLocationReporter.instance.start();
+          GlobalLocationReporter.instance.startIfEligible(
+      employeeId: _user?.employeeId ?? _user?.id,
+    );
 
           // Register FCM device token (push notifications). Best-effort.
           // Also schedule a retry after 35s in case APNs token was not ready yet.

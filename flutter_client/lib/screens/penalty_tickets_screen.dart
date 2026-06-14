@@ -11,6 +11,8 @@ import '../widgets/hrm_responsive_list_layout.dart';
 import '../widgets/notification_overlay.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
+import '../utils/navigation_notifier.dart';
+import '../widgets/hrm_pushed_screen_shell.dart';
 
 /// Màn hình quản lý phiếu phạt
 class PenaltyTicketsScreen extends StatefulWidget {
@@ -69,11 +71,17 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
     super.initState();
     if (widget.initialFilterStatus != null) {
       _filterStatus = widget.initialFilterStatus;
-      // Show all time periods when opened with a status filter from dashboard
       _applyDatePreset('all', reload: false);
     } else {
-      _applyDatePreset('this_month', reload: false);
+      final fromNav = NavigationNotifier.penaltyTicketsFilterStatus.value;
+      if (fromNav != null) {
+        _filterStatus = fromNav;
+        _applyDatePreset('all', reload: false);
+      } else {
+        _applyDatePreset('this_month', reload: false);
+      }
     }
+    NavigationNotifier.penaltyTicketsFilterStatus.value = null;
     _loadData();
   }
 
@@ -151,11 +159,14 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
   bool _highlightOpened = false;
   void _maybeOpenHighlight() {
     if (_highlightOpened) return;
-    final id = widget.highlightId;
+    final id = widget.highlightId ??
+        NavigationNotifier.notificationHighlightId.value;
+    NavigationNotifier.notificationHighlightId.value = null;
     if (id == null || id.isEmpty) return;
     Map<String, dynamic>? match;
     for (final t in _tickets) {
-      if (t['id']?.toString() == id) {
+      final sid = id.toString();
+      if (t['id']?.toString() == sid || t['Id']?.toString() == sid) {
         match = t;
         break;
       }
@@ -1330,11 +1341,22 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
   @override
   Widget build(BuildContext context) {
     final isMobile = Responsive.isMobile(context);
+    final canCreateTicket =
+        Provider.of<PermissionProvider>(context, listen: false)
+            .canCreate('PenaltyTickets');
     return Scaffold(
       backgroundColor: const Color(0xFFFAFAFA),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
+        automaticallyImplyLeading: false,
+        leading: Navigator.canPop(context)
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back, color: Color(0xFF18181B)),
+                onPressed: () => Navigator.pop(context),
+                tooltip: 'Quay lại',
+              )
+            : null,
         title: const Text('Phiếu phạt',
             style: TextStyle(
                 color: Color(0xFF18181B), fontWeight: FontWeight.bold)),
@@ -1366,9 +1388,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
           const SizedBox(width: 4),
         ],
       ),
-      floatingActionButton: isMobile &&
-              Provider.of<PermissionProvider>(context, listen: false)
-                  .canCreate('PenaltyTickets')
+      floatingActionButton: isMobile && canCreateTicket
           ? FloatingActionButton(
               onPressed: () => _showTicketDialog(),
               backgroundColor: HrmPageChrome.primaryNavy,
@@ -1378,6 +1398,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : HrmResponsiveListLayout(
+              fabAware: isMobile && canCreateTicket,
               padding: const EdgeInsets.fromLTRB(0, 0, 0, 8),
               headerSections: _penaltyPageHeaderSections(isMobile),
               desktopBody: Column(

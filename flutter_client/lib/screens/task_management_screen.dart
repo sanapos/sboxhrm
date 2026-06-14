@@ -17,7 +17,9 @@ import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/hrm_fab_clearance.dart';
 import '../utils/navigation_notifier.dart';
+import '../utils/store_role_helper.dart';
 import 'task/task_assignment_tab.dart';
 
 // ==========================================================================
@@ -76,6 +78,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
   DateTime? _fromDate, _toDate;
   bool _isMyTasks = false;
   bool _isOverdueFilter = false;
+  bool _assignedByMeOnly = false;
   String? _filterBranchId;
   List<Map<String, dynamic>> _branches = [];
 
@@ -90,12 +93,14 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
   WorkTask? _detailTask;
   List<TaskComment> _comments = [];
   List<TaskHistory> _history = [];
+  List<TaskEvaluation> _evaluations = [];
   bool _detailLoading = false;
   final _commentCtrl = TextEditingController();
   final _detailScrollCtrl = ScrollController();
   String? _myEmployeeId;
   bool _isManager = false;
   VoidCallback? _highlightListener;
+  VoidCallback? _filterListener;
 
   @override
   void initState() {
@@ -114,6 +119,9 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
     };
     NavigationNotifier.notificationHighlightId
         .addListener(_highlightListener!);
+    _filterListener = _onExternalTaskNav;
+    NavigationNotifier.taskFilterStatusIndex.addListener(_filterListener!);
+    NavigationNotifier.taskFilterOverdueOnly.addListener(_filterListener!);
     _init();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _consumeNotificationHighlight();
@@ -126,6 +134,10 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
     if (_highlightListener != null) {
       NavigationNotifier.notificationHighlightId
           .removeListener(_highlightListener!);
+    }
+    if (_filterListener != null) {
+      NavigationNotifier.taskFilterStatusIndex.removeListener(_filterListener!);
+      NavigationNotifier.taskFilterOverdueOnly.removeListener(_filterListener!);
     }
     _tabCtrl.dispose();
     _commentCtrl.dispose();
@@ -147,13 +159,50 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
     }
   }
 
-  bool _isManagerRole() {
-    final role =
-        Provider.of<AuthProvider>(context, listen: false).userRole;
-    return role == 'Admin' ||
-        role == 'Manager' ||
-        role == 'StoreOwner' ||
-        role == 'SuperAdmin';
+  bool _isManagerRole() =>
+      StoreRoleHelper.isManagerOrAbove(
+          Provider.of<AuthProvider>(context, listen: false).userRole);
+
+  bool _canDeleteTaskGlobally() =>
+      Provider.of<PermissionProvider>(context, listen: false).canDelete('Task');
+
+  bool _canEditTaskGlobally() =>
+      Provider.of<PermissionProvider>(context, listen: false).canEdit('Task');
+
+  bool _canEvaluateTask(WorkTask t) =>
+      _canManageTaskMetadata(t) ||
+      Provider.of<PermissionProvider>(context, listen: false)
+          .canApprove('Task');
+
+  bool _canDragKanban() => _isManager || _canEditTaskGlobally();
+
+  bool _consumeExternalTaskFilters() {
+    var changed = false;
+    if (NavigationNotifier.taskFilterOverdueOnly.value) {
+      _isOverdueFilter = true;
+      _statusFilter = null;
+      _assignedByMeOnly = false;
+      NavigationNotifier.taskFilterOverdueOnly.value = false;
+      changed = true;
+    }
+    final statusIdx = NavigationNotifier.taskFilterStatusIndex.value;
+    if (statusIdx >= 0 && statusIdx < WorkTaskStatus.values.length) {
+      _statusFilter = WorkTaskStatus.values[statusIdx];
+      _isOverdueFilter = false;
+      _assignedByMeOnly = false;
+      NavigationNotifier.taskFilterStatusIndex.value = -1;
+      changed = true;
+    }
+    return changed;
+  }
+
+  void _onExternalTaskNav() {
+    if (!mounted) return;
+    if (!_consumeExternalTaskFilters()) return;
+    setState(() => _page = 1);
+    if (_tabCtrl.index != 0) _tabCtrl.animateTo(0);
+    _loadTasks();
+    _loadStats();
   }
 
   bool _isTaskAssignee(WorkTask t) {
@@ -266,13 +315,16 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
     if (widget.initialStatus != null) {
       _statusFilter = widget.initialStatus;
     }
+    _consumeExternalTaskFilters();
     if (widget.initialOverdueOnly) {
       _isOverdueFilter = true;
       _statusFilter = null;
     }
     final empResp = await _api.getMyEmployee();
     if (empResp['isSuccess'] == true && empResp['data'] != null) {
-      _myEmployeeId = empResp['data']['id']?.toString();
+      final data = empResp['data'] as Map<String, dynamic>;
+      _myEmployeeId =
+          (data['id'] ?? data['Id'])?.toString();
     }
     await Future.wait([_loadEmployees(), _loadTasks(), _loadStats()]);
     if (mounted) {
@@ -311,16 +363,27 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
     bool overdue = false,
     bool toggle = true,
     bool clearFilters = false,
+    bool assignedByMe = false,
   }) {
     setState(() {
       if (clearFilters) {
         _isOverdueFilter = false;
         _statusFilter = null;
+        _assignedByMeOnly = false;
+      } else if (assignedByMe) {
+        _assignedByMeOnly = true;
+        _isOverdueFilter = false;
+        _statusFilter = null;
+        _isMyTasks = false;
       } else if (overdue) {
         _isOverdueFilter = toggle && _isOverdueFilter ? false : true;
-        if (_isOverdueFilter) _statusFilter = null;
+        if (_isOverdueFilter) {
+          _statusFilter = null;
+          _assignedByMeOnly = false;
+        }
       } else if (status != null) {
         _isOverdueFilter = false;
+        _assignedByMeOnly = false;
         _statusFilter = toggle && _statusFilter == status ? null : status;
       }
       _page = 1;
@@ -351,7 +414,9 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
         setState(() => _branches =
             bd.map((b) => Map<String, dynamic>.from(b as Map)).toList());
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('load branches failed: $e');
+    }
   }
 
   Future<void> _loadTasks() async {
@@ -377,6 +442,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
         toDate: _toDate,
         isOverdue: _isOverdueFilter ? true : null,
         branchId: _filterBranchId,
+        onlyAssignedByMe: _assignedByMeOnly ? true : null,
       );
     }
     if (r['isSuccess'] == true && r['data'] != null) {
@@ -390,6 +456,11 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
           _total = d['totalCount'] ?? 0;
         });
       }
+    } else if (mounted) {
+      _snack(
+          context,
+          (r['message'] ?? 'Không tải được danh sách công việc').toString(),
+          Colors.red);
     }
   }
 
@@ -402,6 +473,8 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
     );
     if (r['isSuccess'] == true && r['data'] != null && mounted) {
       setState(() => _kanban = KanbanBoard.fromJson(r['data']));
+    } else if (mounted && r['isSuccess'] != true) {
+      _snack(context, (r['message'] ?? 'Không tải Kanban').toString(), Colors.red);
     }
   }
 
@@ -413,27 +486,53 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
     );
     if (r['isSuccess'] == true && r['data'] != null && mounted) {
       setState(() => _stats = TaskStatistics.fromJson(r['data']));
+    } else if (mounted && r['isSuccess'] != true) {
+      _snack(context, (r['message'] ?? 'Không tải thống kê').toString(), Colors.red);
     }
   }
 
   Future<void> _loadDetail(String taskId) async {
+    if (taskId.isEmpty) {
+      if (mounted) {
+        _snack(context, 'Không tìm thấy ID công việc', Colors.red);
+      }
+      return;
+    }
     setState(() => _detailLoading = true);
     final r = await _api.getTaskById(taskId);
     if (r['isSuccess'] == true && r['data'] != null) {
-      final t = WorkTask.fromJson(r['data']);
+      final t = WorkTask.fromJson(Map<String, dynamic>.from(r['data']));
       final hr = await _api.getTaskHistory(taskId);
+      final ev = await _api.getTaskEvaluations(taskId);
       if (mounted) {
         setState(() {
           _detailTask = t;
           _comments = t.comments ?? [];
           final hList = hr['data'] as List? ?? [];
           _history = hList.map((e) => TaskHistory.fromJson(e)).toList();
+          if (ev['isSuccess'] == true && ev['data'] is List) {
+            _evaluations = (ev['data'] as List)
+                .map((e) => TaskEvaluation.fromJson(
+                    Map<String, dynamic>.from(e as Map)))
+                .toList();
+          } else {
+            _evaluations = [];
+          }
           _detailLoading = false;
         });
         _syncDetailBackCallback();
       }
     } else {
-      if (mounted) setState(() => _detailLoading = false);
+      if (mounted) {
+        setState(() {
+          _detailLoading = false;
+          _evaluations = [];
+        });
+        _snack(
+            context,
+            (r['message'] ?? 'Không tải được chi tiết công việc').toString(),
+            Colors.red);
+      }
     }
   }
 
@@ -444,6 +543,10 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
     final isMobile = w <= 900;
     final showDesktopDetail = !isMobile && _detailTask != null;
     final showMobileDetail = isMobile && _detailTask != null;
+    final canCreateTask = !showMobileDetail &&
+        isMobile &&
+        Provider.of<PermissionProvider>(context, listen: false)
+            .canCreate('Task');
 
     return Scaffold(
       backgroundColor: HrmPageChrome.background,
@@ -451,11 +554,13 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
         children: [
           if (!showMobileDetail) _buildHeader(),
           Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : showMobileDetail
-                    ? _buildDetailPanel()
-                    : Row(
+            child: HrmFabClearance(
+              fabVisible: canCreateTask,
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : showMobileDetail
+                      ? _buildDetailPanel()
+                      : Row(
                         children: [
                           // ========== MAIN CONTENT ==========
                           Expanded(
@@ -475,6 +580,17 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                                     _loadDetail(t.id);
                                   },
                                   onFilterList: _navigateToFilteredList,
+                                  onFilterByAssignee: (employeeId) {
+                                    setState(() {
+                                      _assigneeFilter = employeeId;
+                                      _assignedByMeOnly = false;
+                                      _page = 1;
+                                    });
+                                    if (_tabCtrl.index != 0) {
+                                      _tabCtrl.animateTo(0);
+                                    }
+                                    _loadTasks();
+                                  },
                                   onRefreshParent: _reloadScopedData,
                                 ),
                               ],
@@ -487,6 +603,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                           ],
                         ],
                       ),
+            ),
           ),
         ],
       ),
@@ -517,6 +634,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
     if (_filterBranchId != null) n++;
     if (_isMyTasks) n++;
     if (_isOverdueFilter) n++;
+    if (_assignedByMeOnly) n++;
     if (_search != null && _search!.isNotEmpty) n++;
     return n;
   }
@@ -938,6 +1056,32 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
             visualDensity: VisualDensity.compact,
           ),
           const SizedBox(width: 6),
+          FilterChip(
+            label: Text('Quá hạn',
+                style: TextStyle(
+                    fontSize: 12,
+                    color: _isOverdueFilter ? Colors.white : const Color(0xFFEF4444))),
+            selected: _isOverdueFilter,
+            onSelected: (_) {
+              setState(() {
+                _isOverdueFilter = !_isOverdueFilter;
+                if (_isOverdueFilter) {
+                  _statusFilter = null;
+                  _assignedByMeOnly = false;
+                }
+                _page = 1;
+              });
+              _loadTasks();
+            },
+            avatar: Icon(Icons.warning_amber_rounded,
+                size: 16,
+                color: _isOverdueFilter ? Colors.white : const Color(0xFFEF4444)),
+            backgroundColor: const Color(0xFFEF4444).withValues(alpha: 0.08),
+            selectedColor: const Color(0xFFEF4444),
+            checkmarkColor: Colors.white,
+            visualDensity: VisualDensity.compact,
+          ),
+          const SizedBox(width: 6),
           _chip(
               _statusFilter != null
                   ? getTaskStatusLabel(_statusFilter!)
@@ -1254,6 +1398,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
       _toDate = null;
       _isMyTasks = false;
       _isOverdueFilter = false;
+      _assignedByMeOnly = false;
       _filterBranchId = null;
     });
     _reloadScopedData();
@@ -1444,6 +1589,13 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
     final canEdit = _canManageTaskMetadata(t);
     final canDelete = Provider.of<PermissionProvider>(context, listen: false)
         .canDelete('Task');
+    final canProgress =
+        _canUpdateProgressAsAssignee(t) || _canManageTaskMetadata(t);
+    final canStatus = canEdit || _canEditTaskGlobally();
+    final canRemind = _canManageTaskMetadata(t);
+    final canEvaluate = _canEvaluateTask(t) &&
+        (t.status == WorkTaskStatus.completed ||
+            t.status == WorkTaskStatus.inReview);
     showAppSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -1508,6 +1660,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                 _showEditDialog(t);
               },
             ),
+          if (canProgress)
           ListTile(
             leading: const Icon(Icons.trending_up, color: HrmPageChrome.primaryNavy),
             title: const Text('Cập nhật tiến độ'),
@@ -1517,6 +1670,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
               _updateProgress(t.id, t.progress);
             },
           ),
+          if (canStatus)
           ListTile(
             leading: const Icon(Icons.swap_horiz, color: HrmPageChrome.primaryNavy),
             title: const Text('Đổi trạng thái'),
@@ -1526,6 +1680,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
               _showStatusChangeSheet(t);
             },
           ),
+          if (canRemind)
           ListTile(
             leading: const Icon(Icons.notifications_active,
                 color: Color(0xFFF59E0B)),
@@ -1536,6 +1691,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
               _showReminderDialog(t);
             },
           ),
+          if (canEvaluate)
           ListTile(
             leading: const Icon(Icons.star_rate, color: Color(0xFFF59E0B)),
             title: const Text('Đánh giá'),
@@ -1987,7 +2143,8 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
           ),
           Expanded(
             child: DragTarget<WorkTask>(
-              onWillAcceptWithDetails: (d) => d.data.status != col.status,
+              onWillAcceptWithDetails: (d) =>
+                  _canDragKanban() && d.data.status != col.status,
               onAcceptWithDetails: (d) => _updateStatus(d.data.id, col.status),
               builder: (ctx, candidate, _) => Container(
                 decoration: BoxDecoration(
@@ -2002,6 +2159,8 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                   itemCount: col.tasks.length,
                   itemBuilder: (_, i) {
                     final t = col.tasks[i];
+                    final card = _buildKanbanCard(t);
+                    if (!_canDragKanban()) return card;
                     return Draggable<WorkTask>(
                       data: t,
                       feedback: Material(
@@ -2011,7 +2170,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                               SizedBox(width: 280, child: _buildKanbanCard(t))),
                       childWhenDragging:
                           Opacity(opacity: 0.3, child: _buildKanbanCard(t)),
-                      child: _buildKanbanCard(t),
+                      child: card,
                     );
                   },
                 ),
@@ -2389,13 +2548,12 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
     final t = _detailTask!;
     final isMobile = Responsive.isMobile(context);
     final deadlineInfo = _getDeadlineInfo(t);
-    final canManage = _canManageTaskMetadata(t);
+    final canManage = _canManageTaskMetadata(t) || _canEditTaskGlobally();
     final canProgress = canManage || _canUpdateProgressAsAssignee(t);
+    final canEvaluate = _canEvaluateTask(t);
     final needsAccept =
         t.status == WorkTaskStatus.assigned && _isTaskAssignee(t);
-    final canDelete = canManage &&
-        Provider.of<PermissionProvider>(context, listen: false)
-            .canDelete('Task');
+    final canDelete = _canDeleteTaskGlobally();
 
     return Container(
       color: Colors.white,
@@ -2554,17 +2712,30 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                           ),
                           const SizedBox(width: 8),
                           Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: () => _rejectTask(t),
-                              icon: const Icon(Icons.close, size: 18),
-                              label: const Text('Từ chối'),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.red,
-                                side: const BorderSide(color: Colors.red),
+                            child: FilledButton.icon(
+                              onPressed: () => _acceptTask(t, startNow: true),
+                              icon: const Icon(Icons.play_arrow_rounded,
+                                  size: 18),
+                              label: const Text('Nhận & bắt đầu'),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: const Color(0xFF059669),
                               ),
                             ),
                           ),
                         ]),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: () => _rejectTask(t),
+                            icon: const Icon(Icons.close, size: 18),
+                            label: const Text('Từ chối'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.red,
+                              side: const BorderSide(color: Colors.red),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -2665,7 +2836,19 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                               attachmentCount: t.attachmentCount,
                             );
                           }),
-                          onChangeEnd: (v) => _updateProgress(t.id, v.toInt()),
+                          onChangeEnd: (v) async {
+                            final r = await _api.updateTaskProgress(
+                                t.id, {'progress': v.toInt()});
+                            if (!mounted) return;
+                            if (r['isSuccess'] == true) {
+                              _loadDetail(t.id);
+                              _loadTasks();
+                              _loadStats();
+                            } else {
+                              _snack(context,
+                                  r['message'] ?? 'Lỗi cập nhật tiến độ', Colors.red);
+                            }
+                          },
                         ),
                       ),
                       SizedBox(
@@ -2849,7 +3032,8 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                   const SizedBox(height: 16),
                 ],
                 // ── Đánh giá (Evaluation Display) ──
-                if (canManage) _buildEvaluationSection(t),
+                if (canManage || canEvaluate)
+                  _buildEvaluationSection(t, canEvaluate),
                 _buildActivitySection(),
                 const SizedBox(height: 12),
                 _buildAuditHistorySection(),
@@ -2862,8 +3046,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
   }
 
   // ── Evaluation Section in Detail Panel ──
-  Widget _buildEvaluationSection(WorkTask t) {
-    // Show evaluation if task has any
+  Widget _buildEvaluationSection(WorkTask t, bool canEvaluate) {
     if (t.status != WorkTaskStatus.completed &&
         t.status != WorkTaskStatus.inReview) {
       return const SizedBox.shrink();
@@ -2874,35 +3057,81 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
         Row(children: [
           _detailLabel('Đánh giá'),
           const Spacer(),
-          TextButton.icon(
-            onPressed: () => _showEvaluationDialog(t),
-            icon:
-                const Icon(Icons.star_rate, size: 14, color: Color(0xFFF59E0B)),
-            label: const Text('Đánh giá',
-                style: TextStyle(fontSize: 11, color: Color(0xFFF59E0B))),
-            style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                minimumSize: const Size(0, 28)),
-          ),
+          if (canEvaluate)
+            TextButton.icon(
+              onPressed: () => _showEvaluationDialog(t),
+              icon: const Icon(Icons.star_rate,
+                  size: 14, color: Color(0xFFF59E0B)),
+              label: const Text('Đánh giá',
+                  style: TextStyle(fontSize: 11, color: Color(0xFFF59E0B))),
+              style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  minimumSize: const Size(0, 28)),
+            ),
         ]),
         const SizedBox(height: 6),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: const Color(0xFFFFFBEB),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-                color: const Color(0xFFF59E0B).withValues(alpha: 0.2)),
-          ),
-          child: const Row(children: [
-            Icon(Icons.info_outline, size: 16, color: Color(0xFFF59E0B)),
-            SizedBox(width: 8),
-            Expanded(
-                child: Text(
-                    'Nhấn "Đánh giá" để chấm điểm chất lượng, tiến độ và tổng thể (1-5 sao)',
-                    style: TextStyle(fontSize: 12, color: Color(0xFF92400E)))),
-          ]),
-        ),
+        if (_evaluations.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFFBEB),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                  color: const Color(0xFFF59E0B).withValues(alpha: 0.2)),
+            ),
+            child: Row(children: [
+              const Icon(Icons.info_outline, size: 16, color: Color(0xFFF59E0B)),
+              const SizedBox(width: 8),
+              Expanded(
+                  child: Text(
+                      canEvaluate
+                          ? 'Chưa có đánh giá — nhấn "Đánh giá" để chấm điểm (1-5 sao)'
+                          : 'Chưa có đánh giá cho công việc này',
+                      style: const TextStyle(
+                          fontSize: 12, color: Color(0xFF92400E)))),
+            ]),
+          )
+        else
+          ..._evaluations.map((e) => Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                      color: const Color(0xFFF59E0B).withValues(alpha: 0.2)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      Expanded(
+                        child: Text(
+                          e.evaluatorName ?? 'Người đánh giá',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w600, fontSize: 13),
+                        ),
+                      ),
+                      Text(
+                        DateFormat('dd/MM/yyyy HH:mm').format(e.createdAt),
+                        style: const TextStyle(
+                            fontSize: 11, color: Color(0xFF71717A)),
+                      ),
+                    ]),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Chất lượng ${e.qualityScore}/5 · Tiến độ ${e.timelinessScore}/5 · Tổng ${e.overallScore}/5',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    if (e.comment != null && e.comment!.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(e.comment!,
+                          style: const TextStyle(
+                              fontSize: 12, color: Color(0xFF52525B))),
+                    ],
+                  ],
+                ),
+              )),
         const SizedBox(height: 16),
       ],
     );

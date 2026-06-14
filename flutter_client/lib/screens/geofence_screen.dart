@@ -6,6 +6,7 @@ import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/hrm_fab_clearance.dart';
 
 class GeofenceScreen extends StatefulWidget {
   const GeofenceScreen({super.key});
@@ -80,11 +81,15 @@ class _GeofenceScreenState extends State<GeofenceScreen> {
         children: [
           _buildHeader(),
           Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _geofences.isEmpty
-                    ? _buildEmptyState()
-                    : _buildGeofenceGrid(),
+            child: HrmFabClearance(
+              fabVisible: _perm.canCreate('Geofence'),
+              extendedFab: true,
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _geofences.isEmpty
+                      ? _buildEmptyState()
+                      : _buildGeofenceGrid(),
+            ),
           ),
         ],
       ),

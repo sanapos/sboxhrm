@@ -22,6 +22,8 @@ public class RegisterCommandHandler(
     IRepository<Holiday> holidayRepository,
     IRepository<PenaltySetting> penaltySettingRepository,
     IRepository<Allowance> allowanceRepository,
+    IRepository<Permission> permissionRepository,
+    IRepository<RolePermission> rolePermissionRepository,
     IRepository<Agent> agentRepository,
     IRepository<ServicePackage> servicePackageRepository,
     IEmailService emailService,
@@ -167,6 +169,19 @@ public class RegisterCommandHandler(
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Could not seed default settings for store {StoreId}", storeId);
+        }
+
+        try
+        {
+            await StoreDefaultSetupSeeder.SeedRolePermissionsIfEmptyAsync(
+                permissionRepository,
+                rolePermissionRepository,
+                storeId,
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Could not seed default role permissions for store {StoreId}", storeId);
         }
 
         // 5. Gửi email chào mừng với thông tin tài khoản

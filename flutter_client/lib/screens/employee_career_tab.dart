@@ -7,6 +7,7 @@ import '../services/api_service.dart';
 import '../models/employee.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../utils/responsive_helper.dart';
 
 // ═══════════════════════════════════════════════════════════════
 // QUẢN LÝ QUÁ TRÌNH CÔNG TÁC CỦA NHÂN VIÊN
@@ -632,7 +633,12 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
           : _positionHistory.isEmpty
               ? _buildEmpty('Chưa có lịch sử chức vụ')
               : ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 80),
+                  padding: Responsive.fabListInsets(
+                    context,
+                    base: const EdgeInsets.all(12),
+                    enabled: canEdit,
+                    extendedFab: true,
+                  ),
                   itemCount: _positionHistory.length,
                   itemBuilder: (_, i) =>
                       _buildPositionCard(_positionHistory[i]),
@@ -773,7 +779,12 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
           : _departmentHistory.isEmpty
               ? _buildEmpty('Chưa có lịch sử phòng ban')
               : ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 80),
+                  padding: Responsive.fabListInsets(
+                    context,
+                    base: const EdgeInsets.all(12),
+                    enabled: canEdit,
+                    extendedFab: true,
+                  ),
                   itemCount: _departmentHistory.length,
                   itemBuilder: (_, i) =>
                       _buildDepartmentCard(_departmentHistory[i]),
@@ -890,7 +901,12 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
           : _awards.isEmpty
               ? _buildEmpty('Chưa có ghi nhận khen thưởng')
               : ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 80),
+                  padding: Responsive.fabListInsets(
+                    context,
+                    base: const EdgeInsets.all(12),
+                    enabled: canEdit,
+                    extendedFab: true,
+                  ),
                   itemCount: _awards.length,
                   itemBuilder: (_, i) =>
                       _buildDocumentCard(_awards[i], isDiscipline: false),
@@ -917,7 +933,12 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
           : _disciplines.isEmpty
               ? _buildEmpty('Chưa có ghi nhận kỷ luật')
               : ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 80),
+                  padding: Responsive.fabListInsets(
+                    context,
+                    base: const EdgeInsets.all(12),
+                    enabled: canEdit,
+                    extendedFab: true,
+                  ),
                   itemCount: _disciplines.length,
                   itemBuilder: (_, i) =>
                       _buildDocumentCard(_disciplines[i], isDiscipline: true),

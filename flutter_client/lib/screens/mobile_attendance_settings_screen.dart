@@ -122,19 +122,31 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
     var list = _searchMatchedDevices;
     switch (_deviceOutsideFilter) {
       case _DeviceOutsideCheckInFilter.outsideOn:
-        return list.where((d) => d.allowOutsideCheckIn).toList();
+        return list.where((d) => d.allowOutsideCheckIn && d.isAuthorized).toList();
       case _DeviceOutsideCheckInFilter.outsideOff:
-        return list.where((d) => !d.allowOutsideCheckIn).toList();
+        return list.where((d) => !d.allowOutsideCheckIn || !d.isAuthorized).toList();
       case _DeviceOutsideCheckInFilter.all:
         return list;
     }
   }
 
-  int get _deviceCountOutsideOn =>
-      _searchMatchedDevices.where((d) => d.allowOutsideCheckIn).length;
+  List<AuthorizedDevice> get _authorizedOutsideDevices => _searchMatchedDevices
+      .where((d) => d.allowOutsideCheckIn && d.isAuthorized)
+      .toList();
+
+  int get _deviceCountOutsideOn => _authorizedOutsideDevices.length;
+
+  int get _uniqueEmployeeCountOutsideOn {
+    final ids = <String>{};
+    for (final d in _authorizedOutsideDevices) {
+      final id = d.employeeId?.trim();
+      if (id != null && id.isNotEmpty) ids.add(id.toLowerCase());
+    }
+    return ids.length;
+  }
 
   int get _deviceCountOutsideOff =>
-      _searchMatchedDevices.where((d) => !d.allowOutsideCheckIn).length;
+      _searchMatchedDevices.where((d) => !d.allowOutsideCheckIn || !d.isAuthorized).length;
 
   bool get _hasActiveDeviceOutsideFilter =>
       _deviceOutsideFilter != _DeviceOutsideCheckInFilter.all;
@@ -2150,7 +2162,9 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                 ),
                 const SizedBox(width: 8),
                 _buildDeviceOutsideFilterChip(
-                  label: 'Ngoài CT',
+                  label: _uniqueEmployeeCountOutsideOn > 0
+                      ? 'Ngoài CT · $_uniqueEmployeeCountOutsideOn NV'
+                      : 'Ngoài CT',
                   count: _deviceCountOutsideOn,
                   filter: _DeviceOutsideCheckInFilter.outsideOn,
                   color: const Color(0xFF2563EB),
@@ -3426,22 +3440,17 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
   Future<void> _toggleAllowOutsideCheckIn(AuthorizedDevice device) async {
     final newValue = !device.allowOutsideCheckIn;
     try {
-      final response = await _apiService.authorizeDevice(
-        deviceId: device.deviceId,
-        deviceName: device.deviceName,
-        deviceModel: device.deviceModel,
-        employeeId: device.employeeId ?? '',
-        employeeName: device.employeeName ?? '',
-        canUseFaceId: device.canUseFaceId,
-        canUseGps: device.canUseGps,
+      final response = await _apiService.setDeviceAllowOutsideCheckIn(
+        deviceRecordId: device.id,
         allowOutsideCheckIn: newValue,
-        requirePhotoProof: device.requirePhotoProof,
       );
       if (mounted) {
         if (response['isSuccess'] == true) {
           appNotification.showSuccess(
             title: 'Thành công',
-            message: newValue ? 'Đã cho phép chấm công ngoài công ty' : 'Đã tắt chấm công ngoài công ty',
+            message: newValue
+                ? 'Đã cho phép chấm công ngoài công ty'
+                : 'Đã tắt chấm công ngoài công ty — NV sẽ biến mất khỏi Bản đồ nhân sự',
           );
           _loadData();
         } else {

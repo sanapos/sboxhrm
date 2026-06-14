@@ -11,6 +11,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../models/mobile_attendance.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
+import '../services/global_location_reporter.dart';
 import '../services/face_storage_service.dart';
 import '../services/face_embedding_service_stub.dart'
     if (dart.library.io) '../services/face_embedding_service.dart';
@@ -156,6 +157,9 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     if (state == AppLifecycleState.resumed) {
       _loadDeviceStatus();
       _loadSettings();
+      GlobalLocationReporter.instance.startIfEligible(
+        employeeId: _employeeId.isNotEmpty ? _employeeId : null,
+      );
     }
   }
 
@@ -263,6 +267,11 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
               );
             }
           });
+          if (_allowOutsideCheckIn && _isDeviceApproved) {
+            GlobalLocationReporter.instance.startIfEligible(
+        employeeId: _employeeId.isNotEmpty ? _employeeId : null,
+      );
+          }
         }
 
         final faceImages = data['faceImages'];

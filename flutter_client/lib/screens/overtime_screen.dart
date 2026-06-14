@@ -107,6 +107,9 @@ class _OvertimeScreenState extends State<OvertimeScreen>
   @override
   Widget build(BuildContext context) {
     final isMobile = Responsive.isMobile(context);
+    final canCreateOvertime =
+        Provider.of<PermissionProvider>(context, listen: false)
+            .canCreate('Overtime');
     return Scaffold(
       backgroundColor: const Color(0xFFF0F4F8),
       body: Column(
@@ -115,6 +118,8 @@ class _OvertimeScreenState extends State<OvertimeScreen>
           Expanded(
             child: isMobile
                 ? HrmMobileNestedTabLayout(
+                    fabAware: canCreateOvertime,
+                    extendedFab: true,
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     headerSections: _overtimeHeaderSections(),
                     tabBar: TabBar(

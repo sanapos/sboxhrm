@@ -223,7 +223,28 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                         ),
                       ] else
                         const Spacer(),
-                      if (_perm.canCreate('UserManagement'))
+                      if (_perm.canCreate('UserManagement')) ...[
+                        if (_employeesAvailableForAccount.isNotEmpty) ...[
+                          if (Responsive.isMobile(context))
+                            IconButton(
+                              onPressed: () => _showBulkAccountDialog(),
+                              icon: const Icon(Icons.group_add,
+                                  color: HrmPageChrome.primaryNavy, size: 22),
+                              tooltip: 'Đăng ký hàng loạt',
+                            )
+                          else
+                            OutlinedButton.icon(
+                              onPressed: () => _showBulkAccountDialog(),
+                              icon: const Icon(Icons.group_add, size: 18),
+                              label: const Text('Đăng ký hàng loạt'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: HrmPageChrome.primaryNavy,
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 12),
+                              ),
+                            ),
+                          const SizedBox(width: 8),
+                        ],
                         if (Responsive.isMobile(context))
                           IconButton(
                             onPressed: () => _showAccountDialog(),
@@ -242,6 +263,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                                   horizontal: 20, vertical: 12),
                             ),
                           ),
+                      ],
                     ],
                   ),
                   const SizedBox(height: 24),
@@ -2005,6 +2027,344 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
             child: const Text('Xóa'),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showBulkAccountDialog() {
+    final availableEmployees = _employeesAvailableForAccount;
+    if (availableEmployees.isEmpty) {
+      appNotification.showWarning(
+        title: 'Không có nhân viên',
+        message: 'Tất cả nhân viên đã có tài khoản',
+      );
+      return;
+    }
+
+    final passwordController = TextEditingController();
+    final confirmPasswordController = TextEditingController();
+    final searchController = TextEditingController();
+    final selectedIds = <String>{};
+    String selectedRole = 'Employee';
+    bool showPassword = false;
+    bool showConfirmPassword = false;
+    bool isSubmitting = false;
+
+    const roles = [
+      {'value': 'Employee', 'label': 'Nhân viên'},
+      {'value': 'User', 'label': 'Người dùng'},
+      {'value': 'Accountant', 'label': 'Kế toán'},
+      {'value': 'DepartmentHead', 'label': 'Trưởng phòng'},
+      {'value': 'Manager', 'label': 'Quản lý'},
+    ];
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final isMobile = Responsive.isMobile(context);
+          final query = searchController.text.trim().toLowerCase();
+          final filtered = availableEmployees.where((emp) {
+            if (query.isEmpty) return true;
+            final code = emp['employeeCode']?.toString().toLowerCase() ?? '';
+            final name =
+                '${emp['lastName'] ?? ''} ${emp['firstName'] ?? ''}'.trim().toLowerCase();
+            return code.contains(query) || name.contains(query);
+          }).toList();
+          final filteredIds = filtered
+              .map((e) => e['id']?.toString() ?? '')
+              .where((id) => id.isNotEmpty)
+              .toSet();
+          final allFilteredSelected = filteredIds.isNotEmpty &&
+              filteredIds.every(selectedIds.contains);
+
+          Future<void> onSubmit() async {
+            if (selectedIds.isEmpty) {
+              appNotification.showWarning(
+                title: 'Chưa chọn nhân viên',
+                message: 'Vui lòng chọn ít nhất một nhân viên',
+              );
+              return;
+            }
+            if (passwordController.text.isEmpty) {
+              appNotification.showWarning(
+                title: 'Thiếu mật khẩu',
+                message: 'Vui lòng nhập mật khẩu chung',
+              );
+              return;
+            }
+            if (passwordController.text != confirmPasswordController.text) {
+              appNotification.showWarning(
+                title: 'Mật khẩu không khớp',
+                message: 'Vui lòng nhập lại mật khẩu',
+              );
+              return;
+            }
+            if (passwordController.text.length < 6) {
+              appNotification.showWarning(
+                title: 'Mật khẩu yếu',
+                message: 'Mật khẩu tối thiểu 6 ký tự',
+              );
+              return;
+            }
+
+            setDialogState(() => isSubmitting = true);
+            try {
+              final response = await _apiService.createBulkAccounts(
+                employeeIds: selectedIds.toList(),
+                password: passwordController.text,
+                role: selectedRole,
+              );
+              if (!context.mounted) return;
+              Navigator.pop(dialogContext);
+              await _loadAccounts();
+              if (!mounted) return;
+
+              if (response['isSuccess'] == true) {
+                final data = response['data'] as Map<String, dynamic>? ?? {};
+                final created = data['created'] ?? 0;
+                final failed = data['failed'] ?? 0;
+                final skipped = data['skipped'] ?? 0;
+                appNotification.showSuccess(
+                  title: 'Đăng ký hàng loạt',
+                  message:
+                      'Thành công $created, bỏ qua $skipped, lỗi $failed. '
+                      'Nhân viên đăng nhập bằng email hoặc SĐT có trong hồ sơ (chỉ cần 1 trong 2).',
+                );
+              } else {
+                appNotification.showError(
+                  title: 'Lỗi',
+                  message: response['message']?.toString() ??
+                      'Không thể đăng ký hàng loạt',
+                );
+              }
+            } catch (e) {
+              if (mounted) {
+                appNotification.showError(title: 'Lỗi', message: '$e');
+              }
+            } finally {
+              if (context.mounted) {
+                setDialogState(() => isSubmitting = false);
+              }
+            }
+          }
+
+          Widget buildEmployeeList(double height) {
+            return SizedBox(
+              height: height,
+              child: filtered.isEmpty
+                  ? const Center(
+                      child: Text('Không tìm thấy nhân viên',
+                          style: TextStyle(color: Color(0xFF71717A))),
+                    )
+                  : ListView.builder(
+                      itemCount: filtered.length,
+                      itemBuilder: (_, index) {
+                        final emp = filtered[index];
+                        final id = emp['id']?.toString() ?? '';
+                        final code = emp['employeeCode']?.toString() ?? '—';
+                        final name =
+                            '${emp['lastName'] ?? ''} ${emp['firstName'] ?? ''}'
+                                .trim();
+                        final email = (emp['companyEmail'] ??
+                                emp['personalEmail'] ??
+                                '')
+                            .toString()
+                            .trim();
+                        final phone =
+                            emp['phoneNumber']?.toString().trim() ?? '';
+                        final subtitleParts = <String>[
+                          'Mã NV: $code',
+                          if (email.isNotEmpty) email,
+                          if (phone.isNotEmpty) phone,
+                          if (email.isEmpty && phone.isEmpty)
+                            '⚠ Thiếu email và SĐT',
+                        ];
+                        final checked = selectedIds.contains(id);
+                        return CheckboxListTile(
+                          value: checked,
+                          onChanged: id.isEmpty
+                              ? null
+                              : (v) {
+                                  setDialogState(() {
+                                    if (v == true) {
+                                      selectedIds.add(id);
+                                    } else {
+                                      selectedIds.remove(id);
+                                    }
+                                  });
+                                },
+                          title: Text(name.isEmpty ? code : name,
+                              style: const TextStyle(
+                                  fontSize: 14, fontWeight: FontWeight.w600)),
+                          subtitle: Text(subtitleParts.join(' · '),
+                              style: const TextStyle(fontSize: 12)),
+                          controlAffinity: ListTileControlAffinity.leading,
+                          dense: true,
+                        );
+                      },
+                    ),
+            );
+          }
+
+          final formContent = Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Chọn nhiều nhân viên, dùng chung 1 mật khẩu và 1 quyền. '
+                'Mỗi người chỉ cần có email hoặc SĐT trong hồ sơ HR để đăng nhập '
+                '(báo lỗi nếu thiếu cả hai). Nhân viên có thể đổi mật khẩu sau khi đăng nhập.',
+                style: TextStyle(color: Colors.grey[600], fontSize: 12),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: searchController,
+                onChanged: (_) => setDialogState(() {}),
+                decoration: InputDecoration(
+                  hintText: 'Tìm theo tên hoặc mã NV...',
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  isDense: true,
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  TextButton.icon(
+                    onPressed: filteredIds.isEmpty
+                        ? null
+                        : () {
+                            setDialogState(() {
+                              if (allFilteredSelected) {
+                                selectedIds.removeAll(filteredIds);
+                              } else {
+                                selectedIds.addAll(filteredIds);
+                              }
+                            });
+                          },
+                    icon: Icon(allFilteredSelected
+                        ? Icons.deselect
+                        : Icons.select_all),
+                    label: Text(allFilteredSelected
+                        ? 'Bỏ chọn'
+                        : 'Chọn tất cả (${filtered.length})'),
+                  ),
+                  const Spacer(),
+                  Text('Đã chọn: ${selectedIds.length}',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: HrmPageChrome.primaryNavy)),
+                ],
+              ),
+              buildEmployeeList(isMobile ? 180 : 240),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: selectedRole,
+                decoration: InputDecoration(
+                  labelText: 'Quyền hạn chung',
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                ),
+                items: roles
+                    .map((r) => DropdownMenuItem<String>(
+                          value: r['value'] as String,
+                          child: Text(r['label'] as String),
+                        ))
+                    .toList(),
+                onChanged: (v) {
+                  if (v != null) setDialogState(() => selectedRole = v);
+                },
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: passwordController,
+                obscureText: !showPassword,
+                decoration: InputDecoration(
+                  labelText: 'Mật khẩu chung *',
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                  suffixIcon: IconButton(
+                    icon: Icon(showPassword
+                        ? Icons.visibility_off
+                        : Icons.visibility),
+                    onPressed: () =>
+                        setDialogState(() => showPassword = !showPassword),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: confirmPasswordController,
+                obscureText: !showConfirmPassword,
+                decoration: InputDecoration(
+                  labelText: 'Nhập lại mật khẩu *',
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                  suffixIcon: IconButton(
+                    icon: Icon(showConfirmPassword
+                        ? Icons.visibility_off
+                        : Icons.visibility),
+                    onPressed: () => setDialogState(
+                        () => showConfirmPassword = !showConfirmPassword),
+                  ),
+                ),
+              ),
+            ],
+          );
+
+          if (isMobile) {
+            return Scaffold(
+              appBar: AppBar(
+                title: const Text('Đăng ký hàng loạt'),
+                leading: IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed:
+                      isSubmitting ? null : () => Navigator.pop(dialogContext),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: isSubmitting ? null : onSubmit,
+                    child: isSubmitting
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Text('Tạo'),
+                  ),
+                ],
+              ),
+              body: Padding(
+                padding: const EdgeInsets.all(16),
+                child: formContent,
+              ),
+            );
+          }
+
+          return AlertDialog(
+            title: const Text('Đăng ký tài khoản hàng loạt'),
+            content: SizedBox(width: 520, child: formContent),
+            actions: [
+              TextButton(
+                onPressed:
+                    isSubmitting ? null : () => Navigator.pop(dialogContext),
+                child: const Text('Hủy'),
+              ),
+              FilledButton(
+                onPressed: isSubmitting ? null : onSubmit,
+                style: FilledButton.styleFrom(
+                    backgroundColor: HrmPageChrome.primaryNavy),
+                child: isSubmitting
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white))
+                    : Text('Tạo (${selectedIds.length})'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

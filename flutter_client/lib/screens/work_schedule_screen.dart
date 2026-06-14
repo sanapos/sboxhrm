@@ -20,6 +20,7 @@ import '../providers/permission_provider.dart';
 import '../providers/auth_provider.dart';
 import 'main_layout.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/hrm_fab_clearance.dart';
 import '../widgets/shift_swap_ui.dart';
 import '../utils/leave_salary_shifts.dart';
 import '../utils/staffing_quota_utils.dart';
@@ -464,12 +465,17 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       );
     }
     if (_isEmployee) {
+      final showSubmitFab = _pendingRegistrations.isNotEmpty &&
+          Provider.of<PermissionProvider>(context, listen: false)
+              .canCreate('WorkSchedule');
       return Scaffold(
         backgroundColor: HrmPageChrome.background,
-        body: _buildEmployeeCalendarView(),
-        floatingActionButton: _pendingRegistrations.isNotEmpty &&
-                Provider.of<PermissionProvider>(context, listen: false)
-                    .canCreate('WorkSchedule')
+        body: HrmFabClearance(
+          fabVisible: showSubmitFab,
+          extendedFab: true,
+          child: _buildEmployeeCalendarView(),
+        ),
+        floatingActionButton: showSubmitFab
             ? FloatingActionButton.extended(
                 onPressed: _submitAllRegistrations,
                 backgroundColor: HrmPageChrome.primaryNavy,
@@ -480,6 +486,9 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             : null,
       );
     }
+    final showSubmitFab = _pendingRegistrations.isNotEmpty &&
+        Provider.of<PermissionProvider>(context, listen: false)
+            .canCreate('WorkSchedule');
     return Scaffold(
       backgroundColor: HrmPageChrome.background,
       body: Column(
@@ -487,20 +496,22 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           _buildWeekSelector(),
           _buildTabBar(),
           Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildTabShiftCentric(),
-                _buildTabPendingRegistrations(),
-                _buildTabApprovedSchedule(),
-              ],
+            child: HrmFabClearance(
+              fabVisible: showSubmitFab,
+              extendedFab: true,
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildTabShiftCentric(),
+                  _buildTabPendingRegistrations(),
+                  _buildTabApprovedSchedule(),
+                ],
+              ),
             ),
           ),
         ],
       ),
-      floatingActionButton: _pendingRegistrations.isNotEmpty &&
-              Provider.of<PermissionProvider>(context, listen: false)
-                  .canCreate('WorkSchedule')
+      floatingActionButton: showSubmitFab
           ? FloatingActionButton.extended(
               onPressed: _submitAllRegistrations,
               backgroundColor: HrmPageChrome.primaryNavy,

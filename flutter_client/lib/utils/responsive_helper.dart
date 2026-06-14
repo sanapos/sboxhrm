@@ -88,6 +88,31 @@ class Responsive {
     if (isMobile(context)) return base * 0.9;
     return base;
   }
+
+  /// FAB góc phải — tránh che menu ⋮ / action cuối danh sách (mobile).
+  static const double fabHorizontalInset = 72;
+
+  static double fabBottomClearance(BuildContext context,
+      {bool extendedFab = false}) {
+    final safe = MediaQuery.paddingOf(context).bottom;
+    final fabHeight = extendedFab ? 48.0 : 56.0;
+    return fabHeight + 16 + safe + 8;
+  }
+
+  /// Padding thêm cho vùng cuộn khi có [FloatingActionButton] trên mobile.
+  static EdgeInsets fabListInsets(
+    BuildContext context, {
+    EdgeInsets base = EdgeInsets.zero,
+    bool enabled = true,
+    bool extendedFab = false,
+  }) {
+    if (!enabled || !useUnifiedPageScroll(context)) return base;
+    return base.copyWith(
+      right: base.right + fabHorizontalInset,
+      bottom: base.bottom +
+          fabBottomClearance(context, extendedFab: extendedFab),
+    );
+  }
 }
 
 /// Widget that rebuilds when orientation or size changes

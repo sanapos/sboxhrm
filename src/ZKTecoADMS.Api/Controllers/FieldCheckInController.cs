@@ -1426,6 +1426,53 @@ public class FieldCheckInController : AuthenticatedControllerBase
     }
 
     /// <summary>
+    /// Nhân viên xem lịch sử hành trình của chính mình
+    /// </summary>
+    [HttpGet("journey/my-history")]
+    [RequireModulePermission("FieldCheckIn", ModulePermissionAction.View)]
+    public async Task<ActionResult> GetMyJourneyHistory(
+        [FromQuery] DateTime? fromDate,
+        [FromQuery] DateTime? toDate)
+    {
+        var storeId = RequiredStoreId;
+        var employeeId = CurrentUserId.ToString();
+        var from = fromDate ?? DateTime.UtcNow.Date.AddDays(-7);
+        var to = toDate ?? DateTime.UtcNow.Date.AddDays(1);
+
+        var journeys = await _dbContext.JourneyTrackings
+            .AsNoTracking()
+            .Where(j => j.StoreId == storeId
+                && j.EmployeeId == employeeId
+                && j.Deleted == null
+                && j.JourneyDate >= from && j.JourneyDate <= to)
+            .OrderByDescending(j => j.JourneyDate)
+            .Take(100)
+            .Select(j => new
+            {
+                id = j.Id.ToString(),
+                employeeId = j.EmployeeId,
+                employeeName = j.EmployeeName,
+                journeyDate = j.JourneyDate,
+                startTime = j.StartTime,
+                endTime = j.EndTime,
+                status = j.Status,
+                totalDistanceKm = j.TotalDistanceKm,
+                totalTravelMinutes = j.TotalTravelMinutes,
+                totalOnSiteMinutes = j.TotalOnSiteMinutes,
+                checkedInCount = j.CheckedInCount,
+                assignedCount = j.AssignedCount,
+                routePoints = j.RoutePointsJson,
+                note = j.Note,
+                reviewedBy = j.ReviewedBy,
+                reviewedAt = j.ReviewedAt,
+                reviewNote = j.ReviewNote,
+            })
+            .ToListAsync();
+
+        return Ok(AppResponse<object>.Success(journeys));
+    }
+
+    /// <summary>
     /// Manager xem tÃ¡ÂºÂ¥t cÃ¡ÂºÂ£ hÃƒÂ nh trÃƒÂ¬nh Ã„â€˜ang hoÃ¡ÂºÂ¡t Ã„â€˜Ã¡Â»â„¢ng hÃƒÂ´m nay (live map)
     /// </summary>
     [HttpGet("journey/active")]
@@ -1523,64 +1570,104 @@ public class FieldCheckInController : AuthenticatedControllerBase
     }
 
     /// <summary>
-    /// NhÃ¢n viÃªn gá»­i vá»‹ trÃ­ GPS hiá»‡n táº¡i (gá»i Ä‘á»‹nh ká»³ khi má»Ÿ app).
-    /// Äá»ƒ Ä‘áº£m báº£o quyá»n riÃªng tÆ°: chá»‰ ghi nháº­n vá»‹ trÃ­ khi nhÃ¢n viÃªn Ä‘ang trong ca lÃ m viá»‡c Ä‘Ã£ Ä‘Æ°á»£c duyá»‡t
-    /// (vá»›i biÃªn 30 phÃºt trÆ°á»›c giá» báº¯t Ä‘áº§u vÃ  15 phÃºt sau giá» káº¿t thÃºc).
+    /// Nhân viên gửi vị trí GPS hiện tại (gọi định kỳ khi mở app).
+    /// Ghi nhận khi: (1) trong ca làm đã duyệt, hoặc (2) thiết bị mobile được bật chấm ngoài CT.
     /// </summary>
     [HttpPost("report-location")]
-    [RequireModulePermission("FieldCheckIn", ModulePermissionAction.Create)]
+    [Authorize]
     public async Task<ActionResult> ReportLocation([FromBody] ReportLocationRequest request)
     {
         try
         {
             var storeId = RequiredStoreId;
-            var empId = CurrentUserId.ToString();
-            if (string.IsNullOrEmpty(empId))
+            var userId = CurrentUserId.ToString();
+            if (string.IsNullOrEmpty(userId))
                 return BadRequest(AppResponse<object>.Error("Không xác định được nhân viên"));
 
             if (request.Latitude == 0 && request.Longitude == 0)
                 return BadRequest(AppResponse<object>.Error("Tọa độ không hợp lệ"));
 
-            // Privacy guard: only record location if the employee is currently within an approved shift window.
-            var nowLocal = DateTime.Now;
-            var onShift = await _dbContext.Shifts
+            var empRecord = await _dbContext.Employees
                 .AsNoTracking()
-                .AnyAsync(s => s.StoreId == storeId
-                    && s.EmployeeUserId == CurrentUserId
-                    && s.Status == Domain.Enums.ShiftStatus.Approved
-                    && s.StartTime.AddMinutes(-30) <= nowLocal
-                    && s.EndTime.AddMinutes(15) >= nowLocal);
+                .FirstOrDefaultAsync(e => e.StoreId == storeId && e.ApplicationUserId == CurrentUserId && e.Deleted == null);
 
-            if (!onShift)
+            var empIdStr = empRecord?.Id.ToString();
+            var empCode = empRecord?.EmployeeCode;
+            var employeeIdClaim = EmployeeId?.ToString();
+
+            // IgnoreQueryFilters: tránh tenant filter chặn nhầm; so khớp in-memory.
+            var outsideDeviceIds = await _dbContext.AuthorizedMobileDevices
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(d => d.StoreId == storeId && d.Deleted == null && d.IsAuthorized && d.AllowOutsideCheckIn)
+                .Select(d => d.EmployeeId)
+                .ToListAsync();
+
+            bool MatchesEmployee(string? deviceEmpId)
             {
-                return Ok(AppResponse<object>.Success(new { stored = false, reason = "off-shift" }));
+                if (string.IsNullOrWhiteSpace(deviceEmpId)) return false;
+                return string.Equals(deviceEmpId, userId, StringComparison.OrdinalIgnoreCase)
+                    || (empIdStr != null && string.Equals(deviceEmpId, empIdStr, StringComparison.OrdinalIgnoreCase))
+                    || (empCode != null && string.Equals(deviceEmpId, empCode, StringComparison.OrdinalIgnoreCase))
+                    || (employeeIdClaim != null && string.Equals(deviceEmpId, employeeIdClaim, StringComparison.OrdinalIgnoreCase));
             }
 
-            var existing = await _dbContext.EmployeeLiveLocations
-                .FirstOrDefaultAsync(l => l.StoreId == storeId && l.EmployeeId == empId);
+            var allowOutsideCheckIn = outsideDeviceIds.Any(MatchesEmployee);
 
-            if (existing != null)
+            if (!allowOutsideCheckIn)
             {
-                existing.Latitude = request.Latitude;
-                existing.Longitude = request.Longitude;
-                existing.Accuracy = request.Accuracy;
-                existing.UpdatedAt = DateTime.UtcNow;
+                var nowLocal = DateTime.Now;
+                var onShift = await _dbContext.Shifts
+                    .AsNoTracking()
+                    .AnyAsync(s => s.StoreId == storeId
+                        && s.EmployeeUserId == CurrentUserId
+                        && s.Status == Domain.Enums.ShiftStatus.Approved
+                        && s.StartTime.AddMinutes(-30) <= nowLocal
+                        && s.EndTime.AddMinutes(15) >= nowLocal);
+
+                if (!onShift)
+                {
+                    _logger.LogWarning(
+                        "ReportLocation skipped for {UserId} store {StoreId}: not-eligible (allowOutside={AllowOutside}, outsideDevices={DeviceCount})",
+                        userId, storeId, allowOutsideCheckIn, outsideDeviceIds.Count);
+                    return Ok(AppResponse<object>.Success(new { stored = false, reason = "not-eligible" }));
+                }
             }
-            else
+
+            var locationKey = empIdStr ?? userId;
+            var matchIds = new List<string> { userId };
+            if (!string.IsNullOrEmpty(empIdStr)) matchIds.Add(empIdStr);
+            if (!string.IsNullOrEmpty(empCode)) matchIds.Add(empCode);
+
+            var updatedRows = await _dbContext.EmployeeLiveLocations
+                .IgnoreQueryFilters()
+                .Where(l => l.StoreId == storeId && matchIds.Contains(l.EmployeeId))
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(l => l.EmployeeId, locationKey)
+                    .SetProperty(l => l.Latitude, request.Latitude)
+                    .SetProperty(l => l.Longitude, request.Longitude)
+                    .SetProperty(l => l.Accuracy, request.Accuracy)
+                    .SetProperty(l => l.UpdatedAt, DateTime.UtcNow));
+
+            if (updatedRows == 0)
             {
                 _dbContext.EmployeeLiveLocations.Add(new EmployeeLiveLocation
                 {
                     Id = Guid.NewGuid(),
                     StoreId = storeId,
-                    EmployeeId = empId,
+                    EmployeeId = locationKey,
                     Latitude = request.Latitude,
                     Longitude = request.Longitude,
                     Accuracy = request.Accuracy,
                     UpdatedAt = DateTime.UtcNow,
                 });
+                await _dbContext.SaveChangesAsync();
             }
 
-            await _dbContext.SaveChangesAsync();
+            _logger.LogInformation(
+                "ReportLocation stored for employee {LocationKey} store {StoreId} lat={Lat} lng={Lng}",
+                locationKey, storeId, request.Latitude, request.Longitude);
+
             return Ok(AppResponse<object>.Success(new { stored = true }));
         }
         catch (Exception ex)
@@ -1604,7 +1691,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
     [HttpGet("employee-locations")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
     [RequireModulePermission("FieldCheckIn", ModulePermissionAction.View)]
-    public async Task<ActionResult> GetEmployeeLocations()
+    public async Task<ActionResult> GetEmployeeLocations([FromQuery] bool fieldStaffOnly = false)
     {
         var storeId = RequiredStoreId;
         var (today, vnStart, vnEnd) = VnTodayRange();
@@ -1711,6 +1798,43 @@ public class FieldCheckInController : AuthenticatedControllerBase
             .Where(l => l.StoreId == storeId && l.UpdatedAt >= liveCutoff)
             .OrderByDescending(l => l.UpdatedAt)
             .ToListAsync();
+
+        var outsideDeviceEmpIds = await _dbContext.AuthorizedMobileDevices
+            .AsNoTracking()
+            .Where(d => d.StoreId == storeId && d.Deleted == null && d.IsAuthorized && d.AllowOutsideCheckIn)
+            .Select(d => d.EmployeeId)
+            .ToListAsync();
+
+        var outsideCheckInKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var id in outsideDeviceEmpIds)
+        {
+            if (!string.IsNullOrWhiteSpace(id))
+                outsideCheckInKeys.Add(id);
+        }
+
+        if (outsideCheckInKeys.Count > 0)
+        {
+            var storeEmployees = await _dbContext.Employees
+                .AsNoTracking()
+                .Where(e => e.StoreId == storeId && e.Deleted == null)
+                .Select(e => new { e.Id, e.EmployeeCode, e.ApplicationUserId })
+                .ToListAsync();
+
+            foreach (var emp in storeEmployees)
+            {
+                var empId = emp.Id.ToString();
+                var matchesDevice = outsideCheckInKeys.Contains(empId)
+                    || (!string.IsNullOrEmpty(emp.EmployeeCode) && outsideCheckInKeys.Contains(emp.EmployeeCode))
+                    || (emp.ApplicationUserId.HasValue && outsideCheckInKeys.Contains(emp.ApplicationUserId.Value.ToString()));
+                if (!matchesDevice) continue;
+
+                outsideCheckInKeys.Add(empId);
+                if (!string.IsNullOrEmpty(emp.EmployeeCode))
+                    outsideCheckInKeys.Add(emp.EmployeeCode);
+                if (emp.ApplicationUserId.HasValue)
+                    outsideCheckInKeys.Add(emp.ApplicationUserId.Value.ToString());
+            }
+        }
 
         // 6. Build result per employee
         // Pre-compute department -> color index so the legend is STABLE across
@@ -1821,10 +1945,26 @@ public class FieldCheckInController : AuthenticatedControllerBase
                 })
                 .ToList();
 
+            var allowOutsideCheckIn = HasOutsideCheckIn(empIdStr, empCode, appUserIdStr, outsideCheckInKeys);
+            var isFieldTracking = fieldStaffOnly
+                ? allowOutsideCheckIn
+                : IsFieldTrackable(journey, empVisits.Count, source, allowOutsideCheckIn);
+            var hasActiveCheckin = empVisits.Any(v => v.Status == "checked_in");
+            var isOnline = IsOnlineFieldStaff(
+                journey?.Status, source, lastUpdate, hasActiveCheckin, isFieldTracking,
+                allowOutsideCheckIn, live?.UpdatedAt);
+
+            if (fieldStaffOnly && allowOutsideCheckIn && !isOnline)
+            {
+                lat = null;
+                lng = null;
+            }
+
             return new
             {
                 employeeId = empIdStr,
                 employeeCode = empCode,
+                applicationUserId = appUserIdStr,
                 employeeName = $"{emp.LastName} {emp.FirstName}".Trim(),
                 department = deptName,
                 departmentColorIndex = deptColorMap[deptName],
@@ -1837,11 +1977,18 @@ public class FieldCheckInController : AuthenticatedControllerBase
                 journeyStatus = journey?.Status,
                 todayCheckins = empVisits,
                 checkinCount = empVisits.Count,
+                isFieldTracking,
+                isOnline,
+                allowOutsideCheckIn,
             };
         })
-        .OrderBy(e => e.departmentColorIndex)
+        .OrderBy(e => e.isOnline ? 0 : 1)
+        .ThenBy(e => e.departmentColorIndex)
         .ThenBy(e => e.employeeName)
         .ToList();
+
+        if (fieldStaffOnly)
+            result = result.Where(e => e.allowOutsideCheckIn).ToList();
 
         // Include store users who have location data but no Employee record
         var allMatchedIds = new HashSet<string>();
@@ -1926,6 +2073,24 @@ public class FieldCheckInController : AuthenticatedControllerBase
                     .Select(v => new { v.LocationName, v.CheckInTime, v.CheckOutTime, v.TimeSpentMinutes, v.Status, v.CheckInLatitude, v.CheckInLongitude })
                     .ToList();
 
+                var uAllowOutside = HasOutsideCheckIn(userIdStr, null, userIdStr, outsideCheckInKeys);
+                if (fieldStaffOnly && !uAllowOutside) continue;
+
+                var uIsFieldTracking = fieldStaffOnly
+                    ? uAllowOutside
+                    : IsFieldTrackable(uJourney, uVisits.Count, uSource, uAllowOutside);
+                var uHasActiveCheckin = uVisits.Any(v => v.Status == "checked_in");
+                var uLive = liveLocations.FirstOrDefault(l => l.EmployeeId == userIdStr);
+                var uIsOnline = IsOnlineFieldStaff(
+                    uJourney?.Status, uSource, uLastUpdate, uHasActiveCheckin, uIsFieldTracking,
+                    uAllowOutside, uLive?.UpdatedAt);
+
+                if (fieldStaffOnly && uAllowOutside && !uIsOnline)
+                {
+                    uLat = null;
+                    uLng = null;
+                }
+
                 finalResult.Add(new
                 {
                     employeeId = userIdStr,
@@ -1942,6 +2107,9 @@ public class FieldCheckInController : AuthenticatedControllerBase
                     journeyStatus = uJourney?.Status,
                     todayCheckins = uVisits,
                     checkinCount = uVisits.Count,
+                    isFieldTracking = uIsFieldTracking,
+                    isOnline = uIsOnline,
+                    allowOutsideCheckIn = uAllowOutside,
                 });
             }
         }
@@ -2137,6 +2305,48 @@ public class FieldCheckInController : AuthenticatedControllerBase
         if (string.IsNullOrWhiteSpace(json)) return new List<string>();
         try { return JsonSerializer.Deserialize<List<string>>(json) ?? new List<string>(); }
         catch { return new List<string>(); }
+    }
+
+    private static bool HasOutsideCheckIn(string? empId, string? empCode, string? appUserId, HashSet<string> keys)
+    {
+        if (keys.Count == 0) return false;
+        if (!string.IsNullOrEmpty(empId) && keys.Contains(empId)) return true;
+        if (!string.IsNullOrEmpty(empCode) && keys.Contains(empCode)) return true;
+        if (!string.IsNullOrEmpty(appUserId) && keys.Contains(appUserId)) return true;
+        return false;
+    }
+
+    /// <summary>NV thị trường / chấm ngoài CT / có hoạt động check-in hôm nay.</summary>
+    private static bool IsFieldTrackable(object? journey, int visitCount, string? source, bool allowOutsideCheckIn = false) =>
+        allowOutsideCheckIn || journey != null || visitCount > 0 || source is "journey" or "live" or "checkin";
+
+    private static bool IsOnlineFieldStaff(
+        string? journeyStatus, string? source, DateTime? lastUpdate,
+        bool hasActiveCheckin, bool isFieldTrackable, bool allowOutsideCheckIn = false,
+        DateTime? liveGpsAt = null)
+    {
+        if (!isFieldTrackable) return false;
+
+        // NV chấm ngoài CT: online theo heartbeat GPS live (≤10 phút), không phụ thuộc
+        // nguồn vị trí hiển thị (punch/checkin có thể mới hơn live vài phút).
+        if (allowOutsideCheckIn)
+            return IsRecentUtc(liveGpsAt, 10);
+
+        if (lastUpdate == null) return false;
+        if (!IsRecentUtc(lastUpdate, 10)) return false;
+
+        if (hasActiveCheckin) return true;
+        if (journeyStatus == "in_progress") return true;
+        return source is "journey" or "live";
+    }
+
+    private static bool IsRecentUtc(DateTime? value, int maxMinutes)
+    {
+        if (value == null) return false;
+        var utc = value.Value.Kind == DateTimeKind.Unspecified
+            ? DateTime.SpecifyKind(value.Value, DateTimeKind.Utc)
+            : value.Value.ToUniversalTime();
+        return (DateTime.UtcNow - utc).TotalMinutes <= maxMinutes;
     }
 
     private static double CalculateDistance(double lat1, double lon1, double lat2, double lon2)

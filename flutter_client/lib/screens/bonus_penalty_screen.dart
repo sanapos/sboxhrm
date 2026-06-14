@@ -298,6 +298,9 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
   @override
   Widget build(BuildContext context) {
     final isMobile = Responsive.isMobile(context);
+    final canCreateBonusPenalty =
+        Provider.of<PermissionProvider>(context, listen: false)
+            .canCreate('BonusPenalty');
     return Scaffold(
       body: Column(
         children: [
@@ -326,6 +329,8 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
           Expanded(
             child: _bonusOnly
                 ? HrmResponsiveListLayout(
+                    fabAware: isMobile && canCreateBonusPenalty,
+                    extendedFab: true,
                     headerSections: _bonusPenaltyHeaderSections(isMobile),
                     desktopBody: _isLoading
                         ? const Center(child: CircularProgressIndicator())
@@ -336,6 +341,8 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                   )
                 : isMobile
                     ? HrmMobileNestedTabLayout(
+                        fabAware: canCreateBonusPenalty,
+                        extendedFab: true,
                         headerSections: _bonusPenaltyHeaderSections(isMobile),
                         tabBar: TabBar(
                           controller: _tabController,

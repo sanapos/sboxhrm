@@ -19,6 +19,16 @@ enum TaskPriority { low, medium, high, urgent }
 enum TaskType { task, bug, feature, improvement, meeting, other }
 
 // ============ HELPER FUNCTIONS ============
+String jsonStrId(Map<String, dynamic> json, [String key = 'id']) {
+  final v = json[key];
+  if (v != null && v.toString().isNotEmpty) return v.toString();
+  if (key == 'id') {
+    final alt = json['Id'];
+    if (alt != null && alt.toString().isNotEmpty) return alt.toString();
+  }
+  return '';
+}
+
 String getTaskStatusLabel(WorkTaskStatus status) {
   switch (status) {
     case WorkTaskStatus.todo:
@@ -245,7 +255,7 @@ class WorkTask {
 
   factory WorkTask.fromJson(Map<String, dynamic> json) {
     return WorkTask(
-      id: json['id'] ?? '',
+      id: jsonStrId(json),
       taskCode: json['taskCode'] ?? '',
       title: json['title'] ?? '',
       description: json['description'],
@@ -398,7 +408,7 @@ class TaskComment {
 
   factory TaskComment.fromJson(Map<String, dynamic> json) {
     return TaskComment(
-      id: json['id'] ?? '',
+      id: jsonStrId(json),
       taskId: json['taskId'] ?? '',
       userId: json['userId'] ?? '',
       userName: json['userName'],
@@ -442,7 +452,7 @@ class TaskAttachment {
 
   factory TaskAttachment.fromJson(Map<String, dynamic> json) {
     return TaskAttachment(
-      id: json['id'] ?? '',
+      id: jsonStrId(json),
       taskId: json['taskId'] ?? '',
       uploadedById: json['uploadedById'] ?? '',
       uploadedByName: json['uploadedByName'],
@@ -484,7 +494,7 @@ class TaskAssignee {
 
   factory TaskAssignee.fromJson(Map<String, dynamic> json) {
     return TaskAssignee(
-      id: json['id'] ?? '',
+      id: jsonStrId(json),
       taskId: json['taskId'] ?? '',
       employeeId: json['employeeId'] ?? '',
       employeeName: json['employeeName'],
@@ -521,7 +531,7 @@ class TaskHistory {
 
   factory TaskHistory.fromJson(Map<String, dynamic> json) {
     return TaskHistory(
-      id: json['id'] ?? '',
+      id: jsonStrId(json),
       taskId: json['taskId'] ?? '',
       userId: json['userId'] ?? '',
       userName: json['userName'],
@@ -725,6 +735,44 @@ class KanbanColumn {
       tasks: json['tasks'] != null
           ? (json['tasks'] as List).map((e) => WorkTask.fromJson(e)).toList()
           : [],
+    );
+  }
+}
+
+class TaskEvaluation {
+  final String id;
+  final String taskId;
+  final String? evaluatorName;
+  final int qualityScore;
+  final int timelinessScore;
+  final int overallScore;
+  final String? comment;
+  final DateTime createdAt;
+
+  TaskEvaluation({
+    required this.id,
+    required this.taskId,
+    this.evaluatorName,
+    required this.qualityScore,
+    required this.timelinessScore,
+    required this.overallScore,
+    this.comment,
+    required this.createdAt,
+  });
+
+  factory TaskEvaluation.fromJson(Map<String, dynamic> json) {
+    return TaskEvaluation(
+      id: jsonStrId(json),
+      taskId: (json['taskId'] ?? json['TaskId'] ?? '').toString(),
+      evaluatorName: json['evaluatorName'] ?? json['EvaluatorName'],
+      qualityScore: (json['qualityScore'] ?? json['QualityScore'] ?? 0) as int,
+      timelinessScore:
+          (json['timelinessScore'] ?? json['TimelinessScore'] ?? 0) as int,
+      overallScore: (json['overallScore'] ?? json['OverallScore'] ?? 0) as int,
+      comment: json['comment'] ?? json['Comment'],
+      createdAt: DateTime.tryParse(
+              (json['createdAt'] ?? json['CreatedAt'] ?? '').toString()) ??
+          DateTime.now(),
     );
   }
 }

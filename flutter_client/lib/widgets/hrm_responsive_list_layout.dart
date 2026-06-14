@@ -12,6 +12,8 @@ class HrmResponsiveListLayout extends StatelessWidget {
     required this.mobileSlivers,
     this.padding,
     this.physics,
+    this.fabAware = false,
+    this.extendedFab = false,
   });
 
   final EdgeInsetsGeometry? padding;
@@ -19,6 +21,23 @@ class HrmResponsiveListLayout extends StatelessWidget {
   final Widget desktopBody;
   final List<Widget> Function(BuildContext context) mobileSlivers;
   final ScrollPhysics? physics;
+  /// Thêm padding phải/dưới trên mobile khi có FAB che menu ⋮.
+  final bool fabAware;
+  final bool extendedFab;
+
+  EdgeInsets? _mobilePadding(BuildContext context) {
+    if (!Responsive.useUnifiedPageScroll(context)) return null;
+    final base =
+        padding?.resolve(Directionality.of(context)) ?? EdgeInsets.zero;
+    if (!fabAware) {
+      return padding != null ? base : null;
+    }
+    return Responsive.fabListInsets(
+      context,
+      base: base,
+      extendedFab: extendedFab,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,8 +50,9 @@ class HrmResponsiveListLayout extends StatelessWidget {
         physics: physics ?? const AlwaysScrollableScrollPhysics(),
         slivers: slivers,
       );
-      if (padding != null) {
-        return Padding(padding: padding!, child: scroll);
+      final mobilePad = _mobilePadding(context);
+      if (mobilePad != null) {
+        return Padding(padding: mobilePad, child: scroll);
       }
       return scroll;
     }
@@ -59,12 +79,26 @@ class HrmMobileNestedTabLayout extends StatelessWidget {
     required this.tabBar,
     required this.tabBarView,
     this.padding,
+    this.fabAware = false,
+    this.extendedFab = false,
   });
 
   final EdgeInsetsGeometry? padding;
   final List<Widget> headerSections;
   final TabBar tabBar;
   final TabBarView tabBarView;
+  final bool fabAware;
+  final bool extendedFab;
+
+  Widget _fabAwareTabBody(BuildContext context) {
+    if (!fabAware || !Responsive.useUnifiedPageScroll(context)) {
+      return tabBarView;
+    }
+    return Padding(
+      padding: Responsive.fabListInsets(context, extendedFab: extendedFab),
+      child: tabBarView,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -91,7 +125,7 @@ class HrmMobileNestedTabLayout extends StatelessWidget {
           delegate: _SliverTabBarDelegate(tabBar: tabBar),
         ),
       ],
-      body: tabBarView,
+      body: _fabAwareTabBody(context),
     );
     if (padding != null) {
       return Padding(padding: padding!, child: nested);

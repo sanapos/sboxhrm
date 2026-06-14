@@ -1,5 +1,6 @@
 using MediatR;
 using ZKTecoADMS.Application.Interfaces;
+using ZKTecoADMS.Application.Services;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 
@@ -58,19 +59,18 @@ public class CreateEmployeeHandler(
         employee.StoreId = request.StoreId;
         employee.ManagerId = request.ManagerId;
 
-        if (string.IsNullOrWhiteSpace(employee.LastName))
-        {
-            employee.LastName = employee.FirstName;
-            employee.FirstName = ".";
-        }
+        NormalizeEmployeeName(employee);
 
-        // Auto-resolve DepartmentId from Department name
         if (!string.IsNullOrWhiteSpace(request.Department))
         {
-            var dept = await departmentRepository.GetSingleAsync(
-                d => d.StoreId == request.StoreId && d.Name == request.Department,
-                cancellationToken: cancellationToken);
-            if (dept != null) employee.DepartmentId = dept.Id;
+            employee.Department = request.Department.Trim();
+            var dept = await DepartmentImportHelper.ResolveOrCreateAsync(
+                departmentRepository, request.StoreId, request.Department, cancellationToken);
+            if (dept != null)
+            {
+                employee.DepartmentId = dept.Id;
+                employee.Department = dept.Name;
+            }
         }
 
         if (!employee.JoinDate.HasValue)
@@ -114,5 +114,26 @@ public class CreateEmployeeHandler(
         catch { /* notification failure should not block main flow */ }
 
         return AppResponse<Guid>.Success(employee.Id);
+    }
+
+    static void NormalizeEmployeeName(Employee employee)
+    {
+        employee.LastName = employee.LastName?.Trim() ?? string.Empty;
+        employee.FirstName = employee.FirstName?.Trim() ?? string.Empty;
+
+        if (employee.FirstName == ".") employee.FirstName = string.Empty;
+        if (employee.LastName == ".") employee.LastName = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(employee.LastName) &&
+            !string.IsNullOrWhiteSpace(employee.FirstName))
+        {
+            employee.LastName = employee.FirstName;
+            employee.FirstName = string.Empty;
+        }
+        else if (string.IsNullOrWhiteSpace(employee.FirstName) &&
+                 !string.IsNullOrWhiteSpace(employee.LastName))
+        {
+            employee.FirstName = string.Empty;
+        }
     }
 }

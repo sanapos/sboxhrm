@@ -39,7 +39,7 @@ class PermissionModuleLabels {
     'MobileDeviceRegistration': 'Đăng ký chấm công Mobile',
     'MobileAttendance': 'Chấm công Mobile',
     'Meal': 'Chấm cơm',
-    'FieldCheckIn': 'Check-in điểm bán',
+    'FieldCheckIn': 'Bản đồ nhân sự',
     // Tài chính
     'BonusPenalty': 'Phiếu thưởng',
     'PenaltyTickets': 'Phiếu phạt',
@@ -54,6 +54,7 @@ class PermissionModuleLabels {
     'Production': 'Sản lượng',
     'Feedback': 'Phản ánh / Ý kiến',
     // Báo cáo
+    'AttendanceReport': 'Báo cáo chấm công',
     'LeaveReport': 'Báo cáo nghỉ phép',
     'CashReport': 'Báo cáo thu chi',
     'PenaltyReport': 'Báo cáo phạt',

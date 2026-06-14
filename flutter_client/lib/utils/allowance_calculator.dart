@@ -30,8 +30,9 @@ class AllowanceCalculator {
   /// null employeeIds = áp dụng tất cả NV; danh sách rỗng = không gán ai.
   static bool isAssignedToEmployee(
     Map<String, dynamic> allowance,
-    String employeeId,
-  ) {
+    String employeeId, {
+    String? employeeCode,
+  }) {
     if (employeeId.isEmpty) return false;
     final raw = allowance['employeeIds'];
     if (raw == null) return true;
@@ -49,7 +50,12 @@ class AllowanceCalculator {
     }
     if (ids.isEmpty) return false;
     final key = employeeId.toLowerCase();
-    return ids.any((id) => id.toLowerCase() == key);
+    if (ids.any((id) => id.toLowerCase() == key)) return true;
+    if (employeeCode != null && employeeCode.isNotEmpty) {
+      final codeKey = employeeCode.toLowerCase();
+      if (ids.any((id) => id.toLowerCase() == codeKey)) return true;
+    }
+    return false;
   }
 
   static double _amount(Map<String, dynamic> allowance) {
@@ -65,15 +71,27 @@ class AllowanceCalculator {
     required String employeeId,
     required int allowanceType,
     bool requireActive = true,
+    String? employeeCode,
+    Map<String, dynamic>? benefitFallback,
   }) {
     if (employeeId.isEmpty) return 0;
     var total = 0.0;
     for (final a in allowances) {
       if (requireActive && a['isActive'] == false) continue;
       if (parseType(a['type']) != allowanceType) continue;
-      if (!isAssignedToEmployee(a, employeeId)) continue;
+      if (!isAssignedToEmployee(a, employeeId, employeeCode: employeeCode)) {
+        continue;
+      }
       final val = _amount(a);
       if (val > 0) total += val;
+    }
+    if (total > 0 || benefitFallback == null) return total;
+    if (allowanceType == 0) {
+      return (benefitFallback['mealAllowance'] as num?)?.toDouble() ?? 0;
+    }
+    if (allowanceType == 1) {
+      return (benefitFallback['responsibilityAllowance'] as num?)?.toDouble() ??
+          0;
     }
     return total;
   }

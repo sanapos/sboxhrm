@@ -108,9 +108,9 @@ String _normHeader(String s) {
 /// Tách "Nguyễn Văn A" → họ / tên.
 (String lastName, String firstName) splitVietnameseFullName(String full) {
   final trimmed = full.trim();
-  if (trimmed.isEmpty) return ('.', '?');
+  if (trimmed.isEmpty) return ('', '');
   final parts = trimmed.split(RegExp(r'\s+'));
-  if (parts.length == 1) return (parts[0], '.');
+  if (parts.length == 1) return (parts[0], '');
   return (parts.first, parts.sublist(1).join(' '));
 }
 
@@ -162,11 +162,131 @@ class _ColumnMap {
   });
 
   bool get isValid =>
-      code != null &&
-      ((lastName != null && firstName != null) || fullName != null);
+      fullName != null || (lastName != null && firstName != null);
+
+  _ColumnMap mergeWith(_ColumnMap fallback) {
+    return _ColumnMap(
+      code: code ?? fallback.code,
+      lastName: lastName ?? fallback.lastName,
+      firstName: firstName ?? fallback.firstName,
+      fullName: fullName ?? fallback.fullName,
+      companyEmail: companyEmail ?? fallback.companyEmail,
+      gender: gender ?? fallback.gender,
+      dateOfBirth: dateOfBirth ?? fallback.dateOfBirth,
+      nationalId: nationalId ?? fallback.nationalId,
+      hometown: hometown ?? fallback.hometown,
+      education: education ?? fallback.education,
+      marital: marital ?? fallback.marital,
+      phone: phone ?? fallback.phone,
+      personalEmail: personalEmail ?? fallback.personalEmail,
+      address: address ?? fallback.address,
+      department: department ?? fallback.department,
+      position: position ?? fallback.position,
+      level: level ?? fallback.level,
+      joinDate: joinDate ?? fallback.joinDate,
+      bankName: bankName ?? fallback.bankName,
+      bankAccount: bankAccount ?? fallback.bankAccount,
+      bankAccountName: bankAccountName ?? fallback.bankAccountName,
+    );
+  }
 }
 
-_ColumnMap _mapHeaders(List<excel.Data?> headerRow) {
+/// Các nhãn cột / meta — không phải dữ liệu nhân viên.
+bool _looksLikeHeaderToken(String normalized) {
+  if (normalized.isEmpty) return false;
+  const exact = {
+    'stt',
+    'tt',
+    'manv',
+    'manhanvien',
+    'ma',
+    'hovaten',
+    'hoten',
+    'ho',
+    'ten',
+    'holot',
+    'gioitinh',
+    'ngaysinh',
+    'sinhnhat',
+    'cccd',
+    'cmnd',
+    'socmnd',
+    'quequan',
+    'trinhdo',
+    'trinhdohv',
+    'trinhdohocvan',
+    'hocvan',
+    'honnhan',
+    'tinhtranghn',
+    'sdt',
+    'sodienthoai',
+    'dienthoai',
+    'phone',
+    'email',
+    'emailcongty',
+    'emailct',
+    'emailcanhan',
+    'diachi',
+    'thuongtru',
+    'phongban',
+    'bophan',
+    'chucvu',
+    'vitri',
+    'capbac',
+    'bac',
+    'cap',
+    'ngayvaolam',
+    'ngaybatdau',
+    'ngayvao',
+    'loaihd',
+    'trangthai',
+    'nganhang',
+    'sotaikhoan',
+    'sotk',
+    'stk',
+    'tentaikhoan',
+    'danhsachnhanvien',
+    'tongnhanvien',
+  };
+  if (exact.contains(normalized)) return true;
+  if (normalized.contains('manhanvien')) return true;
+  if (normalized.contains('hovaten') && normalized.length <= 12) return true;
+  if (normalized.contains('danhsach') && normalized.contains('nhanvien')) {
+    return true;
+  }
+  if (normalized.contains('xuatngay') || normalized.contains('xuatluc')) {
+    return true;
+  }
+  return false;
+}
+
+bool _rowLooksLikeHeaderLabels(
+    excel.Sheet sheet, int rowIndex, _ColumnMap cols) {
+  final code = _normHeader(_pickAt(sheet, rowIndex, cols.code));
+  if (_looksLikeHeaderToken(code)) return true;
+
+  if (cols.fullName != null) {
+    final name = _normHeader(_pickAt(sheet, rowIndex, cols.fullName));
+    if (_looksLikeHeaderToken(name)) return true;
+    if (name.contains('manv') && name.contains('hovaten')) return true;
+  } else {
+    final ln = _normHeader(_pickAt(sheet, rowIndex, cols.lastName));
+    final fn = _normHeader(_pickAt(sheet, rowIndex, cols.firstName));
+    if (_looksLikeHeaderToken(ln) || _looksLikeHeaderToken(fn)) return true;
+  }
+
+  final dept = _normHeader(_pickAt(sheet, rowIndex, cols.department));
+  final pos = _normHeader(_pickAt(sheet, rowIndex, cols.position));
+  final phone = _normHeader(_pickAt(sheet, rowIndex, cols.phone));
+  if (_looksLikeHeaderToken(dept) ||
+      _looksLikeHeaderToken(pos) ||
+      _looksLikeHeaderToken(phone)) {
+    return true;
+  }
+  return false;
+}
+
+_ColumnMap _mapHeaders(excel.Sheet sheet, int headerIdx) {
   int? code,
       lastName,
       firstName,
@@ -189,8 +309,9 @@ _ColumnMap _mapHeaders(List<excel.Data?> headerRow) {
       bankAccount,
       bankAccountName;
 
-  for (var i = 0; i < headerRow.length; i++) {
-    final h = _normHeader(excelCellText(headerRow[i]));
+  final colCount = sheet.maxColumns;
+  for (var i = 0; i < colCount; i++) {
+    final h = _normHeader(_pickAt(sheet, headerIdx, i));
     if (h.isEmpty) continue;
     if (h == 'stt' || h == 'tt') continue;
 
@@ -225,10 +346,13 @@ _ColumnMap _mapHeaders(List<excel.Data?> headerRow) {
         (h.contains('trinhdo') || h.contains('hocvan'))) {
       education = i;
     } else if (marital == null &&
-        (h.contains('hơnnhan') || h.contains('tinhtranghn'))) {
+        (h.contains('honnhan') || h.contains('tinhtranghn'))) {
       marital = i;
     } else if (phone == null &&
-        (h.contains('sdt') || h.contains('dienthoai') || h.contains('phone'))) {
+        (h.contains('sdt') ||
+            h.contains('dienthoai') ||
+            h.contains('sodienthoai') ||
+            h.contains('phone'))) {
       phone = i;
     } else if (personalEmail == null && h.contains('emailcanhan')) {
       personalEmail = i;
@@ -236,7 +360,10 @@ _ColumnMap _mapHeaders(List<excel.Data?> headerRow) {
         (h.contains('diachi') || h.contains('thuongtru'))) {
       address = i;
     } else if (department == null &&
-        (h.contains('phơngban') || h.contains('bophan'))) {
+        (h == 'phongban' ||
+            h.contains('phongban') ||
+            h.contains('bophan') ||
+            h.contains('donvi'))) {
       department = i;
     } else if (position == null &&
         (h.contains('chucvu') || h.contains('vitri'))) {
@@ -326,11 +453,23 @@ const _importDefaultMap = _ColumnMap(
 );
 
 int? _findHeaderRowIndex(excel.Sheet sheet) {
-  final maxScan = sheet.rows.length < 25 ? sheet.rows.length : 25;
+  final maxScan = sheet.rows.length < 30 ? sheet.rows.length : 30;
+  final maxCols = sheet.maxColumns < 30 ? sheet.maxColumns : 30;
   for (var i = 0; i < maxScan; i++) {
-    final row = sheet.rows[i];
-    for (var c = 0; c < row.length && c < 25; c++) {
-      final h = _normHeader(excelCellText(row[c]));
+    final h0 = _normHeader(_pickAt(sheet, i, 0));
+    final h1 = _normHeader(_pickAt(sheet, i, 1));
+    final h2 = _normHeader(_pickAt(sheet, i, 2));
+    if (h0.isEmpty && h1.isEmpty && h2.isEmpty) continue;
+
+    // File Export SBOX: STT | Mã NV | Họ và tên
+    if (h0 == 'stt' && h1.contains('manv')) return i;
+    if (h0 == 'stt' && h2.contains('hovaten')) return i;
+
+    // File mẫu Import: Mã NV | Họ và tên (không có STT)
+    if (h0.contains('manv') && h1.contains('hovaten')) return i;
+
+    for (var c = 0; c < maxCols; c++) {
+      final h = _normHeader(_pickAt(sheet, i, c));
       if (h.contains('manv') ||
           h.contains('manhanvien') ||
           h.contains('hovaten') ||
@@ -342,23 +481,72 @@ int? _findHeaderRowIndex(excel.Sheet sheet) {
   return null;
 }
 
-String _pick(List<excel.Data?> row, int? col) {
-  if (col == null || col < 0 || col >= row.length) return '';
-  return excelCellText(row[col]);
+String _pickAt(excel.Sheet sheet, int rowIndex, int? col) {
+  if (col == null || col < 0) return '';
+  final cell = sheet.cell(
+    excel.CellIndex.indexByColumnRow(columnIndex: col, rowIndex: rowIndex),
+  );
+  return excelCellText(cell);
 }
 
-DateTime? _pickDate(List<excel.Data?> row, int? col) {
-  if (col == null || col < 0 || col >= row.length) return null;
-  return excelCellDate(row[col]);
+DateTime? _pickDateAt(excel.Sheet sheet, int rowIndex, int? col) {
+  if (col == null || col < 0) return null;
+  final cell = sheet.cell(
+    excel.CellIndex.indexByColumnRow(columnIndex: col, rowIndex: rowIndex),
+  );
+  return excelCellDate(cell);
 }
 
-Map<String, dynamic>? _rowToRecord(List<excel.Data?> row, _ColumnMap cols) {
-  var code = _normalizeVnNumericId(_pick(row, cols.code));
+bool _rowIsEmpty(excel.Sheet sheet, int rowIndex, _ColumnMap cols) {
+  final code = _pickAt(sheet, rowIndex, cols.code).trim();
+  if (code.isNotEmpty) return false;
+  if (cols.fullName != null) {
+    return _pickAt(sheet, rowIndex, cols.fullName).trim().isEmpty;
+  }
+  return _pickAt(sheet, rowIndex, cols.lastName).trim().isEmpty &&
+      _pickAt(sheet, rowIndex, cols.firstName).trim().isEmpty;
+}
+
+String _slugEmployeeCodeFromName(String full) {
+  final parts = full.trim().split(RegExp(r'\s+'));
+  if (parts.isEmpty) return 'NV${DateTime.now().millisecondsSinceEpoch % 100000}';
+  final last = _normHeader(parts.last);
+  final initials = parts.length > 1
+      ? parts.sublist(0, parts.length - 1).map((p) => _normHeader(p)[0]).join()
+      : '';
+  final base = 'NV$initials$last'.replaceAll(RegExp(r'[^a-z0-9]'), '');
+  if (base.length > 2) {
+    return base.length > 20 ? base.substring(0, 20) : base;
+  }
+  return 'NV${parts.last.hashCode.abs() % 100000}';
+}
+
+Map<String, dynamic>? _rowToRecord(
+    excel.Sheet sheet, int rowIndex, _ColumnMap cols) {
+  if (_rowLooksLikeHeaderLabels(sheet, rowIndex, cols)) return null;
+
+  var code = _normalizeVnNumericId(_pickAt(sheet, rowIndex, cols.code));
+  if (code.isEmpty) {
+    final phone = _normalizeVnNumericId(_pickAt(sheet, rowIndex, cols.phone));
+    if (phone.isNotEmpty) {
+      code = phone;
+    } else {
+      final cccd =
+          _pickAt(sheet, rowIndex, cols.nationalId).replaceAll(RegExp(r'\s'), '');
+      if (cccd.isNotEmpty) code = cccd;
+    }
+  }
+  if (code.isEmpty) {
+    final full =
+        cols.fullName != null ? _pickAt(sheet, rowIndex, cols.fullName) : '';
+    if (full.isNotEmpty) code = _slugEmployeeCodeFromName(full);
+  }
   if (code.isEmpty) return null;
 
-  // Bỏ dòng ghi chú / tiêu đề phụ.
+  // Bỏ dòng ghi chú / tiêu đề phụ / nhãn cột.
   final lowerCode = code.toLowerCase();
-  if (lowerCode.contains('xuat ngay') ||
+  if (_looksLikeHeaderToken(_normHeader(code)) ||
+      lowerCode.contains('xuat ngay') ||
       lowerCode.contains('danh sach') ||
       lowerCode == 'ma nv') {
     return null;
@@ -367,55 +555,68 @@ Map<String, dynamic>? _rowToRecord(List<excel.Data?> row, _ColumnMap cols) {
   String lastName;
   String firstName;
   if (cols.fullName != null) {
-    final full = _pick(row, cols.fullName);
+    final full = _pickAt(sheet, rowIndex, cols.fullName);
     if (full.isEmpty) return null;
+    if (_looksLikeHeaderToken(_normHeader(full))) return null;
     (lastName, firstName) = splitVietnameseFullName(full);
   } else {
-    lastName = _pick(row, cols.lastName);
-    firstName = _pick(row, cols.firstName);
+    lastName = _pickAt(sheet, rowIndex, cols.lastName);
+    firstName = _pickAt(sheet, rowIndex, cols.firstName);
     if (lastName.isEmpty && firstName.isEmpty) return null;
-    if (lastName.isEmpty) lastName = '.';
-    if (firstName.isEmpty) firstName = '.';
   }
 
-  final email = _pick(row, cols.companyEmail);
-  final dob = _pickDate(row, cols.dateOfBirth);
-  final join = _pickDate(row, cols.joinDate);
+  final email = _pickAt(sheet, rowIndex, cols.companyEmail);
+  final dob = _pickDateAt(sheet, rowIndex, cols.dateOfBirth);
+  final join = _pickDateAt(sheet, rowIndex, cols.joinDate);
+  final department = _pickAt(sheet, rowIndex, cols.department).trim();
 
   return {
     'employeeCode': code,
     'lastName': lastName,
     'firstName': firstName,
     'companyEmail': email.isNotEmpty ? email : '$code@company.com',
-    'gender': _normalizeGender(_pick(row, cols.gender)),
+    'gender': _normalizeGender(_pickAt(sheet, rowIndex, cols.gender)),
     'dateOfBirth': dob?.toIso8601String(),
-    'nationalIdNumber':
-        _pick(row, cols.nationalId).isNotEmpty ? _pick(row, cols.nationalId) : null,
-    'hometown': _pick(row, cols.hometown).isNotEmpty ? _pick(row, cols.hometown) : null,
-    'educationLevel':
-        _pick(row, cols.education).isNotEmpty ? _pick(row, cols.education) : null,
-    'maritalStatus':
-        _pick(row, cols.marital).isNotEmpty ? _pick(row, cols.marital) : null,
-    'phoneNumber': _pick(row, cols.phone).isNotEmpty ? _pick(row, cols.phone) : null,
-    'personalEmail': _pick(row, cols.personalEmail).isNotEmpty
-        ? _pick(row, cols.personalEmail)
+    'nationalIdNumber': _pickAt(sheet, rowIndex, cols.nationalId).isNotEmpty
+        ? _pickAt(sheet, rowIndex, cols.nationalId)
         : null,
-    'permanentAddress':
-        _pick(row, cols.address).isNotEmpty ? _pick(row, cols.address) : null,
-    'department':
-        _pick(row, cols.department).isNotEmpty ? _pick(row, cols.department) : null,
-    'position':
-        _pick(row, cols.position).isNotEmpty ? _pick(row, cols.position) : null,
-    'level': _pick(row, cols.level).isNotEmpty ? _pick(row, cols.level) : null,
+    'hometown': _pickAt(sheet, rowIndex, cols.hometown).isNotEmpty
+        ? _pickAt(sheet, rowIndex, cols.hometown)
+        : null,
+    'educationLevel': _pickAt(sheet, rowIndex, cols.education).isNotEmpty
+        ? _pickAt(sheet, rowIndex, cols.education)
+        : null,
+    'maritalStatus': _pickAt(sheet, rowIndex, cols.marital).isNotEmpty
+        ? _pickAt(sheet, rowIndex, cols.marital)
+        : null,
+    'phoneNumber': _pickAt(sheet, rowIndex, cols.phone).isNotEmpty
+        ? _pickAt(sheet, rowIndex, cols.phone)
+        : null,
+    'personalEmail': _pickAt(sheet, rowIndex, cols.personalEmail).isNotEmpty
+        ? _pickAt(sheet, rowIndex, cols.personalEmail)
+        : null,
+    'permanentAddress': _pickAt(sheet, rowIndex, cols.address).isNotEmpty
+        ? _pickAt(sheet, rowIndex, cols.address)
+        : null,
+    'department': department.isNotEmpty ? department : null,
+    'position': _pickAt(sheet, rowIndex, cols.position).isNotEmpty
+        ? _pickAt(sheet, rowIndex, cols.position)
+        : null,
+    'level': _pickAt(sheet, rowIndex, cols.level).isNotEmpty
+        ? _pickAt(sheet, rowIndex, cols.level)
+        : null,
     'joinDate': join?.toIso8601String(),
-    'bankName':
-        _pick(row, cols.bankName).isNotEmpty ? _pick(row, cols.bankName) : null,
-    'bankAccountNumber': _pick(row, cols.bankAccount).isNotEmpty
-        ? _pick(row, cols.bankAccount)
+    'bankName': _pickAt(sheet, rowIndex, cols.bankName).isNotEmpty
+        ? _pickAt(sheet, rowIndex, cols.bankName)
         : null,
-    'bankAccountName': _pick(row, cols.bankAccountName).isNotEmpty
-        ? _pick(row, cols.bankAccountName)
-        : null,
+    'bankAccountNumber':
+        _pickAt(sheet, rowIndex, cols.bankAccount).isNotEmpty
+            ? _pickAt(sheet, rowIndex, cols.bankAccount)
+            : null,
+    'bankAccountName':
+        _pickAt(sheet, rowIndex, cols.bankAccountName).isNotEmpty
+            ? _pickAt(sheet, rowIndex, cols.bankAccountName)
+            : null,
     'employmentType': 0,
     'workStatus': 0,
   };
@@ -423,10 +624,36 @@ Map<String, dynamic>? _rowToRecord(List<excel.Data?> row, _ColumnMap cols) {
 
 excel.Sheet? _pickEmployeeImportSheet(excel.Excel book) {
   if (book.tables.containsKey('Import')) return book.tables['Import'];
+  for (final name in ['Nhân viên', 'Nhan vien', 'Employees', 'Sheet1']) {
+    if (book.tables.containsKey(name)) return book.tables[name];
+  }
   for (final sheet in book.tables.values) {
     if (_findHeaderRowIndex(sheet) != null) return sheet;
   }
   return book.tables.values.isEmpty ? null : book.tables.values.first;
+}
+
+_ColumnMap _resolveColumnMap(excel.Sheet sheet, int headerIdx) {
+  final h0 = _normHeader(_pickAt(sheet, headerIdx, 0));
+  final h1 = _normHeader(_pickAt(sheet, headerIdx, 1));
+
+  final mapped = _mapHeaders(sheet, headerIdx);
+  if (mapped.isValid) {
+    if (h0 == 'stt') return mapped.mergeWith(_exportDefaultMap);
+    if (h0.contains('manv') || h1.contains('manv')) {
+      return mapped.mergeWith(_importDefaultMap);
+    }
+    return mapped;
+  }
+
+  if (h0 == 'stt' && (h1.contains('manv') || sheet.maxColumns > 2)) {
+    return _exportDefaultMap;
+  }
+  if (h0.contains('manv') && h1.contains('hovaten')) {
+    return _importDefaultMap;
+  }
+  if (h1.contains('manv')) return _exportDefaultMap;
+  return _importDefaultMap;
 }
 
 /// Parse sheet nhân viên — hỗ trợ file mẫu Import và file Export từ hệ thống.
@@ -439,29 +666,15 @@ List<Map<String, dynamic>> parseEmployeeExcelBytes(Uint8List bytes) {
   if (sheet.rows.length < 2) return [];
 
   final headerIdx = _findHeaderRowIndex(sheet);
-  final dataStart = headerIdx != null ? headerIdx + 1 : 1;
+  if (headerIdx == null) return [];
 
-  _ColumnMap cols;
-  if (headerIdx != null) {
-    final mapped = _mapHeaders(sheet.rows[headerIdx]);
-    if (mapped.isValid) {
-      cols = mapped;
-    } else if (mapped.fullName != null && mapped.code != null) {
-      cols = mapped;
-    } else {
-      // Header có "Mã NV" ở cột 1 → export
-      final h1 = _normHeader(excelCellText(sheet.rows[headerIdx][1]));
-      cols = h1.contains('manv') ? _exportDefaultMap : _importDefaultMap;
-    }
-  } else {
-    cols = _importDefaultMap;
-  }
+  final dataStart = headerIdx + 1;
+  final cols = _resolveColumnMap(sheet, headerIdx);
 
   final records = <Map<String, dynamic>>[];
   for (var i = dataStart; i < sheet.rows.length; i++) {
-    final row = sheet.rows[i];
-    if (row.isEmpty) continue;
-    final rec = _rowToRecord(row, cols);
+    if (_rowIsEmpty(sheet, i, cols)) continue;
+    final rec = _rowToRecord(sheet, i, cols);
     if (rec != null) records.add(rec);
   }
   return records;

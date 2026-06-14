@@ -694,7 +694,11 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
 
   Widget _buildTransactionsTab() {
     final isMobile = Responsive.isMobile(context);
+    final canCreate = Provider.of<PermissionProvider>(context, listen: false)
+        .canCreate('CashTransaction');
     return HrmResponsiveListLayout(
+      fabAware: isMobile && canCreate,
+      extendedFab: true,
       headerSections: _cashTransactionsHeaderSections(isMobile),
       desktopBody: Column(
         children: [
@@ -730,7 +734,12 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
   }
 
   Widget _buildFundTransfersTab() {
+    final isMobile = Responsive.isMobile(context);
+    final canCreate = Provider.of<PermissionProvider>(context, listen: false)
+        .canCreate('CashTransaction');
     return HrmResponsiveListLayout(
+      fabAware: isMobile && canCreate,
+      extendedFab: true,
       headerSections: [
         _buildViewModeBar(),
         _buildTransferFilterBar(),
