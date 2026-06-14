@@ -65,13 +65,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
 
   final ApiService _apiService = ApiService();
   final MapController _mapController = MapController();
-  final DraggableScrollableController _sheetController =
-      DraggableScrollableController();
   final TextEditingController _searchController = TextEditingController();
-
-  static const _sheetMin = 0.24;
-  static const _sheetInitial = 0.44;
-  static const _sheetMax = 0.72;
 
   bool _canTrack = false;
   bool _isLoading = true;
@@ -128,57 +122,74 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
     _refreshTimer?.cancel();
     _elapsedTimer?.cancel();
     _searchController.dispose();
-    _sheetController.dispose();
     _mapController.dispose();
     super.dispose();
   }
 
   void _collapseEmployeeList() {
-    if (!_sheetController.isAttached) return;
-    _sheetController.animateTo(
-      _sheetMin,
-      duration: const Duration(milliseconds: 280),
-      curve: Curves.easeOut,
-    );
-  }
-
-  void _expandEmployeeList() {
-    if (!_sheetController.isAttached) return;
-    _sheetController.animateTo(
-      _sheetInitial,
-      duration: const Duration(milliseconds: 280),
-      curve: Curves.easeOut,
-    );
+    Navigator.of(context).maybePop();
   }
 
   void _showEmployeeListPanel() {
-    if (_mapFullscreen) {
-      showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (ctx) => DraggableScrollableSheet(
-          expand: false,
-          initialChildSize: 0.55,
-          minChildSize: 0.35,
-          maxChildSize: 0.9,
-          builder: (_, scrollController) =>
-              _buildEmployeeListSheet(scrollController),
-        ),
-      );
-      return;
-    }
-    _expandEmployeeList();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.55,
+        minChildSize: 0.35,
+        maxChildSize: 0.9,
+        builder: (_, scrollController) =>
+            _buildEmployeeListSheet(scrollController),
+      ),
+    );
   }
 
-  void _toggleEmployeeListSheet() {
-    if (!_sheetController.isAttached) return;
-    final size = _sheetController.size;
-    if (size > _sheetMin + 0.06) {
-      _collapseEmployeeList();
-    } else {
-      _expandEmployeeList();
-    }
+  void _showEmployeesAtLocation(List<Map<String, dynamic>> group) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: (0.22 + group.length * 0.11).clamp(0.35, 0.75),
+        minChildSize: 0.3,
+        maxChildSize: 0.85,
+        builder: (_, scrollController) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+          ),
+          child: ListView(
+            controller: scrollController,
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Text(
+                '${group.length} nhân viên cùng vị trí',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 8),
+              ...group.map((e) => _buildEmployeeTile(e, compact: true)),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   void _startRefresh() {
@@ -579,11 +590,6 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
           _isLoading = false;
           _silentRefreshing = false;
         });
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted && !_mapFullscreen && _sheetController.isAttached) {
-            _expandEmployeeList();
-          }
-        });
       } else {
         setState(() {
           _isLoading = false;
@@ -792,96 +798,196 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
     return layers;
   }
 
-  List<Marker> _buildMapMarkers() {
-    final markers = <Marker>[];
-    for (final emp in _filteredEmployees) {
-      final lat = (emp['latitude'] as num?)?.toDouble();
-      final lng = (emp['longitude'] as num?)?.toDouble();
-      if (lat == null || lng == null || lat == 0) continue;
+  LatLng? _employeeLatLng(Map<String, dynamic> emp) {
+    final lat = (emp['latitude'] as num?)?.toDouble();
+    final lng = (emp['longitude'] as num?)?.toDouble();
+    if (lat == null || lng == null || lat == 0) return null;
+    return LatLng(lat, lng);
+  }
 
-      final empKey = _primaryKey(emp);
-      final isSelected = _selectedIds.contains(empKey);
-      final online = _isOnlineEmp(emp);
-      final deptIdx =
-          (emp['departmentColorIndex'] as num?)?.toInt() ?? 0;
-      final baseColor = isSelected
-          ? _routeColorFor(empKey, deptIdx)
-          : _deptColor(deptIdx);
-      final color = online ? baseColor : Colors.grey.shade600;
-      final name = emp['employeeName']?.toString() ?? '?';
-      final duration = online
-          ? _locationDurationLabel(emp)
-          : 'Ngoại tuyến • ${_locationDurationLabel(emp)}';
+  String _locationGroupKey(double lat, double lng) =>
+      '${lat.toStringAsFixed(5)}_${lng.toStringAsFixed(5)}';
 
-      markers.add(Marker(
-        point: LatLng(lat, lng),
-        width: isSelected ? 240 : 210,
-        height: isSelected ? 84 : 72,
-        child: GestureDetector(
-          onTap: () => _toggleEmployee(emp),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Container(
-              constraints: BoxConstraints(maxWidth: isSelected ? 230 : 200),
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-              decoration: BoxDecoration(
-                color: color,
-                borderRadius: BorderRadius.circular(8),
-                border: online
-                    ? Border.all(color: const Color(0xFF38A169), width: 1.5)
-                    : null,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: online ? 0.2 : 0.1),
-                    blurRadius: 4,
+  List<LatLng> _spreadMarkerPoints(LatLng center, int count) {
+    if (count <= 1) return [center];
+    final radiusDeg = 0.00012 + (0.00005 * count);
+    final latRad = center.latitude * math.pi / 180;
+    final lngScale = math.cos(latRad).abs().clamp(0.25, 1.0);
+    return List.generate(count, (i) {
+      final angle = (2 * math.pi * i / count) - (math.pi / 2);
+      return LatLng(
+        center.latitude + radiusDeg * math.sin(angle),
+        center.longitude + (radiusDeg * math.cos(angle)) / lngScale,
+      );
+    });
+  }
+
+  Marker _buildLocationClusterMarker(
+    LatLng center,
+    List<Map<String, dynamic>> group,
+  ) {
+    return Marker(
+      point: center,
+      width: 44,
+      height: 44,
+      child: GestureDetector(
+        onTap: () => _showEmployeesAtLocation(group),
+        child: Container(
+          decoration: BoxDecoration(
+            color: HrmPageChrome.primaryNavy,
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.25),
+                blurRadius: 4,
+              ),
+            ],
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            '${group.length}',
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Marker _buildEmployeeMapMarker(
+    Map<String, dynamic> emp,
+    LatLng point, {
+    int stackCount = 1,
+    List<Map<String, dynamic>>? locationGroup,
+  }) {
+    final empKey = _primaryKey(emp);
+    final isSelected = _selectedIds.contains(empKey);
+    final online = _isOnlineEmp(emp);
+    final deptIdx = (emp['departmentColorIndex'] as num?)?.toInt() ?? 0;
+    final baseColor = isSelected
+        ? _routeColorFor(empKey, deptIdx)
+        : _deptColor(deptIdx);
+    final color = online ? baseColor : Colors.grey.shade600;
+    final name = emp['employeeName']?.toString() ?? '?';
+    final duration = online
+        ? _locationDurationLabel(emp)
+        : 'Ngoại tuyến • ${_locationDurationLabel(emp)}';
+    final compact = stackCount > 1;
+    final labelWidth = compact ? (isSelected ? 170 : 150) : (isSelected ? 230 : 200);
+    final markerWidth = compact ? (isSelected ? 180 : 160) : (isSelected ? 240 : 210);
+    final markerHeight = compact ? (isSelected ? 72 : 64) : (isSelected ? 84 : 72);
+
+    return Marker(
+      point: point,
+      width: markerWidth.toDouble(),
+      height: markerHeight.toDouble(),
+      child: GestureDetector(
+        onTap: () => _toggleEmployee(emp),
+        onLongPress: locationGroup != null && locationGroup.length > 1
+            ? () => _showEmployeesAtLocation(locationGroup)
+            : null,
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            constraints: BoxConstraints(maxWidth: labelWidth.toDouble()),
+            padding: EdgeInsets.symmetric(
+              horizontal: compact ? 4 : 6,
+              vertical: compact ? 2 : 3,
+            ),
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(8),
+              border: online
+                  ? Border.all(color: const Color(0xFF38A169), width: 1.5)
+                  : null,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: online ? 0.2 : 0.1),
+                  blurRadius: 4,
+                ),
+              ],
+            ),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (online)
+                    Container(
+                      width: 6,
+                      height: 6,
+                      margin: const EdgeInsets.only(right: 4),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  Flexible(
+                    child: Text(
+                      name,
+                      maxLines: compact ? 1 : 2,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: compact ? 8 : 9,
+                        fontWeight: FontWeight.bold,
+                        height: 1.15,
+                      ),
+                    ),
                   ),
                 ],
               ),
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (online)
-                      Container(
-                        width: 6,
-                        height: 6,
-                        margin: const EdgeInsets.only(right: 4),
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    Flexible(
-                      child: Text(
-                        name,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
-                          height: 1.15,
-                        ),
-                      ),
-                    ),
-                  ],
+              Text(
+                duration,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.9),
+                  fontSize: compact ? 7 : 8,
                 ),
-                Text(
-                  duration,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.9),
-                    fontSize: 8,
-                  ),
-                ),
-              ]),
-            ),
-            Icon(Icons.person_pin_circle, color: color, size: 22),
-          ]),
-        ),
-      ));
+              ),
+            ]),
+          ),
+          Icon(Icons.person_pin_circle, color: color, size: compact ? 18 : 22),
+        ]),
+      ),
+    );
+  }
+
+  List<Marker> _buildMapMarkers() {
+    final groups = <String, List<Map<String, dynamic>>>{};
+    for (final emp in _filteredEmployees) {
+      final point = _employeeLatLng(emp);
+      if (point == null) continue;
+      final key = _locationGroupKey(point.latitude, point.longitude);
+      groups.putIfAbsent(key, () => []).add(emp);
+    }
+
+    final markers = <Marker>[];
+    for (final group in groups.values) {
+      if (group.length == 1) {
+        markers.add(_buildEmployeeMapMarker(
+          group.first,
+          _employeeLatLng(group.first)!,
+        ));
+        continue;
+      }
+
+      final center = _employeeLatLng(group.first)!;
+      markers.add(_buildLocationClusterMarker(center, group));
+      final points = _spreadMarkerPoints(center, group.length);
+      for (var i = 0; i < group.length; i++) {
+        markers.add(_buildEmployeeMapMarker(
+          group[i],
+          points[i],
+          stackCount: group.length,
+          locationGroup: group,
+        ));
+      }
     }
     return markers;
   }
@@ -1171,9 +1277,23 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
     );
   }
 
+  Widget _buildEmployeeListFab() {
+    final count = _filteredEmployees.length;
+    return Badge(
+      isLabelVisible: count > 0,
+      label: Text('$count', style: const TextStyle(fontSize: 10)),
+      backgroundColor: const Color(0xFF38A169),
+      child: _buildMapControlButton(
+        icon: Icons.people_outline,
+        tooltip: 'Danh sách nhân viên${count > 0 ? ' ($count)' : ''}',
+        onPressed: _showEmployeeListPanel,
+      ),
+    );
+  }
+
   Widget _buildSheetDragHandle() {
     return GestureDetector(
-      onTap: _toggleEmployeeListSheet,
+      onTap: _collapseEmployeeList,
       behavior: HitTestBehavior.opaque,
       child: Column(
         children: [
@@ -1220,8 +1340,8 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
                     Icons.keyboard_arrow_down,
                     color: Colors.grey[600],
                   ),
-                  tooltip: 'Thu gọn danh sách',
-                  onPressed: _toggleEmployeeListSheet,
+                  tooltip: 'Đóng danh sách',
+                  onPressed: _collapseEmployeeList,
                 ),
               ],
             ),
@@ -1416,7 +1536,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
           ),
         ),
         Positioned(
-          bottom: fullscreen ? 24 : 120,
+          bottom: 24,
           right: 8,
           child: Column(
             children: [
@@ -1434,27 +1554,11 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
             ],
           ),
         ),
-        if (fullscreen)
-          Positioned(
-            bottom: 24,
-            left: 8,
-            child: _buildMapControlButton(
-              icon: Icons.people_outline,
-              tooltip: 'Danh sách nhân viên',
-              onPressed: _showEmployeeListPanel,
-            ),
-          )
-        else
-          DraggableScrollableSheet(
-            controller: _sheetController,
-            initialChildSize: _sheetInitial,
-            minChildSize: _sheetMin,
-            maxChildSize: _sheetMax,
-            snap: true,
-            snapSizes: const [_sheetMin, _sheetInitial, _sheetMax],
-            builder: (context, scrollController) =>
-                _buildEmployeeListSheet(scrollController),
-          ),
+        Positioned(
+          bottom: 24,
+          left: 8,
+          child: _buildEmployeeListFab(),
+        ),
       ],
     );
   }
