@@ -798,13 +798,6 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
     return layers;
   }
 
-  LatLng? _employeeLatLng(Map<String, dynamic> emp) {
-    final lat = (emp['latitude'] as num?)?.toDouble();
-    final lng = (emp['longitude'] as num?)?.toDouble();
-    if (lat == null || lng == null || lat == 0) return null;
-    return LatLng(lat, lng);
-  }
-
   String _locationGroupKey(double lat, double lng) =>
       '${lat.toStringAsFixed(5)}_${lng.toStringAsFixed(5)}';
 
