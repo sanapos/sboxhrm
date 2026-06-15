@@ -111,13 +111,15 @@ class Responsive {
     );
   }
 
-  /// Padding list (cuối danh sách): bottom + trailing để FAB không che ⋮.
+  /// Padding list (cuối danh sách): chỉ thêm khoảng trống dưới FAB.
+  /// Không padding phải — tránh lệch trái cả danh sách trên mobile.
   static EdgeInsets fabListInsets(
     BuildContext context, {
     EdgeInsets base = EdgeInsets.zero,
     bool enabled = true,
     bool extendedFab = false,
-    bool trailingClearance = true,
+    @Deprecated('Use bottom-only clearance; right inset shifts list left')
+    bool trailingClearance = false,
   }) {
     if (!enabled || !useUnifiedPageScroll(context)) return base;
     return base.copyWith(
@@ -126,6 +128,18 @@ class Responsive {
           : base.right,
       bottom: base.bottom +
           fabBottomClearance(context, extendedFab: extendedFab),
+    );
+  }
+
+  /// Chỉ padding dưới cho vùng cuộn có FAB — dùng thay fabListInsets khi không cần base.
+  static EdgeInsets fabScrollBottomInset(
+    BuildContext context, {
+    bool enabled = true,
+    bool extendedFab = false,
+  }) {
+    if (!enabled || !useUnifiedPageScroll(context)) return EdgeInsets.zero;
+    return EdgeInsets.only(
+      bottom: fabBottomClearance(context, extendedFab: extendedFab),
     );
   }
 

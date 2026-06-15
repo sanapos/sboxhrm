@@ -725,7 +725,6 @@ class _FeedbackScreenState extends State<FeedbackScreen>
           context,
           base: const EdgeInsets.all(16),
           extendedFab: fabClearance,
-          trailingClearance: fabClearance,
         ),
         itemCount: list.length,
         itemBuilder: (ctx, i) => _buildFeedbackCard(list[i], isMine: isMine),

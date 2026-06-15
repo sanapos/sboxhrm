@@ -38,7 +38,7 @@ class HrmResponsiveListLayout extends StatelessWidget {
     }
     return [
       SliverPadding(
-        padding: Responsive.fabListInsets(
+        padding: Responsive.fabScrollBottomInset(
           context,
           extendedFab: extendedFab,
         ),
@@ -51,7 +51,11 @@ class HrmResponsiveListLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     if (Responsive.useUnifiedPageScroll(context)) {
       final headers = headerSections
-          .map((w) => SliverToBoxAdapter(child: w))
+          .map(
+            (w) => SliverToBoxAdapter(
+              child: SizedBox(width: double.infinity, child: w),
+            ),
+          )
           .toList();
       final slivers = <Widget>[...headers, ..._wrapMobileSlivers(context)];
       final scroll = CustomScrollView(
@@ -103,7 +107,7 @@ class HrmMobileNestedTabLayout extends StatelessWidget {
       return tabBarView;
     }
     return Padding(
-      padding: Responsive.fabListInsets(
+      padding: Responsive.fabScrollBottomInset(
         context,
         extendedFab: extendedFab,
       ),
@@ -130,7 +134,11 @@ class HrmMobileNestedTabLayout extends StatelessWidget {
 
     final nested = NestedScrollView(
       headerSliverBuilder: (context, innerBoxIsScrolled) => [
-        ...headerSections.map((w) => SliverToBoxAdapter(child: w)),
+        ...headerSections.map(
+          (w) => SliverToBoxAdapter(
+            child: SizedBox(width: double.infinity, child: w),
+          ),
+        ),
         SliverPersistentHeader(
           pinned: true,
           delegate: _SliverTabBarDelegate(tabBar: tabBar),
