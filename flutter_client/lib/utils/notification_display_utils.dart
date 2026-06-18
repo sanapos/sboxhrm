@@ -25,6 +25,14 @@ NotificationDisplay resolveNotificationDisplay(Map<String, dynamic> data) {
   final type = data['type'];
 
   if (displayTitle != null && displayBody != null) {
+    if (_isAttendance(categoryCode, entityType)) {
+      return _normalizeAttendanceDisplay(
+        displayTitle: displayTitle,
+        displayBody: displayBody,
+        rawMessage: rawMessage,
+        senderName: senderName,
+      );
+    }
     return NotificationDisplay(
       title: displayTitle,
       body: displayBody,
@@ -38,16 +46,12 @@ NotificationDisplay resolveNotificationDisplay(Map<String, dynamic> data) {
       _categoryFromEntity(entityType) ??
       _categoryFromType(type);
 
-  // Attendance: message often "Name\nTime · Device"
-  if (_isAttendance(categoryCode, entityType) && rawMessage.contains('\n')) {
-    final lines = rawMessage.split('\n');
-    final employee = lines.first.trim();
-    final detail = lines.length > 1 ? lines.sublist(1).join('\n').trim() : rawMessage;
-    return NotificationDisplay(
-      title: 'Chấm công · $employee',
-      body: detail,
-      senderName: employee,
-      categoryLabel: 'Chấm công',
+  if (_isAttendance(categoryCode, entityType)) {
+    return _normalizeAttendanceDisplay(
+      displayTitle: rawTitle,
+      displayBody: rawMessage,
+      rawMessage: rawMessage,
+      senderName: senderName,
     );
   }
 
@@ -66,6 +70,38 @@ NotificationDisplay resolveNotificationDisplay(Map<String, dynamic> data) {
     title: _isGenericTitle(rawTitle) ? category : rawTitle,
     body: rawMessage,
     categoryLabel: category,
+  );
+}
+
+NotificationDisplay _normalizeAttendanceDisplay({
+  required String displayTitle,
+  required String displayBody,
+  required String rawMessage,
+  String? senderName,
+}) {
+  String employee;
+  String detail;
+
+  if (rawMessage.contains('\n')) {
+    final lines = rawMessage.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
+    employee = lines.isNotEmpty ? lines.first : (senderName ?? 'Nhân viên');
+    detail = lines.length > 1 ? lines.sublist(1).join('\n') : '';
+  } else if (displayTitle.contains('·')) {
+    final parts = displayTitle.split('·');
+    employee = parts.length > 1 ? parts.sublist(1).join('·').trim() : (senderName ?? displayBody.trim());
+    detail = displayBody.trim();
+  } else {
+    employee = senderName ?? displayBody.trim();
+    detail = displayBody.trim();
+    if (employee == detail) detail = '';
+  }
+
+  final body = detail.isNotEmpty ? '$employee\n$detail' : employee;
+  return NotificationDisplay(
+    title: 'Chấm công',
+    body: body,
+    senderName: employee,
+    categoryLabel: 'Chấm công',
   );
 }
 

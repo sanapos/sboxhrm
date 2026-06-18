@@ -191,16 +191,21 @@ class SystemNotificationService {
     );
   }
 
-  /// Thông báo chấm công
+  /// Thông báo chấm công — 3 dòng: tiêu đề / họ tên / giờ-thiết bị-chi nhánh
   Future<void> showAttendance({
     required String employeeName,
     required String time,
     required String deviceName,
+    String? branchName,
     String? notificationId,
   }) async {
+    final detail = branchName != null && branchName.trim().isNotEmpty
+        ? '$time - $deviceName tại ${branchName.trim()}'
+        : '$time - $deviceName';
     await show(
-      title: 'Chấm công: $employeeName',
-      body: '$time · $deviceName',
+      title: 'Chấm công',
+      body: '$employeeName\n$detail',
+      categoryLabel: 'Chấm công',
       channelId: 'sbox_hrm_attendance',
       channelName: 'Chấm công',
       payload: _makePayload('Attendance', notificationRowId: notificationId),

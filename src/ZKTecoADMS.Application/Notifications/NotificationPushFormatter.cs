@@ -70,12 +70,7 @@ public static class NotificationPushFormatter
 
         if (IsAttendance(notification))
         {
-            var lines = rawMessage.Split('\n', 2, StringSplitOptions.TrimEntries);
-            var employeeName = lines.Length > 0 && !string.IsNullOrWhiteSpace(lines[0])
-                ? lines[0]
-                : (sender ?? "Nhân viên");
-            var detail = lines.Length > 1 ? lines[1] : rawMessage;
-            return new($"Chấm công · {employeeName}", detail, employeeName, "Chấm công");
+            return FormatAttendanceDisplay(rawMessage, sender);
         }
 
         if (IsDevice(notification))
@@ -209,5 +204,62 @@ public static class NotificationPushFormatter
         var name = $"{lastName} {firstName}".Trim();
         if (!string.IsNullOrWhiteSpace(name)) return name;
         return userName ?? email ?? string.Empty;
+    }
+
+    /// <summary>
+    /// DB message: dòng 1 = họ tên, dòng 2 = giờ - thiết bị [tại chi nhánh].
+    /// </summary>
+    public static string BuildAttendanceStoredMessage(
+        string employeeName,
+        DateTime attendanceTime,
+        string deviceLabel,
+        string? branchLabel = null)
+    {
+        var name = string.IsNullOrWhiteSpace(employeeName) ? "Nhân viên" : employeeName.Trim();
+        return $"{name}\n{FormatAttendanceDetailLine(attendanceTime, deviceLabel, branchLabel)}";
+    }
+
+    public static string FormatAttendanceDetailLine(
+        DateTime attendanceTime,
+        string deviceLabel,
+        string? branchLabel = null)
+    {
+        var device = string.IsNullOrWhiteSpace(deviceLabel) ? "Thiết bị" : deviceLabel.Trim();
+        var timeStr = attendanceTime.ToString("HH:mm:ss");
+        var branch = branchLabel?.Trim();
+        if (!string.IsNullOrEmpty(branch))
+            return $"{timeStr} - {device} tại {branch}";
+        return $"{timeStr} - {device}";
+    }
+
+    private static NotificationPushDisplay FormatAttendanceDisplay(string rawMessage, string? sender)
+    {
+        var lines = rawMessage.Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        string employeeName;
+        string detail;
+
+        if (lines.Length >= 2)
+        {
+            employeeName = lines[0];
+            detail = string.Join('\n', lines.Skip(1));
+        }
+        else if (lines.Length == 1)
+        {
+            employeeName = sender ?? lines[0];
+            detail = sender != null && !string.Equals(sender, lines[0], StringComparison.OrdinalIgnoreCase)
+                ? lines[0]
+                : string.Empty;
+        }
+        else
+        {
+            employeeName = sender ?? "Nhân viên";
+            detail = string.Empty;
+        }
+
+        var body = string.IsNullOrWhiteSpace(detail)
+            ? employeeName
+            : $"{employeeName}\n{detail}";
+
+        return new("Chấm công", body, employeeName, "Chấm công");
     }
 }

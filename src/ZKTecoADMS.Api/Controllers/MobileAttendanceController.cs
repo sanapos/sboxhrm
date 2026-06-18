@@ -8687,7 +8687,9 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
                     : null;
 
 
-                await _attendanceNotificationService.NotifyNewAttendanceAsync(attendance, mobileDevice, deviceUser, record.EmployeeName);
+                await _attendanceNotificationService.NotifyNewAttendanceAsync(
+                    attendance, mobileDevice, deviceUser, record.EmployeeName,
+                    branchLabel: record.LocationName);
 
 
             }

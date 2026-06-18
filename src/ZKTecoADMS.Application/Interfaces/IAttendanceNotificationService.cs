@@ -10,7 +10,12 @@ public interface IAttendanceNotificationService
     /// <summary>
     /// Broadcast new attendance to all connected clients
     /// </summary>
-    Task NotifyNewAttendanceAsync(Attendance attendance, Device device, DeviceUser? user, string? employeeNameOverride = null);
+    Task NotifyNewAttendanceAsync(
+        Attendance attendance,
+        Device device,
+        DeviceUser? user,
+        string? employeeNameOverride = null,
+        string? branchLabel = null);
     
     /// <summary>
     /// Broadcast multiple new attendances to all connected clients

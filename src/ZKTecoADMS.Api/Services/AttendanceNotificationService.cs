@@ -31,7 +31,12 @@ public class AttendanceNotificationService : IAttendanceNotificationService
         _serviceScopeFactory = serviceScopeFactory;
     }
 
-    public async Task NotifyNewAttendanceAsync(Attendance attendance, Device device, DeviceUser? user, string? employeeNameOverride = null)
+    public async Task NotifyNewAttendanceAsync(
+        Attendance attendance,
+        Device device,
+        DeviceUser? user,
+        string? employeeNameOverride = null,
+        string? branchLabel = null)
     {
         try
         {
@@ -43,7 +48,10 @@ public class AttendanceNotificationService : IAttendanceNotificationService
 
             var targetUserIds = await ResolveTargetUsersAsync(employeeRepo, userManager, user?.Employee, device);
             targetUserIds = await FilterByPreferencesAsync(preferenceRepo, targetUserIds, "attendance", device.StoreId);
-            await SendAttendanceNotificationAsync(attendance, device, user, targetUserIds, notificationRepo, employeeNameOverride);
+            var resolvedBranch = branchLabel ?? await ResolveBranchLabelAsync(scope, device);
+            await SendAttendanceNotificationAsync(
+                attendance, device, user, targetUserIds, notificationRepo,
+                employeeNameOverride, branchLabel: resolvedBranch);
         }
         catch (Exception ex)
         {
@@ -104,6 +112,8 @@ public class AttendanceNotificationService : IAttendanceNotificationService
             }
             var disabledUserIds = await GetDisabledUserIdsAsync(preferenceRepo, allCandidateUserIds, "attendance", device.StoreId);
 
+            var branchLabel = await ResolveBranchLabelAsync(scope, device);
+
             // Máy upload hàng loạt: tối đa 5 thông báo / batch để tránh tràn khi admin đăng nhập lại.
             var toNotify = attendanceList
                 .OrderByDescending(a => a.AttendanceTime)
@@ -151,7 +161,8 @@ public class AttendanceNotificationService : IAttendanceNotificationService
                 }
 
                 var created = await SendAttendanceNotificationAsync(
-                    attendance, device, user, targetUserIds, notificationRepo, sendFcm: false);
+                    attendance, device, user, targetUserIds, notificationRepo,
+                    sendFcm: false, branchLabel: branchLabel);
                 foreach (var n in created)
                 {
                     if (n.TargetUserId == null) continue;
@@ -409,7 +420,8 @@ public class AttendanceNotificationService : IAttendanceNotificationService
         Attendance attendance, Device device, DeviceUser? user,
         HashSet<Guid> targetUserIds, IRepository<Notification> notificationRepo,
         string? employeeNameOverride = null,
-        bool sendFcm = true)
+        bool sendFcm = true,
+        string? branchLabel = null)
     {
         string? employeeName = null;
         if (user?.Employee != null)
@@ -448,11 +460,10 @@ public class AttendanceNotificationService : IAttendanceNotificationService
 
         // Save per-user notification records to DB + send NewNotification for history
         var userName = notification.UserName ?? attendance.PIN ?? "Unknown";
-        // Title cố tình giữ ngắn ("Chấm công") để Android không cắt cụt vì
-        // notification title chỉ hiển thị 1 dòng. Tên nhân viên đẩy sang
-        // dòng đầu của message để BigTextStyle wrap đầy đủ.
+        var deviceLabel = device.DeviceName ?? device.SerialNumber;
         var title = "Chấm công";
-        var message = $"{userName}\n{attendance.AttendanceTime:HH:mm:ss} · {device.DeviceName ?? device.SerialNumber}";
+        var message = NotificationPushFormatter.BuildAttendanceStoredMessage(
+            userName, attendance.AttendanceTime, deviceLabel, branchLabel);
 
         var notifications = targetUserIds.Select(uid => new Notification
         {
@@ -551,6 +562,26 @@ public class AttendanceNotificationService : IAttendanceNotificationService
         {
             _logger.LogWarning(pushEx, "FCM batched push for attendance failed (non-fatal)");
         }
+    }
+
+    /// Chi nhánh / địa điểm hiển thị trên push chấm công.
+    private static async Task<string?> ResolveBranchLabelAsync(IServiceScope scope, Device device)
+    {
+        if (!string.IsNullOrWhiteSpace(device.Location))
+            return device.Location.Trim();
+
+        if (!string.IsNullOrWhiteSpace(device.Store?.Name))
+            return device.Store!.Name.Trim();
+
+        if (!device.StoreId.HasValue)
+            return null;
+
+        var storeRepo = scope.ServiceProvider.GetService<IRepository<Store>>();
+        if (storeRepo == null)
+            return null;
+
+        var store = await storeRepo.GetByIdAsync(device.StoreId.Value);
+        return string.IsNullOrWhiteSpace(store?.Name) ? null : store!.Name.Trim();
     }
 
     /// <summary>
