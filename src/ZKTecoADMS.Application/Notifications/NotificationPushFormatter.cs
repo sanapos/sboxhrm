@@ -256,10 +256,41 @@ public static class NotificationPushFormatter
             detail = string.Empty;
         }
 
-        var body = string.IsNullOrWhiteSpace(detail)
-            ? employeeName
-            : $"{employeeName}\n{detail}";
+        // Tên NV ở title — iOS cắt title ~1 dòng; prefix "Chấm công ·" làm mất phần họ tên.
+        var body = CompactAttendanceDetailForPush(detail);
 
-        return new("Chấm công", body, employeeName, "Chấm công");
+        return new(employeeName, body, employeeName, "Chấm công");
+    }
+
+    /// <summary>
+    /// Rút gọn dòng chi tiết cho banner iOS/Android: "18:02:30 · Chi nhánh" thay vì
+    /// "18:02:30 - SN123456789 tại Chi nhánh".
+    /// </summary>
+    private static string CompactAttendanceDetailForPush(string detail)
+    {
+        detail = detail.Replace('\n', ' ').Trim();
+        if (string.IsNullOrWhiteSpace(detail))
+            return "Chấm công";
+
+        const string taiMarker = " tại ";
+        var taiIdx = detail.IndexOf(taiMarker, StringComparison.Ordinal);
+        if (taiIdx >= 0)
+        {
+            var dashIdx = detail.IndexOf(" - ", StringComparison.Ordinal);
+            var timePart = dashIdx >= 0 ? detail[..dashIdx].Trim() : detail[..taiIdx].Trim();
+            var branch = detail[(taiIdx + taiMarker.Length)..].Trim();
+            if (!string.IsNullOrEmpty(branch))
+                return $"{timePart} · {branch}";
+        }
+
+        var sepIdx = detail.IndexOf(" - ", StringComparison.Ordinal);
+        if (sepIdx >= 0)
+        {
+            var timePart = detail[..sepIdx].Trim();
+            var rest = detail[(sepIdx + 3)..].Trim();
+            return string.IsNullOrEmpty(rest) ? timePart : $"{timePart} · {rest}";
+        }
+
+        return detail;
     }
 }

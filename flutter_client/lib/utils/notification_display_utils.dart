@@ -96,13 +96,38 @@ NotificationDisplay _normalizeAttendanceDisplay({
     if (employee == detail) detail = '';
   }
 
-  final body = detail.isNotEmpty ? '$employee\n$detail' : employee;
   return NotificationDisplay(
-    title: 'Chấm công',
-    body: body,
+    title: employee,
+    body: _compactAttendanceDetail(detail),
     senderName: employee,
     categoryLabel: 'Chấm công',
   );
+}
+
+String compactAttendanceDetailForPush(String detail) => _compactAttendanceDetail(detail);
+
+String _compactAttendanceDetail(String detail) {
+  detail = detail.replaceAll('\n', ' ').trim();
+  if (detail.isEmpty) return 'Chấm công';
+
+  const taiMarker = ' tại ';
+  final taiIdx = detail.indexOf(taiMarker);
+  if (taiIdx >= 0) {
+    final dashIdx = detail.indexOf(' - ');
+    final timePart =
+        dashIdx >= 0 ? detail.substring(0, dashIdx).trim() : detail.substring(0, taiIdx).trim();
+    final branch = detail.substring(taiIdx + taiMarker.length).trim();
+    if (branch.isNotEmpty) return '$timePart · $branch';
+  }
+
+  final sepIdx = detail.indexOf(' - ');
+  if (sepIdx >= 0) {
+    final timePart = detail.substring(0, sepIdx).trim();
+    final rest = detail.substring(sepIdx + 3).trim();
+    return rest.isEmpty ? timePart : '$timePart · $rest';
+  }
+
+  return detail;
 }
 
 String? _nonEmpty(dynamic value) {

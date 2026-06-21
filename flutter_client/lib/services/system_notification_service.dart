@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../screens/main_layout.dart' show ScreenRefreshNotifier;
 import '../services/api_service.dart';
+import '../utils/notification_display_utils.dart';
 import '../utils/notification_navigation.dart';
 import '../utils/tray_notification_guard.dart';
 
@@ -191,7 +192,7 @@ class SystemNotificationService {
     );
   }
 
-  /// Thông báo chấm công — 3 dòng: tiêu đề / họ tên / giờ-thiết bị-chi nhánh
+  /// Thông báo chấm công — title = họ tên (iOS không cắt), body = giờ · chi nhánh/thiết bị
   Future<void> showAttendance({
     required String employeeName,
     required String time,
@@ -199,12 +200,12 @@ class SystemNotificationService {
     String? branchName,
     String? notificationId,
   }) async {
-    final detail = branchName != null && branchName.trim().isNotEmpty
+    final rawDetail = branchName != null && branchName.trim().isNotEmpty
         ? '$time - $deviceName tại ${branchName.trim()}'
         : '$time - $deviceName';
     await show(
-      title: 'Chấm công',
-      body: '$employeeName\n$detail',
+      title: employeeName,
+      body: compactAttendanceDetailForPush(rawDetail),
       categoryLabel: 'Chấm công',
       channelId: 'sbox_hrm_attendance',
       channelName: 'Chấm công',

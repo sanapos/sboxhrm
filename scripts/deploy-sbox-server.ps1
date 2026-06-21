@@ -61,6 +61,7 @@ Invoke-PuttyScp -Pscp $pscp -Password $Password -LocalPath "$RepoRoot\api_src.ta
 Invoke-PuttyScp -Pscp $pscp -Password $Password -LocalPath "$RepoRoot\flutter_web.tar.gz" -RemotePath "${User}@${Server}:/root/flutter_web.tar.gz"
 Invoke-PuttyScp -Pscp $pscp -Password $Password -LocalPath "$RepoRoot\flutter_client\nginx.conf" -RemotePath "${User}@${Server}:/root/flutter_nginx.conf"
 Invoke-PuttyScp -Pscp $pscp -Password $Password -LocalPath "$RepoRoot\restore_multi_shift_index.sql" -RemotePath "${User}@${Server}:/root/restore_multi_shift_index.sql"
+Invoke-PuttyScp -Pscp $pscp -Password $Password -LocalPath "$RepoRoot\scripts\fix_outside_checkin_devices.sql" -RemotePath "${User}@${Server}:/root/fix_outside_checkin_devices.sql"
 Invoke-PuttyScp -Pscp $pscp -Password $Password -LocalPath "$RepoRoot\scripts\ensure_employee_live_locations.sql" -RemotePath "${User}@${Server}:/root/ensure_employee_live_locations.sql"
 Invoke-PuttyScp -Pscp $pscp -Password $Password -LocalPath "$RepoRoot\scripts\fix_employee_unique_indexes.sql" -RemotePath "${User}@${Server}:/root/fix_employee_unique_indexes.sql"
 Invoke-PuttyScp -Pscp $pscp -Password $Password -LocalPath "$RepoRoot\scripts\cleanup_duplicate_attendance_logs.sql" -RemotePath "${User}@${Server}:/root/cleanup_duplicate_attendance_logs.sql"
@@ -82,7 +83,7 @@ Invoke-PuttyScp -Pscp $pscp -Password $Password -LocalPath $deployLf -RemotePath
 
 Write-Host "==> Running remote deploy (API build may take several minutes)..."
 # plink passes a single command string; use && not newlines
-$remoteCmd = "chmod +x /root/_deploy_sbox.sh && echo '--- Migration: multi-shift index ---' && docker cp /root/restore_multi_shift_index.sql zkteco_postgres:/tmp/restore_multi_shift_index.sql && docker exec zkteco_postgres psql -U postgres -d ZKTecoADMS -f /tmp/restore_multi_shift_index.sql 2>&1 | tail -5 && /root/_deploy_sbox.sh"
+$remoteCmd = "chmod +x /root/_deploy_sbox.sh && echo '--- Migration: multi-shift index ---' && docker cp /root/restore_multi_shift_index.sql zkteco_postgres:/tmp/restore_multi_shift_index.sql && docker exec zkteco_postgres psql -U postgres -d ZKTecoADMS -f /tmp/restore_multi_shift_index.sql 2>&1 | tail -5 && echo '--- Fix outside check-in devices ---' && docker cp /root/fix_outside_checkin_devices.sql zkteco_postgres:/tmp/fix_outside_checkin_devices.sql && docker exec zkteco_postgres psql -U postgres -d ZKTecoADMS -f /tmp/fix_outside_checkin_devices.sql 2>&1 | tail -10 && /root/_deploy_sbox.sh"
 Invoke-PuttySsh -Plink $plink -Password $Password -User $User -Server $Server -Command $remoteCmd
 
 Write-Host "==> Deploy finished."
