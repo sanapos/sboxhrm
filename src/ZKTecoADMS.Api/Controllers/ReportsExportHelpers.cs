@@ -1,6 +1,8 @@
 using System.Text;
 using ClosedXML.Excel;
 
+using ZKTecoADMS.Application.Helpers;
+
 namespace ZKTecoADMS.Api.Controllers;
 
 /// <summary>Shared labels and formatting for attendance report exports.</summary>
@@ -36,15 +38,7 @@ internal static class ReportLabels
 
 internal static class ReportsExportHelpers
 {
-    public static DateTime ToVietnamTime(DateTime dt)
-    {
-        return dt.Kind switch
-        {
-            DateTimeKind.Utc => dt.AddHours(7),
-            DateTimeKind.Local => dt.ToUniversalTime().AddHours(7),
-            _ => DateTime.SpecifyKind(dt, DateTimeKind.Utc).AddHours(7),
-        };
-    }
+    public static DateTime ToVietnamTime(DateTime dt) => VnTimeHelper.AttendanceWallClock(dt);
 
     public static string FormatVnTime(DateTime? value)
         => value == null ? "-" : ToVietnamTime(value.Value).ToString("HH:mm");

@@ -127,6 +127,17 @@ class PermissionRoleCatalog {
       ],
     ),
     PermissionUiGroup(
+      id: 'pos',
+      title: 'POS / Bán hàng',
+      description: 'Hàng hóa, bán hàng, kho',
+      icon: Icons.point_of_sale_outlined,
+      color: Color(0xFF2563EB),
+      moduleCodes: [
+        'PosProducts',
+        'PosSalesReport',
+      ],
+    ),
+    PermissionUiGroup(
       id: 'operations',
       title: 'Quản lý vận hành',
       description: 'Chấm cơm, tài sản, công việc, KPI, sản lượng',

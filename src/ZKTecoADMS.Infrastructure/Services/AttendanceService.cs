@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using ZKTecoADMS.Application.Helpers;
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
@@ -284,11 +285,8 @@ public class AttendanceService(
         return vnTime.Date;
     }
 
-    /// <summary>
-    /// Máy chấm / mobile lưu giờ VN (Unspecified); một số API lưu UTC — chuẩn hóa về VN.
-    /// </summary>
     private static DateTime ToVietnamLocal(DateTime punchTime)
-        => punchTime.Kind == DateTimeKind.Utc ? punchTime.AddHours(7) : punchTime;
+        => VnTimeHelper.AttendanceWallClock(punchTime);
 
     private static TimeSpan GetPunchTimeOfDay(DateTime punchTime)
         => ToVietnamLocal(punchTime).TimeOfDay;

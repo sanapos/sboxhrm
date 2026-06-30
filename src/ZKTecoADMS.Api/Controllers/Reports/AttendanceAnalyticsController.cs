@@ -43,7 +43,7 @@ public class AttendanceAnalyticsController(
             var now = ReportHelpers.NowVn();
             var y = year ?? now.Year;
             var m = month ?? now.Month;
-            var (startLocal, endLocal, utcStart, utcEnd) = ReportHelpers.VnMonthRange(y, m);
+            var (startLocal, endLocal, utcStart, utcEnd) = ReportHelpers.AttendanceMonthRange(y, m);
             var storeId = RequiredStoreId;
 
             var empQ = db.Employees.Where(e => e.StoreId == storeId && e.Deleted == null);
@@ -66,7 +66,7 @@ public class AttendanceAnalyticsController(
                 .ToListAsync(ct);
 
             var attByPin = rawAtt
-                .Select(a => new { a.PIN, VnDate = ReportHelpers.ToVn(a.AttendanceTime).Date, a.AttendanceState })
+                .Select(a => new { a.PIN, VnDate = ReportHelpers.AttendanceToVn(a.AttendanceTime).Date, a.AttendanceState })
                 .ToLookup(a => a.PIN);
 
             // Mobile punches as fallback (face/GPS check-ins)
@@ -77,7 +77,7 @@ public class AttendanceAnalyticsController(
                 .ToListAsync(ct);
             var mobileByCode = mobileAtt
                 .Where(m => empCodeSet.Contains(m.OdooEmployeeId))
-                .Select(m => new { m.OdooEmployeeId, VnDate = ReportHelpers.ToVn(m.PunchTime).Date })
+                .Select(m => new { m.OdooEmployeeId, VnDate = ReportHelpers.AttendanceToVn(m.PunchTime).Date })
                 .ToLookup(m => m.OdooEmployeeId);
 
             var holidays = (await db.Holidays
@@ -113,7 +113,7 @@ public class AttendanceAnalyticsController(
             // Precompute: earliest check-in per (PIN, date) in VN local → late detection.
             var earliestCheckInByPinDate = rawAtt
                 .Where(a => a.AttendanceState == AttendanceStates.CheckIn)
-                .Select(a => new { a.PIN, Vn = ReportHelpers.ToVn(a.AttendanceTime) })
+                .Select(a => new { a.PIN, Vn = ReportHelpers.AttendanceToVn(a.AttendanceTime) })
                 .GroupBy(a => new { a.PIN, Date = a.Vn.Date })
                 .ToDictionary(g => g.Key, g => g.Min(x => x.Vn));
 
@@ -233,7 +233,7 @@ public class AttendanceAnalyticsController(
     {
         try
         {
-            var (fromLocal, toLocal, utcStart, utcEnd) = ReportHelpers.VnRange(from, to);
+            var (fromLocal, toLocal, utcStart, utcEnd) = ReportHelpers.AttendanceVnRange(from, to);
             var storeId = RequiredStoreId;
 
             var empQ = db.Employees.Where(e => e.StoreId == storeId && e.Deleted == null
@@ -255,7 +255,7 @@ public class AttendanceAnalyticsController(
                     && pins.Contains(a.PIN))
                 .Select(a => new { a.PIN, a.AttendanceTime })
                 .ToListAsync(ct);
-            var attByPinDate = attDates.Select(a => new { a.PIN, Dt = ReportHelpers.ToVn(a.AttendanceTime).Date })
+            var attByPinDate = attDates.Select(a => new { a.PIN, Dt = ReportHelpers.AttendanceToVn(a.AttendanceTime).Date })
                 .Distinct().ToHashSet();
 
             var mobileDates = await db.MobileAttendanceRecords
@@ -264,7 +264,7 @@ public class AttendanceAnalyticsController(
                     && pins.Contains(m.OdooEmployeeId))
                 .Select(m => new { m.OdooEmployeeId, m.PunchTime })
                 .ToListAsync(ct);
-            var mobileByPinDate = mobileDates.Select(m => new { PIN = m.OdooEmployeeId, Dt = ReportHelpers.ToVn(m.PunchTime).Date })
+            var mobileByPinDate = mobileDates.Select(m => new { PIN = m.OdooEmployeeId, Dt = ReportHelpers.AttendanceToVn(m.PunchTime).Date })
                 .Distinct().ToHashSet();
 
             var holidays = (await db.Holidays
@@ -371,7 +371,7 @@ public class AttendanceAnalyticsController(
     {
         try
         {
-            var (fromLocal, toLocal, utcStart, utcEnd) = ReportHelpers.VnRange(from, to);
+            var (fromLocal, toLocal, utcStart, utcEnd) = ReportHelpers.AttendanceVnRange(from, to);
             var storeId = RequiredStoreId;
 
             var empQ = db.Employees.Where(e => e.StoreId == storeId && e.Deleted == null);
@@ -400,14 +400,14 @@ public class AttendanceAnalyticsController(
                     && a.AttendanceTime >= utcStart && a.AttendanceTime < utcEnd
                     && pins.Contains(a.PIN))
                 .Select(a => new { a.PIN, a.AttendanceTime }).ToListAsync(ct))
-                .Select(a => (Pin: a.PIN, Date: ReportHelpers.ToVn(a.AttendanceTime).Date))
+                .Select(a => (Pin: a.PIN, Date: ReportHelpers.AttendanceToVn(a.AttendanceTime).Date))
                 .Distinct().ToHashSet();
 
             var mobileDates = (await db.MobileAttendanceRecords
                 .Where(m => m.StoreId == storeId && m.PunchTime >= utcStart && m.PunchTime < utcEnd
                     && pins.Contains(m.OdooEmployeeId))
                 .Select(m => new { m.OdooEmployeeId, m.PunchTime }).ToListAsync(ct))
-                .Select(m => (Pin: m.OdooEmployeeId, Date: ReportHelpers.ToVn(m.PunchTime).Date))
+                .Select(m => (Pin: m.OdooEmployeeId, Date: ReportHelpers.AttendanceToVn(m.PunchTime).Date))
                 .Distinct().ToHashSet();
 
             var leaves = await db.Leaves
@@ -496,7 +496,7 @@ public class AttendanceAnalyticsController(
     {
         try
         {
-            var (fromLocal, toLocal, utcStart, utcEnd) = ReportHelpers.VnRange(from, to);
+            var (fromLocal, toLocal, utcStart, utcEnd) = ReportHelpers.AttendanceVnRange(from, to);
             var storeId = RequiredStoreId;
 
             var empQ = db.Employees.Where(e => e.StoreId == storeId && e.Deleted == null);
@@ -515,7 +515,7 @@ public class AttendanceAnalyticsController(
                 .Select(a => new { a.PIN, a.AttendanceTime, a.AttendanceState })
                 .ToListAsync(ct);
 
-            var vnPunches = raw.Select(a => new { a.PIN, Vn = ReportHelpers.ToVn(a.AttendanceTime), a.AttendanceState }).ToList();
+            var vnPunches = raw.Select(a => new { a.PIN, Vn = ReportHelpers.AttendanceToVn(a.AttendanceTime), a.AttendanceState }).ToList();
             var byEmpDay = vnPunches.GroupBy(p => new { p.PIN, Date = p.Vn.Date });
 
             var items = new List<AnomalyItemDto>();
@@ -612,7 +612,7 @@ public class AttendanceAnalyticsController(
     {
         try
         {
-            var (fromLocal, toLocal, _, _) = ReportHelpers.VnRange(from, to);
+            var (fromLocal, toLocal, _, _) = ReportHelpers.AttendanceVnRange(from, to);
             var storeId = RequiredStoreId;
 
             var q = db.VisitReports
@@ -691,7 +691,7 @@ public class AttendanceAnalyticsController(
     {
         try
         {
-            var (fromLocal, toLocal, utcStart, utcEnd) = ReportHelpers.VnRange(from, to);
+            var (fromLocal, toLocal, utcStart, utcEnd) = ReportHelpers.AttendanceVnRange(from, to);
             var storeId = RequiredStoreId;
 
             var raw = await db.MobileAttendanceRecords

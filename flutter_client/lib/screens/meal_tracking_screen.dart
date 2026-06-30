@@ -274,7 +274,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
 
   Future<void> _loadEmployeeList() async {
     try {
-      _employees = await _apiService.getEmployees(pageSize: 500);
+      _employees = await _apiService.getEmployeesForSelect(pageSize: 500);
     } catch (e) {
       debugPrint('Load employees error: $e');
     }

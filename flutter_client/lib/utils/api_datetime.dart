@@ -3,15 +3,32 @@ import 'package:intl/intl.dart';
 /// Chấm công thô / AttendanceLogs: `AttendanceTime` lưu giờ VN, JSON không có `Z`.
 DateTime? parseAttendanceWallClock(dynamic value) {
   if (value == null) return null;
-  if (value is DateTime) return value;
+  if (value is DateTime) {
+    return value.isUtc ? _vnClockFace(value) : value;
+  }
   final raw = value.toString().trim();
   if (raw.isEmpty) return null;
   final hasTz = raw.endsWith('Z') ||
       raw.contains('+') ||
       RegExp(r'-\d{2}:\d{2}$').hasMatch(raw);
-  if (hasTz) return DateTime.tryParse(raw)?.toLocal();
-  return DateTime.tryParse(raw);
+  if (!hasTz) return DateTime.tryParse(raw);
+  final parsed = DateTime.tryParse(raw);
+  if (parsed == null) return null;
+  // Legacy API gắn Z nhầm lên giờ VN — giữ mặt số, không +7h.
+  if (parsed.isUtc) return _vnClockFace(parsed);
+  return parsed.toLocal();
 }
+
+DateTime _vnClockFace(DateTime dt) => DateTime(
+      dt.year,
+      dt.month,
+      dt.day,
+      dt.hour,
+      dt.minute,
+      dt.second,
+      dt.millisecond,
+      dt.microsecond,
+    );
 
 String formatAttendanceWallClock(
   dynamic value, {
@@ -48,6 +65,9 @@ DateTime? parseApiUtcDateTime(dynamic value) {
   final normalized = hasTz ? raw : '${raw}Z';
   return DateTime.tryParse(normalized)?.toLocal();
 }
+
+/// Alias cho parseApiUtcDateTime (POS / thẻ kho).
+DateTime? parseApiDateTime(dynamic value) => parseApiUtcDateTime(value);
 
 String formatApiDateTime(
   dynamic value, {

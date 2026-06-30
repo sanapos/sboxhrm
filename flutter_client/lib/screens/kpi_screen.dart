@@ -98,7 +98,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       final r = await Future.wait<dynamic>([
         _api.getKpiPeriods(),
         _api.getKpiDashboard(),
-        _api.getEmployees(),
+        _api.getEmployeesForSelect(),
       ]);
       setState(() {
         if (r[0]['isSuccess'] == true) {

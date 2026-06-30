@@ -1,10 +1,12 @@
+using System.Text.Json.Serialization;
+using ZKTecoADMS.Application.Serialization;
 using ZKTecoADMS.Domain.Enums;
 
 namespace ZKTecoADMS.Application.DTOs.Attendances;
 
 public record AttendanceDto(
     Guid Id,
-    DateTime AttendanceTime,
+    [property: JsonConverter(typeof(VnWallClockDateTimeJsonConverter))] DateTime AttendanceTime,
     string DeviceName,
     string Pin,
     string? EmployeeCode,

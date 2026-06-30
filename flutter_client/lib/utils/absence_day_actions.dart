@@ -106,7 +106,7 @@ class AbsenceDayActions {
     List<dynamic> empList = employees ?? [];
     if (empList.isEmpty) {
       try {
-        final raw = await api.getEmployees(pageSize: 500);
+        final raw = await api.getEmployeesForSelect(pageSize: 500);
         empList = raw;
       } catch (_) {}
     }

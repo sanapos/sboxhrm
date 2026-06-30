@@ -95,7 +95,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
   Future<void> _loadMasterData() async {
     // Load employees separately so failure doesn't block product loading
     try {
-      final empRes = await _apiService.getEmployees(pageSize: 9999);
+      final empRes = await _apiService.getEmployeesForSelect(pageSize: 9999);
       _employees = (empRes as List?)
               ?.map((e) => Map<String, dynamic>.from(e as Map))
               .toList() ??

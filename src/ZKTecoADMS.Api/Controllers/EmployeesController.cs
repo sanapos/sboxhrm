@@ -24,7 +24,11 @@ namespace ZKTecoADMS.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class EmployeesController(IMediator mediator, IDataScopeService dataScopeService, ZKTecoDbContext dbContext) : AuthenticatedControllerBase
+public class EmployeesController(
+    IMediator mediator,
+    IDataScopeService dataScopeService,
+    ZKTecoDbContext dbContext,
+    IEmployeeDeleteGuard employeeDeleteGuard) : AuthenticatedControllerBase
 {
     [HttpGet]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
@@ -35,7 +39,8 @@ public class EmployeesController(IMediator mediator, IDataScopeService dataScope
         [FromQuery] string? employmentType,
         [FromQuery] string? workStatus,
         [FromQuery] Guid? branchId,
-        [FromQuery] bool includeChildBranches = true)
+        [FromQuery] bool includeChildBranches = true,
+        [FromQuery] bool excludeResigned = false)
     {
         // Admin: tất cả. Manager: phạm vi quản lý. Employee: chỉ hồ sơ của mình.
         List<Guid>? subordinateIds = null;
@@ -70,6 +75,7 @@ public class EmployeesController(IMediator mediator, IDataScopeService dataScope
             SubordinateEmployeeIds = subordinateIds,
             BranchId = branchId,
             BranchIds = branchIds,
+            ExcludeResigned = excludeResigned,
         };
         
         var result = await mediator.Send(query);
@@ -160,6 +166,25 @@ public class EmployeesController(IMediator mediator, IDataScopeService dataScope
     {
         var result = await mediator.Send(new GetEmployeeByIdQuery { StoreId = RequiredStoreId, Id = id });
         return Ok(result);
+    }
+
+    [HttpPost("delete-eligibility")]
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Employee", ModulePermissionAction.Delete)]
+    public async Task<IActionResult> GetDeleteEligibility([FromBody] EmployeeDeleteEligibilityRequest request)
+    {
+        var ids = (request.EmployeeIds ?? [])
+            .Where(id => id != Guid.Empty)
+            .Distinct()
+            .Take(200)
+            .ToList();
+
+        var evaluations = await employeeDeleteGuard.EvaluateBatchAsync(ids);
+        var payload = evaluations.ToDictionary(
+            kvp => kvp.Key.ToString(),
+            kvp => new { canDelete = kvp.Value.CanDelete, message = kvp.Value.BlockedReason });
+
+        return Ok(AppResponse<object>.Success(payload));
     }
 
     [HttpPost]
@@ -416,4 +441,9 @@ public class EmployeesController(IMediator mediator, IDataScopeService dataScope
             $"{employeeCode.Trim()}@company.com",
             StringComparison.OrdinalIgnoreCase);
     }
+}
+
+public class EmployeeDeleteEligibilityRequest
+{
+    public List<Guid> EmployeeIds { get; set; } = [];
 }

@@ -68,4 +68,9 @@ public class EmployeeDto
 
     public bool HasAccount {get;set;}
 
+    /// <summary>False khi còn dữ liệu liên quan chặn xóa cứng.</summary>
+    public bool CanDelete { get; set; } = true;
+
+    public string? DeleteBlockedReason { get; set; }
+
 }

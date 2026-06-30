@@ -1830,7 +1830,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
     // Load employees for selection
     List<dynamic> employees = [];
     try {
-      employees = await _apiService.getEmployees(pageSize: 500);
+      employees = await _apiService.getEmployeesForSelect(pageSize: 500);
     } catch (e) {
       debugPrint('Load employees error: $e');
     }
@@ -2359,6 +2359,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
     if (device.canUseFaceId) features.add('Face ID');
     if (device.canUseGps) features.add('GPS');
     if (device.allowOutsideCheckIn) features.add('Ngoài CT');
+    if (device.allowTravelCheckIn) features.add('Đi đường');
     if (_settings.requirePhotoProof && device.requirePhotoProof) {
       features.add('Ảnh CT: Bật');
     } else if (device.requirePhotoProof) {
@@ -3464,6 +3465,35 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
     }
   }
 
+  Future<void> _toggleAllowTravelCheckIn(AuthorizedDevice device) async {
+    final newValue = !device.allowTravelCheckIn;
+    try {
+      final response = await _apiService.setDeviceAllowTravelCheckIn(
+        deviceRecordId: device.id,
+        allowTravelCheckIn: newValue,
+      );
+      if (mounted) {
+        if (response['isSuccess'] == true) {
+          appNotification.showSuccess(
+            title: 'Thành công',
+            message: newValue
+                ? 'Đã cho phép chấm đi đường trên thiết bị này'
+                : 'Đã tắt chấm đi đường trên thiết bị này',
+          );
+          _loadData();
+        } else {
+          appNotification.showError(
+              title: 'Lỗi',
+              message: response['message'] ?? 'Không thể thay đổi cài đặt');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        appNotification.showError(title: 'Lỗi', message: 'Lỗi: $e');
+      }
+    }
+  }
+
   Widget _buildDeviceChangeRequestItem(Map<String, dynamic> req) {
     final requestedAt = req['requestedAt'] != null
         ? DateTime.tryParse(req['requestedAt'].toString())
@@ -3745,6 +3775,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                 _buildDetailRow('Face ID', device.canUseFaceId ? 'Cho phép' : 'Không'),
                 _buildDetailRow('GPS', device.canUseGps ? 'Cho phép' : 'Không'),
                 _buildDetailRow('Chấm công ngoài CT', device.allowOutsideCheckIn ? 'Cho phép' : 'Không'),
+                _buildDetailRow('Chấm đi đường', device.allowTravelCheckIn ? 'Cho phép' : 'Không'),
                 _buildPhotoProofStatusBanner(
                   current.copyWith(requirePhotoProof: photoProofOn),
                 ),
@@ -3885,6 +3916,30 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                       style: TextStyle(color: device.allowOutsideCheckIn ? const Color(0xFFF59E0B) : const Color(0xFF6B7280)),
                     ),
                   ),
+                  if (_perm.canEdit('MobileAttendance'))
+                    TextButton.icon(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _toggleAllowTravelCheckIn(device);
+                      },
+                      icon: Icon(
+                        device.allowTravelCheckIn
+                            ? Icons.directions_car_filled
+                            : Icons.directions_car_outlined,
+                        size: 18,
+                        color: device.allowTravelCheckIn
+                            ? const Color(0xFF0EA5E9)
+                            : const Color(0xFF6B7280),
+                      ),
+                      label: Text(
+                        device.allowTravelCheckIn ? 'Tắt đi đường' : 'Bật đi đường',
+                        style: TextStyle(
+                          color: device.allowTravelCheckIn
+                              ? const Color(0xFF0EA5E9)
+                              : const Color(0xFF6B7280),
+                        ),
+                      ),
+                    ),
                   if (isPending) ...[
                     FilledButton.icon(
                       onPressed: () {
@@ -4033,7 +4088,7 @@ class _LocationEmployeesAssignDialogState
   Future<void> _loadData() async {
     try {
       final results = await Future.wait([
-        widget.apiService.getEmployees(page: 1, pageSize: 500),
+        widget.apiService.getEmployeesForSelect(page: 1, pageSize: 500),
         widget.apiService.getLocationEmployees(widget.location.id),
       ]);
       if (!mounted) return;

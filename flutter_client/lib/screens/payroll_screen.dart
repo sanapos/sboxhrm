@@ -44,7 +44,7 @@ class _PayrollScreenState extends State<PayrollScreen> {
 
   Future<void> _loadEmployeesAndBranches() async {
     try {
-      final emps = await _apiService.getEmployees(pageSize: 1000);
+      final emps = await _apiService.getEmployeesForSelect(pageSize: 1000);
       if (mounted) {
         setState(() => _employeesList =
             emps.map((e) => Map<String, dynamic>.from(e as Map)).toList());

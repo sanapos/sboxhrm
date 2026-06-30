@@ -1,4 +1,6 @@
+using System.Text.Json.Serialization;
 using ZKTecoADMS.Application.DTOs.Attendances;
+using ZKTecoADMS.Application.Serialization;
 
 namespace ZKTecoADMS.Application.DTOs.Dashboard;
 
@@ -17,10 +19,13 @@ public class AttendanceInfoDto
 {
     public Guid Id { get; set; }
     /// <summary>Giờ VN (wall clock) — cùng quy ước Chấm công thô.</summary>
+    [JsonConverter(typeof(NullableVnWallClockDateTimeJsonConverter))]
     public DateTime? CheckInTime { get; set; }
     /// <summary>Giờ VN — lần check-out mới nhất trong ngày, nếu có.</summary>
+    [JsonConverter(typeof(NullableVnWallClockDateTimeJsonConverter))]
     public DateTime? CheckOutTime { get; set; }
     /// <summary>Giờ VN — lần chấm gần nhất trong ngày.</summary>
+    [JsonConverter(typeof(NullableVnWallClockDateTimeJsonConverter))]
     public DateTime? LastPunchTime { get; set; }
     /// <summary>true = last punch was check-out; false = check-in.</summary>
     public bool LastPunchIsCheckOut { get; set; }

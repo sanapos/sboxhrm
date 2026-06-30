@@ -43,7 +43,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
     try {
       final results = await Future.wait([
         _apiService.getAllowanceSettings(),
-        _apiService.getEmployees(pageSize: 500),
+        _apiService.getEmployeesForSelect(pageSize: 500),
       ]);
       setState(() {
         _allowances = List<Map<String, dynamic>>.from(results[0]);

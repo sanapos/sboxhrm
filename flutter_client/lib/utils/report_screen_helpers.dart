@@ -253,7 +253,7 @@ class ReportBranchFilter {
     if (employeesLoaded || employeesLoading) return;
     employeesLoading = true;
     try {
-      final emps = await api.getEmployees(pageSize: 500);
+      final emps = await api.getEmployeesForSelect(pageSize: 500);
       employees =
           emps.map((e) => Map<String, dynamic>.from(e as Map)).toList();
       if (employees.isEmpty) {

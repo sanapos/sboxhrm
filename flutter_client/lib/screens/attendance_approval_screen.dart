@@ -124,7 +124,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
 
   Future<void> _loadEmployees() async {
     try {
-      final employees = await _apiService.getEmployees(pageSize: 500);
+      final employees = await _apiService.getEmployeesForSelect(pageSize: 500);
       if (mounted) {
         setState(() => _employees = List<Map<String, dynamic>>.from(
             employees.map((e) => e as Map<String, dynamic>)));

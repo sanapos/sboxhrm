@@ -15,10 +15,14 @@ class NavigationNotifier {
   static final ValueNotifier<String?> currentScreenLabel =
       ValueNotifier<String?>(null);
 
+  static final ValueNotifier<String?> currentModuleCode =
+      ValueNotifier<String?>(null);
+
   static void reportScreen(String label, {String? moduleCode}) {
     final trimmed = label.trim();
     if (trimmed.isEmpty) return;
     currentScreenLabel.value = trimmed;
+    currentModuleCode.value = moduleCode;
     if (moduleCode != null && moduleCode.isNotEmpty) {
       debugPrint('📍 Screen: $trimmed ($moduleCode)');
     } else {

@@ -83,7 +83,7 @@ class _OvertimeScreenState extends State<OvertimeScreen>
       });
       if (_branches.isEmpty) {
         try {
-          final emps = await _apiService.getEmployees(pageSize: 500);
+          final emps = await _apiService.getEmployeesForSelect(pageSize: 500);
           if (mounted) {
             setState(() => _employees =
                 emps.map((e) => Map<String, dynamic>.from(e as Map)).toList());

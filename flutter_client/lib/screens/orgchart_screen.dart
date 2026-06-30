@@ -1345,7 +1345,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
     await _loadPositions();
 
     // Load employees
-    final empList = await _api.getEmployees();
+    final empList = await _api.getEmployeesForSelect();
     final employees = <Map<String, dynamic>>[];
     for (var e in empList) {
       employees.add({

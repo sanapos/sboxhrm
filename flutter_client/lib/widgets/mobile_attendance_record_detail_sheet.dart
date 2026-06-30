@@ -157,9 +157,13 @@ class _MobileAttendanceRecordDetailBodyState
   @override
   Widget build(BuildContext context) {
     final record = _record;
+    final isTravel = record.isTravelPunch;
     final isCheckIn = record.punchType == 0;
-    final punchColor =
-        isCheckIn ? const Color(0xFF1E3A5F) : const Color(0xFFEF4444);
+    final punchColor = isTravel
+        ? (record.punchType == 2
+            ? const Color(0xFF0EA5E9)
+            : const Color(0xFF14B8A6))
+        : (isCheckIn ? const Color(0xFF1E3A5F) : const Color(0xFFEF4444));
     final timeFmt = DateFormat('HH:mm:ss');
     final dateFmt = DateFormat('dd/MM/yyyy');
     return Container(
@@ -193,7 +197,7 @@ class _MobileAttendanceRecordDetailBodyState
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
-                        isCheckIn ? 'Chấm vào' : 'Chấm ra',
+                        record.punchTypeLabel,
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
                           color: punchColor,
@@ -261,7 +265,7 @@ class _MobileAttendanceRecordDetailBodyState
                   icon: Icons.straighten,
                   label: 'Khoảng cách',
                   value: record.distanceFromLocation != null
-                      ? '${record.distanceFromLocation!.toInt()} m'
+                      ? formatMobileAttendanceDistance(record.distanceFromLocation)
                       : '—',
                 ),
                 _DetailRow(

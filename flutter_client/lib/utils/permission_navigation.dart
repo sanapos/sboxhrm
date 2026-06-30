@@ -59,6 +59,24 @@ class PermissionNavigation {
         return 'Thu chi';
       case 'Production':
         return 'Sản lượng';
+      case 'PosProducts':
+        return 'Hàng hóa';
+      case 'PosSell':
+        return 'Bán hàng';
+      case 'PosPrintTemplates':
+        return 'Mẫu in';
+      case 'PosSaleOrders':
+        return 'Đơn hàng';
+      case 'PosPurchaseReceipts':
+        return 'Nhập hàng NCC';
+      case 'PosPurchaseReturns':
+        return 'Trả hàng nhập';
+      case 'PosStockCounts':
+        return 'Kiểm kho';
+      case 'PosDamageIssues':
+        return 'Xuất hủy';
+      case 'PosInternalUseIssues':
+        return 'Xuất dùng nội bộ';
       case 'PenaltyReport':
         return 'Báo cáo phạt';
       case 'CashReport':

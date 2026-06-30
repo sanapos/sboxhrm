@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using ZKTecoADMS.Application.DTOs.Dashboard;
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
@@ -28,9 +29,6 @@ public class GetManagerDashboardHandler(
             var startOfDay = request.Date.Date;
             var endOfDayExclusive = startOfDay.AddDays(1);
             var endOfDay = endOfDayExclusive.AddTicks(-1);
-            // AttendanceTime is stored as UTC — convert the VN window once for that query.
-            var attUtcStart = startOfDay.AddHours(-7);
-            var attUtcEnd = endOfDayExclusive.AddHours(-7);
 
             // Get all employees managed by this manager
             var managedUsers = await userManager.Users
@@ -101,11 +99,11 @@ public class GetManagerDashboardHandler(
                 .Where(u => u.Employee != null)
                 .ToDictionary(u => u.Employee!.Id, u => u.Id);
 
-            // Get attendances for today — query in UTC since AttendanceTime is UTC.
+            // AttendanceTime = giờ tường VN trong DB.
             var attendances = (await attendanceRepository.GetAllAsync(
                 filter: a => a.EmployeeId != null && employeeIdToUserIdMap.Keys.Contains(a.EmployeeId.Value) &&
-                           a.AttendanceTime >= attUtcStart &&
-                           a.AttendanceTime < attUtcEnd,
+                           a.AttendanceTime >= startOfDay &&
+                           a.AttendanceTime < endOfDayExclusive,
                 includeProperties: new[] { "Employee" },
                 orderBy: q => q.OrderBy(a => a.AttendanceTime),
                 cancellationToken: cancellationToken)).ToList();
@@ -163,14 +161,13 @@ public class GetManagerDashboardHandler(
 
             var onLeaveUserIds = employeesOnLeave.Select(e => e.EmployeeUserId).ToHashSet();
 
-            // Build late employees list (checked in but late, excluding those on leave).
-            // checkIn.AttendanceTime is UTC; shift.StartTime is VN-local — convert before comparing.
+            // checkIn.AttendanceTime = giờ tường VN; shift.StartTime = VN local.
             var lateEmployees = new List<LateDeviceUserDto>();
             foreach (var shift in todayShifts.Where(s => !onLeaveUserIds.Contains(s.EmployeeUserId)))
             {
                 if (employeeCheckIns.TryGetValue(shift.EmployeeUserId, out var checkIn))
                 {
-                    var checkInVn = checkIn.AttendanceTime.AddHours(7);
+                    var checkInVn = VnTimeHelper.AttendanceWallClock(checkIn.AttendanceTime);
                     if (checkInVn > shift.StartTime)
                     {
                         lateEmployees.Add(new LateDeviceUserDto
@@ -219,11 +216,11 @@ public class GetManagerDashboardHandler(
                 }
                 else if (employeeCheckIns.TryGetValue(s.EmployeeUserId, out var checkIn))
                 {
-                    var checkInVn = checkIn.AttendanceTime.AddHours(7);
+                    var checkInVn = VnTimeHelper.AttendanceWallClock(checkIn.AttendanceTime);
                     checkInTime = checkInVn;
                     if (employeeCheckOuts.TryGetValue(s.EmployeeUserId, out var checkOut))
                     {
-                        checkOutTime = checkOut.AttendanceTime.AddHours(7);
+                        checkOutTime = VnTimeHelper.AttendanceWallClock(checkOut.AttendanceTime);
                     }
 
                     status = checkInVn > s.StartTime ? "Late" : "Present";

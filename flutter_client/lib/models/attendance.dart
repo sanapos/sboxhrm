@@ -1,3 +1,5 @@
+import '../utils/api_datetime.dart';
+
 class Attendance {
   final String id;
   final String? pin;
@@ -90,16 +92,7 @@ class Attendance {
   int get punchType => attendanceState;
   int get verifyType => verifyMode;
 
-  // Privilege text
-  String get privilegeText {
-    switch (privilege) {
-      case 14:
-        return 'Quản trị viên';
-      case 0:
-      default:
-        return 'Người dùng';
-    }
-  }
+  String get privilegeText => privilegeLabel(privilege);
 
   /// Parse attendance state from int or string enum name.
   /// Backend REST API sends string names ("CheckIn", "CheckOut", etc.)
@@ -218,13 +211,9 @@ class Attendance {
     ]) {
       if (json[field] != null) {
         final raw = json[field].toString();
-        final hasTz = raw.endsWith('Z') ||
-            raw.contains('+') ||
-            RegExp(r'-\d{2}:\d{2}$').hasMatch(raw);
         // Bare ISO = VN local time from device → parse as local (no conversion).
-        // With timezone info → convert to local.
-        parsedTime =
-            hasTz ? DateTime.tryParse(raw)?.toLocal() : DateTime.tryParse(raw);
+        // Legacy Z on VN wall clock → clock face only (see parseAttendanceWallClock).
+        parsedTime = parseAttendanceWallClock(raw);
         if (parsedTime != null) break;
       }
     }
@@ -278,8 +267,11 @@ class Attendance {
     }
   }
 
-  String get verifyTypeText {
-    switch (verifyType) {
+  String get verifyTypeText => verifyModeLabel(verifyType);
+
+  /// Nhãn kiểu xác thực theo mã (dùng chung UI).
+  static String verifyModeLabel(int verifyMode) {
+    switch (verifyMode) {
       case -1:
         return 'Không xác định';
       case 0:
@@ -287,14 +279,23 @@ class Attendance {
       case 1:
         return 'Vân tay';
       case 2:
-        return 'Thẻ';
+        return 'Thẻ từ';
       case 9:
       case 15:
         return 'Khuôn mặt';
       case 100:
         return 'Thủ công';
       default:
-        return 'Khác';
+        return 'Khác ($verifyMode)';
+    }
+  }
+
+  static String privilegeLabel(int privilege) {
+    switch (privilege) {
+      case 14:
+        return 'Quản trị viên';
+      default:
+        return 'Người dùng';
     }
   }
 }

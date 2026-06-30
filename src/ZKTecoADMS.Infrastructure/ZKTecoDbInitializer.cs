@@ -225,6 +225,7 @@ public class ZKTecoDbInitializer(
                         END IF;
                         IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'AuthorizedMobileDevices') THEN
                             ALTER TABLE ""AuthorizedMobileDevices"" ADD COLUMN IF NOT EXISTS ""RequirePhotoProof"" BOOLEAN NOT NULL DEFAULT false;
+                            ALTER TABLE ""AuthorizedMobileDevices"" ADD COLUMN IF NOT EXISTS ""AllowTravelCheckIn"" BOOLEAN NOT NULL DEFAULT false;
                         END IF;
                     END $$;");
 
@@ -581,6 +582,401 @@ public class ZKTecoDbInitializer(
                             FOREIGN KEY (""DependsOnTaskId"") REFERENCES ""WorkTasks""(""Id"") ON DELETE RESTRICT
                     );
                     CREATE UNIQUE INDEX IF NOT EXISTS ""IX_TaskDependencies_TaskId_DependsOnTaskId"" ON ""TaskDependencies""(""TaskId"", ""DependsOnTaskId"");
+
+                    CREATE TABLE IF NOT EXISTS ""PosProductCategories"" (
+                        ""Id"" uuid NOT NULL PRIMARY KEY,
+                        ""StoreId"" uuid NOT NULL,
+                        ""ParentId"" uuid,
+                        ""Name"" character varying(200) NOT NULL DEFAULT '',
+                        ""SortOrder"" integer NOT NULL DEFAULT 0,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone,
+                        ""UpdatedBy"" text,
+                        ""CreatedBy"" text,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""LastModified"" timestamp without time zone,
+                        ""LastModifiedBy"" text,
+                        ""Deleted"" timestamp without time zone,
+                        ""DeletedBy"" text,
+                        CONSTRAINT ""FK_PosProductCategories_Stores_StoreId""
+                            FOREIGN KEY (""StoreId"") REFERENCES ""Stores""(""Id"") ON DELETE CASCADE,
+                        CONSTRAINT ""FK_PosProductCategories_Parent""
+                            FOREIGN KEY (""ParentId"") REFERENCES ""PosProductCategories""(""Id"") ON DELETE RESTRICT
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_PosProductCategories_StoreId_Name"" ON ""PosProductCategories""(""StoreId"", ""Name"");
+
+                    CREATE TABLE IF NOT EXISTS ""PosProductBrands"" (
+                        ""Id"" uuid NOT NULL PRIMARY KEY,
+                        ""StoreId"" uuid NOT NULL,
+                        ""Name"" character varying(200) NOT NULL DEFAULT '',
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone,
+                        ""UpdatedBy"" text,
+                        ""CreatedBy"" text,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""LastModified"" timestamp without time zone,
+                        ""LastModifiedBy"" text,
+                        ""Deleted"" timestamp without time zone,
+                        ""DeletedBy"" text,
+                        CONSTRAINT ""FK_PosProductBrands_Stores_StoreId""
+                            FOREIGN KEY (""StoreId"") REFERENCES ""Stores""(""Id"") ON DELETE CASCADE
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_PosProductBrands_StoreId_Name"" ON ""PosProductBrands""(""StoreId"", ""Name"");
+
+                    CREATE TABLE IF NOT EXISTS ""PosStorageLocations"" (
+                        ""Id"" uuid NOT NULL PRIMARY KEY,
+                        ""StoreId"" uuid NOT NULL,
+                        ""Name"" character varying(200) NOT NULL DEFAULT '',
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone,
+                        ""UpdatedBy"" text,
+                        ""CreatedBy"" text,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""LastModified"" timestamp without time zone,
+                        ""LastModifiedBy"" text,
+                        ""Deleted"" timestamp without time zone,
+                        ""DeletedBy"" text,
+                        CONSTRAINT ""FK_PosStorageLocations_Stores_StoreId""
+                            FOREIGN KEY (""StoreId"") REFERENCES ""Stores""(""Id"") ON DELETE CASCADE
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_PosStorageLocations_StoreId_Name"" ON ""PosStorageLocations""(""StoreId"", ""Name"");
+
+                    CREATE TABLE IF NOT EXISTS ""PosProducts"" (
+                        ""Id"" uuid NOT NULL PRIMARY KEY,
+                        ""StoreId"" uuid NOT NULL,
+                        ""ProductCode"" character varying(50) NOT NULL DEFAULT '',
+                        ""Barcode"" character varying(50),
+                        ""Name"" character varying(500) NOT NULL DEFAULT '',
+                        ""CategoryId"" uuid,
+                        ""BrandId"" uuid,
+                        ""StorageLocationId"" uuid,
+                        ""ProductType"" integer NOT NULL DEFAULT 0,
+                        ""Description"" character varying(2000),
+                        ""ImageUrl"" character varying(500),
+                        ""CostPrice"" numeric(18,2) NOT NULL DEFAULT 0,
+                        ""BasePrice"" numeric(18,2) NOT NULL DEFAULT 0,
+                        ""OnHandQty"" numeric(18,4) NOT NULL DEFAULT 0,
+                        ""ReservedQty"" numeric(18,4) NOT NULL DEFAULT 0,
+                        ""MinStockQty"" numeric(18,4) NOT NULL DEFAULT 0,
+                        ""MaxStockQty"" numeric(18,4) NOT NULL DEFAULT 0,
+                        ""Weight"" numeric(18,4),
+                        ""WeightUnit"" character varying(20) NOT NULL DEFAULT 'g',
+                        ""BaseUnitName"" character varying(100) NOT NULL DEFAULT 'Cái',
+                        ""IsDirectSale"" boolean NOT NULL DEFAULT true,
+                        ""IsFavorite"" boolean NOT NULL DEFAULT false,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone,
+                        ""UpdatedBy"" text,
+                        ""CreatedBy"" text,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""LastModified"" timestamp without time zone,
+                        ""LastModifiedBy"" text,
+                        ""Deleted"" timestamp without time zone,
+                        ""DeletedBy"" text,
+                        CONSTRAINT ""FK_PosProducts_Stores_StoreId""
+                            FOREIGN KEY (""StoreId"") REFERENCES ""Stores""(""Id"") ON DELETE CASCADE,
+                        CONSTRAINT ""FK_PosProducts_Category""
+                            FOREIGN KEY (""CategoryId"") REFERENCES ""PosProductCategories""(""Id"") ON DELETE SET NULL,
+                        CONSTRAINT ""FK_PosProducts_Brand""
+                            FOREIGN KEY (""BrandId"") REFERENCES ""PosProductBrands""(""Id"") ON DELETE SET NULL,
+                        CONSTRAINT ""FK_PosProducts_StorageLocation""
+                            FOREIGN KEY (""StorageLocationId"") REFERENCES ""PosStorageLocations""(""Id"") ON DELETE SET NULL
+                    );
+                    CREATE UNIQUE INDEX IF NOT EXISTS ""IX_PosProducts_StoreId_ProductCode"" ON ""PosProducts""(""StoreId"", ""ProductCode"");
+                    CREATE INDEX IF NOT EXISTS ""IX_PosProducts_StoreId_Name"" ON ""PosProducts""(""StoreId"", ""Name"");
+
+                    CREATE TABLE IF NOT EXISTS ""PosProductUnits"" (
+                        ""Id"" uuid NOT NULL PRIMARY KEY,
+                        ""StoreId"" uuid NOT NULL,
+                        ""ProductId"" uuid NOT NULL,
+                        ""UnitName"" character varying(100) NOT NULL DEFAULT '',
+                        ""ConversionRate"" numeric(18,4) NOT NULL DEFAULT 1,
+                        ""BasePrice"" numeric(18,2) NOT NULL DEFAULT 0,
+                        ""IsDirectSale"" boolean NOT NULL DEFAULT true,
+                        ""IsBaseUnit"" boolean NOT NULL DEFAULT false,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone,
+                        ""UpdatedBy"" text,
+                        ""CreatedBy"" text,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""LastModified"" timestamp without time zone,
+                        ""LastModifiedBy"" text,
+                        ""Deleted"" timestamp without time zone,
+                        ""DeletedBy"" text,
+                        CONSTRAINT ""FK_PosProductUnits_Stores_StoreId""
+                            FOREIGN KEY (""StoreId"") REFERENCES ""Stores""(""Id"") ON DELETE CASCADE,
+                        CONSTRAINT ""FK_PosProductUnits_Product""
+                            FOREIGN KEY (""ProductId"") REFERENCES ""PosProducts""(""Id"") ON DELETE CASCADE
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_PosProductUnits_ProductId_UnitName"" ON ""PosProductUnits""(""ProductId"", ""UnitName"");
+
+                    CREATE TABLE IF NOT EXISTS ""PosSuppliers"" (
+                        ""Id"" uuid NOT NULL PRIMARY KEY,
+                        ""StoreId"" uuid NOT NULL,
+                        ""Name"" character varying(200) NOT NULL DEFAULT '',
+                        ""Phone"" character varying(50),
+                        ""Email"" character varying(200),
+                        ""Address"" character varying(500),
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone,
+                        ""UpdatedBy"" text,
+                        ""CreatedBy"" text,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""LastModified"" timestamp without time zone,
+                        ""LastModifiedBy"" text,
+                        ""Deleted"" timestamp without time zone,
+                        ""DeletedBy"" text,
+                        CONSTRAINT ""FK_PosSuppliers_Stores_StoreId""
+                            FOREIGN KEY (""StoreId"") REFERENCES ""Stores""(""Id"") ON DELETE CASCADE
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_PosSuppliers_StoreId_Name"" ON ""PosSuppliers""(""StoreId"", ""Name"");
+
+                    CREATE TABLE IF NOT EXISTS ""PosProductAttributes"" (
+                        ""Id"" uuid NOT NULL PRIMARY KEY,
+                        ""StoreId"" uuid NOT NULL,
+                        ""Name"" character varying(100) NOT NULL DEFAULT '',
+                        ""SortOrder"" integer NOT NULL DEFAULT 0,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone,
+                        ""UpdatedBy"" text,
+                        ""CreatedBy"" text,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""LastModified"" timestamp without time zone,
+                        ""LastModifiedBy"" text,
+                        ""Deleted"" timestamp without time zone,
+                        ""DeletedBy"" text,
+                        CONSTRAINT ""FK_PosProductAttributes_Stores_StoreId""
+                            FOREIGN KEY (""StoreId"") REFERENCES ""Stores""(""Id"") ON DELETE CASCADE
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_PosProductAttributes_StoreId_Name"" ON ""PosProductAttributes""(""StoreId"", ""Name"");
+
+                    CREATE TABLE IF NOT EXISTS ""PosProductAttributeValues"" (
+                        ""Id"" uuid NOT NULL PRIMARY KEY,
+                        ""StoreId"" uuid NOT NULL,
+                        ""ProductId"" uuid NOT NULL,
+                        ""AttributeId"" uuid NOT NULL,
+                        ""Value"" character varying(500) NOT NULL DEFAULT '',
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone,
+                        ""UpdatedBy"" text,
+                        ""CreatedBy"" text,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""LastModified"" timestamp without time zone,
+                        ""LastModifiedBy"" text,
+                        ""Deleted"" timestamp without time zone,
+                        ""DeletedBy"" text,
+                        CONSTRAINT ""FK_PosProductAttributeValues_Stores_StoreId""
+                            FOREIGN KEY (""StoreId"") REFERENCES ""Stores""(""Id"") ON DELETE CASCADE,
+                        CONSTRAINT ""FK_PosProductAttributeValues_Product""
+                            FOREIGN KEY (""ProductId"") REFERENCES ""PosProducts""(""Id"") ON DELETE CASCADE,
+                        CONSTRAINT ""FK_PosProductAttributeValues_Attribute""
+                            FOREIGN KEY (""AttributeId"") REFERENCES ""PosProductAttributes""(""Id"") ON DELETE CASCADE
+                    );
+                    CREATE UNIQUE INDEX IF NOT EXISTS ""IX_PosProductAttributeValues_ProductId_AttributeId"" ON ""PosProductAttributeValues""(""ProductId"", ""AttributeId"");
+
+                    CREATE TABLE IF NOT EXISTS ""PosStockTransactions"" (
+                        ""Id"" uuid NOT NULL PRIMARY KEY,
+                        ""StoreId"" uuid NOT NULL,
+                        ""ProductId"" uuid NOT NULL,
+                        ""TransactionType"" integer NOT NULL DEFAULT 0,
+                        ""QtyChange"" numeric(18,4) NOT NULL DEFAULT 0,
+                        ""QtyAfter"" numeric(18,4) NOT NULL DEFAULT 0,
+                        ""ReferenceNo"" character varying(50),
+                        ""Note"" character varying(500),
+                        ""SaleOrderId"" uuid,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone,
+                        ""UpdatedBy"" text,
+                        ""CreatedBy"" text,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""LastModified"" timestamp without time zone,
+                        ""LastModifiedBy"" text,
+                        ""Deleted"" timestamp without time zone,
+                        ""DeletedBy"" text,
+                        CONSTRAINT ""FK_PosStockTransactions_Stores_StoreId""
+                            FOREIGN KEY (""StoreId"") REFERENCES ""Stores""(""Id"") ON DELETE CASCADE,
+                        CONSTRAINT ""FK_PosStockTransactions_Product""
+                            FOREIGN KEY (""ProductId"") REFERENCES ""PosProducts""(""Id"") ON DELETE CASCADE
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_PosStockTransactions_StoreId_ProductId_CreatedAt"" ON ""PosStockTransactions""(""StoreId"", ""ProductId"", ""CreatedAt"");
+
+                    CREATE TABLE IF NOT EXISTS ""PosSaleOrders"" (
+                        ""Id"" uuid NOT NULL PRIMARY KEY,
+                        ""StoreId"" uuid NOT NULL,
+                        ""OrderNo"" character varying(30) NOT NULL DEFAULT '',
+                        ""Status"" integer NOT NULL DEFAULT 1,
+                        ""SubTotal"" numeric(18,2) NOT NULL DEFAULT 0,
+                        ""Discount"" numeric(18,2) NOT NULL DEFAULT 0,
+                        ""Total"" numeric(18,2) NOT NULL DEFAULT 0,
+                        ""PaidAmount"" numeric(18,2) NOT NULL DEFAULT 0,
+                        ""PaymentMethod"" character varying(50) NOT NULL DEFAULT 'Tiền mặt',
+                        ""CustomerName"" character varying(200),
+                        ""Note"" character varying(500),
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone,
+                        ""UpdatedBy"" text,
+                        ""CreatedBy"" text,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""LastModified"" timestamp without time zone,
+                        ""LastModifiedBy"" text,
+                        ""Deleted"" timestamp without time zone,
+                        ""DeletedBy"" text,
+                        CONSTRAINT ""FK_PosSaleOrders_Stores_StoreId""
+                            FOREIGN KEY (""StoreId"") REFERENCES ""Stores""(""Id"") ON DELETE CASCADE
+                    );
+                    CREATE UNIQUE INDEX IF NOT EXISTS ""IX_PosSaleOrders_StoreId_OrderNo"" ON ""PosSaleOrders""(""StoreId"", ""OrderNo"");
+
+                    CREATE TABLE IF NOT EXISTS ""PosSaleOrderLines"" (
+                        ""Id"" uuid NOT NULL PRIMARY KEY,
+                        ""StoreId"" uuid NOT NULL,
+                        ""SaleOrderId"" uuid NOT NULL,
+                        ""ProductId"" uuid NOT NULL,
+                        ""ProductName"" character varying(500) NOT NULL DEFAULT '',
+                        ""UnitName"" character varying(100),
+                        ""Qty"" numeric(18,4) NOT NULL DEFAULT 0,
+                        ""UnitPrice"" numeric(18,2) NOT NULL DEFAULT 0,
+                        ""LineTotal"" numeric(18,2) NOT NULL DEFAULT 0,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone,
+                        ""UpdatedBy"" text,
+                        ""CreatedBy"" text,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""LastModified"" timestamp without time zone,
+                        ""LastModifiedBy"" text,
+                        ""Deleted"" timestamp without time zone,
+                        ""DeletedBy"" text,
+                        CONSTRAINT ""FK_PosSaleOrderLines_Stores_StoreId""
+                            FOREIGN KEY (""StoreId"") REFERENCES ""Stores""(""Id"") ON DELETE CASCADE,
+                        CONSTRAINT ""FK_PosSaleOrderLines_SaleOrder""
+                            FOREIGN KEY (""SaleOrderId"") REFERENCES ""PosSaleOrders""(""Id"") ON DELETE CASCADE,
+                        CONSTRAINT ""FK_PosSaleOrderLines_Product""
+                            FOREIGN KEY (""ProductId"") REFERENCES ""PosProducts""(""Id"") ON DELETE RESTRICT
+                    );
+
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""SupplierId"" uuid;
+                    DO $$ BEGIN
+                        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_PosProducts_Supplier') THEN
+                            ALTER TABLE ""PosProducts""
+                                ADD CONSTRAINT ""FK_PosProducts_Supplier""
+                                FOREIGN KEY (""SupplierId"") REFERENCES ""PosSuppliers""(""Id"") ON DELETE SET NULL;
+                        END IF;
+                    END $$;
+
+                    CREATE TABLE IF NOT EXISTS ""PosProductComboLines"" (
+                        ""Id"" uuid NOT NULL PRIMARY KEY,
+                        ""StoreId"" uuid NOT NULL,
+                        ""ComboProductId"" uuid NOT NULL,
+                        ""ComponentProductId"" uuid NOT NULL,
+                        ""Qty"" numeric(18,4) NOT NULL DEFAULT 1,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone,
+                        ""UpdatedBy"" text,
+                        ""CreatedBy"" text,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""LastModified"" timestamp without time zone,
+                        ""LastModifiedBy"" text,
+                        ""Deleted"" timestamp without time zone,
+                        ""DeletedBy"" text,
+                        CONSTRAINT ""FK_PosProductComboLines_Stores_StoreId""
+                            FOREIGN KEY (""StoreId"") REFERENCES ""Stores""(""Id"") ON DELETE CASCADE,
+                        CONSTRAINT ""FK_PosProductComboLines_Combo""
+                            FOREIGN KEY (""ComboProductId"") REFERENCES ""PosProducts""(""Id"") ON DELETE CASCADE,
+                        CONSTRAINT ""FK_PosProductComboLines_Component""
+                            FOREIGN KEY (""ComponentProductId"") REFERENCES ""PosProducts""(""Id"") ON DELETE RESTRICT
+                    );
+                    CREATE UNIQUE INDEX IF NOT EXISTS ""IX_PosProductComboLines_Combo_Component"" ON ""PosProductComboLines""(""ComboProductId"", ""ComponentProductId"");
+
+                    CREATE TABLE IF NOT EXISTS ""PosStockReceipts"" (
+                        ""Id"" uuid NOT NULL PRIMARY KEY,
+                        ""StoreId"" uuid NOT NULL,
+                        ""ReceiptNo"" character varying(30) NOT NULL DEFAULT '',
+                        ""SupplierId"" uuid,
+                        ""Note"" character varying(500),
+                        ""TotalQty"" numeric(18,4) NOT NULL DEFAULT 0,
+                        ""TotalCost"" numeric(18,2) NOT NULL DEFAULT 0,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone,
+                        ""UpdatedBy"" text,
+                        ""CreatedBy"" text,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""LastModified"" timestamp without time zone,
+                        ""LastModifiedBy"" text,
+                        ""Deleted"" timestamp without time zone,
+                        ""DeletedBy"" text,
+                        CONSTRAINT ""FK_PosStockReceipts_Stores_StoreId""
+                            FOREIGN KEY (""StoreId"") REFERENCES ""Stores""(""Id"") ON DELETE CASCADE,
+                        CONSTRAINT ""FK_PosStockReceipts_Supplier""
+                            FOREIGN KEY (""SupplierId"") REFERENCES ""PosSuppliers""(""Id"") ON DELETE SET NULL
+                    );
+                    CREATE UNIQUE INDEX IF NOT EXISTS ""IX_PosStockReceipts_StoreId_ReceiptNo"" ON ""PosStockReceipts""(""StoreId"", ""ReceiptNo"");
+
+                    CREATE TABLE IF NOT EXISTS ""PosStockReceiptLines"" (
+                        ""Id"" uuid NOT NULL PRIMARY KEY,
+                        ""StoreId"" uuid NOT NULL,
+                        ""ReceiptId"" uuid NOT NULL,
+                        ""ProductId"" uuid NOT NULL,
+                        ""ProductName"" character varying(500) NOT NULL DEFAULT '',
+                        ""ProductCode"" character varying(50),
+                        ""Qty"" numeric(18,4) NOT NULL DEFAULT 0,
+                        ""CostPrice"" numeric(18,2) NOT NULL DEFAULT 0,
+                        ""LineTotal"" numeric(18,2) NOT NULL DEFAULT 0,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone,
+                        ""UpdatedBy"" text,
+                        ""CreatedBy"" text,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""LastModified"" timestamp without time zone,
+                        ""LastModifiedBy"" text,
+                        ""Deleted"" timestamp without time zone,
+                        ""DeletedBy"" text,
+                        CONSTRAINT ""FK_PosStockReceiptLines_Stores_StoreId""
+                            FOREIGN KEY (""StoreId"") REFERENCES ""Stores""(""Id"") ON DELETE CASCADE,
+                        CONSTRAINT ""FK_PosStockReceiptLines_Receipt""
+                            FOREIGN KEY (""ReceiptId"") REFERENCES ""PosStockReceipts""(""Id"") ON DELETE CASCADE,
+                        CONSTRAINT ""FK_PosStockReceiptLines_Product""
+                            FOREIGN KEY (""ProductId"") REFERENCES ""PosProducts""(""Id"") ON DELETE RESTRICT
+                    );
+
+                    ALTER TABLE ""PosStockTransactions"" ADD COLUMN IF NOT EXISTS ""StockReceiptId"" uuid;
+                    ALTER TABLE ""PosStockTransactions"" ADD COLUMN IF NOT EXISTS ""VariantId"" uuid;
+                    ALTER TABLE ""PosStockReceiptLines"" ADD COLUMN IF NOT EXISTS ""VariantId"" uuid;
+
+                    CREATE TABLE IF NOT EXISTS ""PosProductVariants"" (
+                        ""Id"" uuid NOT NULL PRIMARY KEY,
+                        ""StoreId"" uuid NOT NULL,
+                        ""ProductId"" uuid NOT NULL,
+                        ""SkuCode"" character varying(50) NOT NULL DEFAULT '',
+                        ""Barcode"" character varying(50),
+                        ""Name"" character varying(500) NOT NULL DEFAULT '',
+                        ""AttributeJson"" character varying(2000),
+                        ""CostPrice"" numeric(18,2) NOT NULL DEFAULT 0,
+                        ""BasePrice"" numeric(18,2) NOT NULL DEFAULT 0,
+                        ""OnHandQty"" numeric(18,4) NOT NULL DEFAULT 0,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone,
+                        ""UpdatedBy"" text,
+                        ""CreatedBy"" text,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""LastModified"" timestamp without time zone,
+                        ""LastModifiedBy"" text,
+                        ""Deleted"" timestamp without time zone,
+                        ""DeletedBy"" text,
+                        CONSTRAINT ""FK_PosProductVariants_Stores_StoreId""
+                            FOREIGN KEY (""StoreId"") REFERENCES ""Stores""(""Id"") ON DELETE CASCADE,
+                        CONSTRAINT ""FK_PosProductVariants_Product""
+                            FOREIGN KEY (""ProductId"") REFERENCES ""PosProducts""(""Id"") ON DELETE CASCADE
+                    );
+                    CREATE UNIQUE INDEX IF NOT EXISTS ""IX_PosProductVariants_ProductId_SkuCode"" ON ""PosProductVariants""(""ProductId"", ""SkuCode"");
+                    CREATE INDEX IF NOT EXISTS ""IX_PosProductVariants_StoreId_Barcode"" ON ""PosProductVariants""(""StoreId"", ""Barcode"");
+
+                    ALTER TABLE ""PosSaleOrderLines"" ADD COLUMN IF NOT EXISTS ""VariantId"" uuid NULL;
+                    DO $$ BEGIN
+                        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_PosSaleOrderLines_Variant') THEN
+                            ALTER TABLE ""PosSaleOrderLines""
+                                ADD CONSTRAINT ""FK_PosSaleOrderLines_Variant""
+                                FOREIGN KEY (""VariantId"") REFERENCES ""PosProductVariants""(""Id"") ON DELETE SET NULL;
+                        END IF;
+                    END $$;
                 ");
 
                 // WorkSchedules: ensure per-shift unique index
@@ -1432,6 +1828,9 @@ public class ZKTecoDbInitializer(
             ("Production", "Sản lượng", "Nhập sản lượng, tính lương sản phẩm", 49),
             ("Feedback", "Phản ánh / Ý kiến", "Phản ánh, góp ý ẩn danh hoặc công khai", 50),
             ("FieldCheckIn", "Bản đồ nhân sự", "Vị trí trực tuyến NV chấm ngoài CT trên bản đồ", 51),
+            // ══════════ POS / BÁN HÀNG ══════════
+            ("PosProducts", "Hàng hóa POS", "Danh mục hàng hóa, tồn kho, giá bán POS", 52),
+            ("PosSalesReport", "Báo cáo doanh thu POS", "Thống kê doanh thu, đơn bán hàng POS", 53),
             // ══════════ THIẾT LẬP HRM ══════════
             ("SettingsHub", "Thiết lập HRM", "Trung tâm cài đặt HRM", 52),
             ("ShiftSetup", "Thiết lập ca", "Ca làm việc, vào sớm, đi trễ, về sớm, tăng ca", 53),

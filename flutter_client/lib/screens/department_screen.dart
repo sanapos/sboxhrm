@@ -122,7 +122,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
       }
 
       // Load employees for org chart matching (need all employees with departmentId)
-      final empResult = await _apiService.getEmployees(pageSize: 9999);
+      final empResult = await _apiService.getEmployeesForSelect(pageSize: 9999);
       _employees = empResult;
 
 

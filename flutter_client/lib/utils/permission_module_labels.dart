@@ -40,6 +40,8 @@ class PermissionModuleLabels {
     'MobileAttendance': 'Chấm công Mobile',
     'Meal': 'Chấm cơm',
     'FieldCheckIn': 'Bản đồ nhân sự',
+    'PosProducts': 'Hàng hóa POS',
+    'PosSalesReport': 'Báo cáo doanh thu POS',
     // Tài chính
     'BonusPenalty': 'Phiếu thưởng',
     'PenaltyTickets': 'Phiếu phạt',

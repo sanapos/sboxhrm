@@ -45,6 +45,11 @@ public class AuthorizedMobileDevice : AuditableEntity<Guid>
     public bool AllowOutsideCheckIn { get; set; } = false;
 
     /// <summary>
+    /// Cho phép chấm công đi đường (Bắt đầu đi / Đến điểm làm) — tính giờ lương thường, không tăng ca.
+    /// </summary>
+    public bool AllowTravelCheckIn { get; set; } = false;
+
+    /// <summary>
     /// Bắt chụp ảnh hiện trường sau khi chấm công (cần bật RequirePhotoProof ở cài đặt cửa hàng).
     /// </summary>
     public bool RequirePhotoProof { get; set; } = false;

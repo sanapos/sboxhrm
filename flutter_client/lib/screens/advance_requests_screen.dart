@@ -124,7 +124,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
 
   Future<void> _loadEmployees() async {
     try {
-      final employees = await _apiService.getEmployees(pageSize: 500);
+      final employees = await _apiService.getEmployeesForSelect(pageSize: 500);
       if (mounted) {
         setState(() {
           _employees = employees.map((e) => Employee.fromJson(e)).toList();

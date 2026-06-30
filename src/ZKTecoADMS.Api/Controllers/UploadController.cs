@@ -338,6 +338,47 @@ public class UploadController : AuthenticatedControllerBase
             return BadRequest(new { isSuccess = false, message = "Đường dẫn không hợp lệ" });
 
         if (!System.IO.File.Exists(fullPath))
+        {
+            // Legacy POS uploads: stores/{code}/uploads/pos-products/... on disk at {code}/uploads/pos-products/...
+            if (normalized.StartsWith("stores/", StringComparison.OrdinalIgnoreCase))
+            {
+                var parts = normalized.Split('/', StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length >= 4
+                    && string.Equals(parts[2], "uploads", StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(parts[3], "pos-products", StringComparison.OrdinalIgnoreCase))
+                {
+                    var legacyRelative = string.Join('/',
+                        parts.Skip(1)); // {code}/uploads/pos-products/file.jpg
+                    var legacyFull = Path.GetFullPath(
+                        Path.Combine(_env.ContentRootPath, "wwwroot",
+                            legacyRelative.Replace('/', Path.DirectorySeparatorChar)));
+                    if (legacyFull.StartsWith(wwwroot, StringComparison.OrdinalIgnoreCase)
+                        && System.IO.File.Exists(legacyFull))
+                        fullPath = legacyFull;
+                }
+            }
+            else if (normalized.Contains("uploads/pos-products", StringComparison.OrdinalIgnoreCase))
+            {
+                var legacyFull = Path.GetFullPath(
+                    Path.Combine(_env.ContentRootPath, "wwwroot",
+                        normalized.Replace('/', Path.DirectorySeparatorChar)));
+                if (legacyFull.StartsWith(wwwroot, StringComparison.OrdinalIgnoreCase)
+                    && System.IO.File.Exists(legacyFull))
+                    fullPath = legacyFull;
+                else if (!normalized.StartsWith("stores/", StringComparison.OrdinalIgnoreCase))
+                {
+                    // {code}/uploads/pos-products/... without stores/ prefix
+                    var withStores = Path.GetFullPath(
+                        Path.Combine(_env.ContentRootPath, "wwwroot", "stores",
+                            normalized.Replace('/', Path.DirectorySeparatorChar)));
+                    if (withStores.StartsWith(wwwroot, StringComparison.OrdinalIgnoreCase)
+                        && System.IO.File.Exists(withStores))
+                        fullPath = withStores;
+                }
+            }
+        }
+
+        if (!System.IO.File.Exists(fullPath))
             return NotFound(new { isSuccess = false, message = "Không tìm thấy file" });
 
         var ext = Path.GetExtension(fullPath).ToLowerInvariant();

@@ -20,6 +20,7 @@ import '../utils/mobile_device_id.dart';
 import '../utils/device_site_photo_prefs.dart';
 import '../widgets/face_verification_camera.dart';
 import '../widgets/site_photo_capture_screen.dart';
+import '../utils/travel_hours_calculator.dart';
 import '../widgets/mobile_attendance_record_detail_sheet.dart';
 import '../widgets/notification_overlay.dart';
 import 'main_layout.dart' show ScreenRefreshNotifier;
@@ -70,6 +71,9 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
 
   // Device outside check-in permission
   bool _allowOutsideCheckIn = false;
+  bool _allowTravelCheckIn = false;
+  /// Loại chấm đang xử lý (null = chấm vào/ra thường).
+  int? _punchContextType;
   /// Cửa hàng + thiết bị đều bật → mở camera sau chấm (từ API requirePhotoProof).
   bool _deviceRequirePhotoProof = false;
   bool _devicePhotoProofFlag = false;
@@ -238,6 +242,9 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
             _allowOutsideCheckIn = _parseApiBool(data['allowOutsideCheckIn']) &&
                 _isDeviceRegistered &&
                 _isDeviceApproved;
+            _allowTravelCheckIn = _parseApiBool(data['allowTravelCheckIn']) &&
+                _isDeviceRegistered &&
+                _isDeviceApproved;
             _storePhotoProofFlag = _localStorePhotoProof ||
                 (data.containsKey('requirePhotoProofStore')
                     ? _parseApiBool(data['requirePhotoProofStore'])
@@ -351,8 +358,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
         _deviceRequirePhotoProof;
   }
 
-  bool get _shouldCaptureSitePhoto =>
-      _sitePhotoFeatureEnabled && !_isAtCompanyLocation;
+  bool get _shouldCaptureSitePhoto => _serverWouldRequireSitePhoto;
 
   Future<void> _explainSkippedSitePhoto() async {
     if (!mounted) return;
@@ -398,7 +404,41 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     return normalized ?? s;
   }
 
+  /// GPS/WiFi cuối cùng trước quyết định ảnh hiện trường (tránh cờ cũ / GPS nhanh sai).
+  Future<void> _finalizeLocationBeforeSitePhotoCheck() async {
+    try {
+      final isIOS =
+          !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+      final position = await getCurrentPosition(
+        enableHighAccuracy: true,
+        timeout: isIOS ? 12000 : 6000,
+      );
+      if (!mounted) return;
+      setState(() {
+        _currentLatitude = position.latitude;
+        _currentLongitude = position.longitude;
+      });
+      _calculateNearestLocation();
+    } catch (e) {
+      debugPrint('finalizeLocationBeforeSitePhoto: $e');
+    }
+    await _checkWifiConnection(forceRefresh: true);
+  }
+
+  /// Khớp server: (RequirePhotoProof cửa hàng HOẶC thiết bị) && ngoài công ty.
+  bool get _serverWouldRequireSitePhoto =>
+      _sitePhotoFeatureEnabled && !_isAtCompanyLocation;
+
+  bool _isMissingSitePhotoError(String message) {
+    final m = message.toLowerCase();
+    return m.contains('ảnh hiện trường') ||
+        m.contains('anh hien truong') ||
+        m.contains('site photo');
+  }
+
   Future<bool> _needSitePhotoForPunch() async {
+    await _finalizeLocationBeforeSitePhotoCheck();
+    if (!mounted) return false;
     if (_isAtCompanyLocation) return false;
     if (_sitePhotoFeatureEnabled) return true;
     return DeviceSitePhotoPrefs.shouldCaptureAfterPunch(
@@ -414,6 +454,11 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
 
   /// Chụp ảnh hiện trường bắt buộc sau xác thực — không cho bỏ qua.
   Future<String?> _captureMandatorySitePhoto() async {
+    // Face camera vừa đóng — chờ giải phóng camera trước khi mở camera sau.
+    if (!kIsWeb) {
+      await Future.delayed(const Duration(milliseconds: 500));
+    }
+    if (!mounted) return null;
     final locationLabel = _wifiLocationName ?? _nearestLocationName;
     while (mounted) {
       final photoBase64 = await Navigator.of(context, rootNavigator: true)
@@ -456,11 +501,47 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       _currentLongitude != null &&
       (_currentLatitude!.abs() > 1e-5 || _currentLongitude!.abs() > 1e-5);
 
-  /// GPS đạt: trong vùng (thường) hoặc chỉ cần có tọa độ (chấm ngoài công ty).
+  bool _outsideLikeFor(int punchType) =>
+      isTravelPunchType(punchType) ? _allowTravelCheckIn : _allowOutsideCheckIn;
+
+  bool get _effectiveOutsideLike {
+    if (_punchContextType != null) {
+      return _outsideLikeFor(_punchContextType!);
+    }
+    return _allowOutsideCheckIn;
+  }
+
+  bool _gpsMetForPunch(int punchType) {
+    final s = _settings;
+    if (s == null || !s.enableGps) return true;
+    if (_outsideLikeFor(punchType)) return _hasGpsPosition;
+    return _isLocationVerified;
+  }
+
+  bool _nonFaceMetForPunch(int punchType) {
+    final settings = _settings;
+    if (settings == null) return _gpsMetForPunch(punchType);
+    int enabledNonFace = 0;
+    int passedNonFace = 0;
+    if (settings.enableGps) {
+      enabledNonFace++;
+      if (_gpsMetForPunch(punchType)) passedNonFace++;
+    }
+    if (settings.enableWifi && !_outsideLikeFor(punchType)) {
+      enabledNonFace++;
+      if (_isWifiVerified) passedNonFace++;
+    }
+    if (enabledNonFace == 0) return true;
+    return settings.verificationMode == 'any'
+        ? passedNonFace >= 1
+        : passedNonFace >= enabledNonFace;
+  }
+
+  /// GPS đạt: trong vùng (thường) hoặc chỉ cần có tọa độ (chấm ngoài / đi đường).
   bool get _gpsRequirementMet {
     final s = _settings;
     if (s == null || !s.enableGps) return true;
-    if (_allowOutsideCheckIn) return _hasGpsPosition;
+    if (_effectiveOutsideLike) return _hasGpsPosition;
     return _isLocationVerified;
   }
 
@@ -474,7 +555,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       enabledNonFace++;
       if (_gpsRequirementMet) passedNonFace++;
     }
-    if (settings.enableWifi && !_allowOutsideCheckIn) {
+    if (settings.enableWifi && !_effectiveOutsideLike) {
       enabledNonFace++;
       if (_isWifiVerified) passedNonFace++;
     }
@@ -504,7 +585,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       enabledCount++;
       if (_gpsRequirementMet) passedCount++;
     }
-    if (settings.enableWifi && !_allowOutsideCheckIn) {
+    if (settings.enableWifi && !_effectiveOutsideLike) {
       enabledCount++;
       if (_isWifiVerified) passedCount++;
     }
@@ -559,7 +640,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       enabledCount++;
       if (_gpsRequirementMet) passedCount++;
     }
-    if (settings.enableWifi && !_allowOutsideCheckIn) {
+    if (settings.enableWifi && !_effectiveOutsideLike) {
       enabledCount++;
       if (_isWifiVerified) passedCount++;
     }
@@ -588,7 +669,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       } else if (_allowOutsideCheckIn) {
         reasons.add('Vui lòng bật GPS / quyền vị trí');
       } else if (_distanceFromOffice != null) {
-        reasons.add('GPS ngoài phạm vi (${_distanceFromOffice!.toInt()}m)');
+        reasons.add('GPS ngoài phạm vi (${formatMobileAttendanceDistance(_distanceFromOffice)})');
       } else {
         reasons.add('GPS chưa xác định vị trí');
       }
@@ -643,6 +724,30 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     return _nonFaceConditionsMet;
   }
 
+  bool _canTapTravelPunch(int punchType) {
+    if (!_allowTravelCheckIn || !isTravelPunchType(punchType)) return false;
+    if (_registeredOnOtherDevice) return false;
+    if (!_isDeviceRegistered || !_isDeviceApproved) return false;
+    final settings = _settings;
+    if (settings == null) return _gpsMetForPunch(punchType);
+    if (!settings.enableFaceId) return _nonFaceMetForPunch(punchType);
+    if (settings.verificationMode == 'any') return true;
+    return _nonFaceMetForPunch(punchType);
+  }
+
+  String _punchSuccessTitle(int punchType) {
+    switch (punchType) {
+      case mobilePunchTravelStart:
+        return 'Bắt đầu đi thành công!';
+      case mobilePunchTravelArrive:
+        return 'Đến điểm làm thành công!';
+      case mobilePunchCheckIn:
+        return 'Chấm công VÀO thành công!';
+      default:
+        return 'Chấm công RA thành công!';
+    }
+  }
+
   /// Auto-determine next punch type from today's records
   int _getNextPunchType() {
     if (_todayRecords.isEmpty) return 0; // check-in
@@ -651,14 +756,15 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     return sorted.first.punchType == 0 ? 1 : 0; // toggle
   }
 
-  Future<void> _autoSubmitAttendance() async {
+  Future<void> _autoSubmitAttendance({int? punchType}) async {
     if (_isAutoSubmitting) return;
-    // Set flag immediately to block concurrent taps before any async work
     setState(() => _isAutoSubmitting = true);
+    _punchContextType = punchType ?? _getNextPunchType();
 
     try {
       await _autoSubmitAttendanceImpl();
     } finally {
+      _punchContextType = null;
       if (mounted) setState(() => _isAutoSubmitting = false);
     }
   }
@@ -715,13 +821,13 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     if (!mounted) return;
 
     final settings = _settings;
-    if (settings == null && !_allowOutsideCheckIn) {
+    if (settings == null && !_effectiveOutsideLike) {
       _showError(
           'Chưa tải được cấu hình xác thực. Vui lòng thoát màn hình và mở lại.');
       return;
     }
 
-    if (!_nonFaceConditionsMet && !_allowOutsideCheckIn) {
+    if (!_nonFaceConditionsMet && !_effectiveOutsideLike) {
       final detail = _buildConditionDetail(includeFaceInMessage: false);
       if (mounted) setState(() {});
       _showError(detail.isNotEmpty
@@ -833,7 +939,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     }
 
     try {
-      final punchType = _getNextPunchType();
+      final punchType = _punchContextType ?? _getNextPunchType();
       final onDeviceFaceOk =
           _faceMatchScore != null && (_faceMatchScore ?? 0) > 0;
       final response = await _apiService.submitMobileAttendance(
@@ -860,26 +966,28 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
         final status = data is Map ? (data['status']?.toString() ?? '') : '';
         final syncedRaw = data is Map && data['syncedToAttendanceLog'] == true;
         String subtitle;
-        if (status == 'pending') {
+        if (isTravelPunchType(punchType)) {
+          subtitle = status == 'pending'
+              ? 'Đã lưu. Chờ duyệt để tính giờ đi đường vào lương.'
+              : 'Đã ghi nhận giờ đi đường.';
+        } else if (status == 'pending') {
           subtitle =
               'Đã lưu trên app. Vào Duyệt chấm công → Mobile để duyệt; sau đó mới có trên Chấm công thô.';
         } else if (syncedRaw) {
           subtitle = _isWifiVerified
               ? 'Đã ghi dữ liệu thô (WiFi: ${_connectedWifiSsid ?? ''})'
               : _isLocationVerified
-                  ? 'Đã ghi dữ liệu thô (GPS ${_distanceFromOffice?.toInt()}m)'
+                  ? 'Đã ghi dữ liệu thô (GPS ${formatMobileAttendanceDistance(_distanceFromOffice)})'
                   : 'Đã ghi dữ liệu thô — xem thiết bị «Chấm công Mobile»';
         } else {
           subtitle = 'Đã lưu mobile; kiểm tra Chấm công thô hoặc liên hệ quản trị.';
         }
-        if (!needSitePhoto) {
+        if (!needSitePhoto && !isTravelPunchType(punchType)) {
           await _explainSkippedSitePhoto();
         }
 
         _showSuccess(
-          punchType == 0
-              ? 'Chấm công VÀO thành công!'
-              : 'Chấm công RA thành công!',
+          _punchSuccessTitle(punchType),
           subtitle,
         );
 
@@ -897,6 +1005,82 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       } else {
         final message =
             (response['message'] ?? 'Không thể chấm công').toString();
+
+        // Server yêu cầu ảnh hiện trường nhưng client chưa mở camera — chụp và thử lại.
+        if (_isMissingSitePhotoError(message)) {
+          final retryPhoto = await _captureMandatorySitePhoto();
+          if (!mounted) return;
+          if (retryPhoto != null && retryPhoto.trim().length > 100) {
+            final retryResponse = await _apiService.submitMobileAttendance(
+              employeeId: _employeeId,
+              employeeName: _employeeName,
+              punchType: punchType,
+              latitude: _currentLatitude!,
+              longitude: _currentLongitude!,
+              faceImage: _faceImageBase64 ?? '',
+              distanceFromLocation: _distanceFromOffice,
+              faceMatchScore: _faceMatchScore,
+              deviceId: _currentDeviceId,
+              wifiSsid: _connectedWifiSsid,
+              wifiBssid: _detectedBssid,
+              livenessPassed: _livenessPassed,
+              clientFaceEngine:
+                  onDeviceFaceOk ? (_clientFaceEngine ?? 'tflite') : null,
+              sitePhotoBase64: retryPhoto,
+            );
+            if (!mounted) return;
+            if (retryResponse['isSuccess'] == true) {
+              final data = retryResponse['data'];
+              final status =
+                  data is Map ? (data['status']?.toString() ?? '') : '';
+              final syncedRaw =
+                  data is Map && data['syncedToAttendanceLog'] == true;
+              String subtitle;
+              if (isTravelPunchType(punchType)) {
+                subtitle = status == 'pending'
+                    ? 'Đã lưu. Chờ duyệt để tính giờ đi đường vào lương.'
+                    : 'Đã ghi nhận giờ đi đường.';
+              } else if (status == 'pending') {
+                subtitle =
+                    'Đã lưu trên app. Vào Duyệt chấm công → Mobile để duyệt; sau đó mới có trên Chấm công thô.';
+              } else if (syncedRaw) {
+                subtitle = _isWifiVerified
+                    ? 'Đã ghi dữ liệu thô (WiFi: ${_connectedWifiSsid ?? ''})'
+                    : _isLocationVerified
+                        ? 'Đã ghi dữ liệu thô (GPS ${formatMobileAttendanceDistance(_distanceFromOffice)})'
+                        : 'Đã ghi dữ liệu thô — xem thiết bị «Chấm công Mobile»';
+              } else {
+                subtitle =
+                    'Đã lưu mobile; kiểm tra Chấm công thô hoặc liên hệ quản trị.';
+              }
+              _showSuccess(
+                _punchSuccessTitle(punchType),
+                subtitle,
+              );
+              _loadTodayRecords();
+              ScreenRefreshNotifier.refreshDashboardScreen();
+              ScreenRefreshNotifier.refreshAttendanceSummaryScreen();
+              ScreenRefreshNotifier.refreshAttendanceScreen();
+              setState(() {
+                _isFaceVerified = false;
+                _faceMatchScore = null;
+                _faceImageBase64 = null;
+                _clientFaceEngine = null;
+              });
+              return;
+            }
+            final retryMsg =
+                (retryResponse['message'] ?? message).toString();
+            setState(() {
+              _isFaceVerified = false;
+              _faceMatchScore = null;
+              _faceImageBase64 = null;
+              _clientFaceEngine = null;
+            });
+            _showError(retryMsg);
+            return;
+          }
+        }
 
         // Any failed submit must clear face state so retry always re-opens camera.
         setState(() {
@@ -1064,6 +1248,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     String? nearestName;
     int nearestRadius = 100;
 
+    final defaultRadius = _settings?.gpsRadiusMeters ?? 100;
     for (final loc in _workLocations) {
       if (!loc.isActive) continue;
       final d = _haversineDistance(
@@ -1071,7 +1256,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       if (nearestDist == null || d < nearestDist) {
         nearestDist = d;
         nearestName = loc.name;
-        nearestRadius = loc.radius;
+        nearestRadius = loc.radius > 0 ? loc.radius : defaultRadius;
       }
     }
 
@@ -1674,6 +1859,8 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
               ),
             ),
             const SizedBox(height: 16),
+            if (_allowTravelCheckIn) _buildTravelPunchSection(),
+            if (_allowTravelCheckIn) const SizedBox(height: 8),
             if (_isAutoSubmitting)
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -1956,6 +2143,115 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     );
   }
 
+  Widget _buildTravelPunchSection() {
+    final startEnabled =
+        _canTapTravelPunch(mobilePunchTravelStart) && !_isAutoSubmitting;
+    final arriveEnabled =
+        _canTapTravelPunch(mobilePunchTravelArrive) && !_isAutoSubmitting;
+
+    return Column(
+      children: [
+        Text(
+          'Chấm đi đường',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Colors.white.withValues(alpha: 0.55),
+            letterSpacing: 0.5,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: _buildTravelPunchButton(
+                label: 'Bắt đầu đi',
+                icon: Icons.directions_car_rounded,
+                color: const Color(0xFF0EA5E9),
+                enabled: startEnabled,
+                onTap: () => _autoSubmitAttendance(
+                  punchType: mobilePunchTravelStart,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _buildTravelPunchButton(
+                label: 'Đến điểm làm',
+                icon: Icons.place_rounded,
+                color: const Color(0xFF14B8A6),
+                enabled: arriveEnabled,
+                onTap: () => _autoSubmitAttendance(
+                  punchType: mobilePunchTravelArrive,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Giờ đi đường tính lương 1× (không tăng ca)',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 10,
+            color: Colors.white.withValues(alpha: 0.35),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTravelPunchButton({
+    required String label,
+    required IconData icon,
+    required Color color,
+    required bool enabled,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            color: enabled
+                ? color.withValues(alpha: 0.14)
+                : Colors.white.withValues(alpha: 0.04),
+            border: Border.all(
+              color: enabled
+                  ? color.withValues(alpha: 0.35)
+                  : Colors.white.withValues(alpha: 0.06),
+            ),
+          ),
+          child: Column(
+            children: [
+              Icon(
+                icon,
+                color: enabled ? color : Colors.white.withValues(alpha: 0.25),
+                size: 22,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: enabled
+                      ? Colors.white.withValues(alpha: 0.9)
+                      : Colors.white.withValues(alpha: 0.3),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildGpsCard() {
     final gpsOk = _gpsRequirementMet;
     final statusColor = gpsOk
@@ -2038,7 +2334,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
               ],
               if (_distanceFromOffice != null) ...[
                 const SizedBox(height: 2),
-                Text('${_distanceFromOffice!.toInt()}m',
+                Text(formatMobileAttendanceDistance(_distanceFromOffice, compact: true),
                     style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w500,
@@ -2241,10 +2537,23 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
   }
 
   Widget _buildRecordItem(MobileAttendanceRecord record) {
-    final isCheckIn = record.punchType == 0;
+    final isCheckIn = record.punchType == mobilePunchCheckIn;
+    final isTravel = record.isTravelPunch;
     final approved =
         record.status == 'auto_approved' || record.status == 'approved';
-    final color = isCheckIn ? const Color(0xFF3B82F6) : const Color(0xFFEF4444);
+    final Color color;
+    IconData icon;
+    if (isTravel) {
+      color = record.punchType == mobilePunchTravelStart
+          ? const Color(0xFF0EA5E9)
+          : const Color(0xFF14B8A6);
+      icon = record.punchType == mobilePunchTravelStart
+          ? Icons.directions_car_rounded
+          : Icons.place_rounded;
+    } else {
+      color = isCheckIn ? const Color(0xFF3B82F6) : const Color(0xFFEF4444);
+      icon = isCheckIn ? Icons.south_west_rounded : Icons.north_east_rounded;
+    }
 
     return InkWell(
       onTap: () => showMobileAttendanceRecordDetailSheet(context, record: record),
@@ -2266,10 +2575,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
               borderRadius: BorderRadius.circular(10),
               color: color.withValues(alpha: 0.12),
             ),
-            child: Icon(
-                isCheckIn ? Icons.south_west_rounded : Icons.north_east_rounded,
-                color: color,
-                size: 16),
+            child: Icon(icon, color: color, size: 16),
           ),
           const SizedBox(width: 12),
           Column(
@@ -2287,7 +2593,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
               Row(
                 children: [
                   Text(
-                    isCheckIn ? 'Chấm vào' : 'Chấm ra',
+                    record.punchTypeLabel,
                     style: TextStyle(
                         fontSize: 11, color: color.withValues(alpha: 0.8)),
                   ),
@@ -2295,7 +2601,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                     Text(' · ',
                         style: TextStyle(
                             color: Colors.white.withValues(alpha: 0.2))),
-                    Text('${record.distanceFromLocation!.toInt()}m',
+                    Text(record.formattedDistanceFromLocation,
                         style: const TextStyle(
                             fontSize: 11, color: Color(0xFF64748B))),
                   ],

@@ -401,7 +401,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
         setState(() => _employees = [Employee.fromJson(resp['data'])]);
       }
     } else {
-      final r = await _api.getEmployees(pageSize: 500);
+      final r = await _api.getEmployeesForSelect(pageSize: 500);
       if (mounted) {
         setState(
             () => _employees = r.map((e) => Employee.fromJson(e)).toList());

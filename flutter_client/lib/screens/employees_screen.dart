@@ -17,7 +17,7 @@ import '../widgets/auth_cached_image.dart';
 import '../widgets/app_scroll_safe.dart';
 import '../widgets/hrm_mini_stat_chip.dart';
 import '../utils/responsive_helper.dart';
-import '../widgets/notification_overlay.dart';
+import '../utils/employee_work_status.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/app_button.dart';
@@ -29,6 +29,7 @@ import '../utils/image_source_picker.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../providers/auth_provider.dart';
+import '../widgets/notification_overlay.dart';
 import 'employee_career_tab.dart';
 
 class EmployeesScreen extends StatefulWidget {
@@ -67,6 +68,8 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
   List<String> _positions = [];
   List<Department> _departmentList = [];
   Map<String, List<String>> _departmentPositions = {};
+  final Map<String, bool> _deleteEligibility = {};
+  final Map<String, String> _deleteBlockedReasons = {};
 
   final List<String> _vietnamBanks = [
     'Vietcombank - NH TMCP Ngoại thương Việt Nam',
@@ -453,6 +456,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
             _employees = data.map((e) => Employee.fromJson(e)).toList();
             _applyFilters();
           });
+          await _refreshDeleteEligibility();
         }
       }
     } catch (e) {
@@ -463,6 +467,42 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
       }
       _maybeOpenHighlight();
     }
+  }
+
+  Future<void> _refreshDeleteEligibility() async {
+    if (!_perm.canDelete(_module) || _isEmployee) return;
+    final ids = _employees.map((e) => e.id).where((id) => id.isNotEmpty).toList();
+    if (ids.isEmpty) return;
+
+    final result = await _apiService.getEmployeesDeleteEligibility(ids);
+    if (!mounted || result['isSuccess'] != true) return;
+
+    final data = result['data'];
+    if (data is! Map) return;
+
+    setState(() {
+      _deleteEligibility.clear();
+      _deleteBlockedReasons.clear();
+      for (final entry in data.entries) {
+        final item = entry.value;
+        if (item is! Map) continue;
+        final id = entry.key.toString();
+        _deleteEligibility[id] = item['canDelete'] != false;
+        final message = item['message']?.toString();
+        if (message != null && message.isNotEmpty) {
+          _deleteBlockedReasons[id] = message;
+        }
+      }
+    });
+  }
+
+  bool _canDeleteEmployee(Employee employee) {
+    if (employee.canDelete == false) return false;
+    return _deleteEligibility[employee.id] ?? true;
+  }
+
+  String? _deleteBlockedMessage(Employee employee) {
+    return employee.deleteBlockedReason ?? _deleteBlockedReasons[employee.id];
   }
 
   bool _highlightOpened = false;
@@ -510,7 +550,15 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
           matchesDepartment &&
           matchesStatus &&
           matchesBranch;
-    }).toList();
+    }).toList()
+      ..sort((a, b) => EmployeeWorkStatusUtil.compareListOrder(
+            workStatusA: a.workStatus,
+            workStatusB: b.workStatus,
+            nameA: a.fullName,
+            nameB: b.fullName,
+            codeA: a.employeeCode,
+            codeB: b.employeeCode,
+          ));
     _currentPage = 1;
   }
 
@@ -1763,7 +1811,15 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
       }
       final children = <Widget>[];
       for (final key in sortedKeys) {
-        final emps = groupMap[key]!;
+        final emps = groupMap[key]!
+          ..sort((a, b) => EmployeeWorkStatusUtil.compareListOrder(
+                workStatusA: a.workStatus,
+                workStatusB: b.workStatus,
+                nameA: a.fullName,
+                nameB: b.fullName,
+                codeA: a.employeeCode,
+                codeB: b.employeeCode,
+              ));
         children.add(_buildBranchGroupHeader(branchName(key), emps.length));
         for (final emp in emps) {
           children.add(cardWrap(emp));
@@ -2427,7 +2483,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                     ],
                   ),
                 ),
-                if (_perm.canDelete(_module))
+                if (_perm.canDelete(_module) && _canDeleteEmployee(employee))
                   PopupMenuItem(
                     value: 'delete',
                     child: Row(
@@ -3201,6 +3257,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                     optionsBuilder: (TextEditingValue textEditingValue) {
                       final managers = _employees.where((e) =>
                           e.id != employee?.id &&
+                          e.isActive &&
                           e.position != null &&
                           e.position != 'Nhân viên' &&
                           e.position != 'Thực tập sinh');
@@ -3643,17 +3700,9 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
 
             Navigator.pop(context);
 
-            // Map work status to int
-            int workStatusInt = 0;
-            if (selectedWorkStatus == 'Đang làm việc') {
-              workStatusInt = 0;
-            } else if (selectedWorkStatus == 'Đang thử việc') {
-              workStatusInt = 3;
-            } else if (selectedWorkStatus == 'Nghỉ phép') {
-              workStatusInt = 1;
-            } else if (selectedWorkStatus == 'Đã nghỉ việc') {
-              workStatusInt = 2;
-            }
+            // Map work status to server enum (Active=0, Resigned=1, OnLeave=2, Probation=3)
+            final workStatusInt =
+                EmployeeWorkStatusUtil.toApiValue(selectedWorkStatus);
 
             final data = {
               'employeeCode': employeeCodeController.text,
@@ -4516,6 +4565,15 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
   }
 
   void _confirmDeleteEmployee(Employee employee) {
+    final blockedMessage = _deleteBlockedMessage(employee);
+    if (!_canDeleteEmployee(employee)) {
+      _showError(
+        blockedMessage ??
+            'Không thể xóa nhân viên này. Nên chuyển trạng thái sang "Đã nghỉ việc".',
+      );
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (context) => ScrollableAlertDialog(
@@ -4526,12 +4584,15 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
           AppDialogActions.delete(
             onConfirm: () async {
               Navigator.pop(context);
-              final success = await _apiService.deleteEmployee(employee.id);
-              if (success) {
+              final result = await _apiService.deleteEmployee(employee.id);
+              if (result['isSuccess'] == true) {
                 _showSuccess('Đã xóa nhân viên');
                 await _loadEmployees(showLoading: false);
               } else {
-                _showError('Không thể xóa nhân viên');
+                _showError(
+                  result['message']?.toString() ??
+                      'Không thể xóa nhân viên',
+                );
               }
             },
           ),

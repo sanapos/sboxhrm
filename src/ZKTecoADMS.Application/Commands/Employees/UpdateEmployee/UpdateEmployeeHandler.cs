@@ -97,6 +97,12 @@ public class UpdateEmployeeHandler(
         employee.ProbationEndDate = request.ProbationEndDate;
         employee.ContractEndDate = request.ContractEndDate;
         employee.DirectManagerEmployeeId = request.DirectManagerEmployeeId;
+        // Normalize work status (reject unknown values from legacy clients)
+        if (!Enum.IsDefined(typeof(EmployeeWorkStatus), request.WorkStatus))
+        {
+            request.WorkStatus = employee.WorkStatus;
+        }
+
         employee.WorkStatus = request.WorkStatus;
         employee.ResignationDate = request.ResignationDate;
         employee.ResignationReason = request.ResignationReason;

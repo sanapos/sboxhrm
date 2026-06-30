@@ -278,6 +278,30 @@ class PermissionProvider extends ChangeNotifier {
     if (moduleCode == 'Production' && _flag('ProductSalary', action)) {
       return true;
     }
+    if (moduleCode == 'PosSell' ||
+        moduleCode == 'PosPrintTemplates' ||
+        moduleCode == 'PosSaleOrders' ||
+        moduleCode == 'PosPurchaseReceipts' ||
+        moduleCode == 'PosPurchaseReturns' ||
+        moduleCode == 'PosStockCounts' ||
+        moduleCode == 'PosDamageIssues' ||
+        moduleCode == 'PosInternalUseIssues') {
+      if (_flag('PosProducts', action)) return true;
+    }
+    if (moduleCode == 'PosProducts' && action != 'canView') {
+      if (_anyHas(action, const [
+        'PosSell',
+        'PosPrintTemplates',
+        'PosSaleOrders',
+        'PosPurchaseReceipts',
+        'PosPurchaseReturns',
+        'PosStockCounts',
+        'PosDamageIssues',
+        'PosInternalUseIssues',
+      ])) {
+        return true;
+      }
+    }
     if (moduleCode == 'MobileAttendance') {
       if ((action == 'canView' || action == 'canCreate') &&
           _flag('MobileDeviceRegistration', 'canView')) {

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using ZKTecoADMS.Application.DTOs.Dashboard;
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
@@ -8,12 +9,7 @@ namespace ZKTecoADMS.Application.Queries.Dashboard.GetAttendanceStats;
 
 /// <summary>
 /// Thống kê chấm công của 1 nhân viên trong khoảng [week|month|year].
-///
-/// Quy ước thời gian (đồng nhất với ReportsController):
-///   • <see cref="Attendance.AttendanceTime"/> được lưu dạng UTC
-///     (EnableLegacyTimestampBehavior=true, Kind=Unspecified).
-///   • So sánh ngày / khoảng ngày luôn quy về VN local (+7h) trước khi cắt theo .Date.
-///   • Trễ/Sớm so với Shift.StartTime/EndTime — vì shift được lưu là local VN.
+/// AttendanceTime = giờ tường VN (máy ZKTeco / mobile).
 /// </summary>
 public class GetAttendanceStatsHandler(
     IRepository<Shift> shiftRepository,
@@ -21,7 +17,7 @@ public class GetAttendanceStatsHandler(
     UserManager<ApplicationUser> userManager
 ) : IQueryHandler<GetAttendanceStatsQuery, AppResponse<AttendanceStatsDto>>
 {
-    private const int VnOffsetHours = 7;
+    private const int VnOffsetHours = VnTimeHelper.OffsetHours;
 
     public async Task<AppResponse<AttendanceStatsDto>> Handle(
         GetAttendanceStatsQuery request,
@@ -35,9 +31,8 @@ public class GetAttendanceStatsHandler(
         }
 
         var (startLocal, endLocal) = GetDateRange(request.Period);
-        // Window in UTC for filtering AttendanceTime stored as UTC.
-        var utcStart = startLocal.AddHours(-VnOffsetHours);
-        var utcEnd = endLocal.AddDays(1).AddHours(-VnOffsetHours);
+        var queryStart = startLocal;
+        var queryEnd = endLocal.AddDays(1);
 
         // Approved shifts whose start (VN local) falls in [startLocal, endLocal].
         var shifts = await shiftRepository.GetAllAsync(
@@ -64,14 +59,13 @@ public class GetAttendanceStatsHandler(
         var employeeId = user.Employee.Id;
         var attendances = await attendanceRepository.GetAllAsync(
             filter: a => a.EmployeeId == employeeId
-                && a.AttendanceTime >= utcStart
-                && a.AttendanceTime < utcEnd,
+                && a.AttendanceTime >= queryStart
+                && a.AttendanceTime < queryEnd,
             orderBy: q => q.OrderBy(a => a.AttendanceTime),
             cancellationToken: cancellationToken);
 
-        // Group punches by VN-local date.
         var attendanceByDate = attendances
-            .GroupBy(a => a.AttendanceTime.AddHours(VnOffsetHours).Date)
+            .GroupBy(a => VnTimeHelper.AttendanceDate(a.AttendanceTime))
             .ToDictionary(g => g.Key, g => g.OrderBy(a => a.AttendanceTime).ToList());
 
         var presentDays = 0;
@@ -92,8 +86,8 @@ public class GetAttendanceStatsHandler(
             var lastOut = dayPunches.LastOrDefault(a => a.AttendanceState == AttendanceStates.CheckOut)
                 ?? dayPunches.Last();
 
-            var inVn = firstIn.AttendanceTime.AddHours(VnOffsetHours);
-            var outVn = lastOut.AttendanceTime.AddHours(VnOffsetHours);
+            var inVn = VnTimeHelper.AttendanceWallClock(firstIn.AttendanceTime);
+            var outVn = VnTimeHelper.AttendanceWallClock(lastOut.AttendanceTime);
 
             if (inVn > shift.StartTime) lateCheckIns++;
             if (outVn < shift.EndTime) earlyCheckOuts++;

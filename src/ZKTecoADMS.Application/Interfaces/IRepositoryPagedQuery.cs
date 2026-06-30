@@ -26,6 +26,7 @@ namespace ZKTecoADMS.Application.Interfaces
             PaginationRequest request,
             Expression<Func<TEntity, bool>>? filter = null,
             Expression<Func<TEntity, TProjection>>? projection = null,
+            Func<IQueryable<TEntity>, IQueryable<TEntity>>? applyOrdering = null,
             CancellationToken cancellationToken = default
         ) where TProjection : class;
     }

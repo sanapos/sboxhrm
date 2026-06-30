@@ -7,6 +7,7 @@ import '../services/fcm_service_stub.dart'
     if (dart.library.io) '../services/fcm_service.dart';
 import '../utils/pending_notification_launch.dart';
 import '../services/global_location_reporter.dart';
+import '../services/notification_preferences_cache.dart';
 import '../models/user.dart';
 
 class AuthProvider extends ChangeNotifier {
@@ -202,6 +203,8 @@ class AuthProvider extends ChangeNotifier {
     );
     // ignore: discarded_futures
     FcmService.instance.registerForCurrentUser();
+    // ignore: discarded_futures
+    NotificationPreferencesCache.instance.refresh(_apiService);
   }
 
   // Decode user info từ JWT token
@@ -294,6 +297,8 @@ class AuthProvider extends ChangeNotifier {
           // Also schedule a retry after 35s in case APNs token was not ready yet.
           // ignore: discarded_futures
           FcmService.instance.registerForCurrentUser();
+          // ignore: discarded_futures
+          NotificationPreferencesCache.instance.refresh(_apiService);
           Future.delayed(const Duration(seconds: 35), () {
             FcmService.instance.registerForCurrentUser();
           });
@@ -368,6 +373,7 @@ class AuthProvider extends ChangeNotifier {
     }
 
     await _apiService.clearToken();
+    NotificationPreferencesCache.instance.clear();
 
     // Clear sensitive credentials but KEEP saved identity (store code + email)
     // so users don't need to re-enter them on next login.

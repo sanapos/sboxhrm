@@ -3,7 +3,7 @@ description: ZKTeco ADMS Flutter Client - Hệ thống quản lý chấm công
 
 publish_to: 'none'
 
-version: 1.0.16+26
+version: 1.0.20+30
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -119,6 +119,8 @@ flutter:
     - assets/logo.png
     - assets/mobilefacenet.tflite
     - assets/w600k_mbf.onnx
+    - assets/fonts/BeVietnamPro-Regular.ttf
+    - assets/fonts/BeVietnamPro-Bold.ttf
 
   fonts:
     - family: BeVietnamPro

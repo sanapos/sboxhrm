@@ -187,6 +187,20 @@ class AppLocalizations {
   String get employeeName => get('employeeName');
   String get cardCode => get('cardCode');
   String get allDevices => get('allDevices');
+  String get editInfoSubtitle => get('editInfoSubtitle');
+  String get manageFingerprints => get('manageFingerprints');
+  String get manageFingerprintsDesc => get('manageFingerprintsDesc');
+  String get manageFaces => get('manageFaces');
+  String get manageFacesDesc => get('manageFacesDesc');
+  String get changeEmployeeLink => get('changeEmployeeLink');
+  String get linkToEmployee => get('linkToEmployee');
+  String get linkingTo => get('linkingTo');
+  String get linkEmployeeDesc => get('linkEmployeeDesc');
+  String get deleteDeviceUser => get('deleteDeviceUser');
+  String get deleteDeviceUserDesc => get('deleteDeviceUserDesc');
+  String get cardLabel => get('cardLabel');
+  String get linkEmployeeShort => get('linkEmployeeShort');
+  String get employeesDevicesCount => get('employeesDevicesCount');
 
   // ── Attendance ──
   String get manualAttendance => get('manualAttendance');
@@ -608,6 +622,20 @@ class AppLocalizations {
       'employeeName': 'Tên nhân viên',
       'cardCode': 'Mã thẻ từ',
       'allDevices': 'Tất cả thiết bị',
+      'editInfoSubtitle': 'Sửa tên, mã thẻ, mật khẩu, quyền',
+      'manageFingerprints': 'Quản lý vân tay',
+      'manageFingerprintsDesc': 'Thêm, xóa dấu vân tay',
+      'manageFaces': 'Quản lý khuôn mặt',
+      'manageFacesDesc': 'Thêm, xóa khuôn mặt',
+      'changeEmployeeLink': 'Đổi liên kết nhân viên',
+      'linkToEmployee': 'Gán với nhân sự',
+      'linkingTo': 'Đang liên kết',
+      'linkEmployeeDesc': 'Liên kết với nhân viên trong hệ thống',
+      'deleteDeviceUser': 'Xóa người dùng',
+      'deleteDeviceUserDesc': 'Xóa khỏi máy chấm công',
+      'cardLabel': 'Mã thẻ',
+      'linkEmployeeShort': 'Liên kết NV',
+      'employeesDevicesCount': '{count} nhân viên · {devices} thiết bị',
 
       // Attendance
       'manualAttendance': 'Chấm công thủ công',
@@ -1027,6 +1055,20 @@ class AppLocalizations {
       'employeeName': 'Employee Name',
       'cardCode': 'Card Code',
       'allDevices': 'All Devices',
+      'editInfoSubtitle': 'Edit name, card, password, privilege',
+      'manageFingerprints': 'Manage fingerprints',
+      'manageFingerprintsDesc': 'Add or remove fingerprints',
+      'manageFaces': 'Manage faces',
+      'manageFacesDesc': 'Add or remove faces',
+      'changeEmployeeLink': 'Change employee link',
+      'linkToEmployee': 'Link to employee',
+      'linkingTo': 'Linked to',
+      'linkEmployeeDesc': 'Link to an employee in the system',
+      'deleteDeviceUser': 'Delete user',
+      'deleteDeviceUserDesc': 'Remove from attendance device',
+      'cardLabel': 'Card ID',
+      'linkEmployeeShort': 'Employee link',
+      'employeesDevicesCount': '{count} employees · {devices} devices',
 
       // Attendance
       'manualAttendance': 'Manual Attendance',

@@ -68,7 +68,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
     try {
       final results = await Future.wait([
         _apiService.getShifts(),
-        _apiService.getEmployees(),
+        _apiService.getEmployeesForSelect(),
       ]);
       final shifts = results[0];
       final emps = results[1];

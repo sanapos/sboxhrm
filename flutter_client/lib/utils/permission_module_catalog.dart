@@ -82,6 +82,8 @@ class PermissionModuleCatalog {
     'DashboardLateEarly': '11111111-1111-1111-1111-111111111080',
     'DashboardKpiPanel': '11111111-1111-1111-1111-111111111081',
     'DashboardInternalNews': '11111111-1111-1111-1111-111111111082',
+    'PosProducts': '11111111-1111-1111-1111-111111111083',
+    'PosSalesReport': '11111111-1111-1111-1111-111111111084',
   };
 
   static Map<String, String> buildLookup([

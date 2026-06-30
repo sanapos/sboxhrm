@@ -34,6 +34,7 @@ class _SitePhotoCaptureScreenState extends State<SitePhotoCaptureScreen> {
   bool _initializing = true;
   bool _capturing = false;
   String? _error;
+  bool _permissionPermanentlyDenied = false;
 
   @override
   void initState() {
@@ -56,6 +57,7 @@ class _SitePhotoCaptureScreenState extends State<SitePhotoCaptureScreen> {
         await AppPermissionService.hasCameraAccess();
     if (!allowed) {
       setState(() {
+        _permissionPermanentlyDenied = camStatus.isPermanentlyDenied;
         _error = camStatus.isPermanentlyDenied
             ? 'Cần bật Camera trong Cài đặt > SBOX HRM > Quyền.'
             : 'Cần quyền camera để chụp ảnh hiện trường.';
@@ -96,6 +98,18 @@ class _SitePhotoCaptureScreenState extends State<SitePhotoCaptureScreen> {
         _initializing = false;
       });
     }
+  }
+
+  Future<void> _retryCamera() async {
+    await _controller?.dispose();
+    _controller = null;
+    if (!mounted) return;
+    setState(() {
+      _error = null;
+      _permissionPermanentlyDenied = false;
+      _initializing = true;
+    });
+    await _initCamera();
   }
 
   @override
@@ -167,10 +181,44 @@ class _SitePhotoCaptureScreenState extends State<SitePhotoCaptureScreen> {
       return Padding(
         padding: const EdgeInsets.all(24),
         child: Center(
-          child: Text(
-            _error!,
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.white70, fontSize: 15),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.photo_camera_outlined,
+                size: 48,
+                color: Colors.white.withValues(alpha: 0.5),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                _error!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white70, fontSize: 15),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: FilledButton.icon(
+                  onPressed: _retryCamera,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Thử lại mở camera'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: HrmPageChrome.primaryNavy,
+                  ),
+                ),
+              ),
+              if (_permissionPermanentlyDenied) ...[
+                const SizedBox(height: 12),
+                TextButton(
+                  onPressed: openAppSettings,
+                  child: const Text(
+                    'Mở Cài đặt quyền',
+                    style: TextStyle(color: Colors.white70),
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
       );

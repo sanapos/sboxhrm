@@ -29,8 +29,8 @@ public static class AiAssistantContextBuilder
     {
         var buf = new StringBuilder();
         var todayVn = AiAssistantVnTime.NowVn().Date;
-        var (_, todayUtcStart, todayUtcEnd) = AiAssistantVnTime.DayRange(todayVn);
-        var weekUtcStart = todayVn.AddDays(-7).AddHours(-AiAssistantVnTime.OffsetHours);
+        var (_, todayQueryStart, todayQueryEnd) = AiAssistantVnTime.DayRange(todayVn);
+        var weekQueryStart = todayVn.AddDays(-7);
 
         try
         {
@@ -126,7 +126,7 @@ public static class AiAssistantContextBuilder
                 {
                     var todayPunches = await GetTodayPunchesAsync(
                         db, storeId, userId, empId.Value, emp.EmployeeCode,
-                        todayUtcStart, todayUtcEnd, ct);
+                        todayQueryStart, todayQueryEnd, ct);
 
                     buf.AppendLine();
                     buf.AppendLine("=== CHẤM CÔNG HÔM NAY (máy chấm công + mobile) ===");
@@ -139,18 +139,18 @@ public static class AiAssistantContextBuilder
                     }
 
                     var weekLogs = await GetAttendanceLogsAsync(
-                        db, empId.Value, emp.EmployeeCode, weekUtcStart, todayUtcEnd, ct);
+                        db, empId.Value, emp.EmployeeCode, weekQueryStart, todayQueryEnd, ct);
 
                     if (weekLogs.Count > 0)
                     {
                         buf.AppendLine();
                         buf.AppendLine("=== CHẤM CÔNG 7 NGÀY GẦN NHẤT (giờ VN) ===");
-                        foreach (var g in weekLogs.GroupBy(l => AiAssistantVnTime.ToVn(l.AttendanceTime).Date)
+                        foreach (var g in weekLogs.GroupBy(l => AiAssistantVnTime.AttendanceToVn(l.AttendanceTime).Date)
                                      .OrderByDescending(x => x.Key)
                                      .Take(7))
                         {
                             var times = string.Join(", ", g.OrderBy(x => x.AttendanceTime)
-                                .Select(x => $"{AiAssistantVnTime.ToVn(x.AttendanceTime):HH:mm}({x.State})"));
+                                .Select(x => $"{AiAssistantVnTime.AttendanceToVn(x.AttendanceTime):HH:mm}({x.State})"));
                             buf.AppendLine($"- {g.Key:dd/MM/yyyy}: {times}");
                         }
                     }
@@ -283,7 +283,7 @@ public static class AiAssistantContextBuilder
             var roleLower = role.ToLowerInvariant();
             if (roleLower is "owner" or "admin" or "director" or "manager" or "departmenthead")
             {
-                await AppendManagerContextAsync(db, storeId, userId, todayVn, todayUtcStart, todayUtcEnd, buf, logger, ct);
+                await AppendManagerContextAsync(db, storeId, userId, todayVn, todayQueryStart, todayQueryEnd, buf, logger, ct);
             }
         }
         catch (Exception ex)
@@ -341,8 +341,8 @@ public static class AiAssistantContextBuilder
         Guid storeId,
         Guid userId,
         DateTime todayVn,
-        DateTime todayUtcStart,
-        DateTime todayUtcEnd,
+        DateTime todayQueryStart,
+        DateTime todayQueryEnd,
         StringBuilder buf,
         ILogger logger,
         CancellationToken ct)
@@ -420,7 +420,7 @@ public static class AiAssistantContextBuilder
             var duEmpMap = duToEmp.ToDictionary(x => x.Id, x => x.EmpId);
 
             foreach (var log in await db.AttendanceLogs.AsNoTracking()
-                         .Where(a => a.AttendanceTime >= todayUtcStart && a.AttendanceTime < todayUtcEnd
+                         .Where(a => a.AttendanceTime >= todayQueryStart && a.AttendanceTime < todayQueryEnd
                                      && ((a.EmployeeId.HasValue && duEmpMap.ContainsKey(a.EmployeeId.Value))
                                          || rosterCodes.Contains(a.PIN)))
                          .Select(a => new { a.EmployeeId, a.PIN })
@@ -443,7 +443,7 @@ public static class AiAssistantContextBuilder
 
             var mobileOdooIds = await db.MobileAttendanceRecords.AsNoTracking()
                 .Where(m => m.StoreId == storeId && m.IsActive
-                            && m.PunchTime >= todayUtcStart && m.PunchTime < todayUtcEnd
+                            && m.PunchTime >= todayQueryStart && m.PunchTime < todayQueryEnd
                             && mobileIdSet.Contains(m.OdooEmployeeId))
                 .Select(m => m.OdooEmployeeId)
                 .Distinct()
@@ -512,7 +512,7 @@ public static class AiAssistantContextBuilder
             }
 
             await AppendLateArrivalsTodayAsync(
-                db, storeId, todayVn, todayUtcStart, todayUtcEnd, roster, buf, ct);
+                db, storeId, todayVn, todayQueryStart, todayQueryEnd, roster, buf, ct);
         }
         catch (Exception ex)
         {
@@ -558,17 +558,17 @@ public static class AiAssistantContextBuilder
         Guid userId,
         Guid employeeTableId,
         string employeeCode,
-        DateTime todayUtcStart,
-        DateTime todayUtcEnd,
+        DateTime todayQueryStart,
+        DateTime todayQueryEnd,
         CancellationToken ct)
     {
         var lines = new List<PunchLine>();
 
         var logs = await GetAttendanceLogsAsync(
-            db, employeeTableId, employeeCode, todayUtcStart, todayUtcEnd, ct);
+            db, employeeTableId, employeeCode, todayQueryStart, todayQueryEnd, ct);
         foreach (var l in logs)
         {
-            var vn = AiAssistantVnTime.ToVn(l.AttendanceTime);
+            var vn = AiAssistantVnTime.AttendanceToVn(l.AttendanceTime);
             var state = l.State == AttendanceStates.CheckIn ? "Vào"
                 : l.State == AttendanceStates.CheckOut ? "Ra" : l.State.ToString();
             lines.Add(new PunchLine(vn, $"({state})"));
@@ -577,7 +577,7 @@ public static class AiAssistantContextBuilder
         var userIdStr = userId.ToString();
         var mobile = await db.MobileAttendanceRecords.AsNoTracking()
             .Where(m => m.StoreId == storeId
-                        && m.PunchTime >= todayUtcStart && m.PunchTime < todayUtcEnd
+                        && m.PunchTime >= todayQueryStart && m.PunchTime < todayQueryEnd
                         && m.IsActive
                         && (m.OdooEmployeeId == userIdStr || m.OdooEmployeeId == employeeCode))
             .Select(m => new { m.PunchTime, m.PunchType, m.Status })
@@ -585,7 +585,7 @@ public static class AiAssistantContextBuilder
 
         foreach (var m in mobile)
         {
-            var vn = AiAssistantVnTime.ToVn(m.PunchTime);
+            var vn = AiAssistantVnTime.AttendanceToVn(m.PunchTime);
             var type = m.PunchType == 0 ? "Vào-Mobile" : "Ra-Mobile";
             lines.Add(new PunchLine(vn, $"{type} [{m.Status}]"));
         }
@@ -597,8 +597,8 @@ public static class AiAssistantContextBuilder
         ZKTecoDbContext db,
         Guid storeId,
         DateTime todayVn,
-        DateTime todayUtcStart,
-        DateTime todayUtcEnd,
+        DateTime todayQueryStart,
+        DateTime todayQueryEnd,
         IReadOnlyList<RosterEmp> roster,
         StringBuilder buf,
         CancellationToken ct)
@@ -639,15 +639,15 @@ public static class AiAssistantContextBuilder
             DateTime? firstInVn = null;
 
             var logs = await GetAttendanceLogsAsync(
-                db, emp.Id, emp.EmployeeCode, todayUtcStart, todayUtcEnd, ct);
+                db, emp.Id, emp.EmployeeCode, todayQueryStart, todayQueryEnd, ct);
             var checkIn = logs.FirstOrDefault(l => l.State == AttendanceStates.CheckIn);
             if (checkIn != null)
-                firstInVn = AiAssistantVnTime.ToVn(checkIn.AttendanceTime);
+                firstInVn = AiAssistantVnTime.AttendanceToVn(checkIn.AttendanceTime);
 
             var userStr = appUserId.ToString();
             var mobileIn = await db.MobileAttendanceRecords.AsNoTracking()
                 .Where(m => m.StoreId == storeId && m.IsActive && m.PunchType == 0
-                            && m.PunchTime >= todayUtcStart && m.PunchTime < todayUtcEnd
+                            && m.PunchTime >= todayQueryStart && m.PunchTime < todayQueryEnd
                             && (m.OdooEmployeeId == userStr || m.OdooEmployeeId == emp.EmployeeCode))
                 .OrderBy(m => m.PunchTime)
                 .Select(m => m.PunchTime)
@@ -655,7 +655,7 @@ public static class AiAssistantContextBuilder
 
             if (mobileIn != default)
             {
-                var mvn = AiAssistantVnTime.ToVn(mobileIn);
+                var mvn = AiAssistantVnTime.AttendanceToVn(mobileIn);
                 if (firstInVn == null || mvn < firstInVn) firstInVn = mvn;
             }
 

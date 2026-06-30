@@ -2,6 +2,8 @@
 
 import 'dart:convert';
 
+import '../utils/api_datetime.dart';
+
 double? _jsonOptionalDouble(dynamic value) {
   if (value == null) return null;
   if (value is num) return value.toDouble();
@@ -9,10 +11,20 @@ double? _jsonOptionalDouble(dynamic value) {
   return null;
 }
 
-DateTime? _jsonDateTime(dynamic value) {
-  if (value == null) return null;
-  if (value is DateTime) return value;
-  return DateTime.tryParse(value.toString());
+DateTime? _jsonDateTime(dynamic value) => parseAttendanceWallClock(value);
+
+/// Hiển thị khoảng cách từ vị trí công ty (m → km khi ≥ 1000 m).
+String formatMobileAttendanceDistance(double? meters, {bool compact = false}) {
+  if (meters == null) return compact ? '0m' : '0 m';
+  final m = meters.abs();
+  if (m >= 1000) {
+    final km = m / 1000;
+    final text =
+        km == km.roundToDouble() ? km.toStringAsFixed(0) : km.toStringAsFixed(1);
+    return compact ? '${text}km' : '$text km';
+  }
+  final text = m.round().toString();
+  return compact ? '${text}m' : '$text m';
 }
 
 String? _optionalUrl(dynamic value) {
@@ -186,6 +198,7 @@ class AuthorizedDevice {
   final bool canUseFaceId;
   final bool canUseGps;
   final bool allowOutsideCheckIn;
+  final bool allowTravelCheckIn;
   /// Chụp ảnh hiện trường sau chấm (cần bật ở cài đặt cửa hàng + thiết bị).
   final bool requirePhotoProof;
   final String? wifiBssid;
@@ -209,6 +222,7 @@ class AuthorizedDevice {
     this.canUseFaceId = true,
     this.canUseGps = true,
     this.allowOutsideCheckIn = false,
+    this.allowTravelCheckIn = false,
     this.requirePhotoProof = false,
     this.wifiBssid,
     this.authorizedAt,
@@ -280,6 +294,8 @@ class AuthorizedDevice {
       canUseGps: _parseBool(json['canUseGps'] ?? json['CanUseGps'], defaultValue: true),
       allowOutsideCheckIn:
           _parseBool(json['allowOutsideCheckIn'] ?? json['AllowOutsideCheckIn']),
+      allowTravelCheckIn:
+          _parseBool(json['allowTravelCheckIn'] ?? json['AllowTravelCheckIn']),
       requirePhotoProof:
           _parseBool(json['requirePhotoProof'] ?? json['RequirePhotoProof']),
       wifiBssid: json['wifiBssid'],
@@ -322,6 +338,7 @@ class AuthorizedDevice {
       'canUseFaceId': canUseFaceId,
       'canUseGps': canUseGps,
       'allowOutsideCheckIn': allowOutsideCheckIn,
+      'allowTravelCheckIn': allowTravelCheckIn,
       'requirePhotoProof': requirePhotoProof,
       'wifiBssid': wifiBssid,
     };
@@ -330,6 +347,7 @@ class AuthorizedDevice {
   AuthorizedDevice copyWith({
     bool? requirePhotoProof,
     bool? allowOutsideCheckIn,
+    bool? allowTravelCheckIn,
     bool? isAuthorized,
   }) {
     return AuthorizedDevice(
@@ -344,6 +362,7 @@ class AuthorizedDevice {
       canUseFaceId: canUseFaceId,
       canUseGps: canUseGps,
       allowOutsideCheckIn: allowOutsideCheckIn ?? this.allowOutsideCheckIn,
+      allowTravelCheckIn: allowTravelCheckIn ?? this.allowTravelCheckIn,
       requirePhotoProof: requirePhotoProof ?? this.requirePhotoProof,
       wifiBssid: wifiBssid,
       authorizedAt: authorizedAt,
@@ -381,7 +400,7 @@ class MobileAttendanceRecord {
   final String odooEmployeeId;
   final String employeeName;
   final DateTime punchTime;
-  final int punchType; // 0: Check-in, 1: Check-out
+  final int punchType; // 0: vào, 1: ra, 2: bắt đầu đi, 3: đến điểm làm
   final double? latitude;
   final double? longitude;
   final String? locationName;
@@ -503,6 +522,26 @@ class MobileAttendanceRecord {
   bool get isInRange =>
       distanceFromLocation != null && distanceFromLocation! <= 100;
   bool get isFaceVerified => faceMatchScore != null && faceMatchScore! >= 80;
+
+  bool get isTravelPunch => punchType == 2 || punchType == 3;
+
+  String get punchTypeLabel {
+    switch (punchType) {
+      case 0:
+        return 'Chấm vào';
+      case 1:
+        return 'Chấm ra';
+      case 2:
+        return 'Bắt đầu đi';
+      case 3:
+        return 'Đến điểm làm';
+      default:
+        return 'Chấm công';
+    }
+  }
+
+  String get formattedDistanceFromLocation =>
+      formatMobileAttendanceDistance(distanceFromLocation, compact: true);
 
   bool get hasSitePhoto =>
       sitePhotoUrl != null && sitePhotoUrl!.trim().isNotEmpty;

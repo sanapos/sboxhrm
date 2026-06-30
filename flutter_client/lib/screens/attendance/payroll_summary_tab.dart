@@ -26,6 +26,8 @@ import '../../widgets/synced_scroll_list_view.dart'
     show HorizontallySyncedClip;
 import '../../utils/shift_records_calculator.dart';
 import '../../utils/allowance_calculator.dart';
+import '../../utils/travel_hours_calculator.dart';
+import '../../models/mobile_attendance.dart';
 import '../../utils/mobile_attendance_vertical_layout.dart';
 import '../main_layout.dart' show NavigationNotifier;
 
@@ -104,6 +106,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
   int _dayEndMinute = 0;
   List<DailyShiftRecord>? _cachedShiftRecords;
   Map<String, List<DailyShiftRecord>>? _shiftRecordsByEmpKey;
+  Map<String, double> _travelHoursByEmpKey = {};
 
   // ═══ State ═══
   bool _isLoading = true;
@@ -224,6 +227,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         defaultVisible: false,
       ),
       PayrollColumn(key: 'otSalary', label: _l10n.overtimeSalary),
+      PayrollColumn(key: 'travelHours', label: 'Đi đường (giờ)'),
+      PayrollColumn(key: 'travelSalary', label: 'Lương đi đường'),
       PayrollColumn(key: 'allowanceFixed', label: 'PC cố định'),
       PayrollColumn(key: 'allowanceDaily', label: 'PC theo ngày'),
       PayrollColumn(key: 'totalAllowance', label: 'Tổng PC kỳ'),
@@ -417,11 +422,58 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     }).toList();
   }
 
+  Future<void> _loadTravelMobileRecords() async {
+    _travelHoursByEmpKey = {};
+    try {
+      final toEnd = DateTime(
+        _toDate.year,
+        _toDate.month,
+        _toDate.day,
+        23,
+        59,
+        59,
+      );
+      final res = await _loadWithTimeout(
+        _apiService.getMobileAttendanceHistory(
+          fromDate: DateTime(_fromDate.year, _fromDate.month, _fromDate.day),
+          toDate: toEnd,
+        ),
+        <String, dynamic>{'isSuccess': false},
+      );
+      if (res['isSuccess'] != true) return;
+      final raw = res['data'];
+      final dynamic list =
+          raw is List ? raw : (raw is Map ? (raw['items'] ?? raw['records']) : null);
+      if (list is! List) return;
+      final records = list
+          .whereType<Map>()
+          .map((e) =>
+              MobileAttendanceRecord.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+      _travelHoursByEmpKey = travelHoursByEmployeeKey(records);
+    } catch (e) {
+      debugPrint('Error loading travel mobile records: $e');
+    }
+  }
+
+  double _travelHoursForEmployee(Employee? emp) {
+    if (emp == null) return 0;
+    final id = emp.id.trim();
+    if (id.isNotEmpty) {
+      final byId = _travelHoursByEmpKey[id];
+      if (byId != null && byId > 0) return byId;
+    }
+    final code = emp.employeeCode.trim();
+    if (code.isNotEmpty) return _travelHoursByEmpKey[code] ?? 0;
+    return 0;
+  }
+
   Future<void> _loadPayrollData() async {
     setState(() => _isLoading = true);
     _cachedPayrollData = null;
     _cachedShiftRecords = null;
     _shiftRecordsByEmpKey = null;
+    _travelHoursByEmpKey = {};
     try {
       try {
         final dayEndResult =
@@ -587,6 +639,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       }
 
       await _loadPeriodAttendances();
+      await _loadTravelMobileRecords();
     } catch (e) {
       debugPrint('Error loading payroll data: $e');
     } finally {
@@ -1351,6 +1404,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     }
     otSalary += holidayDaySalary;
 
+    final double travelHours = _travelHoursForEmployee(emp);
+    final double travelSalary = hourlyRate * travelHours;
+
     // ═══ Allowances ═══
     final allowanceBreakdown = _calcEmployeeAllowances(
       employeeId: emp?.id,
@@ -1583,6 +1639,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     final double totalSalary = workSalary +
         completionSalaryEarned +
         otSalary +
+        travelSalary +
         totalAllowance +
         bonusTotal +
         commissionAmount +
@@ -1631,6 +1688,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       'hourlySalary': hourlySalary,
       'workSalary': workSalary,
       'otSalary': otSalary,
+      'travelHours': travelHours,
+      'travelSalary': travelSalary,
       'allowanceFixed': fixedAllowancePaid,
       'allowanceDaily': dailyAllowanceRate,
       'mealAllowance': fixedAllowancePaid,
@@ -2937,6 +2996,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           _detailRow('Tăng ca ngày lễ',
               '${(row['otHoursHoliday'] as num).toStringAsFixed(1)}h'),
           _detailRow(
+              'Đi đường',
+              '${(row['travelHours'] as num?)?.toStringAsFixed(1) ?? '0'}h'),
+          _detailRow(
               'Đi trễ', '${row['lateCount']} lần (${row['lateMinutes']} phút)'),
           _detailRow('Về sớm',
               '${row['earlyCount']} lần (${row['earlyMinutes']} phút)'),
@@ -2953,6 +3015,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           _detailRow('Lương theo ca', _fmtCurrency(row['shiftSalary'])),
           _detailRow('Lương theo giờ', _fmtCurrency(row['hourlySalary'])),
           _detailRow('Lương tăng ca', _fmtCurrency(row['otSalary'])),
+          _detailRow('Lương đi đường', _fmtCurrency(row['travelSalary'])),
           _detailRow('Phụ cấp cố định', _fmtCurrency(row['allowanceFixed'])),
           _detailRow('Phụ cấp theo ngày (mức/ngày)',
               _fmtCurrency(row['allowanceDaily'])),
@@ -4832,6 +4895,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       case 'totalHours':
       case 'standardHours':
       case 'otTotalHours':
+      case 'travelHours':
       case 'otHoursWeekday':
       case 'otHoursWeekend':
       case 'otHoursHoliday':
@@ -5028,6 +5092,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     }
     if (col.key == 'totalHours' ||
         col.key == 'otTotalHours' ||
+        col.key == 'travelHours' ||
         col.key == 'standardHours') {
       return total.toStringAsFixed(1);
     }

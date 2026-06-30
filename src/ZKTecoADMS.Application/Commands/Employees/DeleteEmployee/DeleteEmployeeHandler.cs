@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
@@ -9,24 +10,41 @@ namespace ZKTecoADMS.Application.Commands.Employees.DeleteEmployee;
 
 public class DeleteEmployeeHandler(
     IRepository<Employee> employeeRepository,
-    ISystemNotificationService notificationService) 
+    IEmployeeDeleteGuard deleteGuard,
+    ISystemNotificationService notificationService)
     : IRequestHandler<DeleteEmployeeCommand, AppResponse<bool>>
 {
     public async Task<AppResponse<bool>> Handle(DeleteEmployeeCommand request, CancellationToken cancellationToken)
     {
-        // Filter by StoreId for multi-tenant data isolation
         var employee = await employeeRepository.GetSingleAsync(
             e => e.Id == request.Id && e.StoreId == request.StoreId,
             cancellationToken: cancellationToken);
-        
+
         if (employee == null)
         {
-            return AppResponse<bool>.Error("Employee not found");
+            return AppResponse<bool>.Error("Không tìm thấy nhân viên");
+        }
+
+        var evaluation = await deleteGuard.EvaluateAsync(employee.Id, cancellationToken);
+        if (!evaluation.CanDelete)
+        {
+            return AppResponse<bool>.Error(
+                evaluation.BlockedReason ?? "Không thể xóa nhân viên vì còn dữ liệu liên quan.");
         }
 
         var employeeName = $"{employee.LastName} {employee.FirstName}";
         var employeeCode = employee.EmployeeCode;
-        await employeeRepository.DeleteAsync(employee, cancellationToken);
+
+        try
+        {
+            await employeeRepository.DeleteAsync(employee, cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            return AppResponse<bool>.Error(
+                "Không thể xóa nhân viên vì còn dữ liệu liên quan trong hệ thống. "
+                + "Nên chuyển trạng thái sang \"Đã nghỉ việc\" thay vì xóa.");
+        }
 
         try
         {

@@ -25,4 +25,7 @@ public class GetEmployeesQuery : IRequest<AppResponse<PagedResult<EmployeeDto>>>
 
     /// <summary>Resolved branch IDs (selected branch + optional descendants).</summary>
     public List<Guid>? BranchIds { get; set; }
+
+    /// <summary>Ẩn NV đã nghỉ việc — dùng cho dropdown/picker.</summary>
+    public bool ExcludeResigned { get; set; }
 }

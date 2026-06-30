@@ -201,8 +201,8 @@ public class DashboardController(
             days = Math.Clamp(days, 1, 90);
             var endDate = DateTime.UtcNow.AddHours(7).Date;
             var startDate = endDate.AddDays(-days);
-            var utcRangeStart = startDate.AddHours(-7);
-            var utcRangeEnd = endDate.AddDays(1).AddHours(-7);
+            var rangeStart = startDate;
+            var rangeEnd = endDate.AddDays(1);
 
             // Load employees with ApplicationUserId for WorkSchedule lookup
             var employeesQuery = dbContext.Employees
@@ -225,18 +225,15 @@ public class DashboardController(
 
             var attendances = await dbContext.AttendanceLogs
                 .Where(a => a.Device != null && a.Device.StoreId == storeId
-                    && a.AttendanceTime >= utcRangeStart
-                    && a.AttendanceTime < utcRangeEnd
+                    && a.AttendanceTime >= rangeStart
+                    && a.AttendanceTime < rangeEnd
                     && employeeCodes.Contains(a.PIN))
                 .Select(a => new { a.PIN, a.AttendanceTime, a.AttendanceState })
                 .ToListAsync();
 
-            // AttendanceTime is stored as UTC (EnableLegacyTimestampBehavior=true, Kind=Unspecified).
-            // Convert to VN (UTC+7) once here so every Date / TimeOfDay comparison below is in VN.
-            // Earlier code used `a.AttendanceTime` directly here while the query window was UTC —
-            // that made trend data drift by 7h (evening punches landed on the next day's bucket).
+            // AttendanceTime = giờ tường VN trong DB (máy ZKTeco / mobile).
             var vnAttendances = attendances
-                .Select(a => new { a.PIN, VnTime = a.AttendanceTime.AddHours(7), a.AttendanceState })
+                .Select(a => new { a.PIN, VnTime = a.AttendanceTime, a.AttendanceState })
                 .ToList();
 
             // Load ShiftTemplates for the store (used as fallback when no WorkSchedule exists)

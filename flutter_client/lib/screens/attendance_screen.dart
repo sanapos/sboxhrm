@@ -4011,22 +4011,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     }
   }
 
-  String _getVerifyTypeName(int verifyType) {
-    switch (verifyType) {
-      case 0:
-        return 'Mật khẩu';
-      case 1:
-        return 'Vân tay';
-      case 2:
-        return 'Thẻ từ';
-      case 15:
-        return 'Khuôn mặt';
-      case 100:
-        return 'Thủ công';
-      default:
-        return 'Khác ($verifyType)';
-    }
-  }
+  String _getVerifyTypeName(int verifyType) =>
+      Attendance.verifyModeLabel(verifyType);
 
   Widget _buildPrivilegeBadge(int privilege) {
     final isAdmin = privilege == 14;
@@ -4052,7 +4038,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           ),
           const SizedBox(width: 4),
           Text(
-            isAdmin ? 'Quản trị viên' : 'Người dùng',
+            isAdmin
+                ? Attendance.privilegeLabel(14)
+                : Attendance.privilegeLabel(0),
             style: TextStyle(
               color: isAdmin ? Colors.orange : Colors.grey,
               fontWeight: FontWeight.w600,

@@ -30,6 +30,8 @@ public static class DependencyInjectionExtensions
                 options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
                 options.JsonSerializerOptions.MaxDepth = 32;
                 options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+                options.JsonSerializerOptions.Converters.Add(new Serialization.UtcDateTimeJsonConverter());
+                options.JsonSerializerOptions.Converters.Add(new Serialization.NullableUtcDateTimeJsonConverter());
             });
             
         services.AddEndpointsApiExplorer();

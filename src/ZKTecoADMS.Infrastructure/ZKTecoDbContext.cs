@@ -199,6 +199,33 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     public DbSet<MealDebt> MealDebts => Set<MealDebt>();
     public DbSet<MealDish> MealDishes => Set<MealDish>();
 
+    // POS / Bán hàng
+    public DbSet<PosProductCategory> PosProductCategories => Set<PosProductCategory>();
+    public DbSet<PosProductBrand> PosProductBrands => Set<PosProductBrand>();
+    public DbSet<PosStorageLocation> PosStorageLocations => Set<PosStorageLocation>();
+    public DbSet<PosProduct> PosProducts => Set<PosProduct>();
+    public DbSet<PosProductUnit> PosProductUnits => Set<PosProductUnit>();
+    public DbSet<PosSupplier> PosSuppliers => Set<PosSupplier>();
+    public DbSet<PosCustomer> PosCustomers => Set<PosCustomer>();
+    public DbSet<PosProductAttribute> PosProductAttributes => Set<PosProductAttribute>();
+    public DbSet<PosProductAttributeValue> PosProductAttributeValues => Set<PosProductAttributeValue>();
+    public DbSet<PosStockTransaction> PosStockTransactions => Set<PosStockTransaction>();
+    public DbSet<PosSaleOrder> PosSaleOrders => Set<PosSaleOrder>();
+    public DbSet<PosSaleOrderLine> PosSaleOrderLines => Set<PosSaleOrderLine>();
+    public DbSet<PosProductComboLine> PosProductComboLines => Set<PosProductComboLine>();
+    public DbSet<PosProductVariant> PosProductVariants => Set<PosProductVariant>();
+    public DbSet<PosStockReceipt> PosStockReceipts => Set<PosStockReceipt>();
+    public DbSet<PosStockReceiptLine> PosStockReceiptLines => Set<PosStockReceiptLine>();
+    public DbSet<PosStockIssue> PosStockIssues => Set<PosStockIssue>();
+    public DbSet<PosStockIssueLine> PosStockIssueLines => Set<PosStockIssueLine>();
+    public DbSet<PosStockCount> PosStockCounts => Set<PosStockCount>();
+    public DbSet<PosStockCountLine> PosStockCountLines => Set<PosStockCountLine>();
+    public DbSet<PosSupplierGroup> PosSupplierGroups => Set<PosSupplierGroup>();
+    public DbSet<PosPurchaseReturn> PosPurchaseReturns => Set<PosPurchaseReturn>();
+    public DbSet<PosPurchaseReturnLine> PosPurchaseReturnLines => Set<PosPurchaseReturnLine>();
+    public DbSet<PosSupplierPayment> PosSupplierPayments => Set<PosSupplierPayment>();
+    public DbSet<PosPrintTemplate> PosPrintTemplates => Set<PosPrintTemplate>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);

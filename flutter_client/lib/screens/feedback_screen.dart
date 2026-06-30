@@ -188,7 +188,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
 
   Future<void> _loadSenders() async {
     try {
-      final rows = await _apiService.getEmployees(pageSize: 500);
+      final rows = await _apiService.getEmployeesForSelect(pageSize: 500);
       _senders = rows
           .map((e) => Map<String, dynamic>.from(e as Map))
           .toList()

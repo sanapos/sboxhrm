@@ -50,7 +50,7 @@ class _PayslipScreenState extends State<PayslipScreen> {
 
   Future<void> _loadEmployees() async {
     try {
-      final list = await _apiService.getEmployees(pageSize: 1000);
+      final list = await _apiService.getEmployeesForSelect(pageSize: 1000);
       if (!mounted) return;
       setState(() {
         _employees = list

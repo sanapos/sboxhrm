@@ -1,3 +1,5 @@
+import '../utils/employee_work_status.dart';
+
 class Employee {
   final String id;
   final String employeeCode;
@@ -63,6 +65,10 @@ class Employee {
   // Application User ID (Identity)
   final String? applicationUserId;
 
+  /// False when server reports related data blocks hard delete.
+  final bool? canDelete;
+  final String? deleteBlockedReason;
+
   Employee({
     required this.id,
     required this.employeeCode,
@@ -105,6 +111,8 @@ class Employee {
     this.branchId,
     this.branchName,
     this.applicationUserId,
+    this.canDelete,
+    this.deleteBlockedReason,
   });
 
   // Computed property for full name (Vietnamese order: Họ rồi đến Tên)
@@ -119,9 +127,8 @@ class Employee {
   // Computed property for enrollNumber (PIN)
   String get enrollNumber => pin ?? employeeCode;
 
-  // Check if active
-  bool get isActive =>
-      workStatus == 'Active' || workStatus == '0' || workStatus == null;
+  // Check if active (chưa nghỉ việc)
+  bool get isActive => EmployeeWorkStatusUtil.isEmployed(workStatus);
 
   // Factory constructor for empty employee
   factory Employee.empty() {
@@ -194,6 +201,8 @@ class Employee {
         branchId: json['branchId']?.toString(),
         branchName: json['branchName'],
         applicationUserId: json['applicationUserId']?.toString(),
+        canDelete: json['canDelete'] as bool?,
+        deleteBlockedReason: json['deleteBlockedReason']?.toString(),
       );
     } else {
       // Legacy format fallback
@@ -265,18 +274,8 @@ class Employee {
   }
 
   // Helper to get work status display text
-  String get workStatusDisplay {
-    switch (workStatus) {
-      case 'Active':
-      case '0':
-        return 'Đang làm việc';
-      case 'Resigned':
-      case '1':
-        return 'Đã nghỉ việc';
-      default:
-        return 'Đang làm việc';
-    }
-  }
+  String get workStatusDisplay =>
+      EmployeeWorkStatusUtil.toDisplayLabel(workStatus);
 
   // Helper to get gender display text
   String get genderDisplay {

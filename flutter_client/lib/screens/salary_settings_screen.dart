@@ -63,7 +63,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
     try {
       // Load all data in parallel
       final results = await Future.wait([
-        _apiService.getEmployees(),
+        _apiService.getEmployeesForSelect(),
         _apiService.getSalaryProfiles(),
         _apiService.getShifts(),
         _apiService.getAllowanceSettings(),
@@ -116,7 +116,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
           'salaryProfile': empSalaryProfile,
           'benefitId': empSalaryProfile?['benefitId'],
           'benefit': empSalaryProfile?['benefit'],
-          'salaryType': empSalaryProfile?['benefit']?['rateType'] ?? 1,
+          'salaryType': _parseSalaryRateType(
+              empSalaryProfile?['benefit']?['rateType']),
           'baseSalary': empSalaryProfile?['benefit']?['rate'] ?? 0,
           'fixedAllowance': empSalaryProfile?['benefit']?['mealAllowance'] ?? 0,
           'dailyAllowance':
@@ -179,7 +180,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
     // Apply salary type filter
     if (_filterSalaryType != 'all') {
       list = list
-          .where((emp) => emp['salaryType']?.toString() == _filterSalaryType)
+          .where((emp) =>
+              _salaryRateTypeKey(emp['salaryType']) == _filterSalaryType)
           .toList();
     }
 
@@ -208,6 +210,30 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
       _employeeSalaries.where((e) => e['isConfigured'] == true).length;
   int get _notConfiguredCount =>
       _employeeSalaries.where((e) => e['isConfigured'] != true).length;
+
+  /// Backend JsonStringEnumConverter: "Hourly"|"Monthly"|"Daily"|"Shift" hoặc int 0..3.
+  static int _parseSalaryRateType(dynamic v) {
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    if (v is String) {
+      switch (v) {
+        case 'Hourly':
+          return 0;
+        case 'Monthly':
+          return 1;
+        case 'Daily':
+          return 2;
+        case 'Shift':
+          return 3;
+        default:
+          return int.tryParse(v) ?? 1;
+      }
+    }
+    return 1;
+  }
+
+  static String _salaryRateTypeKey(dynamic v) =>
+      _parseSalaryRateType(v).toString();
 
   @override
   Widget build(BuildContext context) {
@@ -1259,14 +1285,14 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
   }
 
   String _getSalaryTypeName(dynamic type) {
-    switch (type?.toString()) {
-      case '1':
+    switch (_parseSalaryRateType(type)) {
+      case 1:
         return 'Lương tháng';
-      case '2':
+      case 2:
         return 'Lương ngày';
-      case '3':
+      case 3:
         return 'Lương ca';
-      case '0':
+      case 0:
         return 'Lương giờ';
       default:
         return 'Lương tháng';
@@ -1788,7 +1814,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                         employee['salaryProfile']?['balancedPaidLeaveDays']),
                   ),
                 ],
-                if ((employee['salaryType'] ?? 1).toString() == '3' &&
+                if (_parseSalaryRateType(employee['salaryType']) == 3 &&
                     (employee['benefit']?['shiftSalaryType'] ?? 0).toString() ==
                         '1') ...[
                   const SizedBox(height: 12),
@@ -1880,7 +1906,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
 
   List<Widget> _buildSalaryTypeDetails(Map<String, dynamic> employee) {
     final benefit = employee['benefit'] as Map<String, dynamic>?;
-    final salaryType = (employee['salaryType'] ?? 1).toString();
+    final salaryTypeKey =
+        _salaryRateTypeKey(employee['salaryType'] ?? benefit?['rateType']);
     final widgets = <Widget>[];
     final socialInsType = (benefit?['socialInsuranceType'] ?? 0).toString();
     final rawInsuranceSalary =
@@ -1890,7 +1917,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
         ? _calculateInsuranceSalary('3', 0, 0, 0)
         : rawInsuranceSalary;
 
-    if (salaryType == '1') {
+    if (salaryTypeKey == '1') {
       // Lương tháng
       widgets.add(_buildDetailItem(
           'Lương hoàn thành CV',
@@ -1924,7 +1951,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                 (benefit?['hourlyOvertimeFixedRate'] as num?)?.toDouble() ??
                     0)));
       }
-    } else if (salaryType == '2') {
+    } else if (salaryTypeKey == '2') {
       // Lương ngày
       widgets.add(_buildDetailItem(
           'Lương cố định ngày',
@@ -1958,7 +1985,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
         widgets.add(_buildDetailItem(
             'Mức lương đóng BHXH', _formatCurrency(insuranceSalaryVal)));
       }
-    } else if (salaryType == '3') {
+    } else if (salaryTypeKey == '3') {
       // Lương ca
       final shiftSalaryType = (benefit?['shiftSalaryType'] ?? 0).toString();
       widgets.add(_buildDetailItem('Kiểu tính lương',
@@ -1997,7 +2024,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
         widgets.add(_buildDetailItem(
             'Mức lương đóng BHXH', _formatCurrency(insuranceSalaryVal)));
       }
-    } else if (salaryType == '0') {
+    } else if (salaryTypeKey == '0') {
       // Lương giờ
       widgets.add(_buildDetailItem('Lương theo giờ',
           _formatCurrency((benefit?['rate'] as num?)?.toDouble() ?? 0)));
@@ -2222,7 +2249,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
     final rateType = employee['benefit']?['rateType'] ??
         employee['salaryType'] ??
         employee['salaryProfile']?['benefit']?['rateType'];
-    return rateType?.toString() == '1' || rateType == 1;
+    return _parseSalaryRateType(rateType) == 1;
   }
 
   String _formatLeaveDaysEntitlement(dynamic value) {
@@ -2639,9 +2666,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
     final benefit = employee['benefit'] as Map<String, dynamic>? ?? {};
 
     // Salary type: 0=Hourly, 1=Monthly, 2=Daily, 3=Shift
-    String salaryType =
-        (benefit['rateType'] ?? employee['salaryType'] ?? 1).toString();
-    if (!['0', '1', '2', '3'].contains(salaryType)) salaryType = '1';
+    String salaryType = _salaryRateTypeKey(
+        benefit['rateType'] ?? employee['salaryType']);
 
     // Monthly fields
     final baseSalaryController = TextEditingController(
@@ -2709,7 +2735,9 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
 
     final paidLeaveDaysController = TextEditingController(
       text: benefit['paidLeaveDays']?.toString() ??
-          ((benefit['rateType'] ?? employee['salaryType'] ?? 1).toString() == '1'
+          (_parseSalaryRateType(
+                      benefit['rateType'] ?? employee['salaryType']) ==
+                  1
               ? '12'
               : '0'),
     );

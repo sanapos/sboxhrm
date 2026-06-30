@@ -1,26 +1,30 @@
 using MediatR;
 using ZKTecoADMS.Application.DTOs.Employees;
+using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Repositories;
 
 namespace ZKTecoADMS.Application.Queries.Employees.GetEmployeeById;
 
-public class GetEmployeeByIdHandler(IRepository<Employee> employeeRepository) 
+public class GetEmployeeByIdHandler(
+    IRepository<Employee> employeeRepository,
+    IEmployeeDeleteGuard deleteGuard)
     : IRequestHandler<GetEmployeeByIdQuery, AppResponse<EmployeeDto>>
 {
     public async Task<AppResponse<EmployeeDto>> Handle(GetEmployeeByIdQuery request, CancellationToken cancellationToken)
     {
-        // Filter by StoreId for multi-tenant data isolation
         var employee = await employeeRepository.GetSingleAsync(
             e => e.Id == request.Id && e.StoreId == request.StoreId,
             includeProperties: new[] { "DirectManagerEmployee" },
             cancellationToken: cancellationToken);
-        
+
         if (employee == null)
         {
             return AppResponse<EmployeeDto>.Error("Employee not found");
         }
+
+        var deleteEvaluation = await deleteGuard.EvaluateAsync(employee.Id, cancellationToken);
 
         var employeeDto = new EmployeeDto
         {
@@ -64,7 +68,9 @@ public class GetEmployeeByIdHandler(IRepository<Employee> employeeRepository)
                 : null,
             ResignationDate = employee.ResignationDate,
             ResignationReason = employee.ResignationReason,
-            ApplicationUserId = employee.ApplicationUserId
+            ApplicationUserId = employee.ApplicationUserId,
+            CanDelete = deleteEvaluation.CanDelete,
+            DeleteBlockedReason = deleteEvaluation.BlockedReason,
         };
 
         return AppResponse<EmployeeDto>.Success(employeeDto);

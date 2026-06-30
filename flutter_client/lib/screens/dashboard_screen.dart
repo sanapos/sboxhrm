@@ -494,7 +494,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
     if (c.loadEmployees) {
       criticalFutures.add(
-          _safe(() => _api.getEmployees(pageSize: 200), emptyList, 'employees'));
+          _safe(() => _api.getEmployeesForSelect(pageSize: 200), emptyList, 'employees'));
     }
 
     final critical = criticalFutures.isEmpty

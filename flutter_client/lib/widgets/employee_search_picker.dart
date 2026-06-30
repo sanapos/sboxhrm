@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/employee.dart';
+import '../utils/employee_work_status.dart';
 import 'full_screen_dialog.dart';
 
 /// Một dòng nhân viên trong picker (tên + mã tách dòng, có tìm kiếm).
@@ -45,11 +46,31 @@ class EmployeePickerItem {
     );
   }
 
-  static List<EmployeePickerItem> fromEmployees(List<Employee> list) =>
-      list.map(EmployeePickerItem.fromEmployee).toList();
+  static List<EmployeePickerItem> fromEmployees(
+    List<Employee> list, {
+    Iterable<String>? keepEmployeeIds,
+  }) {
+    final keep = keepEmployeeIds
+            ?.map((e) => e.toString())
+            .where((e) => e.isNotEmpty)
+            .toSet() ??
+        const {};
+    return list
+        .where((e) =>
+            keep.contains(e.id) ||
+            !EmployeeWorkStatusUtil.isResigned(e.workStatus))
+        .map(EmployeePickerItem.fromEmployee)
+        .toList();
+  }
 
-  static List<EmployeePickerItem> fromMaps(List<dynamic> list) =>
-      list.map((e) => EmployeePickerItem.fromMap(Map<String, dynamic>.from(e as Map))).toList();
+  static List<EmployeePickerItem> fromMaps(
+    List<dynamic> list, {
+    Iterable<String>? keepEmployeeIds,
+  }) =>
+      EmployeeWorkStatusUtil.filterSelectableMaps(
+        list,
+        keepEmployeeIds: keepEmployeeIds,
+      ).map(EmployeePickerItem.fromMap).toList();
 
   bool matchesQuery(String q) {
     if (q.isEmpty) return true;
@@ -113,8 +134,16 @@ class EmployeeSearchPicker {
     String? subtitle,
     bool allowClear = false,
   }) async {
-    if (employees.isEmpty) return null;
-    final pickerItems = EmployeePickerItem.fromEmployees(employees);
+    final keepIds = initial != null ? [initial.id] : null;
+    final selectable = employees.where((e) {
+      if (keepIds != null && keepIds.contains(e.id)) return true;
+      return !EmployeeWorkStatusUtil.isResigned(e.workStatus);
+    }).toList();
+    if (selectable.isEmpty) return null;
+    final pickerItems = EmployeePickerItem.fromEmployees(
+      selectable,
+      keepEmployeeIds: keepIds,
+    );
     final id = await pickId(
       context,
       items: pickerItems,
@@ -125,9 +154,9 @@ class EmployeeSearchPicker {
     );
     if (id == null) return allowClear ? null : initial;
     try {
-      return employees.firstWhere((e) => e.id == id);
+      return selectable.firstWhere((e) => e.id == id);
     } catch (_) {
-      return null;
+      return initial;
     }
   }
 

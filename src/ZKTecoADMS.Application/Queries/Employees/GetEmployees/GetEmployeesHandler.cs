@@ -1,6 +1,7 @@
 using MediatR;
 using ZKTecoADMS.Application.DTOs.Employees;
 using ZKTecoADMS.Application.Interfaces;
+using ZKTecoADMS.Domain.Enums;
 
 namespace ZKTecoADMS.Application.Queries.Employees.GetEmployees;
 
@@ -26,7 +27,8 @@ public class GetEmployeesHandler(
                     (e.PersonalEmail != null && e.PersonalEmail.Contains(request.SearchTerm)) ||
                     (e.CompanyEmail != null && e.CompanyEmail.Contains(request.SearchTerm))) && 
                     (string.IsNullOrEmpty(request.EmploymentType) || (int)e.EmploymentType == int.Parse(request.EmploymentType)) &&
-                    (string.IsNullOrEmpty(request.WorkStatus) || (int)e.WorkStatus == int.Parse(request.WorkStatus)),
+                    (string.IsNullOrEmpty(request.WorkStatus) || (int)e.WorkStatus == int.Parse(request.WorkStatus)) &&
+                    (!request.ExcludeResigned || e.WorkStatus != EmployeeWorkStatus.Resigned),
             projection: e => new EmployeeDto
             {
                 Id = e.Id,
@@ -76,7 +78,12 @@ public class GetEmployeesHandler(
                 HasAccount = e.ApplicationUserId != null,
                 BranchId = e.BranchId,
                 BranchName = e.Branch != null ? e.Branch.Name : null,
-            }
+            },
+            applyOrdering: q => q
+                .OrderBy(e => e.WorkStatus == EmployeeWorkStatus.Resigned ? 1 : 0)
+                .ThenBy(e => e.LastName)
+                .ThenBy(e => e.FirstName)
+                .ThenBy(e => e.EmployeeCode)
         );
 
         var result = new PagedResult<EmployeeDto>(pagedResult.Items, pagedResult.TotalCount, pagedResult.PageNumber, pagedResult.PageSize);

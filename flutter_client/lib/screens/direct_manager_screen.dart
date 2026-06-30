@@ -53,7 +53,7 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
     if (!mounted) return;
     setState(() => _isLoading = true);
     try {
-      final data = await _apiService.getEmployees();
+      final data = await _apiService.getEmployeesForSelect();
       if (mounted) {
         _allEmployees = data.map((e) => Employee.fromJson(e)).toList();
 

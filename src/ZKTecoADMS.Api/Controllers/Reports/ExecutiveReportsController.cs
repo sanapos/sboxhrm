@@ -71,7 +71,7 @@ public class ExecutiveReportsController(
                 .Select(a => new { a.PIN, a.AttendanceTime })
                 .ToListAsync(ct);
             var uniqueDays = punches
-                .GroupBy(p => new { p.PIN, Day = ReportHelpers.ToVn(p.AttendanceTime).Date })
+                .GroupBy(p => new { p.PIN, Day = ReportHelpers.AttendanceToVn(p.AttendanceTime).Date })
                 .Count();
             var totalPunches = punches.Count;
 

@@ -86,31 +86,50 @@ class _AuthCachedImageState extends State<AuthCachedImage> {
       return;
     }
 
-    final url = widget.apiService.getFileUrl(trimmed);
-    if (url.isEmpty) {
-      if (mounted) setState(() => _failed = true);
-      return;
+    for (final candidate in _candidatePaths(trimmed)) {
+      final url = widget.apiService.getFileUrl(candidate);
+      if (url.isEmpty) continue;
+
+      try {
+        final headers = <String, String>{
+          ...?widget.apiService.imageAuthHeaders,
+        };
+        final response = await http
+            .get(Uri.parse(url), headers: headers)
+            .timeout(const Duration(seconds: 30));
+        if (!mounted) return;
+        if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
+          setState(() {
+            _bytes = response.bodyBytes;
+            _failed = false;
+          });
+          return;
+        }
+      } catch (_) {}
     }
 
-    try {
-      final headers = <String, String>{
-        ...?widget.apiService.imageAuthHeaders,
-      };
-      final response = await http
-          .get(Uri.parse(url), headers: headers)
-          .timeout(const Duration(seconds: 30));
-      if (!mounted) return;
-      if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
-        setState(() {
-          _bytes = response.bodyBytes;
-          _failed = false;
-        });
-      } else {
-        setState(() => _failed = true);
+    if (mounted) setState(() => _failed = true);
+  }
+
+  static List<String> _candidatePaths(String raw) {
+    var p = raw.trim().replaceAll('\\', '/');
+    if (p.startsWith('http')) {
+      try {
+        p = Uri.parse(p).path;
+      } catch (_) {
+        return [raw];
       }
-    } catch (_) {
-      if (mounted) setState(() => _failed = true);
     }
+    if (p.startsWith('/')) p = p.substring(1);
+
+    final paths = <String>[p];
+    if (p.startsWith('stores/')) {
+      final legacy = p.substring('stores/'.length);
+      if (legacy.contains('uploads/pos-products')) paths.add(legacy);
+    } else if (p.contains('uploads/pos-products')) {
+      paths.add('stores/$p');
+    }
+    return paths.toSet().toList();
   }
 
   @override

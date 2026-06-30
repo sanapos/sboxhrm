@@ -92,7 +92,7 @@ class _MobileAttendanceApprovalScreenState
 
   Future<void> _loadBranchData() async {
     try {
-      final emps = await _apiService.getEmployees(pageSize: 1000);
+      final emps = await _apiService.getEmployeesForSelect(pageSize: 1000);
       if (mounted) {
         setState(() => _employeesList =
             emps.map((e) => Map<String, dynamic>.from(e as Map)).toList());
@@ -523,7 +523,7 @@ class _MobileAttendanceApprovalScreenState
                       overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 2),
                   Text(
-                    '$time · $date · ${isCheckIn ? 'Vào' : 'Ra'} · ${record.distanceFromLocation?.toInt() ?? 0}m · ${record.faceMatchScore?.toStringAsFixed(0) ?? '0'}%',
+                    '$time · $date · ${record.punchTypeLabel} · ${record.formattedDistanceFromLocation} · ${record.faceMatchScore?.toStringAsFixed(0) ?? '0'}%',
                     style:
                         const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
                     overflow: TextOverflow.ellipsis,
@@ -540,7 +540,7 @@ class _MobileAttendanceApprovalScreenState
                     .withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: Text(isCheckIn ? 'Vào' : 'Ra',
+              child: Text(record.punchTypeLabel,
                   style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
@@ -605,7 +605,7 @@ class _MobileAttendanceApprovalScreenState
                       overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 2),
                   Text(
-                    '$time · $date · ${isCheckIn ? 'Vào' : 'Ra'} · ${record.approvedBy ?? 'N/A'}',
+                    '$time · $date · ${record.punchTypeLabel} · ${record.approvedBy ?? 'N/A'}',
                     style:
                         const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
                     overflow: TextOverflow.ellipsis,

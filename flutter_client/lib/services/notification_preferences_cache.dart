@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../utils/notification_category_utils.dart';
+import '../utils/notification_group_settings.dart';
 import 'api_service.dart';
 
 /// In-memory cache of per-user notification category preferences (from API).
@@ -46,6 +47,7 @@ class NotificationPreferencesCache {
       debugPrint('NotificationPreferencesCache.refresh failed: $e');
     }
     _loaded = true;
+    await NotificationGroupSettings.syncFromCategoryMap(_byCode);
   }
 
   void applyFromPreferenceList(List<Map<String, dynamic>> prefs) {
@@ -57,6 +59,8 @@ class NotificationPreferencesCache {
       _byCode[code] = p['isEnabled'] as bool? ?? true;
     }
     _loaded = true;
+    // ignore: discarded_futures
+    NotificationGroupSettings.syncFromCategoryMap(_byCode);
   }
 
   void clear() {

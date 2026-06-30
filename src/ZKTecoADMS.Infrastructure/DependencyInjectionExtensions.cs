@@ -200,6 +200,7 @@ public static class DependencyInjectionExtensions
         services.AddScoped<IDeviceUserService, DeviceUserService>();
         services.AddScoped<IAttendanceService, AttendanceService>();
         services.AddScoped<IAttendanceDeletePreparer, AttendanceDeletePreparer>();
+        services.AddScoped<IEmployeeDeleteGuard, EmployeeDeleteGuard>();
         services.AddScoped<IDeviceCmdService, DeviceCmdService>();
         services.AddScoped<IDeviceUserOperationService, EmployeeOperationService>();
         services.AddScoped<IAttendanceOperationService, AttendanceOperationService>();

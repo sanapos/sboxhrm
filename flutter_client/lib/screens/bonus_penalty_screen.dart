@@ -215,7 +215,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
 
       List<Map<String, dynamic>> employees = [];
       try {
-        final empResult = await _apiService.getEmployees();
+        final empResult = await _apiService.getEmployeesForSelect();
         employees = empResult
             .map((e) => Map<String, dynamic>.from(e as Map))
             .toList();

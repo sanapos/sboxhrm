@@ -87,7 +87,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
             fromDate: fromDate, toDate: toDate, pageSize: 500),
         _apiService.getScheduleRegistrations(
             fromDate: fromDate, toDate: toDate, pageSize: 500),
-        _apiService.getEmployees(pageSize: 500),
+        _apiService.getEmployeesForSelect(pageSize: 500),
       ]);
 
       setState(() {

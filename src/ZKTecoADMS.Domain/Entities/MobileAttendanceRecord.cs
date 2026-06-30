@@ -23,7 +23,7 @@ public class MobileAttendanceRecord : AuditableEntity<Guid>
     public DateTime PunchTime { get; set; }
 
     /// <summary>
-    /// 0: Check-in, 1: Check-out
+    /// 0: Check-in, 1: Check-out, 2: Bắt đầu đi (công tác), 3: Đến điểm làm
     /// </summary>
     public int PunchType { get; set; }
 

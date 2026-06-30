@@ -46,3 +46,12 @@ Future<void> saveAndOpenFileBytes(
 Future<void> saveAndOpenDataUrl(String dataUrl, String filename) async {
   await saveDataUrl(dataUrl, filename);
 }
+
+/// Mở PDF trong tab mới (xem trước in tem trên web).
+Future<void> openPdfInNewTab(List<int> bytes, String filename) async {
+  final uint8List = Uint8List.fromList(bytes);
+  final jsArray = uint8List.toJS;
+  final blob = web.Blob([jsArray].toJS, web.BlobPropertyBag(type: 'application/pdf'));
+  final url = web.URL.createObjectURL(blob);
+  web.window.open(url, '_blank');
+}

@@ -101,3 +101,8 @@ Future<void> saveAndOpenDataUrl(String dataUrl, String filename) async {
   }
   await saveAndOpenFileBytes(bytes, filename, mimeType);
 }
+
+/// Mở PDF xem trước (mobile: mở bằng app mặc định).
+Future<void> openPdfInNewTab(List<int> bytes, String filename) async {
+  await saveAndOpenFileBytes(bytes, filename, 'application/pdf');
+}

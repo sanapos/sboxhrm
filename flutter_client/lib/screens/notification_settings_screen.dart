@@ -1,51 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
+import '../services/notification_preferences_cache.dart';
+import '../utils/notification_category_utils.dart';
+import '../utils/notification_group_settings.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/hrm_page_chrome.dart';
-
-/// Quản lý local settings cho 2 nhóm thông báo
-class NotificationGroupSettings {
-  static const _keyAttendance = 'notif_group_attendance';
-  static const _keyWork = 'notif_group_work';
-
-  static Future<bool> isAttendanceEnabled() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_keyAttendance) ?? true;
-  }
-
-  static Future<bool> isWorkEnabled() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_keyWork) ?? true;
-  }
-
-  static Future<void> setAttendanceEnabled(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_keyAttendance, value);
-  }
-
-  static Future<void> setWorkEnabled(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_keyWork, value);
-  }
-
-  /// Kiểm tra xem relatedEntityType có thuộc nhóm chấm công không
-  static bool isAttendanceType(String? relatedEntityType) {
-    if (relatedEntityType == null) return false;
-    const attendanceTypes = {
-      'attendance', 'attendancecorrection', 'correction', 'device', 'devicestatus',
-      'admsdevice', 'newattendance', 'mobileattendance', 'authorizedmobiledevice',
-      'devicechangerequest', 'mobiledeviceregistration', 'overtime', 'workschedule',
-      'scheduleregistration', 'shift', 'shiftswap', 'schedule',
-    };
-    return attendanceTypes.contains(relatedEntityType.toLowerCase());
-  }
-
-  /// Kiểm tra xem relatedEntityType có thuộc nhóm công việc không
-  static bool isWorkType(String? relatedEntityType) {
-    return !isAttendanceType(relatedEntityType);
-  }
-}
 
 class NotificationSettingsScreen extends StatefulWidget {
   const NotificationSettingsScreen({super.key});
@@ -65,7 +24,7 @@ class _NotificationSettingsScreenState
   bool _workEnabled = true;
 
   /// Nhóm chấm công: attendance, device
-  static const _attendanceCodes = {'attendance', 'device'};
+  static final _attendanceCodes = NotificationCategoryUtils.attendanceGroupCodes;
   /// Nhóm công việc: tất cả còn lại
   List<_PreferenceItem> get _attendancePrefs =>
       _preferences.where((p) => _attendanceCodes.contains(p.categoryCode)).toList();
@@ -85,10 +44,6 @@ class _NotificationSettingsScreenState
   Future<void> _loadPreferences() async {
     setState(() => _isLoading = true);
     try {
-      // Load local group settings
-      _attendanceEnabled = await NotificationGroupSettings.isAttendanceEnabled();
-      _workEnabled = await NotificationGroupSettings.isWorkEnabled();
-
       final result = await _apiService.getNotificationPreferences();
       if (result['isSuccess'] == true && result['data'] != null) {
         final list = result['data'] as List;
@@ -104,21 +59,32 @@ class _NotificationSettingsScreenState
                   ))
               .toList()
             ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+          _syncGroupTogglesFromPreferences();
         });
+        NotificationPreferencesCache.instance.applyFromPreferenceList(
+          list.map((e) => Map<String, dynamic>.from(e as Map)).toList(),
+        );
+        await NotificationGroupSettings.syncFromPreferenceList(
+          list.map((e) => Map<String, dynamic>.from(e as Map)),
+        );
       }
     } catch (e) {
       debugPrint('Error loading notification preferences: $e');
+      _attendanceEnabled = await NotificationGroupSettings.isAttendanceEnabled();
+      _workEnabled = await NotificationGroupSettings.isWorkEnabled();
     }
     setState(() => _isLoading = false);
+  }
+
+  void _syncGroupTogglesFromPreferences() {
+    _attendanceEnabled =
+        _attendancePrefs.isEmpty || _attendancePrefs.any((p) => p.isEnabled);
+    _workEnabled = _workPrefs.isEmpty || _workPrefs.any((p) => p.isEnabled);
   }
 
   Future<void> _savePreferences() async {
     setState(() => _isSaving = true);
     try {
-      // Save local group settings
-      await NotificationGroupSettings.setAttendanceEnabled(_attendanceEnabled);
-      await NotificationGroupSettings.setWorkEnabled(_workEnabled);
-
       final prefs = _preferences
           .map((p) => {
                 'categoryCode': p.categoryCode,
@@ -126,17 +92,29 @@ class _NotificationSettingsScreenState
               })
           .toList();
       final result = await _apiService.updateNotificationPreferences(prefs);
-      if (result['isSuccess'] == true && mounted) {
-        NotificationOverlayManager().showSuccess(title: 'Thành công', message: 'Đã lưu thiết lập thông báo');
+      if (result['isSuccess'] == true) {
+        NotificationPreferencesCache.instance.applyFromPreferenceList(prefs);
+        await NotificationGroupSettings.syncFromPreferenceList(prefs);
+        if (mounted) {
+          NotificationOverlayManager().showSuccess(
+            title: 'Thành công',
+            message: 'Đã lưu thiết lập thông báo',
+          );
+        }
       } else if (mounted) {
-        NotificationOverlayManager().showSuccess(title: 'Đã lưu', message: 'Đã lưu thiết lập thông báo cục bộ');
+        NotificationOverlayManager().showError(
+          title: 'Lưu thất bại',
+          message: result['message']?.toString() ??
+              'Không lưu được lên server. FCM vẫn có thể gửi thông báo.',
+        );
       }
     } catch (e) {
       if (mounted) {
-        // Vẫn save local settings thành công
-        await NotificationGroupSettings.setAttendanceEnabled(_attendanceEnabled);
-        await NotificationGroupSettings.setWorkEnabled(_workEnabled);
-        NotificationOverlayManager().showSuccess(title: 'Đã lưu', message: 'Đã lưu thiết lập thông báo cục bộ');
+        NotificationOverlayManager().showError(
+          title: 'Lưu thất bại',
+          message:
+              'Không kết nối được server. Thiết lập chưa được áp dụng — FCM vẫn có thể gửi thông báo.',
+        );
       }
     }
     setState(() => _isSaving = false);

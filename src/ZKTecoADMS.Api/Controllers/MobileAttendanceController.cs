@@ -1674,6 +1674,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
                 canUseFaceId = d.CanUseFaceId,
                 canUseGps = d.CanUseGps,
                 allowOutsideCheckIn = d.AllowOutsideCheckIn,
+                allowTravelCheckIn = d.AllowTravelCheckIn,
                 requirePhotoProof = d.RequirePhotoProof,
                 wifiBssid = d.WifiBssid,
                 authorizedAt = d.AuthorizedAt,
@@ -1786,6 +1787,9 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
             existing.AllowOutsideCheckIn = request.AllowOutsideCheckIn;
 
 
+            existing.AllowTravelCheckIn = request.AllowTravelCheckIn;
+
+
             existing.RequirePhotoProof = request.RequirePhotoProof;
 
 
@@ -1850,6 +1854,9 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
 
                 AllowOutsideCheckIn = request.AllowOutsideCheckIn,
+
+
+                AllowTravelCheckIn = request.AllowTravelCheckIn,
 
 
                 RequirePhotoProof = request.RequirePhotoProof,
@@ -1921,6 +1928,9 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
             allowOutsideCheckIn = existing.AllowOutsideCheckIn,
 
 
+            allowTravelCheckIn = existing.AllowTravelCheckIn,
+
+
             requirePhotoProof = existing.RequirePhotoProof,
 
 
@@ -1968,6 +1978,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
             canUseFaceId = device.CanUseFaceId,
             canUseGps = device.CanUseGps,
             allowOutsideCheckIn = device.AllowOutsideCheckIn,
+            allowTravelCheckIn = device.AllowTravelCheckIn,
             requirePhotoProof = device.RequirePhotoProof,
             wifiBssid = device.WifiBssid,
             authorizedAt = device.AuthorizedAt,
@@ -2010,10 +2021,40 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
             canUseFaceId = device.CanUseFaceId,
             canUseGps = device.CanUseGps,
             allowOutsideCheckIn = device.AllowOutsideCheckIn,
+            allowTravelCheckIn = device.AllowTravelCheckIn,
             requirePhotoProof = device.RequirePhotoProof,
             wifiBssid = device.WifiBssid,
             authorizedAt = device.AuthorizedAt,
             lastUsedAt = device.LastUsedAt,
+        }));
+    }
+
+
+    /// <summary>Chỉ cập nhật cờ chấm công đi đường.</summary>
+    [HttpPatch("devices/{id}/allow-travel-checkin")]
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireAnyModulePermission(ModulePermissionAction.Edit, "MobileAttendance", "MobileDeviceRegistration")]
+    public async Task<ActionResult> SetDeviceAllowTravelCheckIn(Guid id, [FromBody] SetDeviceAllowTravelCheckInRequest request)
+    {
+        var storeId = RequiredStoreId;
+        var device = await _dbContext.AuthorizedMobileDevices
+            .AsTracking()
+            .FirstOrDefaultAsync(d => d.Id == id && d.StoreId == storeId && d.Deleted == null);
+
+        if (device == null)
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy thiết bị"));
+
+        device.AllowTravelCheckIn = request.AllowTravelCheckIn;
+        device.UpdatedAt = DateTime.UtcNow;
+        device.UpdatedBy = CurrentUserEmail;
+        await _dbContext.SaveChangesAsync();
+
+        return Ok(AppResponse<object>.Success(new
+        {
+            id = device.Id.ToString(),
+            deviceId = device.DeviceId,
+            deviceName = device.DeviceName,
+            allowTravelCheckIn = device.AllowTravelCheckIn,
         }));
     }
 
@@ -2910,6 +2951,9 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
 
             allowOutsideCheckIn = device.AllowOutsideCheckIn,
+
+
+            allowTravelCheckIn = device.AllowTravelCheckIn,
 
 
             requirePhotoProof = photoProofEffective,
@@ -4862,7 +4906,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
-        if (request.PunchType is not 0 and not 1)
+        if (request.PunchType is not 0 and not 1 and not 2 and not 3)
 
 
         {
@@ -4875,6 +4919,9 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
 
         }
+
+
+        var isTravelPunch = request.PunchType is 2 or 3;
 
 
 
@@ -4980,6 +5027,21 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
 
             return BadRequest(AppResponse<object>.Fail("Thiết bị chưa được duyệt hoặc đã bị thu hồi. Vui lòng liên hệ quản lý."));
+
+
+        }
+
+
+        if (isTravelPunch && !registeredDevice.AllowTravelCheckIn)
+
+
+        {
+
+
+            _logger.LogWarning("❌ PUNCH REJECT: travel punch without AllowTravelCheckIn");
+
+
+            return BadRequest(AppResponse<object>.Fail("Thiết bị chưa được cấp quyền chấm công đi đường. Liên hệ quản lý."));
 
 
         }
@@ -5447,7 +5509,8 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
         // Check if device is allowed to check in outside company (reuse registeredDevice from above)
 
 
-        bool allowOutside = registeredDevice.AllowOutsideCheckIn;
+        bool allowOutside = registeredDevice.AllowOutsideCheckIn
+            || (isTravelPunch && registeredDevice.AllowTravelCheckIn);
 
 
         var autoApproveInRange = settings?.AutoApproveInRange ?? true;
@@ -6190,7 +6253,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
             _logger.LogWarning("❌ PUNCH REJECT: no face registration");
 
 
-            return BadRequest(AppResponse<object>.Fail("Nh�n vi�n chua dang k� khu�n m?t. Vui l�ng dang k� Face ID tru?c khi ch?m c�ng."));
+            return BadRequest(AppResponse<object>.Fail("Nhân viên chưa đăng ký khuôn mặt. Vui lòng đăng ký Face ID trước khi chấm công."));
 
 
         }
@@ -6508,7 +6571,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
         var syncedToRaw = false;
 
 
-        if (status == "auto_approved")
+        if (status == "auto_approved" && !isTravelPunch)
 
 
         {
@@ -6589,7 +6652,14 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
-                var punchLabel = record.PunchType == 0 ? "vào" : "ra";
+                var punchLabel = record.PunchType switch
+                {
+                    0 => "vào",
+                    1 => "ra",
+                    2 => "bắt đầu đi",
+                    3 => "đến điểm làm",
+                    _ => "chấm",
+                };
 
 
                 foreach (var managerId in managerIds)
@@ -7303,7 +7373,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
         // Äá»“ng bá»™ vÃ o báº£ng cháº¥m cÃ´ng chÃ­nh khi Ä‘Æ°á»£c duyá»‡t
 
 
-        if (request.Approved)
+        if (request.Approved && record.PunchType is 0 or 1)
 
 
         {
@@ -7342,7 +7412,14 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
             {
 
 
-                var punchLabel = record.PunchType == 0 ? "vào" : "ra";
+                var punchLabel = record.PunchType switch
+                {
+                    0 => "vào",
+                    1 => "ra",
+                    2 => "bắt đầu đi",
+                    3 => "đến điểm làm",
+                    _ => "chấm",
+                };
 
 
                 var timeStr = record.PunchTime.ToString("HH:mm dd/MM/yyyy");
@@ -7525,7 +7602,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
         if (reg == null)
 
 
-            return BadRequest(AppResponse<object>.Fail("Nh�n vi�n chua dang k� khu�n m?t"));
+            return BadRequest(AppResponse<object>.Fail("Nhân viên chưa đăng ký khuôn mặt"));
 
 
 
@@ -7537,7 +7614,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
         if (images.Count == 0)
 
 
-            return BadRequest(AppResponse<object>.Fail("Nh�n vi�n chua c� ?nh khu�n m?t dang k�"));
+            return BadRequest(AppResponse<object>.Fail("Nhân viên chưa có ảnh khuôn mặt đăng ký"));
 
 
 
@@ -8357,6 +8434,11 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
         {
 
 
+            // Chấm đi đường (2/3) chỉ dùng cho tính giờ công tác — không ghi vào chấm công thô.
+            if (record.PunchType is 2 or 3)
+                return true;
+
+
             // Kiá»ƒm tra Ä‘Ã£ sync chÆ°a
 
 
@@ -8899,6 +8981,9 @@ public class AuthorizeDeviceRequest
     public bool AllowOutsideCheckIn { get; set; } = false;
 
 
+    public bool AllowTravelCheckIn { get; set; } = false;
+
+
     public bool RequirePhotoProof { get; set; } = false;
 
 
@@ -8916,6 +9001,11 @@ public class SetDeviceRequirePhotoProofRequest
 public class SetDeviceAllowOutsideCheckInRequest
 {
     public bool AllowOutsideCheckIn { get; set; }
+}
+
+public class SetDeviceAllowTravelCheckInRequest
+{
+    public bool AllowTravelCheckIn { get; set; }
 }
 
 public class MobilePunchRequest

@@ -630,12 +630,12 @@ class _MobileAttendanceHistoryScreenState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '${record.punchTime.hour.toString().padLeft(2, '0')}:${record.punchTime.minute.toString().padLeft(2, '0')} · ${isCheckIn ? 'Vào' : 'Ra'}',
+                    '${record.punchTime.hour.toString().padLeft(2, '0')}:${record.punchTime.minute.toString().padLeft(2, '0')} · ${record.punchTypeLabel}',
                     style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF18181B)),
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '${record.distanceFromLocation?.toInt() ?? 0}m · ${record.faceMatchScore?.toInt() ?? 0}%',
+                    '${record.formattedDistanceFromLocation} · ${record.faceMatchScore?.toInt() ?? 0}%',
                     style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
                   ),
                 ],

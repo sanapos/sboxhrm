@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/attendance.dart';
@@ -1167,6 +1169,8 @@ class DailyShiftPair {
   final int earlyMinutes;
   final bool hasMatchedShift;
   final bool isOvernight;
+  /// Id ca (ShiftTemplate) — dùng tra bậc lương ca theo từng ca.
+  final String? shiftTemplateId;
 
   DailyShiftPair({
     required this.employeeId,
@@ -1180,6 +1184,7 @@ class DailyShiftPair {
     required this.earlyMinutes,
     required this.hasMatchedShift,
     this.isOvernight = false,
+    this.shiftTemplateId,
   });
 }
 
@@ -1282,10 +1287,12 @@ List<DailyShiftPair> computeDailyShiftPairs({
         }
 
         String shiftName;
+        String? pairShiftTemplateId;
         int lateCalc = 0;
         int earlyCalc = 0;
         final isOtShift = isOvertimeShiftTemplate(matchedShift);
         if (matchedShift != null) {
+          pairShiftTemplateId = matchedShift['id']?.toString();
           shiftName = matchedShift['name']?.toString() ?? '';
           if (!isOtShift) {
             final shiftStartMin =
@@ -1343,6 +1350,7 @@ List<DailyShiftPair> computeDailyShiftPairs({
           earlyMinutes: earlyCalc,
           hasMatchedShift: matchedShift != null,
           isOvernight: isOvernightShiftTemplate(matchedShift),
+          shiftTemplateId: pairShiftTemplateId,
         ));
       }
     });
@@ -1458,5 +1466,209 @@ PayrollShiftAttendanceStats aggregatePayrollStatsFromShiftRecords({
     earlyMinutes: earlyMinutes,
     totalShifts: totalShifts,
     overnightShifts: overnightShifts,
+  );
+}
+
+/// Parse employeeIds từ ShiftSalaryLevel (JSON string hoặc list).
+List<String> parseShiftSalaryLevelEmployeeIds(dynamic raw) {
+  if (raw == null) return [];
+  if (raw is List) {
+    return raw.map((e) => e.toString()).where((s) => s.isNotEmpty).toList();
+  }
+  if (raw is String && raw.isNotEmpty) {
+    try {
+      final parsed = jsonDecode(raw);
+      if (parsed is List) {
+        return parsed.map((e) => e.toString()).where((s) => s.isNotEmpty).toList();
+      }
+    } catch (_) {}
+  }
+  return [];
+}
+
+/// Tìm bậc lương ca: ưu tiên mức gán NV, sau đó mức mặc định (employeeIds rỗng).
+Map<String, dynamic>? findShiftSalaryLevelForPair({
+  required List<Map<String, dynamic>> shiftSalaryLevels,
+  required String shiftTemplateId,
+  required String employeeGuid,
+}) {
+  if (shiftTemplateId.isEmpty) return null;
+
+  Map<String, dynamic>? defaultLevel;
+  for (final level in shiftSalaryLevels) {
+    if (level['isActive'] == false) continue;
+    if (level['shiftTemplateId']?.toString() != shiftTemplateId) continue;
+
+    final empIds = parseShiftSalaryLevelEmployeeIds(level['employeeIds']);
+    if (empIds.isEmpty) {
+      defaultLevel ??= level;
+      continue;
+    }
+    if (employeeGuid.isNotEmpty && empIds.contains(employeeGuid)) {
+      return level;
+    }
+  }
+  return defaultLevel;
+}
+
+/// Giờ làm thực tế của một cặp chấm công (check-in → check-out).
+double dailyShiftPairWorkHours(DailyShiftPair pair) {
+  final checkIn = pair.checkIn;
+  final checkOut = pair.checkOut;
+  if (checkIn == null || checkOut == null) return 0;
+
+  var out = checkOut;
+  if (out.isBefore(checkIn)) {
+    out = out.add(const Duration(days: 1));
+  }
+  final mins = out.difference(checkIn).inMinutes;
+  return mins > 0 ? mins / 60.0 : 0;
+}
+
+double _shiftSalaryFieldDouble(dynamic v, [double fallback = 0]) {
+  if (v == null) return fallback;
+  if (v is num) return v.toDouble();
+  return double.tryParse(v.toString()) ?? fallback;
+}
+
+/// Kết quả lương cho một ca hoàn thành.
+class ShiftPairPayrollResult {
+  final double salary;
+  final double allowance;
+  final double effectiveHourlyRate;
+
+  const ShiftPairPayrollResult({
+    required this.salary,
+    required this.allowance,
+    required this.effectiveHourlyRate,
+  });
+}
+
+/// Tính lương một ca: tra bậc lương ca hoặc fallback [fallbackFixedShiftRate].
+ShiftPairPayrollResult calcShiftPairPayroll({
+  required DailyShiftPair pair,
+  required Map<String, dynamic>? level,
+  required double fallbackFixedShiftRate,
+  required double standardDayHours,
+}) {
+  final overnightCoef = pair.isOvernight ? 1.3 : 1.0;
+  final pairHours = dailyShiftPairWorkHours(pair);
+
+  if (level == null) {
+    final amount = fallbackFixedShiftRate * overnightCoef;
+    final effHourly = standardDayHours > 0
+        ? fallbackFixedShiftRate / standardDayHours
+        : 0.0;
+    return ShiftPairPayrollResult(
+      salary: amount,
+      allowance: 0,
+      effectiveHourlyRate: effHourly,
+    );
+  }
+
+  final lvlRateType = level['rateType']?.toString() ?? 'fixed';
+  final allowance = _shiftSalaryFieldDouble(level['shiftAllowance']);
+  final lvlFixedRate =
+      _shiftSalaryFieldDouble(level['fixedRate'], fallbackFixedShiftRate);
+  final lvlHourlyRate = _shiftSalaryFieldDouble(level['hourlyRate']);
+  final lvlMultiplier = _shiftSalaryFieldDouble(level['multiplier'], 1.0);
+
+  switch (lvlRateType) {
+    case 'hourly':
+      final effHourly = lvlHourlyRate > 0
+          ? lvlHourlyRate
+          : (standardDayHours > 0
+              ? fallbackFixedShiftRate / standardDayHours
+              : 0.0);
+      var amount = effHourly * pairHours;
+      if (pair.isOvernight && standardDayHours > 0) {
+        amount += effHourly * standardDayHours * 0.3;
+      }
+      return ShiftPairPayrollResult(
+        salary: amount,
+        allowance: allowance,
+        effectiveHourlyRate: effHourly,
+      );
+    case 'multiplier':
+      final perShift = fallbackFixedShiftRate * lvlMultiplier;
+      final amount = perShift * overnightCoef;
+      final effHourly =
+          standardDayHours > 0 ? perShift / standardDayHours : 0.0;
+      return ShiftPairPayrollResult(
+        salary: amount,
+        allowance: allowance,
+        effectiveHourlyRate: effHourly,
+      );
+    default:
+      final fixed = lvlFixedRate > 0 ? lvlFixedRate : fallbackFixedShiftRate;
+      final amount = fixed * overnightCoef;
+      final effHourly = standardDayHours > 0 ? fixed / standardDayHours : 0.0;
+      return ShiftPairPayrollResult(
+        salary: amount,
+        allowance: allowance,
+        effectiveHourlyRate: effHourly,
+      );
+  }
+}
+
+/// Tổng lương ca + phụ cấp ca — cộng dồn theo từng ca hoàn thành.
+class ShiftBasedPayrollTotals {
+  final double workSalary;
+  final double shiftAllowance;
+  final double hourlyRate;
+
+  const ShiftBasedPayrollTotals({
+    required this.workSalary,
+    required this.shiftAllowance,
+    required this.hourlyRate,
+  });
+}
+
+ShiftBasedPayrollTotals calcShiftBasedPayrollFromPairs({
+  required List<DailyShiftPair> shiftPairs,
+  required List<Map<String, dynamic>> shiftSalaryLevels,
+  required String employeeGuid,
+  required double fallbackFixedShiftRate,
+  required double standardDayHours,
+  required double totalWorkHours,
+}) {
+  double workSalary = 0;
+  double shiftAllowance = 0;
+  double hourlyRateSum = 0;
+  int pairCount = 0;
+
+  final completedPairs = shiftPairs.where((p) => p.checkOut != null).toList();
+  for (final pair in completedPairs) {
+    final level = findShiftSalaryLevelForPair(
+      shiftSalaryLevels: shiftSalaryLevels,
+      shiftTemplateId: pair.shiftTemplateId ?? '',
+      employeeGuid: employeeGuid,
+    );
+    final result = calcShiftPairPayroll(
+      pair: pair,
+      level: level,
+      fallbackFixedShiftRate: fallbackFixedShiftRate,
+      standardDayHours: standardDayHours,
+    );
+    workSalary += result.salary;
+    shiftAllowance += result.allowance;
+    if (result.effectiveHourlyRate > 0) {
+      hourlyRateSum += result.effectiveHourlyRate;
+      pairCount++;
+    }
+  }
+
+  final hourlyRate = totalWorkHours > 0
+      ? workSalary / totalWorkHours
+      : (pairCount > 0
+          ? hourlyRateSum / pairCount
+          : (standardDayHours > 0
+              ? fallbackFixedShiftRate / standardDayHours
+              : 0.0));
+
+  return ShiftBasedPayrollTotals(
+    workSalary: workSalary,
+    shiftAllowance: shiftAllowance,
+    hourlyRate: hourlyRate,
   );
 }

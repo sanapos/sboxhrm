@@ -132,7 +132,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
   }
 
   Future<void> _loadEmployees() async {
-    final employees = await _apiService.getEmployees();
+    final employees = await _apiService.getEmployeesForSelect();
     if (!mounted) return;
     setState(() {
       _employees = employees.map((e) => Employee.fromJson(e)).toList();

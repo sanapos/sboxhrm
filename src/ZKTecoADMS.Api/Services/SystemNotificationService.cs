@@ -147,6 +147,14 @@ public class SystemNotificationService : ISystemNotificationService
                 .ToListAsync();
             if (userIds.Count == 0) return;
 
+            if (!string.IsNullOrEmpty(notification.CategoryCode))
+            {
+                var disabled = await GetDisabledUserIdsAsync(
+                    userIds, notification.CategoryCode, notification.StoreId);
+                userIds = userIds.Except(disabled).ToList();
+                if (userIds.Count == 0) return;
+            }
+
             var display = await BuildPushDisplayAsync(notification);
             await _push.PushToUsersAsync(
                 userIds,

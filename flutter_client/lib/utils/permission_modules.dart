@@ -26,6 +26,8 @@ class PermissionModules {
     'AdvanceRequests',
     'PenaltyTickets',
     'Production',
+    'PosProducts',
+    'PosSalesReport',
     'ProductSalary',
     'KPI',
     'LeaveReport',

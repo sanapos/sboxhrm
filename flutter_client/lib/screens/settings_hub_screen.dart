@@ -24,6 +24,7 @@ import 'device_management_settings_screen.dart';
 import 'product_salary_settings_screen.dart';
 import 'branch_management_screen.dart';
 import 'staffing_quota_settings_screen.dart';
+import 'pos_print_templates_screen.dart';
 
 class SettingsHubScreen extends StatefulWidget {
   const SettingsHubScreen({super.key});
@@ -263,6 +264,20 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
       ],
     ),
     _SidebarGroup(
+      title: 'POS / Bán hàng',
+      icon: Icons.point_of_sale,
+      accent: const Color(0xFF2563EB),
+      items: [
+        _SidebarItem(
+            index: 15,
+            icon: Icons.print_outlined,
+            label: 'Mẫu in',
+            desc: 'K58, K80, A5, A4 — thiết kế hóa đơn, phiếu',
+            accent: const Color(0xFF2563EB),
+            moduleCode: 'PosProducts'),
+      ],
+    ),
+    _SidebarGroup(
       title: 'Tích hợp',
       icon: Icons.hub,
       accent: HrmPageChrome.primaryNavy,
@@ -310,6 +325,8 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
         return const DeviceManagementSettingsScreen();
       case 14:
         return const StaffingQuotaSettingsScreen();
+      case 15:
+        return const PosPrintTemplatesScreen(embeddedInSettings: true);
       default:
         return const SizedBox();
     }
@@ -597,19 +614,19 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
             spacing: 10,
             runSpacing: 10,
             children: [
-              _buildStatBadge(
-                  Icons.schedule, '${_groups[0].items.length}', 'Chấm công'),
-              _buildStatBadge(
-                  Icons.payments, '${_groups[1].items.length}', 'Lương'),
-              _buildStatBadge(Icons.admin_panel_settings,
-                  '${_groups[2].items.length}', 'Quản trị'),
-              _buildStatBadge(
-                  Icons.hub, '${_groups[3].items.length}', 'Tích hợp'),
+              for (final g in _groups)
+                _buildStatBadge(g.icon, '${g.items.length}', _shortGroupLabel(g.title)),
             ],
           ),
         ],
       ),
     );
+  }
+
+  String _shortGroupLabel(String title) {
+    if (title.contains('/')) return title.split('/').first.trim();
+    final words = title.split(' ');
+    return words.length > 2 ? words.first : title;
   }
 
   Widget _buildStatBadge(IconData icon, String count, String label) {

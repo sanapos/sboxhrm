@@ -5,11 +5,13 @@ import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import '../services/global_location_reporter.dart';
+import '../services/notification_preferences_cache.dart';
 import '../services/signalr_service.dart';
 import '../widgets/announcement_banner.dart';
 import '../widgets/hrm_page_chrome.dart';
@@ -63,6 +65,14 @@ import '../utils/pending_notification_launch.dart';
 import 'mobile_device_registration_screen.dart';
 import 'meal_tracking_screen.dart';
 import 'field_checkin_screen.dart';
+import 'pos_products_screen.dart';
+import 'pos_sell_screen.dart';
+import 'pos_purchase_receipt_list_screen.dart';
+import 'pos_sale_order_list_screen.dart';
+import 'pos_purchase_return_list_screen.dart';
+import 'pos_stock_count_list_screen.dart';
+import 'pos_damage_issue_list_screen.dart';
+import 'pos_internal_use_list_screen.dart';
 import 'shift_swap_screen.dart';
 import '../utils/permission_navigation.dart';
 import '../widgets/module_route_guard.dart';
@@ -124,6 +134,17 @@ class ScreenRefreshNotifier {
   static void refreshMobileDeviceRegistration() {
     mobileDeviceRegistration.value++;
   }
+
+  static final ValueNotifier<int> posProducts = ValueNotifier<int>(0);
+  static final ValueNotifier<int> posSellProductGrid = ValueNotifier<int>(0);
+
+  static void refreshPosProducts() {
+    posProducts.value++;
+  }
+
+  static void refreshPosSellProductGrid() {
+    posSellProductGrid.value++;
+  }
 }
 
 class MainLayout extends StatefulWidget {
@@ -135,7 +156,8 @@ class MainLayout extends StatefulWidget {
 
 class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   int _selectedIndex = 0;
-  bool _isExpanded = true;
+  bool _isExpanded = false;
+  static const _kSidebarExpanded = 'main_sidebar_expanded';
   int _unreadNotificationsCount = 0;
   final Set<String> _collapsedGroups = {};
   final List<int> _navigationHistory = [];
@@ -155,6 +177,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   final List<Widget Function(VoidCallback onDismiss)> _popupQueue = [];
   OverlayEntry? _currentPopupEntry;
   bool _isShowingPopup = false;
+
+  /// Cached home screen — kept alive via Offstage on desktop/tablet so scroll position is preserved.
+  Widget? _homeScreenCache;
+  List<String>? _homeAllowedModulesCached;
 
   // Tracks when SignalR connected so we can suppress stale notifications
   // that were already shown by FCM while the app was in the background.
@@ -176,6 +202,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     _loadNotificationCount();
     _connectSignalR();
     _loadPermissions();
+    _loadSidebarPreference();
 
     // Listen for navigation requests from other screens
     NavigationNotifier.navigateTo.addListener(_onNavigationRequested);
@@ -211,6 +238,19 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     if (!permProvider.isLoaded && !permProvider.isLoading) {
       permProvider.loadPermissions(role: authUser?.role);
     }
+  }
+
+  Future<void> _loadSidebarPreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    final expanded = prefs.getBool(_kSidebarExpanded);
+    if (!mounted || expanded == null) return;
+    setState(() => _isExpanded = expanded);
+  }
+
+  Future<void> _toggleSidebar() async {
+    setState(() => _isExpanded = !_isExpanded);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kSidebarExpanded, _isExpanded);
   }
 
   @override
@@ -539,8 +579,11 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     debugPrint(
         '📡 Device status changed: ${notification.deviceName} - ${notification.status}');
 
-    // Kiểm tra nhóm thông báo chấm công có bật không (device thuộc nhóm chấm công)
-    NotificationGroupSettings.isAttendanceEnabled().then((enabled) {
+    // Kiểm tra nhóm thông báo chấm công (category device)
+    _shouldShowNotification(
+      categoryCode: 'device',
+      relatedEntityType: 'Device',
+    ).then((enabled) {
       if (!enabled || !mounted) return;
       final isMobile = mounted && MediaQuery.of(context).size.width < 600;
       // Mobile: không hiện popup/notif ở đây - để _handleNewNotification xử lý (có notificationId)
@@ -573,8 +616,11 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   void _handleNewAttendance(Attendance attendance) {
     if (!mounted) return;
 
-    // Kiểm tra nhóm thông báo chấm công có bật không
-    NotificationGroupSettings.isAttendanceEnabled().then((enabled) {
+    // Kiểm tra thiết lập category attendance
+    _shouldShowNotification(
+      categoryCode: 'attendance',
+      relatedEntityType: 'Attendance',
+    ).then((enabled) {
       if (!enabled || !mounted) return;
 
       final timeStr = DateFormat('HH:mm:ss').format(attendance.attendanceTime);
@@ -675,8 +721,11 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       // Cập nhật số thông báo chưa đọc từ server (chính xác hơn local increment)
       _loadNotificationCount();
 
-      // Kiểm tra nhóm thông báo trước khi hiển thị popup
-      _shouldShowNotification(relatedEntityType).then((shouldShow) {
+      // Kiểm tra thiết lập trước khi hiển thị popup
+      _shouldShowNotification(
+        relatedEntityType: relatedEntityType,
+        categoryCode: data['categoryCode']?.toString(),
+      ).then((shouldShow) {
         if (!shouldShow || !mounted) return;
 
         final isMobile = mounted && MediaQuery.of(context).size.width < 600;
@@ -785,8 +834,11 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     // Cập nhật badge
     _loadNotificationCount();
 
-    // Kiểm tra nhóm thông báo công việc có bật không
-    NotificationGroupSettings.isWorkEnabled().then((enabled) {
+    // Kiểm tra thiết lập category truyền thông nội bộ
+    _shouldShowNotification(
+      categoryCode: 'internal_comm',
+      relatedEntityType: 'Communication',
+    ).then((enabled) {
       if (!enabled || !mounted) return;
 
       final isMobile = mounted && MediaQuery.of(context).size.width < 600;
@@ -837,13 +889,16 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     });
   }
 
-  /// Kiểm tra xem có nên hiển thị popup thông báo dựa trên nhóm bật/tắt
-  Future<bool> _shouldShowNotification(String? relatedEntityType) async {
-    if (NotificationGroupSettings.isAttendanceType(relatedEntityType)) {
-      return await NotificationGroupSettings.isAttendanceEnabled();
-    } else {
-      return await NotificationGroupSettings.isWorkEnabled();
-    }
+  /// Kiểm tra user có bật nhận loại thông báo này (server preferences + nhóm local).
+  Future<bool> _shouldShowNotification({
+    String? relatedEntityType,
+    String? categoryCode,
+  }) async {
+    await NotificationPreferencesCache.instance.ensureLoaded(_apiService);
+    return NotificationPreferencesCache.instance.isCategoryEnabled(
+      categoryCode: categoryCode,
+      relatedEntityType: relatedEntityType,
+    );
   }
 
   Future<void> _loadNotificationCount() async {
@@ -1190,6 +1245,88 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       moduleCode: 'FieldCheckIn',
     ),
 
+    // ══════════ POS / BÁN HÀNG ══════════
+    NavItem(
+      icon: Icons.inventory_2_outlined,
+      activeIcon: Icons.inventory_2,
+      label: 'Hàng hóa',
+      subtitle: 'Danh mục sản phẩm, tồn kho, giá bán',
+      screen: const PosProductsScreen(),
+      group: 'POS',
+      themeColor: const Color(0xFF2563EB),
+      moduleCode: 'PosProducts',
+    ),
+    NavItem(
+      icon: Icons.point_of_sale_outlined,
+      activeIcon: Icons.point_of_sale,
+      label: 'Bán hàng',
+      subtitle: 'Màn hình bán hàng POS, giỏ hàng, thanh toán',
+      screen: const PosSellScreen(),
+      group: 'POS',
+      themeColor: const Color(0xFF2563EB),
+      moduleCode: 'PosSell',
+    ),
+    NavItem(
+      icon: Icons.receipt_long_outlined,
+      activeIcon: Icons.receipt_long,
+      label: 'Đơn hàng',
+      subtitle: 'Quản lý đơn hàng, hóa đơn bán hàng',
+      screen: const PosSaleOrderListScreen(),
+      group: 'POS',
+      themeColor: const Color(0xFF2563EB),
+      moduleCode: 'PosSaleOrders',
+    ),
+    NavItem(
+      icon: Icons.shopping_cart_outlined,
+      activeIcon: Icons.shopping_cart,
+      label: 'Nhập hàng NCC',
+      subtitle: 'Phiếu nhập hàng nhà cung cấp (PN)',
+      screen: const PosPurchaseReceiptListScreen(),
+      group: 'POS',
+      themeColor: const Color(0xFF2563EB),
+      moduleCode: 'PosPurchaseReceipts',
+    ),
+    NavItem(
+      icon: Icons.reply_outlined,
+      activeIcon: Icons.reply,
+      label: 'Trả hàng nhập',
+      subtitle: 'Trả hàng cho nhà cung cấp (THN)',
+      screen: const PosPurchaseReturnListScreen(),
+      group: 'POS',
+      themeColor: const Color(0xFF2563EB),
+      moduleCode: 'PosPurchaseReturns',
+    ),
+    NavItem(
+      icon: Icons.fact_check_outlined,
+      activeIcon: Icons.fact_check,
+      label: 'Kiểm kho',
+      subtitle: 'Phiếu kiểm kê, cân bằng tồn kho (KK)',
+      screen: const PosStockCountListScreen(),
+      group: 'POS',
+      themeColor: const Color(0xFF2563EB),
+      moduleCode: 'PosStockCounts',
+    ),
+    NavItem(
+      icon: Icons.delete_forever_outlined,
+      activeIcon: Icons.delete_forever,
+      label: 'Xuất hủy',
+      subtitle: 'Phiếu xuất hủy hàng hóa (XH)',
+      screen: const PosDamageIssueListScreen(),
+      group: 'POS',
+      themeColor: const Color(0xFF2563EB),
+      moduleCode: 'PosDamageIssues',
+    ),
+    NavItem(
+      icon: Icons.outbox_outlined,
+      activeIcon: Icons.outbox,
+      label: 'Xuất dùng nội bộ',
+      subtitle: 'Phiếu xuất dùng nội bộ (XDNB)',
+      screen: const PosInternalUseListScreen(),
+      group: 'POS',
+      themeColor: const Color(0xFF2563EB),
+      moduleCode: 'PosInternalUseIssues',
+    ),
+
     // ══════════ BÁO CÁO ══════════
     NavItem(
       icon: Icons.receipt_long_outlined,
@@ -1352,24 +1489,49 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     }
   }
 
-  Widget _getScreenForIndex(int index) {
-    if (index == 0) {
-      final authUser = Provider.of<AuthProvider>(context, listen: false).user;
-      final role = (authUser?.role ?? '').toLowerCase();
-      final isSuperAdmin = role == 'superadmin';
-      final isAgent = role == 'agent';
-      final isDirector = role == 'director';
-      return _HomeMenuScreen(
-        navItems: _navItems,
-        onItemTap: (idx) => _tryNavigateToIndex(idx),
-        allowedModules: (isSuperAdmin || isAgent || isDirector)
-            ? null
-            : authUser?.allowedModules,
-      );
+  List<String>? _homeAllowedModules() {
+    final authUser = Provider.of<AuthProvider>(context, listen: false).user;
+    final role = (authUser?.role ?? '').toLowerCase();
+    if (role == 'superadmin' || role == 'agent' || role == 'director') {
+      return null;
     }
+    return authUser?.allowedModules;
+  }
+
+  Widget _getHomeScreen() {
+    final allowed = _homeAllowedModules();
+    if (_homeScreenCache != null && _homeAllowedModulesCached == allowed) {
+      return _homeScreenCache!;
+    }
+    _homeAllowedModulesCached = allowed;
+    _homeScreenCache = _HomeMenuScreen(
+      key: const ValueKey('main_home_menu'),
+      navItems: _navItems,
+      onItemTap: _tryNavigateToIndex,
+      allowedModules: allowed,
+    );
+    return _homeScreenCache!;
+  }
+
+  Widget _getScreenForIndex(int index) {
+    if (index == 0) return _getHomeScreen();
     return ModuleRouteGuard(
       moduleCode: _navItems[index].moduleCode,
       child: _navItems[index].screen,
+    );
+  }
+
+  /// Desktop/tablet: keep home mounted (Offstage) so returning from a module restores scroll.
+  Widget _buildPersistentMainContent() {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Offstage(
+          offstage: _selectedIndex != 0,
+          child: _getHomeScreen(),
+        ),
+        if (_selectedIndex != 0) _getScreenForIndex(_selectedIndex),
+      ],
     );
   }
 
@@ -1392,7 +1554,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                   _buildTopBar(),
                   const AnnouncementBanner(),
                   Expanded(
-                    child: _getScreenForIndex(_selectedIndex),
+                    child: _buildPersistentMainContent(),
                   ),
                 ],
               ),
@@ -1454,7 +1616,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                   _buildTopBar(),
                   const AnnouncementBanner(),
                   Expanded(
-                    child: _getScreenForIndex(_selectedIndex),
+                    child: _buildPersistentMainContent(),
                   ),
                 ],
               ),
@@ -1844,40 +2006,54 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       color: const Color(0xFFF1F4F6), // surface-container-low
       child: Column(
         children: [
-          // Header with logo
-          GestureDetector(
-            onTap: () => setState(() => _isExpanded = !_isExpanded),
-            child: Container(
-              height: 64,
-              padding: EdgeInsets.symmetric(horizontal: _isExpanded ? 16 : 8),
-              decoration: const BoxDecoration(
-                color: Color(0xFFF8F9FA), // surface
-              ),
-              child: Row(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(7),
-                    child: Image.asset('assets/logo.png',
-                        width: _isExpanded ? 32 : 28,
-                        height: _isExpanded ? 32 : 28),
-                  ),
-                  if (_isExpanded) ...[
-                    const SizedBox(width: 10),
-                    const Expanded(
-                      child: Text('SBOX HRM',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
-                            color: HrmPageChrome.primaryNavy,
-                            letterSpacing: -0.5,
+          // Header with logo — bấm để mở/ thu sidebar
+          Tooltip(
+            message: _isExpanded ? 'Thu gọn menu' : 'Mở rộng menu',
+            child: GestureDetector(
+              onTap: _toggleSidebar,
+              child: Container(
+                height: 64,
+                padding: EdgeInsets.symmetric(horizontal: _isExpanded ? 16 : 8),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFF8F9FA), // surface
+                ),
+                child: _isExpanded
+                    ? Row(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(7),
+                            child: Image.asset('assets/logo.png',
+                                width: 32, height: 32),
                           ),
-                          overflow: TextOverflow.ellipsis),
-                    ),
-                    Icon(Icons.chevron_left_rounded,
-                        color: const Color(0xFF586064).withValues(alpha: 0.5),
-                        size: 22),
-                  ],
-                ],
+                          const SizedBox(width: 10),
+                          const Expanded(
+                            child: Text('SBOX HRM',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w900,
+                                  color: HrmPageChrome.primaryNavy,
+                                  letterSpacing: -0.5,
+                                ),
+                                overflow: TextOverflow.ellipsis),
+                          ),
+                          Icon(Icons.chevron_left_rounded,
+                              color: const Color(0xFF586064).withValues(alpha: 0.5),
+                              size: 22),
+                        ],
+                      )
+                    : Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: Image.asset('assets/logo.png',
+                                width: 26, height: 26),
+                          ),
+                          Icon(Icons.chevron_right_rounded,
+                              color: const Color(0xFF586064).withValues(alpha: 0.45),
+                              size: 16),
+                        ],
+                      ),
               ),
             ),
           ),
@@ -2553,6 +2729,14 @@ class NavItem {
     'Communication': (l) => l.communication,
     'KPI': (l) => 'KPI',
     'Feedback': (l) => 'Phản ánh / Ý kiến',
+    'PosProducts': (l) => 'Hàng hóa',
+    'PosSell': (l) => 'Bán hàng',
+    'PosSaleOrders': (l) => 'Đơn hàng',
+    'PosPurchaseReceipts': (l) => 'Nhập hàng NCC',
+    'PosPurchaseReturns': (l) => 'Trả hàng nhập',
+    'PosStockCounts': (l) => 'Kiểm kho',
+    'PosDamageIssues': (l) => 'Xuất hủy',
+    'PosInternalUseIssues': (l) => 'Xuất dùng nội bộ',
     'PenaltyReport': (l) => 'Báo cáo phạt',
     'CashReport': (l) => 'Báo cáo thu chi',
     'AdvanceReport': (l) => 'Báo cáo ứng lương',
@@ -2579,6 +2763,7 @@ class NavItem {
     'Chấm công': (l) => l.groupAttendance,
     'Tài chính': (l) => l.groupFinance,
     'Quản lý Vận hành': (l) => l.groupOperations,
+    'POS': (l) => 'POS / Bán hàng',
     'Báo cáo': (l) => l.groupReports,
     'Đại lý': (l) => l.groupAgent,
     'Cài đặt': (l) => l.groupSettings,
@@ -2595,6 +2780,7 @@ class _HomeMenuScreen extends StatefulWidget {
   final List<String>? allowedModules;
 
   const _HomeMenuScreen({
+    super.key,
     required this.navItems,
     required this.onItemTap,
     this.allowedModules,
@@ -2605,6 +2791,7 @@ class _HomeMenuScreen extends StatefulWidget {
     'Chấm công',
     'Tài chính',
     'Quản lý Vận hành',
+    'POS',
     'Báo cáo',
     'Cài đặt',
   ];
@@ -2614,6 +2801,7 @@ class _HomeMenuScreen extends StatefulWidget {
     'Chấm công': Icons.access_time_filled,
     'Tài chính': Icons.account_balance,
     'Quản lý Vận hành': Icons.business_center,
+    'POS': Icons.point_of_sale,
     'Báo cáo': Icons.assessment,
     'Cài đặt': Icons.settings,
   };
@@ -2623,6 +2811,7 @@ class _HomeMenuScreen extends StatefulWidget {
     'Chấm công': Color(0xFF0284C7), // Sky 600
     'Tài chính': Color(0xFFEC4899), // Pink 500
     'Quản lý Vận hành': Color(0xFF059669), // Emerald 600
+    'POS': Color(0xFF2563EB), // Blue 600
     'Báo cáo': Color(0xFF7C3AED), // Violet 600
     'Cài đặt': Color(0xFF64748B), // Slate 500
   };
@@ -2632,6 +2821,7 @@ class _HomeMenuScreen extends StatefulWidget {
     'Chấm công': 'Theo dõi giờ làm, ca làm việc',
     'Tài chính': 'Lương, thưởng, phạt, tạm ứng',
     'Quản lý Vận hành': 'Truyền thông, KPI, đánh giá',
+    'POS': 'Hàng hóa, bán hàng, kho',
     'Báo cáo': 'Báo cáo & phân tích dữ liệu',
     'Cài đặt': 'Cấu hình hệ thống, thiết bị',
   };
@@ -2643,11 +2833,29 @@ class _HomeMenuScreen extends StatefulWidget {
 class _HomeMenuScreenState extends State<_HomeMenuScreen> {
   String _greeting = '';
   String _greetingIcon = '☀️';
+  static double _savedScrollOffset = 0;
+  late final ScrollController _scrollController;
 
   @override
   void initState() {
     super.initState();
+    _scrollController = ScrollController(initialScrollOffset: _savedScrollOffset);
+    _scrollController.addListener(_persistScrollOffset);
     _updateGreeting();
+  }
+
+  void _persistScrollOffset() {
+    if (_scrollController.hasClients) {
+      _savedScrollOffset = _scrollController.offset;
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_persistScrollOffset);
+    _persistScrollOffset();
+    _scrollController.dispose();
+    super.dispose();
   }
 
   void _updateGreeting() {
@@ -2697,6 +2905,8 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
     return Container(
       color: const Color(0xFFF1F4F6),
       child: ListView(
+        controller: _scrollController,
+        key: const PageStorageKey<String>('home_menu_scroll'),
         padding: EdgeInsets.all(padding),
         children: [
           // ═══════════════ HERO GREETING BANNER ═══════════════

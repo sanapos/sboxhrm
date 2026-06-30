@@ -215,7 +215,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
   Future<void> _loadEmployees() async {
     if (_employees.isNotEmpty) return;
     try {
-      final result = await _apiService.getEmployees();
+      final result = await _apiService.getEmployeesForSelect();
       if (mounted) {
         setState(() => _employees = List<Map<String, dynamic>>.from(result));
       }

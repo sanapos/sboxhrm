@@ -1,6 +1,7 @@
 using ClosedXML.Excel;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
+using ZKTecoADMS.Application.Helpers;
 
 namespace ZKTecoADMS.Api.Controllers.Reports;
 
@@ -10,14 +11,41 @@ namespace ZKTecoADMS.Api.Controllers.Reports;
 /// </summary>
 internal static class ReportHelpers
 {
-    /// <summary>VN timezone offset (UTC+7). AttendanceLogs store UTC; shifts/dates are VN local.</summary>
-    public const int VnOffsetHours = 7;
+    /// <summary>VN timezone offset (UTC+7).</summary>
+    public const int VnOffsetHours = VnTimeHelper.OffsetHours;
 
-    public static DateTime NowVn() => DateTime.UtcNow.AddHours(VnOffsetHours);
+    public static DateTime NowVn() => VnTimeHelper.NowVn();
 
-    public static DateTime ToVn(DateTime utc) => utc.AddHours(VnOffsetHours);
+    /// <summary>UTC-stored timestamps → VN (CreatedAt, giao dịch UTC, …).</summary>
+    public static DateTime ToVn(DateTime utc) => VnTimeHelper.UtcToVn(utc);
 
-    /// <summary>VN-day UTC window: [utcStart, utcEnd) for the given VN calendar date (default = today VN).</summary>
+    /// <summary>Chấm công máy/mobile — giá trị DB đã là giờ tường VN.</summary>
+    public static DateTime AttendanceToVn(DateTime punch) => VnTimeHelper.AttendanceWallClock(punch);
+
+    /// <summary>VN-day window for attendance wall-clock columns [queryStart, queryEnd).</summary>
+    public static (DateTime dateLocal, DateTime queryStart, DateTime queryEnd) AttendanceDayRange(DateTime? date)
+    {
+        var (local, start, end) = VnTimeHelper.AttendanceDayRange(date);
+        return (local, start, end);
+    }
+
+    /// <summary>VN-month window for attendance queries.</summary>
+    public static (DateTime startLocal, DateTime endLocal, DateTime queryStart, DateTime queryEnd)
+        AttendanceMonthRange(int year, int month)
+    {
+        var (start, end, qs, qe) = VnTimeHelper.AttendanceMonthRange(year, month);
+        return (start, end, qs, qe);
+    }
+
+    /// <summary>Arbitrary VN date range for attendance queries.</summary>
+    public static (DateTime fromLocal, DateTime toLocal, DateTime queryStart, DateTime queryEnd)
+        AttendanceVnRange(DateTime? from, DateTime? to)
+    {
+        var (f, t, qs, qe) = VnTimeHelper.AttendanceDateRange(from, to);
+        return (f, t, qs, qe);
+    }
+
+    /// <summary>VN-day UTC window: [utcStart, utcEnd) for UTC-stored columns (audit, …).</summary>
     public static (DateTime dateLocal, DateTime utcStart, DateTime utcEnd) VnDayRange(DateTime? date)
     {
         var local = (date ?? NowVn()).Date;

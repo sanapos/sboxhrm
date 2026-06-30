@@ -1,17 +1,22 @@
 namespace ZKTecoADMS.Api.Services;
 
+using ZKTecoADMS.Application.Helpers;
+
 internal static class AiAssistantVnTime
 {
-    public const int OffsetHours = 7;
+    public const int OffsetHours = VnTimeHelper.OffsetHours;
 
-    public static DateTime NowVn() => DateTime.UtcNow.AddHours(OffsetHours);
+    public static DateTime NowVn() => VnTimeHelper.NowVn();
 
-    public static DateTime ToVn(DateTime utc) => utc.AddHours(OffsetHours);
+    /// <summary>UTC-stored values → VN.</summary>
+    public static DateTime ToVn(DateTime utc) => VnTimeHelper.UtcToVn(utc);
+
+    /// <summary>Chấm công — giờ tường VN trong DB.</summary>
+    public static DateTime AttendanceToVn(DateTime punch) => VnTimeHelper.AttendanceWallClock(punch);
 
     public static (DateTime dateLocal, DateTime utcStart, DateTime utcEnd) DayRange(DateTime? date)
     {
-        var local = (date ?? NowVn()).Date;
-        var utcStart = local.AddHours(-OffsetHours);
-        return (local, utcStart, utcStart.AddDays(1));
+        var (local, start, end) = VnTimeHelper.AttendanceDayRange(date);
+        return (local, start, end);
     }
 }

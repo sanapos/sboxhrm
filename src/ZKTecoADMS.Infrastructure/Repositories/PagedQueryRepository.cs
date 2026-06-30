@@ -192,6 +192,7 @@ public class PagedQueryRepository<TEntity>(
         PaginationRequest request,
         Expression<Func<TEntity, bool>>? filter = null,
         Expression<Func<TEntity, TProjection>>? projection = null,
+        Func<IQueryable<TEntity>, IQueryable<TEntity>>? applyOrdering = null,
         CancellationToken cancellationToken = default) where TProjection : class
     {
         try
@@ -208,7 +209,9 @@ public class PagedQueryRepository<TEntity>(
                 ? await query.CountAsync(cancellationToken)
                 : 0;
 
-            query = ApplyOrdering(query, request);
+            query = applyOrdering != null
+                ? applyOrdering(query)
+                : ApplyOrdering(query, request);
 
             // Apply projection
             IQueryable<TProjection> projectedQuery;

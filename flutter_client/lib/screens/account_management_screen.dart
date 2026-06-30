@@ -64,7 +64,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
     try {
       final results = await Future.wait([
         _apiService.getAccounts(),
-        _apiService.getEmployees(pageSize: 10000),
+        _apiService.getEmployeesForSelect(pageSize: 10000),
       ]);
       if (!mounted) return;
       setState(() {
@@ -83,7 +83,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
     try {
       final results = await Future.wait([
         _apiService.getAccounts(),
-        _apiService.getEmployees(pageSize: 10000),
+        _apiService.getEmployeesForSelect(pageSize: 10000),
       ]);
       if (!mounted) return;
       setState(() {
