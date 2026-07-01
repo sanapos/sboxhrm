@@ -133,9 +133,12 @@ class AdminHelpers {
   static Widget dialogField(TextEditingController ctrl, String label,
       IconData icon,
       {bool obscureText = false}) {
+    if (obscureText) {
+      // Trường mật khẩu: có nút con mắt để xem/ẩn nội dung đang nhập.
+      return _PasswordDialogField(controller: ctrl, label: label, icon: icon);
+    }
     return TextField(
       controller: ctrl,
-      obscureText: obscureText,
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon, size: 20),
@@ -146,14 +149,59 @@ class AdminHelpers {
     );
   }
 
-  static String formatDate(dynamic date) {
-    if (date == null) return '';
-    try {
-      final d = DateTime.parse(date.toString()).toLocal();
-      return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
-    } catch (_) {
-      return date.toString();
+  /// Dialog nhập mật khẩu có nút con mắt xem nội dung. Trả về mật khẩu hoặc null.
+  static Future<String?> showPasswordInputDialog(
+      BuildContext context, String title, String label) {
+    final ctrl = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => ScrollableAlertDialog(
+        title: Text(title),
+        content: SingleChildScrollView(
+          child: _PasswordDialogField(controller: ctrl, label: label,
+              icon: Icons.lock),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, null),
+              child: const Text('Hủy')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, ctrl.text),
+              child: const Text('OK')),
+        ],
+      ),
+    );
+  }
+
+  /// Parse chuỗi thời gian từ API. Các field CreatedAt/UpdatedAt/ExpiryDate...
+  /// lưu bằng DateTime.UtcNow nhưng Npgsql trả về không kèm hậu tố 'Z',
+  /// nên phải coi là UTC trước khi đổi sang giờ máy (tránh lệch múi giờ).
+  static DateTime? _parseServerDate(dynamic date) {
+    if (date == null) return null;
+    final raw = date.toString();
+    if (raw.isEmpty) return null;
+    var parsed = DateTime.tryParse(raw);
+    if (parsed == null) return null;
+    final hasTimezone = raw.endsWith('Z') ||
+        RegExp(r'[+-]\d{2}:?\d{2}$').hasMatch(raw);
+    if (!hasTimezone && !parsed.isUtc) {
+      parsed = DateTime.utc(
+        parsed.year,
+        parsed.month,
+        parsed.day,
+        parsed.hour,
+        parsed.minute,
+        parsed.second,
+        parsed.millisecond,
+      );
     }
+    return parsed.toLocal();
+  }
+
+  static String formatDate(dynamic date) {
+    final d = _parseServerDate(date);
+    if (d == null) return date?.toString() ?? '';
+    return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
   }
 
   /// Safely convert dynamic value (int / num / numeric string) to int with default.
@@ -166,13 +214,9 @@ class AdminHelpers {
   }
 
   static String formatDateTime(dynamic date) {
-    if (date == null) return '';
-    try {
-      final d = DateTime.parse(date.toString()).toLocal();
-      return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year} ${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
-    } catch (_) {
-      return date.toString();
-    }
+    final d = _parseServerDate(date);
+    if (d == null) return date?.toString() ?? '';
+    return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year} ${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
   }
 
   static Future<String?> showInputDialog(
@@ -237,7 +281,7 @@ class AdminHelpers {
     NotificationOverlayManager().showError(title: 'Lỗi', message: msg);
   }
 
-  /// Map license type enum name to Vietnamese display label
+  /// Nhãn tiếng Việt cho loại license (Basic/Advanced/Professional) — khác gói dịch vụ.
   static String licenseTypeLabel(String? type) {
     switch (type) {
       case 'Basic':
@@ -248,6 +292,69 @@ class AdminHelpers {
         return 'Chuyên nghiệp';
       default:
         return type ?? '';
+    }
+  }
+
+  /// Chip hiển thị loại license trên danh sách cửa hàng.
+  static String licenseTypeChipLabel(String? type) {
+    final label = licenseTypeLabel(type);
+    if (label.isEmpty) return '';
+    return 'License $label';
+  }
+
+  /// Tên hiển thị vai trò tiếng Việt.
+  static String roleDisplayNameVn(String roleName) {
+    switch (roleName.toLowerCase()) {
+      case 'superadmin':
+        return 'SuperAdmin';
+      case 'admin':
+        return 'Quản trị viên';
+      case 'director':
+        return 'Giám đốc';
+      case 'accountant':
+        return 'Kế toán';
+      case 'departmenthead':
+        return 'Trưởng phòng';
+      case 'manager':
+        return 'Quản lý';
+      case 'employee':
+        return 'Nhân viên';
+      case 'cashier':
+        return 'Thu ngân';
+      case 'user':
+        return 'Người dùng';
+      case 'agent':
+        return 'Đại lý';
+      default:
+        return roleName;
+    }
+  }
+
+  /// Mô tả ngắn vai trò (tiếng Việt).
+  static String roleDescriptionVn(String roleName) {
+    switch (roleName) {
+      case 'SuperAdmin':
+        return 'Quản trị toàn hệ thống';
+      case 'Admin':
+        return 'Quản trị cửa hàng';
+      case 'Director':
+        return 'Giám đốc điều hành';
+      case 'Accountant':
+        return 'Kế toán, tài chính';
+      case 'DepartmentHead':
+        return 'Trưởng phòng ban';
+      case 'Manager':
+        return 'Quản lý nhân viên, chấm công';
+      case 'Employee':
+        return 'Nhân viên — xem thông tin cá nhân';
+      case 'Cashier':
+        return 'Thu ngân POS';
+      case 'User':
+        return 'Người dùng cơ bản';
+      case 'Agent':
+        return 'Đại lý quản lý nhiều cửa hàng';
+      default:
+        return '';
     }
   }
 
@@ -332,6 +439,49 @@ class AdminHelpers {
         const SizedBox(width: 4),
         Text(label, style: TextStyle(color: color, fontSize: 12)),
       ]),
+    );
+  }
+}
+
+/// Ô nhập mật khẩu có nút con mắt bật/tắt hiển thị.
+class _PasswordDialogField extends StatefulWidget {
+  const _PasswordDialogField({
+    required this.controller,
+    required this.label,
+    required this.icon,
+  });
+
+  final TextEditingController controller;
+  final String label;
+  final IconData icon;
+
+  @override
+  State<_PasswordDialogField> createState() => _PasswordDialogFieldState();
+}
+
+class _PasswordDialogFieldState extends State<_PasswordDialogField> {
+  bool _obscure = true;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: widget.controller,
+      obscureText: _obscure,
+      decoration: InputDecoration(
+        labelText: widget.label,
+        prefixIcon: Icon(widget.icon, size: 20),
+        suffixIcon: IconButton(
+          icon: Icon(
+            _obscure ? Icons.visibility_off : Icons.visibility,
+            size: 20,
+          ),
+          tooltip: _obscure ? 'Hiện mật khẩu' : 'Ẩn mật khẩu',
+          onPressed: () => setState(() => _obscure = !_obscure),
+        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      ),
     );
   }
 }

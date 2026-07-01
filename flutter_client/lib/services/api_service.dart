@@ -8286,7 +8286,8 @@ class ApiService {
       int? pageSize,
       String? search,
       String? storeId,
-      String? role}) async {
+      String? role,
+      String? agentId}) async {
     try {
       final params = <String, String>{};
       if (page != null) {
@@ -8297,6 +8298,7 @@ class ApiService {
       if (search != null) params['search'] = search;
       if (storeId != null) params['storeId'] = storeId;
       if (role != null) params['role'] = role;
+      if (agentId != null) params['agentId'] = agentId;
       final uri = Uri.parse('$baseUrl/api/system-admin/users')
           .replace(queryParameters: params.isNotEmpty ? params : null);
       final response = await http.get(uri, headers: _headers);
@@ -8311,13 +8313,56 @@ class ApiService {
       int? pageSize,
       String? search,
       String? storeId,
-      String? role}) async {
+      String? role,
+      String? agentId}) async {
     return getSystemUsers(
         page: page,
         pageSize: pageSize,
         search: search,
         storeId: storeId,
-        role: role);
+        role: role,
+        agentId: agentId);
+  }
+
+  /// Gán một cửa hàng cho đại lý (SuperAdmin).
+  Future<Map<String, dynamic>> assignStoreToAgent(
+      String agentId, String storeId) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/system-admin/agents/$agentId/stores/$storeId'),
+        headers: _headers,
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Gỡ một cửa hàng khỏi đại lý (SuperAdmin).
+  Future<Map<String, dynamic>> removeStoreFromAgent(
+      String agentId, String storeId) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/api/system-admin/agents/$agentId/stores/$storeId'),
+        headers: _headers,
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Vai trò đã cấu hình phân quyền của một cửa hàng (SuperAdmin).
+  Future<Map<String, dynamic>> getSystemAdminStoreRoles(String storeId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/system-admin/stores/$storeId/roles'),
+        headers: _headers,
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
   }
 
   Future<Map<String, dynamic>> createSuperAdmin(
@@ -8702,9 +8747,37 @@ class ApiService {
 
   Future<Map<String, dynamic>> lookupAgentByCode(String code) async {
     try {
-      final uri = Uri.parse('$baseUrl/api/agents/lookup/$code');
+      final uri = Uri.parse(
+          '$baseUrl/api/AgentRegistration/lookup/${Uri.encodeComponent(code)}');
       final response =
           await http.get(uri, headers: {'Content-Type': 'application/json'});
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Liên hệ đại lý của cửa hàng (public, theo mã cửa hàng).
+  Future<Map<String, dynamic>> getStoreAgentContactByStoreCode(
+      String storeCode) async {
+    try {
+      final uri = Uri.parse(
+          '$baseUrl/api/AgentRegistration/store-contact/${Uri.encodeComponent(storeCode.trim())}');
+      final response =
+          await http.get(uri, headers: {'Content-Type': 'application/json'});
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Liên hệ đại lý của cửa hàng đang đăng nhập.
+  Future<Map<String, dynamic>> getStoreAgentContact() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/accounts/store-agent-contact'),
+        headers: _headers,
+      );
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -8747,6 +8820,7 @@ class ApiService {
       {String? id,
       String? name,
       String? phone,
+      String? email,
       String? address,
       String? description,
       int? maxStores,
@@ -8755,6 +8829,7 @@ class ApiService {
       final data = <String, dynamic>{
         if (name != null) 'name': name,
         if (phone != null) 'phone': phone,
+        if (email != null) 'email': email,
         if (address != null) 'address': address,
         if (description != null) 'description': description,
         if (maxStores != null) 'maxStores': maxStores,
