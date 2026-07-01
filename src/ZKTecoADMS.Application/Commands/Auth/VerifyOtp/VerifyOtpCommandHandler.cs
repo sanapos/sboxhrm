@@ -1,4 +1,5 @@
 using ZKTecoADMS.Application.Commands.Auth.ForgotPassword;
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Domain.Entities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Caching.Memory;
@@ -50,6 +51,9 @@ public class VerifyOtpCommandHandler(
             await userManager.SetLockoutEndDateAsync(user, null);
         }
         await userManager.ResetAccessFailedCountAsync(user);
+
+        UserPasswordVisibility.ClearRememberedPassword(user);
+        await userManager.UpdateAsync(user);
 
         logger.LogInformation("VerifyOtp: Password reset successfully for {Email}", request.Email);
         return AppResponse<string>.Success("Mật khẩu đã được đặt lại thành công. Vui lòng đăng nhập với mật khẩu mới.");

@@ -6719,6 +6719,52 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
         }
 
 
+        // Thông báo FCM cho nhân viên khi chấm đi đường (không ghi chấm công thô).
+        if (isTravelPunch)
+        {
+            try
+            {
+                var employeeUserId = await ResolveEmployeeNotificationUserIdAsync(request.EmployeeId, storeId);
+                if (employeeUserId.HasValue)
+                {
+                    var punchLabel = record.PunchType switch
+                    {
+                        2 => "Bắt đầu đi",
+                        3 => "Đến điểm làm",
+                        _ => "chấm đi đường",
+                    };
+                    var title = record.PunchType switch
+                    {
+                        2 => "Bắt đầu đi thành công",
+                        3 => "Đến điểm làm thành công",
+                        _ => "Chấm đi đường thành công",
+                    };
+                    var timeStr = record.PunchTime.ToString("HH:mm dd/MM/yyyy");
+                    var body = status == "pending"
+                        ? $"Đã ghi {punchLabel} lúc {timeStr}. Chờ duyệt để tính giờ đi đường vào lương."
+                        : record.PunchType == 3
+                            ? $"Đã ghi {punchLabel} lúc {timeStr}. Hệ thống cộng thời gian từ lúc Bắt đầu đi."
+                            : $"Đã ghi {punchLabel} lúc {timeStr}. Bấm Đến điểm làm khi tới công trình.";
+
+                    await _systemNotificationService.CreateAndSendAsync(
+                        employeeUserId.Value,
+                        status == "pending" ? NotificationType.Info : NotificationType.Success,
+                        title,
+                        body,
+                        relatedEntityType: "MobileAttendance",
+                        relatedEntityId: record.Id,
+                        fromUserId: CurrentUserId,
+                        categoryCode: "mobile_attendance",
+                        storeId: storeId);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to send travel punch notification to employee {RecordId}", record.Id);
+            }
+        }
+
+
 
 
 

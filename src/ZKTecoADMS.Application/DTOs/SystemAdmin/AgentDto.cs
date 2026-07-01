@@ -90,3 +90,16 @@ public record AgentRegistrationInfoResponse(
     DateTime? TokenExpiry,
     string? Message
 );
+
+/// <summary>
+/// Thông tin liên hệ đại lý hỗ trợ cửa hàng (Zalo / SĐT)
+/// </summary>
+public record StoreAgentContactDto(
+    Guid AgentId,
+    string AgentName,
+    string AgentCode,
+    string? Phone,
+    string? Email,
+    string? Address,
+    string? ZaloUrl
+);

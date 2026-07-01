@@ -46,6 +46,27 @@ double computeTravelHoursFromMobileRecords(List<MobileAttendanceRecord> records)
   return totalHours;
 }
 
+/// Thời điểm **Bắt đầu đi** gần nhất chưa có **Đến điểm làm** tương ứng (mọi trạng thái).
+DateTime? openTravelStartTime(List<MobileAttendanceRecord> records) {
+  final sorted = records
+      .where((r) => isTravelPunchType(r.punchType))
+      .toList()
+    ..sort((a, b) => a.punchTime.compareTo(b.punchTime));
+
+  DateTime? pendingStart;
+  for (final r in sorted) {
+    if (r.punchType == mobilePunchTravelStart) {
+      pendingStart = r.punchTime;
+    } else if (r.punchType == mobilePunchTravelArrive) {
+      pendingStart = null;
+    }
+  }
+  return pendingStart;
+}
+
+bool hasOpenTravelStart(List<MobileAttendanceRecord> records) =>
+    openTravelStartTime(records) != null;
+
 /// Gom giờ đi đường theo mã / id nhân viên (OdooEmployeeId hoặc employee code).
 Map<String, double> travelHoursByEmployeeKey(
   List<MobileAttendanceRecord> records,

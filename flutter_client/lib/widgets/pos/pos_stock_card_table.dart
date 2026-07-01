@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../utils/responsive_helper.dart';
 import '../../models/pos_product.dart';
+import 'pos_mobile_widgets.dart';
 import 'pos_theme.dart';
 
 /// Bảng thẻ kho kiểu KiotViet: chứng từ, thời gian, loại GD, số lượng, tồn cuối.
@@ -66,6 +68,24 @@ class PosStockCardTable extends StatelessWidget {
       );
     }
 
+    if (posUseMobileList(context)) {
+      return ListView(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+        children: [
+          if (onExport != null)
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: onExport,
+                icon: const Icon(Icons.download, size: 18),
+                label: const Text('Xuất file'),
+              ),
+            ),
+          ...items.map((t) => _mobileCard(t)),
+        ],
+      );
+    }
+
     const headerStyle = TextStyle(
       fontSize: 11,
       fontWeight: FontWeight.w600,
@@ -108,6 +128,72 @@ class PosStockCardTable extends StatelessWidget {
             ...items.map(_row),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _mobileCard(PosStockTransaction t) {
+    final sign = t.qtyChange > 0 ? '+' : '';
+    final qtyColor = t.qtyChange < 0
+        ? const Color(0xFFE53935)
+        : (t.qtyChange > 0 ? const Color(0xFF2E7D32) : PosTheme.textPrimary);
+    final doc = t.referenceNo?.trim();
+    final when = t.createdAt != null ? dateFmt.format(t.createdAt!) : '—';
+  final typeLabel = txTypeLabel(t.transactionType,
+        referenceNo: t.referenceNo, note: t.note);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: PosTheme.mobileCardDecoration(),
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: doc != null && doc.isNotEmpty
+                    ? InkWell(
+                        onTap: onDocumentTap == null
+                            ? null
+                            : () => onDocumentTap!(t),
+                        child: Text(doc,
+                            style: const TextStyle(
+                                color: PosTheme.kiotBlue,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14)),
+                      )
+                    : Text('—',
+                        style: TextStyle(
+                            fontSize: 13, color: Colors.grey.shade500)),
+              ),
+              Text(when,
+                  style: const TextStyle(
+                      fontSize: 11, color: PosTheme.textSecondary)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(typeLabel, style: const TextStyle(fontSize: 13)),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: Text('SL: $sign${moneyFmt.format(t.qtyChange)}',
+                    style: TextStyle(
+                        fontSize: 13,
+                        color: qtyColor,
+                        fontWeight: FontWeight.w600)),
+              ),
+              Text('Tồn: ${moneyFmt.format(t.qtyAfter)}',
+                  style: const TextStyle(fontSize: 13)),
+            ],
+          ),
+          if (t.partnerName?.trim().isNotEmpty == true) ...[
+            const SizedBox(height: 4),
+            Text(t.partnerName!,
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+          ],
+        ],
       ),
     );
   }

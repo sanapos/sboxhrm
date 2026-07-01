@@ -7,6 +7,7 @@ import '../widgets/hrm_page_chrome.dart';
 import '../models/attendance.dart';
 import '../models/device.dart';
 import '../services/api_service.dart';
+import '../utils/travel_hours_load_utils.dart';
 import 'attendance/attendance_summary_tab.dart';
 import 'package:intl/intl.dart';
 import 'main_layout.dart' show ScreenRefreshNotifier;
@@ -54,6 +55,8 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
   late DateTime _fromDate;
   late DateTime _toDate;
   bool _attendanceLoadTruncated = false;
+  Map<String, double> _travelHoursByEmployeeKey = {};
+  Map<String, double> _travelHoursByEmployeeDateKey = {};
 
   _AttendanceSummaryScreenState() {
     final range = AttendanceDateRangePresets.resolve('month');
@@ -214,10 +217,20 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
         ).catchError((_) => <dynamic>[]),
       ]);
 
-      final phase2 = await Future.wait([attendancesFuture, metadataFuture]);
+      final phase2 = await Future.wait([
+        attendancesFuture,
+        metadataFuture,
+        loadTravelHoursMaps(
+          api: _apiService,
+          fromDate: _fromDate,
+          toDate: _toDate,
+          employeesList: _branchFilter.employees,
+        ),
+      ]);
       final attLoad = phase2[0] as AttendanceLoadResult;
       final attendances = attLoad.items;
       final results = phase2[1] as List;
+      final travelMaps = phase2[2] as TravelHoursMaps;
 
       final shiftsRaw = results[0] as List;
       final shiftTemplates = shiftsRaw
@@ -251,6 +264,8 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
           _approvedLeaves = approvedLeaves;
           _allowManualCorrection = allowManual;
           _attendanceLoadTruncated = attLoad.truncated;
+          _travelHoursByEmployeeKey = travelMaps.byEmployeeKey;
+          _travelHoursByEmployeeDateKey = travelMaps.byEmployeeDateKey;
           if (!silent) _isLoading = false;
         });
         if (attLoad.truncated && mounted) {
@@ -534,6 +549,8 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
                     branches: _branchFilter.branches,
                     employeesList: _branchFilter.employees,
                     onDataChanged: () => _loadData(),
+                    travelHoursByEmployeeKey: _travelHoursByEmployeeKey,
+                    travelHoursByEmployeeDateKey: _travelHoursByEmployeeDateKey,
                   ),
           ),
         ],

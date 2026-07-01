@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
+import 'utils/web_route_parser.dart';
 import 'utils/vietnamese_font.dart';
 import 'utils/app_error_utils.dart';
 import 'widgets/app_fatal_error_screen.dart';
@@ -46,6 +47,8 @@ void main() async {
   };
 
   await preloadVietnameseFonts();
+
+  InitialWebRoute.capture();
 
   runApp(
     MultiProvider(

@@ -160,21 +160,30 @@ public class StorePackageModuleMiddleware
         return null;
     }
 
-    /// <summary>Gói chỉ có PosSell vẫn được đọc danh mục hàng phục vụ bán.</summary>
+    /// <summary>Gói chỉ có PosSell vẫn được đọc danh mục hàng / mẫu in phục vụ bán.</summary>
     private static bool IsImplicitlyAllowed(
         string path, string method, string module, IReadOnlyList<string> allowed)
     {
         if (!HttpMethods.IsGet(method) && !HttpMethods.IsHead(method))
             return false;
 
-        if (!module.Equals("PosProducts", StringComparison.OrdinalIgnoreCase))
-            return false;
-
         if (!allowed.Contains("PosSell", StringComparer.OrdinalIgnoreCase))
             return false;
 
-        return PosPackageDefaults.SellCatalogReadPrefixes.Any(p =>
-            path.StartsWith(p, StringComparison.OrdinalIgnoreCase));
+        if (module.Equals("PosProducts", StringComparison.OrdinalIgnoreCase))
+        {
+            return PosPackageDefaults.SellCatalogReadPrefixes.Any(p =>
+                path.StartsWith(p, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (module.Equals("PosPrintTemplates", StringComparison.OrdinalIgnoreCase))
+        {
+            return path.StartsWith(
+                PosPackageDefaults.SellPrintTemplatesReadPrefix,
+                StringComparison.OrdinalIgnoreCase);
+        }
+
+        return false;
     }
 }
 

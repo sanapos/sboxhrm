@@ -6,6 +6,7 @@ import '../services/api_service.dart';
 import '../services/fcm_service_stub.dart'
     if (dart.library.io) '../services/fcm_service.dart';
 import '../utils/pending_notification_launch.dart';
+import '../utils/store_role_helper.dart';
 import '../services/global_location_reporter.dart';
 import '../services/notification_preferences_cache.dart';
 import '../models/user.dart';
@@ -187,6 +188,10 @@ class AuthProvider extends ChangeNotifier {
         _user = null;
       }
     }
+
+    if (_user != null && !StoreRoleHelper.bypassesPackageFilter(_user!.role)) {
+      await _fetchAllowedModules();
+    }
   }
 
   /// Chạy sau khi UI đã thoát trạng thái initializing.
@@ -332,8 +337,7 @@ class AuthProvider extends ChangeNotifier {
   Future<void> _fetchAllowedModules() async {
     try {
       if (_user == null) return;
-      // SuperAdmin/Agent không cần giới hạn module
-      if (_user!.role == 'SuperAdmin' || _user!.role == 'Agent') return;
+      if (StoreRoleHelper.bypassesPackageFilter(_user!.role)) return;
 
       final modules = await _apiService.getMyModules();
       _user = _user!.copyWith(allowedModules: modules);

@@ -12,6 +12,8 @@ import '../widgets/loading_widget.dart';
 import '../widgets/notification_overlay.dart';
 import '../utils/pos_kiot_time_range.dart';
 import '../widgets/pos/pos_kiot_time_filter.dart';
+import '../utils/responsive_helper.dart';
+import '../widgets/pos/pos_mobile_widgets.dart';
 import '../widgets/pos/pos_module_toolbar.dart';
 import '../widgets/pos/pos_purchase_toolbar.dart';
 import '../widgets/pos/pos_stock_count_helpers.dart';
@@ -305,6 +307,79 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
 
   String _fmtQty(double v) => _qtyFmt.format(v);
 
+  int get _activeFilterCount {
+    var n = 0;
+    if (_createdByCtrl.text.trim().isNotEmpty) n++;
+    if (_statusFilter.length < 3) n++;
+    return n;
+  }
+
+  Widget _buildFilterPanel() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        purchaseFilterSection(
+          'Trạng thái',
+          Column(
+            children: [
+              CheckboxListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Phiếu tạm', style: TextStyle(fontSize: 13)),
+                value: _statusFilter.contains('InProgress'),
+                activeColor: _blue,
+                onChanged: (v) => _toggleStatus('InProgress', v),
+              ),
+              CheckboxListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Đã cân bằng kho', style: TextStyle(fontSize: 13)),
+                value: _statusFilter.contains('Completed'),
+                activeColor: _blue,
+                onChanged: (v) => _toggleStatus('Completed', v),
+              ),
+              CheckboxListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Đã hủy', style: TextStyle(fontSize: 13)),
+                value: _statusFilter.contains('Cancelled'),
+                activeColor: _blue,
+                onChanged: (v) => _toggleStatus('Cancelled', v),
+              ),
+            ],
+          ),
+        ),
+        purchaseFilterSection(
+          'Thời gian',
+          PosKiotTimeFilter(state: _timeFilter, onChanged: _onTimeFilterChanged),
+        ),
+        purchaseFilterSection(
+          'Người tạo',
+          TextField(
+            controller: _createdByCtrl,
+            decoration: const InputDecoration(
+              hintText: 'Chọn người tạo…',
+              isDense: true,
+              border: OutlineInputBorder(),
+              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            ),
+            style: const TextStyle(fontSize: 12),
+            onSubmitted: (_) => _load(),
+          ),
+        ),
+        FilledButton(
+          onPressed: () => _load(),
+          style: FilledButton.styleFrom(backgroundColor: _blue),
+          child: const Text('Áp dụng lọc', style: TextStyle(fontSize: 12)),
+        ),
+      ],
+    );
+  }
+
+  void _openFilters() {
+    showPosMobileFilterSheet(context, child: _buildFilterPanel());
+  }
+
   @override
   Widget build(BuildContext context) {
     final perm = Provider.of<PermissionProvider>(context);
@@ -319,143 +394,52 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
       body: Column(
         children: [
           const PosModuleToolbar(activeModule: 'PosStockCounts'),
-          Container(
-            color: Colors.white,
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-            child: Row(
-              children: [
-                const Icon(Icons.inventory_outlined, color: _blue),
-                const SizedBox(width: 10),
-                const Expanded(
-                  child: Text('Kiểm kê kho',
-                      style:
-                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                ),
-                if (canEdit)
-                  FilledButton.icon(
-                    onPressed: () => _openEditor(),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Tạo phiếu KK'),
-                    style: FilledButton.styleFrom(backgroundColor: _blue),
-                  ),
-                const SizedBox(width: 8),
-                IconButton(
-                  onPressed: () => _load(page: _page),
-                  icon: const Icon(Icons.refresh),
-                  tooltip: 'Tải lại',
-                ),
-              ],
-            ),
+          PosMobileListHeader(
+            icon: Icons.inventory_outlined,
+            title: 'Kiểm kê kho',
+            onCreate: canEdit ? () => _openEditor() : null,
+            createLabel: 'Tạo phiếu KK',
+            onRefresh: () => _load(page: _page),
+            onOpenFilters: posUseMobileList(context) ? _openFilters : null,
+            activeFilterCount: _activeFilterCount,
           ),
           Expanded(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                PosPurchaseFilterPanel(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      purchaseFilterSection(
-                        'Trạng thái',
-                        Column(
-                          children: [
-                            CheckboxListTile(
-                              dense: true,
-                              contentPadding: EdgeInsets.zero,
-                              title: const Text('Phiếu tạm',
-                                  style: TextStyle(fontSize: 13)),
-                              value: _statusFilter.contains('InProgress'),
-                              activeColor: _blue,
-                              onChanged: (v) => _toggleStatus('InProgress', v),
-                            ),
-                            CheckboxListTile(
-                              dense: true,
-                              contentPadding: EdgeInsets.zero,
-                              title: const Text('Đã cân bằng kho',
-                                  style: TextStyle(fontSize: 13)),
-                              value: _statusFilter.contains('Completed'),
-                              activeColor: _blue,
-                              onChanged: (v) => _toggleStatus('Completed', v),
-                            ),
-                            CheckboxListTile(
-                              dense: true,
-                              contentPadding: EdgeInsets.zero,
-                              title: const Text('Đã hủy',
-                                  style: TextStyle(fontSize: 13)),
-                              value: _statusFilter.contains('Cancelled'),
-                              activeColor: _blue,
-                              onChanged: (v) => _toggleStatus('Cancelled', v),
-                            ),
-                          ],
-                        ),
+            child: PosResponsiveFilterLayout(
+              filterPanel: PosPurchaseFilterPanel(child: _buildFilterPanel()),
+              child: Column(
+                children: [
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                        12, posUseMobileList(context) ? 8 : 10, 12, 0),
+                    child: TextField(
+                      controller: _searchCtrl,
+                      decoration: const InputDecoration(
+                        hintText: 'Tìm mã KK, ghi chú…',
+                        prefixIcon: Icon(Icons.search, size: 20),
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                        filled: true,
+                        fillColor: Colors.white,
                       ),
-                      purchaseFilterSection(
-                        'Thời gian',
-                        PosKiotTimeFilter(
-                          state: _timeFilter,
-                          onChanged: _onTimeFilterChanged,
-                        ),
-                      ),
-                      purchaseFilterSection(
-                        'Người tạo',
-                        TextField(
-                          controller: _createdByCtrl,
-                          decoration: const InputDecoration(
-                            hintText: 'Chọn người tạo…',
-                            isDense: true,
-                            border: OutlineInputBorder(),
-                            contentPadding:
-                                EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                          ),
-                          style: const TextStyle(fontSize: 12),
-                          onSubmitted: (_) => _load(),
-                        ),
-                      ),
-                      FilledButton(
-                        onPressed: () => _load(),
-                        style: FilledButton.styleFrom(backgroundColor: _blue),
-                        child: const Text('Áp dụng lọc', style: TextStyle(fontSize: 12)),
-                      ),
-                    ],
+                      onSubmitted: (_) => _load(),
+                    ),
                   ),
-                ),
-                Expanded(
-                  child: Column(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-                        child: TextField(
-                          controller: _searchCtrl,
-                          decoration: const InputDecoration(
-                            hintText: 'Tìm mã KK, ghi chú…',
-                            prefixIcon: Icon(Icons.search, size: 20),
-                            border: OutlineInputBorder(),
-                            isDense: true,
-                            filled: true,
-                            fillColor: Colors.white,
-                          ),
-                          onSubmitted: (_) => _load(),
-                        ),
-                      ),
-                      Expanded(
-                        child: _loading
-                            ? const LoadingWidget()
-                            : _items.isEmpty
-                                ? const Center(
-                                    child: Text('Chưa có phiếu kiểm kê'))
-                                : Column(
-                                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                                    children: [
-                                      _buildTableHeader(),
-                                      Expanded(child: _buildList(canEdit)),
-                                    ],
-                                  ),
-                      ),
-                      _buildPager(),
-                    ],
+                  Expanded(
+                    child: _loading
+                        ? const LoadingWidget()
+                        : _items.isEmpty
+                            ? const Center(child: Text('Chưa có phiếu kiểm kê'))
+                            : Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  _buildTableHeader(),
+                                  Expanded(child: _buildList(canEdit)),
+                                ],
+                              ),
                   ),
-                ),
-              ],
+                  _buildPager(),
+                ],
+              ),
             ),
           ),
         ],
@@ -464,6 +448,14 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
   }
 
   Widget _buildPager() {
+    if (posUseMobileList(context)) {
+      return PosMobilePager(
+        total: _total,
+        page: _page,
+        pageSize: _pageSize,
+        onPageChanged: (p) => _load(page: p),
+      );
+    }
     if (_total <= _pageSize) return const SizedBox.shrink();
     final pages = (_total / _pageSize).ceil();
     return Container(
@@ -490,6 +482,7 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
   }
 
   Widget _buildTableHeader() {
+    if (posUseMobileList(context)) return const SizedBox.shrink();
     TextStyle h = const TextStyle(
         fontSize: 12, fontWeight: FontWeight.w600, color: PosTheme.textSecondary);
     return Container(
@@ -522,8 +515,13 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
   }
 
   Widget _buildList(bool canEdit) {
+    final mobile = posUseMobileList(context);
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      padding: Responsive.fabListInsets(
+        context,
+        base: EdgeInsets.fromLTRB(12, mobile ? 8 : 0, 12, 12),
+        enabled: mobile && canEdit,
+      ),
       itemCount: _items.length,
       itemBuilder: (ctx, i) => _buildCountBlock(_items[i], canEdit),
     );
@@ -533,6 +531,27 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
     final expanded = _expandedId == c.id;
     final created = c.createdAt;
     final completed = c.completedAt;
+    if (posUseMobileList(context)) {
+      return PosMobileExpandableDocCard(
+        expanded: expanded,
+        onTap: () => _toggleExpand(c),
+        code: c.countNo,
+        status: stockCountStatusChip(c.status),
+        accentColor: _blue,
+        fields: [
+          PosMobileField(
+            'Tạo lúc',
+            created != null ? _dateFmt.format(created.toLocal()) : '—',
+          ),
+          PosMobileField(
+            'Cân bằng',
+            completed != null ? _dateFmt.format(completed.toLocal()) : '—',
+          ),
+          PosMobileField('SL thực tế', _fmtQty(c.totalActualQty)),
+        ],
+        detail: expanded ? _buildDetailPanel(c, canEdit) : null,
+      );
+    }
     return Material(
       color: Colors.white,
       clipBehavior: Clip.antiAlias,

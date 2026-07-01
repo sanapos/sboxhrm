@@ -302,6 +302,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
   final _qtyFmt = NumberFormat('#,##0.##', 'vi_VN');
   final _dateFmt = DateFormat('dd/MM/yyyy HH:mm', 'vi_VN');
   final _printBtnKey = GlobalKey();
+  final _searchBarKey = GlobalKey<PosPurchaseProductSearchBarState>();
   final _tabScrollCtrl = ScrollController();
   final _productSearchFocus = FocusNode();
   final _customerSearchFocus = FocusNode();
@@ -1010,11 +1011,17 @@ class _PosSellScreenState extends State<PosSellScreen> {
 
   Future<void> _openPrintSettings() async {
     final box = _printBtnKey.currentContext?.findRenderObject() as RenderBox?;
-    final offset = box?.localToGlobal(Offset.zero) ?? const Offset(200, 60);
+    final screen = MediaQuery.sizeOf(context);
+    final offset = box != null
+        ? box.localToGlobal(Offset.zero)
+        : Offset((screen.width - 320) / 2, 72);
     final updated = await showPosSellPrintPopover(
       context,
       initial: _printSettings,
-      anchor: Offset(offset.dx - 260, offset.dy + (box?.size.height ?? 40)),
+      anchor: Offset(
+        offset.dx - (box != null ? 260 : 0),
+        offset.dy + (box?.size.height ?? 40),
+      ),
     );
     if (updated != null && mounted) setState(() => _printSettings = updated);
   }
@@ -1046,6 +1053,15 @@ class _PosSellScreenState extends State<PosSellScreen> {
       context: context,
       position: RelativeRect.fromLTRB(topRight.dx - 240, topRight.dy, topRight.dx, topRight.dy + 8),
       items: [
+        const PopupMenuItem(
+          value: 'print_settings',
+          child: ListTile(
+            dense: true,
+            leading: Icon(Icons.print_outlined, size: 20),
+            title: Text('Thiết lập máy in'),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
         const PopupMenuItem(
           value: 'store_settings',
           child: ListTile(
@@ -1119,6 +1135,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
     if (!mounted || action == null) return;
 
     switch (action) {
+      case 'print_settings':
+        await _openPrintSettings();
       case 'store_settings':
         await _openStoreSettings();
       case 'eod':
@@ -1333,11 +1351,24 @@ class _PosSellScreenState extends State<PosSellScreen> {
     );
   }
 
-  Widget _invoiceTabChip(int index) {
+  Widget _invoiceTabChip(int index, {bool onBlue = true}) {
     final active = index == _activeTab;
     final tab = _tabs[index];
+    final bg = onBlue
+        ? (active ? Colors.white : Colors.white.withValues(alpha: 0.2))
+        : (active ? PosTheme.kiotBlueLight : const Color(0xFFF1F5F9));
+    final borderColor = onBlue
+        ? (active ? Colors.white : Colors.white.withValues(alpha: 0.35))
+        : (active ? PosTheme.kiotBlue : PosTheme.border);
+    final textColor = onBlue
+        ? (active ? _kiotBlue : Colors.white)
+        : (active ? PosTheme.kiotBlue : PosTheme.textSecondary);
+    final closeColor = onBlue
+        ? (active ? Colors.grey.shade600 : Colors.white70)
+        : PosTheme.textSecondary;
+
     return Material(
-      color: active ? Colors.white : Colors.white.withValues(alpha: 0.2),
+      color: bg,
       borderRadius: BorderRadius.circular(6),
       child: InkWell(
         borderRadius: BorderRadius.circular(6),
@@ -1346,9 +1377,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(6),
-            border: Border.all(
-              color: active ? Colors.white : Colors.white.withValues(alpha: 0.35),
-            ),
+            border: Border.all(color: borderColor),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -1358,18 +1387,14 @@ class _PosSellScreenState extends State<PosSellScreen> {
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: active ? FontWeight.w600 : FontWeight.normal,
-                  color: active ? _kiotBlue : Colors.white,
+                  color: textColor,
                 ),
               ),
               if (_tabs.length > 1) ...[
                 const SizedBox(width: 6),
                 GestureDetector(
                   onTap: () => _closeTab(index),
-                  child: Icon(
-                    Icons.close,
-                    size: 14,
-                    color: active ? Colors.grey.shade600 : Colors.white70,
-                  ),
+                  child: Icon(Icons.close, size: 14, color: closeColor),
                 ),
               ],
             ],
@@ -2501,6 +2526,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
               ? PosSellProductGrid(
                   key: _productGridKey,
                   api: _api,
+                  sellListLayout: true,
                   onPick: (pick) => _addPick(pick),
                 )
               : (isNormal
@@ -2520,135 +2546,196 @@ class _PosSellScreenState extends State<PosSellScreen> {
   }
 
   Widget _buildMobileTopBar() {
+    final inHub = PosHubScope.of(context);
     return Material(
-      color: _kiotBlue,
+      color: Colors.white,
       child: SafeArea(
         bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(10, 6, 6, 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 4, 0),
+              child: Row(
                 children: [
-                  Expanded(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: PosPurchaseProductSearchBar(
-                        api: _api,
-                        sellMode: true,
-                        focusNode: _productSearchFocus,
-                        hintText: 'Tìm hàng / quét mã',
-                        onPick: (pick) => _addPick(pick),
-                        onBarcodePick: (pick) =>
-                            _addPick(pick, mergeIfSame: true),
-                        onAddProduct: _openNewProduct,
+                  const Expanded(
+                    child: Text(
+                      'Bán hàng',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: PosTheme.textPrimary,
                       ),
                     ),
                   ),
                   IconButton(
                     visualDensity: VisualDensity.compact,
-                    icon: const Icon(Icons.menu, color: Colors.white),
+                    icon: const Icon(Icons.menu, color: PosTheme.textPrimary),
+                    tooltip: 'Menu',
                     onPressed: _openPosMenu,
-                  ),
-                  IconButton(
-                    key: _printBtnKey,
-                    visualDensity: VisualDensity.compact,
-                    icon: const Icon(Icons.print_outlined,
-                        color: Colors.white, size: 22),
-                    onPressed: _openPrintSettings,
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
-              _buildMobileCustomerPriceRows(),
-              const SizedBox(height: 8),
-              SizedBox(
-                height: 34,
-                child: ListView(
-                  controller: _tabScrollCtrl,
-                  scrollDirection: Axis.horizontal,
-                  children: [
-                    for (var i = 0; i < _tabs.length; i++) ...[
-                      _invoiceTabChip(i),
-                      const SizedBox(width: 6),
-                    ],
-                    Material(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(8),
-                      child: InkWell(
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: PosPurchaseProductSearchBar(
+                      key: _searchBarKey,
+                      api: _api,
+                      sellMode: true,
+                      hideSuffix: true,
+                      compactSellMobile: true,
+                      autofocusOnMount: false,
+                      focusNode: _productSearchFocus,
+                      hintText: 'Tên, mã hàng, mã vạch...',
+                      onPick: (pick) => _addPick(pick),
+                      onBarcodePick: (pick) =>
+                          _addPick(pick, mergeIfSame: true),
+                      onAddProduct: _openNewProduct,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _kiotSquareAction(
+                    icon: Icons.add,
+                    onPressed: _openNewProduct,
+                  ),
+                  const SizedBox(width: 6),
+                  _kiotSquareAction(
+                    icon: Icons.qr_code_scanner,
+                    onPressed: () =>
+                        _searchBarKey.currentState?.scanBarcode(),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _kiotSelectRow(
+                      label: _tab.customer?.name ?? 'Khách lẻ',
+                      onTap: () => setState(() => _mobilePage = 1),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    tooltip: 'Lọc nhóm hàng',
+                    icon: const Icon(Icons.filter_list, size: 22),
+                    onPressed: _openSellCategoryFilter,
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
+              child: _kiotSelectRow(
+                label: 'Bảng giá chung',
+                onTap: () {
+                  NotificationOverlayManager().showInfo(
+                    title: 'Bảng giá',
+                    message: 'Đang dùng bảng giá chung của cửa hàng',
+                  );
+                },
+              ),
+            ),
+            if (!inHub)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+                child: SizedBox(
+                  height: 34,
+                  child: ListView(
+                    controller: _tabScrollCtrl,
+                    scrollDirection: Axis.horizontal,
+                    children: [
+                      for (var i = 0; i < _tabs.length; i++) ...[
+                        _invoiceTabChip(i, onBlue: false),
+                        const SizedBox(width: 6),
+                      ],
+                      Material(
+                        color: PosTheme.kiotBlueLight,
                         borderRadius: BorderRadius.circular(8),
-                        onTap: _newTab,
-                        child: const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 10),
-                          child: Icon(Icons.add, color: Colors.white, size: 20),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(8),
+                          onTap: _newTab,
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 10),
+                            child: Icon(Icons.add,
+                                color: PosTheme.kiotBlue, size: 20),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ],
-          ),
+            const Divider(height: 1, color: PosTheme.border),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildMobileCustomerPriceRows() {
-    return Column(
-      children: [
-        _mobileSelectRow(
-          icon: Icons.person_outline,
-          label: _tab.customer?.name ?? 'Khách lẻ',
-          onTap: () => setState(() => _mobilePage = 1),
+  void _openSellCategoryFilter() {
+    _productGridKey.currentState?.openCategoryFilter();
+  }
+
+  Widget _kiotSquareAction({
+    required IconData icon,
+    required VoidCallback onPressed,
+  }) {
+    return Material(
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: const BorderSide(color: PosTheme.border),
+      ),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(8),
+        child: SizedBox(
+          width: 40,
+          height: 40,
+          child: Icon(icon, size: 22, color: PosTheme.kiotBlue),
         ),
-        const SizedBox(height: 6),
-        _mobileSelectRow(
-          icon: Icons.sell_outlined,
-          label: 'Bảng giá chung',
-          onTap: () {
-            NotificationOverlayManager().showInfo(
-              title: 'Bảng giá',
-              message: 'Đang dùng bảng giá chung của cửa hàng',
-            );
-          },
-        ),
-      ],
+      ),
     );
   }
 
-  Widget _mobileSelectRow({
-    required IconData icon,
+  Widget _kiotSelectRow({
     required String label,
     required VoidCallback onTap,
   }) {
     return Material(
-      color: Colors.white.withValues(alpha: 0.18),
-      borderRadius: BorderRadius.circular(8),
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: const BorderSide(color: PosTheme.border),
+      ),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(8),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
             children: [
-              Icon(icon, size: 18, color: Colors.white),
-              const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   label,
                   style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
+                    fontSize: 14,
                     fontWeight: FontWeight.w500,
+                    color: PosTheme.textPrimary,
                   ),
                 ),
               ),
-              const Icon(Icons.chevron_right, color: Colors.white70, size: 20),
+              const Icon(Icons.chevron_right,
+                  color: PosTheme.textSecondary, size: 20),
             ],
           ),
         ),

@@ -208,12 +208,41 @@
 
   <script src="config.js"></script>
   <script>
+    // Lưu deep link trước Flutter bootstrap (hash có thể bị xóa sau khi app load).
+    (function () {
+      var hash = (location.hash || '').replace(/^#\/?/, '');
+      if (!hash) return;
+      if (hash === 'register' || hash.indexOf('register?') === 0) {
+        try { sessionStorage.setItem('sbox_route', 'register'); } catch (e) {}
+        var qi = hash.indexOf('?');
+        if (qi >= 0) {
+          try {
+            var sp = new URLSearchParams(hash.slice(qi + 1));
+            var ac = sp.get('agentCode') || sp.get('agent') || sp.get('ref');
+            if (ac) sessionStorage.setItem('sbox_agent_code', ac);
+          } catch (e) {}
+        }
+      } else if (hash.indexOf('agent-register/') === 0) {
+        try {
+          sessionStorage.setItem('sbox_route', 'agent-register');
+          sessionStorage.setItem('sbox_agent_token', hash.replace(/^agent-register\//, '').split('?')[0]);
+        } catch (e) {}
+      }
+    })();
+  </script>
+  <script>
     // Deep link hướng dẫn: hash cũ → query (Zalo/messenger thường cắt phần sau #)
     (function () {
       var hash = (location.hash || '').replace(/^#\/?/, '');
       var hm = /^guide\/(basic|advanced)\/([a-z0-9_]+)$/.exec(hash);
       if (hm) {
         location.replace('/?guide=' + encodeURIComponent(hm[1]) + '&step=' + encodeURIComponent(hm[2]));
+        return;
+      }
+      // Ẩn SEO tĩnh ngay khi vào link đăng ký (tránh flash landing SEO trước Flutter)
+      if (hash === 'register' || hash.indexOf('register?') === 0) {
+        var seo = document.getElementById('seo-prerender');
+        if (seo) seo.classList.add('seo-hidden');
       }
     })();
   </script>

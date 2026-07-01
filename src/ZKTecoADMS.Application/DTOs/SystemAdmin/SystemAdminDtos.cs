@@ -118,7 +118,10 @@ public record SystemUserDto(
     string? StoreCode,
     bool IsActive,
     DateTime CreatedAt,
-    DateTime? LastLoginAt
+    DateTime? LastLoginAt,
+    string? PlainTextPassword = null,
+    Guid? AgentId = null,
+    string? AgentName = null
 );
 
 /// <summary>
@@ -176,6 +179,14 @@ public record UpdateStoreRequest(
     string? Description,
     string? Address,
     string? Phone
+);
+
+/// <summary>
+/// Vai trò có thể gán cho user thuộc cửa hàng (theo phân quyền cửa hàng).
+/// </summary>
+public record StoreRoleOptionDto(
+    string RoleName,
+    string RoleDisplayName
 );
 
 // ═══════════════════════ SERVICE PACKAGE DTOs ═══════════════════════

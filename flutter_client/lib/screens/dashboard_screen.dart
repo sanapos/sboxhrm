@@ -161,20 +161,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   bool _dashboardModeResolved = false;
 
+  List<String>? _allowedModules(BuildContext context) =>
+      Provider.of<AuthProvider>(context, listen: false).user?.allowedModules;
+
   DashboardUiCapabilities _caps(BuildContext context) {
     final perm = Provider.of<PermissionProvider>(context);
-    final role =
-        Provider.of<AuthProvider>(context, listen: false).userRole;
-    return DashboardUiCapabilities.from(perm, role: role);
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    return DashboardUiCapabilities.from(
+      perm,
+      role: auth.userRole,
+      allowedModules: auth.user?.allowedModules,
+    );
   }
 
   void _resolveDashboardMode(BuildContext context) {
     final perm = Provider.of<PermissionProvider>(context, listen: false);
     if (!perm.isLoaded) return;
 
+    final auth = Provider.of<AuthProvider>(context, listen: false);
     final caps = DashboardUiCapabilities.from(
       perm,
-      role: Provider.of<AuthProvider>(context, listen: false).userRole,
+      role: auth.userRole,
+      allowedModules: auth.user?.allowedModules,
     );
     final useEmp = caps.useEmployeeLayout;
     if (!_dashboardModeResolved || _isEmployee != useEmp) {
@@ -1295,6 +1303,67 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return null;
   }
 
+  /// Cửa sổ ngày làm việc: [D+giờ qua đêm, D+1+giờ qua đêm).
+  ({DateTime target, DateTime windowStart, DateTime windowEnd})
+      _attendanceDayWindow() {
+    final target = _effectiveDate ?? _selectedDate ?? DateTime.now();
+    final dayStart = DateTime(target.year, target.month, target.day);
+    final dayEnd = DateTime(target.year, target.month, target.day, 23, 59, 59);
+    final hasCutoff = _dayEndHour != 0 || _dayEndMinute != 0;
+    final windowStart = hasCutoff
+        ? DateTime(
+            target.year, target.month, target.day, _dayEndHour, _dayEndMinute)
+        : dayStart;
+    final windowEnd = hasCutoff
+        ? DateTime(target.year, target.month, target.day + 1, _dayEndHour,
+            _dayEndMinute)
+        : dayEnd;
+    return (target: target, windowStart: windowStart, windowEnd: windowEnd);
+  }
+
+  bool _isInAttendanceWindow(
+      DateTime t, DateTime windowStart, DateTime windowEnd) {
+    return !t.isBefore(windowStart) && t.isBefore(windowEnd);
+  }
+
+  String _attendanceEmployeeKey(Attendance a) =>
+      (a.employeeId ?? a.pin ?? a.employeeName ?? '').toString();
+
+  /// id → thứ tự lần chấm (0-based) trong ngày làm việc, sort tăng dần/NV.
+  Map<String, int> _computePunchIndexInDay() {
+    final window = _attendanceDayWindow();
+    final empPunches = <String, List<Attendance>>{};
+    for (final a in _rawAttendances) {
+      if (!_isInAttendanceWindow(
+          a.attendanceTime, window.windowStart, window.windowEnd)) {
+        continue;
+      }
+      final key = _attendanceEmployeeKey(a);
+      if (key.isEmpty) continue;
+      (empPunches[key] ??= <Attendance>[]).add(a);
+    }
+    final punchIndex = <String, int>{};
+    for (final list in empPunches.values) {
+      list.sort((a, b) => a.attendanceTime.compareTo(b.attendanceTime));
+      for (var i = 0; i < list.length; i++) {
+        punchIndex[list[i].id] = i;
+      }
+    }
+    return punchIndex;
+  }
+
+  List<Attendance> _punchesInDayWindow({bool descending = false}) {
+    final window = _attendanceDayWindow();
+    final punches = _rawAttendances
+        .where((a) => _isInAttendanceWindow(
+            a.attendanceTime, window.windowStart, window.windowEnd))
+        .toList();
+    punches.sort((a, b) => descending
+        ? b.attendanceTime.compareTo(a.attendanceTime)
+        : a.attendanceTime.compareTo(b.attendanceTime));
+    return punches;
+  }
+
   List<Map<String, dynamic>> get _absentWithPermission {
     // On-leave employees from daily report (status = "Nghỉ phép")
     final fromReport =
@@ -1366,9 +1435,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
           );
         }
 
+        final authUser = Provider.of<AuthProvider>(context, listen: false);
         final caps = DashboardUiCapabilities.from(
           perm,
-          role: Provider.of<AuthProvider>(context, listen: false).userRole,
+          role: authUser.userRole,
+          allowedModules: authUser.user?.allowedModules,
         );
 
         final body = _isEmployee
@@ -7129,24 +7200,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
   /// cặp (vào, ra) mỗi lần chấm. Thiếu ra = đang trong ca / quên chấm.
   void _showInOutDetail() {
     // Build per-employee ordered punch list from raw (same logic as KPI count).
-    final hasCutoff = _dayEndHour != 0 || _dayEndMinute != 0;
-    final target = _selectedDate ?? DateTime.now();
-    final windowStart = hasCutoff
-        ? DateTime(
-            target.year, target.month, target.day, _dayEndHour, _dayEndMinute)
-        : DateTime(target.year, target.month, target.day);
-    final windowEnd = hasCutoff
-        ? DateTime(target.year, target.month, target.day + 1, _dayEndHour,
-            _dayEndMinute)
-        : DateTime(target.year, target.month, target.day, 23, 59, 59);
+    final window = _attendanceDayWindow();
 
     // empKey → sorted punches
     final empMap = <String, List<Attendance>>{};
     final empName = <String, String>{};
     for (final a in _rawAttendances) {
       final t = a.attendanceTime;
-      if (t.isBefore(windowStart) || !t.isBefore(windowEnd)) continue;
-      final key = (a.employeeId ?? a.pin ?? a.employeeName ?? '').toString();
+      if (!_isInAttendanceWindow(
+          t, window.windowStart, window.windowEnd)) {
+        continue;
+      }
+      final key = _attendanceEmployeeKey(a);
       if (key.isEmpty) continue;
       (empMap[key] ??= <Attendance>[]).add(a);
       if ((a.employeeName ?? '').isNotEmpty) empName[key] = a.employeeName!;
@@ -7795,32 +7860,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // ===================== CARD: REALTIME ATTENDANCE =====================
   Widget _buildRealtimeAttendanceCard() {
-    // Hiển thị tất cả lượt chấm công trong ngày, mới nhất trên đầu.
-    // Vào/Ra = tính theo thứ tự lẻ/chẵn per nhân viên (không dùng attendanceState
-    // vì thiết bị ZKTeco thường gửi state=0 cho mọi punch).
+    // Hiển thị lượt chấm trong cửa sổ ngày làm việc [giờ qua đêm, giờ qua đêm+1).
+    // Vào/Ra = lẻ/chẵn theo thứ tự tăng dần per nhân viên (không dùng attendanceState).
     if (_rawAttendances.isNotEmpty) {
-      // Tính thứ tự per-employee theo chiều tăng dần → xác định Vào/Ra.
-      final empPunches = <String, List<Attendance>>{};
-      for (final a in _rawAttendances) {
-        final key = (a.employeeId ?? a.pin ?? a.employeeName ?? '').toString();
-        if (key.isEmpty) continue;
-        (empPunches[key] ??= <Attendance>[]).add(a);
-      }
-      // Sort mỗi nhân viên tăng dần để đánh index.
-      final punchIndex = <String, int>{}; // id → index (0-based)
-      for (final entry in empPunches.entries) {
-        final list = entry.value
-          ..sort((a, b) => a.attendanceTime.compareTo(b.attendanceTime));
-        for (var i = 0; i < list.length; i++) {
-          punchIndex[list[i].id] = i;
-        }
-      }
+      final punchIndex = _computePunchIndexInDay();
 
-      // Hiển thị theo chiều giảm dần (mới nhất trên đầu).
-      // Mặc định chỉ hiện 5 dòng đầu — scroll lên để xem thêm.
+      // Hiển thị mới nhất trên đầu; chỉ lấy punch trong cửa sổ ngày làm việc.
       const visibleRows = 5;
-      final punches = List<Attendance>.from(_rawAttendances)
-        ..sort((a, b) => b.attendanceTime.compareTo(a.attendanceTime));
+      final punches = _punchesInDayWindow(descending: true);
       const rowHeight = 52.0;
       final controller = ScrollController();
 
@@ -7829,25 +7876,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
         title: _l10n.realtimeAttendance,
         color: HrmPageChrome.primaryNavy,
         badge: '${punches.length} lượt',
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: visibleRows * rowHeight),
-          child: Scrollbar(
-            thumbVisibility: punches.length > visibleRows,
-            controller: controller,
-            child: ListView.builder(
-              controller: controller,
-              shrinkWrap: true,
-              padding: EdgeInsets.zero,
-              itemCount: punches.length,
-              itemBuilder: (_, i) {
-                final a = punches[i];
-                final idx = punchIndex[a.id] ?? 0;
-                final isCheckIn = idx.isEven;
-                return _attendancePunchRow(a, isCheckIn: isCheckIn);
-              },
-            ),
-          ),
-        ),
+        child: punches.isEmpty
+            ? _emptyState(_l10n.noAttendanceToday)
+            : ConstrainedBox(
+                constraints:
+                    const BoxConstraints(maxHeight: visibleRows * rowHeight),
+                child: Scrollbar(
+                  thumbVisibility: punches.length > visibleRows,
+                  controller: controller,
+                  child: ListView.builder(
+                    controller: controller,
+                    shrinkWrap: true,
+                    padding: EdgeInsets.zero,
+                    itemCount: punches.length,
+                    itemBuilder: (_, i) {
+                      final a = punches[i];
+                      final idx = punchIndex[a.id] ?? 0;
+                      final isCheckIn = idx.isEven;
+                      return _attendancePunchRow(a, isCheckIn: isCheckIn);
+                    },
+                  ),
+                ),
+              ),
       );
     }
 

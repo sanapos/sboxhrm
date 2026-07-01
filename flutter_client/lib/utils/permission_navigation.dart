@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../providers/permission_provider.dart';
 import 'permission_modules.dart';
+import 'store_role_helper.dart';
 
 /// Điều hướng an toàn theo quyền — dùng chung nav, thông báo, dashboard CTA.
 class PermissionNavigation {
@@ -29,7 +30,35 @@ class PermissionNavigation {
     if (allowedModules == null || allowedModules.isEmpty) {
       return false;
     }
-    return allowedModules.contains(moduleCode);
+    final code = moduleCode.toLowerCase();
+    return allowedModules.any((m) => m.toLowerCase() == code);
+  }
+
+  /// Thông báo từ middleware gói dịch vụ — không cần hiện toast khi module đã ẩn.
+  static bool isPackageRestrictionMessage(String? message) {
+    if (message == null || message.isEmpty) return false;
+    final m = message.toLowerCase();
+    return m.contains('gói dịch vụ') && m.contains('không bao gồm');
+  }
+
+  /// Gói dịch vụ + quyền role — dùng trước khi gọi API / mount màn hình.
+  static bool canAccessModule(
+    String? moduleCode, {
+    required List<String>? allowedModules,
+    required PermissionProvider perm,
+    String? role,
+  }) {
+    if (moduleCode == null || moduleCode.isEmpty) return true;
+    final bypass = StoreRoleHelper.bypassesPackageFilter(role);
+    if (!isAllowedByPackageOrRole(
+      moduleCode,
+      allowedModules: allowedModules,
+      perm: perm,
+      bypassPackageFilter: bypass,
+    )) {
+      return false;
+    }
+    return canNavigate(perm, moduleCode);
   }
 
   static String label(String moduleCode) {

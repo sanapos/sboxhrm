@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Application.DTOs.Accounts;
 using ZKTecoADMS.Application.DTOs.Commons;
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Domain.Enums;
 
@@ -129,6 +130,7 @@ public class BulkCreateEmployeeAccountsHandler(
                 StoreId = manager.StoreId,
                 Role = roleName
             };
+            UserPasswordVisibility.RememberPassword(newUser, request.Password);
 
             var createResult = await userManager.CreateAsync(newUser, request.Password);
             if (!createResult.Succeeded)

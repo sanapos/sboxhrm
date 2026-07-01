@@ -10,6 +10,7 @@ import '../utils/pos_purchase_product_lookup.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/notification_overlay.dart';
+import '../widgets/pos/pos_mobile_widgets.dart';
 import '../widgets/pos/pos_purchase_product_search_bar.dart';
 import '../widgets/pos/pos_stock_issue_config.dart';
 import '../widgets/pos/pos_stock_issue_helpers.dart';
@@ -476,6 +477,9 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
   }
 
   Widget _buildLinesTable() {
+    if (posUseMobileList(context)) {
+      return _buildMobileLinesList();
+    }
     Widget headerCell(String label, int flex) => Expanded(
           flex: flex,
           child: Padding(
@@ -567,6 +571,187 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
     );
   }
 
+  Widget _buildMobileLinesList() {
+    if (_lines.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(24),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.inventory_2_outlined, size: 48, color: Colors.grey.shade400),
+              const SizedBox(height: 12),
+              Text('Chưa có hàng trong phiếu',
+                  style: TextStyle(color: Colors.grey.shade600)),
+            ],
+          ),
+        ),
+      );
+    }
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      itemCount: _lines.length,
+      itemBuilder: (_, i) {
+        final l = _lines[i];
+        return PosMobileLineItemCard(
+          index: i + 1,
+          code: l.productCode,
+          name: l.productName,
+          onRemove: _readOnly ? null : () => _removeLine(l),
+          fields: [
+            Text('ĐVT: ${l.unitName}',
+                style: const TextStyle(fontSize: 13)),
+            const SizedBox(height: 8),
+            _qtyCell(l),
+            const SizedBox(height: 8),
+            _costCell(l),
+            const SizedBox(height: 6),
+            Text(
+              'Thành tiền: ${_moneyFmt.format(l.lineTotal)} đ',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      child: Row(
+        children: [
+          if (!_readOnly)
+            Expanded(
+              child: PosPurchaseProductSearchBar(
+                api: _api,
+                readOnly: _readOnly,
+                hintText: 'Tìm hàng hóa (F3)',
+                onPick: _onPickProduct,
+              ),
+            )
+          else
+            Expanded(
+              child: Text('Chi tiết phiếu ${_config.title}',
+                  style: const TextStyle(
+                      fontSize: 15, fontWeight: FontWeight.w600)),
+            ),
+          IconButton(
+            tooltip: 'Quét mã vạch',
+            icon: const Icon(Icons.qr_code_scanner_outlined),
+            onPressed: _readOnly ? null : _scanBarcode,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMetaPanel() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextField(
+          controller: _issueNoCtrl,
+          readOnly: true,
+          decoration: PosTheme.inputDecoration(
+            label: 'Mã phiếu',
+            hint: 'Mã phiếu tự động',
+          ),
+        ),
+        const SizedBox(height: 12),
+        InputDecorator(
+          decoration: PosTheme.inputDecoration(label: 'Trạng thái'),
+          child: stockIssueStatusChip(_status),
+        ),
+        if (_config.showInternalFields) ...[
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            value: _categoryName != null &&
+                    kInternalUseCategories.contains(_categoryName)
+                ? _categoryName
+                : null,
+            decoration: PosTheme.inputDecoration(label: 'Loại xuất'),
+            items: kInternalUseCategories
+                .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                .toList(),
+            onChanged:
+                _readOnly ? null : (v) => setState(() => _categoryName = v),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _recipientCtrl,
+            readOnly: _readOnly,
+            decoration: PosTheme.inputDecoration(label: 'Người nhận'),
+          ),
+        ],
+        const Divider(height: 24),
+        _totalRow('Tổng SL (${_lines.length})', _fmtQty(_totalQty)),
+        _totalRow('Tổng giá trị', '${_moneyFmt.format(_totalValue)} đ',
+            bold: true),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _noteCtrl,
+          readOnly: _readOnly,
+          maxLines: 3,
+          decoration: PosTheme.inputDecoration(label: 'Ghi chú'),
+        ),
+        if (!_readOnly) ...[
+          const SizedBox(height: 16),
+          OutlinedButton(
+            onPressed: _saving ? null : _saveDraft,
+            child: Text(_saving ? '…' : 'Lưu tạm'),
+          ),
+          const SizedBox(height: 8),
+          FilledButton(
+            onPressed: _saving ? null : _complete,
+            style: FilledButton.styleFrom(backgroundColor: _blue),
+            child: Text(_saving ? '…' : 'Hoàn thành'),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: _saving ? null : _deleteDraft,
+            icon: const Icon(Icons.delete_outline, size: 18),
+            label: const Text('Xóa phiếu'),
+          ),
+        ] else if (_status == 'Cancelled') ...[
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            onPressed: _saving ? null : _deleteDraft,
+            icon: const Icon(Icons.delete_outline, size: 18),
+            label: const Text('Xóa phiếu'),
+          ),
+        ] else if (_status == 'Completed') ...[
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            onPressed: _saving ? null : _voidCompleted,
+            icon: const Icon(Icons.cancel_outlined, size: 18),
+            label: const Text('Hủy phiếu'),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget? _buildMobileActionBar() {
+    if (_readOnly || !posUseMobileList(context)) return null;
+    return PosMobileEditorActionBar(
+      children: [
+        OutlinedButton(
+          onPressed: _saving ? null : _saveDraft,
+          child: const Text('Lưu tạm'),
+        ),
+        FilledButton(
+          onPressed: _saving ? null : _complete,
+          style: FilledButton.styleFrom(backgroundColor: _blue),
+          child: const Text('Hoàn thành'),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final perm = Provider.of<PermissionProvider>(context);
@@ -599,41 +784,24 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
           ),
           body: _loading
               ? const LoadingWidget()
-              : Row(
+              : posUseMobileList(context)
+                  ? posMobileEditorScrollBody(
+                      searchBar: _buildSearchBar(),
+                      lines: ColoredBox(
+                        color: Colors.white,
+                        child: _buildLinesTable(),
+                      ),
+                      metaPanel: _buildMetaPanel(),
+                      actionBar: _buildMobileActionBar(),
+                    )
+                  : Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Expanded(
                       flex: 3,
                       child: Column(
                         children: [
-                          Container(
-                            color: Colors.white,
-                            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                            child: Row(
-                              children: [
-                                if (!_readOnly)
-                                  Expanded(
-                                    child: PosPurchaseProductSearchBar(
-                                      api: _api,
-                                      readOnly: _readOnly,
-                                      hintText: 'Tìm hàng hóa (F3)',
-                                      onPick: _onPickProduct,
-                                    ),
-                                  )
-                                else
-                                  Expanded(
-                                    child: Text('Chi tiết phiếu ${_config.title}',
-                                        style: const TextStyle(
-                                            fontSize: 15, fontWeight: FontWeight.w600)),
-                                  ),
-                                IconButton(
-                                  tooltip: 'Quét mã vạch',
-                                  icon: const Icon(Icons.qr_code_scanner_outlined),
-                                  onPressed: _readOnly ? null : _scanBarcode,
-                                ),
-                              ],
-                            ),
-                          ),
+                          _buildSearchBar(),
                           Expanded(
                             child: ColoredBox(
                               color: Colors.white,
@@ -647,99 +815,7 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
                       width: 320,
                       color: Colors.white,
                       padding: const EdgeInsets.all(16),
-                      child: SingleChildScrollView(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            TextField(
-                              controller: _issueNoCtrl,
-                              readOnly: true,
-                              decoration: PosTheme.inputDecoration(
-                                label: 'Mã phiếu',
-                                hint: 'Mã phiếu tự động',
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            InputDecorator(
-                              decoration:
-                                  PosTheme.inputDecoration(label: 'Trạng thái'),
-                              child: stockIssueStatusChip(_status),
-                            ),
-                            if (_config.showInternalFields) ...[
-                              const SizedBox(height: 12),
-                              DropdownButtonFormField<String>(
-                                value: _categoryName != null &&
-                                        kInternalUseCategories.contains(_categoryName)
-                                    ? _categoryName
-                                    : null,
-                                decoration: PosTheme.inputDecoration(label: 'Loại xuất'),
-                                items: kInternalUseCategories
-                                    .map((c) => DropdownMenuItem(
-                                          value: c,
-                                          child: Text(c),
-                                        ))
-                                    .toList(),
-                                onChanged: _readOnly
-                                    ? null
-                                    : (v) => setState(() => _categoryName = v),
-                              ),
-                              const SizedBox(height: 12),
-                              TextField(
-                                controller: _recipientCtrl,
-                                readOnly: _readOnly,
-                                decoration: PosTheme.inputDecoration(
-                                    label: 'Người nhận'),
-                              ),
-                            ],
-                            const Divider(height: 24),
-                            _totalRow('Tổng SL (${_lines.length})',
-                                _fmtQty(_totalQty)),
-                            _totalRow('Tổng giá trị',
-                                '${_moneyFmt.format(_totalValue)} đ',
-                                bold: true),
-                            const SizedBox(height: 12),
-                            TextField(
-                              controller: _noteCtrl,
-                              readOnly: _readOnly,
-                              maxLines: 3,
-                              decoration: PosTheme.inputDecoration(label: 'Ghi chú'),
-                            ),
-                            if (!_readOnly) ...[
-                              const SizedBox(height: 16),
-                              OutlinedButton(
-                                onPressed: _saving ? null : _saveDraft,
-                                child: Text(_saving ? '…' : 'Lưu tạm'),
-                              ),
-                              const SizedBox(height: 8),
-                              FilledButton(
-                                onPressed: _saving ? null : _complete,
-                                style: FilledButton.styleFrom(backgroundColor: _blue),
-                                child: Text(_saving ? '…' : 'Hoàn thành'),
-                              ),
-                              const SizedBox(height: 8),
-                              OutlinedButton.icon(
-                                onPressed: _saving ? null : _deleteDraft,
-                                icon: const Icon(Icons.delete_outline, size: 18),
-                                label: const Text('Xóa phiếu'),
-                              ),
-                            ] else if (_status == 'Cancelled') ...[
-                              const SizedBox(height: 16),
-                              OutlinedButton.icon(
-                                onPressed: _saving ? null : _deleteDraft,
-                                icon: const Icon(Icons.delete_outline, size: 18),
-                                label: const Text('Xóa phiếu'),
-                              ),
-                            ] else if (_status == 'Completed') ...[
-                              const SizedBox(height: 16),
-                              OutlinedButton.icon(
-                                onPressed: _saving ? null : _voidCompleted,
-                                icon: const Icon(Icons.cancel_outlined, size: 18),
-                                label: const Text('Hủy phiếu'),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
+                      child: SingleChildScrollView(child: _buildMetaPanel()),
                     ),
                   ],
                 ),

@@ -8,6 +8,8 @@ import '../../utils/pos_category_tree.dart';
 import '../../utils/pos_purchase_product_lookup.dart';
 import '../../utils/pos_sell_unit_views.dart';
 import '../../utils/responsive_helper.dart';
+import 'pos_mobile_widgets.dart';
+import '../pos_barcode_scanner.dart';
 import 'pos_product_image.dart';
 import 'pos_product_unit_view.dart';
 import 'pos_theme.dart';
@@ -21,11 +23,14 @@ class PosSellProductGrid extends StatefulWidget {
     required this.api,
     required this.onPick,
     this.pageSize = 24,
+    this.sellListLayout = false,
   });
 
   final ApiService api;
   final ValueChanged<PosPurchaseLookupPick> onPick;
   final int pageSize;
+  /// Mobile bán hàng: danh sách dọc kiểu KiotViet (không lưới).
+  final bool sellListLayout;
 
   @override
   State<PosSellProductGrid> createState() => PosSellProductGridState();
@@ -85,6 +90,70 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
   }
 
   void reload() => _loadProducts();
+
+  Future<void> openCategoryFilter() async {
+    if (_loadingCategories) return;
+    String? draft = _categoryId;
+    await showPosMobileFilterSheet(
+      context,
+      title: 'Nhóm hàng',
+      onReset: () {
+        draft = null;
+        _selectCategory(null);
+      },
+      onApply: () => _selectCategory(draft),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _categoryFilterTile('Tất cả', null, draft, (id) => draft = id),
+          for (final node in buildPosCategoryTree(_categories))
+            ..._categoryFilterTilesForNode(node, draft, (id) => draft = id),
+        ],
+      ),
+    );
+  }
+
+  Widget _categoryFilterTile(
+    String label,
+    String? id,
+    String? selected,
+    ValueChanged<String?> onSelect,
+  ) {
+    final isSelected = selected == id;
+    return ListTile(
+      dense: true,
+      contentPadding: EdgeInsets.zero,
+      title: Text(label),
+      trailing: isSelected
+          ? const Icon(Icons.check, color: PosTheme.kiotBlue, size: 20)
+          : null,
+      onTap: () => onSelect(id),
+    );
+  }
+
+  List<Widget> _categoryFilterTilesForNode(
+    PosCategoryNode node,
+    String? selected,
+    ValueChanged<String?> onSelect,
+  ) {
+    final widgets = <Widget>[
+      Padding(
+        padding: EdgeInsets.only(left: node.depth * 12.0),
+        child: _categoryFilterTile(node.item.name, node.item.id, selected, onSelect),
+      ),
+    ];
+    for (final child in node.children) {
+      widgets.addAll(_categoryFilterTilesForNode(child, selected, onSelect));
+    }
+    return widgets;
+  }
+
+  Future<void> _scanAndPick() async {
+    final code = await scanBarcodeWithCamera(context);
+    if (code == null || !mounted) return;
+    final pick = await lookupOrPickPosProduct(context, widget.api, code);
+    if (pick != null && mounted) widget.onPick(pick);
+  }
 
   Future<void> _loadCategories() async {
     final res = await widget.api.getPosProductCategories();
@@ -473,6 +542,77 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     );
   }
 
+  Widget _buildSellList() {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+    }
+    if (_products.isEmpty) {
+      return Center(
+        child: Text(
+          'Không có hàng bán trực tiếp',
+          style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+        ),
+      );
+    }
+
+    return Scrollbar(
+      controller: _gridScroll,
+      thumbVisibility: true,
+      child: ListView.separated(
+        controller: _gridScroll,
+        padding: const EdgeInsets.only(bottom: 8),
+        itemCount: _products.length,
+        separatorBuilder: (_, __) =>
+            const Divider(height: 1, indent: 70, color: PosTheme.border),
+        itemBuilder: (_, i) => _sellListRow(_products[i]),
+      ),
+    );
+  }
+
+  Widget _sellListRow(PosProduct p) {
+    return FutureBuilder<List<PosProductUnitView>>(
+      future: _viewsFor(p),
+      builder: (context, snap) {
+        final views = snap.data;
+        final view = views != null && views.isNotEmpty ? views.first : null;
+        final price = view != null
+            ? (view.basePrice > 0 ? view.basePrice : p.basePrice)
+            : p.basePrice;
+        final code = view?.displayCode ?? p.productCode;
+        final unit = view?.label ?? p.baseUnitName;
+        final qty = view?.onHandQty ?? p.onHandQty;
+        final name = view != null && views!.length > 1
+            ? '${p.name} (${view.label})'
+            : p.name;
+
+        return PosMobileProductRow(
+          kiotSellStyle: true,
+          name: name,
+          code: code,
+          priceText: _moneyFmt.format(price),
+          stockText: '${_qtyFmt.format(qty)} $unit',
+          orderReservedText: 'KH đặt: 0',
+          onScanCode: _scanAndPick,
+          image: PosProductImage(
+            productId: p.id,
+            imageUrl: p.imageUrl,
+            size: 48,
+            borderRadius: 8,
+          ),
+          onTap: views == null
+              ? null
+              : () {
+                  if (views.length == 1) {
+                    _pickProduct(p, view: views.first);
+                  } else {
+                    _pickProduct(p);
+                  }
+                },
+        );
+      },
+    );
+  }
+
   Widget _buildGrid(double gridWidth) {
     if (_loading) {
       return const Center(child: CircularProgressIndicator(strokeWidth: 2));
@@ -613,6 +753,12 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.sellListLayout) {
+      return Material(
+        color: Colors.white,
+        child: _buildSellList(),
+      );
+    }
     return LayoutBuilder(
       builder: (context, constraints) {
         final horizontalCats = _useHorizontalCategories(constraints.maxWidth);

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
 import '../utils/permission_navigation.dart';
+import '../utils/store_role_helper.dart';
 
 /// Chặn hiển thị màn hình khi user không có quyền xem module.
 class ModuleRouteGuard extends StatelessWidget {
@@ -18,6 +20,17 @@ class ModuleRouteGuard extends StatelessWidget {
   Widget build(BuildContext context) {
     if (moduleCode == null || moduleCode!.isEmpty) return child;
     final perm = context.watch<PermissionProvider>();
+    final authUser = context.watch<AuthProvider>().user;
+    final bypassPackage =
+        StoreRoleHelper.bypassesPackageFilter(authUser?.role);
+    if (!PermissionNavigation.isAllowedByPackageOrRole(
+      moduleCode,
+      allowedModules: authUser?.allowedModules,
+      perm: perm,
+      bypassPackageFilter: bypassPackage,
+    )) {
+      return _AccessDeniedBody(moduleCode: moduleCode!);
+    }
     if (PermissionNavigation.canNavigate(perm, moduleCode)) return child;
     return _AccessDeniedBody(moduleCode: moduleCode!);
   }

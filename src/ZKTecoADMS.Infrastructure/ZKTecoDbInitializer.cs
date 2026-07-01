@@ -268,8 +268,8 @@ public class ZKTecoDbInitializer(
                 // ===== Bootstrap for migrations from AddBranchPermissions onwards =====
                 await context.Database.ExecuteSqlRawAsync(@"
                     DO $$ BEGIN
-                        -- PlainTextPassword was removed by AddBranchPermissions migration
-                        ALTER TABLE ""AspNetUsers"" DROP COLUMN IF EXISTS ""PlainTextPassword"";
+                        -- PlainTextPassword: lưu để Super Admin tra cứu mật khẩu
+                        ALTER TABLE ""AspNetUsers"" ADD COLUMN IF NOT EXISTS ""PlainTextPassword"" text;
 
                         -- TaskComments new columns
                         ALTER TABLE ""TaskComments"" ADD COLUMN IF NOT EXISTS ""CommentType"" integer NOT NULL DEFAULT 0;
@@ -1405,7 +1405,7 @@ public class ZKTecoDbInitializer(
     
     private async Task SeedRolesAsync()
     {
-        var roles = new[] { nameof(Roles.SuperAdmin), nameof(Roles.Admin), nameof(Roles.Director), nameof(Roles.User), nameof(Roles.Manager), nameof(Roles.Employee), nameof(Roles.DepartmentHead), nameof(Roles.Accountant), nameof(Roles.Cashier) };
+        var roles = new[] { nameof(Roles.SuperAdmin), nameof(Roles.Admin), nameof(Roles.Director), nameof(Roles.User), nameof(Roles.Manager), nameof(Roles.Employee), nameof(Roles.Agent), nameof(Roles.DepartmentHead), nameof(Roles.Accountant), nameof(Roles.Cashier) };
 
         foreach (var roleName in roles)
         {

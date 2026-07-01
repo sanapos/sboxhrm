@@ -21,4 +21,7 @@ public static class PosPackageDefaults
         "/api/pos/catalog",
         "/api/pos/customers",
     ];
+
+    /// <summary>GET mẫu in — thu ngân PosSell cần chọn mẫu khi bán.</summary>
+    public const string SellPrintTemplatesReadPrefix = "/api/pos/print-templates";
 }

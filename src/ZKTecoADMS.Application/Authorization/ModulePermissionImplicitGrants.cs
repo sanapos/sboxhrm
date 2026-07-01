@@ -222,6 +222,13 @@ public static class ModulePermissionImplicitGrants
             HasAction(map, "PosSell", ModulePermissionAction.View))
             return true;
 
+        // POS: thu ngân được xem mẫu in hóa đơn khi bán.
+        if (module.Equals("PosPrintTemplates", StringComparison.Ordinal) &&
+            action == ModulePermissionAction.View &&
+            (HasAction(map, "PosSell", ModulePermissionAction.View) ||
+             HasAction(map, "PosProducts", ModulePermissionAction.View)))
+            return true;
+
         // POS: submodule (Bán hàng, Đơn hàng, Nhập hàng…) ↔ PosProducts.
         if (PosSubmoduleCodes.Contains(module) && HasAction(map, "PosProducts", action))
             return true;

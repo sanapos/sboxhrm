@@ -20,19 +20,20 @@ Future<List<PosPrintTemplate>> _loadSaleInvoiceTemplates(ApiService api) async {
   }
 
   // API tự tạo mẫu mặc định K58/K80/A5/A4 khi danh sách trống.
-  for (final docType in PosPrintDocumentTypes.all.keys) {
-    await api.getPosPrintTemplates(documentType: docType);
+  var res = await api.getPosPrintTemplates(
+    documentType: PosPrintDocumentTypes.saleInvoice,
+  );
+  var templates = parse(res);
+
+  if (templates.isEmpty && res['isSuccess'] != true) {
+    // Thử seed khi list lỗi hoặc rỗng (cần quyền View PosPrintTemplates).
+    await api.seedPosPrintTemplates(documentType: PosPrintDocumentTypes.saleInvoice);
+    res = await api.getPosPrintTemplates(
+      documentType: PosPrintDocumentTypes.saleInvoice,
+    );
+    templates = parse(res);
   }
 
-  var templates = parse(await api.getPosPrintTemplates(
-    documentType: PosPrintDocumentTypes.saleInvoice,
-  ));
-  if (templates.isEmpty) {
-    await api.seedPosPrintTemplates(documentType: PosPrintDocumentTypes.saleInvoice);
-    templates = parse(await api.getPosPrintTemplates(
-      documentType: PosPrintDocumentTypes.saleInvoice,
-    ));
-  }
   return templates;
 }
 

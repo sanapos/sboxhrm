@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using ZKTecoADMS.Application.Settings;
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.Services;
 using ZKTecoADMS.Domain.Repositories;
 
@@ -149,6 +150,7 @@ public class RegisterCommandHandler(
             StoreId = storeId,
             Role = nameof(Roles.Admin)
         };
+        UserPasswordVisibility.RememberPassword(user, request.Password);
         
         var result = await userManager.CreateAsync(user, request.Password);
         if (!result.Succeeded)

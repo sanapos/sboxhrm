@@ -48,7 +48,7 @@ public class PosPrintTemplatesController(ZKTecoDbContext dbContext) : Authentica
         t.CreatedAt, t.UpdatedAt);
 
     [HttpGet]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.View)]
+    [RequireModulePermission("PosPrintTemplates", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> List(
         [FromQuery] PosPrintDocumentType? documentType,
         [FromQuery] bool? activeOnly)
@@ -74,7 +74,7 @@ public class PosPrintTemplatesController(ZKTecoDbContext dbContext) : Authentica
     }
 
     [HttpGet("{id:guid}")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.View)]
+    [RequireModulePermission("PosPrintTemplates", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> Get(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -85,7 +85,7 @@ public class PosPrintTemplatesController(ZKTecoDbContext dbContext) : Authentica
     }
 
     [HttpGet("presets")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.View)]
+    [RequireModulePermission("PosPrintTemplates", ModulePermissionAction.View)]
     public ActionResult<AppResponse<object>> Presets(
         [FromQuery] PosPrintDocumentType documentType = PosPrintDocumentType.SaleInvoice)
     {
@@ -181,7 +181,7 @@ public class PosPrintTemplatesController(ZKTecoDbContext dbContext) : Authentica
     }
 
     [HttpPost("seed")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Create)]
+    [RequireModulePermission("PosPrintTemplates", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> Seed(
         [FromQuery] PosPrintDocumentType documentType = PosPrintDocumentType.SaleInvoice)
     {

@@ -58,6 +58,8 @@ class PosPurchaseProductSearchBar extends StatefulWidget {
     this.focusNode,
     this.autofocusOnMount = true,
     this.restoreFocusAfterPick = true,
+    this.hideSuffix = false,
+    this.compactSellMobile = false,
   });
 
   final ApiService api;
@@ -72,6 +74,10 @@ class PosPurchaseProductSearchBar extends StatefulWidget {
   final FocusNode? focusNode;
   final bool autofocusOnMount;
   final bool restoreFocusAfterPick;
+  /// Bán hàng mobile: nút + / quét đặt ngoài thanh tìm.
+  final bool hideSuffix;
+  /// Bo góc nhỏ, không icon kính lúp — giống KiotViet.
+  final bool compactSellMobile;
 
   @override
   State<PosPurchaseProductSearchBar> createState() =>
@@ -108,6 +114,9 @@ class PosPurchaseProductSearchBarState extends State<PosPurchaseProductSearchBar
     if (!mounted || widget.readOnly) return;
     _focus.requestFocus();
   }
+
+  /// Mở camera quét mã vạch / QR rồi thêm vào giỏ.
+  Future<void> scanBarcode() => _scanBarcode();
 
   Future<void> _restoreSearchFocus() async {
     if (!widget.restoreFocusAfterPick) return;
@@ -443,41 +452,57 @@ class PosPurchaseProductSearchBarState extends State<PosPurchaseProductSearchBar
             decoration: InputDecoration(
               hintText: widget.hintText,
               hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 14),
-              prefixIcon: const Icon(Icons.search, size: 20, color: Colors.grey),
+              prefixIcon: widget.compactSellMobile
+                  ? null
+                  : const Icon(Icons.search, size: 20, color: Colors.grey),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(24),
+                borderRadius: BorderRadius.circular(
+                    widget.compactSellMobile ? 8 : 24),
                 borderSide: BorderSide(color: Colors.grey.shade300),
               ),
               enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(24),
+                borderRadius: BorderRadius.circular(
+                    widget.compactSellMobile ? 8 : 24),
                 borderSide: BorderSide(color: Colors.grey.shade300),
               ),
               focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(24),
+                borderRadius: BorderRadius.circular(
+                    widget.compactSellMobile ? 8 : 24),
                 borderSide: const BorderSide(color: _blue, width: 1.5),
               ),
               isDense: true,
               filled: true,
               fillColor: Colors.white,
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-              suffixIcon: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    tooltip: 'Chọn từ danh sách',
-                    icon: Icon(Icons.grid_view_rounded,
-                        size: 20, color: Colors.grey.shade600),
-                    onPressed: _openBrowseSheet,
-                  ),
-                  IconButton(
-                    tooltip: 'Thêm hàng hóa mới',
-                    icon: const Icon(Icons.add, color: _blue, size: 22),
-                    onPressed: widget.onAddProduct,
-                  ),
-                  const SizedBox(width: 4),
-                ],
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: widget.compactSellMobile ? 12 : 8,
+                vertical: widget.compactSellMobile ? 10 : 12,
               ),
+              suffixIcon: widget.hideSuffix
+                  ? null
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (widget.sellMode)
+                          IconButton(
+                            tooltip: 'Quét mã vạch / QR',
+                            icon: Icon(Icons.qr_code_scanner,
+                                size: 20, color: Colors.grey.shade700),
+                            onPressed: _scanBarcode,
+                          ),
+                        IconButton(
+                          tooltip: 'Chọn từ danh sách',
+                          icon: Icon(Icons.grid_view_rounded,
+                              size: 20, color: Colors.grey.shade600),
+                          onPressed: _openBrowseSheet,
+                        ),
+                        IconButton(
+                          tooltip: 'Thêm hàng hóa mới',
+                          icon: const Icon(Icons.add, color: _blue, size: 22),
+                          onPressed: widget.onAddProduct,
+                        ),
+                        const SizedBox(width: 4),
+                      ],
+                    ),
             ),
             onSubmitted: (_) => _submitExact(),
           ),

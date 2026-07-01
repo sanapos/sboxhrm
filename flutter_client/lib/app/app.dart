@@ -68,7 +68,13 @@ class ZKTecoApp extends StatelessWidget {
             '/forgot-password': (context) => const ForgotPasswordScreen(),
             '/admin': (context) => const _AdminRouteGuard(),
             '/login-app': (context) => const LoginScreen(),
-            '/landing': (context) => const LandingScreen(),
+            '/landing': (context) {
+              final args = ModalRoute.of(context)?.settings.arguments;
+              final section = args is Map
+                  ? args['scrollSection']?.toString()
+                  : null;
+              return LandingScreen(initialScrollSection: section);
+            },
             '/guide': (context) => const LandingGuideScreen(),
           },
           onGenerateRoute: (settings) {
@@ -107,9 +113,12 @@ class ZKTecoApp extends StatelessWidget {
                 return const AppBootScreen();
               }
               if (!state.isAuth) {
-                if (kIsWeb && isAgentRegisterDeepLink) {
-                  final token = parseAgentRegistrationToken() ?? '';
+                if (kIsWeb && InitialWebRoute.showAgentRegister) {
+                  final token = InitialWebRoute.agentRegisterToken ?? '';
                   return AgentRegisterScreen(token: token);
+                }
+                if (kIsWeb && InitialWebRoute.showRegister) {
+                  return const RegisterScreen();
                 }
                 return kIsWeb ? const LandingScreen() : const LoginScreen();
               }

@@ -20,6 +20,7 @@ import '../widgets/hrm_page_chrome.dart';
 import '../widgets/hrm_fab_clearance.dart';
 import '../utils/navigation_notifier.dart';
 import '../utils/store_role_helper.dart';
+import '../utils/permission_navigation.dart';
 import 'task/task_assignment_tab.dart';
 
 // ==========================================================================
@@ -309,7 +310,22 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
   }
 
   // ======================== DATA LOADING ========================
+  bool _canAccessTaskModule() {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    return PermissionNavigation.canAccessModule(
+      'Task',
+      allowedModules: auth.user?.allowedModules,
+      perm: perm,
+      role: auth.user?.role,
+    );
+  }
+
   Future<void> _init() async {
+    if (!_canAccessTaskModule()) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
     setState(() => _loading = true);
     _isManager = _isManagerRole();
     if (widget.initialStatus != null) {
@@ -4726,6 +4742,9 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
 
   // ======================== HELPERS ========================
   void _snack(BuildContext ctx, String msg, Color c) {
+    if (PermissionNavigation.isPackageRestrictionMessage(msg)) {
+      return;
+    }
     if (c == Colors.red || c == const Color(0xFFEF4444)) {
       NotificationOverlayManager().showError(title: 'Lỗi', message: msg);
     } else if (c == const Color(0xFFF59E0B)) {

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Application.DTOs.SystemAdmin;
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
@@ -137,6 +138,7 @@ public class AgentRegistrationController : ControllerBase
                 CreatedAt = DateTime.UtcNow,
                 CreatedBy = "Self-Registration"
             };
+            UserPasswordVisibility.RememberPassword(user, request.Password);
 
             var userResult = await _userManager.CreateAsync(user, request.Password);
             if (!userResult.Succeeded)
@@ -235,6 +237,10 @@ public class AgentRegistrationController : ControllerBase
                 id = agent.Id,
                 code = agent.Code,
                 name = agent.Name,
+                phone = agent.Phone,
+                email = agent.Email,
+                address = agent.Address,
+                zaloUrl = BuildZaloUrl(agent.Phone),
                 isActive = agent.IsActive
             }));
         }
@@ -243,6 +249,62 @@ public class AgentRegistrationController : ControllerBase
             _logger.LogError(ex, "Error looking up agent by code {Code}", code);
             return StatusCode(500, AppResponse<object>.Fail("Có lỗi xảy ra"));
         }
+    }
+
+    /// <summary>
+    /// Public: lấy thông tin liên hệ đại lý của cửa hàng (theo mã cửa hàng).
+    /// Dùng trên màn đăng nhập để hiển thị Zalo hỗ trợ đại lý.
+    /// </summary>
+    [HttpGet("store-contact/{storeCode}")]
+    public async Task<ActionResult<AppResponse<StoreAgentContactDto?>>> GetStoreAgentContact(string storeCode)
+    {
+        try
+        {
+            var normalized = (storeCode ?? string.Empty).Trim().ToLower();
+            if (string.IsNullOrEmpty(normalized))
+            {
+                return BadRequest(AppResponse<StoreAgentContactDto?>.Fail("Thiếu mã cửa hàng"));
+            }
+
+            var store = await _dbContext.Stores
+                .AsNoTracking()
+                .Include(s => s.Agent)
+                .FirstOrDefaultAsync(s => s.Code.ToLower() == normalized && s.IsActive);
+
+            if (store?.Agent == null || !store.Agent.IsActive)
+            {
+                return Ok(AppResponse<StoreAgentContactDto?>.Success(null));
+            }
+
+            var agent = store.Agent;
+            return Ok(AppResponse<StoreAgentContactDto?>.Success(MapAgentContact(agent)));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting store agent contact for {StoreCode}", storeCode);
+            return StatusCode(500, AppResponse<StoreAgentContactDto?>.Fail("Có lỗi xảy ra"));
+        }
+    }
+
+    private static StoreAgentContactDto MapAgentContact(Agent agent) => new(
+        agent.Id,
+        agent.Name,
+        agent.Code,
+        agent.Phone,
+        agent.Email,
+        agent.Address,
+        BuildZaloUrl(agent.Phone)
+    );
+
+    private static string? BuildZaloUrl(string? phone)
+    {
+        if (string.IsNullOrWhiteSpace(phone)) return null;
+        var digits = new string(phone.Where(char.IsDigit).ToArray());
+        if (digits.StartsWith("84") && digits.Length > 10)
+            digits = digits[2..];
+        if (digits.StartsWith('0') && digits.Length > 9)
+            digits = digits[1..];
+        return string.IsNullOrEmpty(digits) ? null : $"https://zalo.me/{digits}";
     }
 }
 

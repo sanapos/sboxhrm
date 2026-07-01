@@ -43,7 +43,7 @@ if [ -f /root/ensure_employee_live_locations.sql ]; then
   docker cp /root/ensure_employee_live_locations.sql zkteco_postgres:/tmp/ensure_employee_live_locations.sql
   docker exec zkteco_postgres psql -U postgres -d ZKTecoADMS -f /tmp/ensure_employee_live_locations.sql 2>&1 | tail -3
 fi
-for f in add_payslip_employee_id.sql add_payslip_cash_transaction.sql add_payslip_attendance_snapshot.sql add_system_announcements.sql add_maintenance_windows.sql add_marketing_p3.sql fix_pos_variant_deleted_sku.sql add_pos_stock_variant_id.sql add_pos_stock_p1.sql add_pos_purchase_kiot.sql add_pos_purchase_vat_discount.sql add_pos_purchase_vat_included.sql add_pos_stock_count_kiot.sql add_pos_stock_issue_kiot.sql add_pos_sale_order_kiot.sql add_pos_sale_customer_delivery.sql add_pos_sale_line_discount_note.sql add_pos_print_templates.sql add_pos_stock_unit_cost.sql; do
+for f in add_plain_text_password.sql add_payslip_employee_id.sql add_payslip_cash_transaction.sql add_payslip_attendance_snapshot.sql add_system_announcements.sql add_maintenance_windows.sql add_marketing_p3.sql fix_pos_variant_deleted_sku.sql add_pos_stock_variant_id.sql add_pos_stock_p1.sql add_pos_purchase_kiot.sql add_pos_purchase_vat_discount.sql add_pos_purchase_vat_included.sql add_pos_stock_count_kiot.sql add_pos_stock_issue_kiot.sql add_pos_sale_order_kiot.sql add_pos_sale_customer_delivery.sql add_pos_sale_line_discount_note.sql add_pos_print_templates.sql fix_pos_print_templates_columns.sql add_pos_stock_unit_cost.sql; do
   if [ -f /root/$f ]; then
     echo "--- $f ---"
     docker cp /root/$f zkteco_postgres:/tmp/$f

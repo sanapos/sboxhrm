@@ -24,8 +24,12 @@ bool shouldRedirectToStaticHome() {
 
   final frag = uri.fragment;
   if (frag.isNotEmpty) {
-    if (frag.startsWith('guide/')) return false;
-    if (frag == '/guide' || frag.startsWith('/guide?')) return false;
+    final normalized = frag.startsWith('/') ? frag : '/$frag';
+    if (normalized.startsWith('/guide/') ||
+        normalized == '/guide' ||
+        normalized.startsWith('/guide?')) {
+      return false;
+    }
     const hashRoutes = [
       '/login-app',
       '/register',
@@ -36,11 +40,13 @@ bool shouldRedirectToStaticHome() {
       '/landing',
     ];
     for (final r in hashRoutes) {
-      if (frag == r || frag.startsWith('$r?') || frag.startsWith('$r/')) {
+      if (normalized == r ||
+          normalized.startsWith('$r?') ||
+          normalized.startsWith('$r/')) {
         return false;
       }
     }
-    if (frag != '/' && frag.isNotEmpty) return false;
+    if (normalized != '/' && normalized.isNotEmpty) return false;
   }
 
   return path == '/' ||

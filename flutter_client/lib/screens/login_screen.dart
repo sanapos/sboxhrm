@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
@@ -9,6 +10,7 @@ import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 import '../services/app_permission_service.dart';
 import '../widgets/notification_overlay.dart';
+import '../widgets/store_agent_support_card.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -44,6 +46,8 @@ class _LoginScreenState extends State<LoginScreen>
   String? _websiteUrl;
   String _phoneNumber = '0973 024 042';
   String _zaloNumber = '0973024042';
+  Map<String, dynamic>? _storeAgentContact;
+  Timer? _agentLookupDebounce;
 
   String get _siteOrigin {
     var origin = ApiService.baseUrl.replaceFirst(RegExp(r'/api/?$'), '');
@@ -53,8 +57,26 @@ class _LoginScreenState extends State<LoginScreen>
 
   String get _phoneDigits => _phoneNumber.replaceAll(RegExp(r'\s+'), '');
 
-  String get _zaloDigits =>
-      _zaloNumber.replaceAll('https://zalo.me/', '').replaceAll(RegExp(r'\s+'), '');
+  String get _zaloDigits {
+    final agentZalo = _storeAgentContact?['zaloUrl']?.toString();
+    if (agentZalo != null && agentZalo.isNotEmpty) {
+      return agentZalo
+          .replaceAll('https://zalo.me/', '')
+          .replaceAll(RegExp(r'\s+'), '');
+    }
+    return _zaloNumber
+        .replaceAll('https://zalo.me/', '')
+        .replaceAll(RegExp(r'\s+'), '');
+  }
+
+  String get _supportPhoneDisplay {
+    final agentPhone = _storeAgentContact?['phone']?.toString();
+    if (agentPhone != null && agentPhone.isNotEmpty) return agentPhone;
+    return _phoneNumber;
+  }
+
+  String get _supportPhoneDigits =>
+      _supportPhoneDisplay.replaceAll(RegExp(r'\s+'), '');
 
   bool _isLicenseExpiredMessage(String message) =>
       message.toLowerCase().contains('hết hạn sử dụng');
@@ -75,6 +97,7 @@ class _LoginScreenState extends State<LoginScreen>
     _animController.forward();
     _loadSavedCredentials();
     _loadPublicSettings();
+    _storeCodeController.addListener(_onStoreCodeChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       AppPermissionService.promptEssentialPermissionsIfNeeded(context);
@@ -83,6 +106,33 @@ class _LoginScreenState extends State<LoginScreen>
         setState(() => _errorMessage = authError);
       }
     });
+  }
+
+  void _onStoreCodeChanged() {
+    _agentLookupDebounce?.cancel();
+    _agentLookupDebounce = Timer(const Duration(milliseconds: 500), () {
+      _loadStoreAgentContact(_storeCodeController.text.trim());
+    });
+  }
+
+  Future<void> _loadStoreAgentContact(String storeCode) async {
+    if (storeCode.isEmpty) {
+      if (mounted) setState(() => _storeAgentContact = null);
+      return;
+    }
+    try {
+      final res =
+          await ApiService().getStoreAgentContactByStoreCode(storeCode);
+      if (!mounted) return;
+      if (res['isSuccess'] == true && res['data'] != null) {
+        setState(() =>
+            _storeAgentContact = Map<String, dynamic>.from(res['data'] as Map));
+      } else {
+        setState(() => _storeAgentContact = null);
+      }
+    } catch (_) {
+      if (mounted) setState(() => _storeAgentContact = null);
+    }
   }
 
   Future<void> _loadPublicSettings() async {
@@ -135,6 +185,9 @@ class _LoginScreenState extends State<LoginScreen>
           _storeCodeController.text = savedStore;
           _emailController.text = savedEmail;
         });
+        if (savedStore.isNotEmpty) {
+          _loadStoreAgentContact(savedStore);
+        }
       }
       // Clean up any previously saved password
       await prefs.remove('saved_password');
@@ -166,6 +219,8 @@ class _LoginScreenState extends State<LoginScreen>
   void dispose() {
     _animController.dispose();
     _scrollController.dispose();
+    _agentLookupDebounce?.cancel();
+    _storeCodeController.removeListener(_onStoreCodeChanged);
     _storeCodeController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
@@ -533,6 +588,13 @@ class _LoginScreenState extends State<LoginScreen>
                               ? 'Vui lòng nhập mã cửa hàng'
                               : null,
                         ),
+                        if (_storeAgentContact != null) ...[
+                          const SizedBox(height: 12),
+                          StoreAgentSupportCard.fromMap(
+                            _storeAgentContact!,
+                            compact: true,
+                          ),
+                        ],
                         const SizedBox(height: 20),
 
                         // Email
@@ -897,6 +959,9 @@ class _LoginScreenState extends State<LoginScreen>
         }
         return 'tel:+84${_phoneDigits.startsWith('0') ? _phoneDigits.substring(1) : _phoneDigits}';
       case 'HỖ TRỢ':
+        if (_storeAgentContact?['zaloUrl'] != null) {
+          return _storeAgentContact!['zaloUrl'].toString();
+        }
         if (_supportUrl != null) return _supportUrl!;
         return 'https://zalo.me/$_zaloDigits';
     }
@@ -1009,9 +1074,9 @@ class _LoginScreenState extends State<LoginScreen>
                     runSpacing: 8,
                     children: [
                       OutlinedButton.icon(
-                        onPressed: () => _launchTel(_phoneDigits),
+                        onPressed: () => _launchTel(_supportPhoneDigits),
                         icon: const Icon(Icons.phone_rounded, size: 16),
-                        label: Text('Gọi $_phoneNumber'),
+                        label: Text('Gọi $_supportPhoneDisplay'),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: const Color(0xFF0C4A6E),
                           visualDensity: VisualDensity.compact,
@@ -1020,7 +1085,10 @@ class _LoginScreenState extends State<LoginScreen>
                       OutlinedButton.icon(
                         onPressed: () => _launchZalo(_zaloDigits),
                         icon: const Icon(Icons.chat_rounded, size: 16),
-                        label: Text('Zalo $_phoneNumber'),
+                        label: Text(
+                            _storeAgentContact != null
+                                ? 'Zalo đại lý'
+                                : 'Zalo $_phoneNumber'),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: const Color(0xFF0C4A6E),
                           visualDensity: VisualDensity.compact,

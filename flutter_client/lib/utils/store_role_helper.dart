@@ -4,6 +4,17 @@ class StoreRoleHelper {
 
   static String _norm(String? role) => (role ?? '').trim().toLowerCase();
 
+  /// Chỉ SuperAdmin / Agent bỏ qua giới hạn gói dịch vụ trên UI.
+  static bool bypassesPackageFilter(String? role) {
+    switch (_norm(role)) {
+      case 'superadmin':
+      case 'agent':
+        return true;
+      default:
+        return false;
+    }
+  }
+
   /// Admin cửa hàng / giám đốc — toàn quyền module (khớp backend IsSuperRole mở rộng).
   static bool isFullAccess(String? role) {
     switch (_norm(role)) {

@@ -61,6 +61,7 @@ Invoke-PuttyScp -Pscp $pscp -Password $Password -LocalPath "$RepoRoot\api_src.ta
 Invoke-PuttyScp -Pscp $pscp -Password $Password -LocalPath "$RepoRoot\flutter_web.tar.gz" -RemotePath "${User}@${Server}:/root/flutter_web.tar.gz"
 Invoke-PuttyScp -Pscp $pscp -Password $Password -LocalPath "$RepoRoot\flutter_client\nginx.conf" -RemotePath "${User}@${Server}:/root/flutter_nginx.conf"
 Invoke-PuttyScp -Pscp $pscp -Password $Password -LocalPath "$RepoRoot\restore_multi_shift_index.sql" -RemotePath "${User}@${Server}:/root/restore_multi_shift_index.sql"
+Invoke-PuttyScp -Pscp $pscp -Password $Password -LocalPath "$RepoRoot\scripts\add_plain_text_password.sql" -RemotePath "${User}@${Server}:/root/add_plain_text_password.sql"
 Invoke-PuttyScp -Pscp $pscp -Password $Password -LocalPath "$RepoRoot\scripts\fix_outside_checkin_devices.sql" -RemotePath "${User}@${Server}:/root/fix_outside_checkin_devices.sql"
 Invoke-PuttyScp -Pscp $pscp -Password $Password -LocalPath "$RepoRoot\scripts\ensure_employee_live_locations.sql" -RemotePath "${User}@${Server}:/root/ensure_employee_live_locations.sql"
 Invoke-PuttyScp -Pscp $pscp -Password $Password -LocalPath "$RepoRoot\scripts\fix_employee_unique_indexes.sql" -RemotePath "${User}@${Server}:/root/fix_employee_unique_indexes.sql"

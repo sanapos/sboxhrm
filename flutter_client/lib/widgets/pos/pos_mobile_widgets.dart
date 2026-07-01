@@ -699,6 +699,9 @@ class PosMobileProductRow extends StatelessWidget {
     this.image,
     this.onTap,
     this.onLongPress,
+    this.kiotSellStyle = false,
+    this.orderReservedText,
+    this.onScanCode,
   });
 
   final String name;
@@ -708,6 +711,10 @@ class PosMobileProductRow extends StatelessWidget {
   final Widget? image;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
+  /// Kiểu KiotViet bán hàng: badge tồn dưới mã, giá bên phải.
+  final bool kiotSellStyle;
+  final String? orderReservedText;
+  final VoidCallback? onScanCode;
 
   @override
   Widget build(BuildContext context) {
@@ -719,7 +726,7 @@ class PosMobileProductRow extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
@@ -750,13 +757,43 @@ class PosMobileProductRow extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      code,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: PosTheme.textSecondary,
-                      ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            code,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: PosTheme.textSecondary,
+                            ),
+                          ),
+                        ),
+                        if (onScanCode != null)
+                          InkWell(
+                            onTap: onScanCode,
+                            borderRadius: BorderRadius.circular(4),
+                            child: Padding(
+                              padding: const EdgeInsets.all(2),
+                              child: Icon(Icons.qr_code_scanner,
+                                  size: 16,
+                                  color: PosTheme.kiotBlue.withValues(alpha: 0.85)),
+                            ),
+                          ),
+                      ],
                     ),
+                    if (kiotSellStyle &&
+                        (stockText.isNotEmpty || orderReservedText != null)) ...[
+                      const SizedBox(height: 4),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: [
+                          if (stockText.isNotEmpty) _sellMetaChip(stockText),
+                          if (orderReservedText != null)
+                            _sellMetaChip(orderReservedText!),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -767,21 +804,41 @@ class PosMobileProductRow extends StatelessWidget {
                   Text(
                     priceText,
                     style: const TextStyle(
-                      fontSize: 14,
+                      fontSize: 15,
                       fontWeight: FontWeight.bold,
+                      color: PosTheme.kiotBlue,
                     ),
                   ),
-                  Text(
-                    stockText,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: PosTheme.textSecondary,
+                  if (!kiotSellStyle && stockText.isNotEmpty)
+                    Text(
+                      stockText,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: PosTheme.textSecondary,
+                      ),
                     ),
-                  ),
                 ],
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _sellMetaChip(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w500,
+          color: PosTheme.textSecondary,
         ),
       ),
     );

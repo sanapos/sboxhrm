@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using ZKTecoADMS.Application.DTOs.Commons;
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Domain.Enums;
 
@@ -63,6 +64,7 @@ public class CreateEmployeeAccountHandler(
             StoreId = manager.StoreId,
             Role = request.Role ?? nameof(Roles.Employee)
         };
+        UserPasswordVisibility.RememberPassword(newUser, request.Password);
 
         var result = await userManager.CreateAsync(newUser, request.Password);
 

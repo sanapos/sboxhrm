@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../utils/web_route_parser.dart';
 import '../utils/permission_navigation.dart';
 import '../services/api_service.dart';
+import '../widgets/store_agent_support_card.dart';
 import 'store_success_screen.dart';
 
 String _sanitizeStoreLoginNameInput(String input) {
@@ -69,6 +70,10 @@ class _RegisterScreenState extends State<RegisterScreen>
   final _confirmPasswordController = TextEditingController();
   String? _agentCode; // Mã đại lý nếu vào từ link giới thiệu
   String? _agentName;
+  String? _agentPhone;
+  String? _agentEmail;
+  String? _agentAddress;
+  String? _agentZaloUrl;
   List<_PublicServicePackage> _servicePackages = const [];
   String? _selectedServicePackageId;
   String? _initialPackageName;
@@ -122,25 +127,30 @@ class _RegisterScreenState extends State<RegisterScreen>
   void _readAgentCodeFromUrl() {
     try {
       final params = parseWebRouteQueryParams();
-      final code = params['agentCode'] ?? params['agent'] ?? params['ref'];
+      var code = params['agentCode'] ?? params['agent'] ?? params['ref'];
+      code ??= InitialWebRoute.agentCode;
       if (code != null && code.trim().isNotEmpty) {
-        _agentCode = code.trim();
+        _agentCode = code.trim().toUpperCase();
         _resolveAgentName();
       }
     } catch (_) {}
   }
 
   Future<void> _resolveAgentName() async {
-    // Best-effort lookup: thử resolve tên đại lý để hiển thị, nếu API không có thì bỏ qua.
     if (_agentCode == null) return;
     try {
       final api = ApiService();
       final res = await api.lookupAgentByCode(_agentCode!);
       if (mounted && res['isSuccess'] == true) {
-        final name = (res['data'] as Map?)?['name']?.toString();
-        if (name != null && name.isNotEmpty) {
-          setState(() => _agentName = name);
-        }
+        final data = res['data'] as Map<String, dynamic>?;
+        if (data == null) return;
+        setState(() {
+          _agentName = data['name']?.toString();
+          _agentPhone = data['phone']?.toString();
+          _agentEmail = data['email']?.toString();
+          _agentAddress = data['address']?.toString();
+          _agentZaloUrl = data['zaloUrl']?.toString();
+        });
       }
     } catch (_) {}
   }
@@ -524,33 +534,42 @@ class _RegisterScreenState extends State<RegisterScreen>
 
                   // Banner: đăng ký qua link đại lý
                   if (_agentCode != null) ...[
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFF7E6),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFFFFD591)),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.handshake_rounded,
-                              color: Color(0xFFD46B08)),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              _agentName != null
-                                  ? 'Bạn đang đăng ký qua đại lý: $_agentName ($_agentCode)'
-                                  : 'Bạn đang đăng ký qua mã đại lý: $_agentCode',
-                              style: const TextStyle(
-                                color: Color(0xFFAD4E00),
-                                fontWeight: FontWeight.w600,
-                                fontSize: 13,
+                    if (_agentName != null || _agentPhone != null)
+                      StoreAgentSupportCard(
+                        agentName: _agentName ?? _agentCode!,
+                        agentCode: _agentCode,
+                        phone: _agentPhone,
+                        email: _agentEmail,
+                        address: _agentAddress,
+                        zaloUrl: _agentZaloUrl,
+                        compact: true,
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFF7E6),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFFFD591)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.handshake_rounded,
+                                color: Color(0xFFD46B08)),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'Bạn đang đăng ký qua mã đại lý: $_agentCode',
+                                style: const TextStyle(
+                                  color: Color(0xFFAD4E00),
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
                     const SizedBox(height: 20),
                   ],
 
@@ -731,19 +750,8 @@ class _RegisterScreenState extends State<RegisterScreen>
                           },
                         ),
                         if (_servicePackages.isNotEmpty &&
-                            _selectedServicePackageId != null) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            _servicePackages
-                                .firstWhere((package) =>
-                                    package.id == _selectedServicePackageId)
-                                .summary,
-                            style: const TextStyle(
-                                color: Color(0xFF586064),
-                                fontSize: 12,
-                                height: 1.45),
-                          ),
-                        ],
+                            _selectedServicePackageId != null)
+                          _buildSelectedPackageInfo(),
                         const SizedBox(height: 16),
 
                         // Password
@@ -993,6 +1001,198 @@ class _RegisterScreenState extends State<RegisterScreen>
     );
   }
 
+  _PublicServicePackage? get _selectedPackage {
+    final id = _selectedServicePackageId;
+    if (id == null) return null;
+    for (final package in _servicePackages) {
+      if (package.id == id) return package;
+    }
+    return null;
+  }
+
+  Widget _buildSelectedPackageInfo() {
+    final package = _selectedPackage;
+    if (package == null) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF4F8FF),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFD6E4FF)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    package.name,
+                    style: const TextStyle(
+                      color: Color(0xFF1E3A5F),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+                Material(
+                  color: Colors.white,
+                  shape: const CircleBorder(
+                    side: BorderSide(color: Color(0xFF0C56D0), width: 1.2),
+                  ),
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: () => _showPackageModulesDialog(package),
+                    child: const Padding(
+                      padding: EdgeInsets.all(6),
+                      child: Icon(
+                        Icons.help_outline_rounded,
+                        size: 18,
+                        color: Color(0xFF0C56D0),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              package.descriptionText,
+              style: const TextStyle(
+                color: Color(0xFF586064),
+                fontSize: 13,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              package.limitsLine,
+              style: const TextStyle(
+                color: Color(0xFF7A8790),
+                fontSize: 12,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 10),
+            InkWell(
+              onTap: _openLandingPricing,
+              borderRadius: BorderRadius.circular(6),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(vertical: 2),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.open_in_new_rounded,
+                        size: 15, color: Color(0xFF0C56D0)),
+                    SizedBox(width: 6),
+                    Text(
+                      'Xem bảng giá các gói dịch vụ trên trang chủ',
+                      style: TextStyle(
+                        color: Color(0xFF0C56D0),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        decoration: TextDecoration.underline,
+                        decorationColor: Color(0xFF0C56D0),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showPackageModulesDialog(_PublicServicePackage package) {
+    final modules = package.allowedModules;
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Chức năng gói ${package.name}',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.close_rounded),
+              onPressed: () => Navigator.of(ctx).pop(),
+              visualDensity: VisualDensity.compact,
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: 420,
+          child: modules.isEmpty
+              ? const Text(
+                  'Gói này bao gồm các chức năng cơ bản của SBOX HRM.',
+                  style: TextStyle(fontSize: 14, height: 1.5),
+                )
+              : SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (final code in modules)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Icon(Icons.check_circle_rounded,
+                                  size: 18, color: Color(0xFF16A34A)),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  PermissionNavigation.label(code),
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    height: 1.4,
+                                    color: Color(0xFF2B3437),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              _openLandingPricing();
+            },
+            child: const Text('Xem bảng giá trang chủ'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Đóng'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openLandingPricing() {
+    Navigator.of(context).pushNamed(
+      '/landing',
+      arguments: {'scrollSection': 'pricing'},
+    );
+  }
+
   static Widget _buildLabel(String text) {
     return Text(
       text,
@@ -1148,6 +1348,20 @@ class _PublicServicePackage {
         ? ' +${allowedModules.length - 8} chức năng'
         : '';
     return '${labels.join(', ')}$extra';
+  }
+
+  String get limitsLine {
+    final limitUsers =
+        maxUsers > 0 ? '$maxUsers người dùng' : 'không giới hạn người dùng';
+    final limitDevices =
+        maxDevices > 0 ? '$maxDevices thiết bị' : 'không giới hạn thiết bị';
+    return 'Dùng thử $defaultDurationDays ngày · $limitUsers · $limitDevices';
+  }
+
+  String get descriptionText {
+    final desc = description.trim();
+    if (desc.isNotEmpty) return desc;
+    return 'Gói dùng thử $name phù hợp để trải nghiệm SBOX HRM trước khi nâng cấp.';
   }
 
   String get summary {

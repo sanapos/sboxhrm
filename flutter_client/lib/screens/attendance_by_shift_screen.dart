@@ -8,6 +8,7 @@ import '../models/attendance.dart';
 import '../models/device.dart';
 import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
+import '../utils/travel_hours_load_utils.dart';
 import 'attendance/attendance_by_shift_tab.dart';
 import 'attendance/attendance_summary_tab.dart'
     show AttendanceCorrectionRequest;
@@ -51,6 +52,8 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
   String _loadPreset = 'month';
   late DateTime _fromDate;
   late DateTime _toDate;
+  Map<String, double> _travelHoursByEmployeeKey = {};
+  Map<String, double> _travelHoursByEmployeeDateKey = {};
 
   _AttendanceByShiftScreenState() {
     final range = AttendanceDateRangePresets.resolve('month');
@@ -184,6 +187,12 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
           toDate: toStr,
           status: 'Pending',
         ).catchError((_) => <dynamic>[]),
+        loadTravelHoursMaps(
+          api: _apiService,
+          fromDate: _fromDate,
+          toDate: _toDate,
+          employeesList: _branchFilter.employees,
+        ),
       ]);
 
       final shiftsRaw = p2[0] as List;
@@ -213,6 +222,7 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
         ...(p2[5] as List<dynamic>),
         ...(p2[6] as List<dynamic>),
       ];
+      final travelMaps = p2[7] as TravelHoursMaps;
 
       if (mounted) {
         setState(() {
@@ -226,6 +236,8 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
           _dayEndHour = deh;
           _dayEndMinute = dem;
           _allowManualCorrection = allowManual;
+          _travelHoursByEmployeeKey = travelMaps.byEmployeeKey;
+          _travelHoursByEmployeeDateKey = travelMaps.byEmployeeDateKey;
           if (!silent) _isLoading = false;
         });
         if (attLoad?.truncated == true && mounted) {
@@ -476,6 +488,8 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
                     directApplyCorrections: canDirectCorrection,
                     onDataChanged: () => _loadData(silent: true),
                     onDateRangeChanged: _onDatePresetChanged,
+                    travelHoursByEmployeeKey: _travelHoursByEmployeeKey,
+                    travelHoursByEmployeeDateKey: _travelHoursByEmployeeDateKey,
                   ),
                 ),
                 if (_isLoading)

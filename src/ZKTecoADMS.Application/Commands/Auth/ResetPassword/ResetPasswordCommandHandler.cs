@@ -2,6 +2,7 @@ using ZKTecoADMS.Domain.Entities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using ZKTecoADMS.Application.Helpers;
 
 namespace ZKTecoADMS.Application.Commands.Auth.ResetPassword;
 
@@ -51,6 +52,9 @@ public class ResetPasswordCommandHandler(
 
         // Reset failed access count
         await userManager.ResetAccessFailedCountAsync(user);
+
+        UserPasswordVisibility.ClearRememberedPassword(user);
+        await userManager.UpdateAsync(user);
 
         logger.LogInformation("ResetPassword: Password reset successfully for {Email}", request.Email);
         return AppResponse<string>.Success("Mật khẩu đã được đặt lại thành công. Vui lòng đăng nhập với mật khẩu mới.");

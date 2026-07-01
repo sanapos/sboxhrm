@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../models/settings_hub_sidebar_config.dart';
 import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
+import '../services/settings_hub_sidebar_prefs.dart';
 import '../utils/permission_navigation.dart';
+import '../utils/settings_hub_catalog.dart';
+import '../utils/store_role_helper.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../services/api_service.dart';
+import '../widgets/settings_hub_sidebar_config_dialog.dart';
+import '../widgets/store_agent_support_card.dart';
 
 import 'account_management_screen.dart';
 import 'ai_settings_screen.dart';
@@ -60,6 +67,9 @@ class SettingsHubScreen extends StatefulWidget {
 
 class _SettingsHubScreenState extends State<SettingsHubScreen> {
   int? _selectedIndex;
+  Map<String, dynamic>? _storeAgentContact;
+  SettingsHubSidebarConfig? _sidebarConfig;
+  bool _sidebarConfigLoading = true;
 
   bool get _isSuperAdmin {
     final role =
@@ -72,6 +82,7 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
   @override
   void initState() {
     super.initState();
+    SettingsHubSidebarPrefs.setCache(null);
     // Consume pending sub-index if set before navigation
     final pending = SettingsHubScreen.pendingSubIndex.value;
     if (pending != null) {
@@ -82,6 +93,29 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
     }
     // Listen for future external navigation requests
     SettingsHubScreen.pendingSubIndex.addListener(_onPendingSubIndex);
+    _loadStoreAgentContact();
+    _loadSidebarConfig();
+  }
+
+  Future<void> _loadSidebarConfig() async {
+    final config = await SettingsHubSidebarPrefs.load();
+    if (!mounted) return;
+    setState(() {
+      _sidebarConfig = config;
+      _sidebarConfigLoading = false;
+    });
+  }
+
+  Future<void> _loadStoreAgentContact() async {
+    if (_isSuperAdmin) return;
+    try {
+      final res = await ApiService().getStoreAgentContact();
+      if (!mounted) return;
+      if (res['isSuccess'] == true && res['data'] != null) {
+        setState(() =>
+            _storeAgentContact = Map<String, dynamic>.from(res['data'] as Map));
+      }
+    } catch (_) {}
   }
 
   void _onPendingSubIndex() {
@@ -100,13 +134,79 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
     super.dispose();
   }
 
-  String? _labelForIndex(int index) {
-    for (final g in _groups) {
-      for (final item in g.items) {
-        if (item.index == index) return item.label;
-      }
+  String? _labelForIndex(int index) =>
+      SettingsHubCatalog.byIndex(index)?.label;
+
+  bool _canCustomizeSidebar() {
+    final role =
+        (Provider.of<AuthProvider>(context, listen: false).currentUser?.role ??
+                '')
+            .toLowerCase();
+    if (role == 'superadmin' || role == 'admin') return true;
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    return perm.canEdit('SystemSettings');
+  }
+
+  List<SettingsHubItemDef> _permittedHubItems() {
+    return _filterItems(SettingsHubCatalog.allItems);
+  }
+
+  List<SettingsHubItemDef> _orderedHubItems() {
+    return SettingsHubCatalog.applyConfig(
+      _permittedHubItems(),
+      _sidebarConfig,
+    );
+  }
+
+  List<({String title, IconData icon, Color accent, List<SettingsHubItemDef> items})>
+      _orderedHubGroups() {
+    final ordered = _orderedHubItems();
+    final grouped = SettingsHubCatalog.groupOrderedItems(ordered);
+    return [
+      for (final g in grouped)
+        (
+          title: g.title,
+          icon: _groupIcon(g.title),
+          accent: _groupAccent(g.title),
+          items: g.items,
+        ),
+    ];
+  }
+
+  IconData _groupIcon(String title) => switch (title) {
+        'Chấm công & Ca' => Icons.schedule,
+        'Chính sách lương' => Icons.payments,
+        'Quản trị hệ thống' => Icons.admin_panel_settings,
+        'POS / Bán hàng' => Icons.point_of_sale,
+        'Tích hợp' => Icons.hub,
+        _ => Icons.folder_outlined,
+      };
+
+  Color _groupAccent(String title) => switch (title) {
+        'POS / Bán hàng' => const Color(0xFF2563EB),
+        'Chính sách lương' => HrmPageChrome.primaryNavy,
+        _ => HrmPageChrome.primaryNavy,
+      };
+
+  Future<void> _openSidebarConfigDialog() async {
+    final permitted = _permittedHubItems();
+    if (permitted.isEmpty) return;
+    final initial = _sidebarConfig ??
+        SettingsHubSidebarConfig.defaults(SettingsHubCatalog.defaultOrder);
+    final saved = await SettingsHubSidebarConfigDialog.show(
+      context,
+      initialConfig: initial,
+      permittedItems: permitted,
+      onSave: SettingsHubSidebarPrefs.save,
+    );
+    if (!mounted || saved == null) return;
+    setState(() => _sidebarConfig = saved);
+    final visibleIds = SettingsHubCatalog.applyConfig(permitted, saved)
+        .map((e) => e.index)
+        .toSet();
+    if (_selectedIndex != null && !visibleIds.contains(_selectedIndex)) {
+      _closeSubPage();
     }
-    return null;
   }
 
   void _openSubPage(int index) {
@@ -142,156 +242,6 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
   static const _textDark = Color(0xFF0F172A);
   static const _textMuted = Color(0xFF71717A);
   static const _borderColor = Color(0xFFE4E4E7);
-
-  static const List<_SidebarGroup> _groups = [
-    _SidebarGroup(
-      title: 'Chấm công & Ca',
-      icon: Icons.schedule,
-      accent: HrmPageChrome.primaryNavy,
-      items: [
-        _SidebarItem(
-            index: 0,
-            icon: Icons.schedule_send,
-            label: 'Thiết lập ca',
-            desc: 'Ca làm việc, vào sớm, đi trễ, về sớm, tăng ca',
-            accent: HrmPageChrome.primaryNavy,
-            moduleCode: 'ShiftSetup'),
-        _SidebarItem(
-            index: 1,
-            icon: Icons.phone_android,
-            label: 'Chấm công mobile',
-            desc: 'Face ID, GPS, cấp quyền thiết bị, vùng chấm công',
-            accent: HrmPageChrome.primaryNavy,
-            moduleCode: 'MobileAttendance'),
-        _SidebarItem(
-            index: 2,
-            icon: Icons.celebration,
-            label: 'Ngày lễ',
-            desc: 'Ngày nghỉ lễ, hệ số công, cấu hình lịch nghỉ',
-            accent: Color(0xFFEF4444),
-            moduleCode: 'Holiday'),
-        _SidebarItem(
-            index: 12,
-            icon: Icons.router,
-            label: 'Máy chấm công',
-            desc: 'Kết nối, quản lý, điều khiển máy chấm công',
-            accent: HrmPageChrome.primaryNavy,
-            moduleCode: 'Device'),
-        _SidebarItem(
-            index: 14,
-            icon: Icons.groups,
-            label: 'Định mức nhân sự',
-            desc: 'Min/Max nhân sự theo ca, phòng ban, từng thứ T2–CN',
-            accent: Color(0xFF7C3AED),
-            moduleCode: 'WorkSchedule'),
-      ],
-    ),
-    _SidebarGroup(
-      title: 'Chính sách lương',
-      icon: Icons.payments,
-      accent: HrmPageChrome.primaryNavy,
-      items: [
-        _SidebarItem(
-            index: 3,
-            icon: Icons.card_giftcard,
-            label: 'Phụ cấp',
-            desc: 'Phụ cấp cố định, phụ cấp ngày công',
-            accent: Color(0xFFEC4899),
-            moduleCode: 'Allowance'),
-        _SidebarItem(
-            index: 4,
-            icon: Icons.gavel,
-            label: 'Phạt',
-            desc: 'Đi trễ, về sớm, tái phạm, kỷ luật',
-            accent: Color(0xFFF97316),
-            moduleCode: 'PenaltySetup'),
-        _SidebarItem(
-            index: 5,
-            icon: Icons.health_and_safety,
-            label: 'Bảo hiểm',
-            desc: 'BHXH, BHYT, BHTN, lương cơ sở',
-            accent: Color(0xFF2D5F8B),
-            moduleCode: 'Insurance'),
-        _SidebarItem(
-            index: 6,
-            icon: Icons.receipt_long,
-            label: 'Thuế TNCN',
-            desc: 'Bậc thuế, giảm trừ gia cảnh',
-            accent: HrmPageChrome.primaryNavy,
-            moduleCode: 'Tax'),
-        _SidebarItem(
-            index: 10,
-            icon: Icons.precision_manufacturing,
-            label: 'Lương sản phẩm',
-            desc: 'Nhóm SP, sản phẩm, đơn giá theo bậc',
-            accent: Color(0xFF059669),
-            moduleCode: 'ProductSalary'),
-      ],
-    ),
-    _SidebarGroup(
-      title: 'Quản trị hệ thống',
-      icon: Icons.admin_panel_settings,
-      accent: HrmPageChrome.primaryNavy,
-      items: [
-        _SidebarItem(
-            index: 7,
-            icon: Icons.manage_accounts,
-            label: 'Tài khoản',
-            desc: 'Người dùng, kích hoạt, vai trò',
-            accent: HrmPageChrome.primaryNavy,
-            moduleCode: 'UserManagement'),
-        _SidebarItem(
-            index: 8,
-            icon: Icons.security,
-            label: 'Phân quyền',
-            desc: 'Ma trận quyền, vai trò, module',
-            accent: Color(0xFFEF4444),
-            moduleCode: 'Role'),
-        _SidebarItem(
-            index: 9,
-            icon: Icons.settings_suggest,
-            label: 'Hệ thống',
-            desc: 'Giờ kết thúc ngày, tham số vận hành',
-            accent: Color(0xFF334155),
-            moduleCode: 'SystemSettings'),
-        _SidebarItem(
-            index: 13,
-            icon: Icons.business,
-            label: 'Chi nhánh',
-            desc: 'Quản lý chi nhánh, cây chi nhánh, thống kê',
-            accent: HrmPageChrome.primaryNavy,
-            moduleCode: 'Branch'),
-      ],
-    ),
-    _SidebarGroup(
-      title: 'POS / Bán hàng',
-      icon: Icons.point_of_sale,
-      accent: const Color(0xFF2563EB),
-      items: [
-        _SidebarItem(
-            index: 15,
-            icon: Icons.print_outlined,
-            label: 'Mẫu in',
-            desc: 'K58, K80, A5, A4 — thiết kế hóa đơn, phiếu',
-            accent: const Color(0xFF2563EB),
-            moduleCode: 'PosProducts'),
-      ],
-    ),
-    _SidebarGroup(
-      title: 'Tích hợp',
-      icon: Icons.hub,
-      accent: HrmPageChrome.primaryNavy,
-      items: [
-        _SidebarItem(
-            index: 11,
-            icon: Icons.auto_awesome,
-            label: 'Thiết lập AI',
-            desc: 'Gemini, bật/tắt AI',
-            accent: HrmPageChrome.primaryNavy,
-            moduleCode: 'AIGemini'),
-      ],
-    ),
-  ];
 
   Widget _getScreen(int index) {
     switch (index) {
@@ -350,12 +300,23 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
 
     if (_selectedIndex != null) {
       _ensureSubPageCallback();
-      return _getScreen(_selectedIndex!);
+    } else {
+      _closeSubPage();
     }
-    _closeSubPage();
+
     return Scaffold(
       backgroundColor: _bgColor,
-      body: _buildOverview(),
+      body: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(width: 272, child: _buildDesktopSidebar()),
+          Expanded(
+            child: _selectedIndex != null
+                ? _getScreen(_selectedIndex!)
+                : _buildDesktopWelcome(),
+          ),
+        ],
+      ),
     );
   }
 
@@ -395,11 +356,22 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
                             color: Colors.white, size: 18),
                       ),
                       const SizedBox(width: 10),
-                      const Text('Thiết lập HRM',
+                      const Expanded(
+                        child: Text('Thiết lập HRM',
                           style: TextStyle(
                               color: Colors.white,
                               fontSize: 18,
                               fontWeight: FontWeight.bold)),
+                      ),
+                      if (_canCustomizeSidebar())
+                        IconButton(
+                          tooltip: 'Tùy chỉnh menu',
+                          onPressed: _sidebarConfigLoading
+                              ? null
+                              : _openSidebarConfigDialog,
+                          icon: const Icon(Icons.dashboard_customize_outlined,
+                              color: Colors.white, size: 20),
+                        ),
                     ],
                   ),
                   const SizedBox(height: 6),
@@ -414,10 +386,16 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
             ),
           ),
         ),
+        if (_storeAgentContact != null)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: StoreAgentSupportCard.fromMap(_storeAgentContact!),
+            ),
+          ),
         // Groups
-        ..._groups.expand((g) {
-          final filteredItems = _filterItems(g.items);
-          if (filteredItems.isEmpty) return <Widget>[];
+        ..._orderedHubGroups().expand((g) {
+          if (g.items.isEmpty) return <Widget>[];
           return [
             SliverToBoxAdapter(
               child: Padding(
@@ -438,8 +416,8 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
             ),
             SliverList(
               delegate: SliverChildBuilderDelegate(
-                (ctx, i) => _buildMobileMenuItem(filteredItems[i]),
-                childCount: filteredItems.length,
+                (ctx, i) => _buildMobileMenuItem(g.items[i]),
+                childCount: g.items.length,
               ),
             ),
           ];
@@ -449,7 +427,7 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
     );
   }
 
-  Widget _buildMobileMenuItem(_SidebarItem item) {
+  Widget _buildMobileMenuItem(SettingsHubItemDef item) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
       child: Material(
@@ -504,23 +482,21 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
     );
   }
 
-  List<_SidebarItem> _filterItems(List<_SidebarItem> items) {
+  List<SettingsHubItemDef> _filterItems(List<SettingsHubItemDef> items) {
     final authUser = Provider.of<AuthProvider>(context, listen: false).user;
     final role = (authUser?.role ?? '').toLowerCase();
     final isSuperAdmin = role == 'superadmin';
-    final isAdmin = role == 'admin';
-    final isDirector = role == 'director';
-    if (isSuperAdmin || isAdmin) return items;
+    final bypassPackage = StoreRoleHelper.bypassesPackageFilter(authUser?.role);
+    if (isSuperAdmin) return items;
     final permProvider =
         Provider.of<PermissionProvider>(context, listen: false);
     final allowedModules = authUser?.allowedModules;
     return items.where((item) {
-      // Lọc theo gói dịch vụ (ưu tiên quyền role nếu gói thiếu module mới)
       if (!PermissionNavigation.isAllowedByPackageOrRole(
         item.moduleCode,
         allowedModules: allowedModules,
         perm: permProvider,
-        bypassPackageFilter: isDirector,
+        bypassPackageFilter: bypassPackage,
       )) {
         return false;
       }
@@ -532,21 +508,155 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
     }).toList();
   }
 
-  // ===== OVERVIEW CONTENT =====
-  Widget _buildOverview() {
+  // ===== DESKTOP SIDEBAR =====
+  Widget _buildDesktopSidebar() {
+    final groups = _orderedHubGroups();
+    final canCustomize = _canCustomizeSidebar();
+
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(right: BorderSide(color: _borderColor)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 18, 12, 14),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: _borderColor)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.tune_rounded,
+                      color: HrmPageChrome.primaryNavy, size: 18),
+                ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text(
+                    'Thiết lập HRM',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: _textDark,
+                    ),
+                  ),
+                ),
+                if (canCustomize)
+                  IconButton(
+                    tooltip: 'Tùy chỉnh menu',
+                    onPressed:
+                        _sidebarConfigLoading ? null : _openSidebarConfigDialog,
+                    icon: const Icon(Icons.dashboard_customize_outlined, size: 20),
+                    color: HrmPageChrome.primaryNavy,
+                    visualDensity: VisualDensity.compact,
+                  ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: _sidebarConfigLoading
+                ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+                : ListView(
+                    padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
+                    children: [
+                      for (final g in groups) ...[
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(8, 8, 8, 6),
+                          child: Text(
+                            g.title.toUpperCase(),
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: g.accent,
+                              letterSpacing: 0.6,
+                            ),
+                          ),
+                        ),
+                        for (final item in g.items)
+                          _buildDesktopSidebarItem(item),
+                      ],
+                    ],
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDesktopSidebarItem(SettingsHubItemDef item) {
+    final selected = _selectedIndex == item.index;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Material(
+        color: selected
+            ? item.accent.withValues(alpha: 0.1)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          onTap: () => _openSubPage(item.index),
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              border: selected
+                  ? Border.all(color: item.accent.withValues(alpha: 0.35))
+                  : null,
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  item.icon,
+                  size: 18,
+                  color: selected ? item.accent : const Color(0xFF64748B),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    item.label,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight:
+                          selected ? FontWeight.w700 : FontWeight.w500,
+                      color: selected ? item.accent : _textDark,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDesktopWelcome() {
+    final groups = _orderedHubGroups();
     return SingleChildScrollView(
       padding: const EdgeInsets.all(28),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
           _buildOverviewHeader(),
+          if (_storeAgentContact != null) ...[
+            const SizedBox(height: 16),
+            StoreAgentSupportCard.fromMap(_storeAgentContact!),
+          ],
           const SizedBox(height: 28),
-          // Group cards
-          ..._groups.map((g) => Padding(
-                padding: const EdgeInsets.only(bottom: 24),
-                child: _buildGroupSection(g),
-              )),
+          for (final g in groups)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 24),
+              child: _buildGroupSection(g.title, g.icon, g.accent, g.items),
+            ),
         ],
       ),
     );
@@ -614,8 +724,9 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
             spacing: 10,
             runSpacing: 10,
             children: [
-              for (final g in _groups)
-                _buildStatBadge(g.icon, '${g.items.length}', _shortGroupLabel(g.title)),
+              for (final g in _orderedHubGroups())
+                _buildStatBadge(
+                    g.icon, '${g.items.length}', _shortGroupLabel(g.title)),
             ],
           ),
         ],
@@ -657,9 +768,13 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
     );
   }
 
-  Widget _buildGroupSection(_SidebarGroup group) {
-    final filteredItems = _filterItems(group.items);
-    if (filteredItems.isEmpty) return const SizedBox.shrink();
+  Widget _buildGroupSection(
+    String title,
+    IconData icon,
+    Color accent,
+    List<SettingsHubItemDef> items,
+  ) {
+    if (items.isEmpty) return const SizedBox.shrink();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -668,36 +783,35 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                  color: group.accent.withValues(alpha: 0.1),
+                  color: accent.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10)),
-              child: Icon(group.icon, color: group.accent, size: 18),
+              child: Icon(icon, color: accent, size: 18),
             ),
             const SizedBox(width: 12),
-            Text(group.title,
+            Text(title,
                 style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                     color: _textDark)),
             const Spacer(),
-            Text('${filteredItems.length} mục',
+            Text('${items.length} mục',
                 style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: group.accent)),
+                    color: accent)),
           ],
         ),
         const SizedBox(height: 14),
         Wrap(
           spacing: 14,
           runSpacing: 14,
-          children:
-              filteredItems.map((item) => _buildShortcutCard(item)).toList(),
+          children: items.map((item) => _buildShortcutCard(item)).toList(),
         ),
       ],
     );
   }
 
-  Widget _buildShortcutCard(_SidebarItem item) {
+  Widget _buildShortcutCard(SettingsHubItemDef item) {
     return SizedBox(
       width: 280,
       child: Material(
@@ -755,35 +869,6 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
       ),
     );
   }
-}
-
-// ===== DATA CLASSES =====
-class _SidebarGroup {
-  final String title;
-  final IconData icon;
-  final Color accent;
-  final List<_SidebarItem> items;
-  const _SidebarGroup(
-      {required this.title,
-      required this.icon,
-      required this.accent,
-      required this.items});
-}
-
-class _SidebarItem {
-  final int index;
-  final IconData icon;
-  final String label;
-  final String desc;
-  final Color accent;
-  final String? moduleCode;
-  const _SidebarItem(
-      {required this.index,
-      required this.icon,
-      required this.label,
-      required this.desc,
-      required this.accent,
-      required this.moduleCode});
 }
 
 class _SettingsAccessDeniedScreen extends StatelessWidget {

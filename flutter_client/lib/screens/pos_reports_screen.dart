@@ -10,6 +10,8 @@ import '../utils/file_saver.dart' as file_saver;
 import '../utils/pos_kiot_time_range.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/pos/pos_kiot_time_filter.dart';
+import '../utils/responsive_helper.dart';
+import '../widgets/pos/pos_mobile_widgets.dart';
 import '../widgets/pos/pos_module_toolbar.dart';
 import '../widgets/pos/pos_theme.dart';
 
@@ -153,6 +155,7 @@ class _PosReportsScreenState extends State<PosReportsScreen>
       return const Scaffold(body: Center(child: Text('Không có quyền xem báo cáo POS')));
     }
     final canExport = perm.canExport('PosSalesReport') || perm.canExport('PosProducts');
+    final mobile = posUseMobileList(context);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF3F4F6),
@@ -166,9 +169,11 @@ class _PosReportsScreenState extends State<PosReportsScreen>
               controller: _tabs,
               labelColor: _kiotBlue,
               indicatorColor: _kiotBlue,
-              tabs: const [
-                Tab(text: 'Doanh thu bán hàng'),
-                Tab(text: 'Tồn kho'),
+              isScrollable: mobile,
+              tabAlignment: mobile ? TabAlignment.start : TabAlignment.fill,
+              tabs: [
+                Tab(text: mobile ? 'Doanh thu' : 'Doanh thu bán hàng'),
+                const Tab(text: 'Tồn kho'),
               ],
             ),
           ),
@@ -187,30 +192,53 @@ class _PosReportsScreenState extends State<PosReportsScreen>
   }
 
   Widget _buildSalesTab(bool canExport) {
+    final mobile = posUseMobileList(context);
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              Expanded(
-                child: PosKiotTimeFilter(
-                  state: _salesTime,
-                  onChanged: (s) {
-                    setState(() => _salesTime = s);
-                    _loadSales();
-                  },
+          child: mobile
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    PosKiotTimeFilter(
+                      state: _salesTime,
+                      onChanged: (s) {
+                        setState(() => _salesTime = s);
+                        _loadSales();
+                      },
+                    ),
+                    if (canExport) ...[
+                      const SizedBox(height: 8),
+                      FilledButton.icon(
+                        style: FilledButton.styleFrom(backgroundColor: _kiotBlue),
+                        onPressed: _exporting ? null : _exportSales,
+                        icon: const Icon(Icons.download, size: 18),
+                        label: const Text('Xuất Excel'),
+                      ),
+                    ],
+                  ],
+                )
+              : Row(
+                  children: [
+                    Expanded(
+                      child: PosKiotTimeFilter(
+                        state: _salesTime,
+                        onChanged: (s) {
+                          setState(() => _salesTime = s);
+                          _loadSales();
+                        },
+                      ),
+                    ),
+                    if (canExport)
+                      FilledButton.icon(
+                        style: FilledButton.styleFrom(backgroundColor: _kiotBlue),
+                        onPressed: _exporting ? null : _exportSales,
+                        icon: const Icon(Icons.download, size: 18),
+                        label: const Text('Excel'),
+                      ),
+                  ],
                 ),
-              ),
-              if (canExport)
-                FilledButton.icon(
-                  style: FilledButton.styleFrom(backgroundColor: _kiotBlue),
-                  onPressed: _exporting ? null : _exportSales,
-                  icon: const Icon(Icons.download, size: 18),
-                  label: const Text('Excel'),
-                ),
-            ],
-          ),
         ),
         Expanded(
           child: _loadingSales
@@ -250,40 +278,77 @@ class _PosReportsScreenState extends State<PosReportsScreen>
 
   Widget _buildStockTab(bool canExport) {
     final totalPages = (_stockTotal / _stockPageSize).ceil().clamp(1, 9999);
+    final mobile = posUseMobileList(context);
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _stockSearchCtrl,
-                  decoration: const InputDecoration(
-                    hintText: 'Tìm hàng hóa',
-                    prefixIcon: Icon(Icons.search, size: 20),
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  onSubmitted: (_) => _loadStock(),
+          child: mobile
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TextField(
+                      controller: _stockSearchCtrl,
+                      decoration: const InputDecoration(
+                        hintText: 'Tìm hàng hóa',
+                        prefixIcon: Icon(Icons.search, size: 20),
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      onSubmitted: (_) => _loadStock(),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: FilledButton(
+                            style: FilledButton.styleFrom(
+                                backgroundColor: _kiotBlue),
+                            onPressed: _loadingStock ? null : () => _loadStock(),
+                            child: const Text('Lọc'),
+                          ),
+                        ),
+                        if (canExport) ...[
+                          const SizedBox(width: 8),
+                          OutlinedButton(
+                            onPressed: _exporting ? null : _exportStock,
+                            child: const Icon(Icons.download),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                )
+              : Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _stockSearchCtrl,
+                        decoration: const InputDecoration(
+                          hintText: 'Tìm hàng hóa',
+                          prefixIcon: Icon(Icons.search, size: 20),
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        onSubmitted: (_) => _loadStock(),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton(
+                      style: FilledButton.styleFrom(backgroundColor: _kiotBlue),
+                      onPressed: _loadingStock ? null : () => _loadStock(),
+                      child: const Text('Lọc'),
+                    ),
+                    if (canExport) ...[
+                      const SizedBox(width: 8),
+                      OutlinedButton.icon(
+                        onPressed: _exporting ? null : _exportStock,
+                        icon: const Icon(Icons.download, size: 18),
+                        label: const Text('Excel'),
+                      ),
+                    ],
+                  ],
                 ),
-              ),
-              const SizedBox(width: 8),
-              FilledButton(
-                style: FilledButton.styleFrom(backgroundColor: _kiotBlue),
-                onPressed: _loadingStock ? null : () => _loadStock(),
-                child: const Text('Lọc'),
-              ),
-              if (canExport) ...[
-                const SizedBox(width: 8),
-                OutlinedButton.icon(
-                  onPressed: _exporting ? null : _exportStock,
-                  icon: const Icon(Icons.download, size: 18),
-                  label: const Text('Excel'),
-                ),
-              ],
-            ],
-          ),
         ),
         if (_stockSummary != null)
           Padding(
@@ -303,19 +368,44 @@ class _PosReportsScreenState extends State<PosReportsScreen>
           child: _loadingStock
               ? const Center(child: CircularProgressIndicator(color: _kiotBlue))
               : ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
                   itemCount: _stockProducts.length,
                   itemBuilder: (_, i) {
                     final p = _stockProducts[i];
+                    if (mobile) {
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        decoration: PosTheme.mobileCardDecoration(),
+                        child: ListTile(
+                          title: Text(p['name']?.toString() ?? ''),
+                          subtitle: Text(
+                              '${p['productCode']} · Tồn: ${p['onHandQty']}'),
+                          trailing: Text(
+                            _moneyFmt.format(_num(p['stockValue'])),
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      );
+                    }
                     return ListTile(
                       title: Text(p['name']?.toString() ?? ''),
-                      subtitle: Text('${p['productCode']} · Tồn: ${p['onHandQty']}'),
+                      subtitle: Text(
+                          '${p['productCode']} · Tồn: ${p['onHandQty']}'),
                       trailing: Text(_moneyFmt.format(_num(p['stockValue']))),
                     );
                   },
                 ),
         ),
         if (totalPages > 1)
-          Padding(
+          mobile
+              ? PosMobilePager(
+                  total: _stockTotal,
+                  page: _stockPage,
+                  pageSize: _stockPageSize,
+                  label: 'SKU',
+                  onPageChanged: (p) => _loadStock(page: p),
+                )
+              : Padding(
             padding: const EdgeInsets.all(8),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,

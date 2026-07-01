@@ -17,6 +17,7 @@ using ZKTecoADMS.Application.Commands.Accounts.BulkCreateEmployeeAccounts;
 using ZKTecoADMS.Application.DTOs.Employees;
 using ZKTecoADMS.Application.DTOs.Accounts;
 using ZKTecoADMS.Application.Interfaces;
+using ZKTecoADMS.Application.DTOs.SystemAdmin;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Infrastructure;
 
@@ -91,6 +92,47 @@ public class AccountsController(IMediator mediator, UserManager<ApplicationUser>
         var query = new GetCurrentUserProfileQuery(CurrentUserId);
         var result = await mediator.Send(query, cancellationToken);
         return Ok(result);
+    }
+
+    /// <summary>
+    /// Liên hệ đại lý hỗ trợ cửa hàng hiện tại (Zalo / SĐT).
+    /// </summary>
+    [HttpGet("store-agent-contact")]
+    public async Task<ActionResult<AppResponse<StoreAgentContactDto?>>> GetStoreAgentContact(CancellationToken cancellationToken)
+    {
+        var store = await dbContext.Stores
+            .AsNoTracking()
+            .Include(s => s.Agent)
+            .FirstOrDefaultAsync(s => s.Id == RequiredStoreId, cancellationToken);
+
+        if (store?.Agent == null || !store.Agent.IsActive)
+        {
+            return Ok(AppResponse<StoreAgentContactDto?>.Success(null));
+        }
+
+        var agent = store.Agent;
+        var zaloUrl = BuildAgentZaloUrl(agent.Phone);
+        var dto = new StoreAgentContactDto(
+            agent.Id,
+            agent.Name,
+            agent.Code,
+            agent.Phone,
+            agent.Email,
+            agent.Address,
+            zaloUrl
+        );
+        return Ok(AppResponse<StoreAgentContactDto?>.Success(dto));
+    }
+
+    private static string? BuildAgentZaloUrl(string? phone)
+    {
+        if (string.IsNullOrWhiteSpace(phone)) return null;
+        var digits = new string(phone.Where(char.IsDigit).ToArray());
+        if (digits.StartsWith("84") && digits.Length > 10)
+            digits = digits[2..];
+        if (digits.StartsWith('0') && digits.Length > 9)
+            digits = digits[1..];
+        return string.IsNullOrEmpty(digits) ? null : $"https://zalo.me/{digits}";
     }
 
     [HttpPut("profile")]

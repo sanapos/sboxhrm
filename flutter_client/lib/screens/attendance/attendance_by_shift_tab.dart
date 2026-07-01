@@ -30,6 +30,7 @@ import '../../utils/attendance_record_resolver.dart';
 import '../../utils/attendance_correction_dates.dart';
 import '../../utils/attendance_viewport_preserve.dart';
 import '../../utils/shift_records_calculator.dart';
+import '../../utils/travel_hours_load_utils.dart';
 import '../../utils/mobile_attendance_vertical_layout.dart';
 import '../../widgets/synced_scroll_list_view.dart'
     show SyncedScrollListView, linkHorizontalScrollControllers;
@@ -60,6 +61,9 @@ class AttendanceByShiftTab extends StatefulWidget {
   /// Admin / có quyền duyệt → backend tự động duyệt khi lưu.
   final bool directApplyCorrections;
 
+  final Map<String, double> travelHoursByEmployeeKey;
+  final Map<String, double> travelHoursByEmployeeDateKey;
+
   const AttendanceByShiftTab({
     super.key,
     required this.attendances,
@@ -80,6 +84,8 @@ class AttendanceByShiftTab extends StatefulWidget {
     this.dateRangePreset,
     this.allowCorrection = true,
     this.directApplyCorrections = false,
+    this.travelHoursByEmployeeKey = const {},
+    this.travelHoursByEmployeeDateKey = const {},
   });
 
   @override
@@ -1630,6 +1636,41 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     return '${h}h${m > 0 ? '${m}p' : ''}';
   }
 
+  double _travelHoursForShiftRecord(_DailyShiftRecord r) =>
+      lookupTravelHoursForDay(
+        widget.travelHoursByEmployeeDateKey,
+        date: r.date,
+        employeeId: r.employeeId,
+        employeeCode: r.employeeCode,
+      );
+
+  double _travelHoursTotalForShiftEmployee({
+    required String employeeId,
+    required String employeeCode,
+  }) =>
+      lookupTravelHoursTotal(
+        widget.travelHoursByEmployeeKey,
+        employeeId: employeeId,
+        employeeCode: employeeCode,
+      );
+
+  Widget _buildTravelHoursCell(double hours, {bool bold = false}) {
+    if (hours <= 0) {
+      return const Text('—',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA)));
+    }
+    return Text(
+      _formatHoursMinutes(hours),
+      textAlign: TextAlign.center,
+      style: TextStyle(
+        fontSize: 12,
+        fontWeight: bold ? FontWeight.w700 : FontWeight.w600,
+        color: const Color(0xFF0EA5E9),
+      ),
+    );
+  }
+
   Widget _buildColumnHeaderWithTotal(String title, String total, Color color) {
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -2710,6 +2751,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       'Về sớm',
       'Tăng ca',
       'Tổng giờ',
+      'Đi đường',
       'Giờ thập phân',
       'Công',
       'Tên ca',
@@ -2793,7 +2835,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     final earlyCol = lateCol + 1;
     final otCol = earlyCol + 1;
     final totalHoursCol = otCol + 1;
-    final decimalCol = totalHoursCol + 1;
+    final travelCol = totalHoursCol + 1;
+    final decimalCol = travelCol + 1;
     final workCol = decimalCol + 1;
     final shiftNameCol = workCol + 1;
 
@@ -2913,6 +2956,16 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
             r.workHours > 0 ? _formatHoursMinutes(r.workHours) : ''),
         style: dataStyle,
       );
+      final travelH = _travelHoursForShiftRecord(r);
+      _excelSetCell(
+        sheet,
+        row,
+        col++,
+        travelH > 0
+            ? excel_lib.TextCellValue(_formatHoursMinutes(travelH))
+            : excel_lib.TextCellValue(''),
+        style: dataStyle,
+      );
       _excelSetCell(
         sheet,
         row,
@@ -2965,7 +3018,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         style: totalStyle,
       );
 
-      for (final c in [lateCol, earlyCol, otCol, decimalCol, workCol]) {
+      for (final c in [lateCol, earlyCol, otCol, travelCol, decimalCol, workCol]) {
         final refStart = _excelRef(c, firstDataRow);
         final refEnd = _excelRef(c, lastDataRow);
         _excelSetCell(
@@ -2983,6 +3036,19 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         totalHoursCol,
         excel_lib.TextCellValue(
             totals.workHours > 0 ? _formatHoursMinutes(totals.workHours) : ''),
+        style: totalStyle,
+      );
+      final travelTotal = _travelHoursTotalForShiftEmployee(
+        employeeId: totals.employeeId,
+        employeeCode: totals.employeeCode,
+      );
+      _excelSetCell(
+        sheet,
+        totalRow,
+        travelCol,
+        excel_lib.TextCellValue(
+          travelTotal > 0 ? _formatHoursMinutes(travelTotal) : '',
+        ),
         style: totalStyle,
       );
     } else {
@@ -3079,6 +3145,9 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       r.earlyMinutes > 0 ? '${r.earlyMinutes}P' : '',
       r.overtimeMinutes > 0 ? '${r.overtimeMinutes}P' : '',
       r.workHours > 0 ? _formatHoursMinutes(r.workHours) : '',
+      _travelHoursForShiftRecord(r) > 0
+          ? _formatHoursMinutes(_travelHoursForShiftRecord(r))
+          : '',
       r.decimalHours > 0 ? r.decimalHours.toStringAsFixed(2) : '',
       r.workCount > 0 ? r.workCount.toStringAsFixed(2) : '',
       r.shiftNames.join(', '),
@@ -3098,6 +3167,13 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       totals.earlyMinutes > 0 ? '${totals.earlyMinutes}P' : '',
       totals.overtimeMinutes > 0 ? '${totals.overtimeMinutes}P' : '',
       totals.workHours > 0 ? _formatHoursMinutes(totals.workHours) : '',
+      _travelHoursTotalForShiftEmployee(
+                employeeId: totals.employeeId,
+                employeeCode: totals.employeeCode) >
+            0
+        ? _formatHoursMinutes(_travelHoursTotalForShiftEmployee(
+            employeeId: totals.employeeId, employeeCode: totals.employeeCode))
+        : '',
       totals.decimalHours > 0 ? totals.decimalHours.toStringAsFixed(2) : '',
       totals.totalWork > 0 ? totals.totalWork.toStringAsFixed(2) : '',
       '',
@@ -3404,7 +3480,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
 
     try {
       final punchCols = _shiftPunchColCount(records);
-      final colCount = 3 + punchCols + 8;
+      final colCount = 3 + punchCols + 9;
       final range = _selectedDateRange;
 
       final excelFile =
@@ -3636,7 +3712,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     return maxPunches.isEven ? maxPunches : maxPunches + 1;
   }
 
-  int _shiftTableColumnCount(int punchCols) => 5 + punchCols + 8;
+  int _shiftTableColumnCount(int punchCols) => 5 + punchCols + 9;
 
   Map<int, TableColumnWidth> _shiftDesktopColumnWidths(int punchCols) {
     final widths = <int, TableColumnWidth>{
@@ -3654,16 +3730,17 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     widths[base + 1] = const FixedColumnWidth(64);
     widths[base + 2] = const FixedColumnWidth(64);
     widths[base + 3] = const FixedColumnWidth(72);
-    widths[base + 4] = const FixedColumnWidth(72);
-    widths[base + 5] = const FixedColumnWidth(56);
-    widths[base + 6] = const FixedColumnWidth(120);
-    widths[base + 7] = const FixedColumnWidth(140);
+    widths[base + 4] = const FixedColumnWidth(68);
+    widths[base + 5] = const FixedColumnWidth(68);
+    widths[base + 6] = const FixedColumnWidth(56);
+    widths[base + 7] = const FixedColumnWidth(120);
+    widths[base + 8] = const FixedColumnWidth(140);
     return widths;
   }
 
   double _shiftDesktopTableMinWidth(int punchCols) {
     var w = 44.0 + 150 + 90 + 56 + 96 + punchCols * 64.0;
-    w += 64 * 3 + 72 * 2 + 56 + 120 + 140;
+    w += 64 * 3 + 72 + 68 * 2 + 56 + 120 + 140;
     return w;
   }
 
@@ -3714,6 +3791,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       'Về sớm',
       'Tăng ca',
       'Tổng giờ',
+      'Đi đường',
       'Giờ thập phân',
       'Công',
       'Tên ca',
@@ -3742,6 +3820,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
           .putIfAbsent(
             r.employeeId,
             () => _ShiftEmployeePeriodTotals(
+              employeeId: r.employeeId,
               employeeName: r.employeeName,
               employeeCode: r.employeeCode,
             ),
@@ -3935,6 +4014,13 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
               fontSize: 12,
               fontWeight: FontWeight.w700,
               color: totals.workHours > 0 ? Colors.green : const Color(0xFFA1A1AA)))),
+      _shiftTableCell(_buildTravelHoursCell(
+        _travelHoursTotalForShiftEmployee(
+          employeeId: totals.employeeId,
+          employeeCode: totals.employeeCode,
+        ),
+        bold: true,
+      )),
       _shiftTableCell(Text(
           totals.decimalHours > 0 ? totals.decimalHours.toStringAsFixed(2) : '—',
           textAlign: TextAlign.center,
@@ -4016,6 +4102,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
                 color: r.workHours > 0 ? Colors.green : Colors.grey))),
+        _shiftTableCell(_buildTravelHoursCell(_travelHoursForShiftRecord(r))),
         _shiftTableCell(Text(
             r.decimalHours > 0 ? r.decimalHours.toStringAsFixed(2) : '—',
             textAlign: TextAlign.center,
@@ -5293,6 +5380,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
 }
 
 class _ShiftEmployeePeriodTotals {
+  final String employeeId;
   final String employeeName;
   final String employeeCode;
   int lateMinutes = 0;
@@ -5304,6 +5392,7 @@ class _ShiftEmployeePeriodTotals {
   int presentDays = 0;
 
   _ShiftEmployeePeriodTotals({
+    required this.employeeId,
     required this.employeeName,
     required this.employeeCode,
   });

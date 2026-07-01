@@ -8,6 +8,7 @@ using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.DTOs.Commons;
 using ZKTecoADMS.Application.Interfaces;
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
@@ -320,6 +321,9 @@ public class UserManagementController(
         {
             return BadRequest(AppResponse<string>.Error(result.Errors.Select(e => e.Description)));
         }
+
+        UserPasswordVisibility.RememberPassword(user, request.NewPassword);
+        await userManager.UpdateAsync(user);
 
         return Ok(AppResponse<string>.Success("ÄÃ£ reset máº­t kháº©u thÃ nh cÃ´ng"));
     }

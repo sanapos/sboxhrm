@@ -12,6 +12,11 @@ public class ApplicationUser : IdentityUser<Guid>
     public string? Role { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime? LastLoginAt { get; set; }
+
+    /// <summary>
+    /// Mật khẩu lưu để Super Admin tra cứu khi tạo/đặt lại (không dùng cho xác thực).
+    /// </summary>
+    public string? PlainTextPassword { get; set; }
     
     // Manager-Employee Relationship (1-Many)
     public Guid? ManagerId { get; set; }

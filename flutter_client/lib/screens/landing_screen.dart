@@ -16,7 +16,10 @@ import '../widgets/landing_youtube_player.dart';
 /// Nội dung (tiêu đề, mô tả, liên hệ...) load từ /api/publicsettings để
 /// SuperAdmin có thể chỉnh sửa trong tab "Trang Landing".
 class LandingScreen extends StatefulWidget {
-  const LandingScreen({super.key});
+  const LandingScreen({super.key, this.initialScrollSection});
+
+  /// `pricing`, `features`, `contact`, … — cuộn tới mục tương ứng sau khi build.
+  final String? initialScrollSection;
 
   @override
   State<LandingScreen> createState() => _LandingScreenState();
@@ -75,6 +78,8 @@ class _LandingScreenState extends State<LandingScreen> {
   LandingGuideData _guideData = LandingGuideData.defaults;
   GuideDeepLink? _initialGuideLink;
   bool _guideDeepLinkOpened = false;
+  String? _scrollSectionTarget;
+  bool _scrollSectionHandled = false;
 
   // Brand colors – Blue theme matching LoginScreen
   static const Color kBlue = Color(0xFF0C56D0);
@@ -89,10 +94,53 @@ class _LandingScreenState extends State<LandingScreen> {
       if (_mobileMenuOpen) setState(() => _mobileMenuOpen = false);
     });
     _initialGuideLink = LandingGuideUrl.parseCurrent();
+    _scrollSectionTarget =
+        widget.initialScrollSection ?? _parseScrollSectionFromUrl();
     _loadPublicSettings();
     if (_initialGuideLink != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _maybeOpenGuideFromUrl());
     }
+    _scheduleScrollToSectionTarget();
+  }
+
+  static String? _parseScrollSectionFromUrl() {
+    try {
+      final fromQuery = Uri.base.queryParameters['section']?.trim();
+      if (fromQuery != null && fromQuery.isNotEmpty) return fromQuery;
+      var frag = Uri.base.fragment.trim();
+      if (frag.startsWith('/')) frag = frag.substring(1);
+      final queryStart = frag.indexOf('?');
+      if (queryStart >= 0) {
+        final params = Uri.splitQueryString(frag.substring(queryStart + 1));
+        final fromFrag = params['section']?.trim();
+        if (fromFrag != null && fromFrag.isNotEmpty) return fromFrag;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  void _scheduleScrollToSectionTarget() {
+    if (_scrollSectionTarget == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _tryScrollToSectionTarget();
+    });
+  }
+
+  void _tryScrollToSectionTarget() {
+    if (_scrollSectionHandled || _scrollSectionTarget == null) return;
+    final key = switch (_scrollSectionTarget) {
+      'pricing' => _pricingKey,
+      'features' => _featuresKey,
+      'video' => _videoKey,
+      'devices' => _devicesKey,
+      'download' => _downloadKey,
+      'contact' => _contactKey,
+      _ => null,
+    };
+    if (key == null || key.currentContext == null) return;
+    _scrollTo(key);
+    _scrollSectionHandled = true;
   }
 
   void _openGuide([GuideDeepLink? link]) {
@@ -271,6 +319,7 @@ class _LandingScreenState extends State<LandingScreen> {
         _initialGuideLink ??= LandingGuideUrl.parseCurrent();
       });
       _maybeOpenGuideFromUrl();
+      _scheduleScrollToSectionTarget();
     } catch (_) {}
   }
 

@@ -8,6 +8,7 @@ using ZKTecoADMS.Api.Controllers.Filters;
 using ZKTecoADMS.Application.Authorization;
 using ZKTecoADMS.Application.DTOs.SystemAdmin;
 using ZKTecoADMS.Application.Interfaces;
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
@@ -490,6 +491,7 @@ public class SystemAdminController : AuthenticatedControllerBase
         [FromQuery] string? search = null,
         [FromQuery] Guid? storeId = null,
         [FromQuery] string? role = null,
+        [FromQuery] Guid? agentId = null,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 500)
     {
@@ -500,6 +502,7 @@ public class SystemAdminController : AuthenticatedControllerBase
 
             var query = _userManager.Users
                 .Include(u => u.Store)
+                    .ThenInclude(s => s!.Agent)
                 .AsQueryable();
 
             if (!string.IsNullOrEmpty(search))
@@ -520,6 +523,12 @@ public class SystemAdminController : AuthenticatedControllerBase
                 query = query.Where(u => u.Role == role);
             }
 
+            // Lọc theo đại lý: user thuộc cửa hàng được gán đại lý này
+            if (agentId.HasValue)
+            {
+                query = query.Where(u => u.Store != null && u.Store.AgentId == agentId.Value);
+            }
+
             var totalCount = await query.CountAsync();
 
             var users = await query
@@ -536,7 +545,10 @@ public class SystemAdminController : AuthenticatedControllerBase
                     u.Store != null ? u.Store.Code : null,
                     u.IsActive,
                     u.CreatedAt,
-                    u.LastLoginAt
+                    u.LastLoginAt,
+                    u.PlainTextPassword,
+                    u.Store != null ? u.Store.AgentId : null,
+                    u.Store != null && u.Store.Agent != null ? u.Store.Agent.Name : null
                 ))
                 .ToListAsync();
 
@@ -823,12 +835,15 @@ public class SystemAdminController : AuthenticatedControllerBase
                 CreatedBy = CurrentUserId.ToString(),
                 EmailConfirmed = true
             };
+            UserPasswordVisibility.RememberPassword(newUser, request.Password);
 
             var result = await _userManager.CreateAsync(newUser, request.Password);
             if (!result.Succeeded)
             {
                 return BadRequest(AppResponse<SystemUserDto>.Fail(string.Join(", ", result.Errors.Select(e => e.Description))));
             }
+
+            await _userManager.UpdateAsync(newUser);
 
             // Add to SuperAdmin role
             await _userManager.AddToRoleAsync(newUser, nameof(Roles.SuperAdmin));
@@ -846,7 +861,8 @@ public class SystemAdminController : AuthenticatedControllerBase
                 null,
                 newUser.IsActive,
                 newUser.CreatedAt,
-                null
+                null,
+                newUser.PlainTextPassword
             );
 
             return Ok(AppResponse<SystemUserDto>.Success(dto));
@@ -1017,7 +1033,18 @@ public class SystemAdminController : AuthenticatedControllerBase
     {
         try
         {
-            if (await _dbContext.Agents.AnyAsync(a => a.Code.ToLower() == request.Code.ToLower()))
+            if (string.IsNullOrWhiteSpace(request.Name))
+            {
+                return BadRequest(AppResponse<AgentDto>.Fail("Vui lòng nhập tên đại lý"));
+            }
+
+            if (string.IsNullOrWhiteSpace(request.Code))
+            {
+                return BadRequest(AppResponse<AgentDto>.Fail("Vui lòng nhập mã đại lý"));
+            }
+
+            var normalizedCode = request.Code.Trim().ToUpper();
+            if (await _dbContext.Agents.AnyAsync(a => a.Code.ToLower() == normalizedCode.ToLower()))
             {
                 return BadRequest(AppResponse<AgentDto>.Fail("Mã đại lý đã tồn tại"));
             }
@@ -1062,6 +1089,7 @@ public class SystemAdminController : AuthenticatedControllerBase
                     CreatedAt = DateTime.UtcNow,
                     CreatedBy = CurrentUserId.ToString()
                 };
+                UserPasswordVisibility.RememberPassword(user, request.Password!);
 
                 var userResult = await _userManager.CreateAsync(user, request.Password!);
                 if (!userResult.Succeeded)
@@ -1070,15 +1098,25 @@ public class SystemAdminController : AuthenticatedControllerBase
                     return BadRequest(AppResponse<AgentDto>.Fail(errors));
                 }
 
-                await _userManager.AddToRoleAsync(user, nameof(Roles.Agent));
+                var roleResult = await _userManager.AddToRoleAsync(user, nameof(Roles.Agent));
+                if (!roleResult.Succeeded)
+                {
+                    await _userManager.DeleteAsync(user);
+                    var roleErrors = string.Join(", ", roleResult.Errors.Select(e => e.Description));
+                    return BadRequest(AppResponse<AgentDto>.Fail(
+                        $"Không gán được quyền đại lý: {roleErrors}. Liên hệ admin để kiểm tra role Agent trên hệ thống."));
+                }
+
+                await _userManager.UpdateAsync(user);
+
                 userId = user.Id;
             }
 
             var agent = new Agent
             {
                 Id = Guid.NewGuid(),
-                Name = request.Name,
-                Code = request.Code.ToUpper(),
+                Name = request.Name.Trim(),
+                Code = normalizedCode,
                 Description = request.Description,
                 Address = request.Address,
                 Phone = request.Phone,
@@ -1274,12 +1312,15 @@ public class SystemAdminController : AuthenticatedControllerBase
                 return NotFound(AppResponse<bool>.Fail("Store không tồn tại"));
             }
 
-            if (store.AgentId != null && store.AgentId != agentId)
+            // Nếu store đã thuộc chính agent này thì không cần làm gì.
+            if (store.AgentId == agentId)
             {
-                return BadRequest(AppResponse<bool>.Fail("Store đã được gán cho Agent khác"));
+                return Ok(AppResponse<bool>.Success(true));
             }
 
-            if (agent.Stores.Count >= agent.MaxStores)
+            // SuperAdmin có thể chuyển store từ đại lý khác sang; chỉ check giới hạn của
+            // đại lý đích (store đang gán agent khác không tính vào agent.Stores hiện tại).
+            if (agent.MaxStores > 0 && agent.Stores.Count >= agent.MaxStores)
             {
                 return BadRequest(AppResponse<bool>.Fail($"Agent đã đạt giới hạn {agent.MaxStores} cửa hàng"));
             }
@@ -2610,6 +2651,7 @@ public class SystemAdminController : AuthenticatedControllerBase
                 {
                     return BadRequest(AppResponse<SystemUserDto>.Fail(string.Join(", ", result.Errors.Select(e => e.Description))));
                 }
+                UserPasswordVisibility.RememberPassword(user, request.NewPassword);
             }
 
             // Update name if provided
@@ -2639,7 +2681,8 @@ public class SystemAdminController : AuthenticatedControllerBase
                 store?.Code,
                 user.IsActive,
                 user.CreatedAt,
-                user.LastLoginAt
+                user.LastLoginAt,
+                user.PlainTextPassword
             )));
         }
         catch (Exception ex)
@@ -2650,6 +2693,85 @@ public class SystemAdminController : AuthenticatedControllerBase
     }
 
     /// <summary>
+    /// Danh sách vai trò đã cấu hình phân quyền của cửa hàng (dùng khi SuperAdmin đổi quyền user).
+    /// </summary>
+    [HttpGet("stores/{storeId:guid}/roles")]
+    public async Task<ActionResult<AppResponse<List<StoreRoleOptionDto>>>> GetStoreRoles(Guid storeId)
+    {
+        try
+        {
+            var storeExists = await _dbContext.Stores.AnyAsync(s => s.Id == storeId);
+            if (!storeExists)
+                return NotFound(AppResponse<List<StoreRoleOptionDto>>.Fail("Không tìm thấy cửa hàng."));
+
+            var roleRows = await _dbContext.RolePermissions
+                .AsNoTracking()
+                .Where(rp => rp.StoreId == storeId)
+                .GroupBy(rp => rp.RoleName)
+                .Select(g => new
+                {
+                    RoleName = g.Key,
+                    RoleDisplayName = g.Select(x => x.RoleDisplayName).FirstOrDefault()
+                })
+                .ToListAsync();
+
+            var defaultOrder = new[]
+            {
+                nameof(Roles.Admin),
+                nameof(Roles.Director),
+                nameof(Roles.Accountant),
+                nameof(Roles.DepartmentHead),
+                nameof(Roles.Manager),
+                nameof(Roles.Employee),
+                nameof(Roles.Cashier),
+                nameof(Roles.User),
+            };
+
+            List<StoreRoleOptionDto> items;
+            if (roleRows.Count > 0)
+            {
+                items = roleRows
+                    .Select(r => new StoreRoleOptionDto(
+                        r.RoleName,
+                        string.IsNullOrWhiteSpace(r.RoleDisplayName)
+                            ? GetStoreRoleDisplayName(r.RoleName)
+                            : r.RoleDisplayName!))
+                    .OrderBy(r => Array.IndexOf(defaultOrder, r.RoleName) is var i and >= 0 ? i : 999)
+                    .ThenBy(r => r.RoleName, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            }
+            else
+            {
+                items = defaultOrder
+                    .Select(r => new StoreRoleOptionDto(r, GetStoreRoleDisplayName(r)))
+                    .ToList();
+            }
+
+            return Ok(AppResponse<List<StoreRoleOptionDto>>.Success(items));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting roles for store {StoreId}", storeId);
+            return StatusCode(500, AppResponse<List<StoreRoleOptionDto>>.Fail("Không tải được danh sách vai trò."));
+        }
+    }
+
+    private static string GetStoreRoleDisplayName(string roleName) => roleName.ToLowerInvariant() switch
+    {
+        "admin" => "Quản trị viên",
+        "director" => "Giám đốc",
+        "accountant" => "Kế toán",
+        "departmenthead" => "Trưởng phòng",
+        "manager" => "Quản lý",
+        "employee" => "Nhân viên",
+        "cashier" => "Thu ngân",
+        "user" => "Người dùng",
+        "agent" => "Đại lý",
+        "superadmin" => "SuperAdmin",
+        _ => roleName
+    };
+
+    /// <summary>
     /// Cập nhật vai trò (role) của user
     /// </summary>
     [HttpPut("users/{id:guid}/role")]
@@ -2657,13 +2779,47 @@ public class SystemAdminController : AuthenticatedControllerBase
     {
         try
         {
-            var validRoles = Enum.GetNames(typeof(Roles));
-            if (!validRoles.Contains(request.Role))
-                return BadRequest(AppResponse<SystemUserDto>.Fail($"Invalid role. Valid roles: {string.Join(", ", validRoles)}"));
-
             var user = await _userManager.FindByIdAsync(id.ToString());
             if (user == null)
                 return NotFound(AppResponse<SystemUserDto>.Fail("User not found"));
+
+            if (user.StoreId.HasValue)
+            {
+                var allowed = await _dbContext.RolePermissions
+                    .AsNoTracking()
+                    .Where(rp => rp.StoreId == user.StoreId.Value)
+                    .Select(rp => rp.RoleName)
+                    .Distinct()
+                    .ToListAsync();
+
+                if (allowed.Count == 0)
+                {
+                    allowed = new List<string>
+                    {
+                        nameof(Roles.Admin),
+                        nameof(Roles.Director),
+                        nameof(Roles.Accountant),
+                        nameof(Roles.DepartmentHead),
+                        nameof(Roles.Manager),
+                        nameof(Roles.Employee),
+                        nameof(Roles.Cashier),
+                        nameof(Roles.User),
+                    };
+                }
+
+                if (!allowed.Contains(request.Role, StringComparer.OrdinalIgnoreCase))
+                {
+                    return BadRequest(AppResponse<SystemUserDto>.Fail(
+                        $"Vai trò không hợp lệ. Các vai trò của cửa hàng: {string.Join(", ", allowed)}"));
+                }
+            }
+            else
+            {
+                var validRoles = Enum.GetNames(typeof(Roles));
+                if (!validRoles.Contains(request.Role))
+                    return BadRequest(AppResponse<SystemUserDto>.Fail(
+                        $"Vai trò không hợp lệ. Các vai trò hệ thống: {string.Join(", ", validRoles)}"));
+            }
 
             // Remove old roles
             var currentRoles = await _userManager.GetRolesAsync(user);
@@ -2692,7 +2848,8 @@ public class SystemAdminController : AuthenticatedControllerBase
                 store?.Code,
                 user.IsActive,
                 user.CreatedAt,
-                user.LastLoginAt
+                user.LastLoginAt,
+                user.PlainTextPassword
             )));
         }
         catch (Exception ex)

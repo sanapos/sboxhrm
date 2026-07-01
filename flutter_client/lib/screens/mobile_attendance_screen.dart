@@ -20,6 +20,7 @@ import '../utils/mobile_device_id.dart';
 import '../utils/device_site_photo_prefs.dart';
 import '../widgets/face_verification_camera.dart';
 import '../widgets/site_photo_capture_screen.dart';
+import '../utils/app_error_utils.dart';
 import '../utils/travel_hours_calculator.dart';
 import '../widgets/mobile_attendance_record_detail_sheet.dart';
 import '../widgets/notification_overlay.dart';
@@ -99,6 +100,10 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
   // Auto-submit state
   bool _isAutoSubmitting = false;
 
+  /// Đồng hồ — một Timer duy nhất, tránh tạo Stream mới mỗi lần build (gây Stack Overflow).
+  DateTime _clockNow = DateTime.now();
+  Timer? _clockTimer;
+
   @override
   void initState() {
     super.initState();
@@ -114,6 +119,10 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
 
     _loadEmployeeData();
     _initVerification();
+    _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() => _clockNow = DateTime.now());
+    });
   }
 
   /// Optimized startup: request permission once, then parallelize everything
@@ -170,13 +179,11 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _clockTimer?.cancel();
     _monitorTimer?.cancel();
     _pulseController.dispose();
     super.dispose();
   }
-
-  Stream<DateTime> _clockStream() =>
-      Stream.periodic(const Duration(seconds: 1), (_) => DateTime.now());
 
   void _loadEmployeeData() {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -596,6 +603,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
   }
 
   void _startMonitoring() {
+    _monitorTimer?.cancel();
     _monitorTimer = Timer.periodic(const Duration(seconds: 15), (_) {
       if (!mounted) return;
       final gpsRequired = _settings?.enableGps ?? true;
@@ -734,6 +742,21 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     if (settings.verificationMode == 'any') return true;
     return _nonFaceMetForPunch(punchType);
   }
+
+  /// Chỉ bật một nút: Bắt đầu đi HOẶC Đến điểm làm (theo cặp trong ngày).
+  bool _canTapTravelPunchInSequence(int punchType) {
+    if (!_canTapTravelPunch(punchType)) return false;
+    final openStart = openTravelStartTime(_todayRecords);
+    if (punchType == mobilePunchTravelStart) {
+      return openStart == null;
+    }
+    if (punchType == mobilePunchTravelArrive) {
+      return openStart != null;
+    }
+    return false;
+  }
+
+  DateTime? get _openTravelStartAt => openTravelStartTime(_todayRecords);
 
   String _punchSuccessTitle(int punchType) {
     switch (punchType) {
@@ -1093,7 +1116,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
         _showError(message);
       }
     } catch (e) {
-      _showError('Lỗi: $e');
+      _showError(AppErrorUtils.userMessage(e));
     }
   }
 
@@ -1687,7 +1710,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     final nextPunchType = _getNextPunchType();
     final isCheckIn = nextPunchType == 0;
     final needsFaceScan = _needsFaceScanOnPunch;
-    final now = DateTime.now();
+    final now = _clockNow;
     final weekdays = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 
     final List<Color> activeGradient = isCheckIn
@@ -1731,44 +1754,30 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       child: _glassCard(
         child: Column(
           children: [
-            // Clock
-            StreamBuilder<DateTime>(
-              stream: _clockStream(),
-              initialData: DateTime.now(),
-              builder: (context, snapshot) {
-                final t = snapshot.data ?? DateTime.now();
-                return ShaderMask(
-                  shaderCallback: (bounds) => const LinearGradient(
-                    colors: [Color(0xFF60A5FA), Color(0xFFA78BFA)],
-                  ).createShader(bounds),
-                  child: Text(
-                    '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}',
-                    style: const TextStyle(
-                      fontSize: 56,
-                      fontWeight: FontWeight.w200,
-                      color: Colors.white,
-                      fontFeatures: [FontFeature.tabularFigures()],
-                      letterSpacing: 4,
-                      height: 1.1,
-                    ),
-                  ),
-                );
-              },
+            // Clock (cập nhật qua Timer — không dùng Stream trong build)
+            ShaderMask(
+              shaderCallback: (bounds) => const LinearGradient(
+                colors: [Color(0xFF60A5FA), Color(0xFFA78BFA)],
+              ).createShader(bounds),
+              child: Text(
+                '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}',
+                style: const TextStyle(
+                  fontSize: 56,
+                  fontWeight: FontWeight.w200,
+                  color: Colors.white,
+                  fontFeatures: [FontFeature.tabularFigures()],
+                  letterSpacing: 4,
+                  height: 1.1,
+                ),
+              ),
             ),
-            StreamBuilder<DateTime>(
-              stream: _clockStream(),
-              initialData: DateTime.now(),
-              builder: (context, snapshot) {
-                final t = snapshot.data ?? DateTime.now();
-                return Text(
-                  ':${t.second.toString().padLeft(2, '0')}',
-                  style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w300,
-                      color: Color(0xFF64748B),
-                      fontFeatures: [FontFeature.tabularFigures()]),
-                );
-              },
+            Text(
+              ':${now.second.toString().padLeft(2, '0')}',
+              style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w300,
+                  color: Color(0xFF64748B),
+                  fontFeatures: [FontFeature.tabularFigures()]),
             ),
             const SizedBox(height: 4),
             Text(
@@ -2144,10 +2153,13 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
   }
 
   Widget _buildTravelPunchSection() {
-    final startEnabled =
-        _canTapTravelPunch(mobilePunchTravelStart) && !_isAutoSubmitting;
-    final arriveEnabled =
-        _canTapTravelPunch(mobilePunchTravelArrive) && !_isAutoSubmitting;
+    final openStart = _openTravelStartAt;
+    final startEnabled = _canTapTravelPunchInSequence(mobilePunchTravelStart) &&
+        !_isAutoSubmitting;
+    final arriveEnabled = _canTapTravelPunchInSequence(mobilePunchTravelArrive) &&
+        !_isAutoSubmitting;
+    final todayTravelHours =
+        computeTravelHoursFromMobileRecords(_todayRecords);
 
     return Column(
       children: [
@@ -2188,9 +2200,23 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
             ),
           ],
         ),
+        if (openStart != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            'Đang di chuyển từ ${openStart.hour.toString().padLeft(2, '0')}:${openStart.minute.toString().padLeft(2, '0')} — bấm Đến điểm làm khi tới công trình',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 10,
+              color: const Color(0xFF0EA5E9).withValues(alpha: 0.85),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
         const SizedBox(height: 6),
         Text(
-          'Giờ đi đường tính lương 1× (không tăng ca)',
+          todayTravelHours > 0
+              ? 'Hôm nay: ${todayTravelHours.toStringAsFixed(1)} giờ đi đường (đã duyệt) · tính lương 1×'
+              : 'Giờ đi đường tính lương 1× (không tăng ca)',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 10,

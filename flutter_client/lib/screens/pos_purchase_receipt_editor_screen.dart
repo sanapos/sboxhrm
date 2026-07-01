@@ -12,6 +12,7 @@ import '../widgets/loading_widget.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/pos/pos_product_unit_view.dart';
 import '../widgets/pos/pos_supplier_form_dialog.dart';
+import '../widgets/pos/pos_mobile_widgets.dart';
 import '../widgets/pos/pos_purchase_toolbar.dart';
 import '../widgets/pos/pos_theme.dart';
 import '../widgets/pos/pos_purchase_product_search_bar.dart';
@@ -848,6 +849,263 @@ class _PosPurchaseReceiptEditorScreenState
     }
   }
 
+  Widget _buildReceiptSearchBar() {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      child: Row(
+        children: [
+          if (!_readOnly)
+            Expanded(
+              child: PosPurchaseProductSearchBar(
+                api: _api,
+                readOnly: _readOnly,
+                onPick: (pick) => _onPickProduct(pick),
+                onBarcodePick: (pick) => _onPickProduct(pick, mergeIfSame: true),
+                onAddProduct: _openNewProduct,
+              ),
+            )
+          else
+            const Expanded(
+              child: Text('Chi tiết phiếu nhập hàng',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+            ),
+          IconButton(
+            tooltip: 'Quét mã vạch',
+            icon: const Icon(Icons.qr_code_scanner_outlined),
+            onPressed: _readOnly ? null : _scanBarcode,
+          ),
+          if (!posUseMobileList(context)) ...[
+            IconButton(
+              tooltip: 'Tùy chọn hiển thị',
+              icon: const Icon(Icons.visibility_outlined),
+              onPressed: _showColumnPicker,
+            ),
+            IconButton(
+              tooltip: 'Lệnh in',
+              icon: const Icon(Icons.print_outlined),
+              onPressed: _lines.isEmpty ? null : _printReceipt,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReceiptMetaPanel(PermissionProvider perm) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Ngày nhập', style: TextStyle(fontSize: 12)),
+          subtitle: Text(DateFormat('dd/MM/yyyy HH:mm').format(_importDate)),
+          trailing: _readOnly
+              ? null
+              : IconButton(
+                  icon: const Icon(Icons.calendar_today, size: 18),
+                  onPressed: () async {
+                    final d = await showDatePicker(
+                      context: context,
+                      initialDate: _importDate,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime(2100),
+                    );
+                    if (d != null) setState(() => _importDate = d);
+                  },
+                ),
+        ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                value: _supplierId,
+                decoration: PosTheme.inputDecoration(label: 'Nhà cung cấp'),
+                items: [
+                  const DropdownMenuItem(
+                      value: null, child: Text('— Chọn NCC —')),
+                  ..._suppliers.map((s) => DropdownMenuItem(
+                        value: s.id,
+                        child: Text('${s.supplierCode} · ${s.name}',
+                            overflow: TextOverflow.ellipsis),
+                      )),
+                ],
+                onChanged:
+                    _readOnly ? null : (v) => setState(() => _supplierId = v),
+              ),
+            ),
+            if (!_readOnly) ...[
+              const SizedBox(width: 8),
+              IconButton(
+                tooltip: 'Thêm NCC',
+                onPressed: _openAddSupplier,
+                icon: const Icon(Icons.add_business, color: _blue),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _receiptNoCtrl,
+          readOnly: _readOnly,
+          decoration: PosTheme.inputDecoration(
+            label: 'Mã phiếu nhập',
+            hint: 'Tự sinh khi lưu',
+          ),
+          onChanged: (v) => setState(() => _receiptNo = v.trim()),
+        ),
+        const SizedBox(height: 12),
+        InputDecorator(
+          decoration: PosTheme.inputDecoration(label: 'Trạng thái'),
+          child: purchaseStatusChip(_status),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _invoiceCtrl,
+          readOnly: _readOnly,
+          decoration: PosTheme.inputDecoration(label: 'Hóa đơn đầu vào'),
+        ),
+        const SizedBox(height: 12),
+        _buildDiscountField(),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _paidCtrl,
+          readOnly: _readOnly,
+          keyboardType: TextInputType.number,
+          decoration: PosTheme.inputDecoration(label: 'Tiền trả nhà cung cấp'),
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          value: _paymentMethod,
+          decoration: PosTheme.inputDecoration(label: 'Phương thức thanh toán'),
+          items: _paymentMethods
+              .map((m) => DropdownMenuItem(value: m, child: Text(m)))
+              .toList(),
+          onChanged: _readOnly
+              ? null
+              : (v) => setState(() => _paymentMethod = v ?? 'Tiền mặt'),
+        ),
+        const Divider(height: 24),
+        _totalRow('Tổng tiền hàng', _moneyFmt.format(_linesTotal)),
+        _totalRow('Tổng VAT', _moneyFmt.format(_linesVatTotal)),
+        _totalRow(
+          'Giảm giá',
+          _discountIsPercent
+              ? '${_discountInput.toStringAsFixed(_discountInput % 1 == 0 ? 0 : 1)}% (${_moneyFmt.format(_computedReceiptDiscount)})'
+              : _moneyFmt.format(_computedReceiptDiscount),
+        ),
+        _totalRow('Cần trả nhà cung cấp', _moneyFmt.format(_grandTotal),
+            bold: true, color: _blue),
+        _totalRow('Tính vào công nợ', _moneyFmt.format(_balanceDue),
+            bold: true,
+            color: _balanceDue > 0 ? Colors.orange.shade800 : null),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _noteCtrl,
+          readOnly: _readOnly,
+          maxLines: 3,
+          decoration: PosTheme.inputDecoration(label: 'Ghi chú'),
+        ),
+        if (!_readOnly && perm.canEdit('PosProducts')) ...[
+          const SizedBox(height: 20),
+          OutlinedButton(
+            onPressed: _saving ? null : () => _save(complete: false),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: _blue,
+              side: const BorderSide(color: _blue),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+            child: Text(_saving ? 'Đang lưu…' : 'Lưu tạm'),
+          ),
+          const SizedBox(height: 8),
+          FilledButton(
+            onPressed: _saving ? null : () => _save(complete: true),
+            style: FilledButton.styleFrom(
+              backgroundColor: _blue,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+            child: Text(_saving ? 'Đang lưu…' : 'Hoàn thành'),
+          ),
+          if (_receiptId != null) ...[
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: _saving ? null : _deleteDraft,
+              icon: const Icon(Icons.delete_outline, size: 18),
+              label: const Text('Xóa phiếu'),
+            ),
+          ],
+        ] else if (_status == 'Completed' &&
+            _receiptId != null &&
+            perm.canEdit('PosProducts')) ...[
+          const SizedBox(height: 20),
+          OutlinedButton.icon(
+            onPressed: _saving ? null : _voidCompleted,
+            icon: const Icon(Icons.cancel_outlined, size: 18),
+            label: const Text('Hủy phiếu'),
+          ),
+        ] else if (_status == 'Cancelled' &&
+            _receiptId != null &&
+            perm.canEdit('PosProducts')) ...[
+          const SizedBox(height: 20),
+          OutlinedButton.icon(
+            onPressed: _saving ? null : _deleteDraft,
+            icon: const Icon(Icons.delete_outline, size: 18),
+            label: const Text('Xóa phiếu'),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildMobileReceiptLines() {
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      itemCount: _lines.length,
+      itemBuilder: (_, i) {
+        final l = _lines[i];
+        return PosMobileLineItemCard(
+          index: i + 1,
+          code: l.productCode,
+          name: l.productName,
+          onRemove: _readOnly
+              ? null
+              : () {
+                  setState(() {
+                    l.dispose();
+                    _lines.removeAt(i);
+                  });
+                },
+          fields: [
+            _unitCell(l),
+            const SizedBox(height: 8),
+            _qtyCell(l),
+            const SizedBox(height: 8),
+            TextField(
+              controller: l.costCtrl,
+              readOnly: _readOnly,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Giá nhập',
+                isDense: true,
+                border: OutlineInputBorder(),
+              ),
+              onChanged: (_) => setState(() {}),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Thành tiền: ${_moneyFmt.format(l.lineTotal)} đ',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final perm = Provider.of<PermissionProvider>(context);
@@ -874,7 +1132,21 @@ class _PosPurchaseReceiptEditorScreenState
             ),
             body: _loading
                 ? const LoadingWidget()
-                : Row(
+                : posUseMobileList(context)
+                    ? posMobileEditorScrollBody(
+                        searchBar: _buildReceiptSearchBar(),
+                        lines: ColoredBox(
+                          color: Colors.white,
+                          child: _lines.isEmpty
+                              ? const SizedBox(
+                                  height: 200,
+                                  child: Center(child: Text('Chưa có hàng trong phiếu')),
+                                )
+                              : _buildFullWidthLinesTable(),
+                        ),
+                        metaPanel: _buildReceiptMetaPanel(perm),
+                      )
+                    : Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Expanded(
@@ -1187,6 +1459,9 @@ class _PosPurchaseReceiptEditorScreenState
   }
 
   Widget _buildFullWidthLinesTable() {
+    if (posUseMobileList(context)) {
+      return _buildMobileReceiptLines();
+    }
     final cols = _PurchaseLineColumn.values
         .where((c) => _visibleColumns.contains(c))
         .toList();

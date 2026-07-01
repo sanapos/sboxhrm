@@ -17,8 +17,8 @@ ALTER TABLE "Employees" ADD COLUMN IF NOT EXISTS "ContractEndDate" timestamp wit
 -- (large migration - apply structural parts only)
 -- =========================================================
 
--- Drop PlainTextPassword (migration drops it; bootstrap was adding it back - remove conflict)
-ALTER TABLE "AspNetUsers" DROP COLUMN IF EXISTS "PlainTextPassword";
+-- PlainTextPassword: Super Admin tra cứu mật khẩu (admin tạo/đặt lại)
+ALTER TABLE "AspNetUsers" ADD COLUMN IF NOT EXISTS "PlainTextPassword" text;
 
 -- Drop old unique indexes on Employees (will recreate non-unique below)
 DROP INDEX IF EXISTS "IX_Employees_CompanyEmail";
@@ -756,6 +756,38 @@ WHERE "Key" = 'technical_support_phone';
 UPDATE "AppSettings"
 SET "Value" = '0973024042', "UpdatedAt" = NOW()
 WHERE "Key" = 'zalo_url';
+
+-- =========================================================
+-- PosPrintTemplates (mẫu in POS K58/K80/A5/A4)
+-- =========================================================
+CREATE TABLE IF NOT EXISTS "PosPrintTemplates" (
+    "Id" uuid NOT NULL PRIMARY KEY,
+    "StoreId" uuid NOT NULL,
+    "Name" varchar(120) NOT NULL,
+    "DocumentType" integer NOT NULL DEFAULT 1,
+    "PaperSize" integer NOT NULL DEFAULT 1,
+    "HtmlContent" text NOT NULL DEFAULT '',
+    "IsDefault" boolean NOT NULL DEFAULT false,
+    "IsActive" boolean NOT NULL DEFAULT true,
+    "SortOrder" integer NOT NULL DEFAULT 0,
+    "CreatedAt" timestamp with time zone NOT NULL DEFAULT NOW(),
+    "CreatedBy" varchar(256) NULL,
+    "UpdatedAt" timestamp with time zone NULL,
+    "UpdatedBy" varchar(256) NULL,
+    "LastModified" timestamp without time zone NULL,
+    "LastModifiedBy" text NULL,
+    "Deleted" timestamp with time zone NULL,
+    "DeletedBy" varchar(256) NULL,
+    CONSTRAINT "FK_PosPrintTemplates_Stores_StoreId"
+        FOREIGN KEY ("StoreId") REFERENCES "Stores"("Id") ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS "IX_PosPrintTemplates_StoreId_DocumentType_IsDefault"
+    ON "PosPrintTemplates" ("StoreId", "DocumentType", "IsDefault");
+CREATE INDEX IF NOT EXISTS "IX_PosPrintTemplates_StoreId_DocumentType_PaperSize_Name"
+    ON "PosPrintTemplates" ("StoreId", "DocumentType", "PaperSize", "Name");
+
+ALTER TABLE "PosPrintTemplates" ADD COLUMN IF NOT EXISTS "LastModified" timestamp without time zone;
+ALTER TABLE "PosPrintTemplates" ADD COLUMN IF NOT EXISTS "LastModifiedBy" text;
 
 COMMIT;
 

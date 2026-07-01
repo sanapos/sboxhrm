@@ -12,6 +12,8 @@ CREATE TABLE IF NOT EXISTS "PosPrintTemplates" (
     "CreatedBy" varchar(256) NULL,
     "UpdatedAt" timestamp with time zone NULL,
     "UpdatedBy" varchar(256) NULL,
+    "LastModified" timestamp without time zone NULL,
+    "LastModifiedBy" text NULL,
     "Deleted" timestamp with time zone NULL,
     "DeletedBy" varchar(256) NULL,
     CONSTRAINT "FK_PosPrintTemplates_Stores_StoreId"

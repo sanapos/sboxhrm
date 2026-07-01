@@ -239,6 +239,12 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
             b.Property(x => x.SitePhotoUrl).HasMaxLength(500);
         });
 
+        // Mật khẩu plain text để Super Admin tra cứu (cột add_plain_text_password.sql).
+        modelBuilder.Entity<ApplicationUser>(b =>
+        {
+            b.Property(u => u.PlainTextPassword).HasColumnType("text");
+        });
+
         // Apply multi-tenant query filters for all entities with StoreId
         // This replaces any HasQueryFilter set in individual configurations
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())

@@ -31,6 +31,9 @@ class AppErrorUtils {
 
   static AppErrorKind classify(Object error) {
     final s = error.toString().toLowerCase();
+    if (error is StackOverflowError || s.contains('stack overflow')) {
+      return AppErrorKind.unknown;
+    }
     if (_isNetworkErrorText(s)) return AppErrorKind.network;
     if (error is TimeoutException || s.contains('timeoutexception')) {
       return AppErrorKind.timeout;
@@ -69,6 +72,17 @@ class AppErrorUtils {
   static AppErrorInfo fromException(Object error, {String? context}) {
     final kind = classify(error);
     final hint = _technicalHint(error);
+    final s = error.toString().toLowerCase();
+
+    if (error is StackOverflowError || s.contains('stack overflow')) {
+      return AppErrorInfo(
+        kind: AppErrorKind.unknown,
+        title: 'Giao diện quá tải',
+        message:
+            'Ứng dụng gặp sự cố hiển thị. Đóng app hoàn toàn (vuốt khỏi đa nhiệm) rồi mở lại.',
+        technicalHint: hint,
+      );
+    }
 
     switch (kind) {
       case AppErrorKind.network:

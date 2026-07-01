@@ -1,6 +1,7 @@
 import '../providers/permission_provider.dart';
 import 'dashboard_access.dart';
 import 'dashboard_permission_modules.dart';
+import 'permission_navigation.dart';
 
 /// Quyết định block nào trên Dashboard được render / gọi API.
 class DashboardUiCapabilities {
@@ -111,13 +112,21 @@ class DashboardUiCapabilities {
   factory DashboardUiCapabilities.from(
     PermissionProvider perm, {
     String? role,
+    List<String>? allowedModules,
   }) {
+    bool pkg(String code) => PermissionNavigation.canAccessModule(
+          code,
+          allowedModules: allowedModules,
+          perm: perm,
+          role: role,
+        );
+
     if (DashboardAccess.useEmployeeDashboard(perm, role: role)) {
-      final quickLeave = perm.canView('Leave');
-      final quickShiftSwap = perm.canView('ShiftSwap') ||
-          perm.canApprove('ScheduleApproval');
-      final quickPayroll =
-          perm.canView('Payslip') || perm.canView('Payroll');
+      final quickLeave = pkg('Leave') && perm.canView('Leave');
+      final quickShiftSwap = (pkg('ShiftSwap') && perm.canView('ShiftSwap')) ||
+          (pkg('ScheduleApproval') && perm.canApprove('ScheduleApproval'));
+      final quickPayroll = (pkg('Payslip') && perm.canView('Payslip')) ||
+          (pkg('Payroll') && perm.canView('Payroll'));
       return DashboardUiCapabilities(
         useEmployeeLayout: true,
         showQuickActions:
@@ -166,67 +175,90 @@ class DashboardUiCapabilities {
       );
     }
 
-    final hero = _w(perm, DashboardPermissionModules.attendanceOverview);
-    final insights = _w(perm, DashboardPermissionModules.hrInsights);
-    final shiftSched = _w(perm, DashboardPermissionModules.todaySchedule);
-    final gridRealtime =
-        _w(perm, DashboardPermissionModules.realtimeAttendance);
-    final gridAbsent = _w(perm, DashboardPermissionModules.absent);
-    final gridLate = _w(perm, DashboardPermissionModules.lateEarly);
-    final gridKpi = _w(perm, DashboardPermissionModules.kpiPanel);
-    final gridNews = _w(perm, DashboardPermissionModules.internalNews);
+    final hero = _w(perm, DashboardPermissionModules.attendanceOverview) &&
+        pkg('Attendance');
+    final insights =
+        _w(perm, DashboardPermissionModules.hrInsights) && pkg('Dashboard');
+    final shiftSched =
+        _w(perm, DashboardPermissionModules.todaySchedule) &&
+            pkg('WorkSchedule');
+    final gridRealtime = _w(perm, DashboardPermissionModules.realtimeAttendance) &&
+        pkg('Attendance');
+    final gridAbsent =
+        _w(perm, DashboardPermissionModules.absent) && pkg('Employee');
+    final gridLate =
+        _w(perm, DashboardPermissionModules.lateEarly) && pkg('Attendance');
+    final gridKpi = _w(perm, DashboardPermissionModules.kpiPanel) && pkg('KPI');
+    final gridNews =
+        _w(perm, DashboardPermissionModules.internalNews) &&
+            pkg('Communication');
     final mainGrid =
         gridRealtime || gridAbsent || gridLate || gridKpi || gridNews;
-    final emp = perm.canView('Employee');
+    final emp = pkg('Employee') && perm.canView('Employee');
 
     return DashboardUiCapabilities(
       useEmployeeLayout: false,
-      showQuickActions: perm.canView('Leave') ||
-          perm.canApprove('ScheduleApproval') ||
-          perm.canView('ShiftSwap') ||
-          perm.canView('Payroll') ||
-          perm.canView('Payslip') ||
-          perm.canView('Communication') ||
-          perm.canView('AIGemini'),
+      showQuickActions: (pkg('Leave') && perm.canView('Leave')) ||
+          (pkg('ScheduleApproval') && perm.canApprove('ScheduleApproval')) ||
+          (pkg('ShiftSwap') && perm.canView('ShiftSwap')) ||
+          (pkg('Payroll') && perm.canView('Payroll')) ||
+          (pkg('Payslip') && perm.canView('Payslip')) ||
+          (pkg('Communication') && perm.canView('Communication')) ||
+          (pkg('AIGemini') && perm.canView('AIGemini')),
       showAttendanceHero: hero,
       showShiftSchedule: shiftSched,
       showInsightSection: insights,
       showMainGrid: mainGrid,
-      showAiFab: perm.canView('AIGemini'),
+      showAiFab: pkg('AIGemini') && perm.canView('AIGemini'),
       loadDailyReport: hero,
-      loadDevices: hero || gridRealtime || perm.canView('Device'),
+      loadDevices: (hero || gridRealtime || perm.canView('Device')) &&
+          pkg('Device'),
       loadEmployees: emp && (hero || gridAbsent || insights),
       loadRawAttendances: hero || gridRealtime || gridLate,
-      loadCommunications: gridNews || perm.canView('Communication'),
-      loadKpi: gridKpi || perm.canView('KPI'),
-      loadLeaves: insights && perm.canView('Leave'),
+      loadCommunications: (gridNews || perm.canView('Communication')) &&
+          pkg('Communication'),
+      loadKpi: (gridKpi || perm.canView('KPI')) && pkg('KPI'),
+      loadLeaves: insights && pkg('Leave') && perm.canView('Leave'),
       loadSchedules: shiftSched,
       loadPendingApprovals: insights && _pendingModules(perm),
-      loadTasks: insights && perm.canView('Task'),
-      loadOvertime: insights && perm.canView('Overtime'),
+      loadTasks: insights && pkg('Task') && perm.canView('Task'),
+      loadOvertime: insights && pkg('Overtime') && perm.canView('Overtime'),
       loadPenalty: insights &&
+          pkg('BonusPenalty') &&
           (perm.canView('PenaltyTickets') || perm.canView('BonusPenalty')),
-      loadCash: insights && perm.canView('CashTransaction'),
+      loadCash: insights &&
+          pkg('CashTransaction') &&
+          perm.canView('CashTransaction'),
       loadContracts: insights && emp,
-      loadAdvances: insights && perm.canView('AdvanceRequests'),
+      loadAdvances: insights &&
+          pkg('AdvanceRequests') &&
+          perm.canView('AdvanceRequests'),
       loadBirthdays: insights && emp,
-      quickLeave: perm.canView('Leave'),
-      quickShiftSwap:
-          perm.canApprove('ScheduleApproval') || perm.canView('ShiftSwap'),
-      quickPayroll: perm.canView('Payroll') || perm.canView('Payslip'),
-      quickCommunication: perm.canView('Communication'),
-      quickAi: perm.canView('AIGemini'),
+      quickLeave: pkg('Leave') && perm.canView('Leave'),
+      quickShiftSwap: (pkg('ScheduleApproval') &&
+              perm.canApprove('ScheduleApproval')) ||
+          (pkg('ShiftSwap') && perm.canView('ShiftSwap')),
+      quickPayroll: (pkg('Payroll') && perm.canView('Payroll')) ||
+          (pkg('Payslip') && perm.canView('Payslip')),
+      quickCommunication:
+          pkg('Communication') && perm.canView('Communication'),
+      quickAi: pkg('AIGemini') && perm.canView('AIGemini'),
       insightLeave: insights,
       insightPending: insights && _pendingModules(perm),
       insightBirthday: insights && emp,
-      insightOvertime: insights && perm.canView('Overtime'),
-      insightTask: insights && perm.canView('Task'),
+      insightOvertime: insights && pkg('Overtime') && perm.canView('Overtime'),
+      insightTask: insights && pkg('Task') && perm.canView('Task'),
       insightPenalty: insights &&
+          pkg('BonusPenalty') &&
           (perm.canView('PenaltyTickets') || perm.canView('BonusPenalty')),
       insightContracts: insights && emp,
-      insightAdvance: insights && perm.canView('AdvanceRequests'),
+      insightAdvance: insights &&
+          pkg('AdvanceRequests') &&
+          perm.canView('AdvanceRequests'),
       insightNewHires: insights && emp,
-      insightCash: insights && perm.canView('CashTransaction'),
+      insightCash: insights &&
+          pkg('CashTransaction') &&
+          perm.canView('CashTransaction'),
       gridRealtime: gridRealtime,
       gridAbsent: gridAbsent,
       gridLateEarly: gridLate,

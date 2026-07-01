@@ -1,5 +1,8 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 
+import 'initial_route_capture_stub.dart'
+    if (dart.library.html) 'initial_route_capture_web.dart' as initial_route_capture;
+
 /// Parse query params from both standard URL and hash routes (`/#/register?x=1`).
 Map<String, String> parseWebRouteQueryParams() {
   final params = <String, String>{};
@@ -50,4 +53,30 @@ bool get isPublicRegisterDeepLink {
   final segs = parseWebHashPathSegments();
   if (segs.isNotEmpty && segs.first == 'register') return true;
   return Uri.base.path.contains('/register');
+}
+
+/// Giữ deep link web đọc một lần lúc khởi động (tránh mất hash sau Flutter bootstrap).
+class InitialWebRoute {
+  InitialWebRoute._();
+
+  static bool _captured = false;
+  static bool showRegister = false;
+  static bool showAgentRegister = false;
+  static String? agentRegisterToken;
+  static Map<String, String> queryParams = const {};
+
+  static void capture() {
+    if (!kIsWeb || _captured) return;
+    _captured = true;
+    queryParams = Map<String, String>.from(parseWebRouteQueryParams());
+    showAgentRegister = isAgentRegisterDeepLink;
+    agentRegisterToken = parseAgentRegistrationToken();
+    showRegister = isPublicRegisterDeepLink;
+
+    // Fallback: index.html lưu vào sessionStorage trước khi Flutter có thể xóa hash.
+    initial_route_capture.captureInitialRouteFromStorage();
+  }
+
+  static String? get agentCode =>
+      queryParams['agentCode'] ?? queryParams['agent'] ?? queryParams['ref'];
 }
