@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import '../../services/api_service.dart';
+import '../../widgets/admin/admin_mobile_widgets.dart';
 import 'system_admin_helpers.dart';
 
 class DevicesTab extends StatefulWidget {
@@ -106,7 +107,8 @@ class DevicesTabState extends State<DevicesTab> {
                       ? 'Không tìm thấy thiết bị'
                       : 'Không có thiết bị')
               : ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  padding: EdgeInsets.symmetric(
+                      horizontal: adminUseMobileLayout(context) ? 12 : 20),
                   itemCount: sortedKeys.length,
                   itemBuilder: (ctx, i) {
                     final storeName = sortedKeys[i];
@@ -124,6 +126,49 @@ class DevicesTabState extends State<DevicesTab> {
   }
 
   Widget _buildToolbar(int onlineCount, int unassignedCount) {
+    final statsRow = AdminMobileStatRow(children: [
+      AdminHelpers.countBadge('Tổng', _devices.length, AdminHelpers.info),
+      const SizedBox(width: 8),
+      AdminHelpers.countBadge('Online', onlineCount, AdminHelpers.success),
+      const SizedBox(width: 8),
+      AdminHelpers.countBadge(
+          'Offline',
+          _devices.length - onlineCount - unassignedCount,
+          Colors.grey),
+      if (unassignedCount > 0) ...[
+        const SizedBox(width: 8),
+        AdminHelpers.countBadge(
+            'Chưa gán', unassignedCount, AdminHelpers.warning),
+      ],
+    ]);
+
+    if (adminUseMobileLayout(context)) {
+      return AdminMobileListToolbar(
+        searchController: _searchCtrl,
+        searchHint: 'Tìm thiết bị theo tên, SN, IP...',
+        onSearchChanged: () => setState(() {}),
+        activeFilterCount:
+            (_storeFilter != null ? 1 : 0) + (_statusFilter != null ? 1 : 0),
+        onRefresh: loadData,
+        onOpenFilters: () => showAdminFilterSheet(
+          context,
+          onApply: () {
+            setState(() {});
+            loadData();
+          },
+          onClear: () {
+            setState(() {
+              _storeFilter = null;
+              _statusFilter = null;
+            });
+            loadData();
+          },
+          child: _buildFilterFields(fullWidth: true),
+        ),
+        stats: statsRow,
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
       child: Column(
@@ -134,104 +179,95 @@ class DevicesTabState extends State<DevicesTab> {
             onChanged: () => setState(() {}),
           ),
           const SizedBox(height: 8),
-          Wrap(
-            spacing: 10,
-            runSpacing: 6,
-            children: [
-              SizedBox(
-                width: 200,
-                child: Container(
-                  height: 40,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.grey.shade300)),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      isExpanded: true,
-                      value: _storeFilter,
-                      hint: const Text('Tất cả cửa hàng',
-                          style: TextStyle(fontSize: 13)),
-                      items: [
-                        const DropdownMenuItem<String>(
-                            value: null,
-                            child: Text('Tất cả cửa hàng',
-                                style: TextStyle(fontSize: 13))),
-                        ...widget.stores.map((s) => DropdownMenuItem(
-                              value: s['id']?.toString(),
-                              child: Text(s['name'] ?? 'N/A',
-                                  style: const TextStyle(fontSize: 13)),
-                            )),
-                      ],
-                      onChanged: (v) {
-                        setState(() => _storeFilter = v);
-                        loadData();
-                      },
-                    ),
-                  ),
-                ),
-              ),
-              Container(
-                height: 40,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.grey.shade300)),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String?>(
-                    value: _statusFilter,
-                    hint: const Text('Tất cả',
-                        style: TextStyle(fontSize: 13)),
-                    items: const [
-                      DropdownMenuItem(
-                          value: null,
-                          child:
-                              Text('Tất cả', style: TextStyle(fontSize: 13))),
-                      DropdownMenuItem(
-                          value: 'online',
-                          child:
-                              Text('Online', style: TextStyle(fontSize: 13))),
-                      DropdownMenuItem(
-                          value: 'offline',
-                          child:
-                              Text('Offline', style: TextStyle(fontSize: 13))),
-                      DropdownMenuItem(
-                          value: 'unassigned',
-                          child: Text('Chưa gán',
-                              style: TextStyle(fontSize: 13))),
-                    ],
-                    onChanged: (v) {
-                      setState(() => _statusFilter = v);
-                      loadData();
-                    },
-                  ),
-                ),
-              ),
-            ],
-          ),
+          _buildFilterFields(),
           const SizedBox(height: 8),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(children: [
-              AdminHelpers.countBadge(
-                  'Tổng', _devices.length, AdminHelpers.info),
-              const SizedBox(width: 8),
-              AdminHelpers.countBadge(
-                  'Online', onlineCount, AdminHelpers.success),
-              const SizedBox(width: 8),
-              AdminHelpers.countBadge(
-                  'Offline', _devices.length - onlineCount - unassignedCount,
-                  Colors.grey),
-              const SizedBox(width: 8),
-              if (unassignedCount > 0)
-                AdminHelpers.countBadge(
-                    'Chưa gán', unassignedCount, AdminHelpers.warning),
-            ]),
-          ),
+          statsRow,
         ],
       ),
+    );
+  }
+
+  Widget _buildFilterFields({bool fullWidth = false}) {
+    final storeDropdown = Container(
+      width: fullWidth ? double.infinity : 200,
+      height: 40,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.grey.shade300)),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          isExpanded: true,
+          value: _storeFilter,
+          hint: const Text('Tất cả cửa hàng', style: TextStyle(fontSize: 13)),
+          items: [
+            const DropdownMenuItem<String>(
+                value: null,
+                child: Text('Tất cả cửa hàng', style: TextStyle(fontSize: 13))),
+            ...widget.stores.map((s) => DropdownMenuItem(
+                  value: s['id']?.toString(),
+                  child: Text(s['name'] ?? 'N/A',
+                      style: const TextStyle(fontSize: 13)),
+                )),
+          ],
+          onChanged: (v) {
+            setState(() => _storeFilter = v);
+            loadData();
+          },
+        ),
+      ),
+    );
+
+    final statusDropdown = Container(
+      width: fullWidth ? double.infinity : null,
+      height: 40,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.grey.shade300)),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String?>(
+          isExpanded: fullWidth,
+          value: _statusFilter,
+          hint: const Text('Tất cả', style: TextStyle(fontSize: 13)),
+          items: const [
+            DropdownMenuItem(
+                value: null,
+                child: Text('Tất cả', style: TextStyle(fontSize: 13))),
+            DropdownMenuItem(
+                value: 'online',
+                child: Text('Online', style: TextStyle(fontSize: 13))),
+            DropdownMenuItem(
+                value: 'offline',
+                child: Text('Offline', style: TextStyle(fontSize: 13))),
+            DropdownMenuItem(
+                value: 'unassigned',
+                child: Text('Chưa gán', style: TextStyle(fontSize: 13))),
+          ],
+          onChanged: (v) {
+            setState(() => _statusFilter = v);
+            loadData();
+          },
+        ),
+      ),
+    );
+
+    if (fullWidth) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          storeDropdown,
+          const SizedBox(height: 12),
+          statusDropdown,
+        ],
+      );
+    }
+    return Wrap(
+      spacing: 10,
+      runSpacing: 6,
+      children: [storeDropdown, statusDropdown],
     );
   }
 

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../widgets/admin/admin_mobile_widgets.dart';
+import '../widgets/hrm_page_chrome.dart';
 import 'system_admin/system_admin_helpers.dart';
 import 'system_admin/dashboard_tab.dart';
 import 'system_admin/stores_tab.dart';
@@ -20,7 +22,6 @@ import 'system_admin/marketing_tab.dart';
 import 'system_admin/content_pages_tab.dart';
 import 'system_admin/consultation_requests_tab.dart';
 import 'system_admin/landing_content_tab.dart';
-import '../widgets/hrm_page_chrome.dart';
 
 class SystemAdminScreen extends StatefulWidget {
   const SystemAdminScreen({super.key});
@@ -32,8 +33,8 @@ class SystemAdminScreen extends StatefulWidget {
 class _SystemAdminScreenState extends State<SystemAdminScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
 
-  // GlobalKeys to access child tab states for count badges
   final _dashboardKey = GlobalKey<DashboardTabState>();
   final _storesKey = GlobalKey<StoresTabState>();
   final _usersKey = GlobalKey<UsersTabState>();
@@ -52,14 +53,32 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
   final _consultationRequestsKey = GlobalKey<ConsultationRequestsTabState>();
   final _landingContentKey = GlobalKey<LandingContentTabState>();
 
+  static const _tabLabels = [
+    'Tổng quan',
+    'Cửa hàng',
+    'Người dùng',
+    'Thiết bị',
+    'Đại lý',
+    'License',
+    'Cài đặt',
+    'Database',
+    'Nhật ký',
+    'Gói DV',
+    'KH Kích key',
+    'Thông báo',
+    'Bảo trì',
+    'Marketing',
+    'Nội dung & Phản hồi',
+    'Lead tư vấn',
+    'Landing Page',
+  ];
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 17, vsync: this);
+    _tabController = TabController(length: _tabLabels.length, vsync: this);
     _tabController.addListener(() {
-      if (!_tabController.indexIsChanging) {
-        setState(() {}); // Rebuild header badges when tab changes
-      }
+      if (!_tabController.indexIsChanging) setState(() {});
     });
   }
 
@@ -76,50 +95,217 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
   List<Map<String, dynamic>> get _storesList =>
       _storesKey.currentState?.stores ?? [];
 
+  List<AdminNavItem> _navItems() {
+    return [
+      const AdminNavItem(
+          index: 0, icon: Icons.dashboard, label: 'Tổng quan', group: 'Tổng quan'),
+      AdminNavItem(
+          index: 1,
+          icon: Icons.store,
+          label: 'Cửa hàng',
+          group: 'Quản lý',
+          count: _storesKey.currentState?.stores.length),
+      AdminNavItem(
+          index: 2,
+          icon: Icons.people,
+          label: 'Người dùng',
+          group: 'Quản lý',
+          count: _usersKey.currentState?.users.length),
+      AdminNavItem(
+          index: 3,
+          icon: Icons.router,
+          label: 'Thiết bị',
+          group: 'Quản lý',
+          count: _devicesKey.currentState?.devices.length),
+      AdminNavItem(
+          index: 4,
+          icon: Icons.support_agent,
+          label: 'Đại lý',
+          group: 'Quản lý',
+          count: _agentsKey.currentState?.agents.length),
+      AdminNavItem(
+          index: 5,
+          icon: Icons.vpn_key,
+          label: 'License',
+          group: 'Quản lý',
+          count: _licensesKey.currentState?.licenses.length),
+      AdminNavItem(
+          index: 6,
+          icon: Icons.settings,
+          label: 'Cài đặt',
+          group: 'Hệ thống',
+          count: _settingsKey.currentState?.settings.length),
+      const AdminNavItem(
+          index: 7, icon: Icons.storage, label: 'Database', group: 'Hệ thống'),
+      const AdminNavItem(
+          index: 8, icon: Icons.history, label: 'Nhật ký', group: 'Hệ thống'),
+      AdminNavItem(
+          index: 9,
+          icon: Icons.inventory,
+          label: 'Gói DV',
+          group: 'Hệ thống',
+          count: _servicePackagesKey.currentState?.packages.length),
+      AdminNavItem(
+          index: 10,
+          icon: Icons.card_giftcard,
+          label: 'KH Kích key',
+          group: 'Hệ thống',
+          count: _keyPromotionsKey.currentState?.promotions.length),
+      AdminNavItem(
+          index: 11,
+          icon: Icons.campaign,
+          label: 'Thông báo',
+          group: 'Nội dung',
+          count: _announcementsKey.currentState?.announcements.length),
+      AdminNavItem(
+          index: 12,
+          icon: Icons.build_circle,
+          label: 'Bảo trì',
+          group: 'Nội dung',
+          count: _maintenanceKey.currentState?.windows.length),
+      AdminNavItem(
+          index: 13,
+          icon: Icons.local_offer,
+          label: 'Marketing',
+          group: 'Nội dung',
+          count: (_marketingKey.currentState?.templates.length ?? 0) +
+              (_marketingKey.currentState?.campaigns.length ?? 0)),
+      const AdminNavItem(
+          index: 14,
+          icon: Icons.description_outlined,
+          label: 'Nội dung & Phản hồi',
+          group: 'Nội dung'),
+      AdminNavItem(
+          index: 15,
+          icon: Icons.support_agent_rounded,
+          label: 'Lead tư vấn',
+          group: 'Nội dung',
+          count: _consultationRequestsKey.currentState?.items.length),
+      const AdminNavItem(
+          index: 16,
+          icon: Icons.web_rounded,
+          label: 'Landing Page',
+          group: 'Nội dung'),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
+    final mobile = adminUseMobileLayout(context);
+
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: AdminHelpers.bgLight,
+      drawer: mobile
+          ? AdminMobileDrawer(
+              items: _navItems(),
+              currentIndex: _tabController.index,
+              onSelect: _navigateToTab,
+              healthStatus: _dashboardKey.currentState?.healthData?['status']
+                  ?.toString(),
+              onLogout: _handleLogout,
+            )
+          : null,
       body: Column(
         children: [
-          _buildHeader(),
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                DashboardTab(
-                  key: _dashboardKey,
-                  onNavigateToStores: () => _navigateToTab(1),
-                  onNavigateToUsers: () => _navigateToTab(2),
-                  onNavigateToDevices: () => _navigateToTab(3),
-                  onNavigateToAgents: () => _navigateToTab(4),
-                  onNavigateToLicenses: () => _navigateToTab(5),
-                ),
-                StoresTab(key: _storesKey),
-                UsersTab(key: _usersKey),
-                DevicesTab(key: _devicesKey, stores: _storesList),
-                AgentsTab(key: _agentsKey),
-                LicensesTab(key: _licensesKey),
-                SettingsTab(key: _settingsKey),
-                DatabaseTab(key: _databaseKey, stores: _storesList),
-                AuditTab(key: _auditKey),
-                ServicePackagesTab(key: _servicePackagesKey),
-                KeyPromotionsTab(key: _keyPromotionsKey),
-                AnnouncementsTab(key: _announcementsKey),
-                MaintenanceTab(key: _maintenanceKey),
-                MarketingTab(key: _marketingKey),
-                ContentPagesTab(key: _contentPagesKey),
-                ConsultationRequestsTab(key: _consultationRequestsKey),
-                LandingContentTab(key: _landingContentKey),
-              ],
-            ),
-          ),
+          mobile ? _buildMobileHeader() : _buildDesktopHeader(),
+          Expanded(child: _buildTabViews()),
         ],
       ),
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildTabViews() {
+    return TabBarView(
+      controller: _tabController,
+      children: [
+        DashboardTab(
+          key: _dashboardKey,
+          onNavigateToStores: () => _navigateToTab(1),
+          onNavigateToUsers: () => _navigateToTab(2),
+          onNavigateToDevices: () => _navigateToTab(3),
+          onNavigateToAgents: () => _navigateToTab(4),
+          onNavigateToLicenses: () => _navigateToTab(5),
+        ),
+        StoresTab(key: _storesKey),
+        UsersTab(key: _usersKey),
+        DevicesTab(key: _devicesKey, stores: _storesList),
+        AgentsTab(key: _agentsKey),
+        LicensesTab(key: _licensesKey),
+        SettingsTab(key: _settingsKey),
+        DatabaseTab(key: _databaseKey, stores: _storesList),
+        AuditTab(key: _auditKey),
+        ServicePackagesTab(key: _servicePackagesKey),
+        KeyPromotionsTab(key: _keyPromotionsKey),
+        AnnouncementsTab(key: _announcementsKey),
+        MaintenanceTab(key: _maintenanceKey),
+        MarketingTab(key: _marketingKey),
+        ContentPagesTab(key: _contentPagesKey),
+        ConsultationRequestsTab(key: _consultationRequestsKey),
+        LandingContentTab(key: _landingContentKey),
+      ],
+    );
+  }
+
+  Widget _buildMobileHeader() {
+    final idx = _tabController.index.clamp(0, _tabLabels.length - 1);
+    final health = _dashboardKey.currentState?.healthData;
+
+    return Material(
+      color: const Color(0xFF0F172A),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(4, 4, 8, 8),
+          child: Row(
+            children: [
+              IconButton(
+                onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+                icon: const Icon(Icons.menu, color: Colors.white),
+                tooltip: 'Menu',
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _tabLabels[idx],
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const Text(
+                      'SuperAdmin',
+                      style: TextStyle(color: Colors.white60, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+              if (health != null)
+                Padding(
+                  padding: const EdgeInsets.only(right: 4),
+                  child: Icon(
+                    health['status'] == 'Healthy'
+                        ? Icons.check_circle
+                        : Icons.error,
+                    color: health['status'] == 'Healthy'
+                        ? Colors.greenAccent
+                        : Colors.redAccent,
+                    size: 20,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDesktopHeader() {
     final health = _dashboardKey.currentState?.healthData;
     final storeCount = _storesKey.currentState?.stores.length ?? 0;
     final userCount = _usersKey.currentState?.users.length ?? 0;
@@ -313,6 +499,5 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
     if (confirmed != true || !mounted) return;
     final auth = Provider.of<AuthProvider>(context, listen: false);
     await auth.logout();
-    // _AdminRouteGuard watches auth state and will rebuild to AdminLoginScreen.
   }
 }

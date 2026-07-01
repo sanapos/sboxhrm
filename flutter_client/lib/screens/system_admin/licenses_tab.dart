@@ -3,6 +3,7 @@ import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:flutter/services.dart';
 import '../../services/api_service.dart';
 import '../../utils/responsive_helper.dart';
+import '../../widgets/admin/admin_mobile_widgets.dart';
 import 'system_admin_helpers.dart';
 
 class LicensesTab extends StatefulWidget {
@@ -154,6 +155,27 @@ class LicensesTabState extends State<LicensesTab> {
     );
   }
 
+  int get _activeFilterCount {
+    var n = 0;
+    if (_statusFilter != null) n++;
+    if (_typeFilter != null) n++;
+    if (_packageFilter != null) n++;
+    if (_assignFilter != null) n++;
+    if (_agentFilter != null) n++;
+    return n;
+  }
+
+  void _clearLicenseFilters() {
+    setState(() {
+      _statusFilter = null;
+      _typeFilter = null;
+      _packageFilter = null;
+      _assignFilter = null;
+      _agentFilter = null;
+    });
+    _applyFilters();
+  }
+
   Widget _buildToolbar() {
     final types = _licenses
         .map((l) => (l['licenseType'] ?? '').toString())
@@ -161,6 +183,37 @@ class LicensesTabState extends State<LicensesTab> {
         .toSet()
         .toList()
       ..sort();
+
+    if (adminUseMobileLayout(context)) {
+      return AdminMobileListToolbar(
+        searchController: _searchCtrl,
+        searchHint: 'Tìm key, cửa hàng, đại lý, gói...',
+        onSearchChanged: _applyFilters,
+        activeFilterCount: _activeFilterCount,
+        onRefresh: loadData,
+        onOpenFilters: () => showAdminFilterSheet(
+          context,
+          onApply: _applyFilters,
+          onClear: _clearLicenseFilters,
+          child: _buildLicenseFilterPanel(types, fullWidth: true),
+        ),
+        trailing: [
+          FilledButton.icon(
+            onPressed: _showCreateLicenseDialog,
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('Tạo key'),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: AdminHelpers.primaryDark,
+                foregroundColor: Colors.white),
+          ),
+          OutlinedButton.icon(
+            onPressed: _showBatchCreateDialog,
+            icon: const Icon(Icons.library_add, size: 18),
+            label: const Text('Hàng loạt'),
+          ),
+        ],
+      );
+    }
 
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
@@ -171,42 +224,12 @@ class LicensesTabState extends State<LicensesTab> {
           onChanged: _applyFilters,
         ),
         const SizedBox(height: 8),
+        _buildLicenseFilterPanel(types),
+        const SizedBox(height: 6),
         Wrap(
           spacing: 8,
           runSpacing: 6,
           children: [
-            _buildDropdown<String?>(
-              value: _statusFilter,
-              hint: 'Trạng thái',
-              items: [
-                const DropdownMenuItem(value: null, child: Text('Tất cả')),
-                DropdownMenuItem(
-                    value: 'available',
-                    child: Text('Chưa dùng (${_countByStatus('available')})')),
-                DropdownMenuItem(
-                    value: 'activated',
-                    child: Text('Đã kích hoạt (${_countByStatus('activated')})')),
-                DropdownMenuItem(
-                    value: 'revoked',
-                    child: Text('Thu hồi (${_countByStatus('revoked')})')),
-              ],
-              onChanged: (v) {
-                _statusFilter = v;
-                _applyFilters();
-              },
-            ),
-            _buildDropdown<String?>(
-              value: _typeFilter,
-              hint: 'Loại gói',
-              items: [
-                const DropdownMenuItem(value: null, child: Text('Tất cả')),
-                ...types.map((t) => DropdownMenuItem(value: t, child: Text(AdminHelpers.licenseTypeLabel(t)))),
-              ],
-              onChanged: (v) {
-                _typeFilter = v;
-                _applyFilters();
-              },
-            ),
             FilledButton.icon(
               onPressed: _showCreateLicenseDialog,
               icon: const Icon(Icons.add, size: 18),
@@ -229,76 +252,116 @@ class LicensesTabState extends State<LicensesTab> {
             ),
           ],
         ),
-        const SizedBox(height: 6),
-        Wrap(
-          spacing: 8,
-          runSpacing: 6,
-          children: [
-            _buildDropdown<String?>(
-              value: _packageFilter,
-              hint: 'Gói dịch vụ',
-              items: [
-                const DropdownMenuItem(value: null, child: Text('Tất cả gói')),
-                ..._servicePackages.map((p) => DropdownMenuItem(
-                    value: p['id']?.toString(),
-                    child: Text(p['name']?.toString() ?? ''))),
-              ],
-              onChanged: (v) {
-                _packageFilter = v;
-                _applyFilters();
-              },
-            ),
-            _buildDropdown<String?>(
-              value: _assignFilter,
-              hint: 'Phân bổ',
-              items: const [
-                DropdownMenuItem(value: null, child: Text('Tất cả')),
-                DropdownMenuItem(
-                    value: 'unassigned', child: Text('Chưa gán')),
-                DropdownMenuItem(
-                    value: 'assigned_agent', child: Text('Đã gán đại lý')),
-                DropdownMenuItem(
-                    value: 'assigned_store', child: Text('Đã gán cửa hàng')),
-              ],
-              onChanged: (v) {
-                _assignFilter = v;
-                _applyFilters();
-              },
-            ),
-            _buildDropdown<String?>(
-              value: _agentFilter,
-              hint: 'Đại lý',
-              items: [
-                const DropdownMenuItem(value: null, child: Text('Tất cả đại lý')),
-                ..._agents.map((a) => DropdownMenuItem(
-                    value: a['id']?.toString(),
-                    child: Text(a['fullName']?.toString() ?? a['userName']?.toString() ?? ''))),
-              ],
-              onChanged: (v) {
-                _agentFilter = v;
-                _applyFilters();
-              },
-            ),
-            if (_statusFilter != null ||
-                _typeFilter != null ||
-                _packageFilter != null ||
-                _assignFilter != null ||
-                _agentFilter != null)
-              TextButton.icon(
-                onPressed: () {
-                  _statusFilter = null;
-                  _typeFilter = null;
-                  _packageFilter = null;
-                  _assignFilter = null;
-                  _agentFilter = null;
-                  _applyFilters();
-                },
-                icon: const Icon(Icons.clear_all, size: 16),
-                label: const Text('Xóa bộ lọc', style: TextStyle(fontSize: 12)),
-              ),
-          ],
-        ),
       ]),
+    );
+  }
+
+  Widget _buildLicenseFilterPanel(List<String> types, {bool fullWidth = false}) {
+    final filters = <Widget>[
+      _buildDropdown<String?>(
+        value: _statusFilter,
+        hint: 'Trạng thái',
+        fullWidth: fullWidth,
+        items: [
+          const DropdownMenuItem(value: null, child: Text('Tất cả')),
+          DropdownMenuItem(
+              value: 'available',
+              child: Text('Chưa dùng (${_countByStatus('available')})')),
+          DropdownMenuItem(
+              value: 'activated',
+              child:
+                  Text('Đã kích hoạt (${_countByStatus('activated')})')),
+          DropdownMenuItem(
+              value: 'revoked',
+              child: Text('Thu hồi (${_countByStatus('revoked')})')),
+        ],
+        onChanged: (v) {
+          _statusFilter = v;
+          _applyFilters();
+        },
+      ),
+      _buildDropdown<String?>(
+        value: _typeFilter,
+        hint: 'Loại gói',
+        fullWidth: fullWidth,
+        items: [
+          const DropdownMenuItem(value: null, child: Text('Tất cả')),
+          ...types.map((t) => DropdownMenuItem(
+              value: t, child: Text(AdminHelpers.licenseTypeLabel(t)))),
+        ],
+        onChanged: (v) {
+          _typeFilter = v;
+          _applyFilters();
+        },
+      ),
+      _buildDropdown<String?>(
+        value: _packageFilter,
+        hint: 'Gói dịch vụ',
+        fullWidth: fullWidth,
+        items: [
+          const DropdownMenuItem(value: null, child: Text('Tất cả gói')),
+          ..._servicePackages.map((p) => DropdownMenuItem(
+              value: p['id']?.toString(),
+              child: Text(p['name']?.toString() ?? ''))),
+        ],
+        onChanged: (v) {
+          _packageFilter = v;
+          _applyFilters();
+        },
+      ),
+      _buildDropdown<String?>(
+        value: _assignFilter,
+        hint: 'Phân bổ',
+        fullWidth: fullWidth,
+        items: const [
+          DropdownMenuItem(value: null, child: Text('Tất cả')),
+          DropdownMenuItem(value: 'unassigned', child: Text('Chưa gán')),
+          DropdownMenuItem(
+              value: 'assigned_agent', child: Text('Đã gán đại lý')),
+          DropdownMenuItem(
+              value: 'assigned_store', child: Text('Đã gán cửa hàng')),
+        ],
+        onChanged: (v) {
+          _assignFilter = v;
+          _applyFilters();
+        },
+      ),
+      _buildDropdown<String?>(
+        value: _agentFilter,
+        hint: 'Đại lý',
+        fullWidth: fullWidth,
+        items: [
+          const DropdownMenuItem(value: null, child: Text('Tất cả đại lý')),
+          ..._agents.map((a) => DropdownMenuItem(
+              value: a['id']?.toString(),
+              child: Text(a['fullName']?.toString() ??
+                  a['userName']?.toString() ??
+                  ''))),
+        ],
+        onChanged: (v) {
+          _agentFilter = v;
+          _applyFilters();
+        },
+      ),
+    ];
+
+    if (fullWidth) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: filters,
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(spacing: 8, runSpacing: 6, children: filters),
+        if (_activeFilterCount > 0)
+          TextButton.icon(
+            onPressed: _clearLicenseFilters,
+            icon: const Icon(Icons.clear_all, size: 16),
+            label: const Text('Xóa bộ lọc', style: TextStyle(fontSize: 12)),
+          ),
+      ],
     );
   }
 
@@ -307,8 +370,10 @@ class LicensesTabState extends State<LicensesTab> {
     required String hint,
     required List<DropdownMenuItem<T>> items,
     required ValueChanged<T?> onChanged,
+    bool fullWidth = false,
   }) {
     return Container(
+      width: fullWidth ? double.infinity : null,
       height: 40,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
@@ -317,6 +382,7 @@ class LicensesTabState extends State<LicensesTab> {
           border: Border.all(color: Colors.grey.shade300)),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<T>(
+          isExpanded: fullWidth,
           value: value,
           hint: Text(hint, style: const TextStyle(fontSize: 13)),
           items: items,
@@ -335,7 +401,9 @@ class LicensesTabState extends State<LicensesTab> {
         _licenses.where((l) => l['agentId'] == null && l['storeId'] == null).length;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+      padding: EdgeInsets.fromLTRB(
+          adminUseMobileLayout(context) ? 12 : 20, 4,
+          adminUseMobileLayout(context) ? 12 : 20, 8),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(children: [

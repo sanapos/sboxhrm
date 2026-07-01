@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:flutter/services.dart';
 import '../../services/api_service.dart';
+import '../../widgets/admin/admin_mobile_widgets.dart';
 import 'system_admin_helpers.dart';
 
 class UsersTab extends StatefulWidget {
@@ -20,21 +21,37 @@ class UsersTabState extends State<UsersTab> {
   final _searchCtrl = TextEditingController();
   String? _roleFilter;
   String? _storeFilter;
+  String? _agentFilter; // agentId | '__none__' (chưa gán) | null (tất cả)
+  List<Map<String, dynamic>> _agents = [];
   final Map<String, String> _resetPasswords = {};
+  final Map<String, bool> _passwordRevealed = {};
 
-  static const _allRoles = [
+  static const _systemRoles = [
     'SuperAdmin',
     'Admin',
+    'Agent',
     'Manager',
     'Employee',
     'User',
-    'Agent'
   ];
 
   @override
   void initState() {
     super.initState();
     loadData();
+    _loadAgents();
+  }
+
+  Future<void> _loadAgents() async {
+    try {
+      final res = await _apiService.getSystemAgents(pageSize: 1000);
+      if (!mounted) return;
+      if (res['isSuccess'] == true) {
+        setState(() => _agents = AdminHelpers.extractList(res['data']));
+      }
+    } catch (e) {
+      debugPrint('UsersTab load agents error: $e');
+    }
   }
 
   @override
@@ -44,6 +61,14 @@ class UsersTabState extends State<UsersTab> {
   }
 
   List<Map<String, dynamic>> get users => _users;
+
+  String? _visiblePassword(String userId, Map<String, dynamic> user) {
+    final local = _resetPasswords[userId];
+    if (local != null && local.isNotEmpty) return local;
+    final fromApi = user['plainTextPassword']?.toString();
+    if (fromApi != null && fromApi.isNotEmpty) return fromApi;
+    return null;
+  }
 
   Future<void> loadData() async {
     setState(() => _isLoading = true);
@@ -83,7 +108,13 @@ class UsersTabState extends State<UsersTab> {
             (_storeFilter == '_none' && storeId == null) ||
             storeId == _storeFilter;
 
-        return matchSearch && matchRole && matchStore;
+        final agentId = u['agentId']?.toString();
+        final matchAgent = _agentFilter == null ||
+            (_agentFilter == '__none__' &&
+                (agentId == null || agentId.isEmpty)) ||
+            (_agentFilter != '__none__' && agentId == _agentFilter);
+
+        return matchSearch && matchRole && matchStore && matchAgent;
       }).toList();
     });
   }
@@ -137,7 +168,8 @@ class UsersTabState extends State<UsersTab> {
                       ? 'Không tìm thấy người dùng'
                       : 'Chưa có người dùng')
               : ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  padding: EdgeInsets.symmetric(
+                      horizontal: adminUseMobileLayout(context) ? 12 : 20),
                   itemCount: grouped.length,
                   itemBuilder: (ctx, i) {
                     final entry = grouped.entries.elementAt(i);
@@ -147,6 +179,23 @@ class UsersTabState extends State<UsersTab> {
         ),
       ],
     );
+  }
+
+  int get _activeFilterCount {
+    var n = 0;
+    if (_roleFilter != null) n++;
+    if (_storeFilter != null) n++;
+    if (_agentFilter != null) n++;
+    return n;
+  }
+
+  void _clearFilters() {
+    setState(() {
+      _roleFilter = null;
+      _storeFilter = null;
+      _agentFilter = null;
+    });
+    _applyFilters();
   }
 
   Widget _buildToolbar() {
@@ -167,6 +216,38 @@ class UsersTabState extends State<UsersTab> {
     }
     final hasNoStore = _users.any((u) => u['storeId'] == null);
 
+    final statsRow = AdminMobileStatRow(children: [
+      AdminHelpers.countBadge('Tổng', _users.length, AdminHelpers.primary),
+      ...roleMap.entries.map((e) {
+        final color = _roleColor(e.key);
+        return Padding(
+          padding: const EdgeInsets.only(left: 8),
+          child: AdminHelpers.countBadge(e.key, e.value, color),
+        );
+      }),
+    ]);
+
+    if (adminUseMobileLayout(context)) {
+      return AdminMobileListToolbar(
+        searchController: _searchCtrl,
+        searchHint: 'Tìm theo tên, email, cửa hàng...',
+        onSearchChanged: _applyFilters,
+        activeFilterCount: _activeFilterCount,
+        onRefresh: loadData,
+        onOpenFilters: () => showAdminFilterSheet(
+          context,
+          onApply: _applyFilters,
+          onClear: _clearFilters,
+          child: _buildFilterFields(roleMap, storeMap, hasNoStore),
+        ),
+        onCreate: context.systemAdminCanCreate
+            ? _showCreateSuperAdminDialog
+            : null,
+        createLabel: 'Tạo SuperAdmin',
+        stats: statsRow,
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
       child: Column(
@@ -177,68 +258,80 @@ class UsersTabState extends State<UsersTab> {
             onChanged: _applyFilters,
           ),
           const SizedBox(height: 8),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              _buildDropdown<String?>(
-                value: _roleFilter,
-                hint: 'Vai trò',
-                items: [
-                  _dropItem(null, 'Tất cả'),
-                  ..._allRoles
-                      .where((r) => roleMap.containsKey(r))
-                      .map((r) => _dropItem(r, '$r (${roleMap[r]})'))
-                ],
-                onChanged: (v) {
-                  _roleFilter = v;
-                  _applyFilters();
-                },
-              ),
-              _buildDropdown<String?>(
-                value: _storeFilter,
-                hint: 'Cửa hàng',
-                items: [
-                  _dropItem(null, 'Tất cả'),
-                  if (hasNoStore) _dropItem('_none', 'Không thuộc CH'),
-                  ...storeMap.entries
-                      .map((e) => _dropItem(e.key, e.value)),
-                ],
-                onChanged: (v) {
-                  _storeFilter = v;
-                  _applyFilters();
-                },
-              ),
-              if (context.systemAdminCanCreate)
-                FilledButton.icon(
-                  onPressed: _showCreateSuperAdminDialog,
-                  icon: const Icon(Icons.person_add, size: 18),
-                  label: const Text('Tạo SuperAdmin'),
-                  style: ElevatedButton.styleFrom(
-                      backgroundColor: AdminHelpers.primaryDark,
-                      foregroundColor: Colors.white),
-                ),
-            ],
-          ),
+          _buildFilterFields(roleMap, storeMap, hasNoStore),
           const SizedBox(height: 8),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(children: [
-              AdminHelpers.countBadge(
-                  'Tổng', _users.length, AdminHelpers.primary),
-              const SizedBox(width: 8),
-              ...roleMap.entries.map((e) {
-                final color = _roleColor(e.key);
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: AdminHelpers.countBadge(e.key, e.value, color),
-                );
-              }),
-            ]),
-          ),
+          statsRow,
         ],
       ),
     );
+  }
+
+  Widget _buildFilterFields(
+    Map<String, int> roleMap,
+    Map<String, String> storeMap,
+    bool hasNoStore,
+  ) {
+    final mobile = adminUseMobileLayout(context);
+    final filters = <Widget>[
+      _buildDropdown<String?>(
+        value: _roleFilter,
+        hint: 'Vai trò',
+        items: [
+          _dropItem(null, 'Tất cả'),
+          ...roleMap.keys.map((r) => _dropItem(r, '$r (${roleMap[r]})'))
+        ],
+        onChanged: (v) {
+          _roleFilter = v;
+          _applyFilters();
+        },
+      ),
+      _buildDropdown<String?>(
+        value: _storeFilter,
+        hint: 'Cửa hàng',
+        items: [
+          _dropItem(null, 'Tất cả'),
+          if (hasNoStore) _dropItem('_none', 'Không thuộc CH'),
+          ...storeMap.entries.map((e) => _dropItem(e.key, e.value)),
+        ],
+        onChanged: (v) {
+          _storeFilter = v;
+          _applyFilters();
+        },
+      ),
+      _buildDropdown<String?>(
+        value: _agentFilter,
+        hint: 'Đại lý',
+        items: [
+          _dropItem(null, 'Tất cả đại lý'),
+          _dropItem('__none__', 'Chưa gán đại lý'),
+          ..._agents.map((a) => _dropItem(
+                a['id']?.toString(),
+                (a['name'] ?? a['code'] ?? 'Đại lý').toString(),
+              )),
+        ],
+        onChanged: (v) {
+          _agentFilter = v;
+          _applyFilters();
+        },
+      ),
+      if (!mobile && context.systemAdminCanCreate)
+        FilledButton.icon(
+          onPressed: _showCreateSuperAdminDialog,
+          icon: const Icon(Icons.person_add, size: 18),
+          label: const Text('Tạo SuperAdmin'),
+          style: ElevatedButton.styleFrom(
+              backgroundColor: AdminHelpers.primaryDark,
+              foregroundColor: Colors.white),
+        ),
+    ];
+
+    if (mobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: filters,
+      );
+    }
+    return Wrap(spacing: 6, runSpacing: 6, children: filters);
   }
 
   Widget _buildDropdown<T>({
@@ -247,7 +340,9 @@ class UsersTabState extends State<UsersTab> {
     required List<DropdownMenuItem<T>> items,
     required ValueChanged<T?> onChanged,
   }) {
+    final mobile = adminUseMobileLayout(context);
     return Container(
+      width: mobile ? double.infinity : null,
       height: 40,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
@@ -256,6 +351,7 @@ class UsersTabState extends State<UsersTab> {
           border: Border.all(color: Colors.grey.shade300)),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<T>(
+          isExpanded: mobile,
           value: value,
           hint: Text(hint, style: const TextStyle(fontSize: 13)),
           items: items,
@@ -278,6 +374,8 @@ class UsersTabState extends State<UsersTab> {
     final storeName =
         isNoStore ? 'Hệ thống (không thuộc cửa hàng)' : users.first['storeName']?.toString() ?? 'N/A';
     final storeCode = isNoStore ? '' : users.first['storeCode']?.toString() ?? '';
+    final agentName =
+        isNoStore ? '' : users.first['agentName']?.toString() ?? '';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -322,11 +420,14 @@ class UsersTabState extends State<UsersTab> {
                   style: TextStyle(fontSize: 12, color: Colors.grey[500])),
             ],
           ]),
-          subtitle: Text('${users.length} tài khoản',
+          subtitle: Text(
+              isNoStore
+                  ? '${users.length} tài khoản'
+                  : '${users.length} tài khoản · Đại lý: ${agentName.isNotEmpty ? agentName : "Chưa gán"}',
               style: TextStyle(fontSize: 12, color: Colors.grey[600])),
           children: [
             const Divider(height: 24),
-            if (MediaQuery.of(context).size.width < 600)
+            if (adminUseMobileLayout(context))
               Column(
                 mainAxisSize: MainAxisSize.min,
                 children: List.generate(users.length, (i) => Padding(
@@ -396,6 +497,7 @@ class UsersTabState extends State<UsersTab> {
     final role = user['role']?.toString() ?? 'Unknown';
     final isActive = user['isActive'] as bool? ?? true;
     final lastLogin = user['lastLoginAt'];
+    final visiblePassword = _visiblePassword(userId, user);
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
@@ -496,23 +598,57 @@ class UsersTabState extends State<UsersTab> {
                         size: 14, color: Colors.grey[500]),
                     const SizedBox(width: 6),
                     Expanded(
-                      child: _resetPasswords.containsKey(userId)
-                          ? SelectableText(
-                              _resetPasswords[userId]!,
-                              style: const TextStyle(
-                                  fontSize: 13,
-                                  fontFamily: 'monospace',
-                                  fontWeight: FontWeight.w600))
-                          : Text('••••••••',
+                      child: visiblePassword != null
+                          ? (_passwordRevealed[userId] == true
+                              ? SelectableText(
+                                  visiblePassword,
+                                  style: const TextStyle(
+                                      fontSize: 13,
+                                      fontFamily: 'monospace',
+                                      fontWeight: FontWeight.w600))
+                              : Text('••••••••',
                                   style: TextStyle(
                                       fontSize: 13,
-                                      color: Colors.grey[500])),
+                                      color: Colors.grey[500])))
+                          : Text(
+                              'Chưa lưu (đặt lại MK để xem)',
+                              style: TextStyle(
+                                  fontSize: 12, color: Colors.grey[500])),
                     ),
-                    if (_resetPasswords.containsKey(userId))
+                    InkWell(
+                      onTap: () {
+                        if (visiblePassword == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                  'Mật khẩu chưa được lưu. Bấm "Đặt lại MK" để thiết lập và xem.'),
+                              duration: Duration(seconds: 4),
+                            ),
+                          );
+                          return;
+                        }
+                        setState(() {
+                          _passwordRevealed[userId] =
+                              !(_passwordRevealed[userId] ?? false);
+                        });
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: 4),
+                        child: Icon(
+                          visiblePassword != null &&
+                                  _passwordRevealed[userId] == true
+                              ? Icons.visibility_off
+                              : Icons.visibility,
+                          size: 14,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ),
+                    if (visiblePassword != null)
                       InkWell(
                         onTap: () {
                           Clipboard.setData(ClipboardData(
-                              text: _resetPasswords[userId]!));
+                              text: visiblePassword));
                           AdminHelpers.showSuccess(
                               context, 'Đã copy mật khẩu');
                         },
@@ -581,16 +717,21 @@ class UsersTabState extends State<UsersTab> {
     return switch (role.toLowerCase()) {
       'superadmin' => AdminHelpers.primaryDark,
       'admin' => AdminHelpers.info,
+      'director' => const Color(0xFF0D9488),
+      'accountant' => const Color(0xFF2563EB),
+      'departmenthead' => const Color(0xFF9333EA),
       'manager' => const Color(0xFF7C3AED),
+      'cashier' => const Color(0xFFEA580C),
       'agent' => AdminHelpers.warning,
       'employee' => AdminHelpers.success,
+      'user' => Colors.grey,
       _ => AdminHelpers.primary,
     };
   }
 
   // ═══════════════════════ RESET PASSWORD ═══════════════════════
   Future<void> _resetPassword(String userId, String email) async {
-    final newPass = await AdminHelpers.showInputDialog(
+    final newPass = await AdminHelpers.showPasswordInputDialog(
       context,
       'Đặt lại mật khẩu',
       'Nhập mật khẩu mới cho $email',
@@ -606,6 +747,12 @@ class UsersTabState extends State<UsersTab> {
     if (res['isSuccess'] == true) {
       setState(() {
         _resetPasswords[userId] = newPass;
+        _passwordRevealed[userId] = true;
+        final idx = _users.indexWhere((u) => u['id']?.toString() == userId);
+        if (idx >= 0) {
+          _users[idx] = Map<String, dynamic>.from(_users[idx])
+            ..['plainTextPassword'] = newPass;
+        }
       });
       AdminHelpers.showSuccess(context, 'Đã đặt lại mật khẩu cho $email');
     } else {
@@ -645,12 +792,25 @@ class UsersTabState extends State<UsersTab> {
     }
   }
 
-  // ═══════════════════════ CHANGE ROLE ═══════════════════════
+  // ═══════════════════════ ĐỔI QUYỀN ═══════════════════════
   Future<void> _showChangeRoleDialog(Map<String, dynamic> user) async {
     final userId = user['id']?.toString() ?? '';
     final currentRole = user['role']?.toString() ?? 'User';
     final name = user['fullName'] ?? user['email'] ?? 'N/A';
+    final storeId = user['storeId']?.toString();
+
+    final roleOptions = await _loadRoleOptions(storeId);
+    if (!mounted) return;
+    if (roleOptions.isEmpty) {
+      AdminHelpers.showError(
+          context, 'Không tải được danh sách vai trò của cửa hàng');
+      return;
+    }
+
     String selectedRole = currentRole;
+    if (!roleOptions.any((o) => o.name == selectedRole)) {
+      selectedRole = roleOptions.first.name;
+    }
 
     final result = await showDialog<String>(
       context: context,
@@ -665,10 +825,13 @@ class UsersTabState extends State<UsersTab> {
                     style: const TextStyle(fontSize: 17))),
           ]),
           content: SizedBox(
-            width: MediaQuery.of(context).size.width < 600 ? MediaQuery.of(context).size.width - 32 : 380,
+            width: MediaQuery.of(context).size.width < 600
+                ? MediaQuery.of(context).size.width - 32
+                : 380,
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              children: _allRoles.map((role) {
+              children: roleOptions.map((opt) {
+                final role = opt.name;
                 final isSelected = selectedRole == role;
                 return Container(
                   margin: const EdgeInsets.only(bottom: 6),
@@ -697,15 +860,14 @@ class UsersTabState extends State<UsersTab> {
                           : Colors.grey,
                       size: 20,
                     ),
-                    title: Text(role,
+                    title: Text(opt.display,
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
                           color: _roleColor(role),
                         )),
-                    subtitle: Text(_roleDescription(role),
+                    subtitle: Text(opt.description,
                         style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey[600])),
+                            fontSize: 11, color: Colors.grey[600])),
                     trailing: currentRole == role
                         ? const Chip(
                             label: Text('Hiện tại',
@@ -749,16 +911,35 @@ class UsersTabState extends State<UsersTab> {
     }
   }
 
-  String _roleDescription(String role) {
-    return switch (role) {
-      'SuperAdmin' => 'Quản trị toàn hệ thống',
-      'Admin' => 'Quản trị cửa hàng',
-      'Manager' => 'Quản lý nhân viên, chấm công',
-      'Employee' => 'Xem thông tin cá nhân',
-      'User' => 'Người dùng cơ bản',
-      'Agent' => 'Đại lý quản lý nhiều cửa hàng',
-      _ => '',
-    };
+  Future<List<({String name, String display, String description})>>
+      _loadRoleOptions(String? storeId) async {
+    if (storeId != null && storeId.isNotEmpty) {
+      final res = await _apiService.getSystemAdminStoreRoles(storeId);
+      if (res['isSuccess'] == true && res['data'] is List) {
+        final items = <({String name, String display, String description})>[];
+        for (final raw in res['data'] as List) {
+          final m = Map<String, dynamic>.from(raw as Map);
+          final roleName = m['roleName']?.toString() ?? '';
+          if (roleName.isEmpty) continue;
+          items.add((
+            name: roleName,
+            display: m['roleDisplayName']?.toString() ??
+                AdminHelpers.roleDisplayNameVn(roleName),
+            description: AdminHelpers.roleDescriptionVn(roleName),
+          ));
+        }
+        return items;
+      }
+      return [];
+    }
+
+    return _systemRoles
+        .map((r) => (
+              name: r,
+              display: AdminHelpers.roleDisplayNameVn(r),
+              description: AdminHelpers.roleDescriptionVn(r),
+            ))
+        .toList();
   }
 
   // ═══════════════════════ EDIT USER INFO ═══════════════════════

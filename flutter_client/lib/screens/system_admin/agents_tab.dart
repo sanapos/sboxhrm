@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:flutter/services.dart';
-import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import '../../services/api_service.dart';
 import '../../utils/responsive_helper.dart';
+import '../../widgets/admin/admin_mobile_widgets.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/hrm_page_chrome.dart';
 import 'system_admin_helpers.dart';
@@ -110,6 +110,38 @@ class AgentsTabState extends State<AgentsTab> {
             sum +
             ((a['storeCount'] ?? a['totalStores'] ?? 0) as num).toInt());
 
+    final statsRow = AdminMobileStatRow(children: [
+      AdminHelpers.countBadge('Tổng', _agents.length, AdminHelpers.warning),
+      const SizedBox(width: 8),
+      AdminHelpers.countBadge('Hoạt động', activeCount, AdminHelpers.success),
+      const SizedBox(width: 8),
+      AdminHelpers.countBadge(
+          'Cửa hàng quản lý', totalStores, AdminHelpers.primary),
+    ]);
+
+    if (adminUseMobileLayout(context)) {
+      return AdminMobileListToolbar(
+        searchController: _searchCtrl,
+        searchHint: 'Tìm đại lý theo tên, mã, email...',
+        onSearchChanged: _applyFilters,
+        activeFilterCount: _activeFilter != null ? 1 : 0,
+        onRefresh: loadData,
+        onOpenFilters: () => showAdminFilterSheet(
+          context,
+          onApply: _applyFilters,
+          onClear: () {
+            setState(() => _activeFilter = null);
+            _applyFilters();
+          },
+          child: _buildStatusFilter(fullWidth: true),
+        ),
+        onCreate:
+            context.systemAdminCanCreate ? _showCreateAgentDialog : null,
+        createLabel: 'Thêm đại lý',
+        stats: statsRow,
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
       child: Column(
@@ -124,39 +156,7 @@ class AgentsTabState extends State<AgentsTab> {
             spacing: 10,
             runSpacing: 6,
             children: [
-              Container(
-                height: 40,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.grey.shade300)),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<bool?>(
-                    value: _activeFilter,
-                    hint: const Text('Trạng thái',
-                        style: TextStyle(fontSize: 13)),
-                    items: const [
-                      DropdownMenuItem(
-                          value: null,
-                          child: Text('Tất cả',
-                              style: TextStyle(fontSize: 13))),
-                      DropdownMenuItem(
-                          value: true,
-                          child: Text('Hoạt động',
-                              style: TextStyle(fontSize: 13))),
-                      DropdownMenuItem(
-                          value: false,
-                          child:
-                              Text('Tắt', style: TextStyle(fontSize: 13))),
-                    ],
-                    onChanged: (v) {
-                      _activeFilter = v;
-                      _applyFilters();
-                    },
-                  ),
-                ),
-              ),
+              _buildStatusFilter(),
               if (context.systemAdminCanCreate)
                 FilledButton.icon(
                   onPressed: _showCreateAgentDialog,
@@ -169,20 +169,41 @@ class AgentsTabState extends State<AgentsTab> {
             ],
           ),
           const SizedBox(height: 8),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(children: [
-              AdminHelpers.countBadge(
-                  'Tổng', _agents.length, AdminHelpers.warning),
-              const SizedBox(width: 8),
-              AdminHelpers.countBadge(
-                  'Hoạt động', activeCount, AdminHelpers.success),
-              const SizedBox(width: 8),
-              AdminHelpers.countBadge(
-                  'Cửa hàng quản lý', totalStores, AdminHelpers.primary),
-            ]),
-          ),
+          statsRow,
         ],
+      ),
+    );
+  }
+
+  Widget _buildStatusFilter({bool fullWidth = false}) {
+    return Container(
+      width: fullWidth ? double.infinity : null,
+      height: 40,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.grey.shade300)),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<bool?>(
+          isExpanded: fullWidth,
+          value: _activeFilter,
+          hint: const Text('Trạng thái', style: TextStyle(fontSize: 13)),
+          items: const [
+            DropdownMenuItem(
+                value: null,
+                child: Text('Tất cả', style: TextStyle(fontSize: 13))),
+            DropdownMenuItem(
+                value: true,
+                child: Text('Hoạt động', style: TextStyle(fontSize: 13))),
+            DropdownMenuItem(
+                value: false, child: Text('Tắt', style: TextStyle(fontSize: 13))),
+          ],
+          onChanged: (v) {
+            _activeFilter = v;
+            _applyFilters();
+          },
+        ),
       ),
     );
   }
@@ -306,12 +327,17 @@ class AgentsTabState extends State<AgentsTab> {
                 Text(agent['email'],
                     style:
                         TextStyle(fontSize: 12, color: Colors.grey[600])),
-              if (agent['code'] != null)
-                Text('Mã: ${agent['code']}',
+              if (agent['phone'] != null)
+                Text('SĐT Zalo: ${agent['phone']}',
                     style:
                         TextStyle(fontSize: 12, color: Colors.grey[500])),
-              if (agent['phone'] != null)
-                Text('SĐT: ${agent['phone']}',
+              if (agent['address'] != null &&
+                  agent['address'].toString().isNotEmpty)
+                Text('Địa chỉ: ${agent['address']}',
+                    style:
+                        TextStyle(fontSize: 12, color: Colors.grey[500])),
+              if (agent['code'] != null)
+                Text('Mã: ${agent['code']}',
                     style:
                         TextStyle(fontSize: 12, color: Colors.grey[500])),
               const SizedBox(height: 4),
@@ -333,6 +359,13 @@ class AgentsTabState extends State<AgentsTab> {
           icon: Icon(Icons.more_vert, color: Colors.grey[400]),
           itemBuilder: (_) => [
             const PopupMenuItem(
+                value: 'referral',
+                child: Row(children: [
+                  Icon(Icons.link, size: 16),
+                  SizedBox(width: 8),
+                  Text('Link đăng ký cửa hàng')
+                ])),
+            const PopupMenuItem(
                 value: 'token',
                 child: Row(children: [
                   Icon(Icons.refresh, size: 16),
@@ -348,6 +381,10 @@ class AgentsTabState extends State<AgentsTab> {
                 ])),
           ],
           onSelected: (v) {
+            if (v == 'referral') {
+              _showAgentStoreReferralLink(
+                  agent['code']?.toString().trim().toUpperCase() ?? '');
+            }
             if (v == 'token') _regenerateToken(agent);
             if (v == 'edit') _showEditAgentDialog(agent);
           },
@@ -360,8 +397,14 @@ class AgentsTabState extends State<AgentsTab> {
     final res = await _apiService.regenerateAgentToken(
         agentId: agent['id']?.toString());
     if (mounted && res['isSuccess'] == true) {
+      final data = res['data'] as Map<String, dynamic>?;
+      final regLink = data?['registrationLink']?.toString() ?? '';
+      if (regLink.isNotEmpty) {
+        _showAgentAccountRegistrationLink(regLink);
+        return;
+      }
       final newToken =
-          res['data']?['registrationToken'] ?? res['data']?['token'] ?? '';
+          data?['registrationToken'] ?? data?['token'] ?? '';
       showDialog(
         context: context,
         builder: (ctx) => ScrollableAlertDialog(
@@ -405,6 +448,7 @@ class AgentsTabState extends State<AgentsTab> {
     final codeCtrl = TextEditingController();
     final emailCtrl = TextEditingController();
     final phoneCtrl = TextEditingController();
+    final addressCtrl = TextEditingController();
     final passwordCtrl = TextEditingController();
     bool saving = false;
 
@@ -423,7 +467,9 @@ class AgentsTabState extends State<AgentsTab> {
               const SizedBox(height: 12),
               AdminHelpers.dialogField(emailCtrl, 'Email đăng nhập', Icons.email),
               const SizedBox(height: 12),
-              AdminHelpers.dialogField(phoneCtrl, 'Số điện thoại', Icons.phone),
+              AdminHelpers.dialogField(phoneCtrl, 'SĐT hỗ trợ Zalo', Icons.phone),
+              const SizedBox(height: 12),
+              AdminHelpers.dialogField(addressCtrl, 'Địa chỉ', Icons.location_on),
               const SizedBox(height: 12),
               TextField(
                 controller: passwordCtrl,
@@ -450,6 +496,10 @@ class AgentsTabState extends State<AgentsTab> {
                 AdminHelpers.showError(context, 'Vui lòng nhập tên đại lý');
                 return;
               }
+              if (codeCtrl.text.trim().isEmpty) {
+                AdminHelpers.showError(context, 'Vui lòng nhập mã đại lý');
+                return;
+              }
               if (pwd.isNotEmpty && emailCtrl.text.trim().isEmpty) {
                 AdminHelpers.showError(context, 'Cần nhập email khi đặt mật khẩu');
                 return;
@@ -464,6 +514,7 @@ class AgentsTabState extends State<AgentsTab> {
                   code: codeCtrl.text,
                   email: emailCtrl.text,
                   phone: phoneCtrl.text,
+                  address: addressCtrl.text,
                   password: pwd.isEmpty ? null : pwd);
               if (!ctx.mounted) return;
               Navigator.pop(ctx);
@@ -472,19 +523,21 @@ class AgentsTabState extends State<AgentsTab> {
                 if (mounted) {
                   final hasCreds = pwd.isNotEmpty;
                   final data = res['data'] as Map<String, dynamic>?;
+                  final agentCode = (data?['code'] ?? codeCtrl.text)
+                      .toString()
+                      .trim()
+                      .toUpperCase();
                   AdminHelpers.showSuccess(
                       context,
                       hasCreds
                           ? 'Đã tạo đại lý + tài khoản đăng nhập'
                           : 'Tạo đại lý thành công. Gửi link đăng ký tài khoản đại lý.');
-                  if (hasCreds) {
-                    _showAgentStoreReferralLink(codeCtrl.text.trim().toUpperCase());
-                  } else {
-                    final regLink = data?['registrationLink']?.toString();
-                    if (regLink != null && regLink.isNotEmpty) {
-                      _showAgentAccountRegistrationLink(regLink);
-                    }
-                  }
+                  _showAgentLinksAfterCreate(
+                    agentCode: agentCode,
+                    agentAccountLink: hasCreds
+                        ? null
+                        : data?['registrationLink']?.toString(),
+                  );
                 }
               } else {
                 if (mounted) AdminHelpers.showApiError(context, res);
@@ -504,8 +557,101 @@ class AgentsTabState extends State<AgentsTab> {
       codeCtrl.dispose();
       emailCtrl.dispose();
       phoneCtrl.dispose();
+      addressCtrl.dispose();
       passwordCtrl.dispose();
     });
+  }
+
+  String _buildStoreReferralLink(String agentCode) {
+    if (agentCode.isEmpty) return '';
+    return '${webAppBaseUrl(ApiService.baseUrl)}/#/register?agentCode=$agentCode';
+  }
+
+  void _showAgentLinksAfterCreate({
+    required String agentCode,
+    String? agentAccountLink,
+  }) {
+    final storeLink = _buildStoreReferralLink(agentCode);
+    if (storeLink.isEmpty && (agentAccountLink == null || agentAccountLink.isEmpty)) {
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) => ScrollableAlertDialog(
+        title: const Text('Link đại lý'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (storeLink.isNotEmpty) ...[
+              const Text(
+                'Link đăng ký cửa hàng (gửi cho khách hàng):',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Khách đăng ký qua link này, cửa hàng sẽ tự gán cho đại lý.',
+                style: TextStyle(fontSize: 12, color: Color(0xFF71717A)),
+              ),
+              const SizedBox(height: 8),
+              _linkBox(storeLink),
+              const SizedBox(height: 16),
+            ],
+            if (agentAccountLink != null && agentAccountLink.isNotEmpty) ...[
+              const Text(
+                'Link đăng ký tài khoản đại lý:',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Gửi cho đại lý để họ tự tạo tài khoản đăng nhập cổng đại lý.',
+                style: TextStyle(fontSize: 12, color: Color(0xFF71717A)),
+              ),
+              const SizedBox(height: 8),
+              _linkBox(agentAccountLink),
+            ],
+          ],
+        ),
+        actions: [
+          if (storeLink.isNotEmpty)
+            TextButton(
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: storeLink));
+                NotificationOverlayManager().showSuccess(
+                    title: 'Sao chép', message: 'Đã sao chép link cửa hàng');
+              },
+              child: const Text('Sao chép link cửa hàng'),
+            ),
+          if (agentAccountLink != null && agentAccountLink.isNotEmpty)
+            TextButton(
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: agentAccountLink));
+                NotificationOverlayManager().showSuccess(
+                    title: 'Sao chép', message: 'Đã sao chép link tài khoản');
+              },
+              child: const Text('Sao chép link tài khoản'),
+            ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Đóng'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _linkBox(String link) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: SelectableText(link,
+          style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+    );
   }
 
   void _showAgentAccountRegistrationLink(String link) {
@@ -552,9 +698,11 @@ class AgentsTabState extends State<AgentsTab> {
   }
 
   void _showAgentStoreReferralLink(String agentCode) {
-    if (agentCode.isEmpty) return;
-    final link =
-        '${webAppBaseUrl(ApiService.baseUrl)}/#/register?agentCode=$agentCode';
+    if (agentCode.isEmpty) {
+      AdminHelpers.showError(context, 'Đại lý chưa có mã, không tạo được link');
+      return;
+    }
+    final link = _buildStoreReferralLink(agentCode);
     showDialog(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
@@ -600,8 +748,15 @@ class AgentsTabState extends State<AgentsTab> {
   void _showEditAgentDialog(Map<String, dynamic> agent) {
     final nameCtrl =
         TextEditingController(text: agent['name'] ?? '');
+    final emailCtrl =
+        TextEditingController(text: agent['email'] ?? '');
     final phoneCtrl =
         TextEditingController(text: agent['phone'] ?? '');
+    final addressCtrl =
+        TextEditingController(text: agent['address'] ?? '');
+    final agentCode = agent['code']?.toString().trim().toUpperCase() ?? '';
+    final storeLink = _buildStoreReferralLink(agentCode);
+    final accountLink = agent['registrationLink']?.toString();
 
     showDialog(
       context: context,
@@ -609,13 +764,56 @@ class AgentsTabState extends State<AgentsTab> {
         title: const Text('Sửa đại lý'),
         content: SizedBox(
           width: MediaQuery.of(context).size.width < 600 ? MediaQuery.of(context).size.width - 32 : 420,
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
+          child: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
             AdminHelpers.dialogField(
                 nameCtrl, 'Tên đại lý', Icons.person),
             const SizedBox(height: 12),
             AdminHelpers.dialogField(
-                phoneCtrl, 'Số điện thoại', Icons.phone),
+                emailCtrl, 'Email liên hệ', Icons.email),
+            const SizedBox(height: 12),
+            AdminHelpers.dialogField(
+                phoneCtrl, 'SĐT hỗ trợ Zalo', Icons.phone),
+            const SizedBox(height: 12),
+            AdminHelpers.dialogField(
+                addressCtrl, 'Địa chỉ', Icons.location_on),
+            if (agentCode.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text('Link đăng ký cửa hàng',
+                    style:
+                        TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+              ),
+              const SizedBox(height: 6),
+              _linkBox(storeLink),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(text: storeLink));
+                    NotificationOverlayManager().showSuccess(
+                        title: 'Sao chép', message: 'Đã sao chép link cửa hàng');
+                  },
+                  icon: const Icon(Icons.copy, size: 16),
+                  label: const Text('Sao chép'),
+                ),
+              ),
+            ],
+            if (accountLink != null && accountLink.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text('Link đăng ký tài khoản đại lý',
+                    style:
+                        TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+              ),
+              const SizedBox(height: 6),
+              _linkBox(accountLink),
+            ],
           ]),
+          ),
         ),
         actions: [
           TextButton(
@@ -626,7 +824,9 @@ class AgentsTabState extends State<AgentsTab> {
               await _apiService.updateAgent(
                   id: agent['id']?.toString(),
                   name: nameCtrl.text,
-                  phone: phoneCtrl.text);
+                  email: emailCtrl.text,
+                  phone: phoneCtrl.text,
+                  address: addressCtrl.text);
               if (!ctx.mounted) return;
               Navigator.pop(ctx);
               loadData();
@@ -637,7 +837,9 @@ class AgentsTabState extends State<AgentsTab> {
       ),
     ).then((_) {
       nameCtrl.dispose();
+      emailCtrl.dispose();
       phoneCtrl.dispose();
+      addressCtrl.dispose();
     });
   }
 }

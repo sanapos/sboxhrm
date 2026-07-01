@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:intl/intl.dart';
 import '../../services/api_service.dart';
+import '../../widgets/admin/admin_mobile_widgets.dart';
 import 'system_admin_helpers.dart';
 
 class DashboardTab extends StatefulWidget {
@@ -163,7 +164,7 @@ class DashboardTabState extends State<DashboardTab> {
         children: [
           SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(20),
+            padding: adminTabPadding(context),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -252,51 +253,63 @@ class DashboardTabState extends State<DashboardTab> {
   }
 
   Widget _buildDateFilter() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: AdminHelpers.cardDecoration(),
-      child: Row(
-        children: [
-          const Icon(Icons.date_range,
-              color: AdminHelpers.primary, size: 20),
-          const SizedBox(width: 10),
-          Text('Báo cáo: ',
-              style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
-                  color: Colors.grey[700])),
-          const SizedBox(width: 8),
-          _periodChip('Hôm nay', 'today'),
-          const SizedBox(width: 6),
-          _periodChip('7 ngày', '7days'),
-          const SizedBox(width: 6),
-          _periodChip('30 ngày', '30days'),
-          const SizedBox(width: 6),
-          ActionChip(
-            avatar: Icon(Icons.calendar_month,
-                size: 16,
-                color: _selectedPeriod == 'custom'
-                    ? Colors.white
-                    : AdminHelpers.primary),
-            label: Text(
-              _selectedPeriod == 'custom' ? _periodLabel : 'Tùy chọn',
-              style: TextStyle(
-                fontSize: 12,
-                color: _selectedPeriod == 'custom'
-                    ? Colors.white
-                    : Colors.grey[700],
-              ),
-            ),
-            backgroundColor: _selectedPeriod == 'custom'
-                ? AdminHelpers.primary
-                : Colors.grey[100],
-            side: BorderSide(
-              color: _selectedPeriod == 'custom'
-                  ? AdminHelpers.primary
-                  : Colors.grey.shade300,
-            ),
-            onPressed: _pickCustomRange,
+    final mobile = adminUseMobileLayout(context);
+    final chips = [
+      _periodChip('Hôm nay', 'today'),
+      _periodChip('7 ngày', '7days'),
+      _periodChip('30 ngày', '30days'),
+      ActionChip(
+        avatar: Icon(Icons.calendar_month,
+            size: 16,
+            color: _selectedPeriod == 'custom'
+                ? Colors.white
+                : AdminHelpers.primary),
+        label: Text(
+          _selectedPeriod == 'custom' ? _periodLabel : 'Tùy chọn',
+          style: TextStyle(
+            fontSize: 12,
+            color: _selectedPeriod == 'custom'
+                ? Colors.white
+                : Colors.grey[700],
           ),
+        ),
+        backgroundColor: _selectedPeriod == 'custom'
+            ? AdminHelpers.primary
+            : Colors.grey[100],
+        side: BorderSide(
+          color: _selectedPeriod == 'custom'
+              ? AdminHelpers.primary
+              : Colors.grey.shade300,
+        ),
+        onPressed: _pickCustomRange,
+      ),
+    ];
+
+    return Container(
+      padding: EdgeInsets.all(mobile ? 12 : 16),
+      decoration: AdminHelpers.cardDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            const Icon(Icons.date_range,
+                color: AdminHelpers.primary, size: 20),
+            const SizedBox(width: 10),
+            Text('Báo cáo: ',
+                style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    color: Colors.grey[700])),
+          ]),
+          const SizedBox(height: 10),
+          if (mobile)
+            Wrap(spacing: 6, runSpacing: 6, children: chips)
+          else
+            Row(children: [
+              const SizedBox(width: 30),
+              ...chips.expand((c) => [c, const SizedBox(width: 6)]).toList()
+                ..removeLast(),
+            ]),
         ],
       ),
     );
@@ -391,9 +404,14 @@ class DashboardTabState extends State<DashboardTab> {
       String label, dynamic value, IconData icon, Color color,
       {VoidCallback? onTap}) {
     final count = value is int ? value : 0;
-    return SizedBox(
-      width: 200,
-      child: Material(
+    return LayoutBuilder(builder: (context, constraints) {
+      final mobile = adminUseMobileLayout(context);
+      final cardWidth = mobile
+          ? (MediaQuery.sizeOf(context).width - 40) / 2 - 7
+          : 200.0;
+      return SizedBox(
+        width: mobile ? cardWidth.clamp(140.0, 220.0) : 200,
+        child: Material(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
@@ -435,6 +453,7 @@ class DashboardTabState extends State<DashboardTab> {
         ),
       ),
     );
+    });
   }
 
   Widget _buildStatRow() {
@@ -495,9 +514,14 @@ class DashboardTabState extends State<DashboardTab> {
   Widget _buildStatCard(
       String label, String value, IconData icon, Color color,
       {String? sub, VoidCallback? onTap}) {
-    return SizedBox(
-      width: 220,
-      child: Material(
+    return LayoutBuilder(builder: (context, constraints) {
+      final mobile = adminUseMobileLayout(context);
+      final w = mobile
+          ? (MediaQuery.sizeOf(context).width - 36) / 2 - 7
+          : 220.0;
+      return SizedBox(
+        width: mobile ? w.clamp(150.0, 240.0) : 220,
+        child: Material(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
         child: InkWell(
@@ -548,6 +572,7 @@ class DashboardTabState extends State<DashboardTab> {
         ),
       ),
     );
+    });
   }
 
   Widget _buildHealthCard() {

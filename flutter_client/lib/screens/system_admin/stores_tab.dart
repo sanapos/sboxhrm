@@ -3,6 +3,7 @@ import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:flutter/services.dart';
 import '../../services/api_service.dart';
 import '../../utils/responsive_helper.dart';
+import '../../widgets/admin/admin_mobile_widgets.dart';
 import '../../widgets/notification_overlay.dart';
 import 'system_admin_helpers.dart';
 import '../../widgets/hrm_page_chrome.dart';
@@ -26,6 +27,8 @@ class StoresTabState extends State<StoresTab> {
   String? _expiryFilter;
   String? _usageFilter; // trial / active / inactive / expired
   String? _inactivityFilter;
+  String? _agentFilter; // agentId | '__none__' (chưa gán) | null (tất cả)
+  List<Map<String, dynamic>> _agents = [];
   int _currentPage = 1;
   final int _pageSize = 20;
 
@@ -33,6 +36,19 @@ class StoresTabState extends State<StoresTab> {
   void initState() {
     super.initState();
     loadData();
+    _loadAgents();
+  }
+
+  Future<void> _loadAgents() async {
+    try {
+      final res = await _apiService.getSystemAgents(pageSize: 1000);
+      if (!mounted) return;
+      if (res['isSuccess'] == true) {
+        setState(() => _agents = AdminHelpers.extractList(res['data']));
+      }
+    } catch (e) {
+      debugPrint('StoresTab load agents error: $e');
+    }
   }
 
   @override
@@ -96,6 +112,13 @@ class StoresTabState extends State<StoresTab> {
         final usage = _getUsageStatus(s);
         final matchUsage = _usageFilter == null || usage == _usageFilter;
 
+        // Agent filter
+        final agentId = s['agentId']?.toString();
+        final matchAgent = _agentFilter == null ||
+            (_agentFilter == '__none__' &&
+                (agentId == null || agentId.isEmpty)) ||
+            (_agentFilter != '__none__' && agentId == _agentFilter);
+
         // Inactivity filter
         final inactiveDays = _getInactiveDays(s);
         final matchInactivity = _inactivityFilter == null ||
@@ -107,7 +130,7 @@ class StoresTabState extends State<StoresTab> {
             (_inactivityFilter == '>365' && inactiveDays != null && inactiveDays >= 365) ||
             (_inactivityFilter == 'never' && inactiveDays == null);
 
-        return matchSearch && matchStatus && matchPackage && matchExpiry && matchUsage && matchInactivity;
+        return matchSearch && matchStatus && matchPackage && matchExpiry && matchUsage && matchInactivity && matchAgent;
       }).toList();
       _currentPage = 1;
     });
@@ -192,6 +215,29 @@ class StoresTabState extends State<StoresTab> {
     );
   }
 
+  int get _activeFilterCount {
+    var n = 0;
+    if (_statusFilter != null) n++;
+    if (_usageFilter != null) n++;
+    if (_expiryFilter != null) n++;
+    if (_packageFilter != null) n++;
+    if (_inactivityFilter != null) n++;
+    if (_agentFilter != null) n++;
+    return n;
+  }
+
+  void _clearFilters() {
+    setState(() {
+      _statusFilter = null;
+      _usageFilter = null;
+      _expiryFilter = null;
+      _packageFilter = null;
+      _inactivityFilter = null;
+      _agentFilter = null;
+    });
+    _applyFilters();
+  }
+
   Widget _buildToolbar() {
     final activeCount = _stores
         .where((s) => s['isActive'] == true && s['isLocked'] != true)
@@ -220,6 +266,60 @@ class StoresTabState extends State<StoresTab> {
         .toSet()
         .toList();
 
+    final statsRow = AdminMobileStatRow(children: [
+      AdminHelpers.countBadge('Tổng', _stores.length, AdminHelpers.primary),
+      const SizedBox(width: 8),
+      AdminHelpers.countBadge('Hoạt động', activeCount, AdminHelpers.success),
+      if (trialCount > 0) ...[
+        const SizedBox(width: 8),
+        AdminHelpers.countBadge(
+            'Dùng thử', trialCount, const Color(0xFF7C3AED)),
+      ],
+      if (usingCount > 0) ...[
+        const SizedBox(width: 8),
+        AdminHelpers.countBadge('Đang SD', usingCount, AdminHelpers.info),
+      ],
+      if (notUsingCount > 0) ...[
+        const SizedBox(width: 8),
+        AdminHelpers.countBadge(
+            'Không SD', notUsingCount, Colors.grey.shade600),
+      ],
+      if (expiringCount > 0) ...[
+        const SizedBox(width: 8),
+        AdminHelpers.countBadge(
+            'Sắp hết hạn', expiringCount, AdminHelpers.warning),
+      ],
+      if (expiredCount > 0) ...[
+        const SizedBox(width: 8),
+        AdminHelpers.countBadge('Hết hạn', expiredCount, AdminHelpers.danger),
+      ],
+      if (inactiveCount > 0) ...[
+        const SizedBox(width: 8),
+        AdminHelpers.countBadge('Tạm tắt', inactiveCount, Colors.grey),
+      ],
+      if (lockedCount > 0) ...[
+        const SizedBox(width: 8),
+        AdminHelpers.countBadge('Bị khóa', lockedCount, AdminHelpers.danger),
+      ],
+    ]);
+
+    if (adminUseMobileLayout(context)) {
+      return AdminMobileListToolbar(
+        searchController: _searchCtrl,
+        searchHint: 'Tìm cửa hàng theo tên, mã, SĐT...',
+        onSearchChanged: _applyFilters,
+        activeFilterCount: _activeFilterCount,
+        onRefresh: loadData,
+        onOpenFilters: () => showAdminFilterSheet(
+          context,
+          onApply: _applyFilters,
+          onClear: _clearFilters,
+          child: _buildFilterFields(packageNames),
+        ),
+        stats: statsRow,
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
       child: Column(
@@ -230,134 +330,116 @@ class StoresTabState extends State<StoresTab> {
             onChanged: _applyFilters,
           ),
           const SizedBox(height: 8),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              _buildDropdown<String?>(
-                value: _statusFilter,
-                hint: 'Trạng thái',
-                items: [
-                  _dropItem(null, 'Tất cả'),
-                  _dropItem('active', 'Hoạt động'),
-                  _dropItem('inactive', 'Tạm tắt'),
-                  _dropItem('locked', 'Bị khóa'),
-                ],
-                onChanged: (v) {
-                  _statusFilter = v;
-                  _applyFilters();
-                },
-              ),
-              _buildDropdown<String?>(
-                value: _usageFilter,
-                hint: 'Tình trạng SD',
-                items: [
-                  _dropItem(null, 'Tất cả tình trạng'),
-                  _dropItem('trial', 'Đang dùng thử'),
-                  _dropItem('active', 'Đang sử dụng'),
-                  _dropItem('inactive', 'Không sử dụng'),
-                  _dropItem('expired', 'Hết hạn sử dụng'),
-                ],
-                onChanged: (v) {
-                  _usageFilter = v;
-                  _applyFilters();
-                },
-              ),
-              _buildDropdown<String?>(
-                value: _expiryFilter,
-                hint: 'Thời hạn',
-                items: [
-                  _dropItem(null, 'Tất cả'),
-                  _dropItem('expired', 'Hết hạn'),
-                  _dropItem('expiring30', 'Sắp hết (≤30 ngày)'),
-                  _dropItem('valid', 'Còn hạn (>30 ngày)'),
-                ],
-                onChanged: (v) {
-                  _expiryFilter = v;
-                  _applyFilters();
-                },
-              ),
-              if (packageNames.isNotEmpty)
-                _buildDropdown<String?>(
-                  value: _packageFilter,
-                  hint: 'Gói DV',
-                  items: [
-                    _dropItem(null, 'Tất cả gói'),
-                    ...packageNames.map((n) => _dropItem(n, n!)),
-                  ],
-                  onChanged: (v) {
-                    _packageFilter = v;
-                    _applyFilters();
-                  },
-                ),
-              _buildDropdown<String?>(
-                value: _inactivityFilter,
-                hint: 'Không GD',
-                items: [
-                  _dropItem(null, 'Tất cả'),
-                  _dropItem('<7', '< 7 ngày'),
-                  _dropItem('<30', '< 1 tháng'),
-                  _dropItem('<90', '< 3 tháng'),
-                  _dropItem('<180', '< 6 tháng'),
-                  _dropItem('<365', '< 12 tháng'),
-                  _dropItem('>365', '> 12 tháng'),
-                  _dropItem('never', 'Chưa có GD'),
-                ],
-                onChanged: (v) {
-                  _inactivityFilter = v;
-                  _applyFilters();
-                },
-              ),
-            ],
-          ),
+          _buildFilterFields(packageNames),
           const SizedBox(height: 8),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(children: [
-              AdminHelpers.countBadge(
-                  'Tổng', _stores.length, AdminHelpers.primary),
-              const SizedBox(width: 8),
-              AdminHelpers.countBadge(
-                  'Hoạt động', activeCount, AdminHelpers.success),
-              const SizedBox(width: 8),
-              if (trialCount > 0) ...[
-                AdminHelpers.countBadge(
-                    'Dùng thử', trialCount, const Color(0xFF7C3AED)),
-                const SizedBox(width: 8),
-              ],
-              if (usingCount > 0) ...[
-                AdminHelpers.countBadge(
-                    'Đang SD', usingCount, AdminHelpers.info),
-                const SizedBox(width: 8),
-              ],
-              if (notUsingCount > 0) ...[
-                AdminHelpers.countBadge(
-                    'Không SD', notUsingCount, Colors.grey.shade600),
-                const SizedBox(width: 8),
-              ],
-              if (expiringCount > 0) ...[
-                AdminHelpers.countBadge(
-                    'Sắp hết hạn', expiringCount, AdminHelpers.warning),
-                const SizedBox(width: 8),
-              ],
-              if (expiredCount > 0) ...[
-                AdminHelpers.countBadge(
-                    'Hết hạn', expiredCount, AdminHelpers.danger),
-                const SizedBox(width: 8),
-              ],
-              if (inactiveCount > 0) ...[
-                AdminHelpers.countBadge(
-                    'Tạm tắt', inactiveCount, Colors.grey),
-                const SizedBox(width: 8),
-              ],
-              if (lockedCount > 0)
-                AdminHelpers.countBadge(
-                    'Bị khóa', lockedCount, AdminHelpers.danger),
-            ]),
-          ),
+          statsRow,
         ],
       ),
     );
+  }
+
+  Widget _buildFilterFields(List<String?> packageNames) {
+    final mobile = adminUseMobileLayout(context);
+    final filters = <Widget>[
+      _buildDropdown<String?>(
+        value: _statusFilter,
+        hint: 'Trạng thái',
+        items: [
+          _dropItem(null, 'Tất cả'),
+          _dropItem('active', 'Hoạt động'),
+          _dropItem('inactive', 'Tạm tắt'),
+          _dropItem('locked', 'Bị khóa'),
+        ],
+        onChanged: (v) {
+          _statusFilter = v;
+          _applyFilters();
+        },
+      ),
+      _buildDropdown<String?>(
+        value: _usageFilter,
+        hint: 'Tình trạng SD',
+        items: [
+          _dropItem(null, 'Tất cả tình trạng'),
+          _dropItem('trial', 'Đang dùng thử'),
+          _dropItem('active', 'Đang sử dụng'),
+          _dropItem('inactive', 'Không sử dụng'),
+          _dropItem('expired', 'Hết hạn sử dụng'),
+        ],
+        onChanged: (v) {
+          _usageFilter = v;
+          _applyFilters();
+        },
+      ),
+      _buildDropdown<String?>(
+        value: _expiryFilter,
+        hint: 'Thời hạn',
+        items: [
+          _dropItem(null, 'Tất cả'),
+          _dropItem('expired', 'Hết hạn'),
+          _dropItem('expiring30', 'Sắp hết (≤30 ngày)'),
+          _dropItem('valid', 'Còn hạn (>30 ngày)'),
+        ],
+        onChanged: (v) {
+          _expiryFilter = v;
+          _applyFilters();
+        },
+      ),
+      if (packageNames.isNotEmpty)
+        _buildDropdown<String?>(
+          value: _packageFilter,
+          hint: 'Gói DV',
+          items: [
+            _dropItem(null, 'Tất cả gói'),
+            ...packageNames.map((n) => _dropItem(n, n!)),
+          ],
+          onChanged: (v) {
+            _packageFilter = v;
+            _applyFilters();
+          },
+        ),
+      _buildDropdown<String?>(
+        value: _inactivityFilter,
+        hint: 'Không GD',
+        items: [
+          _dropItem(null, 'Tất cả'),
+          _dropItem('<7', '< 7 ngày'),
+          _dropItem('<30', '< 1 tháng'),
+          _dropItem('<90', '< 3 tháng'),
+          _dropItem('<180', '< 6 tháng'),
+          _dropItem('<365', '< 12 tháng'),
+          _dropItem('>365', '> 12 tháng'),
+          _dropItem('never', 'Chưa có GD'),
+        ],
+        onChanged: (v) {
+          _inactivityFilter = v;
+          _applyFilters();
+        },
+      ),
+      _buildDropdown<String?>(
+        value: _agentFilter,
+        hint: 'Đại lý',
+        items: [
+          _dropItem(null, 'Tất cả đại lý'),
+          _dropItem('__none__', 'Chưa gán đại lý'),
+          ..._agents.map((a) => _dropItem(
+                a['id']?.toString(),
+                (a['name'] ?? a['code'] ?? 'Đại lý').toString(),
+              )),
+        ],
+        onChanged: (v) {
+          _agentFilter = v;
+          _applyFilters();
+        },
+      ),
+    ];
+
+    if (mobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: filters,
+      );
+    }
+    return Wrap(spacing: 6, runSpacing: 6, children: filters);
   }
 
   Widget _buildDropdown<T>({
@@ -366,7 +448,9 @@ class StoresTabState extends State<StoresTab> {
     required List<DropdownMenuItem<T>> items,
     required ValueChanged<T?> onChanged,
   }) {
+    final mobile = adminUseMobileLayout(context);
     return Container(
+      width: mobile ? double.infinity : null,
       height: 40,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
@@ -375,6 +459,7 @@ class StoresTabState extends State<StoresTab> {
           border: Border.all(color: Colors.grey.shade300)),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<T>(
+          isExpanded: mobile,
           value: value,
           hint: Text(hint, style: const TextStyle(fontSize: 13)),
           items: items,
@@ -534,7 +619,9 @@ class StoresTabState extends State<StoresTab> {
             const SizedBox(width: 6),
             if (store['licenseType'] != null)
               AdminHelpers.statusChip(
-                  AdminHelpers.licenseTypeLabel(store['licenseType']?.toString()), AdminHelpers.primaryDark),
+                  AdminHelpers.licenseTypeChipLabel(
+                      store['licenseType']?.toString()),
+                  AdminHelpers.primaryDark),
             if (store['servicePackageName'] != null) ...[              const SizedBox(width: 6),
               AdminHelpers.statusChip(
                   store['servicePackageName'], const Color(0xFF7C3AED)),
@@ -590,6 +677,12 @@ class StoresTabState extends State<StoresTab> {
                 AdminHelpers.infoRow(Icons.location_on, store['address']),
               if (store['ownerEmail'] != null)
                 AdminHelpers.infoRow(Icons.email, store['ownerEmail']),
+              AdminHelpers.infoRow(
+                  Icons.storefront,
+                  (store['agentName'] != null &&
+                          store['agentName'].toString().isNotEmpty)
+                      ? 'Đại lý: ${store['agentName']}'
+                      : 'Đại lý: Chưa gán'),
               AdminHelpers.infoRow(Icons.people,
                   'Users: ${store['userCount'] ?? store['totalUsers'] ?? 'N/A'}'),
               AdminHelpers.infoRow(Icons.router,
@@ -641,6 +734,15 @@ class StoresTabState extends State<StoresTab> {
                       label: 'Đổi gói',
                       color: const Color(0xFF0891B2),
                       onTap: () => _showAssignPackage(store),
+                    ),
+                    _actionButton(
+                      icon: Icons.handshake_outlined,
+                      label: (store['agentId'] != null &&
+                              store['agentId'].toString().isNotEmpty)
+                          ? 'Đổi đại lý'
+                          : 'Gán đại lý',
+                      color: const Color(0xFFEA580C),
+                      onTap: () => _showAssignAgent(store),
                     ),
                     _actionButton(
                       icon: isActive ? Icons.pause : Icons.play_arrow,
@@ -733,6 +835,98 @@ class StoresTabState extends State<StoresTab> {
   }
 
   // ═══════════════════════ EDIT STORE NAME ═══════════════════════
+  Future<void> _showAssignAgent(Map<String, dynamic> store) async {
+    final storeId = store['id']?.toString() ?? '';
+    if (_agents.isEmpty) {
+      await _loadAgents();
+    }
+    final currentAgentId = store['agentId']?.toString();
+    String? selected = currentAgentId;
+
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => ScrollableAlertDialog(
+          title: const Row(children: [
+            Icon(Icons.handshake_outlined,
+                color: Color(0xFFEA580C), size: 22),
+            SizedBox(width: 8),
+            Text('Gán đại lý cho cửa hàng', style: TextStyle(fontSize: 18)),
+          ]),
+          content: SizedBox(
+            width: MediaQuery.of(context).size.width < 600
+                ? MediaQuery.of(context).size.width - 32
+                : 400,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Cửa hàng: ${store['name'] ?? ''}',
+                    style: const TextStyle(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String?>(
+                  value: selected,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Chọn đại lý',
+                    prefixIcon: Icon(Icons.storefront),
+                    border: OutlineInputBorder(),
+                  ),
+                  items: [
+                    const DropdownMenuItem<String?>(
+                        value: null, child: Text('— Không gán / Gỡ đại lý —')),
+                    ..._agents.map((a) => DropdownMenuItem<String?>(
+                          value: a['id']?.toString(),
+                          child: Text(
+                            '${a['name'] ?? a['code'] ?? 'Đại lý'} (${a['code'] ?? ''})',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        )),
+                  ],
+                  onChanged: (v) => setLocal(() => selected = v),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Hủy')),
+            FilledButton.icon(
+              onPressed: () =>
+                  Navigator.pop(ctx, {'agentId': selected}),
+              icon: const Icon(Icons.save, size: 16),
+              label: const Text('Lưu'),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFEA580C)),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (result == null || !mounted) return;
+    final newAgentId = result['agentId'] as String?;
+    if (newAgentId == currentAgentId) return;
+
+    Map<String, dynamic> res;
+    if (newAgentId == null || newAgentId.isEmpty) {
+      // Gỡ đại lý hiện tại
+      if (currentAgentId == null || currentAgentId.isEmpty) return;
+      res = await _apiService.removeStoreFromAgent(currentAgentId, storeId);
+    } else {
+      res = await _apiService.assignStoreToAgent(newAgentId, storeId);
+    }
+
+    if (!mounted) return;
+    if (res['isSuccess'] == true) {
+      AdminHelpers.showSuccess(context, 'Đã cập nhật đại lý cho cửa hàng');
+      await loadData();
+    } else {
+      AdminHelpers.showApiError(context, res);
+    }
+  }
+
   Future<void> _editStoreName(Map<String, dynamic> store) async {
     final storeId = store['id']?.toString() ?? '';
     final currentName = store['name']?.toString() ?? '';
@@ -854,7 +1048,8 @@ class StoresTabState extends State<StoresTab> {
         ]),
         _detailSection('Gói dịch vụ & License', [
           _detailRow('Gói dịch vụ', d['servicePackageName']),
-          _detailRow('Loại license', d['licenseType']),
+          _detailRow('Loại license',
+              AdminHelpers.licenseTypeLabel(d['licenseType']?.toString())),
           _detailRow('License key', d['licenseKey']),
           _detailRow('Hết hạn',
               AdminHelpers.formatDate(d['expiryDate'])),
@@ -1622,10 +1817,16 @@ class _StoreUsersDialog extends StatefulWidget {
 
 class _StoreUsersDialogState extends State<_StoreUsersDialog> {
   late List<Map<String, dynamic>> _users;
-  // Track which user's password is visible
-  // ignore: unused_field
-  final Map<String, bool> _showPassword = {};
+  final Map<String, bool> _passwordRevealed = {};
   final Map<String, String> _newPasswords = {};
+
+  String? _visiblePassword(String userId, Map<String, dynamic> user) {
+    final local = _newPasswords[userId];
+    if (local != null && local.isNotEmpty) return local;
+    final fromApi = user['plainTextPassword']?.toString();
+    if (fromApi != null && fromApi.isNotEmpty) return fromApi;
+    return null;
+  }
 
   @override
   void initState() {
@@ -1680,6 +1881,7 @@ class _StoreUsersDialogState extends State<_StoreUsersDialog> {
     final role = user['role'] ?? '';
     final isActive = user['isActive'] as bool? ?? true;
     final lastLogin = user['lastLoginAt'];
+    final visiblePassword = _visiblePassword(userId, user);
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
@@ -1766,17 +1968,54 @@ class _StoreUsersDialogState extends State<_StoreUsersDialog> {
                           size: 14, color: Colors.grey[500]),
                       const SizedBox(width: 6),
                       Expanded(
-                        child: _newPasswords.containsKey(userId)
-                            ? Text(_newPasswords[userId]!,
-                                style: const TextStyle(
-                                    fontSize: 13,
-                                    fontFamily: 'monospace',
-                                    fontWeight: FontWeight.w600))
-                            : Text('••••••••',
+                        child: visiblePassword != null
+                            ? (_passwordRevealed[userId] == true
+                                ? SelectableText(
+                                    visiblePassword,
+                                    style: const TextStyle(
+                                        fontSize: 13,
+                                        fontFamily: 'monospace',
+                                        fontWeight: FontWeight.w600))
+                                : Text('••••••••',
+                                    style: TextStyle(
+                                        fontSize: 13,
+                                        color: Colors.grey[500])))
+                            : Text(
+                                'Chưa lưu (đặt lại MK để xem)',
                                 style: TextStyle(
-                                    fontSize: 13, color: Colors.grey[500])),
+                                    fontSize: 12, color: Colors.grey[500])),
                       ),
-                      // Reset password
+                      if (visiblePassword != null) ...[
+                        InkWell(
+                          onTap: () => setState(() {
+                            _passwordRevealed[userId] =
+                                !(_passwordRevealed[userId] ?? false);
+                          }),
+                          child: Padding(
+                            padding: const EdgeInsets.only(right: 4),
+                            child: Icon(
+                              _passwordRevealed[userId] == true
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
+                              size: 14,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ),
+                        InkWell(
+                          onTap: () {
+                            Clipboard.setData(
+                                ClipboardData(text: visiblePassword));
+                            AdminHelpers.showSuccess(
+                                context, 'Đã copy mật khẩu');
+                          },
+                          child: const Padding(
+                            padding: EdgeInsets.only(right: 4),
+                            child: Icon(Icons.copy,
+                                size: 14, color: AdminHelpers.primary),
+                          ),
+                        ),
+                      ],
                       TextButton.icon(
                         style: TextButton.styleFrom(
                           padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -1814,7 +2053,7 @@ class _StoreUsersDialogState extends State<_StoreUsersDialog> {
   }
 
   Future<void> _resetPassword(String userId, String email) async {
-    final newPass = await AdminHelpers.showInputDialog(
+    final newPass = await AdminHelpers.showPasswordInputDialog(
       context,
       'Đặt lại mật khẩu',
       'Nhập mật khẩu mới cho $email',
@@ -1830,6 +2069,12 @@ class _StoreUsersDialogState extends State<_StoreUsersDialog> {
     if (res['isSuccess'] == true) {
       setState(() {
         _newPasswords[userId] = newPass;
+        _passwordRevealed[userId] = true;
+        final idx = _users.indexWhere((u) => u['id']?.toString() == userId);
+        if (idx >= 0) {
+          _users[idx] = Map<String, dynamic>.from(_users[idx])
+            ..['plainTextPassword'] = newPass;
+        }
       });
       AdminHelpers.showSuccess(context, 'Đã đặt lại mật khẩu cho $email');
     } else {
