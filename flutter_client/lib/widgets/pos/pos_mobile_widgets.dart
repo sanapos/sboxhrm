@@ -1,0 +1,813 @@
+import 'package:flutter/material.dart';
+
+import '../../utils/responsive_helper.dart';
+import 'pos_theme.dart';
+
+/// POS dùng layout mobile (thẻ + cuộn dọc) thay vì bảng ngang.
+bool posUseMobileList(BuildContext context) =>
+    !Responsive.preferTableListLayout(context);
+
+/// Mở bottom sheet bộ lọc trên mobile (có Đặt lại / Áp dụng).
+Future<void> showPosMobileFilterSheet(
+  BuildContext context, {
+  required Widget child,
+  String title = 'Bộ lọc',
+  VoidCallback? onReset,
+  VoidCallback? onApply,
+}) {
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    backgroundColor: Colors.white,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+    ),
+    builder: (ctx) => DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.72,
+      minChildSize: 0.4,
+      maxChildSize: 0.95,
+      builder: (_, scrollCtrl) => Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+            child: Row(
+              children: [
+                Text(title,
+                    style: const TextStyle(
+                        fontSize: 17, fontWeight: FontWeight.w600)),
+                const Spacer(),
+                IconButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: SingleChildScrollView(
+              controller: scrollCtrl,
+              padding: const EdgeInsets.all(16),
+              child: child,
+            ),
+          ),
+          if (onReset != null || onApply != null)
+            SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                child: Row(
+                  children: [
+                    if (onReset != null)
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () {
+                            onReset();
+                            Navigator.pop(ctx);
+                          },
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: PosTheme.kiotBlue,
+                            side: const BorderSide(color: PosTheme.kiotBlue),
+                            minimumSize: const Size(0, 44),
+                          ),
+                          child: const Text('Đặt lại'),
+                        ),
+                      ),
+                    if (onReset != null && onApply != null)
+                      const SizedBox(width: 10),
+                    if (onApply != null)
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: () {
+                            onApply();
+                            Navigator.pop(ctx);
+                          },
+                          style: PosTheme.mobilePrimaryButton,
+                          child: const Text('Áp dụng'),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    ),
+  );
+}
+
+/// Desktop: sidebar lọc + nội dung. Mobile: chỉ nội dung + nút lọc trên header.
+class PosResponsiveFilterLayout extends StatelessWidget {
+  const PosResponsiveFilterLayout({
+    super.key,
+    required this.filterPanel,
+    required this.child,
+    this.onOpenFilters,
+    this.activeFilterCount = 0,
+  });
+
+  final Widget filterPanel;
+  final Widget child;
+  final VoidCallback? onOpenFilters;
+  final int activeFilterCount;
+
+  @override
+  Widget build(BuildContext context) {
+    if (posUseMobileList(context)) {
+      return child;
+    }
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        filterPanel,
+        Expanded(child: child),
+      ],
+    );
+  }
+}
+
+/// Header trang danh sách POS (mobile gọn).
+class PosMobileListHeader extends StatelessWidget {
+  const PosMobileListHeader({
+    super.key,
+    required this.icon,
+    required this.title,
+    this.onCreate,
+    this.createLabel = 'Tạo mới',
+    this.onRefresh,
+    this.onOpenFilters,
+    this.activeFilterCount = 0,
+    this.trailing,
+  });
+
+  final IconData icon;
+  final String title;
+  final VoidCallback? onCreate;
+  final String createLabel;
+  final VoidCallback? onRefresh;
+  final VoidCallback? onOpenFilters;
+  final int activeFilterCount;
+  final List<Widget>? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final mobile = posUseMobileList(context);
+    return Container(
+      color: Colors.white,
+      padding: EdgeInsets.fromLTRB(mobile ? 12 : 16, 10, mobile ? 8 : 16, 10),
+      child: mobile
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Icon(icon, color: PosTheme.kiotBlue, size: 22),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(title,
+                          style: const TextStyle(
+                              fontSize: 17, fontWeight: FontWeight.bold)),
+                    ),
+                    if (onOpenFilters != null)
+                      IconButton(
+                        tooltip: 'Bộ lọc',
+                        onPressed: onOpenFilters,
+                        icon: Badge(
+                          isLabelVisible: activeFilterCount > 0,
+                          label: Text('$activeFilterCount'),
+                          child: const Icon(Icons.filter_list),
+                        ),
+                      ),
+                    if (onRefresh != null)
+                      IconButton(
+                        onPressed: onRefresh,
+                        icon: const Icon(Icons.refresh),
+                        tooltip: 'Tải lại',
+                      ),
+                    if (trailing != null) ...trailing!,
+                  ],
+                ),
+                if (onCreate != null) ...[
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: onCreate,
+                      icon: const Icon(Icons.add, size: 18),
+                      label: Text(createLabel),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: PosTheme.kiotBlue,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            )
+          : Row(
+              children: [
+                Icon(icon, color: PosTheme.kiotBlue),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(title,
+                      style: const TextStyle(
+                          fontSize: 18, fontWeight: FontWeight.bold)),
+                ),
+                if (onCreate != null)
+                  FilledButton.icon(
+                    onPressed: onCreate,
+                    icon: const Icon(Icons.add, size: 18),
+                    label: Text(createLabel),
+                    style: FilledButton.styleFrom(
+                        backgroundColor: PosTheme.kiotBlue),
+                  ),
+                if (trailing != null) ...trailing!,
+                if (onRefresh != null) ...[
+                  const SizedBox(width: 8),
+                  IconButton(
+                    onPressed: onRefresh,
+                    icon: const Icon(Icons.refresh),
+                    tooltip: 'Tải lại',
+                  ),
+                ],
+              ],
+            ),
+    );
+  }
+}
+
+class PosMobileField {
+  const PosMobileField(this.label, this.value);
+  final String label;
+  final String value;
+}
+
+/// Thẻ phiếu/chứng từ có thể mở rộng — dùng cho danh sách POS trên mobile.
+class PosMobileExpandableDocCard extends StatelessWidget {
+  const PosMobileExpandableDocCard({
+    super.key,
+    required this.expanded,
+    required this.onTap,
+    required this.code,
+    required this.status,
+    required this.fields,
+    this.detail,
+    this.accentColor = PosTheme.kiotBlue,
+  });
+
+  final bool expanded;
+  final VoidCallback onTap;
+  final String code;
+  final Widget status;
+  final List<PosMobileField> fields;
+  final Widget? detail;
+  final Color accentColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: PosTheme.mobileCardDecoration(),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          InkWell(
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        expanded
+                            ? Icons.keyboard_arrow_down
+                            : Icons.keyboard_arrow_right,
+                        size: 22,
+                        color: PosTheme.textSecondary,
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          code,
+                          style: TextStyle(
+                            color: accentColor,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ),
+                      status,
+                    ],
+                  ),
+                  if (!expanded && fields.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    ...fields.take(3).map(_kv),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          if (expanded && detail != null)
+            Container(
+              width: double.infinity,
+              color: const Color(0xFFF8FAFC),
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              child: detail,
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _kv(PosMobileField f) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 26, bottom: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 88,
+            child: Text(f.label,
+                style: const TextStyle(
+                    fontSize: 12, color: PosTheme.textSecondary)),
+          ),
+          Expanded(
+            child: Text(f.value,
+                style: const TextStyle(fontSize: 13),
+                textAlign: TextAlign.right),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Phân trang gọn cho mobile.
+class PosMobilePager extends StatelessWidget {
+  const PosMobilePager({
+    super.key,
+    required this.total,
+    required this.page,
+    required this.pageSize,
+    required this.onPageChanged,
+    this.label = 'phiếu',
+  });
+
+  final int total;
+  final int page;
+  final int pageSize;
+  final ValueChanged<int> onPageChanged;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    if (total <= pageSize) return const SizedBox.shrink();
+    final pages = (total / pageSize).ceil();
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              'Tổng $total $label · Trang $page/$pages',
+              style: const TextStyle(
+                  fontSize: 12, color: PosTheme.textSecondary),
+            ),
+          ),
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            icon: const Icon(Icons.chevron_left),
+            onPressed: page > 1 ? () => onPageChanged(page - 1) : null,
+          ),
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            icon: const Icon(Icons.chevron_right),
+            onPressed: page < pages ? () => onPageChanged(page + 1) : null,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Thanh hành động cố định dưới màn editor mobile.
+class PosMobileEditorActionBar extends StatelessWidget {
+  const PosMobileEditorActionBar({
+    super.key,
+    required this.children,
+  });
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      elevation: 8,
+      color: Colors.white,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: WrapAlignment.end,
+            children: children,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Thẻ dòng hàng trong editor mobile.
+class PosMobileLineItemCard extends StatelessWidget {
+  const PosMobileLineItemCard({
+    super.key,
+    required this.index,
+    required this.code,
+    required this.name,
+    required this.fields,
+    this.trailing,
+    this.onRemove,
+  });
+
+  final int index;
+  final String code;
+  final String name;
+  final List<Widget> fields;
+  final Widget? trailing;
+  final VoidCallback? onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: PosTheme.mobileCardDecoration(),
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CircleAvatar(
+                radius: 12,
+                backgroundColor: PosTheme.kiotBlueLight,
+                child: Text(
+                  '$index',
+                  style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: PosTheme.kiotBlue),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(name,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 14)),
+                    Text(code,
+                        style: const TextStyle(
+                            fontSize: 12, color: PosTheme.textSecondary)),
+                  ],
+                ),
+              ),
+              if (onRemove != null)
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  onPressed: onRemove,
+                  icon: Icon(Icons.delete_outline,
+                      size: 20, color: Colors.red.shade400),
+                ),
+            ],
+          ),
+          if (fields.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            ...fields,
+          ],
+          if (trailing != null) ...[
+            const SizedBox(height: 8),
+            trailing!,
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Layout editor mobile: cuộn dọc (tìm hàng + dòng + thông tin phiếu).
+Widget posMobileEditorScrollBody({
+  required Widget searchBar,
+  required Widget lines,
+  required Widget metaPanel,
+  Widget? actionBar,
+}) {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Expanded(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              searchBar,
+              lines,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                child: DecoratedBox(
+                  decoration: PosTheme.mobileCardDecoration(),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: metaPanel,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      if (actionBar != null) actionBar,
+    ],
+  );
+}
+
+/// Layout editor: desktop Row, mobile Column + panel meta có thể cuộn.
+class PosMobileEditorShell extends StatelessWidget {
+  const PosMobileEditorShell({
+    super.key,
+    required this.main,
+    required this.sidePanel,
+    this.sidePanelWidth = 320,
+    this.mobileActionBar,
+  });
+
+  final Widget main;
+  final Widget sidePanel;
+  final double sidePanelWidth;
+  final Widget? mobileActionBar;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!posUseMobileList(context)) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(flex: 3, child: main),
+          SizedBox(width: sidePanelWidth, child: sidePanel),
+        ],
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(
+          child: CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(child: main),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                  child: DecoratedBox(
+                    decoration: PosTheme.mobileCardDecoration(),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: sidePanel,
+                    ),
+                  ),
+                ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 80)),
+            ],
+          ),
+        ),
+        if (mobileActionBar != null) mobileActionBar!,
+      ],
+    );
+  }
+}
+
+/// Header danh sách kiểu KiotViet: tiêu đề lớn + search/sort/filter.
+class PosMobileKiotHeader extends StatelessWidget {
+  const PosMobileKiotHeader({
+    super.key,
+    required this.title,
+    this.onSearch,
+    this.onFilter,
+    this.onSort,
+    this.onMore,
+    this.activeFilterCount = 0,
+    this.filterChips,
+  });
+
+  final String title;
+  final VoidCallback? onSearch;
+  final VoidCallback? onFilter;
+  final VoidCallback? onSort;
+  final VoidCallback? onMore;
+  final int activeFilterCount;
+  final Widget? filterChips;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 10, 6, 6),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: PosTheme.textPrimary,
+                    ),
+                  ),
+                ),
+                if (onSearch != null)
+                  IconButton(
+                    onPressed: onSearch,
+                    icon: const Icon(Icons.search),
+                    tooltip: 'Tìm kiếm',
+                  ),
+                if (onSort != null)
+                  IconButton(
+                    onPressed: onSort,
+                    icon: const Icon(Icons.import_export),
+                    tooltip: 'Sắp xếp',
+                  ),
+                if (onMore != null)
+                  IconButton(
+                    onPressed: onMore,
+                    icon: const Icon(Icons.more_horiz),
+                    tooltip: 'Thêm',
+                  ),
+              ],
+            ),
+          ),
+          if (onFilter != null || filterChips != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+              child: Row(
+                children: [
+                  if (onFilter != null)
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      onPressed: onFilter,
+                      icon: Badge(
+                        isLabelVisible: activeFilterCount > 0,
+                        label: Text('$activeFilterCount'),
+                        child: const Icon(Icons.filter_list, size: 22),
+                      ),
+                    ),
+                  if (filterChips != null) Expanded(child: filterChips!),
+                ],
+              ),
+            ),
+          const Divider(height: 1, color: PosTheme.border),
+        ],
+      ),
+    );
+  }
+}
+
+/// Dòng hàng hoá mobile: ảnh | tên+mã | giá+tồn.
+class PosMobileProductRow extends StatelessWidget {
+  const PosMobileProductRow({
+    super.key,
+    required this.name,
+    required this.code,
+    required this.priceText,
+    required this.stockText,
+    this.image,
+    this.onTap,
+    this.onLongPress,
+  });
+
+  final String name;
+  final String code;
+  final String priceText;
+  final String stockText;
+  final Widget? image;
+  final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      child: InkWell(
+        onTap: onTap,
+        onLongPress: onLongPress,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: image ??
+                      ColoredBox(
+                        color: PosTheme.kiotBlueLight,
+                        child: Icon(Icons.inventory_2_outlined,
+                            color: PosTheme.kiotBlue.withValues(alpha: 0.5)),
+                      ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        height: 1.25,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      code,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: PosTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    priceText,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    stockText,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: PosTheme.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// FAB tròn kiểu KiotViet.
+class PosMobileFab extends StatelessWidget {
+  const PosMobileFab({
+    super.key,
+    required this.onPressed,
+    this.tooltip = 'Tạo mới',
+  });
+
+  final VoidCallback onPressed;
+  final String tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    return FloatingActionButton(
+      onPressed: onPressed,
+      tooltip: tooltip,
+      backgroundColor: PosTheme.kiotBlue,
+      foregroundColor: Colors.white,
+      elevation: 4,
+      child: const Icon(Icons.add, size: 28),
+    );
+  }
+}

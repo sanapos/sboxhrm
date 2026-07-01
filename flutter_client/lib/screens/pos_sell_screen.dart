@@ -10,6 +10,7 @@ import '../models/pos_print_template.dart';
 import '../models/pos_sale_order.dart';
 import '../providers/permission_provider.dart';
 import '../providers/auth_provider.dart';
+import '../utils/responsive_helper.dart';
 import '../utils/store_role_helper.dart';
 import '../services/api_service.dart';
 import '../utils/pos_purchase_product_lookup.dart';
@@ -31,6 +32,7 @@ import '../widgets/pos/pos_sell_print_popover.dart';
 import '../widgets/pos/pos_sell_store_settings_dialog.dart';
 import '../widgets/pos/pos_sale_quick_notes_widgets.dart';
 import '../widgets/pos/pos_theme.dart';
+import '../widgets/pos/pos_hub_scope.dart';
 import 'pos_sale_order_editor_screen.dart';
 import 'pos/pos_end_of_day_screen.dart';
 import 'pos_reports_screen.dart';
@@ -320,6 +322,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
   List<Map<String, dynamic>> _sellSellers = [];
   bool _canPickSeller = false;
   String? _defaultSellerEmployeeId;
+  /// 0 = sản phẩm, 1 = giỏ / thanh toán (chỉ mobile)
+  int _mobilePage = 0;
 
   _SellInvoiceTab get _tab => _tabs[_activeTab];
 
@@ -469,9 +473,9 @@ class _PosSellScreenState extends State<PosSellScreen> {
   }
 
   Future<void> _ensurePosPrintTemplates() async {
-    for (final docType in PosPrintDocumentTypes.all.keys) {
-      await _api.getPosPrintTemplates(documentType: docType);
-    }
+    await _api.getPosPrintTemplates(
+      documentType: PosPrintDocumentTypes.saleInvoice,
+    );
   }
 
   void _newTab() {
@@ -632,6 +636,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
       ));
       _syncPaidAmount();
     });
+    HapticFeedback.lightImpact();
   }
 
   Future<void> _onBarcodeScanned(String code) async {
@@ -1170,7 +1175,11 @@ class _PosSellScreenState extends State<PosSellScreen> {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final wide = constraints.maxWidth >= 1024;
+            final isMobile = Responsive.isMobile(context);
             final isNormal = _sellMode == _SellMode.normal;
+            if (isMobile && !wide) {
+              return _buildMobileShell(perm, isNormal);
+            }
             return Column(
               children: [
                 _buildTopBar(),
@@ -2479,8 +2488,707 @@ class _PosSellScreenState extends State<PosSellScreen> {
     );
   }
 
+  // ─── Mobile layout (Android / iOS) ───────────────────────────────────────
+
+  Widget _buildMobileShell(PermissionProvider perm, bool isNormal) {
+    _recalcTotals();
+    final inHub = PosHubScope.of(context);
+    return Column(
+      children: [
+        _buildMobileTopBar(),
+        Expanded(
+          child: _mobilePage == 0
+              ? PosSellProductGrid(
+                  key: _productGridKey,
+                  api: _api,
+                  onPick: (pick) => _addPick(pick),
+                )
+              : (isNormal
+                  ? _buildMobileCartCheckout(perm)
+                  : _buildPaymentSidebar(
+                      perm,
+                      width: MediaQuery.sizeOf(context).width,
+                      compact: true,
+                    )),
+        ),
+        if (_mobilePage == 0 && _tab.cart.isNotEmpty) _buildMobileFloatingCartBar(),
+        if (inHub && _mobilePage == 0) _buildMobileModePill(),
+        if (!inHub) _buildMobilePageNav(),
+        if (!inHub) _buildMobileModeBar(),
+      ],
+    );
+  }
+
+  Widget _buildMobileTopBar() {
+    return Material(
+      color: _kiotBlue,
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(10, 6, 6, 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: PosPurchaseProductSearchBar(
+                        api: _api,
+                        sellMode: true,
+                        focusNode: _productSearchFocus,
+                        hintText: 'Tìm hàng / quét mã',
+                        onPick: (pick) => _addPick(pick),
+                        onBarcodePick: (pick) =>
+                            _addPick(pick, mergeIfSame: true),
+                        onAddProduct: _openNewProduct,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    icon: const Icon(Icons.menu, color: Colors.white),
+                    onPressed: _openPosMenu,
+                  ),
+                  IconButton(
+                    key: _printBtnKey,
+                    visualDensity: VisualDensity.compact,
+                    icon: const Icon(Icons.print_outlined,
+                        color: Colors.white, size: 22),
+                    onPressed: _openPrintSettings,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              _buildMobileCustomerPriceRows(),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 34,
+                child: ListView(
+                  controller: _tabScrollCtrl,
+                  scrollDirection: Axis.horizontal,
+                  children: [
+                    for (var i = 0; i < _tabs.length; i++) ...[
+                      _invoiceTabChip(i),
+                      const SizedBox(width: 6),
+                    ],
+                    Material(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(8),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: _newTab,
+                        child: const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 10),
+                          child: Icon(Icons.add, color: Colors.white, size: 20),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMobileCustomerPriceRows() {
+    return Column(
+      children: [
+        _mobileSelectRow(
+          icon: Icons.person_outline,
+          label: _tab.customer?.name ?? 'Khách lẻ',
+          onTap: () => setState(() => _mobilePage = 1),
+        ),
+        const SizedBox(height: 6),
+        _mobileSelectRow(
+          icon: Icons.sell_outlined,
+          label: 'Bảng giá chung',
+          onTap: () {
+            NotificationOverlayManager().showInfo(
+              title: 'Bảng giá',
+              message: 'Đang dùng bảng giá chung của cửa hàng',
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _mobileSelectRow({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.white.withValues(alpha: 0.18),
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          child: Row(
+            children: [
+              Icon(icon, size: 18, color: Colors.white),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: Colors.white70, size: 20),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openMobilePaymentScreen(PermissionProvider perm) async {
+    if (_tab.cart.isEmpty) return;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (ctx) => Scaffold(
+          backgroundColor: const Color(0xFFF3F4F6),
+          appBar: AppBar(
+            title: const Text('Thanh toán'),
+            backgroundColor: Colors.white,
+            foregroundColor: PosTheme.textPrimary,
+            elevation: 0,
+          ),
+          body: _buildPaymentSidebar(
+            perm,
+            width: MediaQuery.sizeOf(ctx).width,
+            compact: true,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMobileFloatingCartBar() {
+    return Material(
+      elevation: 4,
+      color: Colors.white,
+      child: InkWell(
+        onTap: () => setState(() => _mobilePage = 1),
+        child: Container(
+          height: PosTheme.mobileCartBarHeight,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: const BoxDecoration(
+            border: Border(top: BorderSide(color: PosTheme.border)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _kiotBlue,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '${_tab.cart.length}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '${_tab.cart.length} món · ${_moneyFmt.format(_total)} đ',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    color: PosTheme.textPrimary,
+                  ),
+                ),
+              ),
+              const Icon(Icons.shopping_cart_checkout,
+                  color: _kiotBlue, size: 20),
+              const SizedBox(width: 4),
+              const Text(
+                'Giỏ hàng',
+                style: TextStyle(
+                  color: _kiotBlue,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMobilePageNav() {
+    return Material(
+      color: Colors.white,
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: PosTheme.mobileBottomNavHeight,
+          child: Row(
+            children: [
+              Expanded(
+                child: _mobileNavItem(
+                  index: 0,
+                  icon: Icons.grid_view_rounded,
+                  label: 'Sản phẩm',
+                ),
+              ),
+              Expanded(
+                child: _mobileNavItem(
+                  index: 1,
+                  icon: Icons.receipt_long_outlined,
+                  label: 'Giỏ hàng',
+                  badge: _tab.cart.length,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _mobileNavItem({
+    required int index,
+    required IconData icon,
+    required String label,
+    int badge = 0,
+  }) {
+    final active = _mobilePage == index;
+    return InkWell(
+      onTap: () => setState(() => _mobilePage = index),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Icon(
+                icon,
+                size: 22,
+                color: active ? _kiotBlue : PosTheme.textSecondary,
+              ),
+              if (badge > 0)
+                Positioned(
+                  right: -8,
+                  top: -4,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 5, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      badge > 99 ? '99+' : '$badge',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: active ? FontWeight.w600 : FontWeight.w500,
+              color: active ? _kiotBlue : PosTheme.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMobileModePill() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+      child: Material(
+        elevation: 3,
+        borderRadius: BorderRadius.circular(24),
+        color: Colors.white,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          child: Row(
+            children: [
+              _modePillTab('Đặt hàng', _SellMode.quick),
+              _modePillTab('Bán hàng', _SellMode.normal),
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.more_horiz, size: 20),
+                onPressed: _openPosMenu,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _modePillTab(String label, _SellMode mode) {
+    final active = _sellMode == mode ||
+        (mode == _SellMode.normal && _sellMode == _SellMode.delivery);
+    return Expanded(
+      child: InkWell(
+        onTap: () => setState(() => _sellMode = mode),
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: active ? PosTheme.kiotBlueLight : Colors.transparent,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: active ? PosTheme.kiotBlue : PosTheme.textSecondary,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMobileModeBar() {
+    return Material(
+      color: const Color(0xFFF8FAFC),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 44,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            children: [
+              _modeTab('Bán nhanh', _SellMode.quick, Icons.flash_on_outlined),
+              const SizedBox(width: 8),
+              _modeTab('Bán thường', _SellMode.normal, Icons.receipt_long_outlined),
+              const SizedBox(width: 8),
+              _modeTab(
+                  'Giao hàng', _SellMode.delivery, Icons.local_shipping_outlined),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMobileCartCheckout(PermissionProvider perm) {
+    final canPay = perm.canCreate('PosSell') || perm.canCreate('PosProducts');
+    final inHub = PosHubScope.of(context);
+    return ColoredBox(
+      color: const Color(0xFFF3F4F6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (inHub)
+            Material(
+              color: Colors.white,
+              child: ListTile(
+                dense: true,
+                leading: IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () => setState(() => _mobilePage = 0),
+                ),
+                title: const Text(
+                  'Giỏ hàng',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+          Expanded(
+            child: _tab.cart.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.shopping_cart_outlined,
+                            size: 48, color: Colors.grey.shade400),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Giỏ hàng trống',
+                          style: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextButton.icon(
+                          onPressed: () => setState(() => _mobilePage = 0),
+                          icon: const Icon(Icons.add_shopping_cart, size: 18),
+                          label: const Text('Chọn sản phẩm'),
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.separated(
+                    padding: const EdgeInsets.all(12),
+                    itemCount: _tab.cart.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (ctx, i) {
+                      final cartIndex = _tab.cart.length - 1 - i;
+                      final line = _tab.cart[cartIndex];
+                      final index = _tab.cart.length - i;
+                      return _buildMobileCartCard(line, index, cartIndex);
+                    },
+                  ),
+          ),
+          if (_tab.cart.isNotEmpty)
+            Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                border: Border(top: BorderSide(color: PosTheme.border)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Color(0x0A000000),
+                    blurRadius: 8,
+                    offset: Offset(0, -2),
+                  ),
+                ],
+              ),
+              child: SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildPaymentSummaryContent(),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Tổng (${_tab.cart.length} món)',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: PosTheme.textSecondary,
+                                  ),
+                                ),
+                                Text(
+                                  '${_moneyFmt.format(_total)} đ',
+                                  style: const TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: _kiotBlue,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: FilledButton(
+                              onPressed: _tab.cart.isEmpty ||
+                                      _checkingOut ||
+                                      !canPay
+                                  ? null
+                                  : () => _openMobilePaymentScreen(perm),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: _kiotBlue,
+                                minimumSize: const Size(0, 48),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              child: _checkingOut
+                                  ? const SizedBox(
+                                      height: 22,
+                                      width: 22,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : const Text(
+                                      'THANH TOÁN',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMobileCartCard(
+      _SellCartLine line, int index, int cartIndex) {
+    return Container(
+      decoration: PosTheme.mobileCardDecoration(),
+      padding: const EdgeInsets.all(10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              PosProductImage(
+                productId: line.product.id,
+                imageUrl: line.product.imageUrl,
+                size: 52,
+                borderRadius: 8,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      line.product.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        height: 1.25,
+                      ),
+                    ),
+                    if (line.displayCode.isNotEmpty)
+                      Text(
+                        line.displayCode,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: PosTheme.textSecondary,
+                        ),
+                      ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${_moneyFmt.format(line.unitPrice)} đ / ${line.unitLabel}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: _kiotBlue,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                icon: const Icon(Icons.delete_outline,
+                    size: 20, color: Colors.red),
+                onPressed: () => _removeLine(cartIndex),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              _mobileQtyButton(
+                icon: Icons.remove,
+                onTap: line.qty > 1
+                    ? () => _adjustQty(line, -1)
+                    : null,
+              ),
+              Expanded(
+                child: Text(
+                  _qtyFmt.format(line.qty),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              _mobileQtyButton(
+                icon: Icons.add,
+                onTap: () => _adjustQty(line, 1),
+                primary: true,
+              ),
+              const SizedBox(width: 12),
+              Text(
+                '${_moneyFmt.format(line.lineTotal)} đ',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: PosTheme.textPrimary,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _mobileQtyButton({
+    required IconData icon,
+    required VoidCallback? onTap,
+    bool primary = false,
+  }) {
+    return Material(
+      color: primary
+          ? _kiotBlue.withValues(alpha: 0.1)
+          : const Color(0xFFF1F5F9),
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: SizedBox(
+          width: 40,
+          height: 36,
+          child: Icon(
+            icon,
+            size: 18,
+            color: onTap == null
+                ? Colors.grey.shade400
+                : (primary ? _kiotBlue : PosTheme.textPrimary),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildBottomBar() {
     final isNormal = _sellMode == _SellMode.normal;
+    if (Responsive.isMobile(context)) {
+      return _buildMobileModeBar();
+    }
     return Material(
       color: Colors.white,
       child: Container(

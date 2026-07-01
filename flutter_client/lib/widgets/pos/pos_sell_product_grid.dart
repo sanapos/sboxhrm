@@ -7,6 +7,7 @@ import '../../screens/main_layout.dart' show ScreenRefreshNotifier;
 import '../../utils/pos_category_tree.dart';
 import '../../utils/pos_purchase_product_lookup.dart';
 import '../../utils/pos_sell_unit_views.dart';
+import '../../utils/responsive_helper.dart';
 import 'pos_product_image.dart';
 import 'pos_product_unit_view.dart';
 import 'pos_theme.dart';
@@ -146,6 +147,9 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     if (w >= 300) return 3;
     return 2;
   }
+
+  bool _useHorizontalCategories(double w) =>
+      Responsive.isMobile(context) || w < 520;
 
   double _aspectRatioForWidth(double w, int cols) {
     if (cols >= 5) return 0.88;
@@ -393,6 +397,16 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
                                 color: _blue,
                               ),
                             ),
+                            const SizedBox(height: 4),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                _metaBadge(
+                                    '${_qtyFmt.format(p.onHandQty)} ${p.baseUnitName}'),
+                                const SizedBox(width: 4),
+                                _metaBadge('KH đặt: 0'),
+                              ],
+                            ),
                           ],
                         ),
                       ),
@@ -436,6 +450,24 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
               ? const Color(0xFFB91C1C)
               : const Color(0xFF1D4ED8),
           height: 1,
+        ),
+      ),
+    );
+  }
+
+  Widget _metaBadge(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 8,
+          fontWeight: FontWeight.w500,
+          color: PosTheme.textSecondary,
         ),
       ),
     );
@@ -517,46 +549,125 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     );
   }
 
+  Widget _horizontalCategoryStrip() {
+    return SizedBox(
+      height: 40,
+      child: _loadingCategories
+          ? const Center(
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            )
+          : Scrollbar(
+              thumbVisibility: false,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                children: [
+                  _horizontalCategoryChip('Tất cả', null),
+                  for (final node in buildPosCategoryTree(_categories))
+                    ..._horizontalCategoryChipsForNode(node),
+                ],
+              ),
+            ),
+    );
+  }
+
+  List<Widget> _horizontalCategoryChipsForNode(PosCategoryNode node) {
+    final widgets = <Widget>[
+      _horizontalCategoryChip(node.item.name, node.item.id),
+    ];
+    for (final child in node.children) {
+      widgets.addAll(_horizontalCategoryChipsForNode(child));
+    }
+    return widgets;
+  }
+
+  Widget _horizontalCategoryChip(String label, String? id) {
+    final selected = _categoryId == id;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: FilterChip(
+        label: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+            color: selected ? Colors.white : PosTheme.textPrimary,
+          ),
+        ),
+        selected: selected,
+        showCheckmark: false,
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        backgroundColor: const Color(0xFFF1F5F9),
+        selectedColor: _blue,
+        side: BorderSide(
+          color: selected ? _blue : const Color(0xFFE2E8F0),
+        ),
+        onSelected: (_) => _selectCategory(id),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SizedBox(
-            width: 108,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                border: Border(right: BorderSide(color: Colors.grey.shade200)),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final horizontalCats = _useHorizontalCategories(constraints.maxWidth);
+        if (horizontalCats) {
+          return Material(
+            color: Colors.white,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 6),
+                _horizontalCategoryStrip(),
+                const Divider(height: 1, color: PosTheme.border),
+                Expanded(child: _buildGrid(constraints.maxWidth)),
+              ],
+            ),
+          );
+        }
+        return Material(
+          color: Colors.white,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(
+                width: 108,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    border: Border(right: BorderSide(color: Colors.grey.shade200)),
+                  ),
+                  child: _loadingCategories
+                      ? const Center(
+                          child: SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        )
+                      : Scrollbar(
+                          controller: _categoryScroll,
+                          thumbVisibility: true,
+                          child: ListView(
+                            controller: _categoryScroll,
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            children: _categoryButtons(),
+                          ),
+                        ),
+                ),
               ),
-              child: _loadingCategories
-                  ? const Center(
-                      child: SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    )
-                  : Scrollbar(
-                      controller: _categoryScroll,
-                      thumbVisibility: true,
-                      child: ListView(
-                        controller: _categoryScroll,
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        children: _categoryButtons(),
-                      ),
-                    ),
-            ),
+              Expanded(
+                child: _buildGrid(constraints.maxWidth - 108),
+              ),
+            ],
           ),
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, box) => _buildGrid(box.maxWidth),
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

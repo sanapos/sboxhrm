@@ -110,6 +110,9 @@ class NavigationNotifier {
 
   static final ValueNotifier<bool> goBackNotifier = ValueNotifier<bool>(false);
 
+  /// Chuyển tab trong [PosMobileHubScreen] (0=Tổng quan … 4=Nhiều hơn).
+  static final ValueNotifier<int?> posHubTab = ValueNotifier<int?>(null);
+
   /// Sau điều hướng tới Dashboard, mở [OvertimeScreen] (thông báo tăng ca).
   static final ValueNotifier<bool> pendingOpenOvertime =
       ValueNotifier<bool>(false);

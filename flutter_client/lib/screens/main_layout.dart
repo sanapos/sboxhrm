@@ -74,9 +74,13 @@ import 'pos_stock_count_list_screen.dart';
 import 'pos_damage_issue_list_screen.dart';
 import 'pos_internal_use_list_screen.dart';
 import 'pos_reports_screen.dart';
+import 'pos/pos_mobile_hub_screen.dart';
 import 'shift_swap_screen.dart';
 import '../utils/permission_navigation.dart';
+import '../utils/responsive_helper.dart';
+import '../utils/store_role_helper.dart';
 import '../widgets/module_route_guard.dart';
+import '../widgets/pos/pos_hub_scope.dart';
 import '../utils/notification_sound_stub.dart';
 import '../services/system_notification_service.dart';
 import '../services/app_permission_service.dart';
@@ -182,6 +186,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   /// Cached home screen — kept alive via Offstage on desktop/tablet so scroll position is preserved.
   Widget? _homeScreenCache;
   List<String>? _homeAllowedModulesCached;
+  bool? _homeBypassPackageFilterCached;
+  final Map<int, Widget> _mobileBottomScreenCache = {};
 
   // Tracks when SignalR connected so we can suppress stale notifications
   // that were already shown by FCM while the app was in the background.
@@ -378,7 +384,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final normalizedRole = userRole.toLowerCase();
     final isSuperAdmin = normalizedRole == 'superadmin';
     final isAgent = normalizedRole == 'agent';
-    final isDirector = normalizedRole == 'director';
+    final bypassPackage =
+        StoreRoleHelper.bypassesPackageFilter(userRole);
     final allowedModules = authUser?.allowedModules;
     final perm = Provider.of<PermissionProvider>(context, listen: false);
 
@@ -391,7 +398,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       item.moduleCode,
       allowedModules: allowedModules,
       perm: perm,
-      bypassPackageFilter: isSuperAdmin,
+      bypassPackageFilter: bypassPackage,
     )) {
       return false;
     }
@@ -407,16 +414,48 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
   List<({IconData icon, IconData activeIcon, String moduleCode})>
       _visibleMobileBottomNavDefs() {
+    final authUser = Provider.of<AuthProvider>(context, listen: false).user;
+    final allowedModules = authUser?.allowedModules;
+    final role = authUser?.role;
     final perm = Provider.of<PermissionProvider>(context, listen: false);
-    return _mobileBottomNavDefs
-        .where((d) => PermissionNavigation.canNavigate(perm, d.moduleCode))
-        .toList();
+    final visible = <({IconData icon, IconData activeIcon, String moduleCode})>[];
+    for (final d in _mobileBottomNavCandidates) {
+      if (!PermissionNavigation.canAccessModule(
+        d.moduleCode,
+        allowedModules: allowedModules,
+        perm: perm,
+        role: role,
+      )) {
+        continue;
+      }
+      visible.add(d);
+      if (visible.length >= 4) break;
+    }
+    if (visible.isEmpty) {
+      visible.add(_mobileBottomNavCandidates.first);
+    }
+    return visible;
   }
 
   bool _tryNavigateToIndex(int index) {
     if (index < 0 || index >= _navItems.length) return false;
     final moduleCode = _navItems[index].moduleCode;
+    final authUser = Provider.of<AuthProvider>(context, listen: false).user;
+    final allowedModules = authUser?.allowedModules;
+    final bypassPackage =
+        StoreRoleHelper.bypassesPackageFilter(authUser?.role);
     final perm = Provider.of<PermissionProvider>(context, listen: false);
+    if (!PermissionNavigation.isAllowedByPackageOrRole(
+      moduleCode,
+      allowedModules: allowedModules,
+      perm: perm,
+      bypassPackageFilter: bypassPackage,
+    )) {
+      if (moduleCode != null && moduleCode.isNotEmpty) {
+        PermissionNavigation.showDenied(context, moduleCode);
+      }
+      return false;
+    }
     if (!PermissionNavigation.canNavigate(perm, moduleCode)) {
       if (moduleCode != null && moduleCode.isNotEmpty) {
         PermissionNavigation.showDenied(context, moduleCode);
@@ -1488,6 +1527,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    // Rebuild khi allowedModules được tải sau đăng nhập / khôi phục phiên.
+    context.watch<AuthProvider>();
+
     final isDesktop = MediaQuery.of(context).size.width >= 1024;
     final isTablet = MediaQuery.of(context).size.width >= 768;
 
@@ -1502,24 +1544,33 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
   List<String>? _homeAllowedModules() {
     final authUser = Provider.of<AuthProvider>(context, listen: false).user;
-    final role = (authUser?.role ?? '').toLowerCase();
-    if (role == 'superadmin' || role == 'agent' || role == 'director') {
+    if (StoreRoleHelper.bypassesPackageFilter(authUser?.role)) {
       return null;
     }
     return authUser?.allowedModules;
   }
 
+  bool _homeBypassPackageFilter() {
+    final authUser = Provider.of<AuthProvider>(context, listen: false).user;
+    return StoreRoleHelper.bypassesPackageFilter(authUser?.role);
+  }
+
   Widget _getHomeScreen() {
     final allowed = _homeAllowedModules();
-    if (_homeScreenCache != null && _homeAllowedModulesCached == allowed) {
+    final bypass = _homeBypassPackageFilter();
+    if (_homeScreenCache != null &&
+        _homeAllowedModulesCached == allowed &&
+        _homeBypassPackageFilterCached == bypass) {
       return _homeScreenCache!;
     }
     _homeAllowedModulesCached = allowed;
+    _homeBypassPackageFilterCached = bypass;
     _homeScreenCache = _HomeMenuScreen(
       key: const ValueKey('main_home_menu'),
       navItems: _navItems,
       onItemTap: _tryNavigateToIndex,
       allowedModules: allowed,
+      bypassPackageFilter: bypass,
     );
     return _homeScreenCache!;
   }
@@ -1638,9 +1689,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     );
   }
 
-  // Mobile bottom nav: 4 key screens + "Thêm" (opens drawer)
-  // Index resolved at runtime via moduleCode (tránh lệch khi thêm màn mới).
-  static const _mobileBottomNavDefs = [
+  // Mobile bottom nav: ưu tiên module quan trọng, lọc theo gói dịch vụ.
+  static const _mobileBottomNavCandidates = [
     (
       icon: Icons.home_outlined,
       activeIcon: Icons.home,
@@ -1661,6 +1711,21 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       activeIcon: Icons.task_alt,
       moduleCode: 'Task'
     ),
+    (
+      icon: Icons.point_of_sale_outlined,
+      activeIcon: Icons.point_of_sale,
+      moduleCode: 'PosSell'
+    ),
+    (
+      icon: Icons.inventory_2_outlined,
+      activeIcon: Icons.inventory_2,
+      moduleCode: 'PosProducts'
+    ),
+    (
+      icon: Icons.receipt_long_outlined,
+      activeIcon: Icons.receipt_long,
+      moduleCode: 'PosSaleOrders'
+    ),
   ];
 
   static String _mobileNavLabel(String moduleCode, AppLocalizations l) {
@@ -1674,6 +1739,12 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         return l.overview;
       case 'MobileAttendance':
         return 'Chấm công';
+      case 'PosSell':
+        return 'Bán hàng';
+      case 'PosProducts':
+        return 'Hàng hóa';
+      case 'PosSaleOrders':
+        return 'Đơn hàng';
       default:
         return moduleCode;
     }
@@ -1686,6 +1757,30 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   // Mobile Layout với Bottom Navigation
   Widget _buildMobileLayout() {
     final l = AppLocalizations.of(context);
+    final moduleCode = _navItems[_selectedIndex].moduleCode;
+    final posHubFullscreen =
+        Responsive.isMobile(context) && PosHubModules.isPrimary(moduleCode);
+
+    if (posHubFullscreen) {
+      NavigationNotifier.mobileDrawerModuleActive.value = false;
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (didPop) return;
+          if (_canGoBack) {
+            _goBack();
+          } else {
+            _tryNavigateToIndex(0);
+          }
+        },
+        child: NotificationOverlay(
+          child: PosMobileHubScreen(
+            key: ValueKey('pos_hub_$moduleCode'),
+            initialTab: PosHubModules.tabIndexForModule(moduleCode),
+          ),
+        ),
+      );
+    }
 
     final visibleBottomDefs = _visibleMobileBottomNavDefs();
     final bottomNavIndex = visibleBottomDefs.indexWhere(
@@ -1756,23 +1851,30 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     );
   }
 
-  /// Mobile body: IndexedStack keeps bottom-nav screen states alive (scroll position preserved).
-  /// Non-bottom-nav screens are overlaid on top so IndexedStack stays in tree.
+  /// Mobile body: chỉ mount màn bottom-nav khi user mở lần đầu (tránh gọi API module ngoài gói).
   Widget _buildMobileBody() {
     final bottomNavIndices = _visibleMobileBottomNavDefs()
         .map((d) => _navIndexForModule(d.moduleCode))
         .whereType<int>()
         .toList();
     final isBottomNav = bottomNavIndices.contains(_selectedIndex);
-    final stackIdx = isBottomNav ? bottomNavIndices.indexOf(_selectedIndex) : 0;
-    return Stack(
-      children: [
-        IndexedStack(
-          index: stackIdx,
-          children: bottomNavIndices.map((i) => _getScreenForIndex(i)).toList(),
-        ),
-        if (!isBottomNav) _getScreenForIndex(_selectedIndex),
-      ],
+    if (!isBottomNav) {
+      return _getScreenForIndex(_selectedIndex);
+    }
+
+    final stackIdx = bottomNavIndices.indexOf(_selectedIndex);
+    _mobileBottomScreenCache.putIfAbsent(
+      _selectedIndex,
+      () => _getScreenForIndex(_selectedIndex),
+    );
+
+    return IndexedStack(
+      index: stackIdx,
+      children: bottomNavIndices.map((i) {
+        final cached = _mobileBottomScreenCache[i];
+        if (cached != null) return cached;
+        return const SizedBox.shrink();
+      }).toList(),
     );
   }
 
@@ -1790,7 +1892,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             activeIcon: d.activeIcon,
             label: _mobileNavLabel(d.moduleCode, l),
             moduleCode: d.moduleCode,
-            isCenterAction: d.moduleCode == 'MobileAttendance',
+            isCenterAction: d.moduleCode == 'MobileAttendance' ||
+                d.moduleCode == 'PosSell',
           )),
       (
         icon: Icons.grid_view_outlined,
@@ -1982,7 +2085,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final normalizedRole = userRole.toLowerCase();
     final isSuperAdmin = normalizedRole == 'superadmin';
     final isAgent = normalizedRole == 'agent';
-    final isDirector = normalizedRole == 'director';
+    final bypassPackage =
+        StoreRoleHelper.bypassesPackageFilter(userRole);
     final allowedModules = authUser?.allowedModules;
     final permProvider = Provider.of<PermissionProvider>(context);
 
@@ -2002,7 +2106,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         _navItems[i].moduleCode,
         allowedModules: allowedModules,
         perm: permProvider,
-        bypassPackageFilter: isSuperAdmin,
+        bypassPackageFilter: bypassPackage,
       )) {
         continue;
       }
@@ -2488,7 +2592,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final normalizedRole = userRole.toLowerCase();
     final isSuperAdmin = normalizedRole == 'superadmin';
     final isAgent = normalizedRole == 'agent';
-    final isDirector = normalizedRole == 'director';
+    final bypassPackage =
+        StoreRoleHelper.bypassesPackageFilter(userRole);
     final allowedModules = authUser?.allowedModules;
     final permProvider = Provider.of<PermissionProvider>(context);
 
@@ -2503,7 +2608,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         item.moduleCode,
         allowedModules: allowedModules,
         perm: permProvider,
-        bypassPackageFilter: isSuperAdmin,
+        bypassPackageFilter: bypassPackage,
       )) {
         continue;
       }
@@ -2790,12 +2895,14 @@ class _HomeMenuScreen extends StatefulWidget {
   final List<NavItem> navItems;
   final ValueChanged<int> onItemTap;
   final List<String>? allowedModules;
+  final bool bypassPackageFilter;
 
   const _HomeMenuScreen({
     super.key,
     required this.navItems,
     required this.onItemTap,
     this.allowedModules,
+    this.bypassPackageFilter = false,
   });
 
   static const _groupOrder = [
@@ -2903,7 +3010,7 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
         item.moduleCode,
         allowedModules: widget.allowedModules,
         perm: permProvider,
-        bypassPackageFilter: widget.allowedModules == null,
+        bypassPackageFilter: widget.bypassPackageFilter,
       )) {
         continue;
       }

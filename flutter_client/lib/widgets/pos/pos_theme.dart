@@ -23,6 +23,14 @@ abstract final class PosTheme {
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
   );
 
+  /// Nút chính mobile POS — xanh KiotViet.
+  static ButtonStyle mobilePrimaryButton = FilledButton.styleFrom(
+    backgroundColor: kiotBlue,
+    foregroundColor: Colors.white,
+    minimumSize: const Size(0, 48),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+  );
+
   static InputDecoration inputDecoration({
     required String label,
     String? hint,
@@ -48,5 +56,27 @@ abstract final class PosTheme {
         ),
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      );
+
+  // --- Mobile POS ---
+  static const double mobileTopBarHeight = 52.0;
+  static const double mobileBottomNavHeight = 56.0;
+  static const double mobileCartBarHeight = 48.0;
+  static const double mobileRadius = 12.0;
+  static const EdgeInsets mobilePadding =
+      EdgeInsets.symmetric(horizontal: 12, vertical: 8);
+
+  static BoxDecoration mobileCardDecoration({Color? borderColor}) =>
+      BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(mobileRadius),
+        border: Border.all(color: borderColor ?? border),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x08000000),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
       );
 }
