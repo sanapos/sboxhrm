@@ -1,5 +1,7 @@
-﻿using ZKTecoADMS.Domain.Entities;
+﻿using ZKTecoADMS.Application.Authorization;
+using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
+using ZKTecoADMS.Infrastructure.Helpers;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -853,6 +855,7 @@ public class ZKTecoDbInitializer(
                             FOREIGN KEY (""ProductId"") REFERENCES ""PosProducts""(""Id"") ON DELETE RESTRICT
                     );
 
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""SaleQuickNotesJson"" character varying(4000);
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""SupplierId"" uuid;
                     DO $$ BEGIN
                         IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_PosProducts_Supplier') THEN
@@ -977,6 +980,8 @@ public class ZKTecoDbInitializer(
                                 FOREIGN KEY (""VariantId"") REFERENCES ""PosProductVariants""(""Id"") ON DELETE SET NULL;
                         END IF;
                     END $$;
+
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""SoldByEmployeeId"" uuid NULL;
                 ");
 
                 // WorkSchedules: ensure per-shift unique index
@@ -1362,7 +1367,8 @@ public class ZKTecoDbInitializer(
                     ('a0000001-0000-0000-0000-000000000008', 'hr', 'Nhân sự', 'Hợp đồng, bổ nhiệm, thuyên chuyển', 'people', 8, TRUE, TRUE, NOW()),
                     ('a0000001-0000-0000-0000-000000000009', 'system', 'Hệ thống', 'Cập nhật hệ thống, bảo trì, thông báo chung', 'settings', 9, TRUE, TRUE, NOW()),
                     ('a0000001-0000-0000-0000-000000000010', 'kpi', 'KPI', 'Đánh giá KPI, lương KPI, mục tiêu', 'trending_up', 10, TRUE, TRUE, NOW()),
-                    ('a0000001-0000-0000-0000-000000000011', 'internal_comm', 'Truyền thông nội bộ', 'Thông báo nội bộ, tin tức công ty', 'campaign', 11, TRUE, TRUE, NOW())
+                    ('a0000001-0000-0000-0000-000000000011', 'internal_comm', 'Truyền thông nội bộ', 'Thông báo nội bộ, tin tức công ty', 'campaign', 11, TRUE, TRUE, NOW()),
+                    ('a0000001-0000-0000-0000-000000000012', 'pos', 'Bán hàng POS', 'Tồn kho thấp, đơn bán, nhập hàng', 'point_of_sale', 12, TRUE, TRUE, NOW())
                     ON CONFLICT DO NOTHING;
                 ");
             }
@@ -1384,6 +1390,7 @@ public class ZKTecoDbInitializer(
             await SeedShiftTemplatesAsync();
             await SeedHolidaysAsync();
             await SeedPermissionModulesAsync();
+            await SeedServicePackagesAsync();
 
             await context.SaveChangesAsync();
             logger.LogInformation("Database seeding completed successfully.");
@@ -1398,7 +1405,7 @@ public class ZKTecoDbInitializer(
     
     private async Task SeedRolesAsync()
     {
-        var roles = new[] { nameof(Roles.SuperAdmin), nameof(Roles.Admin), nameof(Roles.Director), nameof(Roles.User), nameof(Roles.Manager), nameof(Roles.Employee), nameof(Roles.DepartmentHead), nameof(Roles.Accountant) };
+        var roles = new[] { nameof(Roles.SuperAdmin), nameof(Roles.Admin), nameof(Roles.Director), nameof(Roles.User), nameof(Roles.Manager), nameof(Roles.Employee), nameof(Roles.DepartmentHead), nameof(Roles.Accountant), nameof(Roles.Cashier) };
 
         foreach (var roleName in roles)
         {
@@ -1765,101 +1772,50 @@ public class ZKTecoDbInitializer(
 
     #endregion
 
+    #region Seed Service Packages
+
+    private async Task SeedServicePackagesAsync()
+    {
+        const string basicName = PosPackageDefaults.BasicPackageName;
+        var basicJson = System.Text.Json.JsonSerializer.Serialize(PosPackageDefaults.BasicModules);
+
+        var existing = await context.ServicePackages
+            .FirstOrDefaultAsync(p => p.Name == basicName);
+        if (existing == null)
+        {
+            context.ServicePackages.Add(new ServicePackage
+            {
+                Id = Guid.Parse("b0000001-0000-0000-0000-000000000001"),
+                Name = basicName,
+                Description = "Bán hàng POS cơ bản: hàng hóa, bán hàng, đơn hàng, mẫu in",
+                IsActive = true,
+                DefaultDurationDays = 30,
+                MaxUsers = 20,
+                MaxDevices = 2,
+                AllowedModules = basicJson,
+                CreatedAt = DateTime.UtcNow,
+                CreatedBy = "System",
+            });
+            logger.LogInformation("Seeded service package: {Name}", basicName);
+        }
+        else if (StorePackageHelper.DeserializeModules(existing.AllowedModules).Count == 0)
+        {
+            existing.AllowedModules = basicJson;
+            existing.UpdatedAt = DateTime.UtcNow;
+            existing.UpdatedBy = "System";
+            logger.LogInformation("Updated empty modules for package: {Name}", basicName);
+        }
+    }
+
+    #endregion
+
     #region Seed Permission Modules
 
     private async Task SeedPermissionModulesAsync()
     {
-        var requiredModules = new (string Module, string DisplayName, string Description, int Order)[]
-        {
-            // ══════════ ĐIỀU HƯỚNG ══════════
-            ("Home", "Trang chủ", "Màn hình tổng quan menu", 1),
-            ("Notification", "Thông báo", "Hệ thống thông báo", 2),
-            ("Dashboard", "Tổng quan (cũ)", "Bảng điều khiển — dùng các quyền widget bên dưới", 3),
-            ("DashboardAttendanceOverview", "Tổng quan chấm công", "KPI chấm công trên Dashboard", 4),
-            ("DashboardHrInsights", "Chỉ số nhân sự & vận hành", "Chip chỉ số HR trên Dashboard", 5),
-            ("DashboardTodaySchedule", "Lịch làm việc hôm nay", "Lịch ca hôm nay trên Dashboard", 6),
-            ("DashboardRealtimeAttendance", "Chấm công thời gian thực", "Danh sách chấm công realtime", 7),
-            ("DashboardAbsent", "Nhân viên vắng mặt", "Khối vắng mặt trên Dashboard", 8),
-            ("DashboardLateEarly", "Đi trễ / về sớm", "Khối trễ sớm trên Dashboard", 9),
-            ("DashboardKpiPanel", "KPI (Dashboard)", "Khối KPI trên Dashboard", 10),
-            ("DashboardInternalNews", "Bản tin nội bộ", "Tin truyền thông trên Dashboard", 11),
-            // ══════════ HỒ SƠ NHÂN SỰ ══════════
-            ("Employee", "Hồ sơ nhân sự", "Thông tin nhân viên, chức vụ", 12),
-            ("Department", "Phòng ban", "Quản lý phòng ban", 13),
-            ("SalarySettings", "Thiết lập lương", "Cấu hình bảng lương", 14),
-            ("HrDocument", "Tài liệu HR", "Quản lý tài liệu nhân sự", 15),
-            ("OrgChart", "Sơ đồ tổ chức", "Sơ đồ tổ chức công ty", 16),
-            // ══════════ CHẤM CÔNG ══════════
-            ("DeviceUser", "Nhân sự chấm công", "Nhân sự trên máy chấm công", 17),
-            ("Leave", "Nghỉ phép", "Quản lý nghỉ phép", 18),
-            ("Attendance", "Chấm công thô", "Dữ liệu chấm công thô", 19),
-            ("WorkSchedule", "Lịch làm việc", "Phân lịch làm việc", 20),
-            ("AttendanceCorrection", "Chỉnh sửa chấm công", "Yêu cầu chỉnh sửa log chấm công", 21),
-            ("AttendanceApproval", "Duyệt chấm công", "Duyệt điều chỉnh chấm công", 22),
-            ("MobileAttendanceApproval", "Duyệt chấm công Mobile", "Duyệt yêu cầu chấm công mobile", 23),
-            ("ScheduleApproval", "Duyệt lịch làm việc", "Duyệt lịch làm việc đăng ký", 24),
-            ("Overtime", "Tăng ca", "Đăng ký và duyệt tăng ca", 25),
-            ("ShiftSwap", "Đổi ca", "Đổi / đăng ký đổi ca", 26),
-            ("MobileDeviceRegistration", "Đăng ký chấm công Mobile", "Quản lý đăng ký thiết bị chấm công mobile", 27),
-            ("MobileAttendance", "Chấm công Mobile", "Chấm công bằng điện thoại", 28),
-            // ══════════ BÁO CÁO & LƯƠNG ══════════
-            ("AttendanceSummary", "Tổng hợp chấm công", "Bảng tổng hợp công theo tháng", 29),
-            ("AttendanceByShift", "Tổng hợp chấm công theo ca", "Thống kê giờ công theo ca làm", 30),
-            ("Payslip", "Phiếu lương", "Phiếu lương cá nhân", 31),
-            ("Payroll", "Tổng hợp lương", "Bảng lương nhân viên", 32),
-            ("AttendanceReport", "Báo cáo chấm công", "Ngày, tháng, đi muộn, phòng ban", 33),
-            ("LeaveReport", "Báo cáo nghỉ phép", "Thống kê nghỉ phép, ngày nghỉ", 34),
-            ("CashReport", "Báo cáo thu chi", "Thống kê thu chi tiền mặt", 35),
-            ("PenaltyReport", "Báo cáo phạt", "Thống kê phiếu phạt, kỷ luật", 36),
-            ("AdvanceReport", "Báo cáo ứng lương", "Thống kê ứng lương, tạm ứng", 37),
-            ("AssetReport", "Báo cáo tài sản", "Danh mục, cấp phát, lịch sử chuyển giao", 38),
-            // ══════════ TÀI CHÍNH ══════════
-            ("BonusPenalty", "Phiếu thưởng", "Quản lý phiếu thưởng nhân viên", 39),
-            ("PenaltyTickets", "Phiếu phạt", "Phiếu phạt tự động từ chấm công", 40),
-            ("AdvanceRequests", "Ứng lương", "Quản lý ứng lương", 41),
-            ("CashTransaction", "Thu chi", "Quản lý thu chi", 42),
-            ("BankAccount", "Tài khoản ngân hàng", "Tài khoản ngân hàng thu chi", 43),
-            // ══════════ QUẢN LÝ VẬN HÀNH ══════════
-            ("Meal", "Chấm cơm", "Quản lý suất ăn ca", 44),
-            ("Asset", "Tài sản", "Quản lý tài sản", 45),
-            ("Task", "Công việc", "Quản lý công việc", 46),
-            ("Communication", "Truyền thông", "Truyền thông nội bộ", 47),
-            ("KPI", "KPI", "Đánh giá KPI", 48),
-            ("Production", "Sản lượng", "Nhập sản lượng, tính lương sản phẩm", 49),
-            ("Feedback", "Phản ánh / Ý kiến", "Phản ánh, góp ý ẩn danh hoặc công khai", 50),
-            ("FieldCheckIn", "Bản đồ nhân sự", "Vị trí trực tuyến NV chấm ngoài CT trên bản đồ", 51),
-            // ══════════ POS / BÁN HÀNG ══════════
-            ("PosProducts", "Hàng hóa POS", "Danh mục hàng hóa, tồn kho, giá bán POS", 52),
-            ("PosSalesReport", "Báo cáo doanh thu POS", "Thống kê doanh thu, đơn bán hàng POS", 53),
-            // ══════════ THIẾT LẬP HRM ══════════
-            ("SettingsHub", "Thiết lập HRM", "Trung tâm cài đặt HRM", 52),
-            ("ShiftSetup", "Thiết lập ca", "Ca làm việc, vào sớm, đi trễ, về sớm, tăng ca", 53),
-            ("Holiday", "Ngày lễ", "Ngày nghỉ lễ, hệ số công", 54),
-            ("Device", "Máy chấm công", "Kết nối, quản lý, điều khiển máy chấm công", 55),
-            ("Allowance", "Phụ cấp", "Phụ cấp cố định, phụ cấp ngày công", 56),
-            ("PenaltySetup", "Phạt", "Đi trễ, về sớm, tái phạm, kỷ luật", 57),
-            ("Insurance", "Bảo hiểm", "BHXH, BHYT, BHTN, lương cơ sở", 58),
-            ("Tax", "Thuế TNCN", "Bậc thuế, giảm trừ gia cảnh", 59),
-            ("ProductSalary", "Lương sản phẩm", "Nhóm sản phẩm, sản phẩm, đơn giá theo bậc", 60),
-            ("Branch", "Chi nhánh", "Quản lý chi nhánh", 61),
-            ("Geofence", "Vùng chấm công", "Geofence chấm công mobile", 62),
-            ("SystemSettings", "Hệ thống", "Giờ kết thúc ngày, tham số vận hành", 63),
-            ("NotificationSettings", "Thiết lập thông báo", "Nhóm thông báo, bật/tắt nhận thông báo", 64),
-            ("AIGemini", "Thiết lập AI", "API key, model, tham số AI", 65),
-            ("GoogleDrive", "Google Drive", "Lưu trữ ảnh, service account", 66),
-            ("Settings", "Cài đặt", "Cài đặt hệ thống", 67),
-            // ══════════ QUẢN TRỊ ══════════
-            ("UserManagement", "Tài khoản", "Người dùng, kích hoạt, vai trò", 68),
-            ("Role", "Phân quyền", "Ma trận quyền, vai trò, module", 69),
-            ("DepartmentPermission", "PQ Phòng ban", "Phân quyền theo sơ đồ cây phòng ban", 70),
-            // ══════════ API / legacy aliases (ẩn UI Flutter, giữ cho controller) ══════════
-            ("Shift", "Ca làm việc (API)", "Đăng ký ca nhân viên", 901),
-            ("ShiftTemplate", "Mẫu ca (API)", "Mẫu ca làm việc", 902),
-            ("ShiftSalaryLevel", "Bậc lương ca (API)", "Bậc lương theo ca", 903),
-            ("Benefit", "Phúc lợi (API)", "Alias Thưởng/Phạt", 904),
-            ("Transaction", "Giao dịch (API)", "Alias Thu chi", 905),
-            ("Report", "Báo cáo (cũ)", "Alias báo cáo hiện đại", 907),
-        };
+        var requiredModules = FeatureModuleCatalog.All
+            .Select(m => (m.Code, m.DisplayName, m.Description, m.Order))
+            .ToArray();
 
         var existingModules = await context.Permissions.ToListAsync();
         var existingByModule = existingModules.ToDictionary(p => p.Module, p => p);
@@ -1895,7 +1851,7 @@ public class ZKTecoDbInitializer(
         }
 
         // Remove obsolete modules
-        var validModules = requiredModules.Select(m => m.Module).ToHashSet();
+        var validModules = requiredModules.Select(m => m.Code).ToHashSet();
         var obsoleteModules = existingModules.Where(p => !validModules.Contains(p.Module)).ToList();
         if (obsoleteModules.Count > 0)
         {
@@ -1924,28 +1880,6 @@ public class ZKTecoDbInitializer(
         {
             logger.LogInformation("Permission modules already up to date ({Count} modules)", requiredModules.Length);
         }
-
-        // Auto-add new modules to existing ServicePackages that have AllowedModules
-        var allModuleCodes = requiredModules.Select(m => m.Module).ToList();
-        var packages = await context.ServicePackages.ToListAsync();
-        foreach (var pkg in packages)
-        {
-            if (string.IsNullOrEmpty(pkg.AllowedModules)) continue;
-            try
-            {
-                var modules = System.Text.Json.JsonSerializer.Deserialize<List<string>>(pkg.AllowedModules) ?? new List<string>();
-                var missing = allModuleCodes.Where(m => !modules.Contains(m)).ToList();
-                if (missing.Count > 0)
-                {
-                    modules.AddRange(missing);
-                    pkg.AllowedModules = System.Text.Json.JsonSerializer.Serialize(modules);
-                    logger.LogInformation("Added {Count} modules to ServicePackage {Name}: {Modules}",
-                        missing.Count, pkg.Name, string.Join(", ", missing));
-                }
-            }
-            catch { /* skip invalid JSON */ }
-        }
-        await context.SaveChangesAsync();
     }
 
     #endregion

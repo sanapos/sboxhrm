@@ -59,20 +59,22 @@ public class AuthController(IMediator _bus, UserManager<ApplicationUser> _userMa
     [AllowAnonymous]
     public async Task<ActionResult<AppResponse<object>>> PublicServicePackages(CancellationToken cancellationToken = default)
     {
-        var packages = await _dbContext.ServicePackages
+        var rows = await _dbContext.ServicePackages
             .AsNoTracking()
             .Where(p => p.IsActive)
             .OrderBy(p => p.Name)
-            .Select(p => new
-            {
-                p.Id,
-                p.Name,
-                p.Description,
-                p.DefaultDurationDays,
-                p.MaxUsers,
-                p.MaxDevices
-            })
             .ToListAsync(cancellationToken);
+
+        var packages = rows.Select(p => new
+        {
+            p.Id,
+            p.Name,
+            p.Description,
+            p.DefaultDurationDays,
+            p.MaxUsers,
+            p.MaxDevices,
+            AllowedModules = Infrastructure.Helpers.StorePackageHelper.DeserializeModules(p.AllowedModules)
+        }).ToList();
 
         return Ok(AppResponse<object>.Success(packages));
     }

@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:flutter/services.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import '../../services/api_service.dart';
 import '../../utils/responsive_helper.dart';
 import '../../widgets/notification_overlay.dart';
-import 'system_admin_helpers.dart';
 import '../../widgets/hrm_page_chrome.dart';
+import 'system_admin_helpers.dart';
+import '../../utils/web_route_parser.dart';
 
 class AgentsTab extends StatefulWidget {
   const AgentsTab({super.key});
@@ -469,13 +471,20 @@ class AgentsTabState extends State<AgentsTab> {
                 loadData();
                 if (mounted) {
                   final hasCreds = pwd.isNotEmpty;
+                  final data = res['data'] as Map<String, dynamic>?;
                   AdminHelpers.showSuccess(
                       context,
                       hasCreds
                           ? 'Đã tạo đại lý + tài khoản đăng nhập'
-                          : 'Tạo đại lý thành công. Hãy gửi link đăng ký cho họ.');
-                  // Hiển thị link đăng ký cửa hàng cho đại lý
-                  _showAgentRegistrationLink(codeCtrl.text.trim().toUpperCase());
+                          : 'Tạo đại lý thành công. Gửi link đăng ký tài khoản đại lý.');
+                  if (hasCreds) {
+                    _showAgentStoreReferralLink(codeCtrl.text.trim().toUpperCase());
+                  } else {
+                    final regLink = data?['registrationLink']?.toString();
+                    if (regLink != null && regLink.isNotEmpty) {
+                      _showAgentAccountRegistrationLink(regLink);
+                    }
+                  }
                 }
               } else {
                 if (mounted) AdminHelpers.showApiError(context, res);
@@ -499,11 +508,53 @@ class AgentsTabState extends State<AgentsTab> {
     });
   }
 
-  void _showAgentRegistrationLink(String agentCode) {
+  void _showAgentAccountRegistrationLink(String link) {
+    showDialog(
+      context: context,
+      builder: (ctx) => ScrollableAlertDialog(
+        title: const Text('Link đăng ký tài khoản đại lý'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Gửi link sau để đại lý tự tạo tài khoản đăng nhập cổng đại lý:',
+              style: TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: SelectableText(link,
+                  style: const TextStyle(fontFamily: 'monospace')),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: link));
+              NotificationOverlayManager()
+                  .showSuccess(title: 'Sao chép', message: 'Đã sao chép link');
+            },
+            child: const Text('Sao chép'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Đóng'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAgentStoreReferralLink(String agentCode) {
     if (agentCode.isEmpty) return;
-    // Derive web app base from API base URL (strip /api path if any)
-    final apiBase = ApiService.baseUrl.replaceFirst(RegExp(r'/api$'), '');
-    final link = '$apiBase/#/register?agentCode=$agentCode';
+    final link =
+        '${webAppBaseUrl(ApiService.baseUrl)}/#/register?agentCode=$agentCode';
     showDialog(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(

@@ -61,6 +61,10 @@ public class PosProduct : AuditableEntity<Guid>
     /// <summary>Hiển thị trên màn hình bán hàng POS.</summary>
     public bool IsDirectSale { get; set; } = true;
 
+    /// <summary>Ghi chú nhanh khi bán — JSON array chuỗi.</summary>
+    [MaxLength(4000)]
+    public string? SaleQuickNotesJson { get; set; }
+
     public bool IsFavorite { get; set; }
 
     public virtual ICollection<PosProductUnit> Units { get; set; } = [];

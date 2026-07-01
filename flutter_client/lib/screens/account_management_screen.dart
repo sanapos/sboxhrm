@@ -391,6 +391,9 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                                     value: 'Accountant',
                                     child: Text('Kế toán')),
                                 DropdownMenuItem(
+                                    value: 'Cashier',
+                                    child: Text('Thu ngân')),
+                                DropdownMenuItem(
                                     value: 'Employee',
                                     child: Text('Nhân viên')),
                                 DropdownMenuItem(
@@ -686,6 +689,8 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
         return {'label': 'Trưởng phòng', 'color': const Color(0xFF2563EB)};
       case 'Accountant':
         return {'label': 'Kế toán', 'color': HrmPageChrome.primaryNavy};
+      case 'Cashier':
+        return {'label': 'Thu ngân', 'color': const Color(0xFF0D9488)};
       case 'Employee':
         return {'label': 'Nhân viên', 'color': HrmPageChrome.primaryNavy};
       case 'User':
@@ -1330,6 +1335,11 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
         'value': 'Accountant',
         'label': 'Kế toán',
         'color': HrmPageChrome.primaryNavy
+      },
+      {
+        'value': 'Cashier',
+        'label': 'Thu ngân',
+        'color': const Color(0xFF0D9488)
       },
       {
         'value': 'Employee',
@@ -2052,6 +2062,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
 
     const roles = [
       {'value': 'Employee', 'label': 'Nhân viên'},
+      {'value': 'Cashier', 'label': 'Thu ngân'},
       {'value': 'User', 'label': 'Người dùng'},
       {'value': 'Accountant', 'label': 'Kế toán'},
       {'value': 'DepartmentHead', 'label': 'Trưởng phòng'},

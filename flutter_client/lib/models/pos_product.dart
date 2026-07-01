@@ -2,6 +2,67 @@
 
 import '../utils/api_datetime.dart';
 
+List<String> parsePosStringList(dynamic raw) {
+  if (raw is List) {
+    return raw
+        .map((e) => e.toString().trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+  }
+  if (raw is String && raw.trim().isNotEmpty) {
+    return raw
+        .split(RegExp(r'[;\n]'))
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+  }
+  return const [];
+}
+
+/// Ghép ghi chú dòng hàng từ chip đã chọn + ghi chú tự nhập.
+String? joinPosLineNoteParts({
+  required Iterable<String> selectedQuickNotes,
+  String? extraNote,
+}) {
+  final parts = <String>[];
+  for (final n in selectedQuickNotes) {
+    final t = n.trim();
+    if (t.isNotEmpty && !parts.contains(t)) parts.add(t);
+  }
+  final extra = extraNote?.trim() ?? '';
+  if (extra.isNotEmpty) {
+    for (final seg in extra.split(RegExp(r'[;\n]'))) {
+      final t = seg.trim();
+      if (t.isNotEmpty && !parts.contains(t)) parts.add(t);
+    }
+  }
+  return parts.isEmpty ? null : parts.join('; ');
+}
+
+/// Tách ghi chú dòng thành chip đã chọn và phần ghi chú khác.
+({Set<String> selected, String extra}) splitPosLineNote(
+  String? lineNote,
+  List<String> quickNotes,
+) {
+  final selected = <String>{};
+  final extraParts = <String>[];
+  if (lineNote == null || lineNote.trim().isEmpty) {
+    return (selected: selected, extra: '');
+  }
+  final quickLower = {for (final q in quickNotes) q.toLowerCase(): q};
+  for (final seg in lineNote.split(RegExp(r'[;\n]'))) {
+    final t = seg.trim();
+    if (t.isEmpty) continue;
+    final hit = quickLower[t.toLowerCase()];
+    if (hit != null) {
+      selected.add(hit);
+    } else {
+      extraParts.add(t);
+    }
+  }
+  return (selected: selected, extra: extraParts.join('; '));
+}
+
 class PosCatalogItem {
   final String id;
   final String name;
@@ -243,6 +304,7 @@ class PosProduct {
   final DateTime? estimatedStockoutDate;
   final List<PosProductUnit>? units;
   final List<PosProductAttribute>? attributes;
+  final List<String> saleQuickNotes;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -280,6 +342,7 @@ class PosProduct {
     this.estimatedStockoutDate,
     this.units,
     this.attributes,
+    this.saleQuickNotes = const [],
     this.createdAt,
     this.updatedAt,
   });
@@ -344,6 +407,8 @@ class PosProduct {
               .map((e) => PosProductAttribute.fromJson(e as Map<String, dynamic>))
               .toList()
           : null,
+      saleQuickNotes: parsePosStringList(
+          json['saleQuickNotes'] ?? json['SaleQuickNotes']),
       createdAt: dt(json['createdAt'] ?? json['CreatedAt']),
       updatedAt: dt(json['updatedAt'] ?? json['UpdatedAt']),
     );
@@ -382,6 +447,7 @@ class PosProduct {
       'baseUnitName': baseUnitName,
       'isDirectSale': isDirectSale,
       'isFavorite': isFavorite,
+      if (saleQuickNotes.isNotEmpty) 'saleQuickNotes': saleQuickNotes,
       if (attributes != null) 'attributes': attributes,
     };
   }

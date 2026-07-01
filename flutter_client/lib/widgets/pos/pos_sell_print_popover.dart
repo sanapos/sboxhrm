@@ -19,6 +19,11 @@ Future<List<PosPrintTemplate>> _loadSaleInvoiceTemplates(ApiService api) async {
     return [];
   }
 
+  // API tự tạo mẫu mặc định K58/K80/A5/A4 khi danh sách trống.
+  for (final docType in PosPrintDocumentTypes.all.keys) {
+    await api.getPosPrintTemplates(documentType: docType);
+  }
+
   var templates = parse(await api.getPosPrintTemplates(
     documentType: PosPrintDocumentTypes.saleInvoice,
   ));
@@ -164,7 +169,7 @@ Future<PosSellPrintSettings?> showPosSellPrintPopover(
                           if (templates.isEmpty) ...[
                             const SizedBox(height: 6),
                             const Text(
-                              'Bấm «Thiết lập mẫu in…» để tạo mẫu K58/K80/A5/A4.',
+                              'Chưa có mẫu in — hệ thống sẽ tạo sẵn K58, K80, A5, A4 khi bạn mở lại.',
                               style: TextStyle(fontSize: 11, color: PosTheme.textSecondary),
                             ),
                           ],

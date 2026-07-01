@@ -54,6 +54,7 @@ public class PosProductConfiguration : IEntityTypeConfiguration<PosProduct>
         builder.Property(x => x.ImageUrl).HasMaxLength(500);
         builder.Property(x => x.WeightUnit).HasMaxLength(20);
         builder.Property(x => x.BaseUnitName).HasMaxLength(100);
+        builder.Property(x => x.SaleQuickNotesJson).HasMaxLength(4000);
         builder.Property(x => x.CostPrice).HasPrecision(18, 2);
         builder.Property(x => x.BasePrice).HasPrecision(18, 2);
         builder.Property(x => x.OnHandQty).HasPrecision(18, 4);
@@ -219,6 +220,7 @@ public class PosSaleOrderConfiguration : IEntityTypeConfiguration<PosSaleOrder>
         builder.Property(x => x.Note).HasMaxLength(500);
         builder.Property(x => x.SoldBy).HasMaxLength(200);
         builder.Property(x => x.SalesChannel).HasMaxLength(100);
+        builder.HasIndex(x => new { x.StoreId, x.SoldByEmployeeId });
         builder.Property(x => x.PriceListName).HasMaxLength(100);
         builder.HasIndex(x => new { x.StoreId, x.OrderNo }).IsUnique();
         builder.HasIndex(x => new { x.StoreId, x.Status, x.CreatedAt });

@@ -3,7 +3,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
+using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Application.Constants;
+using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
@@ -15,7 +17,9 @@ namespace ZKTecoADMS.Api.Controllers;
 [ApiController]
 [Route("api/pos/sales")]
 [Authorize]
-public partial class PosSalesController(ZKTecoDbContext dbContext) : AuthenticatedControllerBase
+public partial class PosSalesController(
+    ZKTecoDbContext dbContext,
+    ISystemNotificationService notificationService) : AuthenticatedControllerBase
 {
     public record SaleLineDto(
         Guid ProductId, decimal Qty, Guid? UnitId, decimal? UnitPrice, Guid? VariantId,
@@ -42,6 +46,7 @@ public partial class PosSalesController(ZKTecoDbContext dbContext) : Authenticat
         string? DeliveryStatus = null,
         DateTime? DeliveryDate = null,
         string? SoldBy = null,
+        Guid? SoldByEmployeeId = null,
         string? SalesChannel = null,
         string? PriceListName = null,
         List<SalePaymentInputDto>? Payments = null);
@@ -62,6 +67,7 @@ public partial class PosSalesController(ZKTecoDbContext dbContext) : Authenticat
         string? DeliveryStatus = null,
         DateTime? DeliveryDate = null,
         string? SoldBy = null,
+        Guid? SoldByEmployeeId = null,
         string? SalesChannel = null,
         string? PriceListName = null);
 
@@ -87,6 +93,7 @@ public partial class PosSalesController(ZKTecoDbContext dbContext) : Authenticat
         string? Note,
         DateTime? SaleDate,
         string? SoldBy,
+        Guid? SoldByEmployeeId,
         string? SalesChannel,
         string? PriceListName,
         DateTime CreatedAt,
@@ -135,7 +142,7 @@ public partial class PosSalesController(ZKTecoDbContext dbContext) : Authenticat
         string? LineNote);
 
     [HttpGet("products")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.View)]
+    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<object>>>> GetSellProducts([FromQuery] string? search)
     {
         var storeId = RequiredStoreId;
@@ -177,7 +184,7 @@ public partial class PosSalesController(ZKTecoDbContext dbContext) : Authenticat
 
     /// <summary>Quét mã vạch / SKU — ưu tiên biến thể, sau đó hàng cha.</summary>
     [HttpGet("lookup")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.View)]
+    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> Lookup([FromQuery] string code)
     {
         var storeId = RequiredStoreId;
@@ -246,7 +253,7 @@ public partial class PosSalesController(ZKTecoDbContext dbContext) : Authenticat
     }
 
     [HttpPost]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Create)]
+    [RequireModulePermission("PosSell", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<SaleOrderDto>>> CreateSale([FromBody] CreateSaleDto dto)
     {
         var storeId = RequiredStoreId;
@@ -258,7 +265,46 @@ public partial class PosSalesController(ZKTecoDbContext dbContext) : Authenticat
         dbContext.PosSaleOrders.Add(order);
         dbContext.PosSaleOrderLines.AddRange(lines);
         await dbContext.SaveChangesAsync();
+
+        if (dto.Complete && order.Status == PosSaleOrderStatus.Completed)
+        {
+            await PosNotificationHelper.NotifySaleCompletedAsync(
+                notificationService, dbContext, storeId, order.Id, order.OrderNo,
+                order.Total, order.SoldBy, CurrentUserId);
+        }
+
         return Ok(AppResponse<SaleOrderDto>.Success(MapOrder(order, lines)));
+    }
+
+    /// <summary>Danh sách nhân viên có thể chọn làm người bán trên màn hình thu ngân.</summary>
+    [HttpGet("sellers")]
+    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<object>>> GetSellers()
+    {
+        var storeId = RequiredStoreId;
+        var employees = await dbContext.Employees.AsNoTracking()
+            .Where(e => e.StoreId == storeId && e.Deleted == null &&
+                        e.WorkStatus != EmployeeWorkStatus.Resigned)
+            .OrderBy(e => e.LastName).ThenBy(e => e.FirstName)
+            .Select(e => new
+            {
+                e.Id,
+                Name = (e.LastName + " " + e.FirstName).Trim(),
+                e.CompanyEmail,
+                e.EmployeeCode,
+            })
+            .ToListAsync();
+
+        var selfId = EmployeeId;
+        var items = employees.Select(e => new
+        {
+            employeeId = e.Id,
+            displayName = string.IsNullOrWhiteSpace(e.Name) ? e.CompanyEmail ?? e.EmployeeCode : e.Name,
+            email = e.CompanyEmail,
+            isSelf = selfId.HasValue && e.Id == selfId.Value,
+        }).ToList();
+
+        return Ok(AppResponse<object>.Success(items));
     }
 
     [HttpGet]
@@ -271,6 +317,7 @@ public partial class PosSalesController(ZKTecoDbContext dbContext) : Authenticat
         [FromQuery] string? customerName,
         [FromQuery] string? createdBy,
         [FromQuery] string? soldBy,
+        [FromQuery] Guid? soldByEmployeeId,
         [FromQuery] bool? isDelivery,
         [FromQuery] string? deliveryStatus,
         [FromQuery] Guid? customerId,
@@ -311,6 +358,8 @@ public partial class PosSalesController(ZKTecoDbContext dbContext) : Authenticat
             query = query.Where(o => o.CreatedBy != null && o.CreatedBy.Contains(createdBy.Trim()));
         if (!string.IsNullOrWhiteSpace(soldBy))
             query = query.Where(o => o.SoldBy != null && o.SoldBy.Contains(soldBy.Trim()));
+        if (soldByEmployeeId.HasValue)
+            query = query.Where(o => o.SoldByEmployeeId == soldByEmployeeId);
         if (isDelivery.HasValue)
             query = query.Where(o => o.IsDelivery == isDelivery.Value);
         if (!string.IsNullOrWhiteSpace(deliveryStatus))
@@ -725,7 +774,7 @@ public partial class PosSalesController(ZKTecoDbContext dbContext) : Authenticat
             order.IsDelivery, order.DeliveryAddress, order.DeliveryPhone,
             order.DeliveryPartner, order.DeliveryStatus, order.DeliveryDate,
             order.Note,
-            order.SaleDate, order.SoldBy, order.SalesChannel, order.PriceListName,
+            order.SaleDate, order.SoldBy, order.SoldByEmployeeId, order.SalesChannel, order.PriceListName,
             order.CreatedAt, order.CreatedBy,
             lines.Select(l => new SaleOrderLineDto(
                 l.Id, l.ProductId, l.VariantId, l.ProductName, l.UnitName,

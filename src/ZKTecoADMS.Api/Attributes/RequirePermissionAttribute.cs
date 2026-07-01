@@ -2,8 +2,10 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using ZKTecoADMS.Application.Authorization;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Infrastructure;
+using ZKTecoADMS.Infrastructure.Helpers;
 
 namespace ZKTecoADMS.Api.Attributes;
 
@@ -42,13 +44,40 @@ public class RequirePermissionAttribute : Attribute, IAsyncAuthorizationFilter
             return;
         }
 
-        // Admin/SuperAdmin/Agent có toàn quyền
-        if (roleClaim is "Admin" or "SuperAdmin" or "Agent")
+        // SuperAdmin/Agent: toàn quyền (không thuộc cửa hàng)
+        if (roleClaim is "SuperAdmin" or "Agent")
         {
-            return; // Cho phép
+            return;
         }
 
         var storeIdClaim = user.FindFirst("storeId")?.Value;
+        var dbContext = context.HttpContext.RequestServices.GetRequiredService<ZKTecoDbContext>();
+
+        if (!string.IsNullOrEmpty(storeIdClaim) && Guid.TryParse(storeIdClaim, out var packageStoreId))
+        {
+            if (!FeatureModuleCatalog.IsSelfService(Module))
+            {
+                var allowed = await StorePackageHelper.ResolveAllowedModulesAsync(
+                    dbContext, packageStoreId, context.HttpContext.RequestAborted);
+                if (!allowed.Contains(Module, StringComparer.OrdinalIgnoreCase))
+                {
+                    context.Result = new ObjectResult(
+                        AppResponse<object>.Error(
+                            $"Gói dịch vụ không bao gồm chức năng \"{Module}\". Vui lòng nâng cấp gói."))
+                    {
+                        StatusCode = StatusCodes.Status403Forbidden
+                    };
+                    return;
+                }
+            }
+        }
+
+        // Admin có toàn quyền role trong cửa hàng (đã qua kiểm tra gói ở trên)
+        if (roleClaim is "Admin")
+        {
+            return;
+        }
+
         if (string.IsNullOrEmpty(storeIdClaim))
         {
             context.Result = new ForbidResult();
@@ -58,9 +87,6 @@ public class RequirePermissionAttribute : Attribute, IAsyncAuthorizationFilter
         var storeId = Guid.Parse(storeIdClaim);
         var userIdClaim = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         Guid? userId = !string.IsNullOrEmpty(userIdClaim) ? Guid.Parse(userIdClaim) : null;
-
-        // Lấy DbContext từ DI
-        var dbContext = context.HttpContext.RequestServices.GetRequiredService<ZKTecoDbContext>();
 
         // 1. Kiểm tra quyền theo Role (RolePermission)
         var rolePermission = await dbContext.RolePermissions

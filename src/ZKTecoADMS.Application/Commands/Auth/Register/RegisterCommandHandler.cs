@@ -72,6 +72,15 @@ public class RegisterCommandHandler(
                 return AppResponse<string>.Error($"Mã đại lý '{request.AgentCode}' không tồn tại hoặc đã ngừng hoạt động.");
             }
             agentId = agent.Id;
+
+            var linkedStores = await storeRepository.CountAsync(
+                s => s.AgentId == agent.Id,
+                cancellationToken: cancellationToken);
+            if (agent.MaxStores > 0 && linkedStores >= agent.MaxStores)
+            {
+                return AppResponse<string>.Error(
+                    $"Đại lý '{agent.Code}' đã đạt giới hạn {agent.MaxStores} cửa hàng. Vui lòng liên hệ đại lý hoặc quản trị.");
+            }
         }
 
         ServicePackage? selectedPackage = null;

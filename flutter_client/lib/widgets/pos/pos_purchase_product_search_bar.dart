@@ -8,6 +8,7 @@ import '../../models/pos_product.dart';
 import '../../services/api_service.dart';
 import '../../utils/pos_category_tree.dart';
 import '../../utils/pos_purchase_product_lookup.dart';
+import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos_barcode_scanner.dart';
 import 'pos_product_image.dart';
 import 'pos_product_unit_view.dart';
@@ -323,7 +324,14 @@ class PosPurchaseProductSearchBarState extends State<PosPurchaseProductSearchBar
     final q = _ctrl.text.trim();
     if (q.isEmpty) return;
     final pick = await lookupOrPickPosProduct(context, widget.api, q);
-    if (!mounted || pick == null) return;
+    if (!mounted) return;
+    if (pick == null) {
+      NotificationOverlayManager().showWarning(
+        title: 'Không tìm thấy sản phẩm',
+        message: 'Không có hàng hóa với mã "$q"',
+      );
+      return;
+    }
     _ctrl.clear();
     _removeOverlay();
     _focus.unfocus();

@@ -73,6 +73,7 @@ import 'pos_purchase_return_list_screen.dart';
 import 'pos_stock_count_list_screen.dart';
 import 'pos_damage_issue_list_screen.dart';
 import 'pos_internal_use_list_screen.dart';
+import 'pos_reports_screen.dart';
 import 'shift_swap_screen.dart';
 import '../utils/permission_navigation.dart';
 import '../widgets/module_route_guard.dart';
@@ -390,7 +391,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       item.moduleCode,
       allowedModules: allowedModules,
       perm: perm,
-      bypassPackageFilter: isSuperAdmin || isAgent || isDirector,
+      bypassPackageFilter: isSuperAdmin,
     )) {
       return false;
     }
@@ -1326,6 +1327,16 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       themeColor: const Color(0xFF2563EB),
       moduleCode: 'PosInternalUseIssues',
     ),
+    NavItem(
+      icon: Icons.analytics_outlined,
+      activeIcon: Icons.analytics,
+      label: 'Báo cáo POS',
+      subtitle: 'Doanh thu bán hàng, tồn kho POS',
+      screen: const PosReportsScreen(),
+      group: 'POS',
+      themeColor: const Color(0xFF2563EB),
+      moduleCode: 'PosSalesReport',
+    ),
 
     // ══════════ BÁO CÁO ══════════
     NavItem(
@@ -1991,7 +2002,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         _navItems[i].moduleCode,
         allowedModules: allowedModules,
         perm: permProvider,
-        bypassPackageFilter: isSuperAdmin || isAgent || isDirector,
+        bypassPackageFilter: isSuperAdmin,
       )) {
         continue;
       }
@@ -2492,7 +2503,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         item.moduleCode,
         allowedModules: allowedModules,
         perm: permProvider,
-        bypassPackageFilter: isSuperAdmin || isAgent || isDirector,
+        bypassPackageFilter: isSuperAdmin,
       )) {
         continue;
       }
@@ -2737,6 +2748,7 @@ class NavItem {
     'PosStockCounts': (l) => 'Kiểm kho',
     'PosDamageIssues': (l) => 'Xuất hủy',
     'PosInternalUseIssues': (l) => 'Xuất dùng nội bộ',
+    'PosSalesReport': (l) => 'Báo cáo POS',
     'PenaltyReport': (l) => 'Báo cáo phạt',
     'CashReport': (l) => 'Báo cáo thu chi',
     'AdvanceReport': (l) => 'Báo cáo ứng lương',

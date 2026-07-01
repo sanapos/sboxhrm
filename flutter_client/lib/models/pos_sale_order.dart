@@ -65,6 +65,7 @@ class PosSaleOrder {
   final String? note;
   final DateTime? saleDate;
   final String? soldBy;
+  final String? soldByEmployeeId;
   final String? salesChannel;
   final String? priceListName;
   final DateTime? createdAt;
@@ -94,6 +95,7 @@ class PosSaleOrder {
     this.note,
     this.saleDate,
     this.soldBy,
+    this.soldByEmployeeId,
     this.salesChannel,
     this.priceListName,
     this.createdAt,
@@ -136,6 +138,8 @@ class PosSaleOrder {
       note: json['note'] ?? json['Note'] as String?,
       saleDate: parseApiDateTime(json['saleDate'] ?? json['SaleDate']),
       soldBy: json['soldBy'] ?? json['SoldBy'] as String?,
+      soldByEmployeeId:
+          (json['soldByEmployeeId'] ?? json['SoldByEmployeeId'])?.toString(),
       salesChannel: json['salesChannel'] ?? json['SalesChannel'] as String?,
       priceListName: json['priceListName'] ?? json['PriceListName'] as String?,
       createdAt: parseApiDateTime(json['createdAt'] ?? json['CreatedAt']),

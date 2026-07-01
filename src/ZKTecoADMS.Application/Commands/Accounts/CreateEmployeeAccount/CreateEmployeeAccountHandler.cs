@@ -7,7 +7,8 @@ namespace ZKTecoADMS.Application.Commands.Accounts;
 public class CreateEmployeeAccountHandler(
     UserManager<ApplicationUser> userManager,
     IRepository<Employee> employeeRepository,
-    ISystemNotificationService notificationService
+    ISystemNotificationService notificationService,
+    IStoreLicenseLimitService storeLicenseLimitService
 ) : ICommandHandler<CreateEmployeeAccountCommand, AppResponse<AccountDto>>
 {
     public async Task<AppResponse<AccountDto>> Handle(CreateEmployeeAccountCommand request, CancellationToken cancellationToken)
@@ -36,6 +37,16 @@ public class CreateEmployeeAccountHandler(
         if(employee == null)
         {
             return AppResponse<AccountDto>.Error("Employee not found.");
+        }
+
+        if (manager.StoreId.HasValue)
+        {
+            var limitCheck = await storeLicenseLimitService.CanAddUserAsync(
+                manager.StoreId.Value, cancellationToken);
+            if (!limitCheck.Ok)
+            {
+                return AppResponse<AccountDto>.Error(limitCheck.Error!);
+            }
         }
 
         var newUser = new ApplicationUser

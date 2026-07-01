@@ -197,6 +197,7 @@ public static class DependencyInjectionExtensions
         services.AddScoped<IRefreshTokenValidatorService, RefreshTokenService>();
 
         services.AddScoped<IDeviceService, DeviceService>();
+        services.AddScoped<IStoreLicenseLimitService, StoreLicenseLimitService>();
         services.AddScoped<IDeviceUserService, DeviceUserService>();
         services.AddScoped<IAttendanceService, AttendanceService>();
         services.AddScoped<IAttendanceDeletePreparer, AttendanceDeletePreparer>();

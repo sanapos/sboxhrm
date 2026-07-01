@@ -61,6 +61,13 @@ public static class ModulePermissionImplicitGrants
         "DashboardKpiPanel", "DashboardInternalNews"
     ];
 
+    /// <summary>Submodule POS — quyền gộp từ PosProducts (DB chỉ seed PosProducts + PosSalesReport).</summary>
+    private static readonly string[] PosSubmoduleCodes =
+    [
+        "PosSell", "PosSaleOrders", "PosPurchaseReceipts", "PosPurchaseReturns",
+        "PosStockCounts", "PosDamageIssues", "PosInternalUseIssues", "PosPrintTemplates"
+    ];
+
     public static bool TryGrant(
         string module,
         ModulePermissionAction action,
@@ -208,6 +215,33 @@ public static class ModulePermissionImplicitGrants
             action == ModulePermissionAction.Delete &&
             HasAction(map, "Notification", ModulePermissionAction.View))
             return true;
+
+        // POS: thu ngân (PosSell) được xem hàng hóa phục vụ bán.
+        if (module.Equals("PosProducts", StringComparison.Ordinal) &&
+            action == ModulePermissionAction.View &&
+            HasAction(map, "PosSell", ModulePermissionAction.View))
+            return true;
+
+        // POS: submodule (Bán hàng, Đơn hàng, Nhập hàng…) ↔ PosProducts.
+        if (PosSubmoduleCodes.Contains(module) && HasAction(map, "PosProducts", action))
+            return true;
+
+        if (module.Equals("PosProducts", StringComparison.Ordinal))
+        {
+            foreach (var sub in PosSubmoduleCodes)
+            {
+                if (HasAction(map, sub, action))
+                    return true;
+            }
+        }
+
+        // Báo cáo POS: PosSalesReport hoặc PosProducts (xem/xuất).
+        if (module.Equals("PosSalesReport", StringComparison.Ordinal) &&
+            action is ModulePermissionAction.View or ModulePermissionAction.Export)
+        {
+            if (HasAction(map, "PosSalesReport", action) || HasAction(map, "PosProducts", action))
+                return true;
+        }
 
         return false;
     }

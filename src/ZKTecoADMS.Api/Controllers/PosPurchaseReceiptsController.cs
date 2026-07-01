@@ -3,7 +3,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
+using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Application.Constants;
+using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
@@ -15,7 +17,9 @@ namespace ZKTecoADMS.Api.Controllers;
 [ApiController]
 [Route("api/pos/purchase/receipts")]
 [Authorize]
-public class PosPurchaseReceiptsController(ZKTecoDbContext dbContext) : AuthenticatedControllerBase
+public class PosPurchaseReceiptsController(
+    ZKTecoDbContext dbContext,
+    ISystemNotificationService notificationService) : AuthenticatedControllerBase
 {
     public record ReceiptLineInput(
         Guid ProductId, Guid? VariantId, decimal Qty, decimal CostPrice,
@@ -218,6 +222,11 @@ public class PosPurchaseReceiptsController(ZKTecoDbContext dbContext) : Authenti
         await PosPurchaseStockHelper.UpdateSupplierOnReceiptCompleteAsync(dbContext, receipt);
         await PosFinanceSyncHelper.SyncPurchaseReceiptPaymentAsync(dbContext, receipt, CurrentUserId);
         await dbContext.SaveChangesAsync();
+
+        await PosNotificationHelper.NotifyPurchaseReceiptCompletedAsync(
+            notificationService, dbContext, storeId, receipt.Id, receipt.ReceiptNo,
+            receipt.GrandTotal, receipt.Supplier?.Name, CurrentUserId);
+
         return Ok(AppResponse<ReceiptDto>.Success(MapReceipt(receipt)));
     }
 

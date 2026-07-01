@@ -1,6 +1,8 @@
+using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Controllers.Base;
+using ZKTecoADMS.Application.Authorization;
 using ZKTecoADMS.Application.DTOs.SystemAdmin;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
@@ -121,6 +123,70 @@ public class AgentController : AuthenticatedControllerBase
             return StatusCode(500, AppResponse<PagedList<LicenseKeyDto>>.Fail("Lỗi khi lấy danh sách license key"));
         }
     }
+
+    /// <summary>
+    /// Danh sách gian hàng thuộc đại lý hiện tại
+    /// </summary>
+    [HttpGet("stores")]
+    public async Task<ActionResult<AppResponse<List<AgentStoreSummaryDto>>>> GetMyStores()
+    {
+        try
+        {
+            var agent = await _dbContext.Agents
+                .AsNoTracking()
+                .FirstOrDefaultAsync(a => a.UserId == CurrentUserId);
+
+            if (agent == null)
+                return NotFound(AppResponse<List<AgentStoreSummaryDto>>.Fail("Không tìm thấy thông tin đại lý"));
+
+            var stores = await _dbContext.Stores
+                .AsNoTracking()
+                .Include(s => s.ServicePackage)
+                .Where(s => s.AgentId == agent.Id)
+                .OrderByDescending(s => s.CreatedAt)
+                .Select(s => new AgentStoreSummaryDto(
+                    s.Id,
+                    s.Name,
+                    s.Code,
+                    s.IsActive,
+                    s.IsLocked,
+                    s.ExpiryDate,
+                    s.ServicePackage != null ? s.ServicePackage.Name : null,
+                    s.TrialStartDate,
+                    s.TrialDays,
+                    s.MaxUsers,
+                    s.MaxDevices
+                ))
+                .ToListAsync();
+
+            return Ok(AppResponse<List<AgentStoreSummaryDto>>.Success(stores));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting agent stores");
+            return StatusCode(500, AppResponse<List<AgentStoreSummaryDto>>.Fail("Lỗi khi lấy danh sách cửa hàng"));
+        }
+    }
+
+    /// <summary>
+    /// Link giới thiệu đăng ký cửa hàng cho đại lý
+    /// </summary>
+    [HttpGet("referral-link")]
+    public async Task<ActionResult<AppResponse<AgentReferralLinkDto>>> GetReferralLink(
+        [FromServices] IConfiguration configuration)
+    {
+        var agent = await _dbContext.Agents
+            .AsNoTracking()
+            .FirstOrDefaultAsync(a => a.UserId == CurrentUserId);
+
+        if (agent == null)
+            return NotFound(AppResponse<AgentReferralLinkDto>.Fail("Không tìm thấy thông tin đại lý"));
+
+        var baseUrl = configuration["AppSettings:FlutterClientUrl"] ?? "http://localhost:3000";
+        var link = $"{baseUrl}/#/register?agentCode={agent.Code}";
+        return Ok(AppResponse<AgentReferralLinkDto>.Success(
+            new AgentReferralLinkDto(agent.Code, link)));
+    }
 }
 
 /// <summary>
@@ -138,3 +204,19 @@ public record AgentProfileDto(
     int UsedKeys,
     int AvailableKeys
 );
+
+public record AgentStoreSummaryDto(
+    Guid Id,
+    string Name,
+    string Code,
+    bool IsActive,
+    bool IsLocked,
+    DateTime? ExpiryDate,
+    string? PackageName,
+    DateTime? TrialStartDate,
+    int TrialDays,
+    int MaxUsers,
+    int MaxDevices
+);
+
+public record AgentReferralLinkDto(string AgentCode, string ReferralLink);

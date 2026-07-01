@@ -10,5 +10,6 @@ public enum Roles
     SuperAdmin,
     Agent,
     DepartmentHead,
-    Accountant
+    Accountant,
+    Cashier
 }

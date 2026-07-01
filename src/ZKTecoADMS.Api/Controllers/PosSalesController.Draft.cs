@@ -2,6 +2,8 @@ using ClosedXML.Excel;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Authorization;
+using ZKTecoADMS.Api.Services;
+using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Api.Controllers.Reports;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Models;
@@ -32,7 +34,7 @@ public partial class PosSalesController
             dto.CustomerName, dto.CustomerId, dto.Note, dto.Complete,
             dto.IsDelivery, dto.DeliveryAddress, dto.DeliveryPhone,
             dto.DeliveryPartner, dto.DeliveryStatus, dto.DeliveryDate,
-            dto.SoldBy, dto.SalesChannel, dto.PriceListName);
+            dto.SoldBy, dto.SoldByEmployeeId, dto.SalesChannel, dto.PriceListName);
         var (_, lines, err) = await BuildSaleAsync(storeId, order, createDto, dto.Complete);
         if (err != null) return BadRequest(AppResponse<SaleOrderDto>.Fail(err));
         if (lines == null)
@@ -73,6 +75,11 @@ public partial class PosSalesController
         order.UpdatedBy = CurrentUserEmail;
         await PosFinanceSyncHelper.SyncSaleOnCompleteAsync(dbContext, order, CurrentUserId);
         await dbContext.SaveChangesAsync();
+
+        await PosNotificationHelper.NotifySaleCompletedAsync(
+            notificationService, dbContext, storeId, order.Id, order.OrderNo,
+            order.Total, order.SoldBy, CurrentUserId);
+
         return Ok(AppResponse<SaleOrderDto>.Success(await MapOrderAsync(storeId, order)));
     }
 
@@ -235,7 +242,7 @@ public partial class PosSalesController
             : null;
         order.DeliveryDate = dto.DeliveryDate;
         order.SaleDate = complete ? now : order.SaleDate;
-        order.SoldBy = dto.SoldBy?.Trim() ?? CurrentUserEmail;
+        await ResolveSoldByAsync(storeId, order, dto.SoldByEmployeeId, dto.SoldBy);
         order.SalesChannel = dto.SalesChannel?.Trim() ?? "Bán trực tiếp";
         order.PriceListName = dto.PriceListName?.Trim() ?? "Bảng giá chung";
         order.UpdatedAt = DateTime.UtcNow;
@@ -336,8 +343,37 @@ public partial class PosSalesController
             await PosSaleStockHelper.UpdateCustomerOnSaleCompleteAsync(dbContext, storeId, order);
             await PosFinanceSyncHelper.SyncSaleOnCompleteAsync(
                 dbContext, order, CurrentUserId, paymentSync);
+
+            var lowStockItems = plan.Products.Values
+                .Select(p => (p.Id, p.Name, p.OnHandQty, p.MinStockQty));
+            await PosNotificationHelper.NotifyLowStockAsync(
+                notificationService, dbContext, storeId, lowStockItems, CurrentUserId);
         }
 
         return (order, lines, null);
+    }
+
+    private async Task ResolveSoldByAsync(
+        Guid storeId, PosSaleOrder order, Guid? soldByEmployeeId, string? soldByFallback)
+    {
+        var employeeId = soldByEmployeeId ?? EmployeeId;
+        if (employeeId.HasValue)
+        {
+            var emp = await dbContext.Employees.AsNoTracking()
+                .FirstOrDefaultAsync(e => e.Id == employeeId.Value &&
+                                          e.StoreId == storeId && e.Deleted == null);
+            if (emp != null)
+            {
+                order.SoldByEmployeeId = emp.Id;
+                var name = (emp.LastName + " " + emp.FirstName).Trim();
+                order.SoldBy = !string.IsNullOrWhiteSpace(name)
+                    ? name
+                    : soldByFallback?.Trim() ?? emp.CompanyEmail ?? CurrentUserEmail;
+                return;
+            }
+        }
+
+        order.SoldByEmployeeId = null;
+        order.SoldBy = soldByFallback?.Trim() ?? CurrentUserEmail;
     }
 }

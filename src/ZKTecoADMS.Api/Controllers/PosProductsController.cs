@@ -55,6 +55,7 @@ public partial class PosProductsController(
         DateTime? EstimatedStockoutDate,
         List<PosProductUnitDto>? Units,
         List<PosProductAttributeDto>? Attributes,
+        List<string>? SaleQuickNotes,
         DateTime CreatedAt,
         DateTime? UpdatedAt);
 
@@ -87,6 +88,7 @@ public partial class PosProductsController(
         string? BaseUnitName,
         bool IsDirectSale,
         bool IsFavorite,
+        List<string>? SaleQuickNotes,
         List<PosProductAttributeInput>? Attributes);
 
     public record PosProductAttributeInput(Guid? AttributeId, string? AttributeName, string Value);
@@ -230,6 +232,7 @@ public partial class PosProductsController(
                 p.IsDirectSale,
                 p.IsFavorite,
                 p.IsActive,
+                p.SaleQuickNotesJson,
                 p.CreatedAt,
                 p.UpdatedAt,
             })
@@ -261,6 +264,7 @@ public partial class PosProductsController(
                 r.IsDirectSale, r.IsFavorite, r.IsActive, variantCount,
                 avg > 0 ? avg : null, stockout,
                 null, null,
+                PosSaleQuickNotesHelper.Parse(r.SaleQuickNotesJson),
                 r.CreatedAt, r.UpdatedAt);
         }).ToList();
 
@@ -471,6 +475,7 @@ public partial class PosProductsController(
             BaseUnitName = string.IsNullOrWhiteSpace(dto.BaseUnitName) ? "Cái" : dto.BaseUnitName.Trim(),
             IsDirectSale = dto.IsDirectSale,
             IsFavorite = dto.IsFavorite,
+            SaleQuickNotesJson = PosSaleQuickNotesHelper.Serialize(dto.SaleQuickNotes),
             IsActive = true,
             CreatedBy = CurrentUserEmail,
         };
@@ -561,6 +566,7 @@ public partial class PosProductsController(
         entity.BaseUnitName = string.IsNullOrWhiteSpace(dto.BaseUnitName) ? "Cái" : dto.BaseUnitName.Trim();
         entity.IsDirectSale = dto.IsDirectSale;
         entity.IsFavorite = dto.IsFavorite;
+        entity.SaleQuickNotesJson = PosSaleQuickNotesHelper.Serialize(dto.SaleQuickNotes);
         entity.UpdatedAt = DateTime.UtcNow;
         entity.UpdatedBy = CurrentUserEmail;
 
@@ -650,6 +656,7 @@ public partial class PosProductsController(
             BaseUnitName = source.BaseUnitName,
             IsDirectSale = source.IsDirectSale,
             IsFavorite = false,
+            SaleQuickNotesJson = source.SaleQuickNotesJson,
             IsActive = true,
             CreatedBy = CurrentUserEmail,
         };
@@ -732,6 +739,7 @@ public partial class PosProductsController(
             p.IsDirectSale, p.IsFavorite, p.IsActive, variantCount,
             avg > 0 ? avg : null, stockout,
             units, attrs,
+            PosSaleQuickNotesHelper.Parse(p.SaleQuickNotesJson),
             p.CreatedAt, p.UpdatedAt);
     }
 

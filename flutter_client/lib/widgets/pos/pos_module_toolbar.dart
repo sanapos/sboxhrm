@@ -21,6 +21,7 @@ class PosModuleToolbar extends StatelessWidget {
     _PosTab('PosStockCounts', 'Kiểm kho'),
     _PosTab('PosDamageIssues', 'Xuất hủy'),
     _PosTab('PosInternalUseIssues', 'Xuất dùng NB'),
+    _PosTab('PosSalesReport', 'Báo cáo'),
   ];
 
   @override

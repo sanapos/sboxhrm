@@ -21,6 +21,7 @@ import '../widgets/pos/pos_purchase_toolbar.dart';
 import '../widgets/pos/pos_sale_order_helpers.dart';
 import '../widgets/pos/pos_theme.dart';
 import 'pos_sale_order_editor_screen.dart';
+import 'pos_sale_return_screen.dart';
 
 const _blue = Color(0xFF2563EB);
 
@@ -428,143 +429,6 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     } else {
       NotificationOverlayManager().showError(
           title: 'Lỗi', message: res['message']?.toString() ?? 'Không sao chép được');
-    }
-  }
-
-  Future<void> _showReturnDialog(PosSaleOrder summary) async {
-    PosSaleOrder order = _expandedDetail ?? summary;
-    if (order.lines.isEmpty) {
-      final res = await _api.getPosSale(summary.id);
-      if (res['isSuccess'] != true || !mounted) return;
-      order = PosSaleOrder.fromJson(res['data'] as Map<String, dynamic>);
-    }
-    if (order.lines.isEmpty || !mounted) {
-      NotificationOverlayManager()
-          .showWarning(title: 'Trả hàng', message: 'Đơn không có dòng hàng');
-      return;
-    }
-
-    final qtyCtrls = order.lines
-        .map((l) => TextEditingController(text: '0'))
-        .toList();
-    final noteCtrl = TextEditingController();
-
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Trả hàng · ${order.orderNo}'),
-        content: SizedBox(
-          width: 480,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Text('Nhập số lượng trả cho từng dòng:',
-                    style: TextStyle(fontSize: 13)),
-                const SizedBox(height: 8),
-                ...List.generate(order.lines.length, (i) {
-                  final l = order.lines[i];
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(l.productName,
-                              style: const TextStyle(fontSize: 12),
-                              overflow: TextOverflow.ellipsis),
-                        ),
-                        Text('SL: ${l.qty.toStringAsFixed(0)}',
-                            style: const TextStyle(fontSize: 11, color: PosTheme.textSecondary)),
-                        const SizedBox(width: 8),
-                        SizedBox(
-                          width: 64,
-                          child: TextField(
-                            controller: qtyCtrls[i],
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            inputFormatters: [
-                              FilteringTextInputFormatter.allow(RegExp(r'[\d.,]')),
-                            ],
-                            decoration: const InputDecoration(
-                              isDense: true,
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-                            ),
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }),
-                TextField(
-                  controller: noteCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Ghi chú',
-                    isDense: true,
-                    border: OutlineInputBorder(),
-                  ),
-                  style: const TextStyle(fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: _blue),
-            child: const Text('Xác nhận trả'),
-          ),
-        ],
-      ),
-    );
-
-    if (ok != true || !mounted) {
-      for (final c in qtyCtrls) {
-        c.dispose();
-      }
-      noteCtrl.dispose();
-      return;
-    }
-
-    final lines = <Map<String, dynamic>>[];
-    for (var i = 0; i < order.lines.length; i++) {
-      final qty = double.tryParse(qtyCtrls[i].text.replaceAll(',', '.')) ?? 0;
-      if (qty <= 0) continue;
-      final l = order.lines[i];
-      lines.add({
-        'productId': l.productId,
-        'qty': qty,
-        if (l.variantId != null) 'variantId': l.variantId,
-      });
-    }
-    final note = noteCtrl.text.trim();
-    for (final c in qtyCtrls) {
-      c.dispose();
-    }
-    noteCtrl.dispose();
-
-    if (lines.isEmpty) {
-      NotificationOverlayManager()
-          .showWarning(title: 'Trả hàng', message: 'Chưa nhập số lượng trả');
-      return;
-    }
-
-    final res = await _api.returnPosSale(order.id, {
-      'lines': lines,
-      if (note.isNotEmpty) 'note': note,
-    });
-    if (!mounted) return;
-    if (res['isSuccess'] == true) {
-      NotificationOverlayManager()
-          .showSuccess(title: 'Trả hàng', message: 'Đã ghi nhận trả hàng');
-      await _load(page: _page);
-      await _refreshExpandedDetail(order.id);
-    } else {
-      NotificationOverlayManager().showError(
-          title: 'Lỗi', message: res['message']?.toString() ?? 'Không trả được');
     }
   }
 
@@ -1043,7 +907,11 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                   label: const Text('Hủy'),
                 ),
                 OutlinedButton.icon(
-                  onPressed: () => _showReturnDialog(o),
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => PosSaleReturnScreen(orderId: o.id),
+                    ),
+                  ),
                   icon: const Icon(Icons.assignment_return_outlined, size: 16),
                   label: const Text('Trả hàng'),
                 ),

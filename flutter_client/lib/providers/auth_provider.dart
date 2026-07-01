@@ -336,12 +336,8 @@ class AuthProvider extends ChangeNotifier {
       if (_user!.role == 'SuperAdmin' || _user!.role == 'Agent') return;
 
       final modules = await _apiService.getMyModules();
-      if (modules.isNotEmpty) {
-        _user = _user!.copyWith(allowedModules: modules);
-        debugPrint('✅ AuthProvider: Loaded ${modules.length} allowed modules');
-      } else {
-        debugPrint('ℹ️ AuthProvider: No module restrictions (empty list)');
-      }
+      _user = _user!.copyWith(allowedModules: modules);
+      debugPrint('✅ AuthProvider: Loaded ${modules.length} allowed modules');
     } catch (e) {
       debugPrint('⚠️ AuthProvider: Error fetching allowed modules: $e');
     }

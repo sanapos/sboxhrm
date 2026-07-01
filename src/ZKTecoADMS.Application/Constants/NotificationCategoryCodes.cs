@@ -33,6 +33,10 @@ public static class NotificationCategoryCodes
             "store" => "system",
             "license" => "system",
             "shift" => "attendance",
+            "pos" => "pos",
+            "possaleorder" => "pos",
+            "posproduct" => "pos",
+            "pospurchasereceipt" => "pos",
             _ => code.Trim().ToLowerInvariant()
         };
     }

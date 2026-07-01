@@ -5,7 +5,7 @@ import 'pos_theme.dart';
 
 const kPosDiscountPresets = [5, 10, 15, 20, 25, 30, 50, 75, 100];
 
-/// Mệnh giá gợi ý khi chiết khấu theo tiền (VNĐ).
+/// Mệnh giá gợi ý cố định khi chưa có giá tham chiếu.
 const kPosDiscountMoneyPresets = [
   10000,
   20000,
@@ -18,8 +18,50 @@ const kPosDiscountMoneyPresets = [
   5000000,
 ];
 
-const _blue = Color(0xFF2563EB);
+/// Gợi ý số tiền chiết khấu phù hợp với [baseAmount] (VNĐ).
+List<int> posDiscountMoneyPresetsForAmount(double baseAmount) {
+  if (baseAmount <= 0) return [1000, 2000, 5000];
 
+  final max = baseAmount.round();
+  final picked = <int>{};
+
+  for (final pct in [5, 10, 15, 20, 25, 50]) {
+    final v = (baseAmount * pct / 100).round();
+    if (v > 0 && v <= max) picked.add(v);
+  }
+
+  const nice = [
+    500,
+    1000,
+    2000,
+    5000,
+    10000,
+    20000,
+    50000,
+    100000,
+    200000,
+    500000,
+    1000000,
+    2000000,
+    5000000,
+  ];
+  for (final v in nice) {
+    if (v <= max) picked.add(v);
+  }
+  picked.add(max);
+
+  final sorted = picked.toList()..sort();
+  if (sorted.length <= 9) return sorted;
+
+  final result = <int>[];
+  for (var i = 0; i < 9; i++) {
+    final idx = ((sorted.length - 1) * i / 8).round();
+    result.add(sorted[idx]);
+  }
+  return result.toSet().toList()..sort();
+}
+
+const _kiotBlue = PosTheme.kiotBlue;
 class PosDiscountEditResult {
   const PosDiscountEditResult({
     required this.input,
@@ -103,22 +145,22 @@ Future<PosDiscountEditResult?> showPosDiscountEditorDialog({
                   onChanged: (_) => setDlg(() {}),
                 ),
                 const SizedBox(height: 8),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: kPosDiscountPresets.map((p) {
-                    return ActionChip(
-                      label: Text('$p%'),
-                      visualDensity: VisualDensity.compact,
-                      onPressed: () {
-                        setDlg(() {
-                          isPercent = true;
-                          ctrl.text = '$p';
-                        });
-                      },
-                    );
-                  }).toList(),
-                ),
+                if (isPercent)
+                  buildPosDiscountPresetChips(
+                    onPickPercent: (p) => setDlg(() {
+                      isPercent = true;
+                      ctrl.text = p % 1 == 0 ? p.toStringAsFixed(0) : p.toStringAsFixed(2);
+                    }),
+                  )
+                else
+                  buildPosDiscountMoneyPresetChips(
+                    moneyFmt: moneyFmt,
+                    baseAmount: baseAmount,
+                    onPickAmount: (a) => setDlg(() {
+                      isPercent = false;
+                      ctrl.text = moneyFmt.format(a);
+                    }),
+                  ),
                 if (preview > 0) ...[
                   const SizedBox(height: 10),
                   Text(
@@ -145,7 +187,7 @@ Future<PosDiscountEditResult?> showPosDiscountEditorDialog({
                   ),
                 );
               },
-              style: FilledButton.styleFrom(backgroundColor: _blue),
+              style: FilledButton.styleFrom(backgroundColor: _kiotBlue),
               child: const Text('Áp dụng'),
             ),
           ],
@@ -165,57 +207,90 @@ Widget _modeChip(String label, bool value, bool selected, VoidCallback onTap) {
     child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: active ? const Color(0xFFE8F0FE) : Colors.white,
+        color: active ? PosTheme.kiotBlueLight : Colors.white,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: active ? _blue : PosTheme.border),
+        border: Border.all(color: active ? _kiotBlue : PosTheme.border),
       ),
       child: Text(
         label,
         style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w600,
-          color: active ? _blue : PosTheme.textSecondary,
+          color: active ? _kiotBlue : PosTheme.textSecondary,
         ),
       ),
     ),
   );
 }
 
-/// Hàng chip gợi ý % — một dòng, cuộn ngang nếu thiếu chỗ.
+/// Hàng chip gợi ý % — giãn đều full chiều ngang.
 Widget buildPosDiscountPresetChips({
   required ValueChanged<double> onPickPercent,
+  List<int>? percents,
 }) {
-  return SingleChildScrollView(
-    scrollDirection: Axis.horizontal,
-    child: Row(
-      children: kPosDiscountPresets.map((p) {
-        return Padding(
-          padding: const EdgeInsets.only(right: 4),
-          child: _discountChip('$p%', () => onPickPercent(p.toDouble())),
-        );
-      }).toList(),
-    ),
-  );
-}
-
-/// Hàng chip gợi ý số tiền VNĐ — một dòng.
-Widget buildPosDiscountMoneyPresetChips({
-  required NumberFormat moneyFmt,
-  required ValueChanged<double> onPickAmount,
-}) {
-  return SingleChildScrollView(
-    scrollDirection: Axis.horizontal,
-    child: Row(
-      children: kPosDiscountMoneyPresets.map((amount) {
-        return Padding(
-          padding: const EdgeInsets.only(right: 4),
-          child: _discountChip(
-            _compactVndLabel(amount, moneyFmt),
-            () => onPickAmount(amount.toDouble()),
+  final values = percents ?? kPosDiscountPresets;
+  if (values.length <= 6) {
+    return Row(
+      children: values.map((p) {
+        return Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            child: _discountChip('$p%', () => onPickPercent(p.toDouble())),
           ),
         );
       }).toList(),
-    ),
+    );
+  }
+  return Wrap(
+    spacing: 4,
+    runSpacing: 4,
+    children: values.map((p) {
+      return SizedBox(
+        width: 44,
+        child: _discountChip('$p%', () => onPickPercent(p.toDouble())),
+      );
+    }).toList(),
+  );
+}
+
+/// Hàng chip gợi ý số tiền VNĐ — theo [baseAmount] nếu có.
+Widget buildPosDiscountMoneyPresetChips({
+  required NumberFormat moneyFmt,
+  required ValueChanged<double> onPickAmount,
+  double? baseAmount,
+}) {
+  final amounts = baseAmount != null && baseAmount > 0
+      ? posDiscountMoneyPresetsForAmount(baseAmount)
+      : kPosDiscountMoneyPresets;
+
+  if (amounts.length <= 6) {
+    return Row(
+      children: amounts.map((amount) {
+        return Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            child: _discountChip(
+              _compactVndLabel(amount, moneyFmt),
+              () => onPickAmount(amount.toDouble()),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  return Wrap(
+    spacing: 4,
+    runSpacing: 4,
+    children: amounts.map((amount) {
+      return SizedBox(
+        width: 72,
+        child: _discountChip(
+          _compactVndLabel(amount, moneyFmt),
+          () => onPickAmount(amount.toDouble()),
+        ),
+      );
+    }).toList(),
   );
 }
 
@@ -230,21 +305,30 @@ String _compactVndLabel(int amount, NumberFormat moneyFmt) {
 }
 
 Widget _discountChip(String label, VoidCallback onTap) {
-  return InkWell(
-    onTap: onTap,
+  return Material(
+    color: PosTheme.kiotBlueLight,
     borderRadius: BorderRadius.circular(4),
-    child: Container(
-      alignment: Alignment.center,
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF3F4F6),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: PosTheme.border),
-      ),
-      child: Text(
-        label,
-        textAlign: TextAlign.center,
-        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(4),
+      child: Container(
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 7),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: _kiotBlue.withValues(alpha: 0.25)),
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: _kiotBlue,
+          ),
+        ),
       ),
     ),
   );

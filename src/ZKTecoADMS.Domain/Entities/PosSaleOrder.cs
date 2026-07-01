@@ -55,6 +55,8 @@ public class PosSaleOrder : AuditableEntity<Guid>
     [MaxLength(200)]
     public string? SoldBy { get; set; }
 
+    public Guid? SoldByEmployeeId { get; set; }
+
     [MaxLength(100)]
     public string? SalesChannel { get; set; }
 

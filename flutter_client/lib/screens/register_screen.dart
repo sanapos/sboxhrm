@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../utils/web_route_parser.dart';
+import '../utils/permission_navigation.dart';
 import '../services/api_service.dart';
 import 'store_success_screen.dart';
 
@@ -119,7 +121,7 @@ class _RegisterScreenState extends State<RegisterScreen>
 
   void _readAgentCodeFromUrl() {
     try {
-      final params = Uri.base.queryParameters;
+      final params = parseWebRouteQueryParams();
       final code = params['agentCode'] ?? params['agent'] ?? params['ref'];
       if (code != null && code.trim().isNotEmpty) {
         _agentCode = code.trim();
@@ -1123,6 +1125,7 @@ class _PublicServicePackage {
     required this.defaultDurationDays,
     required this.maxUsers,
     required this.maxDevices,
+    required this.allowedModules,
   });
 
   final String id;
@@ -1131,8 +1134,21 @@ class _PublicServicePackage {
   final int defaultDurationDays;
   final int maxUsers;
   final int maxDevices;
+  final List<String> allowedModules;
 
   String get displayLabel => '$name - $defaultDurationDays ngày';
+
+  String get moduleSummary {
+    if (allowedModules.isEmpty) return 'Chức năng cơ bản';
+    final labels = allowedModules
+        .take(8)
+        .map((c) => PermissionNavigation.label(c))
+        .toList();
+    final extra = allowedModules.length > 8
+        ? ' +${allowedModules.length - 8} chức năng'
+        : '';
+    return '${labels.join(', ')}$extra';
+  }
 
   String get summary {
     final desc = description.trim();
@@ -1140,13 +1156,18 @@ class _PublicServicePackage {
         maxUsers > 0 ? '$maxUsers người dùng' : 'không giới hạn người dùng';
     final limitDevices =
         maxDevices > 0 ? '$maxDevices thiết bị' : 'không giới hạn thiết bị';
+    final modules = 'Chức năng: $moduleSummary';
     if (desc.isEmpty) {
-      return 'Dùng thử $defaultDurationDays ngày, $limitUsers, $limitDevices.';
+      return 'Dùng thử $defaultDurationDays ngày, $limitUsers, $limitDevices. $modules';
     }
-    return '$desc. Dùng thử $defaultDurationDays ngày, $limitUsers, $limitDevices.';
+    return '$desc. Dùng thử $defaultDurationDays ngày, $limitUsers, $limitDevices. $modules';
   }
 
   factory _PublicServicePackage.fromMap(Map<String, dynamic> map) {
+    final rawModules = map['allowedModules'];
+    final modules = rawModules is List
+        ? rawModules.map((e) => e.toString()).toList()
+        : <String>[];
     return _PublicServicePackage(
       id: map['id']?.toString() ?? '',
       name: map['name']?.toString() ?? '',
@@ -1154,6 +1175,7 @@ class _PublicServicePackage {
       defaultDurationDays: _toInt(map['defaultDurationDays']),
       maxUsers: _toInt(map['maxUsers']),
       maxDevices: _toInt(map['maxDevices']),
+      allowedModules: modules,
     );
   }
 

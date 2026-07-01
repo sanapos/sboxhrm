@@ -1,0 +1,196 @@
+import 'package:intl/intl.dart';
+
+import '../models/pos_end_of_day_report.dart';
+
+enum PosEndOfDayPrintFormat { bill, a4 }
+
+String buildPosEndOfDayHtml(
+  PosEndOfDayReport report, {
+  PosEndOfDayPrintFormat format = PosEndOfDayPrintFormat.bill,
+  bool showProductDetail = true,
+}) {
+  return format == PosEndOfDayPrintFormat.a4
+      ? _buildA4(report, showProductDetail: showProductDetail)
+      : _buildBill(report, showProductDetail: showProductDetail);
+}
+
+String _money(num v) => NumberFormat('#,##0', 'vi_VN').format(v);
+String _qty(num v) => NumberFormat('#,##0.##', 'vi_VN').format(v);
+String _dt(DateTime d) => DateFormat('dd/MM/yyyy HH:mm').format(d.toLocal());
+String _d(DateTime d) => DateFormat('dd/MM/yyyy').format(d.toLocal());
+
+String _buildBill(PosEndOfDayReport r, {required bool showProductDetail}) {
+  final staff = r.staffName ?? r.staffEmail ?? 'Tất cả nhân viên';
+  final period = '${_dt(r.from)} - ${_dt(r.to)}';
+  final rows = <String>[
+    _billRow('1', 'Số đơn hàng / Number of orders', '', '${r.orderCount}'),
+    _billRow('2', 'Chiết khấu / Total discount', '', _money(r.orderDiscount)),
+    _billSub('Other', _money(r.orderDiscount)),
+    _billSub('Voucher', '0'),
+    _billRow('3', 'Tổng doanh thu / Total sales', '', _money(r.totalSales)),
+    _billRow('4', 'VAT', '', _money(r.vat)),
+    _billRow('5', 'Tổng doanh thu ròng / Net sales', '', _money(r.netSales)),
+    _billRow('6', 'Trả hàng / Refund', '', _money(r.refundTotal)),
+    _billRow('', 'Doanh thu trừ trả hàng / Total after refund', '', _money(r.totalAfterRefund)),
+    _billRow('7', 'Hóa đơn hủy / Invoice canceled', '', '${r.canceledCount}'),
+    _billRow('8', 'Phương thức thanh toán / Payment method', '', ''),
+    _billSub('Tiền mặt / Cash', _money(r.cashTotal)),
+    _billSub('Ghi nợ / Debt', _money(r.debtTotal)),
+    ...r.payments
+        .where((p) =>
+            !p.paymentMethod.toLowerCase().contains('mặt') &&
+            p.paymentMethod.toLowerCase() != 'cash')
+        .map((p) => _billSub(p.paymentMethod, _money(p.total))),
+    _billRow('9', 'Thực thu', '', _money(r.actualReceived)),
+    if (showProductDetail) ...[
+      _billRow('10', 'Hàng hóa bán ra / Product sales', '', ''),
+      ...r.products.map((p) => _billProduct(p.productName, _qty(p.qty), _money(p.revenue))),
+      _billRow('11', 'Giảm giá trên mặt hàng / Discount on products', '', _money(r.lineDiscountTotal)),
+    ],
+  ];
+
+  return '''
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"/>
+<style>
+  @page { margin: 4mm; size: 80mm auto; }
+  body { font-family: Arial, sans-serif; font-size: 11px; margin: 0; color: #111; }
+  h1 { font-size: 14px; text-align: center; margin: 0 0 8px; }
+  .meta { text-align: center; font-size: 10px; margin-bottom: 10px; line-height: 1.4; }
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: 3px 2px; vertical-align: top; border-bottom: 1px solid #ddd; }
+  .idx { width: 18px; }
+  .amt { text-align: right; white-space: nowrap; width: 72px; }
+  .sub td:first-child { padding-left: 18px; color: #444; }
+  .sub .label { font-size: 10px; }
+  .footer { margin-top: 12px; font-size: 9px; text-align: center; color: #666; }
+</style></head><body>
+  <h1>TỔNG KẾT CUỐI NGÀY</h1>
+  <div class="meta">
+    ${r.storeName != null && r.storeName!.isNotEmpty ? '<div><b>${_esc(r.storeName!)}</b></div>' : ''}
+    <div>Nhân viên: ${_esc(staff)}</div>
+    <div>$period</div>
+  </div>
+  <table>${rows.join()}</table>
+  <div class="footer">In lúc ${_dt(r.generatedAt)} · SBOX POS</div>
+</body></html>''';
+}
+
+String _billRow(String idx, String label, String mid, String amt) => '''
+<tr>
+  <td class="idx">${_esc(idx)}</td>
+  <td>${_esc(label)}</td>
+  <td class="mid">${_esc(mid)}</td>
+  <td class="amt">${_esc(amt)}</td>
+</tr>''';
+
+String _billSub(String label, String amt) => '''
+<tr class="sub">
+  <td></td>
+  <td class="label">${_esc(label)}</td>
+  <td></td>
+  <td class="amt">${_esc(amt)}</td>
+</tr>''';
+
+String _billProduct(String name, String qty, String amt) => '''
+<tr class="sub">
+  <td></td>
+  <td class="label">${_esc(name)}</td>
+  <td style="text-align:center">${_esc(qty)}</td>
+  <td class="amt">${_esc(amt)}</td>
+</tr>''';
+
+String _buildA4(PosEndOfDayReport r, {required bool showProductDetail}) {
+  final staff = r.staffName ?? r.staffEmail ?? 'Tất cả nhân viên';
+  final summaryRows = '''
+    <tr><td>Số đơn hàng</td><td class="r">${r.orderCount}</td></tr>
+    <tr><td>Chiết khấu đơn</td><td class="r">${_money(r.orderDiscount)}</td></tr>
+    <tr><td>Tổng doanh thu</td><td class="r">${_money(r.totalSales)}</td></tr>
+    <tr><td>VAT</td><td class="r">${_money(r.vat)}</td></tr>
+    <tr><td>Doanh thu ròng</td><td class="r">${_money(r.netSales)}</td></tr>
+    <tr><td>Trả hàng</td><td class="r">${_money(r.refundTotal)}</td></tr>
+    <tr><td>Sau trả hàng</td><td class="r">${_money(r.totalAfterRefund)}</td></tr>
+    <tr><td>Hóa đơn hủy</td><td class="r">${r.canceledCount} (${_money(r.canceledTotal)})</td></tr>
+    <tr><td>Tiền mặt</td><td class="r">${_money(r.cashTotal)}</td></tr>
+    <tr><td>Ghi nợ</td><td class="r">${_money(r.debtTotal)}</td></tr>
+    <tr><td><b>Thực thu</b></td><td class="r"><b>${_money(r.actualReceived)}</b></td></tr>
+    <tr><td>Giảm giá dòng hàng</td><td class="r">${_money(r.lineDiscountTotal)}</td></tr>
+  ''';
+
+  final productTable = showProductDetail && r.products.isNotEmpty
+      ? '''
+<h3>Hàng hóa bán ra</h3>
+<table class="grid">
+  <thead><tr>
+    <th>STT</th><th>Tên hàng</th><th class="r">SL</th><th class="r">Doanh thu</th><th class="r">Giảm giá</th>
+  </tr></thead>
+  <tbody>
+    ${r.products.asMap().entries.map((e) {
+      final p = e.value;
+      return '<tr><td>${e.key + 1}</td><td>${_esc(p.productName)}</td>'
+          '<td class="r">${_qty(p.qty)}</td><td class="r">${_money(p.revenue)}</td>'
+          '<td class="r">${_money(p.lineDiscount)}</td></tr>';
+    }).join()}
+  </tbody>
+</table>'''
+      : '';
+
+  final txTable = r.transactions.isNotEmpty
+      ? '''
+<h3>Chi tiết giao dịch</h3>
+<table class="grid">
+  <thead><tr>
+    <th>Mã GD</th><th>Thời gian</th><th class="r">SL</th><th class="r">Doanh thu</th>
+    <th class="r">VAT</th><th class="r">Phí trả</th><th class="r">Thực thu</th><th>HTTT</th>
+  </tr></thead>
+  <tbody>
+    ${r.transactions.map((t) => '''
+      <tr>
+        <td>${_esc(t.orderNo)}</td>
+        <td>${_dt(t.createdAt)}</td>
+        <td class="r">${_qty(t.qty)}</td>
+        <td class="r">${_money(t.revenue)}</td>
+        <td class="r">${_money(t.vat)}</td>
+        <td class="r">${_money(t.returnFee)}</td>
+        <td class="r">${_money(t.actualReceived)}</td>
+        <td>${_esc(t.paymentMethod)}</td>
+      </tr>''').join()}
+  </tbody>
+</table>'''
+      : '';
+
+  return '''
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"/>
+<style>
+  @page { size: A4; margin: 12mm; }
+  body { font-family: Arial, sans-serif; font-size: 12px; color: #111; }
+  h1 { text-align: center; font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 14px; margin: 16px 0 8px; color: #2563EB; }
+  h3 { font-size: 13px; margin: 14px 0 6px; }
+  .meta { text-align: center; margin-bottom: 16px; line-height: 1.5; }
+  table.sum { width: 100%; max-width: 520px; margin: 0 auto 12px; border-collapse: collapse; }
+  table.sum td { padding: 5px 8px; border-bottom: 1px solid #e5e7eb; }
+  table.sum td.r { text-align: right; font-variant-numeric: tabular-nums; }
+  table.grid { width: 100%; border-collapse: collapse; font-size: 11px; }
+  table.grid th, table.grid td { border: 1px solid #d1d5db; padding: 5px 6px; }
+  table.grid th { background: #f3f4f6; text-align: left; }
+  table.grid td.r, table.grid th.r { text-align: right; }
+  .footer { margin-top: 20px; text-align: center; font-size: 10px; color: #666; }
+</style></head><body>
+  <h1>BÁO CÁO CUỐI NGÀY VỀ BÁN HÀNG</h1>
+  <div class="meta">
+    ${r.storeName != null && r.storeName!.isNotEmpty ? '<div><b>${_esc(r.storeName!)}</b></div>' : ''}
+    <div>Ngày bán: ${_d(r.from)} – ${_d(r.to)}</div>
+    <div>Nhân viên: ${_esc(staff)}</div>
+  </div>
+  <h2>Tổng kết</h2>
+  <table class="sum">$summaryRows</table>
+  $productTable
+  $txTable
+  <div class="footer">In lúc ${_dt(r.generatedAt)} · SBOX POS</div>
+</body></html>''';
+}
+
+String _esc(String s) =>
+    s.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');

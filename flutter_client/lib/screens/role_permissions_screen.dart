@@ -83,6 +83,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
     'Accountant',
     'DepartmentHead',
     'Manager',
+    'Cashier',
     'Employee',
     'User',
   ];
@@ -227,6 +228,11 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
         {
           'roleName': 'Manager',
           'roleDisplayName': 'Quản lý',
+          'permissionCount': 42
+        },
+        {
+          'roleName': 'Cashier',
+          'roleDisplayName': 'Thu ngân',
           'permissionCount': 42
         },
         {
@@ -2197,6 +2203,8 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
         return HrmPageChrome.primaryNavy;
       case 'Manager':
         return HrmPageChrome.primaryNavy;
+      case 'Cashier':
+        return const Color(0xFF0D9488);
       case 'Employee':
         return HrmPageChrome.primaryNavy;
       case 'User':
@@ -2218,6 +2226,8 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
         return Icons.groups;
       case 'Manager':
         return Icons.supervisor_account;
+      case 'Cashier':
+        return Icons.point_of_sale;
       case 'Employee':
         return Icons.person;
       case 'User':

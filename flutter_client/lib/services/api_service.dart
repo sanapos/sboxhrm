@@ -11103,6 +11103,27 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> getAgentStores() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/api/agent/stores'),
+          headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getAgentReferralLink() async {
+    try {
+      final response = await http.get(
+          Uri.parse('$baseUrl/api/agent/referral-link'),
+          headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> getAgentMyLicenses({
     int? page,
     int? pageSize,
@@ -13778,6 +13799,17 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> getPosSellSellers() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/sales/sellers'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> getPosProductByBarcode(String code) async {
     try {
       final encoded = Uri.encodeComponent(code.trim());
@@ -13845,6 +13877,56 @@ class ApiService {
       if (to != null) q['to'] = to.toIso8601String();
       final uri = Uri.parse('$baseUrl/api/pos/reports/sales/summary')
           .replace(queryParameters: q.isEmpty ? null : q);
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosEndOfDayReport({
+    DateTime? from,
+    DateTime? to,
+    String? staffEmail,
+    String? soldByEmployeeId,
+    String filterBy = 'soldBy',
+    bool includeProductDetail = true,
+    bool includeTransactions = false,
+  }) async {
+    try {
+      final q = <String, String>{
+        'filterBy': filterBy,
+        'includeProductDetail': includeProductDetail.toString(),
+        'includeTransactions': includeTransactions.toString(),
+      };
+      if (from != null) q['from'] = from.toIso8601String();
+      if (to != null) q['to'] = to.toIso8601String();
+      if (staffEmail != null && staffEmail.isNotEmpty) q['staffEmail'] = staffEmail;
+      if (soldByEmployeeId != null && soldByEmployeeId.isNotEmpty) {
+        q['soldByEmployeeId'] = soldByEmployeeId;
+      }
+      final uri = Uri.parse('$baseUrl/api/pos/reports/end-of-day')
+          .replace(queryParameters: q);
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 45));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosEndOfDayStaff({
+    DateTime? from,
+    DateTime? to,
+    String filterBy = 'soldBy',
+  }) async {
+    try {
+      final q = <String, String>{'filterBy': filterBy};
+      if (from != null) q['from'] = from.toIso8601String();
+      if (to != null) q['to'] = to.toIso8601String();
+      final uri = Uri.parse('$baseUrl/api/pos/reports/end-of-day/staff')
+          .replace(queryParameters: q);
       final response =
           await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);

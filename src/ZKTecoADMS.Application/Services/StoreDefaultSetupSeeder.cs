@@ -37,6 +37,7 @@ public static class StoreDefaultSetupSeeder
         nameof(Roles.DepartmentHead),
         nameof(Roles.Manager),
         nameof(Roles.Employee),
+        nameof(Roles.Cashier),
         nameof(Roles.User),
     ];
     private static readonly (string Code, string Name, string Description, int SortOrder)[] DepartmentTemplates =
@@ -313,6 +314,7 @@ public static class StoreDefaultSetupSeeder
         "departmenthead" => "Trưởng phòng",
         "manager" => "Quản lý",
         "employee" => "Nhân viên",
+        "cashier" => "Thu ngân",
         "user" => "Người dùng",
         _ => roleName
     };

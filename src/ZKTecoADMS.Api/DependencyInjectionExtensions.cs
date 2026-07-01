@@ -347,6 +347,7 @@ public static class DependencyInjectionExtensions
         app.UseAuthorization();
         app.UseMaintenanceMode();
         app.UseStoreLicenseCheck();
+        app.UseStorePackageModuleCheck();
         app.MapControllers().RequireRateLimiting("per-user");
         
         // Map SignalR hub for real-time attendance notifications (require authentication)

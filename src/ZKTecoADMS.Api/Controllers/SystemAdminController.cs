@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Api.Controllers.Filters;
+using ZKTecoADMS.Application.Authorization;
 using ZKTecoADMS.Application.DTOs.SystemAdmin;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
@@ -1016,17 +1017,63 @@ public class SystemAdminController : AuthenticatedControllerBase
     {
         try
         {
-            // Check code unique
             if (await _dbContext.Agents.AnyAsync(a => a.Code.ToLower() == request.Code.ToLower()))
             {
                 return BadRequest(AppResponse<AgentDto>.Fail("Mã đại lý đã tồn tại"));
             }
 
-            // Generate registration token
-            var registrationToken = GenerateRegistrationToken();
-            var tokenExpiry = DateTime.UtcNow.AddDays(request.TokenValidDays > 0 ? request.TokenValidDays : 30);
+            var hasPassword = !string.IsNullOrWhiteSpace(request.Password);
+            if (hasPassword)
+            {
+                if (string.IsNullOrWhiteSpace(request.Email))
+                {
+                    return BadRequest(AppResponse<AgentDto>.Fail("Cần email khi tạo tài khoản đăng nhập"));
+                }
+                if (request.Password!.Length < 6)
+                {
+                    return BadRequest(AppResponse<AgentDto>.Fail("Mật khẩu tối thiểu 6 ký tự"));
+                }
+                if (await _userManager.FindByEmailAsync(request.Email.Trim()) != null)
+                {
+                    return BadRequest(AppResponse<AgentDto>.Fail("Email đã được sử dụng"));
+                }
+            }
 
-            // Create agent (without user account - agent will self-register)
+            var registrationToken = hasPassword ? null : GenerateRegistrationToken();
+            var tokenExpiry = hasPassword
+                ? (DateTime?)null
+                : DateTime.UtcNow.AddDays(request.TokenValidDays > 0 ? request.TokenValidDays : 30);
+
+            Guid? userId = null;
+            if (hasPassword)
+            {
+                var email = request.Email!.Trim();
+                var nameParts = request.Name.Trim().Split(' ', 2);
+                var user = new ApplicationUser
+                {
+                    Id = Guid.NewGuid(),
+                    UserName = email,
+                    Email = email,
+                    FirstName = nameParts.Length > 0 ? nameParts[0] : "Agent",
+                    LastName = nameParts.Length > 1 ? nameParts[1] : request.Code.ToUpper(),
+                    PhoneNumber = request.Phone,
+                    Role = nameof(Roles.Agent),
+                    EmailConfirmed = true,
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedBy = CurrentUserId.ToString()
+                };
+
+                var userResult = await _userManager.CreateAsync(user, request.Password!);
+                if (!userResult.Succeeded)
+                {
+                    var errors = string.Join(", ", userResult.Errors.Select(e => e.Description));
+                    return BadRequest(AppResponse<AgentDto>.Fail(errors));
+                }
+
+                await _userManager.AddToRoleAsync(user, nameof(Roles.Agent));
+                userId = user.Id;
+            }
+
             var agent = new Agent
             {
                 Id = Guid.NewGuid(),
@@ -1040,8 +1087,8 @@ public class SystemAdminController : AuthenticatedControllerBase
                 MaxStores = request.MaxStores,
                 RegistrationToken = registrationToken,
                 RegistrationTokenExpiry = tokenExpiry,
-                IsRegistrationCompleted = false,
-                UserId = null,
+                IsRegistrationCompleted = hasPassword,
+                UserId = userId,
                 CreatedAt = DateTime.UtcNow,
                 CreatedBy = CurrentUserId.ToString()
             };
@@ -1049,9 +1096,17 @@ public class SystemAdminController : AuthenticatedControllerBase
             _dbContext.Agents.Add(agent);
             await _dbContext.SaveChangesAsync();
 
-            _logger.LogInformation("SuperAdmin {UserId} created Agent {AgentId} with registration token", CurrentUserId, agent.Id);
+            _logger.LogInformation(
+                "SuperAdmin {UserId} created Agent {AgentId} ({Mode})",
+                CurrentUserId, agent.Id, hasPassword ? "with account" : "with token");
 
-            return Ok(AppResponse<AgentDto>.Success(MapToAgentDto(agent)));
+            var created = await _dbContext.Agents
+                .Include(a => a.User)
+                .Include(a => a.Stores)
+                .Include(a => a.LicenseKeys)
+                .FirstAsync(a => a.Id == agent.Id);
+
+            return Ok(AppResponse<AgentDto>.Success(MapToAgentDto(created)));
         }
         catch (Exception ex)
         {
@@ -3879,76 +3934,7 @@ public class SystemAdminController : AuthenticatedControllerBase
     [HttpGet("service-packages/available-modules")]
     public ActionResult<AppResponse<List<FeatureModuleDto>>> GetAvailableModules()
     {
-        var modules = new List<FeatureModuleDto>
-        {
-            // ══════════ TỔNG QUAN ══════════
-            new("Home", "Trang chủ", "Màn hình tổng quan menu", "Tổng quan"),
-            new("Notification", "Thông báo", "Hệ thống thông báo", "Tổng quan"),
-
-            // ══════════ HỒ SƠ NHÂN SỰ ══════════
-            new("Dashboard", "Bảng điều khiển", "Bảng điều khiển tổng quan", "Hồ sơ nhân sự"),
-            new("Employee", "Hồ sơ nhân sự", "Thông tin nhân viên, chức vụ", "Hồ sơ nhân sự"),
-            new("DeviceUser", "Nhân sự chấm công", "Nhân sự trên máy chấm công", "Hồ sơ nhân sự"),
-            new("Department", "Phòng ban", "Quản lý phòng ban", "Hồ sơ nhân sự"),
-            new("Leave", "Nghỉ phép", "Quản lý nghỉ phép", "Hồ sơ nhân sự"),
-            new("SalarySettings", "Thiết lập lương", "Cấu hình bảng lương", "Hồ sơ nhân sự"),
-
-            // ══════════ CHẤM CÔNG ══════════
-            new("Attendance", "Chấm công thô", "Dữ liệu chấm công thô", "Chấm công"),
-            new("WorkSchedule", "Lịch làm việc", "Phân lịch làm việc", "Chấm công"),
-            new("AttendanceSummary", "Tổng hợp chấm công", "Bảng tổng hợp công theo tháng", "Chấm công"),
-            new("AttendanceByShift", "Tổng hợp chấm công theo ca", "Thống kê giờ công theo ca làm", "Chấm công"),
-            new("AttendanceApproval", "Duyệt chấm công", "Duyệt điều chỉnh chấm công", "Chấm công"),
-            new("ScheduleApproval", "Duyệt lịch làm việc", "Duyệt lịch làm việc đăng ký", "Chấm công"),
-            new("Payroll", "Tổng hợp lương", "Bảng lương nhân viên", "Chấm công"),
-            new("MobileDeviceRegistration", "Đăng ký chấm công Mobile", "Đăng ký thiết bị & khuôn mặt", "Chấm công"),
-            new("MobileAttendanceApproval", "Duyệt chấm công Mobile", "Duyệt yêu cầu chấm công mobile", "Chấm công"),
-
-            // ══════════ TÀI CHÍNH ══════════
-            new("BonusPenalty", "Phiếu thưởng", "Quản lý phiếu thưởng nhân viên", "Tài chính"),
-            new("PenaltyTickets", "Phiếu phạt", "Phiếu phạt tự động từ chấm công", "Tài chính"),
-            new("AdvanceRequests", "Ứng lương", "Quản lý ứng lương", "Tài chính"),
-            new("CashTransaction", "Thu chi", "Quản lý thu chi", "Tài chính"),
-
-            // ══════════ QUẢN LÝ VẬN HÀNH ══════════
-            new("Asset", "Tài sản", "Quản lý tài sản", "Quản lý Vận hành"),
-            new("Task", "Công việc", "Quản lý công việc", "Quản lý Vận hành"),
-            new("Communication", "Truyền thông", "Truyền thông nội bộ", "Quản lý Vận hành"),
-            new("KPI", "KPI", "Đánh giá KPI", "Quản lý Vận hành"),
-            new("Production", "Sản lượng", "Nhập sản lượng, tính lương sản phẩm", "Quản lý Vận hành"),
-            new("Meal", "Chấm cơm", "Quản lý suất ăn ca", "Quản lý Vận hành"),
-            new("FieldCheckIn", "Bản đồ nhân sự", "Vị trí trực tuyến NV chấm ngoài CT trên bản đồ", "Quản lý Vận hành"),
-            new("Feedback", "Phản ánh / Ý kiến", "Phản ánh, góp ý ẩn danh hoặc công khai", "Quản lý Vận hành"),
-
-            // ══════════ BÁO CÁO ══════════
-            new("AttendanceReport", "Báo cáo chấm công", "Ngày, tháng, đi muộn, phòng ban", "Báo cáo"),
-            new("PenaltyReport", "Báo cáo phạt", "Thống kê phiếu phạt, kỷ luật", "Báo cáo"),
-            new("AdvanceReport", "Báo cáo ứng lương", "Thống kê ứng lương, tạm ứng", "Báo cáo"),
-            new("LeaveReport", "Báo cáo nghỉ phép", "Thống kê nghỉ phép, ngày nghỉ", "Báo cáo"),
-            new("CashReport", "Báo cáo thu chi", "Thống kê thu chi tiền mặt", "Báo cáo"),
-            new("AssetReport", "Báo cáo tài sản", "Danh mục, cấp phát, lịch sử chuyển giao", "Báo cáo"),
-
-            // ══════════ CÀI ĐẶT ══════════
-            new("SettingsHub", "Thiết lập HRM", "Trung tâm cài đặt HRM", "Cài đặt"),
-            new("ShiftSetup", "Thiết lập ca", "Ca làm việc, vào sớm, đi trễ, về sớm, tăng ca", "Cài đặt"),
-            new("MobileAttendance", "Chấm công Mobile", "Chấm công bằng điện thoại", "Cài đặt"),
-            new("Holiday", "Ngày lễ", "Ngày nghỉ lễ, hệ số công", "Cài đặt"),
-            new("Device", "Máy chấm công", "Kết nối, quản lý, điều khiển máy chấm công", "Cài đặt"),
-            new("Allowance", "Phụ cấp", "Phụ cấp cố định, phụ cấp ngày công", "Cài đặt"),
-            new("PenaltySetup", "Phạt", "Đi trễ, về sớm, tái phạm, kỷ luật", "Cài đặt"),
-            new("Insurance", "Bảo hiểm", "BHXH, BHYT, BHTN, lương cơ sở", "Cài đặt"),
-            new("Tax", "Thuế TNCN", "Bậc thuế, giảm trừ gia cảnh", "Cài đặt"),
-            new("UserManagement", "Tài khoản", "Người dùng, kích hoạt, vai trò", "Cài đặt"),
-            new("Role", "Phân quyền", "Ma trận quyền, vai trò, module", "Cài đặt"),
-            new("DepartmentPermission", "PQ Phòng ban", "Phân quyền theo sơ đồ cây phòng ban", "Cài đặt"),
-            new("SystemSettings", "Hệ thống", "Giờ kết thúc ngày, tham số vận hành", "Cài đặt"),
-            new("NotificationSettings", "Thiết lập thông báo", "Nhóm thông báo, bật/tắt nhận thông báo", "Cài đặt"),
-            new("AIGemini", "Thiết lập AI", "API key, model, tham số AI", "Cài đặt"),
-            new("ProductSalary", "Lương sản phẩm", "Nhóm sản phẩm, sản phẩm, đơn giá theo bậc", "Cài đặt"),
-            new("Settings", "Cài đặt", "Giao diện, ngôn ngữ, kết nối", "Cài đặt"),
-        };
-
-        return Ok(AppResponse<List<FeatureModuleDto>>.Success(modules));
+        return Ok(AppResponse<List<FeatureModuleDto>>.Success(FeatureModuleCatalog.ToFeatureModuleDtos()));
     }
 
     /// <summary>

@@ -17,6 +17,7 @@ import '../../widgets/pos/pos_catalog_manage.dart';
 import '../../widgets/pos/pos_product_image.dart';
 import '../../widgets/pos/pos_unit_attribute_setup_dialog.dart';
 import '../../widgets/pos/pos_product_unit_view.dart';
+import '../../widgets/pos/pos_sale_quick_notes_widgets.dart';
 import '../../widgets/pos/pos_theme.dart';
 
 class PosProductEditorPage extends StatefulWidget {
@@ -221,7 +222,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   late final TextEditingController _maxStockCtrl;
   late final TextEditingController _weightCtrl;
   late final TextEditingController _descCtrl;
-  late final TextEditingController _noteTemplateCtrl;
+  List<String> _saleQuickNotes = [];
   late final TextEditingController _unitCtrl;
 
   String? _categoryId;
@@ -327,7 +328,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     _weightCtrl = TextEditingController(
         text: p?.weight != null ? p!.weight!.toStringAsFixed(0) : '');
     _descCtrl = TextEditingController(text: p?.description ?? '');
-    _noteTemplateCtrl = TextEditingController();
+    _saleQuickNotes = List<String>.from(p?.saleQuickNotes ?? const []);
     _unitCtrl = TextEditingController(text: p?.baseUnitName ?? 'Cái');
     _categoryId = p?.categoryId;
     _brandId = p?.brandId;
@@ -432,6 +433,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         ..addAll(data.attributes ?? []);
       _syncVariantAttrsFromProductAttributes();
       _supplierId = data.supplierId;
+      _saleQuickNotes = List<String>.from(data.saleQuickNotes);
     });
     if (_isCombo) {
       final comboRes = await _api.getPosComboLines(id);
@@ -599,7 +601,6 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     _maxStockCtrl.dispose();
     _weightCtrl.dispose();
     _descCtrl.dispose();
-    _noteTemplateCtrl.dispose();
     _unitCtrl.dispose();
     super.dispose();
   }
@@ -684,6 +685,10 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       if (_isGoods || _isCombo) 'supplierId': _supplierId,
       'productType': _isService ? 1 : (_isCombo ? 2 : 0),
       'description': _descCtrl.text.trim(),
+      'saleQuickNotes': _saleQuickNotes
+          .map((n) => n.trim())
+          .where((n) => n.isNotEmpty)
+          .toList(),
       if (!_isEditing &&
           widget.templateProduct?.imageUrl != null &&
           _pendingImageBytes == null)
@@ -1019,7 +1024,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     _maxStockCtrl.text = '999999999';
     _weightCtrl.clear();
     _descCtrl.clear();
-    _noteTemplateCtrl.clear();
+    _saleQuickNotes = [];
     _unitCtrl.text = 'Cái';
     _imageBase64 = null;
     _imagePreviewUrl = null;
@@ -1941,7 +1946,11 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         'supplierId': _supplierId,
         'productType': _isService ? 1 : (_isCombo ? 2 : 0),
         'description': _descCtrl.text.trim(),
-        'costPrice': _parseNum(_costCtrl.text),
+        'saleQuickNotes': _saleQuickNotes
+            .map((n) => n.trim())
+            .where((n) => n.isNotEmpty)
+            .toList(),
+      'costPrice': _parseNum(_costCtrl.text),
       'basePrice': _parseNum(_priceCtrl.text),
       if (!_hasVariants || _usesSharedUnitStock)
         'onHandQty': _isCombo ? 0 : (_isService ? 0 : _parseNum(_stockCtrl.text)),
@@ -3036,33 +3045,13 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           ),
           const SizedBox(height: 20),
           const Text(
-            'Mẫu ghi chú (hóa đơn, đặt hàng)',
+            'Ghi chú nhanh khi bán hàng',
             style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
           ),
           const SizedBox(height: 8),
-          TextField(
-            controller: _noteTemplateCtrl,
-            maxLines: 6,
-            minLines: 6,
-            decoration: InputDecoration(
-              hintText: 'Ghi chú hiển thị trên hóa đơn, đơn đặt hàng…',
-              filled: true,
-              fillColor: Colors.white,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: PosTheme.border),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: PosTheme.border),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide:
-                    const BorderSide(color: PosTheme.kiotBlue, width: 1.5),
-              ),
-              contentPadding: const EdgeInsets.all(12),
-            ),
+          PosSaleQuickNotesListEditor(
+            notes: _saleQuickNotes,
+            onChanged: (v) => setState(() => _saleQuickNotes = v),
           ),
         ],
       ),

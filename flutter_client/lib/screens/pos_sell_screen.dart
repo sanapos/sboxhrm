@@ -6,12 +6,16 @@ import 'package:provider/provider.dart';
 import '../models/cash_transaction.dart';
 import '../models/pos_customer.dart';
 import '../models/pos_product.dart';
+import '../models/pos_print_template.dart';
 import '../models/pos_sale_order.dart';
 import '../providers/permission_provider.dart';
+import '../providers/auth_provider.dart';
+import '../utils/store_role_helper.dart';
 import '../services/api_service.dart';
 import '../utils/pos_purchase_product_lookup.dart';
 import '../utils/pos_sale_order_print.dart';
 import '../utils/pos_sell_print_settings.dart';
+import '../utils/pos_sell_store_settings.dart';
 import '../utils/pos_sell_unit_views.dart';
 import '../widgets/pos/pos_barcode_keyboard_scope.dart';
 import '../widgets/pos/pos_sell_product_grid.dart';
@@ -24,10 +28,17 @@ import '../widgets/pos/pos_product_image.dart';
 import '../widgets/pos/pos_product_unit_view.dart';
 import '../widgets/pos/pos_purchase_product_search_bar.dart';
 import '../widgets/pos/pos_sell_print_popover.dart';
+import '../widgets/pos/pos_sell_store_settings_dialog.dart';
+import '../widgets/pos/pos_sale_quick_notes_widgets.dart';
 import '../widgets/pos/pos_theme.dart';
 import 'pos_sale_order_editor_screen.dart';
+import 'pos/pos_end_of_day_screen.dart';
+import 'pos_reports_screen.dart';
+import 'pos_sale_return_screen.dart';
+import '../widgets/pos/pos_cash_voucher_dialog.dart';
+import '../widgets/pos/pos_pick_sale_order_dialog.dart';
 
-const _blue = Color(0xFF2563EB);
+const _kiotBlue = PosTheme.kiotBlue;
 
 /// Tỷ lệ / khoảng cách màn bán hàng theo KiotViet.
 abstract final class _KiotLayout {
@@ -38,9 +49,10 @@ abstract final class _KiotLayout {
   static const sidePadding = 16.0;
   static const sectionGap = 12.0;
 
-  /// Sidebar thanh toán bán nhanh / giao hàng (~38% màn, rộng hơn bản cũ một chút).
-  static double paymentPanelWidth(double screenW) =>
-      (screenW * 0.38).clamp(380.0, 420.0);
+  /// Panel thanh toán = đúng 50% màn hình (phần còn lại cho sản phẩm / giỏ).
+  static double paymentPanelWidth(double screenW) => screenW * 0.5;
+
+  static const compactSectionGap = 8.0;
 
   static const wStt = 26.0;
   static const wDel = 30.0;
@@ -107,6 +119,8 @@ class _SellPaymentLine {
 
 enum _SellMode { quick, normal, delivery }
 
+enum _CartRowExpand { note, priceDiscount }
+
 class _SellCartLine {
   _SellCartLine({
     required this.rowId,
@@ -123,7 +137,12 @@ class _SellCartLine {
     this.lineNote,
     this.discountIsPercent = false,
     this.discountInput = 0,
-  })  : noteCtrl = TextEditingController(text: lineNote ?? ''),
+  })  : noteCtrl = TextEditingController(),
+        priceCtrl = TextEditingController(
+          text: unitPrice == unitPrice.roundToDouble()
+              ? unitPrice.toStringAsFixed(0)
+              : unitPrice.toStringAsFixed(2),
+        ),
         discountCtrl = TextEditingController(
           text: discountInput == 0
               ? '0'
@@ -146,11 +165,14 @@ class _SellCartLine {
   String? lineNote;
   bool discountIsPercent;
   double discountInput;
+  final Set<String> selectedQuickNotes = {};
   final TextEditingController noteCtrl;
+  final TextEditingController priceCtrl;
   final TextEditingController discountCtrl;
 
   void dispose() {
     noteCtrl.dispose();
+    priceCtrl.dispose();
     discountCtrl.dispose();
   }
 
@@ -195,6 +217,7 @@ class _SellInvoiceTab {
   String? deliveryAddress;
   String? deliveryPhone;
   String? deliveryPartner;
+  String? sellerEmployeeId;
   final _noteCtrl = TextEditingController();
   final _discountCtrl = TextEditingController(text: '0');
   final _paidCtrl = TextEditingController();
@@ -245,6 +268,7 @@ class _SellInvoiceTab {
     deliveryAddress = null;
     deliveryPhone = null;
     deliveryPartner = null;
+    sellerEmployeeId = null;
     _noteCtrl.clear();
     _discountCtrl.text = '0';
     _paidCtrl.clear();
@@ -273,6 +297,7 @@ class PosSellScreen extends StatefulWidget {
 class _PosSellScreenState extends State<PosSellScreen> {
   final _api = ApiService();
   final _moneyFmt = NumberFormat('#,##0', 'vi_VN');
+  final _qtyFmt = NumberFormat('#,##0.##', 'vi_VN');
   final _dateFmt = DateFormat('dd/MM/yyyy HH:mm', 'vi_VN');
   final _printBtnKey = GlobalKey();
   final _tabScrollCtrl = ScrollController();
@@ -285,20 +310,73 @@ class _PosSellScreenState extends State<PosSellScreen> {
   int _activeTab = 0;
   _SellMode _sellMode = _SellMode.quick;
   PosSellPrintSettings _printSettings = const PosSellPrintSettings();
+  PosSellStoreSettings _storeSettings = const PosSellStoreSettings();
   bool _checkingOut = false;
   List<PosCustomer> _customerSuggestions = [];
   List<_PosPaymentSource> _paymentSources = const [_PosPaymentSource.cash];
   int _nextCartRowId = 1;
   int? _expandedCartRowId;
+  _CartRowExpand? _expandedCartMode;
+  List<Map<String, dynamic>> _sellSellers = [];
+  bool _canPickSeller = false;
+  String? _defaultSellerEmployeeId;
 
   _SellInvoiceTab get _tab => _tabs[_activeTab];
+
+  void _collapseExpandedCartRow() {
+    if (_expandedCartRowId == null) return;
+    setState(() {
+      _expandedCartRowId = null;
+      _expandedCartMode = null;
+    });
+  }
+
+  void _toggleCartRowExpand(int rowId, _CartRowExpand mode) {
+    setState(() {
+      if (_expandedCartRowId == rowId && _expandedCartMode == mode) {
+        _expandedCartRowId = null;
+        _expandedCartMode = null;
+        return;
+      }
+      _expandedCartRowId = rowId;
+      _expandedCartMode = mode;
+      if (mode == _CartRowExpand.priceDiscount) {
+        final line = _tab.cart.firstWhere((l) => l.rowId == rowId);
+        line.priceCtrl.text = line.unitPrice == line.unitPrice.roundToDouble()
+            ? line.unitPrice.toStringAsFixed(0)
+            : line.unitPrice.toStringAsFixed(2);
+      }
+      if (mode == _CartRowExpand.note) {
+        final line = _tab.cart.firstWhere((l) => l.rowId == rowId);
+        _initLineNoteSelection(line);
+      }
+    });
+  }
+
+  void _initLineNoteSelection(_SellCartLine line) {
+    final split = splitPosLineNote(line.lineNote, line.product.saleQuickNotes);
+    line.selectedQuickNotes
+      ..clear()
+      ..addAll(split.selected);
+    line.noteCtrl.text = split.extra;
+  }
+
+  void _applyLineNoteFromPicker(_SellCartLine line) {
+    line.lineNote = joinPosLineNoteParts(
+      selectedQuickNotes: line.selectedQuickNotes,
+      extraNote: line.noteCtrl.text,
+    );
+  }
 
   @override
   void initState() {
     super.initState();
     _tabs.first.paymentLines.add(_SellPaymentLine(sourceKey: _PosPaymentSource.cashKey));
     _loadPrintSettings();
+    _loadStoreSettings();
     _loadPaymentSources();
+    _loadSellSellers();
+    _ensurePosPrintTemplates();
     HardwareKeyboard.instance.addHandler(_onKey);
   }
 
@@ -315,6 +393,37 @@ class _PosSellScreenState extends State<PosSellScreen> {
       }
     }
     setState(() => _paymentSources = sources);
+  }
+
+  Future<void> _loadSellSellers() async {
+    final res = await _api.getPosSellSellers();
+    if (!mounted) return;
+    if (res['isSuccess'] != true || res['data'] is! List) return;
+
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final list = (res['data'] as List)
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+    final canPick = StoreRoleHelper.isManagerOrAbove(auth.userRole);
+    Map<String, dynamic>? self;
+    for (final item in list) {
+      if (item['isSelf'] == true) {
+        self = item;
+        break;
+      }
+    }
+    self ??= list.isNotEmpty ? list.first : null;
+    final defaultId = self?['employeeId']?.toString();
+
+    setState(() {
+      _sellSellers = list;
+      _canPickSeller = canPick;
+      _defaultSellerEmployeeId = defaultId;
+      for (final t in _tabs) {
+        t.sellerEmployeeId ??= defaultId;
+      }
+    });
   }
 
   _PosPaymentSource _sourceByKey(String key) {
@@ -354,6 +463,17 @@ class _PosSellScreenState extends State<PosSellScreen> {
     if (mounted) setState(() => _printSettings = s);
   }
 
+  Future<void> _loadStoreSettings() async {
+    final s = await PosSellStoreSettings.load();
+    if (mounted) setState(() => _storeSettings = s);
+  }
+
+  Future<void> _ensurePosPrintTemplates() async {
+    for (final docType in PosPrintDocumentTypes.all.keys) {
+      await _api.getPosPrintTemplates(documentType: docType);
+    }
+  }
+
   void _newTab() {
     setState(() {
       final tab = _SellInvoiceTab(id: _nextTabSeq++);
@@ -385,7 +505,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
             TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Huỷ')),
             FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
-              style: FilledButton.styleFrom(backgroundColor: _blue),
+              style: FilledButton.styleFrom(backgroundColor: _kiotBlue),
               child: const Text('Đóng'),
             ),
           ],
@@ -515,8 +635,17 @@ class _PosSellScreenState extends State<PosSellScreen> {
   }
 
   Future<void> _onBarcodeScanned(String code) async {
-    final pick = await lookupOrPickPosProduct(context, _api, code);
-    if (!mounted || pick == null) return;
+    final trimmed = code.trim();
+    if (trimmed.isEmpty) return;
+    final pick = await lookupOrPickPosProduct(context, _api, trimmed);
+    if (!mounted) return;
+    if (pick == null) {
+      NotificationOverlayManager().showWarning(
+        title: 'Không tìm thấy sản phẩm',
+        message: 'Mã vạch "$trimmed" không có trong danh mục hàng hóa',
+      );
+      return;
+    }
     await _addPick(pick, mergeIfSame: true);
   }
 
@@ -588,6 +717,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
         _tab.cart[index].dispose();
         if (_expandedCartRowId == _tab.cart[index].rowId) {
           _expandedCartRowId = null;
+          _expandedCartMode = null;
         }
         _tab.cart.removeAt(index);
         _syncPaidAmount();
@@ -598,7 +728,10 @@ class _PosSellScreenState extends State<PosSellScreen> {
       final next = line.qty + delta;
       if (next <= 0) {
         line.dispose();
-        if (_expandedCartRowId == line.rowId) _expandedCartRowId = null;
+        if (_expandedCartRowId == line.rowId) {
+          _expandedCartRowId = null;
+          _expandedCartMode = null;
+        }
         _tab.cart.remove(line);
       } else if (line.product.productType != PosProductType.combo && next > line.maxQty) {
         return;
@@ -627,6 +760,9 @@ class _PosSellScreenState extends State<PosSellScreen> {
       line.unitLabel = fresh.label;
       line.displayCode = fresh.displayCode;
       line.unitPrice = fresh.basePrice;
+      line.priceCtrl.text = fresh.basePrice == fresh.basePrice.roundToDouble()
+          ? fresh.basePrice.toStringAsFixed(0)
+          : fresh.basePrice.toStringAsFixed(2);
       line.variantId = fresh.variantId;
       line.unitId = fresh.unitId;
       line.variant = variant;
@@ -637,39 +773,14 @@ class _PosSellScreenState extends State<PosSellScreen> {
     });
   }
 
-  Future<void> _editLinePrice(_SellCartLine line) async {
-    final ctrl = TextEditingController(text: line.unitPrice.toStringAsFixed(0));
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Sửa đơn giá'),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
-            labelText: 'Đơn giá (đ)',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Huỷ')),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: _blue),
-            child: const Text('Áp dụng'),
-          ),
-        ],
-      ),
-    );
-    if (ok == true && mounted) {
-      final price = double.tryParse(ctrl.text.replaceAll(',', '')) ?? line.unitPrice;
-      setState(() {
-        line.unitPrice = price.clamp(0, double.infinity);
-        _syncPaidAmount();
-      });
+  void _applyLinePriceInput(_SellCartLine line, String raw) {
+    final price = _parseMoneyInput(raw);
+    line.unitPrice = price.clamp(0, double.infinity);
+    if (!line.discountIsPercent && line.discountInput > line.lineGross) {
+      line.discountInput = 0;
+      line.discountCtrl.text = '0';
     }
-    ctrl.dispose();
+    _syncPaidAmount();
   }
 
   void _applyOrderDiscountPreset(double percent) {
@@ -690,13 +801,45 @@ class _PosSellScreenState extends State<PosSellScreen> {
   void _applyOrderDiscountAmountPreset(double amount) {
     setState(() {
       _tab.discountIsPercent = false;
-      _tab.discountInput = amount;
-      _tab._discountCtrl.text = _moneyFmt.format(amount);
+      final capped = amount.clamp(0, _afterLineDiscount).toDouble();
+      _tab.discountInput = capped;
+      _tab._discountCtrl.text = _moneyFmt.format(capped);
       _recalcTotals();
       if (!_tab.paidManuallyEdited && !_tab.paymentsManuallyEdited) {
         _tab.paidAmount = _total;
         _tab._paidCtrl.text = _moneyFmt.format(_total);
       }
+    });
+  }
+
+  void _applyLineDiscountPreset(_SellCartLine line, double percent) {
+    setState(() {
+      line.discountIsPercent = true;
+      line.discountInput = percent;
+      line.discountCtrl.text = percent % 1 == 0
+          ? percent.toStringAsFixed(0)
+          : percent.toStringAsFixed(2);
+      _syncPaidAmount();
+    });
+  }
+
+  void _applyLineDiscountAmountPreset(_SellCartLine line, double amount) {
+    setState(() {
+      line.discountIsPercent = false;
+      final capped = amount.clamp(0, line.lineGross).toDouble();
+      line.discountInput = capped;
+      line.discountCtrl.text = _moneyFmt.format(capped);
+      _syncPaidAmount();
+    });
+  }
+
+  void _setLineDiscountMode(_SellCartLine line, bool isPercent) {
+    if (line.discountIsPercent == isPercent) return;
+    setState(() {
+      line.discountIsPercent = isPercent;
+      line.discountInput = 0;
+      line.discountCtrl.text = '0';
+      _syncPaidAmount();
     });
   }
 
@@ -795,6 +938,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
         'customerId': _tab.customer!.id,
         'customerName': _tab.customer!.name,
       },
+      if ((_tab.sellerEmployeeId ?? _defaultSellerEmployeeId) != null)
+        'soldByEmployeeId': _tab.sellerEmployeeId ?? _defaultSellerEmployeeId,
       'salesChannel': _sellMode == _SellMode.delivery
           ? 'Bán giao hàng'
           : _sellMode == _SellMode.normal
@@ -837,6 +982,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
 
     setState(() {
       _tab.reset();
+      _tab.sellerEmployeeId = _defaultSellerEmployeeId;
       _syncPaidAmount();
     });
   }
@@ -848,6 +994,9 @@ class _PosSellScreenState extends State<PosSellScreen> {
     await printPosSaleOrder(
       context: context,
       order: order,
+      branchName: _storeSettings.storeName.isNotEmpty ? _storeSettings.storeName : null,
+      storeAddress: _storeSettings.address.isNotEmpty ? _storeSettings.address : null,
+      storePhone: _storeSettings.phone.isNotEmpty ? _storeSettings.phone : null,
       mergeSameItems: _printSettings.mergeSameItems,
       copies: _printSettings.copies,
       templateId: _printSettings.templateId,
@@ -863,6 +1012,141 @@ class _PosSellScreenState extends State<PosSellScreen> {
       anchor: Offset(offset.dx - 260, offset.dy + (box?.size.height ?? 40)),
     );
     if (updated != null && mounted) setState(() => _printSettings = updated);
+  }
+
+  Future<void> _openStoreSettings() async {
+    final updated = await showPosSellStoreSettingsDialog(
+      context,
+      initial: _storeSettings,
+    );
+    if (updated == null || !mounted) return;
+    await updated.save();
+    setState(() => _storeSettings = updated);
+  }
+
+  Future<void> _openPosMenu() async {
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    final canCash = perm.canCreate('CashTransaction') ||
+        (perm.isLoaded && perm.canView('CashTransaction'));
+    final canReturn = perm.canEdit('PosProducts') || perm.canCreate('PosSell');
+    final canReport = perm.canView('PosSalesReport') || perm.canView('PosProducts');
+
+    final box = context.findRenderObject() as RenderBox?;
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox?;
+    final topRight = box != null && overlay != null
+        ? box.localToGlobal(box.size.topRight(Offset.zero), ancestor: overlay)
+        : Offset(MediaQuery.sizeOf(context).width - 8, 56);
+
+    final action = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(topRight.dx - 240, topRight.dy, topRight.dx, topRight.dy + 8),
+      items: [
+        const PopupMenuItem(
+          value: 'store_settings',
+          child: ListTile(
+            dense: true,
+            leading: Icon(Icons.store_outlined, size: 20),
+            title: Text('Thiết lập cửa hàng'),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        const PopupMenuItem(
+          value: 'eod',
+          child: ListTile(
+            dense: true,
+            leading: Icon(Icons.summarize_outlined, size: 20),
+            title: Text('Xem báo cáo cuối ngày'),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        if (canReport)
+          const PopupMenuItem(
+            value: 'reports',
+            child: ListTile(
+              dense: true,
+              leading: Icon(Icons.analytics_outlined, size: 20),
+              title: Text('Báo cáo doanh thu / tồn kho'),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+        if (canReturn)
+          const PopupMenuItem(
+            value: 'pick_return',
+            child: ListTile(
+              dense: true,
+              leading: Icon(Icons.assignment_return_outlined, size: 20),
+              title: Text('Chọn hóa đơn trả hàng'),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+        if (canReturn)
+          const PopupMenuItem(
+            value: 'return',
+            child: ListTile(
+              dense: true,
+              leading: Icon(Icons.keyboard_return, size: 20),
+              title: Text('Trả hàng'),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+        if (canCash)
+          const PopupMenuItem(
+            value: 'receipt',
+            child: ListTile(
+              dense: true,
+              leading: Icon(Icons.call_received, size: 20, color: Colors.green),
+              title: Text('Lập phiếu thu'),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+        if (canCash)
+          const PopupMenuItem(
+            value: 'payment',
+            child: ListTile(
+              dense: true,
+              leading: Icon(Icons.call_made, size: 20, color: Colors.red),
+              title: Text('Lập phiếu chi'),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+      ],
+    );
+    if (!mounted || action == null) return;
+
+    switch (action) {
+      case 'store_settings':
+        await _openStoreSettings();
+      case 'eod':
+        await Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const PosEndOfDayScreen()),
+        );
+      case 'reports':
+        await Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const PosReportsScreen()),
+        );
+      case 'pick_return':
+        final order = await showPosPickSaleOrderDialog(context);
+        if (!mounted || order == null) return;
+        await Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => PosSaleReturnScreen(orderId: order.id)),
+        );
+      case 'return':
+        await Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const PosSaleReturnScreen()),
+        );
+      case 'receipt':
+        final customer = _tab.customer?.name;
+        await showPosCashVoucherDialog(
+          context,
+          type: CashTransactionType.income,
+          contactName: customer,
+        );
+      case 'payment':
+        await showPosCashVoucherDialog(
+          context,
+          type: CashTransactionType.expense,
+        );
+    }
   }
 
   @override
@@ -887,7 +1171,6 @@ class _PosSellScreenState extends State<PosSellScreen> {
           builder: (context, constraints) {
             final wide = constraints.maxWidth >= 1024;
             final isNormal = _sellMode == _SellMode.normal;
-            final paymentW = _KiotLayout.paymentPanelWidth(constraints.maxWidth);
             return Column(
               children: [
                 _buildTopBar(),
@@ -917,9 +1200,11 @@ class _PosSellScreenState extends State<PosSellScreen> {
                                 Expanded(
                                   child: _buildCartPanel(showFooterTotal: false),
                                 ),
-                                SizedBox(
-                                  width: paymentW,
-                                  child: _buildPaymentSidebar(perm, width: paymentW),
+                                Expanded(
+                                  child: _buildPaymentSidebar(
+                                    perm,
+                                    width: constraints.maxWidth * 0.5,
+                                  ),
                                 ),
                               ],
                             ))
@@ -961,25 +1246,28 @@ class _PosSellScreenState extends State<PosSellScreen> {
 
   Widget _buildTopBar() {
     return Material(
-      color: Colors.white,
+      color: _kiotBlue,
       child: Container(
         height: _KiotLayout.topBarHeight,
         padding: const EdgeInsets.fromLTRB(12, 0, 8, 0),
-        decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: PosTheme.border)),
-        ),
         child: Row(
           children: [
             ConstrainedBox(
               constraints: const BoxConstraints(minWidth: 280, maxWidth: 420),
-              child: PosPurchaseProductSearchBar(
-                api: _api,
-                sellMode: true,
-                focusNode: _productSearchFocus,
-                hintText: 'Tìm hàng hóa (F3)',
-                onPick: (pick) => _addPick(pick),
-                onBarcodePick: (pick) => _addPick(pick, mergeIfSame: true),
-                onAddProduct: _openNewProduct,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: PosPurchaseProductSearchBar(
+                  api: _api,
+                  sellMode: true,
+                  focusNode: _productSearchFocus,
+                  hintText: 'Tìm hàng hóa (F3)',
+                  onPick: (pick) => _addPick(pick),
+                  onBarcodePick: (pick) => _addPick(pick, mergeIfSame: true),
+                  onAddProduct: _openNewProduct,
+                ),
               ),
             ),
             const SizedBox(width: 10),
@@ -1002,7 +1290,14 @@ class _PosSellScreenState extends State<PosSellScreen> {
                       IconButton(
                         visualDensity: VisualDensity.compact,
                         tooltip: 'Thêm hóa đơn',
-                        icon: const Icon(Icons.add, color: _blue, size: 22),
+                        style: IconButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: _kiotBlue,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                        ),
+                        icon: const Icon(Icons.add, size: 22),
                         onPressed: _newTab,
                       ),
                     ],
@@ -1011,10 +1306,16 @@ class _PosSellScreenState extends State<PosSellScreen> {
               ),
             ),
             IconButton(
+              visualDensity: VisualDensity.compact,
+              tooltip: 'Thêm',
+              icon: const Icon(Icons.menu, size: 24, color: Colors.white),
+              onPressed: _openPosMenu,
+            ),
+            IconButton(
               key: _printBtnKey,
               visualDensity: VisualDensity.compact,
               tooltip: 'Thiết lập in',
-              icon: const Icon(Icons.print_outlined, size: 22),
+              icon: const Icon(Icons.print_outlined, size: 22, color: Colors.white),
               onPressed: _openPrintSettings,
             ),
           ],
@@ -1027,7 +1328,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
     final active = index == _activeTab;
     final tab = _tabs[index];
     return Material(
-      color: active ? Colors.white : const Color(0xFFE8EDF5),
+      color: active ? Colors.white : Colors.white.withValues(alpha: 0.2),
       borderRadius: BorderRadius.circular(6),
       child: InkWell(
         borderRadius: BorderRadius.circular(6),
@@ -1036,7 +1337,9 @@ class _PosSellScreenState extends State<PosSellScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: active ? _blue : Colors.transparent),
+            border: Border.all(
+              color: active ? Colors.white : Colors.white.withValues(alpha: 0.35),
+            ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -1046,14 +1349,18 @@ class _PosSellScreenState extends State<PosSellScreen> {
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: active ? FontWeight.w600 : FontWeight.normal,
-                  color: active ? _blue : PosTheme.textPrimary,
+                  color: active ? _kiotBlue : Colors.white,
                 ),
               ),
               if (_tabs.length > 1) ...[
                 const SizedBox(width: 6),
                 GestureDetector(
                   onTap: () => _closeTab(index),
-                  child: Icon(Icons.close, size: 14, color: Colors.grey.shade600),
+                  child: Icon(
+                    Icons.close,
+                    size: 14,
+                    color: active ? Colors.grey.shade600 : Colors.white70,
+                  ),
                 ),
               ],
             ],
@@ -1109,7 +1416,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
           const SizedBox(width: 10),
           Text(
             _moneyFmt.format(_total),
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: _blue),
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: _kiotBlue),
           ),
         ],
       ),
@@ -1204,7 +1511,9 @@ class _PosSellScreenState extends State<PosSellScreen> {
   }
 
   Widget _buildKiotCartRow(_SellCartLine line, int index, int cartIndex) {
-    final expanded = _expandedCartRowId == line.rowId;
+    final isExpanded = _expandedCartRowId == line.rowId;
+    final noteExpanded = isExpanded && _expandedCartMode == _CartRowExpand.note;
+    final priceExpanded = isExpanded && _expandedCartMode == _CartRowExpand.priceDiscount;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1239,9 +1548,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
                 SizedBox(width: _KiotLayout.gapAfterImg),
                 Expanded(
                   child: InkWell(
-                    onTap: () => setState(() {
-                      _expandedCartRowId = expanded ? null : line.rowId;
-                    }),
+                    onTap: () => _toggleCartRowExpand(line.rowId, _CartRowExpand.note),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -1252,8 +1559,11 @@ class _PosSellScreenState extends State<PosSellScreen> {
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
-                              color: expanded ? _blue : null,
-                              decoration: expanded ? TextDecoration.underline : null,
+                              color: noteExpanded ? _kiotBlue : null,
+                              decoration: noteExpanded
+                                  ? TextDecoration.underline
+                                  : TextDecoration.none,
+                              decorationColor: _kiotBlue,
                             )),
                         if (line.displayCode.isNotEmpty)
                           Text(line.displayCode,
@@ -1261,14 +1571,25 @@ class _PosSellScreenState extends State<PosSellScreen> {
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
                                   fontSize: 10, color: PosTheme.textSecondary)),
-                        if (!expanded &&
+                        Text(
+                          'Tồn: ${_qtyFmt.format(line.product.onHandQty)}',
+                          maxLines: 1,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: line.product.onHandQty <= 0
+                                ? Colors.red.shade700
+                                : PosTheme.textSecondary,
+                          ),
+                        ),
+                        if (!noteExpanded &&
                             line.lineNote != null &&
                             line.lineNote!.isNotEmpty)
                           Text('↳ ${line.lineNote}',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: TextStyle(fontSize: 10, color: Colors.blue.shade700)),
-                        if (!expanded && line.discountAmount > 0)
+                              style: const TextStyle(
+                                  fontSize: 10, color: _kiotBlue)),
+                        if (!priceExpanded && line.discountAmount > 0)
                           Text(
                             'CK: -${_moneyFmt.format(line.discountAmount)}',
                             style: TextStyle(fontSize: 10, color: Colors.red.shade700),
@@ -1287,118 +1608,211 @@ class _PosSellScreenState extends State<PosSellScreen> {
                 ),
                 SizedBox(
                   width: _KiotLayout.wPrice,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      InkWell(
-                        onTap: () => _editLinePrice(line),
-                        child: Text(
+                  child: InkWell(
+                    onTap: () =>
+                        _toggleCartRowExpand(line.rowId, _CartRowExpand.priceDiscount),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
                           _moneyFmt.format(line.unitPrice),
                           textAlign: TextAlign.right,
-                          style: const TextStyle(fontSize: 13, color: _blue),
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: _kiotBlue,
+                            decoration: priceExpanded
+                                ? TextDecoration.underline
+                                : TextDecoration.none,
+                            decorationColor: _kiotBlue,
+                          ),
                         ),
-                      ),
-                    ],
+                        if (line.discountAmount > 0 && !priceExpanded)
+                          Text(
+                            '-${_moneyFmt.format(line.discountAmount)}',
+                            textAlign: TextAlign.right,
+                            style: TextStyle(fontSize: 10, color: Colors.red.shade700),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
                 SizedBox(
                   width: _KiotLayout.wTotal,
-                  child: Text(
-                    _moneyFmt.format(line.lineTotal),
-                    textAlign: TextAlign.right,
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  child: InkWell(
+                    onTap: () =>
+                        _toggleCartRowExpand(line.rowId, _CartRowExpand.priceDiscount),
+                    child: Text(
+                      _moneyFmt.format(line.lineTotal),
+                      textAlign: TextAlign.right,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: priceExpanded ? _kiotBlue : PosTheme.textPrimary,
+                      ),
+                    ),
                   ),
                 ),
               ],
             ),
           ),
         ),
-        if (expanded) _buildCartLineEditor(line),
+        if (noteExpanded) _buildCartLineNoteEditor(line),
+        if (priceExpanded) _buildCartLinePriceEditor(line),
       ],
     );
   }
 
-  Widget _buildCartLineEditor(_SellCartLine line) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(_KiotLayout.sidePadding, 0, _KiotLayout.sidePadding, 6),
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: PosTheme.border),
+  Widget _buildCartLineNoteEditor(_SellCartLine line) {
+    return Listener(
+      behavior: HitTestBehavior.opaque,
+      onPointerDown: (_) {},
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(
+            _KiotLayout.sidePadding, 0, _KiotLayout.sidePadding, 6),
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: PosTheme.kiotBlueLight,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: _kiotBlue.withValues(alpha: 0.25)),
+        ),
+        child: PosLineQuickNotesPicker(
+          quickNotes: line.product.saleQuickNotes,
+          selected: line.selectedQuickNotes,
+          onSelectedChanged: (next) => setState(() {
+            line.selectedQuickNotes
+              ..clear()
+              ..addAll(next);
+            _applyLineNoteFromPicker(line);
+          }),
+          extraController: line.noteCtrl,
+          onExtraChanged: () => setState(() => _applyLineNoteFromPicker(line)),
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          TextField(
-            controller: line.noteCtrl,
-            decoration: const InputDecoration(
-              hintText: 'Ghi chú dòng hàng',
-              isDense: true,
-              border: OutlineInputBorder(),
-              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            ),
-            style: const TextStyle(fontSize: 12),
-            onChanged: (v) => line.lineNote = v.trim().isEmpty ? null : v.trim(),
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              const Text('Chiết khấu', style: TextStyle(fontSize: 12)),
-              const SizedBox(width: 6),
-              _lineDiscountChip(line, true),
-              const SizedBox(width: 4),
-              _lineDiscountChip(line, false),
-              const SizedBox(width: 8),
-              Expanded(
-                child: TextField(
-                  controller: line.discountCtrl,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  textAlign: TextAlign.right,
-                  decoration: InputDecoration(
-                    isDense: true,
-                    suffixText: line.discountIsPercent ? '%' : 'đ',
-                    border: const OutlineInputBorder(),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+    );
+  }
+
+  Widget _buildCartLinePriceEditor(_SellCartLine line) {
+    return Listener(
+      behavior: HitTestBehavior.opaque,
+      onPointerDown: (_) {},
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(
+            _KiotLayout.sidePadding, 0, _KiotLayout.sidePadding, 6),
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: PosTheme.kiotBlueLight,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: _kiotBlue.withValues(alpha: 0.25)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Text('Đơn giá', style: TextStyle(fontSize: 12)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: line.priceCtrl,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    textAlign: TextAlign.right,
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      suffixText: 'đ',
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(),
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    ),
+                    style: const TextStyle(fontSize: 12),
+                    onChanged: (v) => setState(() => _applyLinePriceInput(line, v)),
                   ),
-                  style: const TextStyle(fontSize: 12),
-                  onChanged: (v) => setState(() {
-                    line.discountInput = _parseMoneyInput(v);
-                    _syncPaidAmount();
-                  }),
                 ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Text('Chiết khấu', style: TextStyle(fontSize: 12)),
+                const SizedBox(width: 6),
+                _lineDiscountChip(line, true),
+                const SizedBox(width: 4),
+                _lineDiscountChip(line, false),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: line.discountCtrl,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    textAlign: TextAlign.right,
+                    decoration: InputDecoration(
+                      isDense: true,
+                      filled: true,
+                      fillColor: Colors.white,
+                      suffixText: line.discountIsPercent ? '%' : 'đ',
+                      border: const OutlineInputBorder(),
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    ),
+                    style: const TextStyle(fontSize: 12),
+                    onChanged: (v) => setState(() {
+                      line.discountInput = _parseMoneyInput(v);
+                      _syncPaidAmount();
+                    }),
+                  ),
+                ),
+              ],
+            ),
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: line.discountIsPercent
+                  ? buildPosDiscountPresetChips(
+                      percents: const [5, 10, 15, 20, 25, 50],
+                      onPickPercent: (p) => _applyLineDiscountPreset(line, p),
+                    )
+                  : buildPosDiscountMoneyPresetChips(
+                      moneyFmt: _moneyFmt,
+                      baseAmount: line.lineGross,
+                      onPickAmount: (a) => _applyLineDiscountAmountPreset(line, a),
+                    ),
+            ),
+            if (line.discountAmount > 0) ...[
+              const SizedBox(height: 6),
+              Text(
+                'Chiết khấu dòng: -${_moneyFmt.format(line.discountAmount)}',
+                textAlign: TextAlign.right,
+                style: TextStyle(fontSize: 11, color: Colors.red.shade700),
               ),
             ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   Widget _lineDiscountChip(_SellCartLine line, bool isPercent) {
     final selected = line.discountIsPercent == isPercent;
-    return InkWell(
-      onTap: () => setState(() {
-        line.discountIsPercent = isPercent;
-        line.discountInput = 0;
-        line.discountCtrl.text = '0';
-        _syncPaidAmount();
-      }),
+    return Material(
+      color: selected ? PosTheme.kiotBlueLight : Colors.white,
       borderRadius: BorderRadius.circular(4),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: selected ? const Color(0xFFE8F0FE) : Colors.white,
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: selected ? _blue : PosTheme.border),
-        ),
-        child: Text(
-          isPercent ? '%' : 'đ',
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            color: selected ? _blue : PosTheme.textSecondary,
+      child: InkWell(
+        onTap: () => _setLineDiscountMode(line, isPercent),
+        borderRadius: BorderRadius.circular(4),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: selected ? _kiotBlue : PosTheme.border),
+          ),
+          child: Text(
+            isPercent ? '%' : 'đ',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: selected ? _kiotBlue : PosTheme.textSecondary,
+            ),
           ),
         ),
       ),
@@ -1421,18 +1835,16 @@ class _PosSellScreenState extends State<PosSellScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(
-            flex: 2,
+            flex: 3,
             child: _buildKiotCartList(),
           ),
           Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: _KiotLayout.sidePadding,
-              vertical: 4,
-            ),
+            height: 36,
             decoration: const BoxDecoration(
               border: Border(top: BorderSide(color: PosTheme.border)),
               color: Color(0xFFFAFBFC),
             ),
+            padding: const EdgeInsets.symmetric(horizontal: _KiotLayout.sidePadding),
             child: Row(
               children: [
                 const Icon(Icons.edit_outlined, size: 15, color: PosTheme.textSecondary),
@@ -1454,11 +1866,11 @@ class _PosSellScreenState extends State<PosSellScreen> {
             ),
           ),
           Expanded(
-            flex: 3,
+            flex: 2,
             child: ListView(
               padding: const EdgeInsets.fromLTRB(
                 _KiotLayout.sidePadding,
-                8,
+                6,
                 _KiotLayout.sidePadding,
                 4,
               ),
@@ -1475,7 +1887,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
             child: FilledButton(
               onPressed: _tab.cart.isEmpty || _checkingOut || !canPay ? null : _checkout,
               style: FilledButton.styleFrom(
-                backgroundColor: _blue,
+                backgroundColor: _kiotBlue,
                 minimumSize: Size(double.infinity, compact ? 44 : 48),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
               ),
@@ -1500,7 +1912,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
         textAlign: TextAlign.center,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: const TextStyle(fontSize: 12, color: _blue),
+        style: const TextStyle(fontSize: 12, color: _kiotBlue),
       );
     }
     return DropdownButtonHideUnderline(
@@ -1509,14 +1921,14 @@ class _PosSellScreenState extends State<PosSellScreen> {
         isDense: true,
         isExpanded: true,
         alignment: Alignment.center,
-        style: const TextStyle(fontSize: 12, color: _blue),
+        style: const TextStyle(fontSize: 12, color: _kiotBlue),
         selectedItemBuilder: (ctx) => line.unitViews
             .map((v) => Center(
                   child: Text(
                     v.label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12, color: _blue),
+                    style: const TextStyle(fontSize: 12, color: _kiotBlue),
                   ),
                 ))
             .toList(),
@@ -1551,10 +1963,10 @@ class _PosSellScreenState extends State<PosSellScreen> {
                 decoration: InputDecoration(
                   hintText: 'Tìm khách hàng (F4)',
                   isDense: true,
-                  prefixIcon: const Icon(Icons.person_search_outlined, size: 20),
+                  prefixIcon: const Icon(Icons.person_search_outlined, size: 18),
                   suffixIcon: _tab.customer != null
                       ? IconButton(
-                          icon: const Icon(Icons.close, size: 18),
+                          icon: const Icon(Icons.close, size: 16),
                           onPressed: () => setState(() {
                             _tab.customer = null;
                             _tab._customerSearchCtrl.clear();
@@ -1563,16 +1975,18 @@ class _PosSellScreenState extends State<PosSellScreen> {
                         )
                       : null,
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                 ),
+                style: const TextStyle(fontSize: 12),
                 onChanged: _searchCustomers,
               ),
             ),
-            const SizedBox(width: 4),
             IconButton(
               tooltip: 'Thêm khách hàng',
               visualDensity: VisualDensity.compact,
-              icon: const Icon(Icons.person_add_outlined, size: 22, color: _blue),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              icon: const Icon(Icons.person_add_outlined, size: 20, color: _kiotBlue),
               onPressed: _openAddCustomer,
             ),
           ],
@@ -1616,39 +2030,77 @@ class _PosSellScreenState extends State<PosSellScreen> {
                   .toList(),
             ),
           ),
-        const SizedBox(height: 8),
-        Text(
-          _dateFmt.format(DateTime.now()),
-          style: const TextStyle(fontSize: 11, color: PosTheme.textSecondary),
-          textAlign: TextAlign.right,
-        ),
-        const SizedBox(height: _KiotLayout.sectionGap),
+        if (_sellSellers.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          _canPickSeller
+              ? DropdownButtonFormField<String>(
+                  value: _tab.sellerEmployeeId ?? _defaultSellerEmployeeId,
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    labelText: 'Người bán',
+                    isDense: true,
+                    prefixIcon: const Icon(Icons.badge_outlined, size: 18),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  ),
+                  style: const TextStyle(fontSize: 12, color: Colors.black87),
+                  items: _sellSellers
+                      .map((s) => DropdownMenuItem<String>(
+                            value: s['employeeId']?.toString(),
+                            child: Text(
+                              s['displayName']?.toString() ?? '—',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ))
+                      .where((item) => item.value != null && item.value!.isNotEmpty)
+                      .toList(),
+                  onChanged: (v) => setState(() => _tab.sellerEmployeeId = v),
+                )
+              : _summaryRow(
+                  'Người bán',
+                  _sellSellers
+                          .where((s) =>
+                              s['employeeId']?.toString() ==
+                              (_tab.sellerEmployeeId ?? _defaultSellerEmployeeId))
+                          .map((s) => s['displayName']?.toString())
+                          .firstOrNull ??
+                      '—',
+                ),
+        ],
+        const SizedBox(height: 6),
         _summaryRow('Tổng tiền hàng (${_tab.cart.length})', _moneyFmt.format(_subTotal)),
         if (_lineDiscountTotal > 0) ...[
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
           _summaryRow('Chiết khấu SP', '-${_moneyFmt.format(_lineDiscountTotal)}'),
         ],
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const Expanded(child: Text('Giảm giá đơn', style: TextStyle(fontSize: 13))),
+            const SizedBox(
+              width: 82,
+              child: Text('Giảm giá', style: TextStyle(fontSize: 12)),
+            ),
             _discountModeChip('%', true),
             const SizedBox(width: 4),
             _discountModeChip('đ', false),
             const SizedBox(width: 8),
-            SizedBox(
-              width: 88,
+            Expanded(
               child: TextField(
                 controller: _tab._discountCtrl,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 textAlign: TextAlign.right,
                 decoration: InputDecoration(
                   isDense: true,
+                  filled: true,
+                  fillColor: Colors.white,
                   suffixText: _tab.discountIsPercent ? '%' : 'đ',
                   border: const OutlineInputBorder(),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                 ),
+                style: const TextStyle(fontSize: 13),
                 onChanged: _onDiscountInputChanged,
               ),
             ),
@@ -1660,6 +2112,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
               ? buildPosDiscountPresetChips(onPickPercent: _applyOrderDiscountPreset)
               : buildPosDiscountMoneyPresetChips(
                   moneyFmt: _moneyFmt,
+                  baseAmount: _afterLineDiscount,
                   onPickAmount: _applyOrderDiscountAmountPreset,
                 ),
         ),
@@ -1710,15 +2163,15 @@ class _PosSellScreenState extends State<PosSellScreen> {
             onChanged: (v) => _tab.deliveryPartner = v.trim().isEmpty ? null : v.trim(),
           ),
         ],
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         _summaryRow('VAT', _moneyFmt.format(_vatAmount)),
-        const SizedBox(height: 10),
+        const SizedBox(height: 6),
         _summaryRow('Khách cần trả', _moneyFmt.format(_total), bold: true, blue: true),
         if (_tab.customer != null && _tab.customer!.currentDebt > 0) ...[
           const SizedBox(height: 4),
           _summaryRow('Nợ cũ KH', _moneyFmt.format(_tab.customer!.currentDebt)),
         ],
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         _buildPaymentSplits(),
         Padding(
           padding: const EdgeInsets.only(top: 4),
@@ -1895,7 +2348,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
           visualDensity: VisualDensity.compact,
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
-          icon: const Icon(Icons.add, size: 15, color: _blue),
+          icon: const Icon(Icons.add, size: 15, color: _kiotBlue),
           onPressed: () => _adjustQty(line, 1),
         ),
       ],
@@ -1911,7 +2364,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
     final payButton = FilledButton(
       onPressed: _tab.cart.isEmpty || _checkingOut || !canPay ? null : _checkout,
       style: FilledButton.styleFrom(
-        backgroundColor: _blue,
+        backgroundColor: _kiotBlue,
         minimumSize: Size(double.infinity, compact ? 44 : 48),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
       ),
@@ -1952,9 +2405,9 @@ class _PosSellScreenState extends State<PosSellScreen> {
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(
                       _KiotLayout.sidePadding,
-                      12,
-                      _KiotLayout.sidePadding,
                       8,
+                      _KiotLayout.sidePadding,
+                      6,
                     ),
                     children: [summary],
                   ),
@@ -1975,22 +2428,25 @@ class _PosSellScreenState extends State<PosSellScreen> {
 
   Widget _discountModeChip(String label, bool isPercent) {
     final selected = _tab.discountIsPercent == isPercent;
-    return InkWell(
-      onTap: () => _setDiscountMode(isPercent),
+    return Material(
+      color: selected ? PosTheme.kiotBlueLight : Colors.white,
       borderRadius: BorderRadius.circular(4),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: selected ? const Color(0xFFE8F0FE) : Colors.white,
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: selected ? _blue : PosTheme.border),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: selected ? _blue : PosTheme.textSecondary,
+      child: InkWell(
+        onTap: () => _setDiscountMode(isPercent),
+        borderRadius: BorderRadius.circular(4),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: selected ? _kiotBlue : PosTheme.border),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: selected ? _kiotBlue : PosTheme.textSecondary,
+            ),
           ),
         ),
       ),
@@ -2015,7 +2471,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
             style: TextStyle(
               fontSize: bold ? 16 : 13,
               fontWeight: bold ? FontWeight.bold : FontWeight.w500,
-              color: blue ? _blue : PosTheme.textPrimary,
+              color: blue ? _kiotBlue : PosTheme.textPrimary,
             ),
           ),
         ),
@@ -2091,21 +2547,21 @@ class _PosSellScreenState extends State<PosSellScreen> {
         height: 32,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: active ? const Color(0xFFE8F0FE) : Colors.transparent,
+          color: active ? PosTheme.kiotBlueLight : Colors.transparent,
           borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: active ? _blue : Colors.transparent),
+          border: Border.all(color: active ? _kiotBlue : Colors.transparent),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 16, color: active ? _blue : PosTheme.textSecondary),
+            Icon(icon, size: 16, color: active ? _kiotBlue : PosTheme.textSecondary),
             const SizedBox(width: 6),
             Text(
               label,
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: active ? FontWeight.w600 : FontWeight.normal,
-                color: active ? _blue : PosTheme.textPrimary,
+                color: active ? _kiotBlue : PosTheme.textPrimary,
               ),
             ),
           ],

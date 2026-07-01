@@ -12,6 +12,7 @@ bool shouldRedirectToStaticHome() {
   const appPaths = [
     '/login-app',
     '/register',
+    '/agent-register',
     '/forgot-password',
     '/admin',
     '/landing',
@@ -28,6 +29,7 @@ bool shouldRedirectToStaticHome() {
     const hashRoutes = [
       '/login-app',
       '/register',
+      '/agent-register',
       '/forgot-password',
       '/reset-password',
       '/admin',

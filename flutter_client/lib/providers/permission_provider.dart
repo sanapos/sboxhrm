@@ -288,6 +288,12 @@ class PermissionProvider extends ChangeNotifier {
         moduleCode == 'PosInternalUseIssues') {
       if (_flag('PosProducts', action)) return true;
     }
+    if (moduleCode == 'PosSalesReport' &&
+        (action == 'canView' || action == 'canExport')) {
+      if (_flag('PosProducts', action) || _flag('PosSalesReport', action)) {
+        return true;
+      }
+    }
     if (moduleCode == 'PosProducts' && action != 'canView') {
       if (_anyHas(action, const [
         'PosSell',

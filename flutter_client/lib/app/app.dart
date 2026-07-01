@@ -13,9 +13,12 @@ import '../screens/register_screen.dart';
 import '../screens/forgot_password_screen.dart';
 import '../screens/reset_password_screen.dart';
 import '../screens/system_admin_screen.dart';
+import '../screens/agent_portal_screen.dart';
+import '../screens/agent_register_screen.dart';
 import '../screens/admin_login_screen.dart';
 import '../screens/landing_screen.dart';
 import '../screens/landing_guide_screen.dart';
+import '../utils/web_route_parser.dart';
 import '../widgets/app_boot_screen.dart';
 
 class ZKTecoApp extends StatelessWidget {
@@ -58,6 +61,10 @@ class ZKTecoApp extends StatelessWidget {
           },
           routes: {
             '/register': (context) => const RegisterScreen(),
+            '/agent-register': (context) {
+              final token = parseAgentRegistrationToken() ?? '';
+              return AgentRegisterScreen(token: token);
+            },
             '/forgot-password': (context) => const ForgotPasswordScreen(),
             '/admin': (context) => const _AdminRouteGuard(),
             '/login-app': (context) => const LoginScreen(),
@@ -77,6 +84,19 @@ class ZKTecoApp extends StatelessWidget {
                     ResetPasswordScreen(email: email, token: token),
               );
             }
+            final name = settings.name ?? '';
+            if (name.startsWith('/agent-register/')) {
+              final token = name.replaceFirst('/agent-register/', '').trim();
+              return MaterialPageRoute(
+                builder: (context) => AgentRegisterScreen(token: token),
+              );
+            }
+            if (name == '/agent-register') {
+              final token = parseAgentRegistrationToken() ?? '';
+              return MaterialPageRoute(
+                builder: (context) => AgentRegisterScreen(token: token),
+              );
+            }
             return null;
           },
           home: Selector<AuthProvider, ({bool isInit, bool isAuth})>(
@@ -86,9 +106,14 @@ class ZKTecoApp extends StatelessWidget {
               if (state.isInit) {
                 return const AppBootScreen();
               }
-              return state.isAuth
-                  ? const MainLayout()
-                  : (kIsWeb ? const LandingScreen() : const LoginScreen());
+              if (!state.isAuth) {
+                if (kIsWeb && isAgentRegisterDeepLink) {
+                  final token = parseAgentRegistrationToken() ?? '';
+                  return AgentRegisterScreen(token: token);
+                }
+                return kIsWeb ? const LandingScreen() : const LoginScreen();
+              }
+              return const MainLayout();
             },
           ),
         );
@@ -112,8 +137,12 @@ class _AdminRouteGuard extends StatelessWidget {
           return const AdminLoginScreen();
         }
 
-        if (state.role == 'SuperAdmin' || state.role == 'Agent') {
+        if (state.role == 'SuperAdmin') {
           return const SystemAdminScreen();
+        }
+
+        if (state.role == 'Agent') {
+          return const AgentPortalScreen();
         }
 
         return const AdminLoginScreen();

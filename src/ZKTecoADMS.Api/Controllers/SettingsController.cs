@@ -10,6 +10,7 @@ using ZKTecoADMS.Application.DTOs.SystemAdmin;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Infrastructure;
+using ZKTecoADMS.Infrastructure.Helpers;
 
 namespace ZKTecoADMS.Api.Controllers;
 
@@ -377,23 +378,10 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
         var storeId = CurrentStoreId;
         if (storeId == null)
         {
-            // SuperAdmin/Agent khÃ´ng cÃ³ store â†’ tráº£ rá»—ng (frontend sáº½ hiá»ƒu lÃ  khÃ´ng giá»›i háº¡n)
             return Ok(AppResponse<List<string>>.Success(new List<string>()));
         }
 
-        var store = await dbContext.Stores
-            .Include(s => s.ServicePackage)
-            .FirstOrDefaultAsync(s => s.Id == storeId);
-
-        if (store?.ServicePackage == null || string.IsNullOrEmpty(store.ServicePackage.AllowedModules))
-        {
-            // Store chÆ°a gÃ¡n gÃ³i dá»‹ch vá»¥ â†’ khÃ´ng giá»›i háº¡n
-            return Ok(AppResponse<List<string>>.Success(new List<string>()));
-        }
-
-        var modules = System.Text.Json.JsonSerializer.Deserialize<List<string>>(
-            store.ServicePackage.AllowedModules) ?? new List<string>();
-
+        var modules = await StorePackageHelper.ResolveAllowedModulesAsync(dbContext, storeId.Value);
         return Ok(AppResponse<List<string>>.Success(modules));
     }
 }

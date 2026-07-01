@@ -28,6 +28,9 @@ class NotificationCategoryUtils {
     'worktask': 'task',
     'paymenttransaction': 'payroll',
     'cashtransaction': 'payroll',
+    'possaleorder': 'pos',
+    'posproduct': 'pos',
+    'pospurchasereceipt': 'pos',
   };
 
   /// Maps legacy sender codes to seeded category codes.
@@ -60,6 +63,11 @@ class NotificationCategoryUtils {
         return 'system';
       case 'shift':
         return 'attendance';
+      case 'pos':
+      case 'possaleorder':
+      case 'posproduct':
+      case 'pospurchasereceipt':
+        return 'pos';
       case 'task':
       case 'worktask':
         return 'task';

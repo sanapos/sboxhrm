@@ -8,6 +8,7 @@ import '../../utils/pos_category_tree.dart';
 import '../../utils/pos_purchase_product_lookup.dart';
 import '../../utils/pos_sell_unit_views.dart';
 import 'pos_product_image.dart';
+import 'pos_product_unit_view.dart';
 import 'pos_theme.dart';
 
 const _blue = Color(0xFF2563EB);
@@ -31,6 +32,7 @@ class PosSellProductGrid extends StatefulWidget {
 
 class PosSellProductGridState extends State<PosSellProductGrid> {
   final _moneyFmt = NumberFormat('#,##0', 'vi_VN');
+  final _qtyFmt = NumberFormat('#,##0.##', 'vi_VN');
   final _categoryScroll = ScrollController();
   final _gridScroll = ScrollController();
   List<PosProduct> _products = [];
@@ -39,6 +41,26 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
   bool _loading = true;
   bool _loadingCategories = true;
   int _page = 0;
+  final Map<String, List<PosProductUnitView>> _unitViewsCache = {};
+  final Map<String, Future<List<PosProductUnitView>>> _unitViewsLoading = {};
+
+  Future<List<PosProductUnitView>> _viewsFor(PosProduct p) {
+    final cached = _unitViewsCache[p.id];
+    if (cached != null) return Future.value(cached);
+
+    return _unitViewsLoading.putIfAbsent(p.id, () async {
+      final views = await loadPosSellUnitViews(widget.api, p);
+      _unitViewsCache[p.id] = views;
+      _unitViewsLoading.remove(p.id);
+      return views;
+    });
+  }
+
+  void _prefetchPageUnitViews() {
+    for (final p in _pageItems) {
+      _viewsFor(p);
+    }
+  }
 
   @override
   void initState() {
@@ -96,7 +118,10 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
       _products = products;
       _page = 0;
       _loading = false;
+      _unitViewsCache.clear();
+      _unitViewsLoading.clear();
     });
+    _prefetchPageUnitViews();
   }
 
   void _selectCategory(String? id) {
@@ -123,21 +148,21 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
   }
 
   double _aspectRatioForWidth(double w, int cols) {
-    if (cols >= 5) return 2.8;
-    if (cols == 4) return 2.6;
-    if (cols == 3) return 2.4;
-    return 2.2;
+    if (cols >= 5) return 0.88;
+    if (cols == 4) return 0.82;
+    if (cols == 3) return 0.78;
+    return 0.74;
   }
 
-  Future<void> _onTapProduct(PosProduct p) async {
-    final views = await loadPosSellUnitViews(widget.api, p);
+  Future<void> _pickProduct(PosProduct p, {PosProductUnitView? view}) async {
+    final views = await _viewsFor(p);
     if (!mounted || views.isEmpty) return;
-    final view = views.first;
+    final v = view ?? views.first;
     widget.onPick(PosPurchaseLookupPick(
       product: p,
-      variantId: view.variantId,
-      unitId: view.unitId,
-      unitLabel: view.label,
+      variantId: v.variantId,
+      unitId: v.unitId,
+      unitLabel: v.label,
     ));
   }
 
@@ -197,6 +222,225 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     );
   }
 
+  Widget _unitBar(PosProduct p, List<PosProductUnitView> views) {
+    if (views.isEmpty) {
+      final fallback = p.baseUnitName.isNotEmpty ? p.baseUnitName : 'Cái';
+      return _unitBarShell(
+        children: [
+          Expanded(
+            child: _unitButton(
+              label: fallback,
+              isDefault: true,
+              onTap: () => _pickProduct(p),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return _unitBarShell(
+      children: [
+        for (var i = 0; i < views.length; i++) ...[
+          if (i > 0)
+            Container(
+              width: 1,
+              height: 22,
+              color: const Color(0xFFE2E8F0),
+            ),
+          Expanded(
+            child: _unitButton(
+              label: views[i].label,
+              isDefault: i == 0,
+              onTap: () => _pickProduct(p, view: views[i]),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _unitBarShell({required List<Widget> children}) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xFFF8FAFC),
+        border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(7)),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+      child: Row(children: children),
+    );
+  }
+
+  Widget _unitButton({
+    required String label,
+    required bool isDefault,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(4),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 2),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: isDefault ? FontWeight.w700 : FontWeight.w600,
+              color: isDefault ? _blue : const Color(0xFF475569),
+              height: 1.1,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUnitBar(PosProduct p) {
+    return FutureBuilder<List<PosProductUnitView>>(
+      future: _viewsFor(p),
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return _unitBarShell(
+            children: [
+              Expanded(
+                child: _unitButton(
+                  label: p.baseUnitName.isNotEmpty ? p.baseUnitName : 'Cái',
+                  isDefault: true,
+                  onTap: () => _pickProduct(p),
+                ),
+              ),
+            ],
+          );
+        }
+        return _unitBar(p, snap.data ?? const []);
+      },
+    );
+  }
+
+  Widget _productCard(PosProduct p, double imgSize) {
+    final outOfStock = p.onHandQty <= 0;
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: outOfStock ? const Color(0xFFFECACA) : const Color(0xFFE2E8F0),
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0A000000),
+            blurRadius: 4,
+            offset: Offset(0, 1),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => _pickProduct(p),
+                hoverColor: _blue.withValues(alpha: 0.04),
+                splashColor: _blue.withValues(alpha: 0.08),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Positioned.fill(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(8, 8, 8, 6),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Center(
+                              child: PosProductImage(
+                                productId: p.id,
+                                imageUrl: p.imageUrl,
+                                size: imgSize,
+                                borderRadius: 6,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              p.name,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                                height: 1.25,
+                                color: PosTheme.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              '${_moneyFmt.format(p.basePrice)} đ',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: _blue,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: _stockBadge(p),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          _buildUnitBar(p),
+        ],
+      ),
+    );
+  }
+
+  Widget _stockBadge(PosProduct p) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+      decoration: BoxDecoration(
+        color: p.onHandQty <= 0
+            ? const Color(0xFFFEE2E2)
+            : const Color(0xFFEFF6FF),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: p.onHandQty <= 0
+              ? const Color(0xFFFCA5A5)
+              : const Color(0xFF93C5FD),
+        ),
+      ),
+      child: Text(
+        'Tồn ${_qtyFmt.format(p.onHandQty)}',
+        style: TextStyle(
+          fontSize: 9,
+          fontWeight: FontWeight.w600,
+          color: p.onHandQty <= 0
+              ? const Color(0xFFB91C1C)
+              : const Color(0xFF1D4ED8),
+          height: 1,
+        ),
+      ),
+    );
+  }
+
   Widget _buildGrid(double gridWidth) {
     if (_loading) {
       return const Center(child: CircularProgressIndicator(strokeWidth: 2));
@@ -211,7 +455,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     }
 
     final cols = _columnsForWidth(gridWidth);
-    final imgSize = cols >= 4 ? 36.0 : 40.0;
+    final imgSize = cols >= 5 ? 40.0 : 44.0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -231,55 +475,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
               itemCount: _pageItems.length,
               itemBuilder: (_, i) {
                 final p = _pageItems[i];
-                return Material(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(6),
-                  clipBehavior: Clip.antiAlias,
-                  child: InkWell(
-                    onTap: () => _onTapProduct(p),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        border: Border.all(color: PosTheme.border),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                      child: Row(
-                        children: [
-                          PosProductImage(
-                            productId: p.id,
-                            imageUrl: p.imageUrl,
-                            size: imgSize,
-                            borderRadius: 4,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  p.name,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontSize: 11, height: 1.15),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  _moneyFmt.format(p.basePrice),
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: _blue,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
+                return _productCard(p, imgSize);
               },
             ),
           ),
@@ -293,7 +489,12 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
                 IconButton(
                   visualDensity: VisualDensity.compact,
                   icon: const Icon(Icons.chevron_left, size: 22),
-                  onPressed: _page > 0 ? () => setState(() => _page--) : null,
+                  onPressed: _page > 0
+                      ? () => setState(() {
+                            _page--;
+                            _prefetchPageUnitViews();
+                          })
+                      : null,
                 ),
                 Text(
                   '${_page + 1}/$_pageCount',
@@ -303,7 +504,10 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
                   visualDensity: VisualDensity.compact,
                   icon: const Icon(Icons.chevron_right, size: 22),
                   onPressed: _page < _pageCount - 1
-                      ? () => setState(() => _page++)
+                      ? () => setState(() {
+                            _page++;
+                            _prefetchPageUnitViews();
+                          })
                       : null,
                 ),
               ],

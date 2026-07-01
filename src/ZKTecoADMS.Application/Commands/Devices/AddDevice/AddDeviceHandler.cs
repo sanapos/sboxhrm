@@ -9,7 +9,8 @@ public class AddDeviceHandler(
     IRepository<DeviceCommand> deviceCommandRepository,
     IRepository<Device> deviceRepository,
     IDeviceService deviceService,
-    ISystemNotificationService notificationService
+    ISystemNotificationService notificationService,
+    IStoreLicenseLimitService storeLicenseLimitService
     ) : ICommandHandler<AddDeviceCommand, AppResponse<DeviceDto>>
 {
     public async Task<AppResponse<DeviceDto>> Handle(AddDeviceCommand request, CancellationToken cancellationToken)
@@ -62,6 +63,18 @@ public class AddDeviceHandler(
             catch { }
 
             return AppResponse<DeviceDto>.Success(existingDevice.Adapt<DeviceDto>());
+        }
+
+        if (!request.StoreId.HasValue)
+        {
+            return AppResponse<DeviceDto>.Error("StoreId is required.");
+        }
+
+        var limitCheck = await storeLicenseLimitService.CanAddDeviceAsync(
+            request.StoreId.Value, cancellationToken);
+        if (!limitCheck.Ok)
+        {
+            return AppResponse<DeviceDto>.Error(limitCheck.Error!);
         }
         
         var deviceEntity = request.Adapt<Device>();

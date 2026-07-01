@@ -14,8 +14,7 @@ class PermissionNavigation {
     return perm.canViewNav(moduleCode);
   }
 
-  /// Gói dịch vụ có thể thiếu module mới (Phiếu thưởng, Ứng lương…).
-  /// Nếu role đã cấp quyền trực tiếp thì vẫn hiện menu.
+  /// Chỉ hiện menu khi module nằm trong gói dịch vụ (hoặc self-service).
   static bool isAllowedByPackageOrRole(
     String? moduleCode, {
     required List<String>? allowedModules,
@@ -23,10 +22,14 @@ class PermissionNavigation {
     required bool bypassPackageFilter,
   }) {
     if (bypassPackageFilter) return true;
-    if (allowedModules == null || allowedModules.isEmpty) return true;
     if (moduleCode == null || moduleCode.isEmpty) return true;
-    if (allowedModules.contains(moduleCode)) return true;
-    return perm.isLoaded && perm.canView(moduleCode);
+    if (PermissionModules.selfServiceModules.contains(moduleCode)) {
+      return true;
+    }
+    if (allowedModules == null || allowedModules.isEmpty) {
+      return false;
+    }
+    return allowedModules.contains(moduleCode);
   }
 
   static String label(String moduleCode) {
@@ -77,6 +80,8 @@ class PermissionNavigation {
         return 'Xuất hủy';
       case 'PosInternalUseIssues':
         return 'Xuất dùng nội bộ';
+      case 'PosSalesReport':
+        return 'Báo cáo POS';
       case 'PenaltyReport':
         return 'Báo cáo phạt';
       case 'CashReport':
