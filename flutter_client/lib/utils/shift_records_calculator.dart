@@ -134,7 +134,7 @@ bool _shouldPairByAttendanceState(List<Attendance> sorted) {
 /// Ghép cặp chấm công trong ngày.
 /// Ưu tiên loại Vào/Ra khi chuỗi máy gửi đáng tin; ngược lại chẵn/lẻ theo thời gian.
 List<DayAttendancePair> buildDayAttendancePairs(List<Attendance> dayAtts) {
-  final sorted = List<Attendance>.from(dayAtts)
+  final sorted = List<Attendance>.from(Attendance.withoutTravel(dayAtts))
     ..sort((a, b) => a.punchTime.compareTo(b.punchTime));
   if (sorted.isEmpty) return [];
 
@@ -767,12 +767,14 @@ List<DailyShiftRecord> computeDailyShiftRecords({
   grouped.forEach((employeeCode, dateMap) {
     dateMap.forEach((dateStr, dayAttendances) {
       if (dayAttendances.isEmpty) return;
+      final workDayAttendances = Attendance.withoutTravel(dayAttendances);
       dayAttendances.sort((a, b) => a.punchTime.compareTo(b.punchTime));
       final first = dayAttendances.first;
       final date = DateTime.parse(dateStr);
 
-      final punchTimes = dayAttendances.map((a) => a.punchTime).toList();
-      final attendanceIds = dayAttendances.map((a) => a.id).toList();
+      final punchTimes =
+          workDayAttendances.map((a) => a.punchTime).toList();
+      final attendanceIds = workDayAttendances.map((a) => a.id).toList();
 
       final empGuid = lookups.employeeCodeToGuid[employeeCode] ?? '';
       final assignedShiftIds =
@@ -790,7 +792,7 @@ List<DailyShiftRecord> computeDailyShiftRecords({
       final missingOutShiftNames = <String>[];
       final usedShiftIds = <String>{};
       final dayPairs = _logicalDayPairsFromAttendances(
-        dayAttendances,
+        workDayAttendances,
         dayEndHour: dayEndHour,
         dayEndMinute: dayEndMinute,
       );
@@ -1228,6 +1230,7 @@ List<DailyShiftPair> computeDailyShiftPairs({
   grouped.forEach((employeeCode, dateMap) {
     dateMap.forEach((dateStr, dayAttendances) {
       if (dayAttendances.isEmpty) return;
+      final workDayAttendances = Attendance.withoutTravel(dayAttendances);
       dayAttendances.sort((a, b) => a.punchTime.compareTo(b.punchTime));
       final first = dayAttendances.first;
       final date = DateTime.parse(dateStr);
@@ -1237,7 +1240,7 @@ List<DailyShiftPair> computeDailyShiftPairs({
           lookups.employeeGuidToShiftTemplateIds[empGuid] ?? [];
       final usedShiftIds = <String>{};
       final dayPairs = _logicalDayPairsFromAttendances(
-        dayAttendances,
+        workDayAttendances,
         dayEndHour: dayEndHour,
         dayEndMinute: dayEndMinute,
       );

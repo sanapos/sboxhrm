@@ -1345,8 +1345,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final punchIndex = <String, int>{};
     for (final list in empPunches.values) {
       list.sort((a, b) => a.attendanceTime.compareTo(b.attendanceTime));
-      for (var i = 0; i < list.length; i++) {
-        punchIndex[list[i].id] = i;
+      final workList =
+          list.where((a) => !Attendance.isTravelAttendanceState(a.attendanceState)).toList();
+      for (var i = 0; i < workList.length; i++) {
+        punchIndex[workList[i].id] = i;
       }
     }
     return punchIndex;
@@ -7891,6 +7893,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     itemCount: punches.length,
                     itemBuilder: (_, i) {
                       final a = punches[i];
+                      if (a.isTravelPunch) {
+                        return _attendancePunchRow(a, isTravel: true);
+                      }
                       final idx = punchIndex[a.id] ?? 0;
                       final isCheckIn = idx.isEven;
                       return _attendancePunchRow(a, isCheckIn: isCheckIn);
@@ -8022,16 +8027,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _attendancePunchRow(Attendance a, {bool? isCheckIn}) {
+  Widget _attendancePunchRow(Attendance a, {bool? isCheckIn, bool isTravel = false}) {
     final name = (a.employeeName ?? a.deviceUserName ?? a.pin ?? 'N/A');
-    // Ưu tiên isCheckIn được tính từ ngoài (odd/even per-emp).
-    // Nếu không truyền vào, fallback theo attendanceState.
-    final checkIn = isCheckIn ??
-        (a.attendanceState == 0 ||
-            a.attendanceState == 2 ||
-            a.attendanceState == 4);
-    final color = checkIn ? const Color(0xFF22C55E) : const Color(0xFFEF4444);
-    final stateLabel = checkIn ? 'Vào' : 'Ra';
+    final checkIn = isTravel
+        ? null
+        : (isCheckIn ??
+            (a.attendanceState == 0 ||
+                a.attendanceState == 2 ||
+                a.attendanceState == 4));
+    final color = isTravel
+        ? const Color(0xFF0EA5E9)
+        : (checkIn == true
+            ? const Color(0xFF22C55E)
+            : const Color(0xFFEF4444));
+    final stateLabel = isTravel ? a.punchTypeText : (checkIn == true ? 'Vào' : 'Ra');
     final t = a.attendanceTime;
     final timeStr =
         '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}:${t.second.toString().padLeft(2, '0')}';
@@ -10818,13 +10827,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _employeePunchRow(Attendance punch) {
-    final isCheckIn = punch.attendanceState == 0;
-    final isCheckOut = punch.attendanceState == 1;
-    final badgeColor = isCheckIn
-        ? const Color(0xFF22C55E)
-        : isCheckOut
-            ? HrmPageChrome.primaryNavy
-            : const Color(0xFFF59E0B);
+    final isTravel = punch.isTravelPunch;
+    final isCheckIn = !isTravel && punch.attendanceState == 0;
+    final isCheckOut = !isTravel && punch.attendanceState == 1;
+    final badgeColor = isTravel
+        ? const Color(0xFF0EA5E9)
+        : isCheckIn
+            ? const Color(0xFF22C55E)
+            : isCheckOut
+                ? HrmPageChrome.primaryNavy
+                : const Color(0xFFF59E0B);
     final timeText = formatAttendanceWallClock(
       punch.attendanceTime,
       pattern: 'dd/MM/yyyy HH:mm:ss',

@@ -302,9 +302,10 @@ List<SummaryDayPunchPair> buildSummaryDayPairs(
   int dayEndHour = 0,
   int dayEndMinute = 0,
 }) {
-  if (dayAtts.isEmpty) return [];
-  if (dayAtts.length == 1) {
-    final a = dayAtts.first;
+  final workAtts = Attendance.withoutTravel(dayAtts);
+  if (workAtts.isEmpty) return [];
+  if (workAtts.length == 1) {
+    final a = workAtts.first;
     if (a.attendanceState == 1) {
       return [SummaryDayPunchPair(checkOut: a)];
     }
@@ -314,7 +315,7 @@ List<SummaryDayPunchPair> buildSummaryDayPairs(
   // Luôn sort theo punchTime tăng dần, lẻ=Vào / chẵn=Ra (cặp 1–2, 3–4…).
   // Không ghép mọi CheckIn với Out đầu tiên sau đó — dễ 2 ca chồng (VD 07:07–13:04
   // trong khi 08:12–11:16 nằm giữa).
-  final pairs = _pairsFromChronological(dayAtts);
+  final pairs = _pairsFromChronological(workAtts);
   return sortSummaryDayPairs(
     pairs,
     dayEndHour: dayEndHour,

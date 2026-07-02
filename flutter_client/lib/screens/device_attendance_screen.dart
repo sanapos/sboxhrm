@@ -354,16 +354,29 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
     // For each group, sort by time and assign odd=CheckIn, even=CheckOut
     for (final group in groups.values) {
       group.sort((a, b) => a.attendanceTime.compareTo(b.attendanceTime));
-      for (int i = 0; i < group.length; i++) {
+      final workGroup =
+          group.where((a) => !Attendance.isTravelAttendanceState(a.attendanceState)).toList();
+      for (int i = 0; i < workGroup.length; i++) {
         // i=0 → lần 1 (lẻ) → Vào, i=1 → lần 2 (chẵn) → Ra, ...
-        _calculatedStates[group[i].id] = (i % 2 == 0) ? 0 : 1;
+        _calculatedStates[workGroup[i].id] = (i % 2 == 0) ? 0 : 1;
       }
     }
   }
 
-  /// Lấy kiểu chấm đã tính toán (0=Vào, 1=Ra)
+  /// Lấy kiểu chấm đã tính toán (0=Vào, 1=Ra) hoặc loại đi đường gốc.
   int _getCalculatedState(Attendance att) {
+    if (att.isTravelPunch) return att.attendanceState;
     return _calculatedStates[att.id] ?? att.attendanceState;
+  }
+
+  String _displayStateText(Attendance att) {
+    if (att.isTravelPunch) return att.punchTypeText;
+    return _getCalculatedStateText(_getCalculatedState(att));
+  }
+
+  int _displayStateForChip(Attendance att) {
+    if (att.isTravelPunch) return att.attendanceState;
+    return _getCalculatedState(att);
   }
 
   String _getCalculatedStateText(int state) {
@@ -833,7 +846,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
       final dataCellStyle = excel_lib.CellStyle(fontSize: 11);
       for (int i = 0; i < data.length; i++) {
         final att = data[i];
-        final calcState = _getCalculatedState(att);
+        final calcState = _displayStateForChip(att);
         final row = i + 4; // Start after header (row 3)
 
         sheet.cell(
@@ -869,7 +882,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
           ..cellStyle = dataCellStyle;
         sheet.cell(
             excel_lib.CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: row))
-          ..value = excel_lib.TextCellValue(_getCalculatedStateText(calcState))
+          ..value = excel_lib.TextCellValue(_displayStateText(att))
           ..cellStyle = dataCellStyle;
         sheet.cell(
             excel_lib.CellIndex.indexByColumnRow(columnIndex: 8, rowIndex: row))
@@ -977,7 +990,6 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                       data: pageData.asMap().entries.map((entry) {
                         final idx = startIdx + entry.key;
                         final att = entry.value;
-                        final calcState = _getCalculatedState(att);
                         return [
                           '${idx + 1}',
                           att.employeeId ?? att.pin ?? '',
@@ -986,7 +998,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                           _dateFormat.format(att.attendanceTime),
                           _getDayOfWeek(att.attendanceTime),
                           _timeFormat.format(att.attendanceTime),
-                          _getCalculatedStateText(calcState),
+                          _displayStateText(att),
                           _getVerifyModeText(att.verifyMode),
                         ];
                       }).toList(),
@@ -1915,6 +1927,9 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
 
   Color _getStateColor(int state) {
     switch (state) {
+      case Attendance.travelStartState:
+      case Attendance.travelArriveState:
+        return const Color(0xFF0EA5E9);
       case 0:
         return Colors.green;
       case 1:
@@ -2536,8 +2551,8 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
       itemBuilder: (_, index) {
         final att = data[index];
         final isNew = _realtimeQueue.any((r) => r.id == att.id);
-        final calcState = _getCalculatedState(att);
-        final calcStateText = _getCalculatedStateText(calcState);
+        final calcState = _displayStateForChip(att);
+        final calcStateText = _displayStateText(att);
         return Padding(
           padding: const EdgeInsets.only(bottom: 10),
           child: Container(
@@ -2688,8 +2703,8 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                     final rowColor = isNew
                         ? Colors.green.shade50
                         : (index % 2 == 0 ? Colors.white : Colors.grey.shade50);
-                    final calcState = _getCalculatedState(att);
-                    final calcStateText = _getCalculatedStateText(calcState);
+                        final calcState = _displayStateForChip(att);
+                        final calcStateText = _displayStateText(att);
 
                     return DataRow(
                       color: WidgetStateProperty.all(rowColor),
@@ -2825,7 +2840,10 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            state == 0 ? Icons.login : Icons.logout,
+            state == Attendance.travelStartState ||
+                    state == Attendance.travelArriveState
+                ? Icons.directions_car_rounded
+                : (state == 0 ? Icons.login : Icons.logout),
             size: 14,
             color: color,
           ),

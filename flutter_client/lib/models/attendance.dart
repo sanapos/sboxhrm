@@ -92,6 +92,19 @@ class Attendance {
   int get punchType => attendanceState;
   int get verifyType => verifyMode;
 
+  /// Mobile đi đường — không ghép vào cặp Vào/Ra ca làm.
+  static const int travelStartState = 6;
+  static const int travelArriveState = 7;
+
+  static bool isTravelAttendanceState(int state) =>
+      state == travelStartState || state == travelArriveState;
+
+  bool get isTravelPunch => isTravelAttendanceState(attendanceState);
+
+  /// Loại bỏ chấm đi đường khi tính giờ ca / ghép Vào-Ra.
+  static List<Attendance> withoutTravel(List<Attendance> list) =>
+      list.where((a) => !a.isTravelPunch).toList();
+
   String get privilegeText => privilegeLabel(privilege);
 
   /// Parse attendance state from int or string enum name.
@@ -118,6 +131,10 @@ class Attendance {
         return 4;
       case 'BreakOut':
         return 5;
+      case 'TravelStart':
+        return travelStartState;
+      case 'TravelArrive':
+        return travelArriveState;
       default:
         return 0;
     }
@@ -249,6 +266,9 @@ class Attendance {
   }
 
   String get punchTypeText {
+    if (isTravelPunch) {
+      return attendanceState == travelStartState ? 'Bắt đầu đi' : 'Đến điểm làm';
+    }
     switch (punchType) {
       case 0:
         return 'Vào';

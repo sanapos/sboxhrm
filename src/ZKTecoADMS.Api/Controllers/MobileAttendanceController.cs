@@ -6571,7 +6571,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
         var syncedToRaw = false;
 
 
-        if (status == "auto_approved" && !isTravelPunch)
+        if (status == "auto_approved")
 
 
         {
@@ -7194,7 +7194,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
         var records = await _dbContext.MobileAttendanceRecords
             .Where(r => r.StoreId == storeId && r.Deleted == null
-                && r.Status == "auto_approved"
+                && (r.Status == "auto_approved" || r.Status == "approved")
                 && r.PunchTime >= day && r.PunchTime < day.AddDays(1))
             .ToListAsync();
 
@@ -7419,7 +7419,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
         // Äá»“ng bá»™ vÃ o báº£ng cháº¥m cÃ´ng chÃ­nh khi Ä‘Æ°á»£c duyá»‡t
 
 
-        if (request.Approved && record.PunchType is 0 or 1)
+        if (request.Approved)
 
 
         {
@@ -8480,9 +8480,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
         {
 
 
-            // Chấm đi đường (2/3) chỉ dùng cho tính giờ công tác — không ghi vào chấm công thô.
-            if (record.PunchType is 2 or 3)
-                return true;
+            // Chấm đi đường (2/3) ghi vào chấm công thô với AttendanceState riêng — không tính vào giờ ca.
 
 
             // Kiá»ƒm tra Ä‘Ã£ sync chÆ°a
@@ -8743,6 +8741,9 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
+            var isTravel = record.PunchType is 2 or 3;
+
+
             var attendance = new Attendance
 
 
@@ -8764,13 +8765,20 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
                 VerifyMode = verifyMode,
 
 
-                AttendanceState = record.PunchType == 0 ? AttendanceStates.CheckIn : AttendanceStates.CheckOut,
+                AttendanceState = MapMobilePunchTypeToAttendanceState(record.PunchType),
 
 
                 AttendanceTime = record.PunchTime,
 
 
-                Note = $"Mobile: {record.VerifyMethod}",
+                WorkCode = isTravel ? "TRAVEL" : null,
+
+
+                Note = isTravel
+                    ? (record.PunchType == 2
+                        ? "Mobile đi đường: Bắt đầu đi"
+                        : "Mobile đi đường: Đến điểm làm")
+                    : $"Mobile: {record.VerifyMethod}",
 
 
                 MobileAttendanceRecordId = record.Id,
@@ -8843,17 +8851,20 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
                 record.Id, attendance.Id);
 
-            // Tự tạo phiếu phạt đi trễ / về sớm / tái phạm từ chấm công mobile.
-            try
+            // Tự tạo phiếu phạt đi trễ / về sớm / tái phạm từ chấm công mobile (không áp dụng chấm đi đường).
+            if (!isTravel)
             {
-                await _attendanceService.UpdateShiftAttendancesAsync(
-                    new[] { attendance }, mobileDevice);
-            }
-            catch (Exception penaltyEx)
-            {
-                _logger.LogError(penaltyEx,
-                    "Failed to auto-create penalty ticket for mobile attendance {AttendanceId}",
-                    attendance.Id);
+                try
+                {
+                    await _attendanceService.UpdateShiftAttendancesAsync(
+                        new[] { attendance }, mobileDevice);
+                }
+                catch (Exception penaltyEx)
+                {
+                    _logger.LogError(penaltyEx,
+                        "Failed to auto-create penalty ticket for mobile attendance {AttendanceId}",
+                        attendance.Id);
+                }
             }
 
             return true;
@@ -8878,6 +8889,16 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
 
     }
+
+
+    private static AttendanceStates MapMobilePunchTypeToAttendanceState(int punchType) => punchType switch
+    {
+        0 => AttendanceStates.CheckIn,
+        1 => AttendanceStates.CheckOut,
+        2 => AttendanceStates.TravelStart,
+        3 => AttendanceStates.TravelArrive,
+        _ => AttendanceStates.CheckIn,
+    };
 
 
 }
