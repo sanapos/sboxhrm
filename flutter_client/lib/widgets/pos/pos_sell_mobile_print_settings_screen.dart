@@ -1,0 +1,816 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+
+import '../../models/pos_print_template.dart';
+import '../../screens/pos_print_templates_screen.dart';
+import '../../services/api_service.dart';
+import '../../screens/pos/pos_store_printers_screen.dart';
+import '../../utils/pos_barcode_print.dart';
+import '../../utils/pos_label_printer_service.dart';
+import '../../utils/pos_label_printer_settings.dart';
+import '../../utils/pos_sell_print_settings.dart';
+import '../../utils/pos_thermal_printer_service.dart';
+import '../../utils/pos_thermal_printer_settings.dart';
+import '../../utils/responsive_helper.dart';
+import '../notification_overlay.dart';
+import 'pos_theme.dart';
+
+const _blue = PosTheme.kiotBlue;
+
+/// Thiết lập in + máy in nhiệt — giao diện mobile full-screen.
+class PosSellMobilePrintSettingsScreen extends StatefulWidget {
+  const PosSellMobilePrintSettingsScreen({
+    super.key,
+    required this.initialPrintSettings,
+    required this.initialThermalSettings,
+  });
+
+  final PosSellPrintSettings initialPrintSettings;
+  final PosThermalPrinterSettings initialThermalSettings;
+
+  @override
+  State<PosSellMobilePrintSettingsScreen> createState() =>
+      _PosSellMobilePrintSettingsScreenState();
+}
+
+class _PosSellMobilePrintSettingsScreenState
+    extends State<PosSellMobilePrintSettingsScreen> {
+  final _api = ApiService();
+  late PosSellPrintSettings _print = widget.initialPrintSettings;
+  late PosThermalPrinterSettings _thermal;
+  PosLabelPrinterSettings _label = const PosLabelPrinterSettings();
+  List<PosPrintTemplate> _templates = [];
+  List<Map<String, String>> _btDevices = [];
+  List<Map<String, String>> _labelBtDevices = [];
+  bool _loading = false;
+  bool _testing = false;
+  bool _testingLabel = false;
+  bool _isSunmi = false;
+
+  final _lanHostCtrl = TextEditingController();
+  final _lanPortCtrl = TextEditingController(text: '9100');
+  final _usbNameCtrl = TextEditingController();
+  final _labelLanHostCtrl = TextEditingController();
+  final _labelLanPortCtrl = TextEditingController(text: '9100');
+
+  @override
+  void initState() {
+    super.initState();
+    _thermal = widget.initialThermalSettings;
+    _lanHostCtrl.text = _thermal.lanHost ?? '';
+    _lanPortCtrl.text = '${_thermal.lanPort}';
+    _usbNameCtrl.text = _thermal.usbDeviceName ?? '';
+    PosLabelPrinterSettings.load().then((lp) {
+      if (!mounted) return;
+      setState(() {
+        _label = lp;
+        _labelLanHostCtrl.text = lp.lanHost ?? '';
+        _labelLanPortCtrl.text = '${lp.lanPort}';
+      });
+    });
+    _loadTemplates();
+    _loadBluetoothInBackground();
+    PosThermalPrinterService.isSunmiDevice().then((v) {
+      if (mounted) setState(() => _isSunmi = v);
+    });
+  }
+
+  @override
+  void dispose() {
+    _lanHostCtrl.dispose();
+    _lanPortCtrl.dispose();
+    _usbNameCtrl.dispose();
+    _labelLanHostCtrl.dispose();
+    _labelLanPortCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadBluetoothInBackground() async {
+    final devices = await PosThermalPrinterService.listBluetoothDevices();
+    if (mounted) setState(() => _btDevices = devices);
+  }
+
+  Future<void> _loadTemplates() async {
+    setState(() => _loading = true);
+    try {
+      final res = await _api
+          .getPosPrintTemplates(
+            documentType: PosPrintDocumentTypes.saleInvoice,
+          )
+          .timeout(const Duration(seconds: 8), onTimeout: () => {'isSuccess': false});
+      if (res['isSuccess'] == true && res['data'] is List) {
+        _templates = (res['data'] as List)
+            .map((e) => PosPrintTemplate.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
+    } catch (e) {
+      debugPrint('load print settings failed: $e');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _load() async {
+    await _loadTemplates();
+    await _loadBluetoothInBackground();
+  }
+
+  String? _resolveTemplateId() {
+    if (_templates.isEmpty) return null;
+    final saved = _print.templateId;
+    if (saved != null && _templates.any((t) => t.id == saved)) return saved;
+    return _templates.where((t) => t.isDefault).firstOrNull?.id ??
+        _templates.first.id;
+  }
+
+  Future<void> _save() async {
+    final port = int.tryParse(_lanPortCtrl.text.trim()) ?? 9100;
+    _thermal = _thermal.copyWith(
+      lanHost: _lanHostCtrl.text.trim(),
+      lanPort: port,
+      usbDeviceName: _usbNameCtrl.text.trim(),
+    );
+    await _print.save();
+    await _thermal.save();
+    final labelPort = int.tryParse(_labelLanPortCtrl.text.trim()) ?? 9100;
+    _label = _label.copyWith(
+      lanHost: _labelLanHostCtrl.text.trim(),
+      lanPort: labelPort,
+    );
+    await _label.save();
+    if (!mounted) return;
+    NotificationOverlayManager()
+        .showSuccess(title: 'Đã lưu', message: 'Thiết lập in đã được cập nhật');
+    Navigator.pop(context, (_print, _thermal));
+  }
+
+  Future<void> _testPrint() async {
+    setState(() => _testing = true);
+    final port = int.tryParse(_lanPortCtrl.text.trim()) ?? 9100;
+    final draft = _thermal.copyWith(
+      enabled: true,
+      lanHost: _lanHostCtrl.text.trim(),
+      lanPort: port,
+      usbDeviceName: _usbNameCtrl.text.trim(),
+    );
+    final ok = await PosThermalPrinterService.testPrint(draft);
+    if (!mounted) return;
+    setState(() => _testing = false);
+    if (ok) {
+      NotificationOverlayManager()
+          .showSuccess(title: 'In thử', message: 'Đã gửi lệnh in thử');
+    } else {
+      NotificationOverlayManager().showError(
+        title: 'In thử thất bại',
+        message: 'Kiểm tra kết nối máy in và quyền Bluetooth/USB',
+      );
+    }
+  }
+
+  Future<void> _testLabelPrint() async {
+    setState(() => _testingLabel = true);
+    final port = int.tryParse(_labelLanPortCtrl.text.trim()) ?? 9100;
+    final draft = _label.copyWith(
+      enabled: true,
+      lanHost: _labelLanHostCtrl.text.trim(),
+      lanPort: port,
+    );
+    final ok = await PosLabelPrinterService.testPrint(draft);
+    if (!mounted) return;
+    setState(() => _testingLabel = false);
+    if (ok) {
+      NotificationOverlayManager()
+          .showSuccess(title: 'In thử tem', message: 'Đã gửi tem mẫu');
+    } else {
+      NotificationOverlayManager().showError(
+        title: 'In thử tem thất bại',
+        message: 'Kiểm tra kết nối và khổ giấy tem',
+      );
+    }
+  }
+
+  Future<void> _openTemplateEditor() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => const PosPrintTemplatesScreen(embeddedInSettings: true),
+      ),
+    );
+    await _load();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF3F4F6),
+      appBar: AppBar(
+        title: const Text('Thiết lập in'),
+        backgroundColor: Colors.white,
+        foregroundColor: PosTheme.textPrimary,
+        elevation: 0,
+        actions: [
+          IconButton(
+            tooltip: 'Máy in cửa hàng',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const PosStorePrintersScreen(),
+                ),
+              );
+            },
+            icon: const Icon(Icons.print_outlined),
+          ),
+          TextButton(
+            onPressed: _loading ? null : _save,
+            child: const Text('Lưu', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+      body: ListView(
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 24),
+              children: [
+                _sectionTitle('Hóa đơn'),
+                _card([
+                  SwitchListTile(
+                    title: const Text('Tự động in sau thanh toán'),
+                    value: _print.autoPrint,
+                    activeThumbColor: _blue,
+                    onChanged: (v) => setState(() => _print = _print.copyWith(autoPrint: v)),
+                  ),
+                  SwitchListTile(
+                    title: const Text('Gộp hàng cùng loại khi in'),
+                    value: _print.mergeSameItems,
+                    activeThumbColor: _blue,
+                    onChanged: (v) =>
+                        setState(() => _print = _print.copyWith(mergeSameItems: v)),
+                  ),
+                  SwitchListTile(
+                    title: const Text('In mã VietQR trên hóa đơn'),
+                    subtitle: const Text(
+                      'In QR tổng tiền đơn (cần thiết lập tài khoản NH)',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    value: _print.printVietQrOnReceipt,
+                    activeThumbColor: _blue,
+                    onChanged: (v) => setState(
+                      () => _print = _print.copyWith(printVietQrOnReceipt: v),
+                    ),
+                  ),
+                  ListTile(
+                    title: const Text('Số bản in (liên)'),
+                    trailing: DropdownButton<int>(
+                      value: _print.copies.clamp(1, 10),
+                      items: List.generate(
+                        10,
+                        (i) => DropdownMenuItem(value: i + 1, child: Text('${i + 1}')),
+                      ),
+                      onChanged: (v) {
+                        if (v == null) return;
+                        setState(() => _print = _print.copyWith(copies: v));
+                      },
+                    ),
+                  ),
+                  ListTile(
+                    title: const Text('Mẫu in hóa đơn'),
+                    subtitle: Text(
+                      _templates.isEmpty
+                          ? 'Chưa có mẫu'
+                          : _templates
+                                  .where((t) => t.id == _resolveTemplateId())
+                                  .firstOrNull
+                                  ?.name ??
+                              'Mặc định',
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: _templates.isEmpty
+                        ? null
+                        : () {
+                            final id = _resolveTemplateId();
+                            if (id == null) return;
+                            setState(() => _print = _print.copyWith(templateId: id));
+                            showModalBottomSheet<void>(
+                              context: context,
+                              builder: (ctx) => SafeArea(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Padding(
+                                      padding: EdgeInsets.all(16),
+                                      child: Text('Chọn mẫu in',
+                                          style: TextStyle(
+                                              fontSize: 17,
+                                              fontWeight: FontWeight.w600)),
+                                    ),
+                                    ..._templates.map(
+                                      (t) => ListTile(
+                                        title: Text(t.name),
+                                        subtitle: Text(
+                                          PosPrintPaperSizes.labels[t.paperSize] ??
+                                              t.paperSize,
+                                        ),
+                                        trailing: _resolveTemplateId() == t.id
+                                            ? const Icon(Icons.check, color: _blue)
+                                            : null,
+                                        onTap: () {
+                                          setState(() =>
+                                              _print = _print.copyWith(templateId: t.id));
+                                          Navigator.pop(ctx);
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.design_services_outlined, color: _blue),
+                    title: const Text('Thiết kế mẫu in (K58/K80/A5/A4)'),
+                    subtitle: const Text('Mở trình soạn mẫu tối ưu mobile'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: _openTemplateEditor,
+                  ),
+                ]),
+                const SizedBox(height: 16),
+                _sectionTitle('Máy in nhiệt'),
+                _card([
+                  SwitchListTile(
+                    title: const Text('Dùng máy in nhiệt (cục bộ)'),
+                    subtitle: const Text(
+                      'In trực tiếp trên thiết bị này (cùng mạng LAN). '
+                      'In từ xa: dùng Máy in cửa hàng + Print Agent.',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    value: _thermal.enabled,
+                    activeThumbColor: _blue,
+                    onChanged: (v) => setState(() => _thermal = _thermal.copyWith(enabled: v)),
+                  ),
+                  if (_thermal.enabled) ...[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                    child: DropdownButtonFormField<String>(
+                      value: _thermal.printerBrand.key,
+                      decoration: const InputDecoration(
+                        labelText: 'Hãng máy in',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                        helperText: 'Zywell: in ảnh tiếng Việt chuẩn',
+                      ),
+                      items: PosThermalPrinterBrand.values
+                          .map((b) => DropdownMenuItem(
+                                value: b.key,
+                                child: Text(b.label),
+                              ))
+                          .toList(),
+                      onChanged: (v) {
+                        if (v == null) return;
+                        setState(() => _thermal = _thermal.copyWith(
+                              printerBrand: PosThermalPrinterBrand.fromKey(v),
+                            ));
+                      },
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                    child: DropdownButtonFormField<String>(
+                      value: _thermal.textMode.key,
+                      decoration: const InputDecoration(
+                        labelText: 'Chế độ in chữ',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                        helperText: 'Tự động: Zywell → in ảnh có dấu',
+                      ),
+                      items: PosThermalTextMode.values
+                          .map((m) => DropdownMenuItem(
+                                value: m.key,
+                                child: Text(m.label),
+                              ))
+                          .toList(),
+                      onChanged: (v) {
+                        if (v == null) return;
+                        setState(() => _thermal = _thermal.copyWith(
+                              textMode: PosThermalTextMode.fromKey(v),
+                            ));
+                      },
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                    child: DropdownButtonFormField<String>(
+                      value: _thermal.paperSize,
+                      decoration: const InputDecoration(
+                        labelText: 'Khổ giấy',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 'K58', child: Text('K58 (58mm)')),
+                        DropdownMenuItem(value: 'K80', child: Text('K80 (80mm)')),
+                      ],
+                      onChanged: (v) {
+                        if (v == null) return;
+                        setState(() => _thermal = _thermal.copyWith(paperSize: v));
+                      },
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Wrap(
+                      spacing: 8,
+                      children: PosThermalConnectionType.values.map((t) {
+                        if (t == PosThermalConnectionType.sunmi && !_isSunmi) {
+                          return const SizedBox.shrink();
+                        }
+                        final selected = _thermal.connectionType == t;
+                        return ChoiceChip(
+                          label: Text(t.label),
+                          selected: selected,
+                          selectedColor: PosTheme.kiotBlueLight,
+                          onSelected: (_) => setState(
+                            () => _thermal = _thermal.copyWith(connectionType: t),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                  if (_thermal.connectionType ==
+                      PosThermalConnectionType.bluetooth) ...[
+                    const Divider(height: 1),
+                    ListTile(
+                      title: const Text('Máy in Bluetooth đã ghép'),
+                      subtitle: Text(
+                        _thermal.bluetoothName?.isNotEmpty == true
+                            ? '${_thermal.bluetoothName} (${_thermal.bluetoothAddress})'
+                            : 'Chưa chọn',
+                      ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () async {
+                        _btDevices =
+                            await PosThermalPrinterService.listBluetoothDevices();
+                        if (!mounted) return;
+                        if (_btDevices.isEmpty) {
+                          NotificationOverlayManager().showWarning(
+                            title: 'Không có máy in',
+                            message: 'Ghép máy in Bluetooth trong Cài đặt Android trước',
+                          );
+                          return;
+                        }
+                        await showModalBottomSheet<void>(
+                          context: context,
+                          builder: (ctx) => SafeArea(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Padding(
+                                  padding: EdgeInsets.all(16),
+                                  child: Text('Chọn máy in Bluetooth',
+                                      style: TextStyle(
+                                          fontSize: 17, fontWeight: FontWeight.w600)),
+                                ),
+                                ..._btDevices.map(
+                                  (d) => ListTile(
+                                    title: Text(d['name'] ?? 'Máy in'),
+                                    subtitle: Text(d['address'] ?? ''),
+                                    onTap: () {
+                                      setState(() {
+                                        _thermal = _thermal.copyWith(
+                                          bluetoothName: d['name'],
+                                          bluetoothAddress: d['address'],
+                                        );
+                                      });
+                                      Navigator.pop(ctx);
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                  if (_thermal.connectionType == PosThermalConnectionType.lan) ...[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                      child: TextField(
+                        controller: _lanHostCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'IP máy in (LAN/WiFi)',
+                          hintText: '192.168.1.100',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                      child: TextField(
+                        controller: _lanPortCtrl,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Cổng (mặc định 9100)',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                  ],
+                  if (_thermal.connectionType == PosThermalConnectionType.usb)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                      child: TextField(
+                        controller: _usbNameCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Tên thiết bị USB (tùy chọn)',
+                          helperText:
+                              'Sunmi: dùng chế độ Sunmi. USB OTG: ưu tiên máy ESC/POS hỗ trợ LAN/BT.',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                  if (_thermal.connectionType == PosThermalConnectionType.sunmi)
+                    const ListTile(
+                      leading: Icon(Icons.print, color: _blue),
+                      title: Text('Máy in tích hợp Sunmi'),
+                      subtitle: Text('Tự nhận máy in nhiệt trên thiết bị Sunmi'),
+                    ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                    child: Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            'Dòng trống trước cắt',
+                            style: TextStyle(fontSize: 14),
+                          ),
+                        ),
+                        DropdownButton<int>(
+                          value: _thermal.feedBeforeCut.clamp(3, 15),
+                          items: List.generate(
+                            13,
+                            (i) => DropdownMenuItem(
+                              value: i + 3,
+                              child: Text('${i + 3} dòng'),
+                            ),
+                          ),
+                          onChanged: (v) {
+                            if (v == null) return;
+                            setState(() =>
+                                _thermal = _thermal.copyWith(feedBeforeCut: v));
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  SwitchListTile(
+                    title: const Text('Cắt một phần (partial)'),
+                    subtitle: const Text('Tắt = cắt hết — tránh cắt mất dòng cuối'),
+                    value: _thermal.partialCut,
+                    activeThumbColor: _blue,
+                    onChanged: (v) =>
+                        setState(() => _thermal = _thermal.copyWith(partialCut: v)),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                    child: OutlinedButton.icon(
+                      onPressed: _testing ? null : _testPrint,
+                      icon: _testing
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.print_outlined),
+                      label: const Text('In thử'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: _blue,
+                        side: const BorderSide(color: _blue),
+                        minimumSize: const Size(double.infinity, 44),
+                      ),
+                    ),
+                  ),
+                  ],
+                ]),
+                const SizedBox(height: 16),
+                _sectionTitle('Máy in tem nhãn'),
+                _card([
+                  SwitchListTile(
+                    title: const Text('Dùng máy in tem (cục bộ)'),
+                    subtitle: const Text(
+                      'Dự phòng — khuyến nghị thêm máy tem trong Máy in cửa hàng',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    value: _label.enabled,
+                    activeThumbColor: _blue,
+                    onChanged: (v) => setState(() => _label = _label.copyWith(enabled: v)),
+                  ),
+                  if (_label.enabled) ...[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                    child: DropdownButtonFormField<String>(
+                      value: _label.templateId,
+                      decoration: const InputDecoration(
+                        labelText: 'Khổ giấy tem mặc định',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      items: posBarcodeLabelTemplates
+                          .map((t) => DropdownMenuItem(
+                                value: t.id,
+                                child: Text(
+                                  '${t.sizeLabel} — ${t.name}',
+                                  style: const TextStyle(fontSize: 12),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ))
+                          .toList(),
+                      onChanged: (v) {
+                        if (v == null) return;
+                        setState(() => _label = _label.copyWith(templateId: v));
+                      },
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                    child: DropdownButtonFormField<String>(
+                      value: _label.protocol.key,
+                      decoration: const InputDecoration(
+                        labelText: 'Giao thức',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      items: PosLabelPrinterProtocol.values
+                          .map((p) => DropdownMenuItem(
+                                value: p.key,
+                                child: Text(p.label),
+                              ))
+                          .toList(),
+                      onChanged: (v) {
+                        if (v == null) return;
+                        setState(() => _label = _label.copyWith(
+                              protocol: PosLabelPrinterProtocol.fromKey(v),
+                            ));
+                      },
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Wrap(
+                      spacing: 8,
+                      children: PosThermalConnectionType.values.map((t) {
+                        if (t == PosThermalConnectionType.sunmi && !_isSunmi) {
+                          return const SizedBox.shrink();
+                        }
+                        final selected = _label.connectionType == t;
+                        return ChoiceChip(
+                          label: Text(t.label),
+                          selected: selected,
+                          selectedColor: PosTheme.kiotBlueLight,
+                          onSelected: (_) => setState(
+                            () => _label = _label.copyWith(connectionType: t),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                  if (_label.connectionType == PosThermalConnectionType.bluetooth)
+                    ListTile(
+                      title: const Text('Máy in tem Bluetooth'),
+                      subtitle: Text(
+                        _label.bluetoothName?.isNotEmpty == true
+                            ? '${_label.bluetoothName} (${_label.bluetoothAddress})'
+                            : 'Chưa chọn',
+                      ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () async {
+                        _labelBtDevices =
+                            await PosThermalPrinterService.listBluetoothDevices();
+                        if (!mounted) return;
+                        if (_labelBtDevices.isEmpty) {
+                          NotificationOverlayManager().showWarning(
+                            title: 'Không có máy in',
+                            message: 'Ghép máy in Bluetooth trong Cài đặt Android',
+                          );
+                          return;
+                        }
+                        await showModalBottomSheet<void>(
+                          context: context,
+                          builder: (ctx) => SafeArea(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Padding(
+                                  padding: EdgeInsets.all(16),
+                                  child: Text('Chọn máy in tem',
+                                      style: TextStyle(
+                                          fontSize: 17, fontWeight: FontWeight.w600)),
+                                ),
+                                ..._labelBtDevices.map(
+                                  (d) => ListTile(
+                                    title: Text(d['name'] ?? 'Máy in'),
+                                    subtitle: Text(d['address'] ?? ''),
+                                    onTap: () {
+                                      setState(() {
+                                        _label = _label.copyWith(
+                                          bluetoothName: d['name'],
+                                          bluetoothAddress: d['address'],
+                                        );
+                                      });
+                                      Navigator.pop(ctx);
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  if (_label.connectionType == PosThermalConnectionType.lan) ...[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                      child: TextField(
+                        controller: _labelLanHostCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'IP máy in tem',
+                          hintText: '192.168.1.100',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                      child: TextField(
+                        controller: _labelLanPortCtrl,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Cổng (9100)',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                  ],
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                    child: OutlinedButton.icon(
+                      onPressed: _testingLabel ? null : _testLabelPrint,
+                      icon: _testingLabel
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.label_outline),
+                      label: const Text('In thử tem'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: _blue,
+                        side: const BorderSide(color: _blue),
+                        minimumSize: const Size(double.infinity, 44),
+                      ),
+                    ),
+                  ),
+                  ],
+                ]),
+              ],
+            ),
+    );
+  }
+
+  Widget _sectionTitle(String text) => Padding(
+        padding: const EdgeInsets.only(left: 4, bottom: 8),
+        child: Text(
+          text,
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _blue),
+        ),
+      );
+
+  Widget _card(List<Widget> children) => Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        child: Column(children: children),
+      );
+}
+
+/// Mở thiết lập in mobile hoặc popover desktop.
+Future<(PosSellPrintSettings, PosThermalPrinterSettings)?> openPosSellPrintSettings(
+  BuildContext context, {
+  required PosSellPrintSettings initialPrint,
+  required PosThermalPrinterSettings initialThermal,
+  Offset? anchor,
+}) async {
+  if (Responsive.isMobile(context)) {
+    final result = await Navigator.of(context).push<(PosSellPrintSettings, PosThermalPrinterSettings)>(
+      MaterialPageRoute(
+        builder: (_) => PosSellMobilePrintSettingsScreen(
+          initialPrintSettings: initialPrint,
+          initialThermalSettings: initialThermal,
+        ),
+      ),
+    );
+    return result;
+  }
+  return null;
+}

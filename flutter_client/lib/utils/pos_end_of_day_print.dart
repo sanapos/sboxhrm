@@ -1,6 +1,19 @@
+import 'dart:typed_data';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 
 import '../models/pos_end_of_day_report.dart';
+import '../models/pos_store_printer.dart';
+import 'pos_html_print.dart';
+import 'pos_print_orchestrator.dart';
+import 'pos_store_printer_mapper.dart';
+import 'pos_thermal_printer_service.dart';
+import 'pos_thermal_printer_settings.dart';
 
 enum PosEndOfDayPrintFormat { bill, a4 }
 
@@ -194,3 +207,222 @@ String _buildA4(PosEndOfDayReport r, {required bool showProductDetail}) {
 
 String _esc(String s) =>
     s.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+
+Future<Uint8List> buildPosEndOfDayPdfBytes(
+  PosEndOfDayReport r, {
+  PosEndOfDayPrintFormat format = PosEndOfDayPrintFormat.bill,
+  bool showProductDetail = true,
+}) async {
+  final pdf = pw.Document();
+  final staff = r.staffName ?? r.staffEmail ?? 'Tất cả nhân viên';
+  final pageFormat = format == PosEndOfDayPrintFormat.a4
+      ? PdfPageFormat.a4
+      : PdfPageFormat.roll80;
+
+  pw.Widget row(String label, String value, {bool bold = false}) => pw.Padding(
+        padding: const pw.EdgeInsets.symmetric(vertical: 2),
+        child: pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Expanded(
+              child: pw.Text(label,
+                  style: pw.TextStyle(
+                      fontSize: 9,
+                      fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal)),
+            ),
+            pw.SizedBox(width: 8),
+            pw.Text(value,
+                style: pw.TextStyle(
+                    fontSize: 9,
+                    fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal)),
+          ],
+        ),
+      );
+
+  pdf.addPage(
+    pw.Page(
+      pageFormat: pageFormat,
+      margin: const pw.EdgeInsets.all(12),
+      build: (ctx) => pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        children: [
+          pw.Center(
+            child: pw.Text('TỔNG KẾT CUỐI NGÀY',
+                style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold)),
+          ),
+          pw.SizedBox(height: 6),
+          if (r.storeName != null && r.storeName!.isNotEmpty)
+            pw.Center(child: pw.Text(r.storeName!, style: const pw.TextStyle(fontSize: 10))),
+          pw.Center(child: pw.Text('Nhân viên: $staff', style: const pw.TextStyle(fontSize: 9))),
+          pw.Center(
+            child: pw.Text('${_dt(r.from)} - ${_dt(r.to)}',
+                style: const pw.TextStyle(fontSize: 9)),
+          ),
+          pw.SizedBox(height: 10),
+          row('Số đơn hàng', '${r.orderCount}'),
+          row('Chiết khấu', _money(r.orderDiscount)),
+          row('Tổng doanh thu', _money(r.totalSales)),
+          row('VAT', _money(r.vat)),
+          row('Doanh thu ròng', _money(r.netSales)),
+          row('Trả hàng', _money(r.refundTotal)),
+          row('Sau trả hàng', _money(r.totalAfterRefund)),
+          row('Tiền mặt', _money(r.cashTotal)),
+          row('Ghi nợ', _money(r.debtTotal)),
+          row('Thực thu', _money(r.actualReceived), bold: true),
+          if (showProductDetail && r.products.isNotEmpty) ...[
+            pw.SizedBox(height: 8),
+            pw.Text('Hàng hóa bán ra',
+                style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+            ...r.products.take(30).map(
+                  (p) => row(
+                    p.productName,
+                    '${_qty(p.qty)} · ${_money(p.revenue)}',
+                  ),
+                ),
+          ],
+          pw.Spacer(),
+          pw.Center(
+            child: pw.Text('In lúc ${_dt(r.generatedAt)} · SBOX POS',
+                style: const pw.TextStyle(fontSize: 8)),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  return Uint8List.fromList(await pdf.save());
+}
+
+Future<void> printPosEndOfDayReport(
+  BuildContext context,
+  PosEndOfDayReport report, {
+  PosEndOfDayPrintFormat format = PosEndOfDayPrintFormat.bill,
+  bool showProductDetail = true,
+}) async {
+  if (!kIsWeb && format == PosEndOfDayPrintFormat.bill) {
+    await PosPrintOrchestrator.instance.refreshConfig();
+    final printer = PosPrintOrchestrator.instance
+        .resolvePrinter(PosCloudDocumentTypes.endOfDayReport);
+    final local = await PosThermalPrinterSettings.load();
+    final lines =
+        _buildEodThermalLines(report, showProductDetail: showProductDetail);
+
+    if (printer != null) {
+      final settings = toThermalSettings(printer);
+      final bytes = await PosThermalPrinterService.buildTextEscPosBytes(
+        settings: settings,
+        title: 'TỔNG KẾT CUỐI NGÀY',
+        lines: lines,
+        footer: 'In lúc ${_dt(report.generatedAt)} · SBOX POS',
+      );
+      final ok = await PosPrintOrchestrator.instance.dispatchEscPos(
+        documentType: PosCloudDocumentTypes.endOfDayReport,
+        bytes: bytes,
+        referenceNo: 'EOD-${_d(report.from)}',
+        showFeedback: true,
+        successTitle: 'In cuối ngày',
+      );
+      if (ok) return;
+    }
+
+    if (local.enabled) {
+      final bytes = await PosThermalPrinterService.buildTextEscPosBytes(
+        settings: local,
+        title: 'TỔNG KẾT CUỐI NGÀY',
+        lines: lines,
+        footer: 'In lúc ${_dt(report.generatedAt)} · SBOX POS',
+      );
+      final ok = await PosPrintOrchestrator.instance.dispatchLocalEscPos(
+        bytes: bytes,
+        showFeedback: true,
+        successTitle: 'In cuối ngày',
+        settingsOverride: local,
+      );
+      if (ok) return;
+    }
+  }
+
+  final bytes = await buildPosEndOfDayPdfBytes(
+    report,
+    format: format,
+    showProductDetail: showProductDetail,
+  );
+  final title = format == PosEndOfDayPrintFormat.a4
+      ? 'TongKetCuoiNgay_A4'
+      : 'TongKetCuoiNgay_Bill';
+
+  if (!context.mounted) return;
+
+  if (kIsWeb) {
+    final html = buildPosEndOfDayHtml(
+      report,
+      format: format,
+      showProductDetail: showProductDetail,
+    );
+    await showPosHtmlPrintDialog(context, title: title, htmlDocument: html);
+    return;
+  }
+
+  await showDialog<void>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('In tổng kết cuối ngày'),
+      content: const Text('Chọn cách in hoặc xuất PDF.'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Đóng')),
+        OutlinedButton(
+          onPressed: () async {
+            Navigator.pop(ctx);
+            await Printing.layoutPdf(
+              onLayout: (_) async => bytes,
+              name: title,
+            );
+          },
+          child: const Text('In'),
+        ),
+        FilledButton(
+          onPressed: () async {
+            Navigator.pop(ctx);
+            await Printing.sharePdf(bytes: bytes, filename: '$title.pdf');
+          },
+          child: const Text('Xuất PDF'),
+        ),
+      ],
+    ),
+  );
+}
+
+List<String> _buildEodThermalLines(
+  PosEndOfDayReport r, {
+  required bool showProductDetail,
+}) {
+  final staff = r.staffName ?? r.staffEmail ?? 'Tất cả';
+  final lines = <String>[
+    if (r.storeName != null && r.storeName!.isNotEmpty) r.storeName!,
+    'Nhân viên: $staff',
+    '${_dt(r.from)} - ${_dt(r.to)}',
+    '────────────────',
+    'Số đơn: ${r.orderCount}',
+    'Chiết khấu: ${_money(r.orderDiscount)}',
+    'Doanh thu: ${_money(r.totalSales)}',
+    'VAT: ${_money(r.vat)}',
+    'Doanh thu ròng: ${_money(r.netSales)}',
+    'Trả hàng: ${_money(r.refundTotal)}',
+    'Sau trả hàng: ${_money(r.totalAfterRefund)}',
+    'Hủy đơn: ${r.canceledCount}',
+    'Tiền mặt: ${_money(r.cashTotal)}',
+    'Ghi nợ: ${_money(r.debtTotal)}',
+    'Thực thu: ${_money(r.actualReceived)}',
+  ];
+  if (showProductDetail && r.products.isNotEmpty) {
+    lines.add('── Hàng bán ──');
+    for (final p in r.products.take(20)) {
+      lines.add('${p.productName}: ${_qty(p.qty)} · ${_money(p.revenue)}');
+    }
+    if (r.products.length > 20) {
+      lines.add('... và ${r.products.length - 20} mặt hàng');
+    }
+    lines.add('CK mặt hàng: ${_money(r.lineDiscountTotal)}');
+  }
+  return lines;
+}
