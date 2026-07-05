@@ -1,4 +1,4 @@
-﻿using ZKTecoADMS.Domain.Entities;
+using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Application.Interfaces;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -225,6 +225,16 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     public DbSet<PosPurchaseReturnLine> PosPurchaseReturnLines => Set<PosPurchaseReturnLine>();
     public DbSet<PosSupplierPayment> PosSupplierPayments => Set<PosSupplierPayment>();
     public DbSet<PosPrintTemplate> PosPrintTemplates => Set<PosPrintTemplate>();
+    public DbSet<PosStorePrinter> PosStorePrinters => Set<PosStorePrinter>();
+    public DbSet<PosPrinterDocumentRoute> PosPrinterDocumentRoutes => Set<PosPrinterDocumentRoute>();
+    public DbSet<PosPrintAgent> PosPrintAgents => Set<PosPrintAgent>();
+    public DbSet<PosPrintJob> PosPrintJobs => Set<PosPrintJob>();
+    public DbSet<PosPriceList> PosPriceLists => Set<PosPriceList>();
+    public DbSet<PosPriceListItem> PosPriceListItems => Set<PosPriceListItem>();
+    public DbSet<PosProductWarrantyRegistration> PosProductWarrantyRegistrations => Set<PosProductWarrantyRegistration>();
+    public DbSet<PosCustomerPayment> PosCustomerPayments => Set<PosCustomerPayment>();
+    public DbSet<PosCustomerPointTransaction> PosCustomerPointTransactions => Set<PosCustomerPointTransaction>();
+    public DbSet<PosVoucher> PosVouchers => Set<PosVoucher>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

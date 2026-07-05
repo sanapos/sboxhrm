@@ -127,6 +127,7 @@ public static class DependencyInjectionExtensions
         services.AddScoped<ZKTecoADMS.Application.Interfaces.IAnnualLeaveBalanceService,
             ZKTecoADMS.Application.Leaves.AnnualLeaveBalanceService>();
         services.AddScoped<IDeviceStatusNotificationService, DeviceStatusNotificationService>();
+        services.AddScoped<IPosPrintDispatchService, PosPrintDispatchService>();
 
         // FCM push notifications
         services.AddSingleton<ZKTecoADMS.Infrastructure.Services.Push.FirebaseInitializer>();

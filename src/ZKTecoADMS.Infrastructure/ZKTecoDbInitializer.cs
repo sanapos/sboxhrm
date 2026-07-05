@@ -1,4 +1,4 @@
-﻿using ZKTecoADMS.Application.Authorization;
+using ZKTecoADMS.Application.Authorization;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Infrastructure.Helpers;
@@ -856,6 +856,8 @@ public class ZKTecoDbInitializer(
                     );
 
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""SaleQuickNotesJson"" character varying(4000);
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""VatRate"" numeric(5,2) NOT NULL DEFAULT 8;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""VatExempt"" boolean NOT NULL DEFAULT false;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""SupplierId"" uuid;
                     DO $$ BEGIN
                         IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_PosProducts_Supplier') THEN
@@ -982,6 +984,54 @@ public class ZKTecoDbInitializer(
                     END $$;
 
                     ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""SoldByEmployeeId"" uuid NULL;
+
+                    CREATE TABLE IF NOT EXISTS ""PosPriceLists"" (
+                        ""Id"" uuid PRIMARY KEY,
+                        ""StoreId"" uuid NOT NULL,
+                        ""Name"" character varying(100) NOT NULL,
+                        ""IsDefault"" boolean NOT NULL DEFAULT false,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""SortOrder"" integer NOT NULL DEFAULT 0,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone,
+                        ""UpdatedBy"" text,
+                        ""CreatedBy"" text,
+                        ""LastModified"" timestamp without time zone,
+                        ""LastModifiedBy"" text,
+                        ""Deleted"" timestamp without time zone,
+                        ""DeletedBy"" text,
+                        CONSTRAINT ""FK_PosPriceLists_Stores_StoreId""
+                            FOREIGN KEY (""StoreId"") REFERENCES ""Stores""(""Id"") ON DELETE CASCADE
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_PosPriceLists_StoreId_Name""
+                        ON ""PosPriceLists""(""StoreId"", ""Name"");
+
+                    CREATE TABLE IF NOT EXISTS ""PosPriceListItems"" (
+                        ""Id"" uuid PRIMARY KEY,
+                        ""StoreId"" uuid NOT NULL,
+                        ""PriceListId"" uuid NOT NULL,
+                        ""ProductId"" uuid NOT NULL,
+                        ""VariantId"" uuid NULL,
+                        ""UnitId"" uuid NULL,
+                        ""Price"" numeric(18,2) NOT NULL DEFAULT 0,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone,
+                        ""UpdatedBy"" text,
+                        ""CreatedBy"" text,
+                        ""LastModified"" timestamp without time zone,
+                        ""LastModifiedBy"" text,
+                        ""Deleted"" timestamp without time zone,
+                        ""DeletedBy"" text,
+                        CONSTRAINT ""FK_PosPriceListItems_PriceList""
+                            FOREIGN KEY (""PriceListId"") REFERENCES ""PosPriceLists""(""Id"") ON DELETE CASCADE,
+                        CONSTRAINT ""FK_PosPriceListItems_Product""
+                            FOREIGN KEY (""ProductId"") REFERENCES ""PosProducts""(""Id"") ON DELETE CASCADE
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_PosPriceListItems_PriceList_Product""
+                        ON ""PosPriceListItems""(""PriceListId"", ""ProductId"", ""VariantId"", ""UnitId"");
+
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""PriceListId"" uuid NULL;
                 ");
 
                 // WorkSchedules: ensure per-shift unique index

@@ -92,6 +92,18 @@ public class AttendanceHub : Hub
         _logger.LogWarning("📡 Client {ConnectionId} joined user group: {UserId}", Context.ConnectionId, userId);
     }
 
+    /// <summary>Join print-agent group to receive cloud print jobs (BT bridge).</summary>
+    public async Task JoinPrintAgentGroup(string storeId)
+    {
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"store_{storeId}_print_agents");
+        _logger.LogWarning("📡 Client {ConnectionId} joined print agent group: {StoreId}", Context.ConnectionId, storeId);
+    }
+
+    public async Task LeavePrintAgentGroup(string storeId)
+    {
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"store_{storeId}_print_agents");
+    }
+
     /// <summary>
     /// Leave user group
     /// </summary>

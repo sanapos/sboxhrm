@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Infrastructure;
@@ -135,6 +136,10 @@ internal static class PosSaleStockHelper
             .FirstOrDefaultAsync(c => c.Id == order.CustomerId && c.StoreId == storeId && c.Deleted == null);
         if (customer == null) return;
         customer.TotalPurchase = Math.Max(0, customer.TotalPurchase - refundTotal);
+        var balanceBeforeReturn = order.Total + refundTotal - order.PaidAmount;
+        var debtReduction = Math.Min(refundTotal, Math.Max(0, balanceBeforeReturn));
+        if (debtReduction > 0)
+            customer.CurrentDebt = Math.Max(0, customer.CurrentDebt - debtReduction);
         customer.UpdatedAt = DateTime.UtcNow;
     }
 
@@ -155,13 +160,13 @@ internal static class PosSaleStockHelper
         var variantIds = inputs.Where(l => l.VariantId.HasValue)
             .Select(l => l.VariantId!.Value).Distinct().ToList();
 
-        var products = await db.PosProducts
+    var products = await db.PosProducts.AsTracking()
             .Where(p => productIds.Contains(p.Id) && p.StoreId == storeId && p.Deleted == null)
             .ToDictionaryAsync(p => p.Id);
 
         var variants = variantIds.Count == 0
             ? new Dictionary<Guid, PosProductVariant>()
-            : await db.PosProductVariants
+            : await db.PosProductVariants.AsTracking()
                 .Where(v => variantIds.Contains(v.Id) && v.StoreId == storeId && v.Deleted == null && v.IsActive)
                 .ToDictionaryAsync(v => v.Id);
 
@@ -187,7 +192,7 @@ internal static class PosSaleStockHelper
         var missingComponentIds = componentIds.Where(id => !products.ContainsKey(id)).ToList();
         if (missingComponentIds.Count > 0)
         {
-            var extra = await db.PosProducts
+            var extra = await db.PosProducts.AsTracking()
                 .Where(p => missingComponentIds.Contains(p.Id) && p.StoreId == storeId && p.Deleted == null)
                 .ToListAsync();
             foreach (var p in extra) products[p.Id] = p;
@@ -228,11 +233,17 @@ internal static class PosSaleStockHelper
                     return (null, $"Combo «{p.Name}» chưa có thành phần");
                 foreach (var cl in comboLines)
                 {
-                    if (!products.TryGetValue(cl.ComponentProductId, out _))
+                    if (!products.TryGetValue(cl.ComponentProductId, out var comp))
                         return (null, "Thành phần combo không hợp lệ");
+                    if (comp.ProductType == PosProductType.Service)
+                        return (null, $"Combo «{p.Name}» có thành phần dịch vụ «{comp.Name}» — không trừ được tồn");
                     var need = cl.Qty * line.Qty;
                     stockNeeds[cl.ComponentProductId] = stockNeeds.GetValueOrDefault(cl.ComponentProductId) + need;
                 }
+            }
+            else if (p.ProductType == PosProductType.Service)
+            {
+                // Dịch vụ không kiểm tra / trừ tồn kho.
             }
             else
             {
@@ -343,6 +354,10 @@ internal static class PosSaleStockHelper
                     });
                 }
             }
+            else if (p.ProductType == PosProductType.Service)
+            {
+                // Dịch vụ: không trừ tồn, không ghi transaction kho.
+            }
             else
             {
                 var unitCost = p.CostPrice;
@@ -372,20 +387,58 @@ internal static class PosSaleStockHelper
             await PosVariantStockHelper.SyncParentStockFromVariantsAsync(db, plan.Products[pid]);
     }
 
-    public static async Task<string> NextOrderNoAsync(ZKTecoDbContext db, Guid storeId)
+    /// <summary>Mã HĐ: HD + dd + MM + STT trong ngày (VN, 3 chữ số).</summary>
+    public static async Task<string> NextOrderNoAsync(
+        ZKTecoDbContext db, Guid storeId, DateTime? saleDate = null)
     {
-        const string prefix = "HD";
-        var existing = await db.PosSaleOrders.AsNoTracking()
+        var local = saleDate.HasValue ? VnTimeHelper.UtcToVn(saleDate.Value) : VnTimeHelper.NowVn();
+        var prefix = $"HD{local.Day:D2}{local.Month:D2}";
+        var existing = await db.PosSaleOrders.IgnoreQueryFilters()
+            .AsNoTracking()
             .Where(o => o.StoreId == storeId && o.OrderNo.StartsWith(prefix))
             .Select(o => o.OrderNo)
             .ToListAsync();
         var max = 0;
         foreach (var no in existing)
         {
-            var numPart = no.Length > 2 ? no[2..] : "";
-            if (int.TryParse(numPart, out var n) && n > max) max = n;
+            if (no.Length <= prefix.Length) continue;
+            if (int.TryParse(no[prefix.Length..], out var n) && n > max) max = n;
         }
-        return prefix + (max + 1).ToString("D6");
+        return prefix + (max + 1).ToString("D3");
+    }
+
+    /// <summary>Thứ tự HĐ trong ngày và tổng tiền HĐ tích lũy đến đơn này.</summary>
+    public static async Task<(int DailyOrderIndex, decimal DailySalesTotal)> GetDailyPrintContextAsync(
+        ZKTecoDbContext db, Guid storeId, PosSaleOrder order)
+    {
+        if (order.Status != PosSaleOrderStatus.Completed)
+            return (0, 0);
+
+        var anchor = order.SaleDate ?? order.CreatedAt;
+        var local = VnTimeHelper.UtcToVn(anchor);
+        var dayStart = local.Date;
+        var dayEnd = dayStart.AddDays(1);
+
+        var dayOrders = await db.PosSaleOrders.AsNoTracking()
+            .Where(o => o.StoreId == storeId && o.Deleted == null && o.IsActive
+                && o.Status == PosSaleOrderStatus.Completed
+                && (o.SaleDate ?? o.CreatedAt) >= dayStart
+                && (o.SaleDate ?? o.CreatedAt) < dayEnd)
+            .OrderBy(o => o.SaleDate ?? o.CreatedAt)
+            .ThenBy(o => o.OrderNo)
+            .Select(o => new { o.Id, o.Total })
+            .ToListAsync();
+
+        var index = 0;
+        decimal cumulative = 0;
+        foreach (var row in dayOrders)
+        {
+            cumulative += row.Total;
+            index++;
+            if (row.Id == order.Id)
+                return (index, cumulative);
+        }
+        return (0, 0);
     }
 
     public static async Task<string> NextCustomerCodeAsync(ZKTecoDbContext db, Guid storeId)

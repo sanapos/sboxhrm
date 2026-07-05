@@ -9,7 +9,10 @@ import 'pos_theme.dart';
 
 const _blue = Color(0xFF2563EB);
 
-Future<List<PosPrintTemplate>> _loadSaleInvoiceTemplates(ApiService api) async {
+Future<List<PosPrintTemplate>> _loadPrintTemplates(
+  ApiService api,
+  String documentType,
+) async {
   List<PosPrintTemplate> parse(Map<String, dynamic> res) {
     if (res['isSuccess'] == true && res['data'] is List) {
       return (res['data'] as List)
@@ -19,23 +22,20 @@ Future<List<PosPrintTemplate>> _loadSaleInvoiceTemplates(ApiService api) async {
     return [];
   }
 
-  // API tự tạo mẫu mặc định K58/K80/A5/A4 khi danh sách trống.
-  var res = await api.getPosPrintTemplates(
-    documentType: PosPrintDocumentTypes.saleInvoice,
-  );
+  var res = await api.getPosPrintTemplates(documentType: documentType);
   var templates = parse(res);
 
-  if (templates.isEmpty && res['isSuccess'] != true) {
-    // Thử seed khi list lỗi hoặc rỗng (cần quyền View PosPrintTemplates).
-    await api.seedPosPrintTemplates(documentType: PosPrintDocumentTypes.saleInvoice);
-    res = await api.getPosPrintTemplates(
-      documentType: PosPrintDocumentTypes.saleInvoice,
-    );
+  if (templates.isEmpty) {
+    await api.seedPosPrintTemplates(documentType: documentType);
+    res = await api.getPosPrintTemplates(documentType: documentType);
     templates = parse(res);
   }
 
   return templates;
 }
+
+Future<List<PosPrintTemplate>> _loadSaleInvoiceTemplates(ApiService api) =>
+    _loadPrintTemplates(api, PosPrintDocumentTypes.saleInvoice);
 
 bool _templateIdMatches(PosPrintTemplate t, String? id) =>
     id != null && id.isNotEmpty && t.id.toLowerCase() == id.toLowerCase();
@@ -61,6 +61,10 @@ Future<PosSellPrintSettings?> showPosSellPrintPopover(
 }) async {
   final api = ApiService();
   final templates = await _loadSaleInvoiceTemplates(api);
+  final warehouseTemplates = await _loadPrintTemplates(
+    api,
+    PosPrintDocumentTypes.stockIssue,
+  );
 
   if (!context.mounted) return null;
 
@@ -70,6 +74,10 @@ Future<PosSellPrintSettings?> showPosSellPrintPopover(
     builder: (ctx) {
       var settings = initial.copyWith(
         templateId: _resolveDropdownTemplateId(initial.templateId, templates),
+        warehouseTemplateId: _resolveDropdownTemplateId(
+          initial.warehouseTemplateId,
+          warehouseTemplates,
+        ),
       );
 
       return Stack(
@@ -93,6 +101,10 @@ Future<PosSellPrintSettings?> showPosSellPrintPopover(
                   builder: (ctx, setLocal) {
                     final dropdownId =
                         _resolveDropdownTemplateId(settings.templateId, templates);
+                    final warehouseDropdownId = _resolveDropdownTemplateId(
+                      settings.warehouseTemplateId,
+                      warehouseTemplates,
+                    );
                     final selected = templates
                         .where((t) => _templateIdMatches(t, dropdownId))
                         .firstOrNull;
@@ -114,6 +126,14 @@ Future<PosSellPrintSettings?> showPosSellPrintPopover(
                             (v) =>
                                 setLocal(() => settings = settings.copyWith(mergeSameItems: v)),
                           ),
+                          const SizedBox(height: 8),
+                          _toggleRow(
+                            'In mã VietQR trên hóa đơn',
+                            settings.printVietQrOnReceipt,
+                            (v) => setLocal(
+                              () => settings = settings.copyWith(printVietQrOnReceipt: v),
+                            ),
+                          ),
                           const SizedBox(height: 12),
                           const Text('Số bản in (Liên)',
                               style: TextStyle(fontSize: 13, color: PosTheme.textSecondary)),
@@ -134,6 +154,67 @@ Future<PosSellPrintSettings?> showPosSellPrintPopover(
                               if (v == null) return;
                               setLocal(() => settings = settings.copyWith(copies: v));
                             },
+                          ),
+                          const SizedBox(height: 12),
+                          const Text('Phiếu báo xuất kho',
+                              style: TextStyle(fontSize: 13, color: PosTheme.textSecondary)),
+                          const SizedBox(height: 6),
+                          DropdownButtonFormField<PosWarehousePrintMode>(
+                            value: settings.warehousePrintMode,
+                            decoration: InputDecoration(
+                              isDense: true,
+                              contentPadding:
+                                  const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                            ),
+                            items: PosWarehousePrintMode.values
+                                .map(
+                                  (m) => DropdownMenuItem(
+                                    value: m,
+                                    child: Text(m.label, overflow: TextOverflow.ellipsis),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (v) {
+                              if (v == null) return;
+                              setLocal(
+                                () => settings = settings.copyWith(warehousePrintMode: v),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          const Text('Mẫu in phiếu xuất kho',
+                              style: TextStyle(fontSize: 13, color: PosTheme.textSecondary)),
+                          const SizedBox(height: 6),
+                          DropdownButtonFormField<String>(
+                            value: warehouseDropdownId,
+                            decoration: InputDecoration(
+                              isDense: true,
+                              contentPadding:
+                                  const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                            ),
+                            hint: warehouseTemplates.isEmpty
+                                ? const Text('Chưa có mẫu')
+                                : const Text('Chọn mẫu in'),
+                            items: warehouseTemplates
+                                .map(
+                                  (t) => DropdownMenuItem(
+                                    value: t.id,
+                                    child: Text(
+                                      '${t.name} (${PosPrintPaperSizes.labels[t.paperSize] ?? t.paperSize})',
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: warehouseTemplates.isEmpty
+                                ? null
+                                : (v) {
+                                    if (v == null) return;
+                                    setLocal(() => settings =
+                                        settings.copyWith(warehouseTemplateId: v));
+                                  },
                           ),
                           const SizedBox(height: 12),
                           const Text('Mẫu in hóa đơn',

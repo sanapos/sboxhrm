@@ -24,6 +24,7 @@ Pop-Location
 Write-Host "==> Upload..."
 Invoke-PuttyScp -Pscp $pscp -Password $Password -LocalPath "$RepoRoot\api_src.tar.gz" -RemotePath "${User}@${Server}:/root/api_src.tar.gz"
 Invoke-PuttyScp -Pscp $pscp -Password $Password -LocalPath "$RepoRoot\scripts\add_pos_print_templates.sql" -RemotePath "${User}@${Server}:/root/add_pos_print_templates.sql"
+Invoke-PuttyScp -Pscp $pscp -Password $Password -LocalPath "$RepoRoot\scripts\add_pos_print_multi_route.sql" -RemotePath "${User}@${Server}:/root/add_pos_print_multi_route.sql"
 Invoke-PuttyScp -Pscp $pscp -Password $Password -LocalPath "$RepoRoot\apply_all_migrations.sql" -RemotePath "${User}@${Server}:/root/apply_all_migrations.sql"
 Invoke-PuttyScp -Pscp $pscp -Password $Password -LocalPath "$RepoRoot\deploy_api.sh" -RemotePath "${User}@${Server}:/root/deploy_api.sh"
 
@@ -32,6 +33,9 @@ chmod +x /root/deploy_api.sh && \
 echo '--- PosPrintTemplates table ---' && \
 docker cp /root/add_pos_print_templates.sql zkteco_postgres:/tmp/add_pos_print_templates.sql && \
 docker exec zkteco_postgres psql -U postgres -d ZKTecoADMS -f /tmp/add_pos_print_templates.sql 2>&1 | tail -8 && \
+echo '--- multi-route index ---' && \
+docker cp /root/add_pos_print_multi_route.sql zkteco_postgres:/tmp/add_pos_print_multi_route.sql && \
+docker exec zkteco_postgres psql -U postgres -d ZKTecoADMS -f /tmp/add_pos_print_multi_route.sql 2>&1 | tail -5 && \
 echo '--- apply_all_migrations (PosPrint section) ---' && \
 docker cp /root/apply_all_migrations.sql zkteco_postgres:/tmp/apply_all_migrations.sql && \
 docker exec zkteco_postgres psql -U postgres -d ZKTecoADMS -f /tmp/apply_all_migrations.sql 2>&1 | tail -15 && \

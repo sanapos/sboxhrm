@@ -20,6 +20,8 @@ String _docTitle(String documentType) {
       return 'PHIẾU GIAO HÀNG';
     case PosPrintDocumentTypes.purchaseReceipt:
       return 'PHIẾU NHẬP HÀNG';
+    case PosPrintDocumentTypes.stockIssue:
+      return 'PHIẾU BÁO XUẤT KHO';
     default:
       return 'HÓA ĐƠN BÁN HÀNG';
   }

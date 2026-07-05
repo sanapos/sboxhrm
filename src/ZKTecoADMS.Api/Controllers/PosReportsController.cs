@@ -67,17 +67,81 @@ public class PosReportsController(ZKTecoDbContext dbContext) : AuthenticatedCont
             .Take(20)
             .ToListAsync();
 
+        var orderIds = await orders.Select(o => o.Id).ToListAsync();
+        var totalCogs = orderIds.Count == 0
+            ? 0m
+            : await dbContext.PosStockTransactions.AsNoTracking()
+                .Where(t => t.StoreId == storeId && t.Deleted == null &&
+                            t.TransactionType == PosStockTransactionType.Sale &&
+                            t.SaleOrderId != null && orderIds.Contains(t.SaleOrderId.Value))
+                .SumAsync(t => (decimal?)(t.LineAmount ?? 0)) ?? 0;
+
+        var cogsByOrder = orderIds.Count == 0
+            ? new Dictionary<Guid, decimal>()
+            : await dbContext.PosStockTransactions.AsNoTracking()
+                .Where(t => t.StoreId == storeId && t.Deleted == null &&
+                            t.TransactionType == PosStockTransactionType.Sale &&
+                            t.SaleOrderId != null && orderIds.Contains(t.SaleOrderId.Value))
+                .GroupBy(t => t.SaleOrderId!.Value)
+                .Select(g => new { OrderId = g.Key, Cogs = g.Sum(x => x.LineAmount ?? 0) })
+                .ToDictionaryAsync(x => x.OrderId, x => x.Cogs);
+
+        var orderRows = await orders
+            .Select(o => new { o.Id, o.CreatedAt, o.Total })
+            .ToListAsync();
+
+        var profitByDay = orderRows
+            .GroupBy(o => o.CreatedAt.Date)
+            .Select(g =>
+            {
+                var revenue = g.Sum(x => x.Total);
+                var cogs = g.Sum(x => cogsByOrder.GetValueOrDefault(x.Id));
+                return new
+                {
+                    date = g.Key,
+                    revenue,
+                    cogs,
+                    profit = revenue - cogs,
+                    count = g.Count(),
+                };
+            })
+            .OrderBy(x => x.date)
+            .ToList();
+
+        var topEmployees = await orders
+            .GroupBy(o => new { o.SoldBy, o.SoldByEmployeeId })
+            .Select(g => new
+            {
+                soldBy = g.Key.SoldBy,
+                employeeId = g.Key.SoldByEmployeeId,
+                revenue = g.Sum(x => x.Total),
+                orderCount = g.Count(),
+            })
+            .OrderByDescending(x => x.revenue)
+            .Take(10)
+            .ToListAsync();
+
+        var storeName = await dbContext.Stores.AsNoTracking()
+            .Where(s => s.Id == storeId)
+            .Select(s => s.Name)
+            .FirstOrDefaultAsync();
+
         return Ok(AppResponse<object>.Success(new
         {
             from = fromDt,
             to = toDt.AddDays(-1),
+            storeName,
             totalRevenue,
             totalPaid,
             totalDiscount,
+            totalCogs,
+            totalProfit = totalRevenue - totalCogs,
             orderCount,
             byPayment,
             byDay,
+            profitByDay,
             topProducts,
+            topEmployees,
         }));
     }
 
@@ -183,18 +247,207 @@ public class PosReportsController(ZKTecoDbContext dbContext) : AuthenticatedCont
             $"BaoCaoDoanhThuPOS_{DateTime.Now:yyyyMMdd_HHmm}.xlsx");
     }
 
-    [HttpGet("stock/summary")]
+    /// <summary>Báo cáo hàng hóa: top doanh thu + top giá trị tồn.</summary>
+    [HttpGet("goods/summary")]
     [RequireModulePermission("PosProducts", ModulePermissionAction.View)]
-    public async Task<ActionResult<AppResponse<object>>> GetStockSummary()
+    public async Task<ActionResult<AppResponse<object>>> GetGoodsSummary(
+        [FromQuery] DateTime? from,
+        [FromQuery] DateTime? to,
+        [FromQuery] int limit = 20)
     {
         var storeId = RequiredStoreId;
-        var products = await dbContext.PosProducts.AsNoTracking()
+        limit = Math.Clamp(limit, 1, 50);
+        var fromDt = from?.Date ?? DateTime.UtcNow.Date.AddDays(-30);
+        var toDt = (to?.Date ?? DateTime.UtcNow.Date).AddDays(1);
+
+        var topByRevenue = await dbContext.PosSaleOrderLines.AsNoTracking()
+            .Where(l => l.StoreId == storeId && l.Deleted == null &&
+                        l.SaleOrder != null && l.SaleOrder.Deleted == null &&
+                        l.SaleOrder.Status == PosSaleOrderStatus.Completed &&
+                        l.SaleOrder.CreatedAt >= fromDt && l.SaleOrder.CreatedAt < toDt)
+            .GroupBy(l => new { l.ProductId, l.ProductName })
+            .Select(g => new
+            {
+                productId = g.Key.ProductId,
+                productName = g.Key.ProductName,
+                qty = g.Sum(x => x.Qty),
+                revenue = g.Sum(x => x.LineTotal),
+            })
+            .OrderByDescending(x => x.revenue)
+            .Take(limit)
+            .ToListAsync();
+
+        var topByStockValue = await dbContext.PosProducts.AsNoTracking()
+            .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsActive &&
+                        p.ProductType != PosProductType.Service)
+            .OrderByDescending(p => p.OnHandQty * p.CostPrice)
+            .Take(limit)
+            .Select(p => new
+            {
+                p.Id,
+                p.ProductCode,
+                p.Name,
+                p.OnHandQty,
+                p.MinStockQty,
+                p.CostPrice,
+                stockValue = p.OnHandQty * p.CostPrice,
+                p.BaseUnitName,
+            })
+            .ToListAsync();
+
+        var stockSummary = await GetStockSummaryCoreAsync(storeId);
+
+        return Ok(AppResponse<object>.Success(new
+        {
+            from = fromDt,
+            to = toDt.AddDays(-1),
+            inventoryValue = stockSummary.inventoryValue,
+            productCount = stockSummary.totalSkus,
+            totalOnHandQty = stockSummary.totalQty,
+            outOfStockCount = stockSummary.outOfStock,
+            belowMinCount = stockSummary.belowMin,
+            topByRevenue,
+            topByStockValue,
+        }));
+    }
+
+    /// <summary>Phân tích tình hình kinh doanh — so sánh kỳ trước.</summary>
+    [HttpGet("analysis/overview")]
+    [RequireModulePermission("PosSalesReport", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<object>>> GetBusinessAnalysis(
+        [FromQuery] DateTime? from,
+        [FromQuery] DateTime? to)
+    {
+        var storeId = RequiredStoreId;
+        var fromDt = from?.Date ?? DateTime.UtcNow.Date.AddDays(-30);
+        var toDt = (to?.Date ?? DateTime.UtcNow.Date).AddDays(1);
+        var spanDays = Math.Max(1, (toDt - fromDt).Days);
+        var prevFrom = fromDt.AddDays(-spanDays);
+        var prevTo = fromDt;
+
+        async Task<(decimal revenue, decimal cogs, int orders, decimal discount)> PeriodAsync(
+            DateTime start, DateTime end)
+        {
+            var q = dbContext.PosSaleOrders.AsNoTracking()
+                .Where(o => o.StoreId == storeId && o.Deleted == null && o.IsActive &&
+                            o.Status == PosSaleOrderStatus.Completed &&
+                            o.CreatedAt >= start && o.CreatedAt < end);
+            var revenue = await q.SumAsync(o => (decimal?)o.Total) ?? 0;
+            var discount = await q.SumAsync(o => (decimal?)o.Discount) ?? 0;
+            var count = await q.CountAsync();
+            var ids = await q.Select(o => o.Id).ToListAsync();
+            var cogs = ids.Count == 0
+                ? 0m
+                : await dbContext.PosStockTransactions.AsNoTracking()
+                    .Where(t => t.StoreId == storeId && t.Deleted == null &&
+                                t.TransactionType == PosStockTransactionType.Sale &&
+                                t.SaleOrderId != null && ids.Contains(t.SaleOrderId.Value))
+                    .SumAsync(t => (decimal?)(t.LineAmount ?? 0)) ?? 0;
+            return (revenue, cogs, count, discount);
+        }
+
+        var current = await PeriodAsync(fromDt, toDt);
+        var previous = await PeriodAsync(prevFrom, prevTo);
+
+        var byChannel = await dbContext.PosSaleOrders.AsNoTracking()
+            .Where(o => o.StoreId == storeId && o.Deleted == null && o.IsActive &&
+                        o.Status == PosSaleOrderStatus.Completed &&
+                        o.CreatedAt >= fromDt && o.CreatedAt < toDt)
+            .GroupBy(o => o.SalesChannel ?? "Khác")
+            .Select(g => new { channel = g.Key, revenue = g.Sum(x => x.Total), count = g.Count() })
+            .OrderByDescending(x => x.revenue)
+            .ToListAsync();
+
+        var byCategory = await dbContext.PosSaleOrderLines.AsNoTracking()
+            .Where(l => l.StoreId == storeId && l.Deleted == null &&
+                        l.SaleOrder != null && l.SaleOrder.Deleted == null &&
+                        l.SaleOrder.Status == PosSaleOrderStatus.Completed &&
+                        l.SaleOrder.CreatedAt >= fromDt && l.SaleOrder.CreatedAt < toDt)
+            .Join(dbContext.PosProducts.AsNoTracking(),
+                l => l.ProductId, p => p.Id,
+                (l, p) => new { l.LineTotal, p.CategoryId })
+            .GroupBy(x => x.CategoryId)
+            .Select(g => new
+            {
+                categoryId = g.Key,
+                revenue = g.Sum(x => x.LineTotal),
+            })
+            .OrderByDescending(x => x.revenue)
+            .Take(10)
+            .ToListAsync();
+
+        var categoryIds = byCategory.Where(c => c.categoryId.HasValue).Select(c => c.categoryId!.Value).ToList();
+        var categoryNames = await dbContext.PosProductCategories.AsNoTracking()
+            .Where(c => categoryIds.Contains(c.Id))
+            .ToDictionaryAsync(c => c.Id, c => c.Name);
+
+        var topCategories = byCategory.Select(c => new
+        {
+            categoryId = c.categoryId,
+            categoryName = c.categoryId.HasValue
+                ? categoryNames.GetValueOrDefault(c.categoryId.Value, "Khác")
+                : "Khác",
+            revenue = c.revenue,
+        }).ToList();
+
+        decimal PctChange(decimal cur, decimal prev) =>
+            prev == 0 ? (cur > 0 ? 100 : 0) : Math.Round((cur - prev) / prev * 100, 1);
+
+        var storeName = await dbContext.Stores.AsNoTracking()
+            .Where(s => s.Id == storeId)
+            .Select(s => s.Name)
+            .FirstOrDefaultAsync();
+
+        return Ok(AppResponse<object>.Success(new
+        {
+            from = fromDt,
+            to = toDt.AddDays(-1),
+            storeName,
+            current = new
+            {
+                revenue = current.revenue,
+                cogs = current.cogs,
+                profit = current.revenue - current.cogs,
+                marginPct = current.revenue > 0
+                    ? Math.Round((current.revenue - current.cogs) / current.revenue * 100, 1)
+                    : 0m,
+                orderCount = current.orders,
+                avgOrderValue = current.orders > 0
+                    ? Math.Round(current.revenue / current.orders, 0)
+                    : 0m,
+                discount = current.discount,
+            },
+            previous = new
+            {
+                revenue = previous.revenue,
+                cogs = previous.cogs,
+                profit = previous.revenue - previous.cogs,
+                orderCount = previous.orders,
+                avgOrderValue = previous.orders > 0
+                    ? Math.Round(previous.revenue / previous.orders, 0)
+                    : 0m,
+            },
+            changePct = new
+            {
+                revenue = PctChange(current.revenue, previous.revenue),
+                profit = PctChange(current.revenue - current.cogs, previous.revenue - previous.cogs),
+                orders = PctChange(current.orders, previous.orders),
+            },
+            byChannel,
+            topCategories,
+        }));
+    }
+
+    private static async Task<(int totalSkus, decimal totalQty, decimal inventoryValue, int outOfStock, int belowMin)>
+        GetStockSummaryCoreAsync(ZKTecoDbContext db, Guid storeId)
+    {
+        var products = await db.PosProducts.AsNoTracking()
             .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsActive &&
                         p.ProductType != PosProductType.Service)
             .Select(p => new { p.Id, p.OnHandQty, p.CostPrice, p.MinStockQty })
             .ToListAsync();
 
-        var variantAttrs = await dbContext.PosProductVariants.AsNoTracking()
+        var variantAttrs = await db.PosProductVariants.AsNoTracking()
             .Where(v => v.StoreId == storeId && v.Deleted == null && v.IsActive)
             .Select(v => new { v.ProductId, v.AttributeJson, v.OnHandQty, v.CostPrice })
             .ToListAsync();
@@ -211,20 +464,37 @@ public class PosReportsController(ZKTecoDbContext dbContext) : AuthenticatedCont
         var variantValue = variantAttrs
             .Where(v => distinctVariantProductIds.Contains(v.ProductId))
             .Sum(v => v.OnHandQty * v.CostPrice);
-        var inventoryValue = parentValue + variantValue;
 
-        var totalSkus = products.Count;
-        var totalQty = products.Sum(p => p.OnHandQty);
-        var outOfStock = products.Count(p => p.OnHandQty <= 0);
-        var belowMin = products.Count(p => p.MinStockQty > 0 && p.OnHandQty < p.MinStockQty && p.OnHandQty > 0);
+        return (
+            products.Count,
+            products.Sum(p => p.OnHandQty),
+            parentValue + variantValue,
+            products.Count(p => p.OnHandQty <= 0),
+            products.Count(p => p.MinStockQty > 0 && p.OnHandQty < p.MinStockQty && p.OnHandQty > 0));
+    }
+
+    private Task<(int totalSkus, decimal totalQty, decimal inventoryValue, int outOfStock, int belowMin)>
+        GetStockSummaryCoreAsync(Guid storeId) =>
+        GetStockSummaryCoreAsync(dbContext, storeId);
+
+    [HttpGet("stock/summary")]
+    [RequireModulePermission("PosProducts", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<object>>> GetStockSummary()
+    {
+        var storeId = RequiredStoreId;
+        var core = await GetStockSummaryCoreAsync(storeId);
 
         return Ok(AppResponse<object>.Success(new
         {
-            totalSkus,
-            totalQty,
-            inventoryValue,
-            outOfStock,
-            belowMin,
+            totalSkus = core.totalSkus,
+            totalQty = core.totalQty,
+            inventoryValue = core.inventoryValue,
+            outOfStock = core.outOfStock,
+            belowMin = core.belowMin,
+            productCount = core.totalSkus,
+            totalStockValue = core.inventoryValue,
+            totalOnHandQty = core.totalQty,
+            outOfStockCount = core.outOfStock,
         }));
     }
 
@@ -628,6 +898,87 @@ public class PosReportsController(ZKTecoDbContext dbContext) : AuthenticatedCont
         }).ToList();
 
         return Ok(AppResponse<object>.Success(items));
+    }
+
+    [HttpGet("customer-debt")]
+    [RequireModulePermission("PosSalesReport", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<object>>> CustomerDebtReport(
+        [FromQuery] string? search,
+        [FromQuery] decimal? debtFrom,
+        [FromQuery] decimal? debtTo,
+        [FromQuery] bool includeZeroDebt = false)
+    {
+        var storeId = RequiredStoreId;
+        var custQ = dbContext.PosCustomers.AsNoTracking()
+            .Where(c => c.StoreId == storeId && c.Deleted == null && c.IsActive);
+        if (!includeZeroDebt) custQ = custQ.Where(c => c.CurrentDebt > 0);
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var s = search.Trim().ToLower();
+            custQ = custQ.Where(c =>
+                c.Name.ToLower().Contains(s) ||
+                c.CustomerCode.ToLower().Contains(s) ||
+                (c.Phone != null && c.Phone.Contains(s)));
+        }
+        if (debtFrom.HasValue) custQ = custQ.Where(c => c.CurrentDebt >= debtFrom);
+        if (debtTo.HasValue) custQ = custQ.Where(c => c.CurrentDebt <= debtTo);
+
+        var customers = await custQ
+            .OrderByDescending(c => c.CurrentDebt)
+            .ThenBy(c => c.Name)
+            .Select(c => new
+            {
+                c.Id,
+                c.CustomerCode,
+                c.Name,
+                c.Phone,
+                c.TotalPurchase,
+                c.CurrentDebt,
+                c.PointBalance,
+            })
+            .ToListAsync();
+
+        var customerIds = customers.Select(c => c.Id).ToList();
+        var openOrders = customerIds.Count == 0
+            ? []
+            : await dbContext.PosSaleOrders.AsNoTracking()
+                .Where(o => o.StoreId == storeId && o.Deleted == null &&
+                            o.Status == PosSaleOrderStatus.Completed &&
+                            o.CustomerId != null && customerIds.Contains(o.CustomerId.Value) &&
+                            o.Total > o.PaidAmount)
+                .GroupBy(o => o.CustomerId!.Value)
+                .Select(g => new
+                {
+                    CustomerId = g.Key,
+                    OpenOrderCount = g.Count(),
+                    OpenOrderDebt = g.Sum(x => x.Total - x.PaidAmount),
+                })
+                .ToListAsync();
+
+        var openMap = openOrders.ToDictionary(x => x.CustomerId);
+        var items = customers.Select(c =>
+        {
+            openMap.TryGetValue(c.Id, out var oo);
+            return new
+            {
+                c.Id,
+                c.CustomerCode,
+                c.Name,
+                c.Phone,
+                c.TotalPurchase,
+                c.CurrentDebt,
+                c.PointBalance,
+                openOrderCount = oo?.OpenOrderCount ?? 0,
+                openOrderDebt = oo?.OpenOrderDebt ?? 0m,
+            };
+        }).ToList();
+
+        return Ok(AppResponse<object>.Success(new
+        {
+            totalCustomers = items.Count,
+            sumDebt = items.Sum(x => x.CurrentDebt),
+            items,
+        }));
     }
 
     private static IQueryable<PosSaleOrder> ApplyStaffFilter(

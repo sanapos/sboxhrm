@@ -27,6 +27,7 @@ internal static class PosProductExcelImportParser
         public int WeightCol = -1;
         public int LocationCol = -1;
         public int DescCol = -1;
+        public int PrinterCol = -1;
     }
 
     public record ImportRow(
@@ -46,7 +47,8 @@ internal static class PosProductExcelImportParser
         bool IsDirectSale,
         decimal? Weight,
         string? LocationName,
-        string? Description);
+        string? Description,
+        string? PrinterName);
 
     public static List<ImportRow> Parse(Stream stream)
     {
@@ -72,10 +74,12 @@ internal static class PosProductExcelImportParser
             if (string.IsNullOrWhiteSpace(name)) continue;
 
             var typeRaw = Cell(ws, r, cols.TypeCol);
-            var productType = typeRaw.Contains("dịch vụ", StringComparison.OrdinalIgnoreCase) ||
-                              typeRaw.Contains("service", StringComparison.OrdinalIgnoreCase)
-                ? PosProductType.Service
-                : PosProductType.Goods;
+            var lower = typeRaw.ToLowerInvariant();
+            var productType =
+                lower.Contains("combo") ? PosProductType.Combo
+                : lower.Contains("dịch vụ") || lower.Contains("dich vu") || lower.Contains("service")
+                    ? PosProductType.Service
+                    : PosProductType.Goods;
 
             var directRaw = Cell(ws, r, cols.DirectSaleCol);
             var isDirect = string.IsNullOrWhiteSpace(directRaw) ||
@@ -101,7 +105,8 @@ internal static class PosProductExcelImportParser
                 isDirect,
                 ParseDecNullable(Cell(ws, r, cols.WeightCol)),
                 NullIfEmpty(Cell(ws, r, cols.LocationCol)),
-                NullIfEmpty(Cell(ws, r, cols.DescCol))));
+                NullIfEmpty(Cell(ws, r, cols.DescCol)),
+                NullIfEmpty(Cell(ws, r, cols.PrinterCol))));
         }
 
         return rows;
@@ -147,6 +152,7 @@ internal static class PosProductExcelImportParser
             else if (h.Contains("trongluong", StringComparison.Ordinal) || h.Contains("weight", StringComparison.Ordinal)) map.WeightCol = c;
             else if (h.Contains("vitri", StringComparison.Ordinal) || h.Contains("location", StringComparison.Ordinal)) map.LocationCol = c;
             else if (h.Contains("mota", StringComparison.Ordinal) || h.Contains("description", StringComparison.Ordinal)) map.DescCol = c;
+            else if (h.Contains("mayin", StringComparison.Ordinal) || h.Contains("printer", StringComparison.Ordinal)) map.PrinterCol = c;
         }
         return map;
     }

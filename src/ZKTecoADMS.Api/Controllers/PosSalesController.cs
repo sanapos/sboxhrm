@@ -5,6 +5,8 @@ using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Application.Constants;
+using ZKTecoADMS.Application.DTOs.Transactions;
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
@@ -23,7 +25,8 @@ public partial class PosSalesController(
 {
     public record SaleLineDto(
         Guid ProductId, decimal Qty, Guid? UnitId, decimal? UnitPrice, Guid? VariantId,
-        decimal DiscountAmount = 0, string? LineNote = null);
+        decimal DiscountAmount = 0, string? LineNote = null,
+        List<string>? SerialNumbers = null, List<string>? SerialImeis = null);
 
     public record SalePaymentInputDto(
         decimal Amount,
@@ -49,7 +52,10 @@ public partial class PosSalesController(
         Guid? SoldByEmployeeId = null,
         string? SalesChannel = null,
         string? PriceListName = null,
-        List<SalePaymentInputDto>? Payments = null);
+        Guid? PriceListId = null,
+        List<SalePaymentInputDto>? Payments = null,
+        string? VoucherCode = null,
+        decimal PointsToRedeem = 0);
 
     public record UpdateSaleDto(
         List<SaleLineDto> Lines,
@@ -69,7 +75,8 @@ public partial class PosSalesController(
         string? SoldBy = null,
         Guid? SoldByEmployeeId = null,
         string? SalesChannel = null,
-        string? PriceListName = null);
+        string? PriceListName = null,
+        Guid? PriceListId = null);
 
     public record SaleOrderDto(
         Guid Id,
@@ -98,6 +105,9 @@ public partial class PosSalesController(
         string? PriceListName,
         DateTime CreatedAt,
         string? CreatedBy,
+        int PrintCount,
+        int DailyOrderIndex,
+        decimal DailySalesTotal,
         List<SaleOrderLineDto> Lines);
 
     public record SaleOrderSummaryDto(
@@ -120,14 +130,27 @@ public partial class PosSalesController(
         string? CreatedBy,
         string? SoldBy,
         string? SalesChannel,
-        int LineCount);
+        int LineCount,
+        int PrintCount);
 
     public record SalePaymentDto(
         string PaymentNo, decimal Amount, string PaymentMethod,
         DateTime PaidAt, string? Note, string? CreatedBy);
 
     public record SaleReturnSummaryDto(
-        string ReturnNo, decimal RefundAmount, DateTime CreatedAt, string? Note, string? CreatedBy);
+        string ReturnNo, decimal RefundAmount, DateTime CreatedAt, string? Note, string? CreatedBy,
+        string? RefundPaymentMethod);
+
+    public record SaleReturnListItemDto(
+        string ReturnNo,
+        Guid OrderId,
+        string OrderNo,
+        decimal RefundAmount,
+        string? RefundPaymentMethod,
+        DateTime CreatedAt,
+        string? Note,
+        string? CreatedBy,
+        string? CustomerName);
 
     public record SaleOrderLineDto(
         Guid Id,
@@ -139,13 +162,89 @@ public partial class PosSalesController(
         decimal UnitPrice,
         decimal DiscountAmount,
         decimal LineTotal,
-        string? LineNote);
+        string? LineNote,
+        decimal ReturnedQty = 0,
+        List<string>? SerialNumbers = null);
+
+    [HttpGet("return-history")]
+    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<object>>> ListReturnHistory(
+        [FromQuery] string? search,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50)
+    {
+        var storeId = RequiredStoreId;
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 10, 200);
+
+        var query = dbContext.PosStockTransactions.AsNoTracking()
+            .Include(t => t.SaleOrder)
+            .Where(t => t.StoreId == storeId && t.Deleted == null &&
+                        t.TransactionType == PosStockTransactionType.Return &&
+                        t.SaleOrderId != null &&
+                        t.ReferenceNo != null &&
+                        (t.Note == null || !t.Note.StartsWith("Hủy đơn")));
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var s = search.Trim().ToLower();
+            query = query.Where(t =>
+                t.ReferenceNo!.ToLower().Contains(s) ||
+                (t.SaleOrder != null && t.SaleOrder.OrderNo.ToLower().Contains(s)) ||
+                (t.SaleOrder != null && t.SaleOrder.CustomerName != null &&
+                 t.SaleOrder.CustomerName.ToLower().Contains(s)));
+        }
+
+        var grouped = await query
+            .GroupBy(t => new { t.ReferenceNo, t.SaleOrderId })
+            .Select(g => new
+            {
+                g.Key.ReferenceNo,
+                OrderId = g.Key.SaleOrderId!.Value,
+                RefundAmount = g.Sum(x => x.LineAmount ?? 0),
+                CreatedAt = g.Max(x => x.CreatedAt),
+                Note = g.Select(x => x.Note).FirstOrDefault(),
+                CreatedBy = g.Select(x => x.CreatedBy).FirstOrDefault(),
+                OrderNo = g.Select(x => x.SaleOrder!.OrderNo).FirstOrDefault(),
+                CustomerName = g.Select(x => x.SaleOrder!.CustomerName).FirstOrDefault(),
+            })
+            .OrderByDescending(x => x.CreatedAt)
+            .ToListAsync();
+
+        var total = grouped.Count;
+        var items = grouped
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(x =>
+            {
+                ParseReturnNote(x.Note, out var pm, out var cleanNote);
+                return new SaleReturnListItemDto(
+                    x.ReferenceNo!,
+                    x.OrderId,
+                    x.OrderNo ?? "",
+                    x.RefundAmount,
+                    pm,
+                    x.CreatedAt,
+                    cleanNote,
+                    x.CreatedBy,
+                    x.CustomerName);
+            })
+            .ToList();
+
+        return Ok(AppResponse<object>.Success(new { total, page, pageSize, items }));
+    }
 
     [HttpGet("products")]
     [RequireModulePermission("PosSell", ModulePermissionAction.View)]
-    public async Task<ActionResult<AppResponse<List<object>>>> GetSellProducts([FromQuery] string? search)
+    public async Task<ActionResult<AppResponse<object>>> GetSellProducts(
+        [FromQuery] string? search,
+        [FromQuery] Guid? categoryId,
+        [FromQuery] bool categoryIncludeChildren = true,
+        [FromQuery] int pageSize = 500)
     {
         var storeId = RequiredStoreId;
+        pageSize = Math.Clamp(pageSize, 1, 500);
+
         var query = dbContext.PosProducts
             .AsNoTracking()
             .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsActive && p.IsDirectSale);
@@ -159,27 +258,199 @@ public partial class PosSalesController(
                 (p.Barcode != null && p.Barcode.ToLower().Contains(s)));
         }
 
-        var items = await query
+        if (categoryId.HasValue)
+        {
+            if (categoryIncludeChildren)
+            {
+                var catIds = await GetSellCategoryDescendantIdsAsync(storeId, categoryId.Value);
+                query = query.Where(p => p.CategoryId != null && catIds.Contains(p.CategoryId.Value));
+            }
+            else
+            {
+                query = query.Where(p => p.CategoryId == categoryId);
+            }
+        }
+
+        var products = await query
             .OrderByDescending(p => p.IsFavorite)
             .ThenBy(p => p.Name)
-            .Take(100)
+            .Take(pageSize)
             .Select(p => new
             {
                 p.Id,
                 p.ProductCode,
                 p.Barcode,
                 p.Name,
+                p.CategoryId,
+                CategoryName = p.Category != null ? p.Category.Name : null,
                 ProductType = p.ProductType.ToString(),
+                p.CostPrice,
                 p.BasePrice,
+                p.VatRate,
+                p.VatExempt,
                 p.OnHandQty,
+                p.ReservedQty,
                 p.ImageUrl,
                 p.BaseUnitName,
-                CategoryName = p.Category != null ? p.Category.Name : null,
+                p.IsDirectSale,
+                p.IsFavorite,
+                SaleQuickNotesJson = p.SaleQuickNotesJson,
+                p.UpdatedAt,
+                p.WarrantyMonths,
+                p.RequiresSerial,
                 VariantCount = p.Variants.Count(v => v.Deleted == null && v.IsActive),
             })
             .ToListAsync();
 
-        return Ok(AppResponse<List<object>>.Success(items.Cast<object>().ToList()));
+        var productIds = products.Select(p => p.Id).ToList();
+        var units = productIds.Count == 0
+            ? []
+            : await dbContext.PosProductUnits.AsNoTracking()
+                .Where(u => u.StoreId == storeId && u.Deleted == null &&
+                            productIds.Contains(u.ProductId))
+                .Select(u => new
+                {
+                    u.Id,
+                    u.ProductId,
+                    u.UnitName,
+                    u.ConversionRate,
+                    u.BasePrice,
+                    u.IsDirectSale,
+                    u.IsBaseUnit,
+                })
+                .ToListAsync();
+
+        var variants = productIds.Count == 0
+            ? []
+            : await dbContext.PosProductVariants.AsNoTracking()
+                .Where(v => v.StoreId == storeId && v.Deleted == null && v.IsActive &&
+                            productIds.Contains(v.ProductId))
+                .Select(v => new
+                {
+                    v.Id,
+                    v.ProductId,
+                    v.SkuCode,
+                    v.Barcode,
+                    v.Name,
+                    v.AttributeJson,
+                    v.CostPrice,
+                    v.BasePrice,
+                    v.OnHandQty,
+                    v.IsActive,
+                })
+                .ToListAsync();
+
+        var unitsByProduct = units.GroupBy(u => u.ProductId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+        var variantsByProduct = variants.GroupBy(v => v.ProductId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var comboIds = products
+            .Where(p => p.ProductType == nameof(PosProductType.Combo))
+            .Select(p => p.Id)
+            .ToList();
+        var comboLinesFlat = comboIds.Count == 0
+            ? []
+            : await dbContext.PosProductComboLines.AsNoTracking()
+                .Include(x => x.ComponentProduct)
+                .Where(x => comboIds.Contains(x.ComboProductId) && x.Deleted == null)
+                .Select(x => new
+                {
+                    x.ComboProductId,
+                    x.ComponentProductId,
+                    ComponentProductCode = x.ComponentProduct != null ? x.ComponentProduct.ProductCode : "",
+                    ComponentProductName = x.ComponentProduct != null ? x.ComponentProduct.Name : "",
+                    x.Qty,
+                    ComponentOnHandQty = x.ComponentProduct != null ? x.ComponentProduct.OnHandQty : 0m,
+                    ComponentBasePrice = x.ComponentProduct != null ? x.ComponentProduct.BasePrice : 0m,
+                })
+                .ToListAsync();
+        var comboLinesByProduct = comboLinesFlat
+            .GroupBy(x => x.ComboProductId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var items = products.Select(p =>
+        {
+            var comboLines = comboLinesByProduct.GetValueOrDefault(p.Id, []);
+            decimal? sellableQty = null;
+            if (p.ProductType == nameof(PosProductType.Combo))
+            {
+                if (comboLines.Count == 0)
+                    sellableQty = 0;
+                else
+                    sellableQty = comboLines.Min(cl =>
+                        cl.Qty > 0 ? Math.Floor(cl.ComponentOnHandQty / cl.Qty) : 0);
+            }
+
+            return new
+            {
+                p.Id,
+                p.ProductCode,
+                p.Barcode,
+                p.Name,
+                p.CategoryId,
+                p.CategoryName,
+                p.ProductType,
+                p.CostPrice,
+                p.BasePrice,
+                p.VatRate,
+                p.VatExempt,
+                p.OnHandQty,
+                p.ReservedQty,
+                p.ImageUrl,
+                p.BaseUnitName,
+                p.IsDirectSale,
+                p.IsFavorite,
+                SaleQuickNotes = PosSaleQuickNotesHelper.Parse(p.SaleQuickNotesJson),
+                p.UpdatedAt,
+                p.WarrantyMonths,
+                p.RequiresSerial,
+                p.VariantCount,
+                SellableQty = sellableQty,
+                ComboLines = comboLines.Select(cl => new
+                {
+                    cl.ComponentProductId,
+                    cl.ComponentProductCode,
+                    cl.ComponentProductName,
+                    cl.Qty,
+                    cl.ComponentOnHandQty,
+                    cl.ComponentBasePrice,
+                }).ToList(),
+                Units = unitsByProduct.GetValueOrDefault(p.Id, []),
+                Variants = variantsByProduct.GetValueOrDefault(p.Id, []),
+            };
+        }).ToList();
+
+        var catalogVersion = products.Count == 0
+            ? (DateTime?)null
+            : products.Max(p => p.UpdatedAt);
+
+        return Ok(AppResponse<object>.Success(new
+        {
+            total = items.Count,
+            catalogVersion,
+            items,
+        }));
+    }
+
+    async Task<List<Guid>> GetSellCategoryDescendantIdsAsync(Guid storeId, Guid categoryId)
+    {
+        var all = await dbContext.PosProductCategories.AsNoTracking()
+            .Where(c => c.StoreId == storeId && c.Deleted == null)
+            .Select(c => new { c.Id, c.ParentId })
+            .ToListAsync();
+
+        var result = new List<Guid> { categoryId };
+        void Walk(Guid pid)
+        {
+            foreach (var c in all.Where(x => x.ParentId == pid))
+            {
+                result.Add(c.Id);
+                Walk(c.Id);
+            }
+        }
+        Walk(categoryId);
+        return result;
     }
 
     /// <summary>Quét mã vạch / SKU — ưu tiên biến thể, sau đó hàng cha.</summary>
@@ -264,7 +535,15 @@ public partial class PosSalesController(
 
         dbContext.PosSaleOrders.Add(order);
         dbContext.PosSaleOrderLines.AddRange(lines);
-        await dbContext.SaveChangesAsync();
+        try
+        {
+            await dbContext.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex) when (ex.InnerException?.Message.Contains("IX_PosSaleOrders_StoreId_OrderNo") == true)
+        {
+            order.OrderNo = await PosSaleStockHelper.NextOrderNoAsync(dbContext, storeId, order.SaleDate ?? order.CreatedAt);
+            await dbContext.SaveChangesAsync();
+        }
 
         if (dto.Complete && order.Status == PosSaleOrderStatus.Completed)
         {
@@ -273,8 +552,11 @@ public partial class PosSalesController(
                 order.Total, order.SoldBy, CurrentUserId);
         }
 
-        return Ok(AppResponse<SaleOrderDto>.Success(MapOrder(order, lines)));
+        order.Lines = lines;
+        return Ok(AppResponse<SaleOrderDto>.Success(await MapOrderAsync(storeId, order, lines)));
     }
+
+    public record CompleteSaleDto(List<SaleLineDto>? Lines = null);
 
     /// <summary>Danh sách nhân viên có thể chọn làm người bán trên màn hình thu ngân.</summary>
     [HttpGet("sellers")]
@@ -305,6 +587,38 @@ public partial class PosSalesController(
         }).ToList();
 
         return Ok(AppResponse<object>.Success(items));
+    }
+
+    /// <summary>Tài khoản ngân hàng cho VietQR trên màn bán hàng (thu ngân PosSell).</summary>
+    [HttpGet("bank-accounts")]
+    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<List<BankAccountDto>>>> GetPosBankAccounts()
+    {
+        var storeId = RequiredStoreId;
+        var bankAccounts = await dbContext.BankAccounts
+            .AsNoTracking()
+            .Where(x => x.StoreId == storeId && x.IsActive)
+            .OrderByDescending(x => x.IsDefault)
+            .ThenBy(x => x.BankName)
+            .Select(x => new BankAccountDto
+            {
+                Id = x.Id,
+                AccountName = x.AccountName,
+                AccountNumber = x.AccountNumber,
+                BankCode = x.BankCode,
+                BankName = x.BankName,
+                BankShortName = x.BankShortName,
+                BranchName = x.BranchName,
+                BankLogoUrl = x.BankLogoUrl,
+                IsDefault = x.IsDefault,
+                Note = x.Note,
+                VietQRTemplate = x.VietQRTemplate,
+                IsActive = x.IsActive,
+                TransactionCount = x.Transactions.Count(t => t.IsActive),
+            })
+            .ToListAsync();
+
+        return Ok(AppResponse<List<BankAccountDto>>.Success(bankAccounts));
     }
 
     [HttpGet]
@@ -375,6 +689,7 @@ public partial class PosSalesController(
         var rows = await query
             .Include(o => o.Lines)
             .OrderByDescending(o => o.SaleDate ?? o.CreatedAt)
+            .ThenByDescending(o => o.OrderNo)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
@@ -405,8 +720,27 @@ public partial class PosSalesController(
         return Ok(AppResponse<SaleOrderDto>.Success(await MapOrderAsync(storeId, order)));
     }
 
+    /// <summary>Ghi nhận lần in hóa đơn — tăng PrintCount và trả context in (in lại, tổng ngày).</summary>
+    [HttpPost("{id:guid}/record-print")]
+    [RequireModulePermission("PosProducts", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<SaleOrderDto>>> RecordPrint(Guid id)
+    {
+        var storeId = RequiredStoreId;
+        var order = await dbContext.PosSaleOrders
+            .Include(o => o.Lines)
+            .FirstOrDefaultAsync(o => o.Id == id && o.StoreId == storeId && o.Deleted == null);
+        if (order == null)
+            return NotFound(AppResponse<SaleOrderDto>.Fail("Không tìm thấy đơn hàng"));
+
+        order.PrintCount++;
+        order.LastPrintedAt = DateTime.UtcNow;
+        await dbContext.SaveChangesAsync();
+
+        return Ok(AppResponse<SaleOrderDto>.Success(await MapOrderAsync(storeId, order)));
+    }
+
     [HttpPost("{id:guid}/cancel")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosSaleOrders", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<SaleOrderDto>>> CancelSale(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -427,7 +761,19 @@ public partial class PosSalesController(
 
         await PosSaleStockHelper.ReverseSaleOrderAsync(dbContext, storeId, order, CurrentUserEmail);
         await PosSaleStockHelper.ReverseCustomerOnSaleCancelAsync(dbContext, storeId, order);
+        await PosCustomerFinanceHelper.ReversePointsOnSaleCancelAsync(dbContext, storeId, order, CurrentUserEmail);
+        if (order.VoucherId.HasValue)
+        {
+            var vch = await dbContext.PosVouchers.AsTracking()
+                .FirstOrDefaultAsync(v => v.Id == order.VoucherId && v.StoreId == storeId);
+            if (vch != null && vch.UsedCount > 0)
+            {
+                vch.UsedCount -= 1;
+                vch.UpdatedAt = DateTime.UtcNow;
+            }
+        }
         await PosFinanceSyncHelper.ReverseSaleOnCancelAsync(dbContext, order);
+        await PosSaleWarrantyHelper.VoidOrderAsync(dbContext, storeId, order.Id, CurrentUserEmail);
         order.Status = PosSaleOrderStatus.Cancelled;
         order.UpdatedAt = DateTime.UtcNow;
         order.UpdatedBy = CurrentUserEmail;
@@ -436,7 +782,7 @@ public partial class PosSalesController(
     }
 
     [HttpDelete("{id:guid}")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosSaleOrders", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<object>>> DeleteSale(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -465,7 +811,7 @@ public partial class PosSalesController(
         if (src == null)
             return NotFound(AppResponse<SaleOrderDto>.Fail("Không tìm thấy đơn hàng"));
 
-        var orderNo = await PosSaleStockHelper.NextOrderNoAsync(dbContext, storeId);
+        var orderNo = await PosSaleStockHelper.NextOrderNoAsync(dbContext, storeId, DateTime.UtcNow);
         var copy = new PosSaleOrder
         {
             Id = Guid.NewGuid(),
@@ -558,7 +904,7 @@ public partial class PosSalesController(
     }
 
     [HttpGet("{id:guid}/returns")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.View)]
+    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<SaleReturnSummaryDto>>>> GetReturns(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -578,13 +924,14 @@ public partial class PosSalesController(
         var items = groups.Select(g =>
         {
             var first = g.First();
-            var refund = g.Sum(x => x.QtyChange);
+            ParseReturnNote(first.Note, out var pm, out var cleanNote);
             return new SaleReturnSummaryDto(
                 g.Key,
-                refund,
+                g.Sum(x => x.LineAmount ?? 0),
                 first.CreatedAt,
-                first.Note,
-                first.CreatedBy);
+                cleanNote,
+                first.CreatedBy,
+                pm);
         }).ToList();
 
         return Ok(AppResponse<List<SaleReturnSummaryDto>>.Success(items));
@@ -592,10 +939,10 @@ public partial class PosSalesController(
 
     public record ReturnLineDto(Guid ProductId, decimal Qty, Guid? VariantId);
 
-    public record ReturnSaleDto(List<ReturnLineDto> Lines, string? Note);
+    public record ReturnSaleDto(List<ReturnLineDto> Lines, string? Note, string? RefundPaymentMethod);
 
     [HttpPost("{id:guid}/return")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosSell", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<object>>> ReturnSale(Guid id, [FromBody] ReturnSaleDto dto)
     {
         var storeId = RequiredStoreId;
@@ -609,6 +956,8 @@ public partial class PosSalesController(
             return NotFound(AppResponse<object>.Fail("Không tìm thấy đơn hàng"));
         if (order.Status == PosSaleOrderStatus.Cancelled)
             return BadRequest(AppResponse<object>.Fail("Đơn đã hủy"));
+        if (order.Status != PosSaleOrderStatus.Completed)
+            return BadRequest(AppResponse<object>.Fail("Chỉ trả hàng trên đơn đã hoàn thành"));
 
         var returnedByLine = await dbContext.PosStockTransactions.AsNoTracking()
             .Where(t => t.SaleOrderId == id && t.TransactionType == PosStockTransactionType.Return &&
@@ -634,9 +983,34 @@ public partial class PosSalesController(
                 .Where(v => variantIds.Contains(v.Id) && v.StoreId == storeId && v.Deleted == null)
                 .ToDictionaryAsync(v => v.Id);
 
+        var comboProductIds = products.Values
+            .Where(p => p.ProductType == PosProductType.Combo)
+            .Select(p => p.Id).ToList();
+        var comboLinesMap = comboProductIds.Count == 0
+            ? new Dictionary<Guid, List<PosProductComboLine>>()
+            : await dbContext.PosProductComboLines.AsNoTracking()
+                .Where(c => comboProductIds.Contains(c.ComboProductId) && c.Deleted == null)
+                .GroupBy(c => c.ComboProductId)
+                .ToDictionaryAsync(g => g.Key, g => g.ToList());
+
+        var comboComponentIds = comboLinesMap.Values
+            .SelectMany(v => v.Select(x => x.ComponentProductId)).Distinct()
+            .Where(id => !products.ContainsKey(id)).ToList();
+        if (comboComponentIds.Count > 0)
+        {
+            var extra = await dbContext.PosProducts.AsTracking()
+                .Where(p => comboComponentIds.Contains(p.Id) && p.StoreId == storeId && p.Deleted == null)
+                .ToListAsync();
+            foreach (var p in extra) products[p.Id] = p;
+        }
+
         var returnNo = PosStockDocumentNo.NewReturn();
+        var refundMethod = string.IsNullOrWhiteSpace(dto.RefundPaymentMethod)
+            ? order.PaymentMethod
+            : dto.RefundPaymentMethod.Trim();
         decimal refundTotal = 0;
         var touchedProducts = new HashSet<Guid>();
+        var warrantyReturns = new List<(Guid ProductId, Guid? VariantId, decimal Qty)>();
 
         foreach (var line in dto.Lines)
         {
@@ -662,6 +1036,47 @@ public partial class PosSalesController(
                     return BadRequest(AppResponse<object>.Fail("Biến thể không hợp lệ"));
             }
 
+            var lineRefund = saleLine.UnitPrice * line.Qty;
+
+            if (p.ProductType == PosProductType.Service)
+            {
+                refundTotal += lineRefund;
+                warrantyReturns.Add((line.ProductId, line.VariantId, line.Qty));
+                continue;
+            }
+
+            if (p.ProductType == PosProductType.Combo &&
+                comboLinesMap.TryGetValue(p.Id, out var comboLines))
+            {
+                foreach (var cl in comboLines)
+                {
+                    if (!products.TryGetValue(cl.ComponentProductId, out var comp)) continue;
+                    var restore = cl.Qty * line.Qty;
+                    comp.OnHandQty += restore;
+                    comp.UpdatedAt = DateTime.UtcNow;
+                    comp.UpdatedBy = CurrentUserEmail;
+                    dbContext.PosStockTransactions.Add(new PosStockTransaction
+                    {
+                        Id = Guid.NewGuid(),
+                        StoreId = storeId,
+                        ProductId = comp.Id,
+                        TransactionType = PosStockTransactionType.Return,
+                        QtyChange = restore,
+                        QtyAfter = comp.OnHandQty,
+                        UnitCost = comp.CostPrice,
+                        LineAmount = lineRefund,
+                        ReferenceNo = returnNo,
+                        SaleOrderId = order.Id,
+                        Note = BuildReturnNote(dto.Note, refundMethod, order.OrderNo) +
+                               $" — hoàn combo: {p.Name}",
+                        IsActive = true,
+                        CreatedBy = CurrentUserEmail,
+                    });
+                }
+                refundTotal += lineRefund;
+                continue;
+            }
+
             decimal qtyAfter;
             decimal txChange;
             if (variant != null)
@@ -684,7 +1099,6 @@ public partial class PosSalesController(
                 txChange = line.Qty;
             }
 
-            var lineRefund = saleLine.UnitPrice * line.Qty;
             dbContext.PosStockTransactions.Add(new PosStockTransaction
             {
                 Id = Guid.NewGuid(),
@@ -698,12 +1112,13 @@ public partial class PosSalesController(
                 LineAmount = lineRefund,
                 ReferenceNo = returnNo,
                 SaleOrderId = order.Id,
-                Note = dto.Note?.Trim() ?? $"Trả hàng đơn {order.OrderNo}",
+                Note = BuildReturnNote(dto.Note, refundMethod, order.OrderNo),
                 IsActive = true,
                 CreatedBy = CurrentUserEmail,
             });
 
             refundTotal += lineRefund;
+            warrantyReturns.Add((line.ProductId, line.VariantId, line.Qty));
         }
 
         foreach (var pid in touchedProducts)
@@ -717,17 +1132,48 @@ public partial class PosSalesController(
 
         await PosSaleStockHelper.UpdateCustomerOnReturnAsync(dbContext, storeId, order, refundTotal);
         await PosFinanceSyncHelper.SyncCustomerReturnAsync(
-            dbContext, order, returnNo, refundTotal, order.PaymentMethod, CurrentUserId);
+            dbContext, order, returnNo, refundTotal, refundMethod, CurrentUserId);
+        await PosSaleWarrantyHelper.MarkReturnedAsync(
+            dbContext, storeId, order.Id, warrantyReturns, CurrentUserEmail);
         await dbContext.SaveChangesAsync();
 
         return Ok(AppResponse<object>.Success(new
         {
             returnNo,
             refundTotal,
+            refundPaymentMethod = refundMethod,
             orderId = order.Id,
             orderNo = order.OrderNo,
             newTotal = order.Total,
+            returnedAmount = (await GetReturnedAmountsAsync(storeId, [order.Id])).GetValueOrDefault(order.Id),
         }));
+    }
+
+    private static string BuildReturnNote(string? note, string paymentMethod, string orderNo)
+    {
+        var pm = $"[HT:{paymentMethod}]";
+        var body = note?.Trim();
+        if (string.IsNullOrEmpty(body))
+            return $"{pm} Trả hàng đơn {orderNo}";
+        return $"{pm} {body}";
+    }
+
+    private static void ParseReturnNote(string? note, out string? paymentMethod, out string? cleanNote)
+    {
+        paymentMethod = null;
+        cleanNote = note?.Trim();
+        if (string.IsNullOrEmpty(cleanNote)) return;
+
+        const string prefix = "[HT:";
+        if (!cleanNote.StartsWith(prefix, StringComparison.Ordinal)) return;
+
+        var end = cleanNote.IndexOf(']', prefix.Length);
+        if (end <= prefix.Length) return;
+
+        paymentMethod = cleanNote[prefix.Length..end].Trim();
+        cleanNote = cleanNote[(end + 1)..].Trim();
+        if (cleanNote.StartsWith("Trả hàng đơn ", StringComparison.Ordinal))
+            cleanNote = null;
     }
 
     private async Task<Dictionary<Guid, decimal>> GetReturnedAmountsAsync(Guid storeId, List<Guid> orderIds)
@@ -748,6 +1194,19 @@ public partial class PosSalesController(
         return rows.ToDictionary(x => x.OrderId, x => x.Amount);
     }
 
+    private async Task<Dictionary<(Guid ProductId, Guid? VariantId), decimal>> GetReturnedQtyByLineAsync(
+        Guid storeId, Guid orderId)
+    {
+        var rows = await dbContext.PosStockTransactions.AsNoTracking()
+            .Where(t => t.SaleOrderId == orderId && t.StoreId == storeId && t.Deleted == null &&
+                        t.TransactionType == PosStockTransactionType.Return &&
+                        (t.Note == null || !t.Note.StartsWith("Hủy đơn")))
+            .GroupBy(t => new { t.ProductId, t.VariantId })
+            .Select(g => new { g.Key.ProductId, g.Key.VariantId, Qty = g.Sum(x => x.QtyChange) })
+            .ToListAsync();
+        return rows.ToDictionary(x => (x.ProductId, x.VariantId), x => x.Qty);
+    }
+
     private static string PaymentMethodLabel(PaymentMethodType method) => method switch
     {
         PaymentMethodType.Cash => "Tiền mặt",
@@ -760,13 +1219,33 @@ public partial class PosSalesController(
 
     private async Task<SaleOrderDto> MapOrderAsync(Guid storeId, PosSaleOrder order)
     {
+        var lines = order.Lines?.ToList() ?? [];
+        return await MapOrderAsync(storeId, order, lines);
+    }
+
+    private async Task<SaleOrderDto> MapOrderAsync(
+        Guid storeId, PosSaleOrder order, List<PosSaleOrderLine> lines)
+    {
         var returnedMap = await GetReturnedAmountsAsync(storeId, [order.Id]);
-        return MapOrder(order, order.Lines.ToList(), returnedMap.GetValueOrDefault(order.Id));
+        var returnedQtyMap = await GetReturnedQtyByLineAsync(storeId, order.Id);
+        var (dailyIndex, dailyTotal) =
+            await PosSaleStockHelper.GetDailyPrintContextAsync(dbContext, storeId, order);
+        var serialMap = await PosSaleWarrantyHelper.GetSerialsByLineAsync(
+            dbContext, storeId, lines.Select(l => l.Id));
+        return MapOrder(
+            order, lines, returnedMap.GetValueOrDefault(order.Id),
+            returnedQtyMap, dailyIndex, dailyTotal, serialMap);
     }
 
     private static SaleOrderDto MapOrder(
-        PosSaleOrder order, List<PosSaleOrderLine> lines, decimal returnedAmount = 0) =>
-        new(
+        PosSaleOrder order, List<PosSaleOrderLine> lines, decimal returnedAmount = 0,
+        Dictionary<(Guid ProductId, Guid? VariantId), decimal>? returnedQtyByLine = null,
+        int dailyOrderIndex = 0, decimal dailySalesTotal = 0,
+        Dictionary<Guid, List<string>>? serialsByLine = null)
+    {
+        returnedQtyByLine ??= new Dictionary<(Guid, Guid?), decimal>();
+        serialsByLine ??= new Dictionary<Guid, List<string>>();
+        return new(
             order.Id, order.OrderNo, order.Status.ToString(),
             order.SubTotal, order.Discount, order.Total, order.PaidAmount,
             order.Total - order.PaidAmount, returnedAmount,
@@ -776,9 +1255,13 @@ public partial class PosSalesController(
             order.Note,
             order.SaleDate, order.SoldBy, order.SoldByEmployeeId, order.SalesChannel, order.PriceListName,
             order.CreatedAt, order.CreatedBy,
+            order.PrintCount, dailyOrderIndex, dailySalesTotal,
             lines.Select(l => new SaleOrderLineDto(
                 l.Id, l.ProductId, l.VariantId, l.ProductName, l.UnitName,
-                l.Qty, l.UnitPrice, l.DiscountAmount, l.LineTotal, l.LineNote)).ToList());
+                l.Qty, l.UnitPrice, l.DiscountAmount, l.LineTotal, l.LineNote,
+                returnedQtyByLine.GetValueOrDefault((l.ProductId, l.VariantId)),
+                serialsByLine.GetValueOrDefault(l.Id))).ToList());
+    }
 
     private static SaleOrderSummaryDto MapSummary(
         PosSaleOrder o, decimal returnedAmount, int lineCount) =>
@@ -788,5 +1271,6 @@ public partial class PosSalesController(
             o.Total - o.PaidAmount, returnedAmount,
             o.PaymentMethod, o.CustomerName, o.CustomerId,
             o.IsDelivery, o.DeliveryStatus,
-            o.SaleDate, o.CreatedAt, o.CreatedBy, o.SoldBy, o.SalesChannel, lineCount);
+            o.SaleDate, o.CreatedAt, o.CreatedBy, o.SoldBy, o.SalesChannel, lineCount,
+            o.PrintCount);
 }

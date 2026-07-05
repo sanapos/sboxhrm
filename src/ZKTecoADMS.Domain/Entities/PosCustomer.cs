@@ -48,5 +48,10 @@ public class PosCustomer : AuditableEntity<Guid>
     /// <summary>Công nợ khách hàng hiện tại.</summary>
     public decimal CurrentDebt { get; set; }
 
+    /// <summary>Điểm tích lũy hiện tại.</summary>
+    public decimal PointBalance { get; set; }
+
     public virtual ICollection<PosSaleOrder> SaleOrders { get; set; } = [];
+    public virtual ICollection<PosCustomerPayment> Payments { get; set; } = [];
+    public virtual ICollection<PosCustomerPointTransaction> PointTransactions { get; set; } = [];
 }

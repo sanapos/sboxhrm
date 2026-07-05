@@ -388,7 +388,9 @@ class _PosStockIssueListScreenState extends State<PosStockIssueListScreen> {
 
     return Scaffold(
       backgroundColor: HrmPageChrome.background,
-      body: Column(
+      body: posMobileSafeBody(
+        context,
+        Column(
         children: [
           PosModuleToolbar(activeModule: _config.activeModule),
           PosMobileListHeader(
@@ -441,6 +443,7 @@ class _PosStockIssueListScreenState extends State<PosStockIssueListScreen> {
             ),
           ),
         ],
+        ),
       ),
     );
   }

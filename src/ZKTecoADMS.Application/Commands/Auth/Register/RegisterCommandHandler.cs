@@ -1,4 +1,4 @@
-﻿using System.Text.RegularExpressions;
+using System.Text.RegularExpressions;
 using ZKTecoADMS.Application.CQRS;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;

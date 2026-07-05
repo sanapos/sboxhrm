@@ -8,13 +8,16 @@ import '../models/pos_sale_order.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import '../widgets/notification_overlay.dart';
+import '../utils/pos_sell_stock_patch.dart';
+import '../widgets/pos/pos_mobile_widgets.dart';
 import '../widgets/pos/pos_pick_sale_order_dialog.dart';
 import '../widgets/pos/pos_product_image.dart';
 import '../widgets/pos/pos_theme.dart';
+import 'main_layout.dart' show ScreenRefreshNotifier;
 
 const _kiotBlue = PosTheme.kiotBlue;
 
-/// Màn trả hàng POS kiểu KiotViet — chọn hóa đơn, nhập SL trả từng dòng.
+/// Trả hàng bán — chọn hóa đơn hoàn thành, nhập SL trả từng dòng.
 class PosSaleReturnScreen extends StatefulWidget {
   const PosSaleReturnScreen({super.key, this.orderId});
 
@@ -33,8 +36,17 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
 
   PosSaleOrder? _order;
   final Map<String, PosProduct> _productMeta = {};
+  List<_ReturnHistory> _history = [];
   bool _loading = true;
   bool _submitting = false;
+  String _refundPaymentMethod = 'Tiền mặt';
+  static const _refundMethods = [
+    'Tiền mặt',
+    'Chuyển khoản',
+    'VietQR',
+    'Thẻ',
+    'Ví điện tử',
+  ];
   final List<_ReturnLine> _lines = [];
 
   @override
@@ -56,17 +68,14 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
     if (widget.orderId != null) {
       await _loadOrder(widget.orderId!);
     } else {
-      await _pickOrder();
+      if (mounted) setState(() => _loading = false);
     }
   }
 
   Future<void> _pickOrder() async {
     final picked = await showPosPickSaleOrderDialog(context);
     if (!mounted) return;
-    if (picked == null) {
-      if (_order == null) Navigator.pop(context);
-      return;
-    }
+    if (picked == null) return;
     await _loadOrder(picked.id);
   }
 
@@ -82,23 +91,46 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
     }
   }
 
+  Future<void> _loadReturnHistory(String orderId) async {
+    _history = [];
+    final res = await _api.getPosSaleReturns(orderId);
+    if (res['isSuccess'] == true && res['data'] is List) {
+      _history = (res['data'] as List)
+          .map((e) => _ReturnHistory.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+  }
+
   Future<void> _loadOrder(String id) async {
     setState(() => _loading = true);
     final res = await _api.getPosSale(id);
     if (!mounted) return;
     if (res['isSuccess'] == true && res['data'] is Map) {
       final order = PosSaleOrder.fromJson(res['data'] as Map<String, dynamic>);
+      if (order.status != 'Completed') {
+        setState(() => _loading = false);
+        NotificationOverlayManager().showWarning(
+          title: 'Trả hàng',
+          message: 'Chỉ trả hàng trên đơn đã hoàn thành',
+        );
+        return;
+      }
       for (final l in _lines) {
         l.qtyCtrl.dispose();
       }
       _lines.clear();
       for (final l in order.lines) {
+        if (l.returnedQty >= l.qty) continue;
         _lines.add(_ReturnLine(line: l, qtyCtrl: TextEditingController(text: '0')));
       }
       await _loadProductMeta(order);
+      await _loadReturnHistory(id);
       if (!mounted) return;
       setState(() {
         _order = order;
+        _refundPaymentMethod = order.paymentMethod.trim().isNotEmpty
+            ? order.paymentMethod
+            : 'Tiền mặt';
         _loading = false;
       });
     } else {
@@ -107,31 +139,40 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
         title: 'Trả hàng',
         message: res['message']?.toString() ?? 'Không tải được hóa đơn',
       );
-      if (_order == null && mounted) Navigator.pop(context);
     }
   }
 
   double _returnQty(_ReturnLine rl) =>
       double.tryParse(rl.qtyCtrl.text.replaceAll(',', '.')) ?? 0;
 
+  double _unitRefund(PosSaleOrderLine l) {
+    if (l.qty <= 0) return l.unitPrice;
+    if (l.lineTotal > 0) return l.lineTotal / l.qty;
+    return l.unitPrice;
+  }
+
   double get _returnTotal {
     var sum = 0.0;
     for (final rl in _lines) {
       final q = _returnQty(rl);
-      if (q > 0) sum += q * rl.line.unitPrice;
+      if (q > 0) sum += q * _unitRefund(rl.line);
     }
     return sum;
   }
 
-  void _adjustReturnQty(_ReturnLine rl, double delta) {
-    final max = rl.line.qty;
-    var next = _returnQty(rl) + delta;
+  void _setReturnQty(_ReturnLine rl, double value) {
+    final max = rl.maxReturnable;
+    var next = value;
     if (next < 0) next = 0;
     if (next > max) next = max;
     rl.qtyCtrl.text = next == next.roundToDouble()
         ? next.toStringAsFixed(0)
         : next.toStringAsFixed(2);
     setState(() {});
+  }
+
+  void _adjustReturnQty(_ReturnLine rl, double delta) {
+    _setReturnQty(rl, _returnQty(rl) + delta);
   }
 
   Future<void> _submit() async {
@@ -142,6 +183,13 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
     for (final rl in _lines) {
       final qty = _returnQty(rl);
       if (qty <= 0) continue;
+      if (qty > rl.maxReturnable) {
+        NotificationOverlayManager().showWarning(
+          title: 'Trả hàng',
+          message: 'Vượt SL còn lại: ${rl.line.productName}',
+        );
+        return;
+      }
       bodyLines.add({
         'productId': rl.line.productId,
         'qty': qty,
@@ -159,6 +207,7 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
     final res = await _api.returnPosSale(order.id, {
       'lines': bodyLines,
       if (note.isNotEmpty) 'note': note,
+      'refundPaymentMethod': _refundPaymentMethod,
     });
     if (!mounted) return;
     setState(() => _submitting = false);
@@ -167,13 +216,25 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
       final refund = res['data'] is Map
           ? (res['data'] as Map)['refundTotal']
           : null;
+      final stockLines = bodyLines
+          .map(
+            (line) => PosSellStockLineDelta(
+              productId: line['productId']?.toString() ?? '',
+              variantId: line['variantId']?.toString(),
+              qty: _num(line['qty']),
+              addBack: true,
+            ),
+          )
+          .where((l) => l.productId.isNotEmpty && l.qty > 0)
+          .toList();
       NotificationOverlayManager().showSuccess(
         title: 'Trả hàng thành công',
         message: refund != null
-            ? 'Đã trả ${_moneyFmt.format(_num(refund))} · ${order.orderNo}'
+            ? 'Hoàn ${_moneyFmt.format(_num(refund))} · $_refundPaymentMethod'
             : 'Đã ghi nhận trả hàng · ${order.orderNo}',
       );
-      await _loadOrder(order.id);
+      ScreenRefreshNotifier.refreshPosAfterStockChange(sellStockLines: stockLines);
+      Navigator.of(context).pop(true);
     } else {
       NotificationOverlayManager().showError(
         title: 'Lỗi trả hàng',
@@ -187,105 +248,355 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
     return double.tryParse(v?.toString() ?? '') ?? 0;
   }
 
+  bool get _mobile => posUseMobileList(context);
+
   @override
   Widget build(BuildContext context) {
     final perm = Provider.of<PermissionProvider>(context);
-    final canReturn = perm.canEdit('PosProducts') || perm.canCreate('PosSell');
+    final canReturn = perm.canEdit('PosSell') || perm.canEdit('PosProducts');
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F4F6),
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildTopBar(),
-            Expanded(
-              child: _loading
-                  ? const Center(child: CircularProgressIndicator(color: _kiotBlue))
-                  : _order == null
-                      ? _buildEmptyPick()
-                      : _buildBody(),
-            ),
-            if (_order != null) _buildFooter(canReturn),
-          ],
-        ),
+      backgroundColor: PosTheme.background,
+      appBar: AppBar(
+        title: Text(_order != null ? 'Trả hàng · ${_order!.orderNo}' : 'Trả hàng bán'),
+        backgroundColor: _kiotBlue,
+        foregroundColor: Colors.white,
+        actions: [
+          TextButton.icon(
+            onPressed: _pickOrder,
+            icon: const Icon(Icons.receipt_long, color: Colors.white, size: 18),
+            label: const Text('Đổi HĐ', style: TextStyle(color: Colors.white)),
+          ),
+        ],
       ),
-    );
-  }
-
-  Widget _buildTopBar() {
-    return Material(
-      color: _kiotBlue,
-      child: Container(
-        height: 48,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        child: Row(
-          children: [
-            IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.white),
-              onPressed: () => Navigator.pop(context),
-            ),
-            Expanded(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    if (_order != null)
-                      _tabChip('Trả hàng · ${_order!.orderNo}', active: true),
-                  ],
-                ),
-              ),
-            ),
-            TextButton.icon(
-              onPressed: _pickOrder,
-              icon: const Icon(Icons.receipt_long, color: Colors.white, size: 18),
-              label: const Text('Chọn hóa đơn', style: TextStyle(color: Colors.white)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _tabChip(String label, {required bool active}) {
-    return Container(
-      margin: const EdgeInsets.only(right: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: active ? Colors.white : Colors.white.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: active ? _kiotBlue : Colors.white,
-        ),
-      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator(color: _kiotBlue))
+          : _order == null
+              ? _buildEmptyPick()
+              : _mobile
+                  ? _buildMobileBody()
+                  : _buildDesktopBody(),
+      bottomNavigationBar: _order != null ? _buildBottomBar(canReturn) : null,
     );
   }
 
   Widget _buildEmptyPick() {
     return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.assignment_return_outlined,
+                size: 56, color: _kiotBlue.withValues(alpha: 0.6)),
+            const SizedBox(height: 16),
+            const Text(
+              'Trả hàng bán hàng',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Chọn hóa đơn đã hoàn thành để trả một phần hoặc toàn bộ hàng.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: PosTheme.textSecondary),
+            ),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              style: FilledButton.styleFrom(
+                backgroundColor: _kiotBlue,
+                minimumSize: const Size(220, 48),
+              ),
+              onPressed: _pickOrder,
+              icon: const Icon(Icons.search),
+              label: const Text('Chọn hóa đơn'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOrderHeader(PosSaleOrder o) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: PosTheme.mobileCardDecoration(),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Icon(Icons.receipt_long_outlined, size: 48, color: PosTheme.textSecondary),
-          const SizedBox(height: 12),
-          const Text('Chọn hóa đơn cần trả hàng'),
-          const SizedBox(height: 16),
-          FilledButton.icon(
-            style: FilledButton.styleFrom(backgroundColor: _kiotBlue),
-            onPressed: _pickOrder,
-            icon: const Icon(Icons.search),
-            label: const Text('Chọn hóa đơn trả hàng'),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  o.orderNo,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: _kiotBlue,
+                  ),
+                ),
+              ),
+              if (o.createdAt != null)
+                Text(
+                  _dateFmt.format(o.createdAt!.toLocal()),
+                  style: const TextStyle(fontSize: 11, color: PosTheme.textSecondary),
+                ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text('Khách: ${o.customerName ?? 'Khách lẻ'}'),
+          if ((o.soldBy ?? o.createdBy)?.isNotEmpty == true)
+            Text('NV: ${o.soldBy ?? o.createdBy}',
+                style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary)),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _chip('Tổng HĐ', _moneyFmt.format(o.total)),
+              if (o.returnedAmount > 0) ...[
+                const SizedBox(width: 8),
+                _chip('Đã trả', _moneyFmt.format(o.returnedAmount), orange: true),
+              ],
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildBody() {
+  Widget _chip(String label, String value, {bool orange = false}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: orange ? Colors.orange.shade50 : Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        '$label: $value',
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: orange ? Colors.orange.shade800 : _kiotBlue,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMobileBody() {
+    final o = _order!;
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+      children: [
+        _buildOrderHeader(o),
+        if (_history.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          _buildHistorySection(),
+        ],
+        const SizedBox(height: 12),
+        const Text('Chọn hàng trả',
+            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+        const SizedBox(height: 8),
+        if (_lines.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(24),
+            child: Center(child: Text('Đã trả hết hàng trong đơn')),
+          )
+        else
+          ..._lines.map((rl) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _mobileLineCard(rl),
+              )),
+        const SizedBox(height: 8),
+        _buildRefundMethodPicker(),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _noteCtrl,
+          maxLines: 2,
+          decoration: InputDecoration(
+            hintText: 'Ghi chú trả hàng',
+            filled: true,
+            fillColor: Colors.white,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        ),
+        const SizedBox(height: 80),
+      ],
+    );
+  }
+
+  Widget _buildRefundMethodPicker() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: PosTheme.mobileCardDecoration(),
+      child: DropdownButtonFormField<String>(
+        value: _refundMethods.contains(_refundPaymentMethod)
+            ? _refundPaymentMethod
+            : _refundMethods.first,
+        decoration: const InputDecoration(
+          labelText: 'Phương thức hoàn tiền',
+          border: InputBorder.none,
+        ),
+        items: _refundMethods
+            .map((m) => DropdownMenuItem(value: m, child: Text(m)))
+            .toList(),
+        onChanged: _submitting
+            ? null
+            : (v) {
+                if (v == null) return;
+                setState(() => _refundPaymentMethod = v);
+              },
+      ),
+    );
+  }
+
+  Widget _buildHistorySection() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: PosTheme.mobileCardDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text('Lịch sử trả',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+          const SizedBox(height: 8),
+          ..._history.take(5).map((h) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        h.returnNo,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: _kiotBlue,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      _moneyFmt.format(h.refundAmount),
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              )),
+        ],
+      ),
+    );
+  }
+
+  Widget _mobileLineCard(_ReturnLine rl) {
+    final l = rl.line;
+    final meta = _productMeta[l.productId];
+    final ret = _returnQty(rl);
+    final unit = _unitRefund(l);
+    final lineTotal = ret * unit;
+    final code = meta?.productCode ?? meta?.barcode ?? '';
+
+    return Container(
+      decoration: PosTheme.mobileCardDecoration(),
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              PosProductImage(
+                productId: l.productId,
+                imageUrl: meta?.imageUrl,
+                size: 52,
+                borderRadius: 8,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(l.productName,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 14)),
+                    if (code.isNotEmpty)
+                      Text(code,
+                          style: const TextStyle(
+                              fontSize: 11, color: PosTheme.textSecondary)),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Đã bán ${_qtyFmt.format(l.qty)} · Đã trả ${_qtyFmt.format(l.returnedQty)} · Còn ${_qtyFmt.format(rl.maxReturnable)}',
+                      style: const TextStyle(fontSize: 11, color: PosTheme.textSecondary),
+                    ),
+                    Text(
+                      '${_moneyFmt.format(unit)}/${l.unitName ?? 'cái'}',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              _qtyBtn(Icons.remove, ret > 0 ? () => _adjustReturnQty(rl, -1) : null),
+              Expanded(
+                child: TextField(
+                  controller: rl.qtyCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  textAlign: TextAlign.center,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'[\d.,]')),
+                  ],
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    contentPadding: EdgeInsets.symmetric(vertical: 8),
+                    border: OutlineInputBorder(),
+                    labelText: 'SL trả',
+                  ),
+                  onChanged: (_) => setState(() {}),
+                  onSubmitted: (v) {
+                    _setReturnQty(rl, double.tryParse(v.replaceAll(',', '.')) ?? 0);
+                  },
+                ),
+              ),
+              _qtyBtn(Icons.add, ret < rl.maxReturnable ? () => _adjustReturnQty(rl, 1) : null,
+                  primary: true),
+              const SizedBox(width: 6),
+              TextButton(
+                onPressed: rl.maxReturnable > 0
+                    ? () => _setReturnQty(rl, rl.maxReturnable)
+                    : null,
+                child: const Text('Hết', style: TextStyle(fontSize: 12)),
+              ),
+            ],
+          ),
+          if (ret > 0)
+            Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                'Trả: ${_moneyFmt.format(lineTotal)}',
+                style: const TextStyle(fontWeight: FontWeight.w700, color: _kiotBlue),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _qtyBtn(IconData icon, VoidCallback? onTap, {bool primary = false}) {
+    return Material(
+      color: primary ? _kiotBlue : Colors.grey.shade200,
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: SizedBox(
+          width: 40,
+          height: 40,
+          child: Icon(icon, size: 20, color: primary ? Colors.white : Colors.black87),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDesktopBody() {
     final o = _order!;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -322,25 +633,32 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
               _buildTableHeader(),
               Expanded(
                 child: _lines.isEmpty
-                    ? const Center(child: Text('Đơn không có dòng hàng'))
+                    ? const Center(child: Text('Đã trả hết hàng trong đơn'))
                     : ListView.separated(
                         padding: EdgeInsets.zero,
                         itemCount: _lines.length,
                         separatorBuilder: (_, __) =>
                             const Divider(height: 1, color: PosTheme.border),
-                        itemBuilder: (_, i) => _lineRow(_lines[i], i),
+                        itemBuilder: (_, i) => _desktopLineRow(_lines[i], i),
                       ),
               ),
               Container(
                 color: Colors.white,
                 padding: const EdgeInsets.all(12),
-                child: TextField(
-                  controller: _noteCtrl,
-                  decoration: const InputDecoration(
-                    hintText: 'Ghi chú đơn hàng',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildRefundMethodPicker(),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _noteCtrl,
+                      decoration: const InputDecoration(
+                        hintText: 'Ghi chú trả hàng',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -358,11 +676,10 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
       child: const Row(
         children: [
           SizedBox(width: 28, child: Text('STT', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600))),
-          SizedBox(width: 36),
           SizedBox(width: 44),
           Expanded(child: Text('Tên hàng', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600))),
           SizedBox(width: 56, child: Text('ĐVT', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600))),
-          SizedBox(width: 100, child: Text('SL trả', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600))),
+          SizedBox(width: 120, child: Text('SL trả', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600))),
           SizedBox(width: 72, child: Text('Giá', textAlign: TextAlign.right, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600))),
           SizedBox(width: 80, child: Text('T.Tiền', textAlign: TextAlign.right, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600))),
         ],
@@ -370,12 +687,12 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
     );
   }
 
-  Widget _lineRow(_ReturnLine rl, int index) {
+  Widget _desktopLineRow(_ReturnLine rl, int index) {
     final l = rl.line;
     final meta = _productMeta[l.productId];
     final ret = _returnQty(rl);
-    final lineTotal = ret * l.unitPrice;
-    final code = meta?.productCode ?? meta?.barcode ?? '';
+    final unit = _unitRefund(l);
+    final lineTotal = ret * unit;
 
     return Material(
       color: Colors.white,
@@ -386,19 +703,8 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
           children: [
             SizedBox(
               width: 28,
-              child: Text('${index + 1}', style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary)),
-            ),
-            SizedBox(
-              width: 36,
-              child: IconButton(
-                visualDensity: VisualDensity.compact,
-                padding: EdgeInsets.zero,
-                icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
-                onPressed: () {
-                  rl.qtyCtrl.text = '0';
-                  setState(() {});
-                },
-              ),
+              child: Text('${index + 1}',
+                  style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary)),
             ),
             PosProductImage(
               productId: l.productId,
@@ -411,10 +717,14 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(l.productName, maxLines: 2, overflow: TextOverflow.ellipsis,
+                  Text(l.productName,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                  if (code.isNotEmpty)
-                    Text(code, style: const TextStyle(fontSize: 10, color: PosTheme.textSecondary)),
+                  Text(
+                    'Còn trả ${_qtyFmt.format(rl.maxReturnable)}',
+                    style: const TextStyle(fontSize: 10, color: PosTheme.textSecondary),
+                  ),
                 ],
               ),
             ),
@@ -423,7 +733,7 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
               child: Text(l.unitName ?? 'cái', style: const TextStyle(fontSize: 12)),
             ),
             SizedBox(
-              width: 100,
+              width: 120,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -432,10 +742,10 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
                     icon: const Icon(Icons.remove, size: 16),
-                    onPressed: () => _adjustReturnQty(rl, -1),
+                    onPressed: ret > 0 ? () => _adjustReturnQty(rl, -1) : null,
                   ),
                   Text(
-                    '${_qtyFmt.format(ret)} / ${_qtyFmt.format(l.qty)}',
+                    '${_qtyFmt.format(ret)} / ${_qtyFmt.format(rl.maxReturnable)}',
                     style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                   ),
                   IconButton(
@@ -443,26 +753,22 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
                     icon: const Icon(Icons.add, size: 16, color: _kiotBlue),
-                    onPressed: () => _adjustReturnQty(rl, 1),
+                    onPressed:
+                        ret < rl.maxReturnable ? () => _adjustReturnQty(rl, 1) : null,
                   ),
                 ],
               ),
             ),
             SizedBox(
               width: 72,
-              child: Text(
-                _moneyFmt.format(l.unitPrice),
-                textAlign: TextAlign.right,
-                style: const TextStyle(fontSize: 12),
-              ),
+              child: Text(_moneyFmt.format(unit),
+                  textAlign: TextAlign.right, style: const TextStyle(fontSize: 12)),
             ),
             SizedBox(
               width: 80,
-              child: Text(
-                _moneyFmt.format(lineTotal),
-                textAlign: TextAlign.right,
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-              ),
+              child: Text(_moneyFmt.format(lineTotal),
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
             ),
           ],
         ),
@@ -477,7 +783,7 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(o.soldBy ?? o.createdBy ?? 'sbox',
+          Text(o.soldBy ?? o.createdBy ?? '—',
               style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
           if (o.createdAt != null)
             Text(_dateFmt.format(o.createdAt!.toLocal()),
@@ -485,20 +791,13 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
           const SizedBox(height: 8),
           Text('Khách: ${o.customerName ?? 'Khách lẻ'}', style: const TextStyle(fontSize: 13)),
           const Divider(height: 24),
-          InkWell(
-            onTap: _pickOrder,
-            child: Text(
-              'Trả hàng / ${o.orderNo}',
-              style: const TextStyle(color: _kiotBlue, fontWeight: FontWeight.w600),
-            ),
-          ),
-          const SizedBox(height: 16),
-          _sumRow('Tổng giá gốc hàng mua', _moneyFmt.format(o.subTotal)),
-          _sumRow('Tổng tiền hàng trả', _moneyFmt.format(_returnTotal)),
+          _sumRow('Tổng HĐ', _moneyFmt.format(o.total)),
           if (o.returnedAmount > 0)
             _sumRow('Đã trả trước', _moneyFmt.format(o.returnedAmount)),
+          _sumRow('Tiền trả lần này', _moneyFmt.format(_returnTotal)),
           const Spacer(),
-          _sumRow('Cần trả khách', _moneyFmt.format(_returnTotal), bold: true, blue: true),
+          _sumRow('Cần trả khách', _moneyFmt.format(_returnTotal),
+              bold: true, blue: true),
         ],
       ),
     );
@@ -526,28 +825,50 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
     );
   }
 
-  Widget _buildFooter(bool canReturn) {
+  Widget _buildBottomBar(bool canReturn) {
     return Material(
       color: Colors.white,
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: const BoxDecoration(border: Border(top: BorderSide(color: PosTheme.border))),
-        child: Row(
-          children: [
-            const Spacer(),
-            FilledButton(
-              onPressed: !canReturn || _submitting ? null : _submit,
-              style: FilledButton.styleFrom(
-                backgroundColor: _kiotBlue,
-                minimumSize: const Size(180, 48),
+      elevation: 8,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('Cần trả khách',
+                        style: TextStyle(fontSize: 12, color: PosTheme.textSecondary)),
+                    Text(
+                      _moneyFmt.format(_returnTotal),
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: _kiotBlue,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              child: _submitting
-                  ? const SizedBox(
-                      width: 22, height: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Text('TRẢ HÀNG', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-            ),
-          ],
+              FilledButton(
+                onPressed: !canReturn || _submitting || _lines.isEmpty ? null : _submit,
+                style: FilledButton.styleFrom(
+                  backgroundColor: _kiotBlue,
+                  minimumSize: Size(_mobile ? 140 : 180, 48),
+                ),
+                child: _submitting
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Text('TRẢ HÀNG',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -556,6 +877,33 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
 
 class _ReturnLine {
   _ReturnLine({required this.line, required this.qtyCtrl});
+
   final PosSaleOrderLine line;
   final TextEditingController qtyCtrl;
+
+  double get maxReturnable =>
+      (line.qty - line.returnedQty).clamp(0, line.qty);
+}
+
+class _ReturnHistory {
+  _ReturnHistory({
+    required this.returnNo,
+    required this.refundAmount,
+    this.createdAt,
+  });
+
+  final String returnNo;
+  final double refundAmount;
+  final DateTime? createdAt;
+
+  factory _ReturnHistory.fromJson(Map<String, dynamic> json) {
+    double n(dynamic v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
+    return _ReturnHistory(
+      returnNo: (json['returnNo'] ?? json['ReturnNo'] ?? '').toString(),
+      refundAmount: n(json['refundAmount'] ?? json['RefundAmount']),
+      createdAt: json['createdAt'] != null
+          ? DateTime.tryParse(json['createdAt'].toString())
+          : null,
+    );
+  }
 }

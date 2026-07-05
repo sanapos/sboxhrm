@@ -9,6 +9,7 @@ import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import '../utils/pos_purchase_receipt_print.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../screens/main_layout.dart' show ScreenRefreshNotifier;
 import '../widgets/loading_widget.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/pos/pos_barcode_label_dialog.dart';
@@ -61,12 +62,19 @@ class _PosPurchaseReceiptListScreenState
   @override
   void initState() {
     super.initState();
+    ScreenRefreshNotifier.posPurchaseReceipts.addListener(_onExternalRefresh);
     _loadSuppliers();
     _load();
   }
 
+  void _onExternalRefresh() {
+    if (!mounted) return;
+    _load(page: _page);
+  }
+
   @override
   void dispose() {
+    ScreenRefreshNotifier.posPurchaseReceipts.removeListener(_onExternalRefresh);
     _searchCtrl.dispose();
     _createdByCtrl.dispose();
     _importedByCtrl.dispose();
@@ -522,7 +530,9 @@ class _PosPurchaseReceiptListScreenState
 
     return Scaffold(
       backgroundColor: HrmPageChrome.background,
-      body: Column(
+      body: posMobileSafeBody(
+        context,
+        Column(
         children: [
           const PosModuleToolbar(activeModule: 'PosPurchaseReceipts'),
           PosMobileListHeader(
@@ -575,6 +585,7 @@ class _PosPurchaseReceiptListScreenState
             ),
           ),
         ],
+        ),
       ),
     );
   }

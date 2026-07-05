@@ -231,6 +231,10 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   String? _supplierId;
   bool _directSale = true;
   String _weightUnit = 'g';
+  double _vatRate = 8;
+  bool _vatExempt = false;
+  late final TextEditingController _warrantyMonthsCtrl;
+  bool _requiresSerial = false;
 
   List<PosCatalogItem> _categories = [];
   List<PosCatalogItem> _brands = [];
@@ -336,6 +340,14 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     _supplierId = p?.supplierId;
     _directSale = p?.isDirectSale ?? true;
     _weightUnit = p?.weightUnit ?? 'g';
+    _vatRate = p?.vatExempt == true ? 0 : (p?.vatRate ?? 8);
+    _vatExempt = p?.vatExempt ?? false;
+    _warrantyMonthsCtrl = TextEditingController(
+      text: p?.warrantyMonths != null && p!.warrantyMonths! > 0
+          ? '${p.warrantyMonths}'
+          : '',
+    );
+    _requiresSerial = p?.requiresSerial ?? false;
     _imagePreviewUrl = p?.imageUrl;
     if (p?.units != null) _units = List.from(p!.units!);
     if (p?.attributes != null) _attributeValues.addAll(p!.attributes!);
@@ -417,7 +429,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     if (!mounted || res['isSuccess'] != true) return;
     final items = ((res['data'] as Map?)?['items'] as List? ?? [])
         .map((e) => PosProduct.fromJson(e as Map<String, dynamic>))
-        .where((p) => p.productType != PosProductType.combo)
+        .where((p) =>
+            p.productType != PosProductType.combo &&
+            p.productType != PosProductType.service)
         .toList();
     setState(() => _allProductsForCombo = items);
   }
@@ -434,6 +448,13 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       _syncVariantAttrsFromProductAttributes();
       _supplierId = data.supplierId;
       _saleQuickNotes = List<String>.from(data.saleQuickNotes);
+      _vatRate = data.vatExempt ? 0 : data.vatRate;
+      _vatExempt = data.vatExempt;
+      _warrantyMonthsCtrl.text =
+          data.warrantyMonths != null && data.warrantyMonths! > 0
+              ? '${data.warrantyMonths}'
+              : '';
+      _requiresSerial = data.requiresSerial;
     });
     if (_isCombo) {
       final comboRes = await _api.getPosComboLines(id);
@@ -602,6 +623,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     _weightCtrl.dispose();
     _descCtrl.dispose();
     _unitCtrl.dispose();
+    _warrantyMonthsCtrl.dispose();
     super.dispose();
   }
 
@@ -695,6 +717,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         'imageUrl': widget.templateProduct!.imageUrl,
       'costPrice': _parseNum(_costCtrl.text),
       'basePrice': _parseNum(_priceCtrl.text),
+      'vatRate': _vatExempt ? 0 : _vatRate,
+      'vatExempt': _vatExempt,
       if (!_hasVariants || _usesSharedUnitStock)
         'onHandQty': _isCombo ? 0 : (_isService ? 0 : _parseNum(_stockCtrl.text)),
       'reservedQty': widget.product?.reservedQty ?? 0,
@@ -709,7 +733,11 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       },
       'isDirectSale': _directSale,
       'isFavorite': widget.product?.isFavorite ?? false,
-      if (_isGoods) 'attributes': _attributeSchemaForSave(),
+      if (_isGoods) ...{
+        'warrantyMonths': int.tryParse(_warrantyMonthsCtrl.text.trim()),
+        'requiresSerial': _requiresSerial,
+        'attributes': _attributeSchemaForSave(),
+      },
     };
 
     final res = _isEditing
@@ -786,7 +814,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     if (!mounted) return;
     setState(() => _saving = false);
     if (res['isSuccess'] == true) {
-      ScreenRefreshNotifier.refreshPosProducts();
+      ScreenRefreshNotifier.refreshPosAfterStockChange();
       ScreenRefreshNotifier.refreshPosSellProductGrid();
       NotificationOverlayManager().showSuccess(
         title: 'Thành công',
@@ -1279,6 +1307,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               ],
             ),
           ),
+          _buildProductVatSection(),
+          if (_isGoods) _buildProductWarrantySection(),
           _kvSection(
             title: 'Tồn kho',
             subtitle:
@@ -1476,25 +1506,31 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                 ),
           _kvExpansion(
             title: 'Giá vốn, giá bán',
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(
-                  child: TextField(
-                    controller: _costCtrl,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [ThousandSeparatorFormatter()],
-                    decoration: PosTheme.inputDecoration(label: 'Giá vốn'),
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _costCtrl,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [ThousandSeparatorFormatter()],
+                        decoration: PosTheme.inputDecoration(label: 'Giá vốn'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: _priceCtrl,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [ThousandSeparatorFormatter()],
+                        decoration: PosTheme.inputDecoration(label: 'Giá bán'),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextField(
-                    controller: _priceCtrl,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [ThousandSeparatorFormatter()],
-                    decoration: PosTheme.inputDecoration(label: 'Giá bán'),
-                  ),
-                ),
+                _buildProductVatSection(),
               ],
             ),
           ),
@@ -1626,6 +1662,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               ],
             ),
           ),
+          _buildProductVatSection(),
           _kvExpansion(
             title: 'Vị trí, trọng lượng',
             subtitle:
@@ -1834,6 +1871,98 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     );
   }
 
+  Widget _buildProductWarrantySection() {
+    return _kvSection(
+      title: 'Bảo hành & seri máy',
+      subtitle: 'Thời hạn BH tính từ ngày bán. Bật seri để bắt buộc nhập khi thanh toán.',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            controller: _warrantyMonthsCtrl,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            decoration: PosTheme.inputDecoration(
+              label: 'Thời hạn bảo hành (tháng)',
+              hint: 'VD: 12 — để trống nếu không BH',
+            ),
+          ),
+          const SizedBox(height: 8),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Bắt buộc nhập seri máy khi bán'),
+            subtitle: const Text(
+              'Mỗi đơn vị bán phải có seri riêng (máy điện tử, thiết bị...)',
+              style: TextStyle(fontSize: 12),
+            ),
+            value: _requiresSerial,
+            onChanged: (v) => setState(() => _requiresSerial = v),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProductVatSection() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Thuế VAT (%)',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _productVatChip('KCT', exempt: true),
+              _productVatChip('0%', rate: 0),
+              _productVatChip('5%', rate: 5),
+              _productVatChip('8%', rate: 8),
+              _productVatChip('10%', rate: 10),
+            ],
+          ),
+          if (_vatExempt)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                'Không chịu thuế GTGT — áp dụng khi cửa hàng chọn thuế theo từng mặt hàng',
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _productVatChip(String label, {double rate = 0, bool exempt = false}) {
+    final selected =
+        exempt ? _vatExempt : (!_vatExempt && _vatRate == rate);
+    return ChoiceChip(
+      label: Text(label, style: const TextStyle(fontSize: 12)),
+      selected: selected,
+      onSelected: (_) {
+        setState(() {
+          if (exempt) {
+            _vatExempt = true;
+            _vatRate = 0;
+          } else {
+            _vatExempt = false;
+            _vatRate = rate;
+          }
+        });
+      },
+      selectedColor: PosTheme.kiotBlueLight,
+      labelStyle: TextStyle(
+        color: selected ? PosTheme.kiotBlue : PosTheme.textPrimary,
+        fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+      ),
+    );
+  }
+
   Widget _kvExpansion({
     required String title,
     String? subtitle,
@@ -1952,6 +2081,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             .toList(),
       'costPrice': _parseNum(_costCtrl.text),
       'basePrice': _parseNum(_priceCtrl.text),
+      'vatRate': _vatExempt ? 0 : _vatRate,
+      'vatExempt': _vatExempt,
       if (!_hasVariants || _usesSharedUnitStock)
         'onHandQty': _isCombo ? 0 : (_isService ? 0 : _parseNum(_stockCtrl.text)),
       'reservedQty': widget.product?.reservedQty ?? 0,

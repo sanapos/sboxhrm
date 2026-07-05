@@ -426,7 +426,7 @@ class VietQRBank {
       bin: json['bin'] ?? json['bIN'] ?? '',
       name: json['name'] ?? '',
       shortName: json['shortName'] ?? '',
-      logoUrl: json['logoUrl'] ?? '',
+      logoUrl: json['logoUrl'] ?? json['logo'] ?? '',
     );
   }
 }

@@ -31,9 +31,10 @@ import '../widgets/pos/pos_unit_chip_selector.dart';
 import '../widgets/pos/pos_hub_scope.dart';
 import '../widgets/pos/pos_product_image.dart';
 import '../utils/navigation_notifier.dart';
+import 'pos/pos_product_detail_screen.dart';
+import 'pos/pos_product_editor_page.dart';
 import '../widgets/pos_barcode_scanner.dart';
 import 'main_layout.dart' show ScreenRefreshNotifier;
-import 'pos/pos_product_editor_page.dart';
 
 /// Danh sách hàng hóa — giao diện kiểu KiotViet.
 class PosProductsScreen extends StatefulWidget {
@@ -210,6 +211,11 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
       _totalOnHand = (summary?['totalOnHandQty'] as num?)?.toDouble() ??
           _items.fold(0.0, (a, b) => a + b.onHandQty);
       await _prefetchVariantsForPage();
+    } else if (mounted) {
+      NotificationOverlayManager().showError(
+        title: 'Không tải được hàng hóa',
+        message: res['message']?.toString() ?? 'Vui lòng thử lại sau',
+      );
     }
   }
 
@@ -513,6 +519,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
     if (res['isSuccess'] == true) {
       await _loadProducts();
       setState(() {});
+      ScreenRefreshNotifier.refreshPosAfterStockChange();
     }
   }
 
@@ -601,6 +608,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
       await _loadProducts();
       await _refreshExpandedVariants();
       if (mounted) setState(() {});
+      ScreenRefreshNotifier.refreshPosAfterStockChange();
     } else {
       NotificationOverlayManager().showError(
         title: 'Lỗi',
@@ -893,7 +901,9 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
       floatingActionButton: mobile && perm.canCreate('PosProducts')
           ? PosMobileFab(onPressed: () => _onCreateType('goods'))
           : null,
-      body: Column(
+      body: posMobileSafeBody(
+        context,
+        Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (!inHub) const PosModuleToolbar(activeModule: 'PosProducts'),
@@ -901,16 +911,17 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
             PosMobileKiotHeader(
               title: 'Hàng hoá',
               onSearch: () => _focusSearch(),
-              onFilter: () => _openMobileFilters(perm),
-              onSort: _showSortSheet,
+              onFilter: inHub ? null : () => _openMobileFilters(perm),
+              onSort: inHub ? null : _showSortSheet,
               onMore: () => _showMobileMoreMenu(perm),
+              onRefresh: inHub ? null : _reloadProducts,
               activeFilterCount: _activeMobileFilterCount,
-              filterChips: _buildFilterChipsRow(),
+              filterChips: inHub ? null : _buildFilterChipsRow(),
             )
           else
             _buildMainToolbar(perm, wide),
           if (_selectedIds.isNotEmpty) _buildSelectionBar(),
-          if (mobile) _buildMobileStockSummary(),
+          if (mobile && !inHub) _buildMobileStockSummary(),
           Expanded(
             child: _loading
                 ? const LoadingWidget(message: 'Đang tải hàng hóa…')
@@ -1026,6 +1037,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                   ),
           ),
         ],
+        ),
       ),
     );
   }
@@ -1395,12 +1407,40 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
   }
 
   void _showMobileMoreMenu(PermissionProvider perm) {
+    final inHub = PosHubScope.of(context);
     showModalBottomSheet<void>(
       context: context,
       builder: (ctx) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (inHub) ...[
+              ListTile(
+                leading: const Icon(Icons.filter_list),
+                title: Text('Bộ lọc${_activeMobileFilterCount > 0 ? ' ($_activeMobileFilterCount)' : ''}'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _openMobileFilters(perm);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.import_export),
+                title: const Text('Sắp xếp'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _showSortSheet();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.refresh),
+                title: const Text('Làm mới'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _reloadProducts();
+                },
+              ),
+              const Divider(height: 1),
+            ],
             if (perm.canCreate('PosProducts'))
               ListTile(
                 leading: const Icon(Icons.add),
@@ -1698,6 +1738,142 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
     );
   }
 
+  Future<void> _showMobileProductActions(PosProduct p, PermissionProvider perm) async {
+    final variants = _variantsByProductId[p.id] ?? [];
+    final unitViewId = _unitViewVariantIdByProductId[p.id];
+    final activeView = resolveUnitView(p, variants, unitViewId);
+    final canEdit = perm.canEdit('PosProducts');
+    final canCreate = perm.canCreate('PosProducts');
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => SafeArea(
+        child: DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.42,
+          minChildSize: 0.28,
+          maxChildSize: 0.72,
+          builder: (_, scrollCtrl) => ListView(
+            controller: scrollCtrl,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+                child: Row(
+                  children: [
+                    PosProductImage(
+                      productId: p.id,
+                      imageUrl: p.imageUrl,
+                      size: 44,
+                      borderRadius: 8,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            p.name,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            '${activeView.displayCode} · ${_moneyFmt.format(activeView.basePrice)} đ',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: PosTheme.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.visibility_outlined),
+                title: const Text('Xem chi tiết'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => PosProductDetailScreen(product: p),
+                    ),
+                  );
+                },
+              ),
+              if (canEdit)
+                ListTile(
+                  leading: const Icon(Icons.edit_outlined),
+                  title: const Text('Sửa hàng hóa'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _openEdit(p);
+                  },
+                ),
+              ListTile(
+                leading: const Icon(Icons.print_outlined),
+                title: const Text('In nhãn mã vạch'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _printLabel(p);
+                },
+              ),
+              if (canCreate || canEdit)
+                ListTile(
+                  leading: const Icon(Icons.more_horiz),
+                  title: const Text('Thao tác khác'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _showMobileProductMoreActions(p, perm);
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showMobileProductMoreActions(
+      PosProduct p, PermissionProvider perm) async {
+    final canEdit = perm.canEdit('PosProducts');
+    final canCreate = perm.canCreate('PosProducts');
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (canCreate)
+              ListTile(
+                leading: const Icon(Icons.copy_outlined),
+                title: const Text('Sao chép hàng hóa'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _copyProduct(p);
+                },
+              ),
+            if (canEdit)
+              ListTile(
+                leading: const Icon(Icons.delete_outline, color: Colors.red),
+                title: const Text('Xóa hàng hóa', style: TextStyle(color: Colors.red)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _deleteProduct(p);
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildKiotMobileProductRow(PosProduct p, PermissionProvider perm) {
     final variants = _variantsByProductId[p.id] ?? [];
     final unitViews = buildPosProductUnitViews(p, variants);
@@ -1720,8 +1896,8 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
         size: 48,
         borderRadius: 8,
       ),
-      onTap: () => _toggleExpand(p),
-      onLongPress: () => _openEdit(p),
+      onTap: () => _showMobileProductActions(p, perm),
+      onLongPress: perm.canEdit('PosProducts') ? () => _openEdit(p) : null,
     );
   }
 

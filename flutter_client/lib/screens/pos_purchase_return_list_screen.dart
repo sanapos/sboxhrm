@@ -439,7 +439,9 @@ class _PosPurchaseReturnListScreenState extends State<PosPurchaseReturnListScree
 
     return Scaffold(
       backgroundColor: HrmPageChrome.background,
-      body: Column(
+      body: posMobileSafeBody(
+        context,
+        Column(
         children: [
           const PosModuleToolbar(activeModule: 'PosPurchaseReturns'),
           PosMobileListHeader(
@@ -492,6 +494,7 @@ class _PosPurchaseReturnListScreenState extends State<PosPurchaseReturnListScree
             ),
           ),
         ],
+        ),
       ),
     );
   }

@@ -391,7 +391,9 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
 
     return Scaffold(
       backgroundColor: HrmPageChrome.background,
-      body: Column(
+      body: posMobileSafeBody(
+        context,
+        Column(
         children: [
           const PosModuleToolbar(activeModule: 'PosStockCounts'),
           PosMobileListHeader(
@@ -443,6 +445,7 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
             ),
           ),
         ],
+        ),
       ),
     );
   }

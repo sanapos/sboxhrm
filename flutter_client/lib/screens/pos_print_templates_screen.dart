@@ -8,6 +8,7 @@ import '../widgets/notification_overlay.dart';
 import '../utils/pos_print_template_defaults.dart';
 import '../utils/pos_print_template_renderer.dart';
 import '../utils/pos_html_print.dart';
+import '../utils/responsive_helper.dart';
 import '../widgets/pos/pos_html_preview_stub.dart'
     if (dart.library.js_interop) '../widgets/pos/pos_html_preview_web.dart';
 import '../widgets/pos/pos_module_toolbar.dart';
@@ -16,10 +17,17 @@ import '../widgets/pos/pos_theme.dart';
 const _blue = Color(0xFF2563EB);
 
 class PosPrintTemplatesScreen extends StatefulWidget {
-  const PosPrintTemplatesScreen({super.key, this.embeddedInSettings = false});
+  const PosPrintTemplatesScreen({
+    super.key,
+    this.embeddedInSettings = false,
+    this.initialDocumentType,
+  });
 
   /// Hiển thị trong Thiết lập HRM (ẩn toolbar POS).
   final bool embeddedInSettings;
+
+  /// Loại chứng từ mở sẵn (vd. StockIssue cho phiếu xuất kho).
+  final String? initialDocumentType;
 
   @override
   State<PosPrintTemplatesScreen> createState() => _PosPrintTemplatesScreenState();
@@ -41,6 +49,10 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialDocumentType != null &&
+        widget.initialDocumentType!.isNotEmpty) {
+      _docType = widget.initialDocumentType!;
+    }
     _load();
   }
 
@@ -373,63 +385,13 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
               ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            child: Row(
-              children: [
-                const Text('Mẫu in:', style: TextStyle(fontWeight: FontWeight.w600)),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: _dropdownValue,
-                    decoration: InputDecoration(
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
-                      hintText: _templates.isEmpty ? 'Chưa có mẫu — bấm +' : null,
-                    ),
-                    items: _templates
-                        .map((t) => DropdownMenuItem(
-                              value: t.id,
-                              child: Text('${t.name} (${PosPrintPaperSizes.labels[t.paperSize] ?? t.paperSize})'),
-                            ))
-                        .toList(),
-                    onChanged: (id) {
-                      if (id == null) return;
-                      _selectTemplate(_templates.where((t) => t.id == id).firstOrNull);
-                    },
-                  ),
-                ),
-                IconButton(
-                  tooltip: 'Thêm mẫu',
-                  onPressed: _addTemplate,
-                  icon: const Icon(Icons.add_circle_outline, color: _blue),
-                ),
-                IconButton(
-                  tooltip: 'Xóa mẫu',
-                  onPressed: _selected == null ? null : _deleteTemplate,
-                  icon: const Icon(Icons.delete_outline, color: Colors.red),
-                ),
-                const SizedBox(width: 8),
-                FilledButton.icon(
-                  style: FilledButton.styleFrom(backgroundColor: _blue),
-                  onPressed: _saving || _selected == null ? null : _save,
-                  icon: _saving
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Icon(Icons.save, size: 18),
-                  label: const Text('Lưu'),
-                ),
-              ],
-            ),
-          ),
+          _buildTemplateSelectorBar(),
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
-                : Padding(
+                : Responsive.isMobile(context)
+                    ? _buildMobileEditorBody()
+                    : Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -524,6 +486,179 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
                       ],
                     ),
                   ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMobileEditorBody() {
+    return DefaultTabController(
+      length: 2,
+      child: Column(
+        children: [
+          const TabBar(
+            labelColor: _blue,
+            tabs: [
+              Tab(text: 'Soạn mẫu'),
+              Tab(text: 'Xem trước'),
+            ],
+          ),
+          Expanded(
+            child: TabBarView(
+              children: [
+                Card(
+                  margin: const EdgeInsets.all(12),
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+                        child: TextField(
+                          controller: _nameCtrl,
+                          decoration: const InputDecoration(
+                            labelText: 'Tên mẫu in',
+                            isDense: true,
+                          ),
+                          onChanged: (_) => setState(() => _dirty = true),
+                        ),
+                      ),
+                      _tokenToolbar(),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: TextField(
+                            controller: _editorCtrl,
+                            maxLines: null,
+                            expands: true,
+                            style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                            decoration: const InputDecoration(
+                              hintText: 'HTML mẫu in — {Token}, <!--BEGIN_ITEMS-->...',
+                              border: OutlineInputBorder(),
+                            ),
+                            onChanged: (_) => setState(() => _dirty = true),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Card(
+                  margin: const EdgeInsets.all(12),
+                  child: _previewHtml.isEmpty
+                      ? const Center(child: Text('Chưa có nội dung'))
+                      : ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: buildPosHtmlPreview(_previewHtml),
+                        ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTemplateSelectorBar() {
+    final selector = DropdownButtonFormField<String>(
+      value: _dropdownValue,
+      decoration: InputDecoration(
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+        hintText: _templates.isEmpty ? 'Chưa có mẫu — bấm +' : null,
+      ),
+      items: _templates
+          .map((t) => DropdownMenuItem(
+                value: t.id,
+                child: Text('${t.name} (${PosPrintPaperSizes.labels[t.paperSize] ?? t.paperSize})'),
+              ))
+          .toList(),
+      onChanged: (id) {
+        if (id == null) return;
+        _selectTemplate(_templates.where((t) => t.id == id).firstOrNull);
+      },
+    );
+
+    if (Responsive.isMobile(context)) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text('Mẫu in', style: TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            selector,
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _addTemplate,
+                    icon: const Icon(Icons.add_circle_outline, size: 18),
+                    label: const Text('Thêm'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _selected == null ? null : _deleteTemplate,
+                    icon: const Icon(Icons.delete_outline, size: 18),
+                    label: const Text('Xóa'),
+                    style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(backgroundColor: _blue),
+                    onPressed: _saving || _selected == null ? null : _save,
+                    icon: _saving
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Icon(Icons.save, size: 16),
+                    label: const Text('Lưu'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      child: Row(
+        children: [
+          const Text('Mẫu in:', style: TextStyle(fontWeight: FontWeight.w600)),
+          const SizedBox(width: 8),
+          Expanded(child: selector),
+          IconButton(
+            tooltip: 'Thêm mẫu',
+            onPressed: _addTemplate,
+            icon: const Icon(Icons.add_circle_outline, color: _blue),
+          ),
+          IconButton(
+            tooltip: 'Xóa mẫu',
+            onPressed: _selected == null ? null : _deleteTemplate,
+            icon: const Icon(Icons.delete_outline, color: Colors.red),
+          ),
+          const SizedBox(width: 8),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(backgroundColor: _blue),
+            onPressed: _saving || _selected == null ? null : _save,
+            icon: _saving
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  )
+                : const Icon(Icons.save, size: 18),
+            label: const Text('Lưu'),
           ),
         ],
       ),

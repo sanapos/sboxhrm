@@ -301,26 +301,27 @@ Future<void> printPosEndOfDayReport(
 }) async {
   if (!kIsWeb && format == PosEndOfDayPrintFormat.bill) {
     await PosPrintOrchestrator.instance.refreshConfig();
-    final printer = PosPrintOrchestrator.instance
-        .resolvePrinter(PosCloudDocumentTypes.endOfDayReport);
+    final printers = PosPrintOrchestrator.instance
+        .resolvePrinters(PosCloudDocumentTypes.endOfDayReport);
     final local = await PosThermalPrinterSettings.load();
     final lines =
         _buildEodThermalLines(report, showProductDetail: showProductDetail);
 
-    if (printer != null) {
-      final settings = toThermalSettings(printer);
-      final bytes = await PosThermalPrinterService.buildTextEscPosBytes(
-        settings: settings,
-        title: 'TỔNG KẾT CUỐI NGÀY',
-        lines: lines,
-        footer: 'In lúc ${_dt(report.generatedAt)} · SBOX POS',
-      );
-      final ok = await PosPrintOrchestrator.instance.dispatchEscPos(
+    if (printers.isNotEmpty) {
+      final ok = await PosPrintOrchestrator.instance.dispatchEscPosToAll(
         documentType: PosCloudDocumentTypes.endOfDayReport,
-        bytes: bytes,
         referenceNo: 'EOD-${_d(report.from)}',
         showFeedback: true,
         successTitle: 'In cuối ngày',
+        buildBytes: (printer) async {
+          final settings = toThermalSettings(printer);
+          return PosThermalPrinterService.buildTextEscPosBytes(
+            settings: settings,
+            title: 'TỔNG KẾT CUỐI NGÀY',
+            lines: lines,
+            footer: 'In lúc ${_dt(report.generatedAt)} · SBOX POS',
+          );
+        },
       );
       if (ok) return;
     }

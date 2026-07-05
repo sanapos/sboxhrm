@@ -20,6 +20,7 @@ public static class PosPackageDefaults
         "/api/pos/products",
         "/api/pos/catalog",
         "/api/pos/customers",
+        "/api/pos/price-lists",
     ];
 
     /// <summary>GET mẫu in — thu ngân PosSell cần chọn mẫu khi bán.</summary>

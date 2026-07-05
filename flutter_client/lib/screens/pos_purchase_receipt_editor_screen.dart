@@ -7,6 +7,7 @@ import '../models/pos_purchase.dart';
 import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
+import '../utils/pos_sell_stock_patch.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/notification_overlay.dart';
@@ -740,6 +741,20 @@ class _PosPurchaseReceiptEditorScreenState
       };
   }
 
+  List<PosSellStockLineDelta> _linesStockPatch() {
+    return _lines
+        .map((l) {
+          final qty = double.tryParse(l.qtyCtrl.text.replaceAll(',', '')) ?? 0;
+          return PosSellStockLineDelta(
+            productId: l.productId,
+            qty: qty,
+            addBack: true,
+          );
+        })
+        .where((l) => l.productId.isNotEmpty && l.qty > 0)
+        .toList();
+  }
+
   Future<void> _save({required bool complete}) async {
     if (_lines.isEmpty) {
       NotificationOverlayManager()
@@ -762,8 +777,14 @@ class _PosPurchaseReceiptEditorScreenState
         title: complete ? 'Đã nhập hàng' : 'Đã lưu phiếu tạm',
         message: r.receiptNo,
       );
-      if (complete && mounted) Navigator.pop(context, true);
-      else await _loadReceipt(r.id);
+      if (complete) {
+        ScreenRefreshNotifier.refreshPosAfterStockChange(
+          sellStockLines: _linesStockPatch(),
+        );
+      } else {
+        ScreenRefreshNotifier.refreshPosPurchaseReceipts();
+      }
+      if (mounted) Navigator.pop(context, true);
     } else {
       NotificationOverlayManager()
           .showError(title: 'Lỗi', message: res['message']?.toString() ?? '');
@@ -778,6 +799,9 @@ class _PosPurchaseReceiptEditorScreenState
     setState(() => _saving = false);
     if (res['isSuccess'] == true) {
       NotificationOverlayManager().showSuccess(title: 'Hoàn tất', message: 'Phiếu đã nhập hàng');
+      ScreenRefreshNotifier.refreshPosAfterStockChange(
+        sellStockLines: _linesStockPatch(),
+      );
       if (mounted) Navigator.pop(context, true);
     } else {
       NotificationOverlayManager()
@@ -810,6 +834,7 @@ class _PosPurchaseReceiptEditorScreenState
     if (!mounted) return;
     if (res['isSuccess'] == true) {
       NotificationOverlayManager().showSuccess(title: 'Đã xóa', message: _receiptNo);
+      ScreenRefreshNotifier.refreshPosPurchaseReceipts();
       if (mounted) Navigator.pop(context, true);
     } else {
       NotificationOverlayManager()
@@ -842,7 +867,8 @@ class _PosPurchaseReceiptEditorScreenState
     if (res['isSuccess'] == true) {
       NotificationOverlayManager().showSuccess(
           title: 'Đã hủy', message: 'Đã hoàn kho · $_receiptNo');
-      await _loadReceipt(_receiptId!);
+      ScreenRefreshNotifier.refreshPosAfterStockChange();
+      if (mounted) Navigator.pop(context, true);
     } else {
       NotificationOverlayManager()
           .showError(title: 'Lỗi', message: res['message']?.toString() ?? 'Không hủy được');
@@ -1008,55 +1034,102 @@ class _PosPurchaseReceiptEditorScreenState
           maxLines: 3,
           decoration: PosTheme.inputDecoration(label: 'Ghi chú'),
         ),
-        if (!_readOnly && perm.canEdit('PosProducts')) ...[
-          const SizedBox(height: 20),
-          OutlinedButton(
-            onPressed: _saving ? null : () => _save(complete: false),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: _blue,
-              side: const BorderSide(color: _blue),
-              padding: const EdgeInsets.symmetric(vertical: 12),
-            ),
-            child: Text(_saving ? 'Đang lưu…' : 'Lưu tạm'),
-          ),
-          const SizedBox(height: 8),
-          FilledButton(
-            onPressed: _saving ? null : () => _save(complete: true),
-            style: FilledButton.styleFrom(
-              backgroundColor: _blue,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-            ),
-            child: Text(_saving ? 'Đang lưu…' : 'Hoàn thành'),
-          ),
-          if (_receiptId != null) ...[
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: _saving ? null : _deleteDraft,
-              icon: const Icon(Icons.delete_outline, size: 18),
-              label: const Text('Xóa phiếu'),
-            ),
-          ],
-        ] else if (_status == 'Completed' &&
-            _receiptId != null &&
-            perm.canEdit('PosProducts')) ...[
-          const SizedBox(height: 20),
-          OutlinedButton.icon(
-            onPressed: _saving ? null : _voidCompleted,
-            icon: const Icon(Icons.cancel_outlined, size: 18),
-            label: const Text('Hủy phiếu'),
-          ),
-        ] else if (_status == 'Cancelled' &&
-            _receiptId != null &&
-            perm.canEdit('PosProducts')) ...[
-          const SizedBox(height: 20),
-          OutlinedButton.icon(
-            onPressed: _saving ? null : _deleteDraft,
-            icon: const Icon(Icons.delete_outline, size: 18),
-            label: const Text('Xóa phiếu'),
-          ),
-        ],
       ],
     );
+  }
+
+  Widget? _buildReceiptActionBar(PermissionProvider perm) {
+    if (!_readOnly && perm.canEdit('PosProducts')) {
+      return Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border(top: BorderSide(color: Colors.grey.shade200)),
+        ),
+        padding: EdgeInsets.fromLTRB(
+          12,
+          8,
+          12,
+          8 + MediaQuery.paddingOf(context).bottom,
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: _saving ? null : () => _save(complete: false),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: _blue,
+                  side: const BorderSide(color: _blue),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                child: Text(_saving ? 'Đang lưu…' : 'Lưu tạm'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: FilledButton(
+                onPressed: _saving ? null : () => _save(complete: true),
+                style: FilledButton.styleFrom(
+                  backgroundColor: _blue,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                child: Text(_saving ? 'Đang lưu…' : 'Hoàn thành'),
+              ),
+            ),
+            if (_receiptId != null) ...[
+              const SizedBox(width: 4),
+              IconButton(
+                tooltip: 'Xóa phiếu',
+                onPressed: _saving ? null : _deleteDraft,
+                icon: const Icon(Icons.delete_outline, color: Colors.red),
+              ),
+            ],
+          ],
+        ),
+      );
+    }
+    if (_status == 'Completed' &&
+        _receiptId != null &&
+        perm.canEdit('PosProducts')) {
+      return Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border(top: BorderSide(color: Colors.grey.shade200)),
+        ),
+        padding: EdgeInsets.fromLTRB(
+          12,
+          8,
+          12,
+          8 + MediaQuery.paddingOf(context).bottom,
+        ),
+        child: OutlinedButton.icon(
+          onPressed: _saving ? null : _voidCompleted,
+          icon: const Icon(Icons.cancel_outlined, size: 18),
+          label: const Text('Hủy phiếu'),
+        ),
+      );
+    }
+    if (_status == 'Cancelled' &&
+        _receiptId != null &&
+        perm.canEdit('PosProducts')) {
+      return Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border(top: BorderSide(color: Colors.grey.shade200)),
+        ),
+        padding: EdgeInsets.fromLTRB(
+          12,
+          8,
+          12,
+          8 + MediaQuery.paddingOf(context).bottom,
+        ),
+        child: OutlinedButton.icon(
+          onPressed: _saving ? null : _deleteDraft,
+          icon: const Icon(Icons.delete_outline, size: 18),
+          label: const Text('Xóa phiếu'),
+        ),
+      );
+    }
+    return null;
   }
 
   Widget _buildMobileReceiptLines() {
@@ -1109,6 +1182,7 @@ class _PosPurchaseReceiptEditorScreenState
   @override
   Widget build(BuildContext context) {
     final perm = Provider.of<PermissionProvider>(context);
+    final actionBar = _buildReceiptActionBar(perm);
     if (!perm.canEdit('PosProducts')) {
       return const Scaffold(body: Center(child: Text('Không có quyền nhập hàng')));
     }
@@ -1145,6 +1219,7 @@ class _PosPurchaseReceiptEditorScreenState
                               : _buildFullWidthLinesTable(),
                         ),
                         metaPanel: _buildReceiptMetaPanel(perm),
+                        actionBar: actionBar,
                       )
                     : Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1220,176 +1295,20 @@ class _PosPurchaseReceiptEditorScreenState
                           ],
                         ),
                       ),
-                      Container(
+                      SizedBox(
                         width: 320,
-                        color: Colors.white,
-                        padding: const EdgeInsets.all(16),
-                        child: SingleChildScrollView(
+                        child: ColoredBox(
+                          color: Colors.white,
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              ListTile(
-                                contentPadding: EdgeInsets.zero,
-                                title: const Text('Ngày nhập', style: TextStyle(fontSize: 12)),
-                                subtitle: Text(DateFormat('dd/MM/yyyy HH:mm').format(_importDate)),
-                                trailing: _readOnly
-                                    ? null
-                                    : IconButton(
-                                        icon: const Icon(Icons.calendar_today, size: 18),
-                                        onPressed: () async {
-                                          final d = await showDatePicker(
-                                            context: context,
-                                            initialDate: _importDate,
-                                            firstDate: DateTime(2020),
-                                            lastDate: DateTime(2100),
-                                          );
-                                          if (d != null) setState(() => _importDate = d);
-                                        },
-                                      ),
-                              ),
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Expanded(
-                                    child: DropdownButtonFormField<String>(
-                                      value: _supplierId,
-                                      decoration: PosTheme.inputDecoration(label: 'Nhà cung cấp'),
-                                      items: [
-                                        const DropdownMenuItem(
-                                            value: null, child: Text('— Chọn NCC —')),
-                                        ..._suppliers.map((s) => DropdownMenuItem(
-                                              value: s.id,
-                                              child: Text('${s.supplierCode} · ${s.name}',
-                                                  overflow: TextOverflow.ellipsis),
-                                            )),
-                                      ],
-                                      onChanged:
-                                          _readOnly ? null : (v) => setState(() => _supplierId = v),
-                                    ),
-                                  ),
-                                  if (!_readOnly) ...[
-                                    const SizedBox(width: 8),
-                                    IconButton(
-                                      tooltip: 'Thêm NCC',
-                                      onPressed: _openAddSupplier,
-                                      icon: const Icon(Icons.add_business, color: _blue),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              TextField(
-                                controller: _receiptNoCtrl,
-                                readOnly: _readOnly,
-                                decoration: PosTheme.inputDecoration(
-                                  label: 'Mã phiếu nhập',
-                                  hint: 'Tự sinh khi lưu',
+                              Expanded(
+                                child: SingleChildScrollView(
+                                  padding: const EdgeInsets.all(16),
+                                  child: _buildReceiptMetaPanel(perm),
                                 ),
-                                onChanged: (v) => setState(() => _receiptNo = v.trim()),
                               ),
-                              const SizedBox(height: 12),
-                              InputDecorator(
-                                decoration: PosTheme.inputDecoration(label: 'Trạng thái'),
-                                child: purchaseStatusChip(_status),
-                              ),
-                              const SizedBox(height: 12),
-                              TextField(
-                                controller: _invoiceCtrl,
-                                readOnly: _readOnly,
-                                decoration: PosTheme.inputDecoration(label: 'Hóa đơn đầu vào'),
-                              ),
-                              const SizedBox(height: 12),
-                              _buildDiscountField(),
-                              const SizedBox(height: 12),
-                              TextField(
-                                controller: _paidCtrl,
-                                readOnly: _readOnly,
-                                keyboardType: TextInputType.number,
-                                decoration: PosTheme.inputDecoration(
-                                    label: 'Tiền trả nhà cung cấp'),
-                                onChanged: (_) => setState(() {}),
-                              ),
-                              const SizedBox(height: 8),
-                              DropdownButtonFormField<String>(
-                                value: _paymentMethod,
-                                decoration: PosTheme.inputDecoration(
-                                    label: 'Phương thức thanh toán'),
-                                items: _paymentMethods
-                                    .map((m) => DropdownMenuItem(value: m, child: Text(m)))
-                                    .toList(),
-                                onChanged: _readOnly
-                                    ? null
-                                    : (v) => setState(
-                                        () => _paymentMethod = v ?? 'Tiền mặt'),
-                              ),
-                              const Divider(height: 24),
-                              _totalRow('Tổng tiền hàng', _moneyFmt.format(_linesTotal)),
-                              _totalRow('Tổng VAT', _moneyFmt.format(_linesVatTotal)),
-                              _totalRow(
-                                'Giảm giá',
-                                _discountIsPercent
-                                    ? '${_discountInput.toStringAsFixed(_discountInput % 1 == 0 ? 0 : 1)}% (${_moneyFmt.format(_computedReceiptDiscount)})'
-                                    : _moneyFmt.format(_computedReceiptDiscount),
-                              ),
-                              _totalRow('Cần trả nhà cung cấp', _moneyFmt.format(_grandTotal),
-                                  bold: true, color: _blue),
-                              _totalRow('Tính vào công nợ', _moneyFmt.format(_balanceDue),
-                                  bold: true,
-                                  color: _balanceDue > 0 ? Colors.orange.shade800 : null),
-                              const SizedBox(height: 12),
-                              TextField(
-                                controller: _noteCtrl,
-                                readOnly: _readOnly,
-                                maxLines: 3,
-                                decoration: PosTheme.inputDecoration(label: 'Ghi chú'),
-                              ),
-                              if (!_readOnly && perm.canEdit('PosProducts')) ...[
-                                const SizedBox(height: 20),
-                                OutlinedButton(
-                                  onPressed: _saving ? null : () => _save(complete: false),
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: _blue,
-                                    side: const BorderSide(color: _blue),
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
-                                  ),
-                                  child: Text(_saving ? 'Đang lưu…' : 'Lưu tạm'),
-                                ),
-                                const SizedBox(height: 8),
-                                FilledButton(
-                                  onPressed: _saving ? null : () => _save(complete: true),
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: _blue,
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
-                                  ),
-                                  child: Text(_saving ? 'Đang lưu…' : 'Hoàn thành'),
-                                ),
-                                if (_receiptId != null) ...[
-                                  const SizedBox(height: 8),
-                                  OutlinedButton.icon(
-                                    onPressed: _saving ? null : _deleteDraft,
-                                    icon: const Icon(Icons.delete_outline, size: 18),
-                                    label: const Text('Xóa phiếu'),
-                                  ),
-                                ],
-                              ] else if (_status == 'Completed' &&
-                                  _receiptId != null &&
-                                  perm.canEdit('PosProducts')) ...[
-                                const SizedBox(height: 20),
-                                OutlinedButton.icon(
-                                  onPressed: _saving ? null : _voidCompleted,
-                                  icon: const Icon(Icons.cancel_outlined, size: 18),
-                                  label: const Text('Hủy phiếu'),
-                                ),
-                              ] else if (_status == 'Cancelled' &&
-                                  _receiptId != null &&
-                                  perm.canEdit('PosProducts')) ...[
-                                const SizedBox(height: 20),
-                                OutlinedButton.icon(
-                                  onPressed: _saving ? null : _deleteDraft,
-                                  icon: const Icon(Icons.delete_outline, size: 18),
-                                  label: const Text('Xóa phiếu'),
-                                ),
-                              ],
+                              if (actionBar != null) actionBar,
                             ],
                           ),
                         ),

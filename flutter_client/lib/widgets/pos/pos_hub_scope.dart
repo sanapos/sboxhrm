@@ -5,10 +5,15 @@ class PosHubScope extends InheritedWidget {
   const PosHubScope({
     super.key,
     required this.embeddedInHub,
+    this.pushedSubPage = false,
     required super.child,
   });
 
+  /// Tab Tổng quan / Hàng hoá / Bán / Hoá đơn / Nhiều hơn.
   final bool embeddedInHub;
+
+  /// Mở từ menu «Nhiều hơn» (cần nút quay lại, không hiện toolbar ngang).
+  final bool pushedSubPage;
 
   static bool of(BuildContext context) {
     return context
@@ -17,9 +22,17 @@ class PosHubScope extends InheritedWidget {
         false;
   }
 
+  static bool pushedSubPageOf(BuildContext context) {
+    return context
+            .dependOnInheritedWidgetOfExactType<PosHubScope>()
+            ?.pushedSubPage ??
+        false;
+  }
+
   @override
   bool updateShouldNotify(PosHubScope oldWidget) =>
-      embeddedInHub != oldWidget.embeddedInHub;
+      embeddedInHub != oldWidget.embeddedInHub ||
+      pushedSubPage != oldWidget.pushedSubPage;
 }
 
 /// Module POS mở shell 5-tab trên mobile.

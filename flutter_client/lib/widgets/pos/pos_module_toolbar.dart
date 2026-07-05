@@ -28,14 +28,16 @@ class PosModuleToolbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (PosHubScope.of(context)) return const SizedBox.shrink();
-    final mobile = Responsive.isMobile(context);
+    if (PosHubScope.of(context) || PosHubScope.pushedSubPageOf(context)) {
+      return const SizedBox.shrink();
+    }
+    if (Responsive.isMobile(context)) return const SizedBox.shrink();
 
     return Material(
       color: const Color(0xFF1A3A5C),
       child: SafeArea(
         bottom: false,
-        child: mobile ? _buildMobile(context) : _buildDesktop(context),
+        child: _buildDesktop(context),
       ),
     );
   }
@@ -71,53 +73,6 @@ class PosModuleToolbar extends StatelessWidget {
           const SizedBox(width: 12),
         ],
       ),
-    );
-  }
-
-  Widget _buildMobile(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 6, 8, 4),
-          child: Row(
-            children: [
-              const Text(
-                'SBOX POS',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 15,
-                ),
-              ),
-              const Spacer(),
-              if (activeModule != 'PosSell')
-                TextButton.icon(
-                  onPressed: () => NavigationNotifier.goToModule('PosSell'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    backgroundColor: PosTheme.kiotBlue,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 6),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  icon: const Icon(Icons.point_of_sale, size: 16),
-                  label: const Text('Bán', style: TextStyle(fontSize: 12)),
-                ),
-            ],
-          ),
-        ),
-        SizedBox(
-          height: 40,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.fromLTRB(8, 0, 8, 6),
-            children: _tabs.map((t) => _tabButton(t, compact: true)).toList(),
-          ),
-        ),
-      ],
     );
   }
 

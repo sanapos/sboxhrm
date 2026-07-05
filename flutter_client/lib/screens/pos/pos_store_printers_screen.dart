@@ -14,6 +14,7 @@ import '../../utils/pos_thermal_printer_service.dart';
 import '../../utils/pos_thermal_printer_settings.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_theme.dart';
+import 'pos_product_printer_assignment_screen.dart';
 
 /// Quản lý máy in cửa hàng + routing chứng từ + Print Agent.
 class PosStorePrintersScreen extends StatefulWidget {
@@ -65,28 +66,61 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
     }
   }
 
-  String _printerForDoc(String docType) {
-    final r = _routes.where((x) => x.documentType == docType).firstOrNull;
-    if (r != null) {
-      return _printers.where((p) => p.id == r.printerId).firstOrNull?.name ??
-          '—';
+  String _printersForDoc(String docType) {
+    final ids = _routes
+        .where((x) => x.documentType == docType)
+        .map((x) => x.printerId)
+        .toList();
+    if (ids.isEmpty) {
+      if (_printers.length == 1) return _printers.first.name;
+      final def = _printers.where((p) => p.isDefault).firstOrNull;
+      return def?.name ?? '—';
     }
-    if (_printers.length == 1) return _printers.first.name;
-    final def = _printers.where((p) => p.isDefault).firstOrNull;
-    return def?.name ?? '—';
+    return ids
+        .map((id) => _printers.where((p) => p.id == id).firstOrNull?.name)
+        .whereType<String>()
+        .join(', ');
+  }
+
+  void _toggleRoute(String docType, String printerId, bool selected) {
+    if (selected) {
+      final exists = _routes.any(
+          (r) => r.documentType == docType && r.printerId == printerId);
+      if (!exists) {
+        _routes.add(PosPrinterRoute(
+          documentType: docType,
+          printerId: printerId,
+          defaultCopies: 1,
+        ));
+      }
+    } else {
+      _routes.removeWhere(
+          (r) => r.documentType == docType && r.printerId == printerId);
+    }
+    setState(() {});
   }
 
   Future<void> _toggleAgent(bool v) async {
+    final agentPrinters = _printers.where((p) => p.needsPrintAgent).toList();
     if (v) {
-      final agentPrinters = _printers.where((p) => p.needsPrintAgent).toList();
       if (agentPrinters.isEmpty) {
         NotificationOverlayManager().showWarning(
           title: 'Chưa có máy in cloud',
           message: 'Thêm máy in LAN/BT/USB trong danh sách bên dưới',
         );
       }
+      // Lần đầu bật: gán hết máy in cloud cho thiết bị này (chỉ 1 máy nên bật Agent).
+      if (_agent.assignedPrinterIds.isEmpty && agentPrinters.isNotEmpty) {
+        _agent = _agent.copyWith(
+          enabled: true,
+          assignedPrinterIds: agentPrinters.map((p) => p.id).toList(),
+        );
+      } else {
+        _agent = _agent.copyWith(enabled: v);
+      }
+    } else {
+      _agent = _agent.copyWith(enabled: false);
     }
-    _agent = _agent.copyWith(enabled: v);
     await _agent.save();
     if (!mounted) return;
     setState(() {});
@@ -125,18 +159,6 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
     }
   }
 
-  void _setRoute(String docType, String? printerId) {
-    _routes.removeWhere((r) => r.documentType == docType);
-    if (printerId != null && printerId.isNotEmpty) {
-      _routes.add(PosPrinterRoute(
-        documentType: docType,
-        printerId: printerId,
-        defaultCopies: 1,
-      ));
-    }
-    setState(() {});
-  }
-
   Future<void> _openEditor([PosStorePrinter? existing]) async {
     final saved = await showModalBottomSheet<PosStorePrinter>(
       context: context,
@@ -167,6 +189,22 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
         backgroundColor: PosTheme.kiotBlue,
         foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            tooltip: 'Gán sản phẩm cho máy in',
+            onPressed: _printers.isEmpty
+                ? null
+                : () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => PosProductPrinterAssignmentScreen(
+                          printers: _printers,
+                        ),
+                      ),
+                    );
+                  },
+            icon: const Icon(Icons.restaurant_menu_outlined),
+          ),
           IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
         ],
       ),
@@ -181,6 +219,10 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                   const SizedBox(height: 12),
                   _printersSection(),
                   const SizedBox(height: 12),
+                  if (_printers.isNotEmpty) ...[
+                    _productPrinterCard(),
+                    const SizedBox(height: 12),
+                  ],
                   _routesSection(),
                 ],
               ),
@@ -220,8 +262,8 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
             ),
             Text(
               _agent.enabled
-                  ? 'Thiết bị này nhận lệnh in cloud (LAN/BT/USB) từ máy khác'
-                  : 'Bật trên thiết bị cùng mạng với máy in LAN hoặc đã ghép BT',
+                  ? 'Thiết bị này nhận lệnh in cho máy in đã chọn bên dưới'
+                  : 'Chỉ bật trên 1 thiết bị đã gắn máy in (LAN/BT)',
               style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
             ),
             if (agentPrinters.isEmpty)
@@ -238,16 +280,12 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                 spacing: 6,
                 runSpacing: 4,
                 children: agentPrinters.map((p) {
-                  final selected = _agent.assignedPrinterIds.contains(p.id) ||
-                      _agent.assignedPrinterIds.isEmpty;
+                  final selected = _agent.assignedPrinterIds.contains(p.id);
                   return FilterChip(
                     label: Text(p.name, style: const TextStyle(fontSize: 11)),
                     selected: selected,
                     onSelected: (v) async {
                       var ids = List<String>.from(_agent.assignedPrinterIds);
-                      if (ids.isEmpty) {
-                        ids = agentPrinters.map((x) => x.id).toList();
-                      }
                       if (v) {
                         if (!ids.contains(p.id)) ids.add(p.id);
                       } else {
@@ -256,6 +294,13 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                       _agent = _agent.copyWith(assignedPrinterIds: ids);
                       await _agent.save();
                       setState(() {});
+                      final storeId = Provider.of<AuthProvider>(context, listen: false)
+                          .user?.storeId;
+                      if (_agent.enabled &&
+                          storeId != null &&
+                          storeId.isNotEmpty) {
+                        await PosPrintAgentService.instance.ensureRunning(storeId);
+                      }
                     },
                   );
                 }).toList(),
@@ -333,6 +378,16 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
             onSelected: (a) async {
               if (a == 'edit') {
                 await _openEditor(p);
+              } else if (a == 'products') {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => PosPrinterManageProductsScreen(
+                      printerId: p.id,
+                      printerName: p.name,
+                    ),
+                  ),
+                );
               } else if (a == 'test') {
                 final ok = await PosPrintOrchestrator.instance.testPrinter(p);
                 if (!ok && mounted) {
@@ -364,6 +419,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
               }
             },
             itemBuilder: (_) => const [
+              PopupMenuItem(value: 'products', child: Text('Sản phẩm in kho')),
               PopupMenuItem(value: 'test', child: Text('Test in')),
               PopupMenuItem(value: 'edit', child: Text('Sửa')),
               PopupMenuItem(value: 'delete', child: Text('Xóa')),
@@ -372,6 +428,29 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
         ],
       ),
       onTap: () => _openEditor(p),
+    );
+  }
+
+  Widget _productPrinterCard() {
+    return Card(
+      child: ListTile(
+        leading: const Icon(Icons.restaurant_menu_outlined, color: PosTheme.kiotBlue),
+        title: const Text('Gán sản phẩm cho máy in',
+            style: TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: const Text(
+          'Chọn máy in → thêm sản phẩm (tất cả, theo nhóm, từng món).',
+          style: TextStyle(fontSize: 12),
+        ),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => PosProductPrinterAssignmentScreen(printers: _printers),
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -387,35 +466,43 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
             const SizedBox(height: 4),
             const Text(
-              'Mỗi loại chứng từ in ra máy in tương ứng. Nếu chỉ có 1 máy in, tự gán tất cả.',
+              'Chọn một hoặc nhiều máy in — bấm in sẽ gửi tới tất cả máy đã chọn.',
               style: TextStyle(fontSize: 11, color: PosTheme.textSecondary),
             ),
             const SizedBox(height: 8),
             ...PosCloudDocumentTypes.labels.entries.map((e) {
-              final current = _routes
+              final selectedIds = _routes
                   .where((r) => r.documentType == e.key)
-                  .firstOrNull
-                  ?.printerId;
+                  .map((r) => r.printerId)
+                  .toSet();
               return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Text(e.value, style: const TextStyle(fontSize: 13)),
-                    ),
-                    DropdownButton<String>(
-                      value: current ??
-                          (_printers.length == 1 ? _printers.first.id : null),
-                      hint: Text(_printerForDoc(e.key),
-                          style: const TextStyle(fontSize: 12)),
-                      items: _printers
-                          .map((p) => DropdownMenuItem(
-                                value: p.id,
-                                child: Text(p.name,
-                                    style: const TextStyle(fontSize: 12)),
-                              ))
-                          .toList(),
-                      onChanged: (id) => _setRoute(e.key, id),
+                    Text(e.value,
+                        style: const TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.w600)),
+                    if (_printersForDoc(e.key) != '—')
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2, bottom: 4),
+                        child: Text(
+                          'Đang chọn: ${_printersForDoc(e.key)}',
+                          style: const TextStyle(
+                              fontSize: 11, color: PosTheme.textSecondary),
+                        ),
+                      ),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: _printers.map((p) {
+                        return FilterChip(
+                          label:
+                              Text(p.name, style: const TextStyle(fontSize: 11)),
+                          selected: selectedIds.contains(p.id),
+                          onSelected: (v) => _toggleRoute(e.key, p.id, v),
+                        );
+                      }).toList(),
                     ),
                   ],
                 ),

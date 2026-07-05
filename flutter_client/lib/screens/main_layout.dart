@@ -13,6 +13,9 @@ import '../services/api_service.dart';
 import '../services/global_location_reporter.dart';
 import '../services/notification_preferences_cache.dart';
 import '../services/signalr_service.dart';
+import '../services/pos_print_agent_service.dart';
+import '../utils/pos_print_orchestrator.dart';
+import '../utils/pos_sell_stock_patch.dart';
 import '../widgets/announcement_banner.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/hrm_pushed_screen_shell.dart';
@@ -142,6 +145,11 @@ class ScreenRefreshNotifier {
 
   static final ValueNotifier<int> posProducts = ValueNotifier<int>(0);
   static final ValueNotifier<int> posSellProductGrid = ValueNotifier<int>(0);
+  static final ValueNotifier<List<PosSellStockLineDelta>?> posSellStockPatch =
+      ValueNotifier<List<PosSellStockLineDelta>?>(null);
+  static final ValueNotifier<int> posSaleOrders = ValueNotifier<int>(0);
+  static final ValueNotifier<int> posPurchaseReceipts = ValueNotifier<int>(0);
+  static final ValueNotifier<int> posOverview = ValueNotifier<int>(0);
 
   static void refreshPosProducts() {
     posProducts.value++;
@@ -149,6 +157,41 @@ class ScreenRefreshNotifier {
 
   static void refreshPosSellProductGrid() {
     posSellProductGrid.value++;
+  }
+
+  /// Cộng/trừ tồn trên lưới bán hàng (theo SP/biến thể — khớp server).
+  static void patchPosSellStockLines(List<PosSellStockLineDelta> lines) {
+    if (lines.isEmpty) return;
+    posSellStockPatch.value = List<PosSellStockLineDelta>.from(lines);
+  }
+
+  static void refreshPosSaleOrders() {
+    posSaleOrders.value++;
+  }
+
+  static void refreshPosPurchaseReceipts() {
+    posPurchaseReceipts.value++;
+  }
+
+  static void refreshPosOverview() {
+    posOverview.value++;
+  }
+
+  /// [sellStockLines]: patch tồn lưới bán hàng (trả hàng/nhập/hủy). Bán patch trực tiếp từ giỏ.
+  static void refreshPosAfterStockChange({
+    List<PosSellStockLineDelta>? sellStockLines,
+    bool reloadSellCatalog = true,
+  }) {
+    refreshPosProducts();
+    refreshPosSaleOrders();
+    refreshPosPurchaseReceipts();
+    refreshPosOverview();
+    if (reloadSellCatalog) {
+      refreshPosSellProductGrid();
+    }
+    if (sellStockLines != null && sellStockLines.isNotEmpty) {
+      patchPosSellStockLines(sellStockLines);
+    }
   }
 }
 
@@ -587,6 +630,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       final storeId = authProvider.user?.storeId;
       if (storeId != null && storeId.isNotEmpty) {
         await _signalRService.joinStoreGroup(storeId);
+        await PosPrintOrchestrator.instance.ensureListening();
+        await PosPrintAgentService.instance.ensureRunning(storeId);
       }
       // Join user group for user-specific notifications
       final userId = authProvider.user?.id;

@@ -1,7 +1,10 @@
+import 'package:collection/collection.dart';
 import 'package:intl/intl.dart';
 
 import '../models/pos_print_template.dart';
 import '../models/pos_sale_order.dart';
+import '../services/api_service.dart';
+import 'pos_vietnamese_money_words.dart';
 
 const _itemBegin = '<!--BEGIN_ITEMS-->';
 const _itemEnd = '<!--END_ITEMS-->';
@@ -116,6 +119,7 @@ Map<String, String> buildSaleOrderPrintData(
   String? storeAddress,
   String? storePhone,
   String paperSize = PosPrintPaperSizes.k80,
+  String? titleOverride,
 }) {
   final money = NumberFormat('#,##0', 'vi_VN');
   final saleDate = order.saleDate?.toLocal() ?? order.createdAt?.toLocal() ?? DateTime.now();
@@ -127,7 +131,10 @@ Map<String, String> buildSaleOrderPrintData(
     'Ten_Cua_Hang': storeName ?? 'Cửa hàng',
     'Dia_Chi_Chi_Nhanh': storeAddress ?? '',
     'Dien_Thoai_Chi_Nhanh': storePhone ?? '',
-    'Tieu_De_In': 'HÓA ĐƠN BÁN HÀNG',
+    'Tieu_De_In': titleOverride ??
+        (order.printCount > 1
+            ? 'HÓA ĐƠN BÁN HÀNG IN LẠI'
+            : 'HÓA ĐƠN BÁN HÀNG'),
     'Ma_Don_Hang': order.orderNo.isEmpty ? '—' : order.orderNo,
     'Ngay': DateFormat('dd/MM/yyyy').format(saleDate),
     'Gio': DateFormat('HH:mm').format(saleDate),
@@ -145,6 +152,9 @@ Map<String, String> buildSaleOrderPrintData(
     'Hinh_Thuc_Thanh_Toan': order.paymentMethod,
     'Nguoi_Ban': order.soldBy ?? order.createdBy ?? '',
     'Ghi_Chu': order.note ?? '',
+    'In_Lai': order.printCount > 1 ? 'Bản in lại — thông báo chủ cửa hàng' : '',
+    'Thu_Tu_Hoa_Don_Ngay': '',
+    'Tong_Hoa_Don_Trong_Ngay': '',
   };
 }
 
@@ -204,11 +214,7 @@ List<PosSaleOrderLine> _mergeLines(List<PosSaleOrderLine> lines) {
   return map.values.toList();
 }
 
-String _amountInWords(double amount) {
-  final n = amount.round();
-  if (n <= 0) return 'Không đồng';
-  return '${NumberFormat('#,##0', 'vi_VN').format(n)} đồng';
-}
+String _amountInWords(double amount) => vietnameseMoneyInWords(amount.round());
 
 String renderSaleOrderTemplate(
   String templateHtml,
@@ -228,6 +234,61 @@ String renderSaleOrderTemplate(
   );
   final lines = buildSaleOrderPrintLines(order.lines, mergeSameItems: mergeSameItems);
   return renderPosPrintTemplateHtml(templateHtml, data: data, lineItems: lines);
+}
+
+/// Tiêu đề mặc định phiếu báo xuất kho.
+String warehouseSlipDefaultTitle() =>
+    PosPrintDocumentTypes.all[PosPrintDocumentTypes.stockIssue] ??
+    'PHIẾU BÁO XUẤT KHO';
+
+String renderWarehouseSlipTemplate(
+  String templateHtml,
+  PosSaleOrder order, {
+  String? storeName,
+  String? storeAddress,
+  String? storePhone,
+  String paperSize = PosPrintPaperSizes.k80,
+  String? titleOverride,
+}) {
+  final title = titleOverride ?? warehouseSlipDefaultTitle();
+  final data = buildSaleOrderPrintData(
+    order,
+    storeName: storeName,
+    storeAddress: storeAddress,
+    storePhone: storePhone,
+    paperSize: paperSize,
+    titleOverride: title,
+  );
+  final lines = buildSaleOrderPrintLines(order.lines, mergeSameItems: false);
+  return renderPosPrintTemplateHtml(templateHtml, data: data, lineItems: lines);
+}
+
+/// Tải mẫu in the ưu tiên [templateId] rồi mẫu mặc định theo [documentType].
+Future<PosPrintTemplate?> resolvePosPrintTemplate({
+  required String documentType,
+  String? templateId,
+}) async {
+  final api = ApiService();
+  if (templateId != null && templateId.isNotEmpty) {
+    final res = await api.getPosPrintTemplate(templateId);
+    if (res['isSuccess'] == true && res['data'] is Map) {
+      return PosPrintTemplate.fromJson(res['data'] as Map<String, dynamic>);
+    }
+  }
+  var listRes = await api.getPosPrintTemplates(documentType: documentType);
+  if (listRes['isSuccess'] == true &&
+      listRes['data'] is List &&
+      (listRes['data'] as List).isEmpty) {
+    await api.seedPosPrintTemplates(documentType: documentType);
+    listRes = await api.getPosPrintTemplates(documentType: documentType);
+  }
+  if (listRes['isSuccess'] == true && listRes['data'] is List) {
+    final list = (listRes['data'] as List)
+        .map((e) => PosPrintTemplate.fromJson(e as Map<String, dynamic>))
+        .toList();
+    return list.where((t) => t.isDefault).firstOrNull ?? list.firstOrNull;
+  }
+  return null;
 }
 
 String renderSampleTemplatePreview(

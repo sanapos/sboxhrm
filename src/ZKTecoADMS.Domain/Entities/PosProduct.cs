@@ -45,6 +45,12 @@ public class PosProduct : AuditableEntity<Guid>
     public decimal CostPrice { get; set; }
     public decimal BasePrice { get; set; }
 
+    /// <summary>% VAT bán hàng (áp dụng khi cửa hàng chọn thuế theo từng mặt hàng).</summary>
+    public decimal VatRate { get; set; } = 8;
+
+    /// <summary>Không chịu thuế GTGT (KCT).</summary>
+    public bool VatExempt { get; set; }
+
     public decimal OnHandQty { get; set; }
     public decimal ReservedQty { get; set; }
     public decimal MinStockQty { get; set; }
@@ -66,6 +72,16 @@ public class PosProduct : AuditableEntity<Guid>
     public string? SaleQuickNotesJson { get; set; }
 
     public bool IsFavorite { get; set; }
+
+    /// <summary>Máy in mặc định cho mặt hàng (phiếu bếp/chế biến). Null = dùng máy in nhóm hàng.</summary>
+    public Guid? DefaultPrinterId { get; set; }
+    public virtual PosStorePrinter? DefaultPrinter { get; set; }
+
+    /// <summary>Thời hạn bảo hành (tháng) tính từ ngày bán. Null = không bảo hành.</summary>
+    public int? WarrantyMonths { get; set; }
+
+    /// <summary>Bắt buộc nhập seri máy khi bán.</summary>
+    public bool RequiresSerial { get; set; }
 
     public virtual ICollection<PosProductUnit> Units { get; set; } = [];
     public virtual ICollection<PosProductAttributeValue> AttributeValues { get; set; } = [];

@@ -3,9 +3,13 @@ import 'package:intl/intl.dart';
 
 import '../../models/pos_product.dart';
 import '../../services/api_service.dart';
+import '../../services/pos_sell_catalog_cache.dart';
 import '../../screens/main_layout.dart' show ScreenRefreshNotifier;
 import '../../utils/pos_category_tree.dart';
+import '../../utils/pos_combo_stock.dart';
+import '../../utils/pos_price_list_resolver.dart';
 import '../../utils/pos_purchase_product_lookup.dart';
+import '../../utils/pos_sell_stock_patch.dart';
 import '../../utils/pos_sell_unit_views.dart';
 import '../../utils/responsive_helper.dart';
 import 'pos_mobile_widgets.dart';
@@ -22,15 +26,24 @@ class PosSellProductGrid extends StatefulWidget {
     super.key,
     required this.api,
     required this.onPick,
+    this.storeId,
     this.pageSize = 24,
     this.sellListLayout = false,
+    this.cartQtyByProductId = const {},
+    this.priceOverrides = const {},
   });
 
   final ApiService api;
   final ValueChanged<PosPurchaseLookupPick> onPick;
+  /// Store hiện tại — dùng key cache catalog local.
+  final String? storeId;
   final int pageSize;
   /// Mobile bán hàng: danh sách dọc kiểu KiotViet (không lưới).
   final bool sellListLayout;
+  /// Số lượng đã chọn trong giỏ (theo productId) — dùng highlight + sắp xếp.
+  final Map<String, double> cartQtyByProductId;
+  /// Giá theo bảng giá đang chọn (khóa từ posPriceListItemKey).
+  final Map<String, double> priceOverrides;
 
   @override
   State<PosSellProductGrid> createState() => PosSellProductGridState();
@@ -41,21 +54,30 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
   final _qtyFmt = NumberFormat('#,##0.##', 'vi_VN');
   final _categoryScroll = ScrollController();
   final _gridScroll = ScrollController();
+  List<PosProduct> _allProducts = [];
   List<PosProduct> _products = [];
   List<PosCatalogItem> _categories = [];
   String? _categoryId;
   bool _loading = true;
+  bool _syncing = false;
   bool _loadingCategories = true;
   int _page = 0;
   final Map<String, List<PosProductUnitView>> _unitViewsCache = {};
   final Map<String, Future<List<PosProductUnitView>>> _unitViewsLoading = {};
+  Map<String, double> _lastPriceOverrides = const {};
 
   Future<List<PosProductUnitView>> _viewsFor(PosProduct p) {
+    if (!identical(_lastPriceOverrides, widget.priceOverrides)) {
+      _unitViewsCache.clear();
+      _lastPriceOverrides = widget.priceOverrides;
+    }
+
     final cached = _unitViewsCache[p.id];
     if (cached != null) return Future.value(cached);
 
     return _unitViewsLoading.putIfAbsent(p.id, () async {
-      final views = await loadPosSellUnitViews(widget.api, p);
+      var views = await loadPosSellUnitViews(widget.api, p);
+      views = applyPosPriceListToViews(views, p, widget.priceOverrides);
       _unitViewsCache[p.id] = views;
       _unitViewsLoading.remove(p.id);
       return views;
@@ -72,6 +94,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
   void initState() {
     super.initState();
     ScreenRefreshNotifier.posSellProductGrid.addListener(_onExternalRefresh);
+    ScreenRefreshNotifier.posSellStockPatch.addListener(_onStockPatch);
     _loadCategories();
     _loadProducts();
   }
@@ -79,6 +102,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
   @override
   void dispose() {
     ScreenRefreshNotifier.posSellProductGrid.removeListener(_onExternalRefresh);
+    ScreenRefreshNotifier.posSellStockPatch.removeListener(_onStockPatch);
     _categoryScroll.dispose();
     _gridScroll.dispose();
     super.dispose();
@@ -86,10 +110,139 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
 
   void _onExternalRefresh() {
     if (!mounted) return;
-    _loadProducts();
+    final storeId = widget.storeId?.trim();
+    if (storeId != null && storeId.isNotEmpty) {
+      PosSellCatalogCache.instance.invalidate(storeId);
+    }
+    _loadProducts(forceNetwork: true);
   }
 
-  void reload() => _loadProducts();
+  void _onStockPatch() {
+    final patch = ScreenRefreshNotifier.posSellStockPatch.value;
+    if (patch == null || patch.isEmpty || !mounted) return;
+    applyStockLinePatches(patch);
+    ScreenRefreshNotifier.posSellStockPatch.value = null;
+  }
+
+  void reload({bool forceNetwork = true}) => _loadProducts(forceNetwork: forceNetwork);
+
+  /// Cập nhật tồn cục bộ theo dòng bán/trả — không reload lưới/ảnh.
+  void applyStockLinePatches(List<PosSellStockLineDelta> lines) {
+    if (lines.isEmpty) return;
+    final merged = mergeStockLineDeltas(lines);
+    setState(() {
+      _allProducts = _allProducts.map((p) {
+        return applyPosSellStockLines(p, merged);
+      }).toList();
+      _products = _filterByCategory(_allProducts);
+      _unitViewsCache.clear();
+      _unitViewsLoading.clear();
+    });
+    final storeId = widget.storeId?.trim();
+    if (storeId != null && storeId.isNotEmpty) {
+      PosSellCatalogCache.instance.write(storeId, items: _allProducts);
+    }
+  }
+
+  /// Sau bán — trừ tồn SP đã bán, không reload lưới/ảnh.
+  void applySoldQuantities(Map<String, double> soldByProductId) {
+    if (soldByProductId.isEmpty) return;
+    final lines = soldByProductId.entries
+        .where((e) => e.value > 0)
+        .map(
+          (e) => PosSellStockLineDelta(
+            productId: e.key,
+            qty: e.value,
+          ),
+        )
+        .toList();
+    applyStockLinePatches(lines);
+  }
+
+  void applySoldLinePatches(List<PosSellStockLineDelta> lines) {
+    applyStockLinePatches(lines);
+  }
+
+  List<PosProduct> _filterByCategory(List<PosProduct> source) {
+    if (_categoryId == null || _categoryId!.isEmpty) return source;
+    final ids = collectCategorySubtreeIds(_categories, _categoryId!);
+    return source.where((p) => p.categoryId != null && ids.contains(p.categoryId)).toList();
+  }
+
+  Future<void> _loadProducts({bool forceNetwork = false}) async {
+    final storeId = widget.storeId?.trim() ?? '';
+
+    if (!forceNetwork && storeId.isNotEmpty) {
+      final cached = await PosSellCatalogCache.instance.read(storeId);
+      if (cached != null && cached.items.isNotEmpty) {
+        if (!mounted) return;
+        setState(() {
+          _allProducts = cached.items;
+          _products = _filterByCategory(_allProducts);
+          _page = 0;
+          _loading = false;
+        });
+        _prefetchPageUnitViews();
+        if (cached.isFresh) return;
+        _syncCatalogInBackground(storeId);
+        return;
+      }
+    }
+
+    if (mounted) setState(() => _loading = true);
+    await _fetchCatalogFromNetwork(storeId);
+  }
+
+  Future<void> _syncCatalogInBackground(String storeId) async {
+    if (_syncing) return;
+    _syncing = true;
+    try {
+      await _fetchCatalogFromNetwork(storeId, silent: true);
+    } finally {
+      _syncing = false;
+    }
+  }
+
+  Future<void> _fetchCatalogFromNetwork(String storeId, {bool silent = false}) async {
+    final res = await widget.api.getPosSellProducts(pageSize: 500);
+    if (!mounted) return;
+
+    final products = <PosProduct>[];
+    DateTime? catalogVersion;
+    if (res['isSuccess'] == true && res['data'] is Map) {
+      final data = res['data'] as Map<String, dynamic>;
+      final raw = data['items'] as List? ?? [];
+      products.addAll(
+        raw.map(
+          (e) => applyComboSellableToProduct(
+            PosProduct.fromJson(e as Map<String, dynamic>),
+          ),
+        ),
+      );
+      final verRaw = data['catalogVersion'];
+      if (verRaw != null) {
+        catalogVersion = DateTime.tryParse(verRaw.toString());
+      }
+    }
+
+    if (storeId.isNotEmpty && products.isNotEmpty) {
+      await PosSellCatalogCache.instance.write(
+        storeId,
+        items: products,
+        catalogVersion: catalogVersion,
+      );
+    }
+
+    setState(() {
+      _allProducts = products;
+      _products = _filterByCategory(_allProducts);
+      _page = 0;
+      _loading = false;
+      _unitViewsCache.clear();
+      _unitViewsLoading.clear();
+    });
+    _prefetchPageUnitViews();
+  }
 
   Future<void> openCategoryFilter() async {
     if (_loadingCategories) return;
@@ -170,34 +323,14 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     }
   }
 
-  Future<void> _loadProducts() async {
-    setState(() => _loading = true);
-    final res = await widget.api.getPosProducts(
-      categoryId: _categoryId,
-      isDirectSale: true,
-      pageSize: 200,
-    );
-    if (!mounted) return;
-    final products = <PosProduct>[];
-    if (res['isSuccess'] == true && res['data'] is Map) {
-      final raw = (res['data'] as Map)['items'] as List? ?? [];
-      products.addAll(
-          raw.map((e) => PosProduct.fromJson(e as Map<String, dynamic>)));
-    }
-    setState(() {
-      _products = products;
-      _page = 0;
-      _loading = false;
-      _unitViewsCache.clear();
-      _unitViewsLoading.clear();
-    });
-    _prefetchPageUnitViews();
-  }
-
   void _selectCategory(String? id) {
     if (_categoryId == id) return;
-    setState(() => _categoryId = id);
-    _loadProducts();
+    setState(() {
+      _categoryId = id;
+      _products = _filterByCategory(_allProducts);
+      _page = 0;
+    });
+    _prefetchPageUnitViews();
   }
 
   int get _pageCount =>
@@ -208,6 +341,24 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     final start = _page * widget.pageSize;
     final end = (start + widget.pageSize).clamp(0, _products.length);
     return _products.sublist(start, end);
+  }
+
+  double _qtyInCart(String productId) =>
+      widget.cartQtyByProductId[productId] ?? 0;
+
+  List<PosProduct> get _sortedSellListProducts {
+    if (widget.cartQtyByProductId.isEmpty) return _products;
+    final list = List<PosProduct>.from(_products);
+    list.sort((a, b) {
+      final qa = _qtyInCart(a.id);
+      final qb = _qtyInCart(b.id);
+      final aSelected = qa > 0;
+      final bSelected = qb > 0;
+      if (aSelected != bSelected) return aSelected ? -1 : 1;
+      if (qa != qb) return qb.compareTo(qa);
+      return a.name.compareTo(b.name);
+    });
+    return list;
   }
 
   int _columnsForWidth(double w) {
@@ -230,7 +381,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
   Future<void> _pickProduct(PosProduct p, {PosProductUnitView? view}) async {
     final views = await _viewsFor(p);
     if (!mounted || views.isEmpty) return;
-    final v = view ?? views.first;
+    final v = view ?? pickDefaultSellUnitView(p, views) ?? views.first;
     widget.onPick(PosPurchaseLookupPick(
       product: p,
       variantId: v.variantId,
@@ -396,8 +547,21 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
   }
 
   Widget _productCard(PosProduct p, double imgSize) {
-    final outOfStock = p.onHandQty <= 0;
-    return Container(
+    return FutureBuilder<List<PosProductUnitView>>(
+      future: _viewsFor(p),
+      builder: (context, snap) {
+        final views = snap.data;
+        final view = views != null && views.isNotEmpty
+            ? (pickDefaultSellUnitView(p, views) ?? views.first)
+            : null;
+        final qty = view != null
+            ? resolvePosSellListStockQty(p, views!)
+            : p.onHandQty;
+        final unit = view?.label ?? p.baseUnitName;
+        final trackStock = p.productType != PosProductType.service;
+        final outOfStock = trackStock &&
+            isPosSellOutOfStock(p, views ?? const []);
+        return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
@@ -437,6 +601,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
                               child: PosProductImage(
                                 productId: p.id,
                                 imageUrl: p.imageUrl,
+                                updatedAt: p.updatedAt,
                                 size: imgSize,
                                 borderRadius: 6,
                               ),
@@ -456,7 +621,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              '${_moneyFmt.format(p.basePrice)} đ',
+                              '${_moneyFmt.format(applyPosPriceListToProductBase(p, widget.priceOverrides))} đ',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               textAlign: TextAlign.center,
@@ -471,7 +636,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 _metaBadge(
-                                    '${_qtyFmt.format(p.onHandQty)} ${p.baseUnitName}'),
+                                    '${_qtyFmt.format(qty)} $unit'),
                                 const SizedBox(width: 4),
                                 _metaBadge('KH đặt: 0'),
                               ],
@@ -480,11 +645,12 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
                         ),
                       ),
                     ),
-                    Positioned(
-                      top: 4,
-                      right: 4,
-                      child: _stockBadge(p),
-                    ),
+                    if (trackStock)
+                      Positioned(
+                        top: 4,
+                        right: 4,
+                        child: _stockBadge(qty: qty),
+                      ),
                   ],
                 ),
               ),
@@ -494,28 +660,30 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
         ],
       ),
     );
+      },
+    );
   }
 
-  Widget _stockBadge(PosProduct p) {
+  Widget _stockBadge({required double qty}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
       decoration: BoxDecoration(
-        color: p.onHandQty <= 0
+        color: qty <= 0
             ? const Color(0xFFFEE2E2)
             : const Color(0xFFEFF6FF),
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
-          color: p.onHandQty <= 0
+          color: qty <= 0
               ? const Color(0xFFFCA5A5)
               : const Color(0xFF93C5FD),
         ),
       ),
       child: Text(
-        'Tồn ${_qtyFmt.format(p.onHandQty)}',
+        'Tồn ${_qtyFmt.format(qty)}',
         style: TextStyle(
           fontSize: 9,
           fontWeight: FontWeight.w600,
-          color: p.onHandQty <= 0
+          color: qty <= 0
               ? const Color(0xFFB91C1C)
               : const Color(0xFF1D4ED8),
           height: 1,
@@ -561,41 +729,62 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
       child: ListView.separated(
         controller: _gridScroll,
         padding: const EdgeInsets.only(bottom: 8),
-        itemCount: _products.length,
+        itemCount: _sortedSellListProducts.length,
         separatorBuilder: (_, __) =>
             const Divider(height: 1, indent: 70, color: PosTheme.border),
-        itemBuilder: (_, i) => _sellListRow(_products[i]),
+        itemBuilder: (_, i) => _sellListRow(_sortedSellListProducts[i]),
       ),
     );
   }
 
   Widget _sellListRow(PosProduct p) {
+    final selectedQty = _qtyInCart(p.id);
+    final isSelected = selectedQty > 0;
     return FutureBuilder<List<PosProductUnitView>>(
       future: _viewsFor(p),
       builder: (context, snap) {
         final views = snap.data;
-        final view = views != null && views.isNotEmpty ? views.first : null;
+        final view = views != null && views.isNotEmpty
+            ? (pickDefaultSellUnitView(p, views) ?? views.first)
+            : null;
         final price = view != null
-            ? (view.basePrice > 0 ? view.basePrice : p.basePrice)
-            : p.basePrice;
+            ? (view.basePrice > 0
+                ? view.basePrice
+                : applyPosPriceListToProductBase(p, widget.priceOverrides))
+            : applyPosPriceListToProductBase(p, widget.priceOverrides);
         final code = view?.displayCode ?? p.productCode;
         final unit = view?.label ?? p.baseUnitName;
-        final qty = view?.onHandQty ?? p.onHandQty;
+        final qty = view != null
+            ? resolvePosSellListStockQty(p, views!)
+            : p.onHandQty;
+        final lowStock = p.productType == PosProductType.goods &&
+            qty > 0 &&
+            p.minStockQty > 0 &&
+            qty <= p.minStockQty;
+        final outOfStock = p.productType != PosProductType.service &&
+            isPosSellOutOfStock(p, views ?? const []);
         final name = view != null && views!.length > 1
             ? '${p.name} (${view.label})'
             : p.name;
 
         return PosMobileProductRow(
           kiotSellStyle: true,
+          isSelected: isSelected,
+          selectedQty: isSelected ? selectedQty : null,
           name: name,
           code: code,
           priceText: _moneyFmt.format(price),
-          stockText: '${_qtyFmt.format(qty)} $unit',
+          stockText: outOfStock
+              ? 'Hết hàng'
+              : lowStock
+                  ? 'Sắp hết: ${_qtyFmt.format(qty)} $unit'
+                  : '${_qtyFmt.format(qty)} $unit',
           orderReservedText: 'KH đặt: 0',
           onScanCode: _scanAndPick,
           image: PosProductImage(
             productId: p.id,
             imageUrl: p.imageUrl,
+            updatedAt: p.updatedAt,
             size: 48,
             borderRadius: 8,
           ),
@@ -756,7 +945,15 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     if (widget.sellListLayout) {
       return Material(
         color: Colors.white,
-        child: _buildSellList(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SizedBox(height: 6),
+            _horizontalCategoryStrip(),
+            const Divider(height: 1, color: PosTheme.border),
+            Expanded(child: _buildSellList()),
+          ],
+        ),
       );
     }
     return LayoutBuilder(

@@ -12,6 +12,7 @@ class PosCustomer {
   final String? note;
   final double totalPurchase;
   final double currentDebt;
+  final double pointBalance;
 
   PosCustomer({
     required this.id,
@@ -27,6 +28,7 @@ class PosCustomer {
     this.note,
     this.totalPurchase = 0,
     this.currentDebt = 0,
+    this.pointBalance = 0,
   });
 
   factory PosCustomer.fromJson(Map<String, dynamic> json) {
@@ -45,6 +47,7 @@ class PosCustomer {
       note: json['note'] ?? json['Note'] as String?,
       totalPurchase: n(json['totalPurchase'] ?? json['TotalPurchase']),
       currentDebt: n(json['currentDebt'] ?? json['CurrentDebt']),
+      pointBalance: n(json['pointBalance'] ?? json['PointBalance']),
     );
   }
 }

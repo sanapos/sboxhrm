@@ -3,7 +3,7 @@ description: ZKTeco ADMS Flutter Client - Hệ thống quản lý chấm công
 
 publish_to: 'none'
 
-version: 1.0.20+30
+version: 1.0.24+34
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -59,6 +59,7 @@ dependencies:
   # PDF generation & printing
   pdf: ^3.10.8
   printing: ^5.12.0
+  barcode: ^2.2.8
 
   # Charts
   fl_chart: ^0.68.0
@@ -72,6 +73,7 @@ dependencies:
 
   # Image caching
   cached_network_image: ^3.3.1
+  flutter_cache_manager: ^3.3.1
 
   # Map
   flutter_map: ^7.0.2
@@ -93,6 +95,8 @@ dependencies:
   geolocator: ^13.0.2
   device_info_plus: ^11.3.3
   image: ^4.3.0
+  print_bluetooth_thermal: ^1.1.6
+  sunmi_printer_plus: ^4.1.0
   tflite_flutter: ^0.12.1
   flutter_local_notifications: 18.0.0
 

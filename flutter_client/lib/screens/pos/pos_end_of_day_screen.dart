@@ -6,9 +6,10 @@ import '../../models/pos_end_of_day_report.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import '../../utils/pos_end_of_day_print.dart';
-import '../../utils/pos_html_print.dart';
 import '../../utils/pos_kiot_time_range.dart';
 import '../../utils/store_role_helper.dart';
+import '../../widgets/hrm_page_chrome.dart';
+import '../../widgets/pos/pos_hub_scope.dart';
 import '../../widgets/pos/pos_theme.dart';
 
 const _kiotBlue = PosTheme.kiotBlue;
@@ -153,36 +154,35 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
   Future<void> _print() async {
     final r = _report;
     if (r == null) return;
-    final html = buildPosEndOfDayHtml(
+    await printPosEndOfDayReport(
+      context,
       r,
       format: _format,
       showProductDetail: _showProductDetail,
-    );
-    await showPosHtmlPrintDialog(
-      context,
-      title: _format == PosEndOfDayPrintFormat.a4
-          ? 'In tổng kết cuối ngày (A4)'
-          : 'In tổng kết cuối ngày (Bill)',
-      htmlDocument: html,
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final hideAppBar = HrmPageChrome.usesMainLayoutAppBar;
+    final pushed = PosHubScope.pushedSubPageOf(context);
     return Scaffold(
       backgroundColor: const Color(0xFFF3F4F6),
-      appBar: AppBar(
-        backgroundColor: _kiotBlue,
-        foregroundColor: Colors.white,
-        title: const Text('Tổng kết cuối ngày'),
-        actions: [
-          IconButton(
-            tooltip: 'Tải lại',
-            onPressed: _loading ? null : _loadReport,
-            icon: const Icon(Icons.refresh),
-          ),
-        ],
-      ),
+      appBar: hideAppBar
+          ? null
+          : AppBar(
+              backgroundColor: _kiotBlue,
+              foregroundColor: Colors.white,
+              automaticallyImplyLeading: pushed,
+              title: const Text('Tổng kết cuối ngày'),
+              actions: [
+                IconButton(
+                  tooltip: 'Tải lại',
+                  onPressed: _loading ? null : _loadReport,
+                  icon: const Icon(Icons.refresh),
+                ),
+              ],
+            ),
       body: Column(
         children: [
           _buildToolbar(),
@@ -500,21 +500,26 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
         ),
         child: SafeArea(
           top: false,
-          child: Wrap(
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 6,
-            runSpacing: 6,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              OutlinedButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Thoát'),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _presetChip('Hôm nay', PosKiotTimePreset.today),
+                    _presetChip('Hôm qua', PosKiotTimePreset.yesterday),
+                    _presetChip('7 ngày', PosKiotTimePreset.last7Days),
+                    TextButton(
+                      onPressed: _pickCustomRange,
+                      child: const Text('Khác'),
+                    ),
+                  ],
+                ),
               ),
-              _presetChip('Hôm nay', PosKiotTimePreset.today),
-              _presetChip('Hôm qua', PosKiotTimePreset.yesterday),
-              _presetChip('7 ngày', PosKiotTimePreset.last7Days),
-              TextButton(onPressed: _pickCustomRange, child: const Text('Lựa chọn khác')),
+              const SizedBox(height: 6),
               Row(
-                mainAxisSize: MainAxisSize.min,
                 children: [
                   Checkbox(
                     value: _showProductDetail,
@@ -526,14 +531,21 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
                             await _loadReport();
                           },
                   ),
-                  const Text('Hàng hóa bán ra (Chi tiết)?', style: TextStyle(fontSize: 12)),
+                  const Expanded(
+                    child: Text('Chi tiết hàng bán', style: TextStyle(fontSize: 12)),
+                  ),
+                  OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Thoát'),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton.icon(
+                    style: FilledButton.styleFrom(backgroundColor: _kiotBlue),
+                    onPressed: _report == null || _loading ? null : _print,
+                    icon: const Icon(Icons.print, size: 18),
+                    label: const Text('In'),
+                  ),
                 ],
-              ),
-              FilledButton.icon(
-                style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
-                onPressed: _report == null || _loading ? null : _print,
-                icon: const Icon(Icons.print, size: 18),
-                label: const Text('In'),
               ),
             ],
           ),

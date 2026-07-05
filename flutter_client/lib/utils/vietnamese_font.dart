@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show FontLoader, rootBundle;
 import 'package:google_fonts/google_fonts.dart';
 
 /// Font chính (pubspec) + fallback. Trên web dùng [GoogleFonts.beVietnamPro] vì
@@ -13,16 +14,26 @@ const List<String> kVietnameseFontFallback = [
   'sans-serif',
 ];
 
-/// Preload Be Vietnam Pro trên web trước khi [runApp].
+bool _mobileFontsLoaded = false;
+
+/// Preload Be Vietnam Pro trước khi [runApp] (web + mobile in ảnh).
 Future<void> preloadVietnameseFonts() async {
-  if (!kIsWeb) return;
-  GoogleFonts.config.allowRuntimeFetching = true;
-  await GoogleFonts.pendingFonts([
-    GoogleFonts.beVietnamPro(),
-    GoogleFonts.beVietnamPro(fontWeight: FontWeight.w500),
-    GoogleFonts.beVietnamPro(fontWeight: FontWeight.w600),
-    GoogleFonts.beVietnamPro(fontWeight: FontWeight.w700),
-  ]);
+  if (kIsWeb) {
+    GoogleFonts.config.allowRuntimeFetching = true;
+    await GoogleFonts.pendingFonts([
+      GoogleFonts.beVietnamPro(),
+      GoogleFonts.beVietnamPro(fontWeight: FontWeight.w500),
+      GoogleFonts.beVietnamPro(fontWeight: FontWeight.w600),
+      GoogleFonts.beVietnamPro(fontWeight: FontWeight.w700),
+    ]);
+    return;
+  }
+  if (_mobileFontsLoaded) return;
+  final loader = FontLoader(kVietnameseFontFamily)
+    ..addFont(rootBundle.load('assets/fonts/BeVietnamPro-Regular.ttf'))
+    ..addFont(rootBundle.load('assets/fonts/BeVietnamPro-Bold.ttf'));
+  await loader.load();
+  _mobileFontsLoaded = true;
 }
 
 TextTheme vietnameseTextTheme(TextTheme base) {

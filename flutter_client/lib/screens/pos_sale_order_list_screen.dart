@@ -1,4 +1,4 @@
-import 'dart:typed_data';
+﻿import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -12,8 +12,11 @@ import '../services/api_service.dart';
 import '../utils/file_saver.dart' as file_saver;
 import '../utils/pos_kiot_time_range.dart';
 import '../utils/pos_sale_order_print.dart';
+import '../utils/pos_sell_print_settings.dart';
+import '../utils/pos_sell_stock_patch.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/loading_widget.dart';
+import '../screens/main_layout.dart' show ScreenRefreshNotifier;
 import '../widgets/notification_overlay.dart';
 import '../widgets/pos/pos_kiot_time_filter.dart';
 import '../utils/responsive_helper.dart';
@@ -22,9 +25,11 @@ import '../widgets/pos/pos_hub_scope.dart';
 import '../widgets/pos/pos_module_toolbar.dart';
 import '../widgets/pos/pos_purchase_toolbar.dart';
 import '../widgets/pos/pos_sale_order_helpers.dart';
+import '../widgets/pos/pos_sale_order_receipt_view.dart';
 import '../widgets/pos/pos_theme.dart';
 import 'pos_sale_order_editor_screen.dart';
 import 'pos_sale_return_screen.dart';
+import 'pos_sale_return_list_screen.dart';
 
 const _blue = Color(0xFF2563EB);
 
@@ -238,11 +243,23 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     }
     if (!mounted) return;
     final auth = Provider.of<AuthProvider>(context, listen: false);
+    final printSettings = await PosSellPrintSettings.load();
     await printPosSaleOrder(
       context: context,
       order: order,
       branchName: auth.currentUser?.department,
+      mergeSameItems: printSettings.mergeSameItems,
+      copies: printSettings.copies,
+      templateId: printSettings.templateId,
+      skipDedup: true,
     );
+  }
+
+  void _patchOrderInList(PosSaleOrder updated) {
+    setState(() {
+      _items = _items.map((x) => x.id == updated.id ? updated : x).toList();
+      if (_expandedId == updated.id) _expandedDetail = updated;
+    });
   }
 
   Future<void> _cancelOrder(PosSaleOrder o) async {
@@ -265,6 +282,37 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     final res = await _api.cancelPosSale(o.id);
     if (!mounted) return;
     if (res['isSuccess'] == true) {
+      if (res['data'] is! Map<String, dynamic>) {
+        NotificationOverlayManager().showError(
+          title: 'Lỗi',
+          message: 'Server không trả về dữ liệu đơn — vui lòng tải lại danh sách',
+        );
+        await _load(page: _page);
+        return;
+      }
+      final updated = PosSaleOrder.fromJson(res['data'] as Map<String, dynamic>);
+      if (updated.status != 'Cancelled') {
+        NotificationOverlayManager().showError(
+          title: 'Lỗi',
+          message:
+              'Đơn vẫn ở trạng thái ${posSaleOrderStatusLabel(updated.status)} — chưa hủy được trên server',
+        );
+        await _load(page: _page);
+        return;
+      }
+      _patchOrderInList(updated);
+      final stockLines = updated.lines
+          .where((line) => line.productId.isNotEmpty && line.qty > 0)
+          .map(
+            (line) => PosSellStockLineDelta(
+              productId: line.productId,
+              variantId: line.variantId,
+              qty: line.qty,
+              addBack: true,
+            ),
+          )
+          .toList();
+      ScreenRefreshNotifier.refreshPosAfterStockChange(sellStockLines: stockLines);
       NotificationOverlayManager()
           .showSuccess(title: 'Đã hủy', message: o.orderNo);
       await _load(page: _page);
@@ -297,6 +345,8 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     if (res['isSuccess'] == true) {
       NotificationOverlayManager().showSuccess(title: 'Đã xóa', message: o.orderNo);
       _collapseExpanded();
+      setState(() => _items = _items.where((x) => x.id != o.id).toList());
+      ScreenRefreshNotifier.refreshPosAfterStockChange();
       await _load(page: _page);
     } else {
       NotificationOverlayManager().showError(
@@ -606,19 +656,13 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       return const Scaffold(
           body: Center(child: Text('Không có quyền xem đơn hàng')));
     }
-    final canEdit = perm.canEdit('PosSaleOrders');
-    final canCreate = perm.canCreate('PosSaleOrders');
+    final canEdit =
+        perm.canEdit('PosSaleOrders') || perm.canEdit('PosProducts');
     final mobile = posUseMobileList(context);
     final inHub = PosHubScope.of(context);
 
     return Scaffold(
       backgroundColor: HrmPageChrome.background,
-      floatingActionButton: mobile && canCreate
-          ? PosMobileFab(
-              onPressed: () => _openEditor(),
-              tooltip: 'Tạo hoá đơn',
-            )
-          : null,
       body: Column(
         children: [
           if (!inHub) const PosModuleToolbar(activeModule: 'PosSaleOrders'),
@@ -640,7 +684,6 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
             PosMobileListHeader(
               icon: Icons.receipt_long,
               title: 'Quản lý đơn hàng',
-              onCreate: canCreate ? () => _openEditor() : null,
               onRefresh: () => _load(page: _page),
               onOpenFilters: null,
               activeFilterCount: _activeFilterCount,
@@ -656,6 +699,17 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                         : const Icon(Icons.download, size: 18),
                     label: const Text('Xuất file'),
                   ),
+                IconButton(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const PosSaleReturnListScreen(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.assignment_return_outlined),
+                  tooltip: 'Danh sách trả hàng',
+                ),
                 IconButton(
                   onPressed: _showColumnPicker,
                   icon: const Icon(Icons.view_column_outlined),
@@ -695,7 +749,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                                 children: [
                                   _buildTableHeader(),
                                   Expanded(
-                                      child: _buildList(canEdit, canCreate)),
+                                      child: _buildList(canEdit)),
                                 ],
                               ),
                   ),
@@ -784,8 +838,11 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
   }
 
   Widget _buildMobileSummaryCard() {
+    final completed = _items.where((o) => o.status == 'Completed');
     final totalAmount = _periodRevenue ??
-        _items.fold<double>(0, (s, o) => s + o.total);
+        completed.fold<double>(0, (s, o) => s + o.total);
+    final returnedTotal =
+        completed.fold<double>(0, (s, o) => s + o.returnedAmount);
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
       child: Container(
@@ -798,14 +855,14 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Tổng tiền hàng',
+                    'Doanh thu thuần',
                     style: TextStyle(
                       fontSize: 13,
                       color: PosTheme.textSecondary,
                     ),
                   ),
                   Text(
-                    '$_total hoá đơn',
+                    '$_total hoá đơn${returnedTotal > 0 ? ' · Hoàn trả ${_moneyFmt.format(returnedTotal)}' : ''}',
                     style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
                   ),
                 ],
@@ -824,23 +881,58 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     );
   }
 
-  Widget _buildList(bool canEdit, bool canCreate) {
-    final mobile = posUseMobileList(context);
-    if (mobile) {
-      return _buildGroupedMobileList(canEdit, canCreate);
-    }
-    return ListView.builder(
-      padding: Responsive.fabListInsets(
-        context,
-        base: EdgeInsets.fromLTRB(12, mobile ? 8 : 0, 12, 12),
-        enabled: mobile && canCreate,
-      ),
-      itemCount: _items.length,
-      itemBuilder: (ctx, i) => _buildOrderBlock(_items[i], canEdit, canCreate),
+  double _daySalesTotal(List<PosSaleOrder> orders) => orders
+      .where((o) => o.status == 'Completed')
+      .fold<double>(0, (sum, o) => sum + o.total);
+
+  double _dayReturnTotal(List<PosSaleOrder> orders) => orders
+      .where((o) => o.status == 'Completed')
+      .fold<double>(0, (sum, o) => sum + o.returnedAmount);
+
+  Widget _buildOrderTotalColumn(PosSaleOrder o) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Text(
+          _moneyFmt.format(o.total),
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+        ),
+        if (o.hasReturns)
+          Container(
+            margin: const EdgeInsets.only(top: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+            decoration: BoxDecoration(
+              color: Colors.orange.shade50,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              'Đã trả ${_moneyFmt.format(o.returnedAmount)}',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: Colors.orange.shade800,
+              ),
+            ),
+          ),
+      ],
     );
   }
 
-  Widget _buildGroupedMobileList(bool canEdit, bool canCreate) {
+  String _dayHeaderLabel(String key) {
+    if (key == 'unknown') return 'KHÔNG RÕ NGÀY';
+    final d = DateTime.parse(key);
+    final dayFmt = DateFormat('dd/MM/yyyy', 'vi_VN');
+    final today = DateTime.now();
+    final isToday =
+        d.year == today.year && d.month == today.month && d.day == today.day;
+    return isToday
+        ? 'HÔM NAY ${dayFmt.format(d)}'
+        : dayFmt.format(d).toUpperCase();
+  }
+
+  Widget _buildList(bool canEdit) => _buildGroupedList(canEdit);
+
+  Widget _buildGroupedList(bool canEdit) {
     final groups = <String, List<PosSaleOrder>>{};
     final order = <String>[];
     for (final o in _items) {
@@ -856,52 +948,168 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     }
 
     final children = <Widget>[];
-    final dayFmt = DateFormat('dd/MM/yyyy', 'vi_VN');
     for (final key in order) {
       final list = groups[key]!;
-      final label = key == 'unknown'
-          ? 'KHÔNG RÕ NGÀY'
-          : () {
-              final d = DateTime.parse(key);
-              final today = DateTime.now();
-              final isToday = d.year == today.year &&
-                  d.month == today.month &&
-                  d.day == today.day;
-              return isToday
-                  ? 'HÔM NAY ${dayFmt.format(d)}'
-                  : dayFmt.format(d).toUpperCase();
-            }();
+      final label = _dayHeaderLabel(key);
+      final dayNet = _daySalesTotal(list);
+      final dayReturn = _dayReturnTotal(list);
       children.add(
         Padding(
           padding: const EdgeInsets.fromLTRB(4, 12, 4, 6),
-          child: Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: PosTheme.textSecondary,
-              letterSpacing: 0.3,
-            ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: PosTheme.textSecondary,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ),
+              Text(
+                dayReturn > 0
+                    ? 'Thuần ${_moneyFmt.format(dayNet)} · Trả ${_moneyFmt.format(dayReturn)}'
+                    : 'Tổng ngày: ${_moneyFmt.format(dayNet)} đ',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: _blue,
+                ),
+              ),
+            ],
           ),
         ),
       );
       for (final o in list) {
-        children.add(_buildKiotInvoiceTile(o, canEdit, canCreate));
+        if (posUseMobileList(context)) {
+          children.add(_buildKiotInvoiceTile(o, canEdit));
+        } else {
+          children.add(_buildOrderBlock(o, canEdit));
+        }
       }
     }
 
     return ListView(
-      padding: Responsive.fabListInsets(
-        context,
-        base: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-        enabled: canCreate,
-      ),
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
       children: children,
     );
   }
 
-  Widget _buildKiotInvoiceTile(
-      PosSaleOrder o, bool canEdit, bool canCreate) {
+  Future<void> _showMobileOrderDetail(PosSaleOrder summary, bool canEdit) async {
+    PosSaleOrder order = summary;
+    if (order.lines.isEmpty) {
+      final res = await _api.getPosSale(summary.id);
+      if (!mounted) return;
+      if (res['isSuccess'] == true && res['data'] is Map<String, dynamic>) {
+        order = PosSaleOrder.fromJson(res['data'] as Map<String, dynamic>);
+      }
+    }
+    if (!mounted) return;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+      ),
+      builder: (ctx) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.88,
+        minChildSize: 0.45,
+        maxChildSize: 0.95,
+        builder: (_, scrollCtrl) => Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 12, 8, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      order.orderNo,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  posSaleOrderStatusChip(order.status),
+                  IconButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: SingleChildScrollView(
+                controller: scrollCtrl,
+                child: PosSaleOrderReceiptView(order: order, showMeta: false),
+              ),
+            ),
+            const Divider(height: 1),
+            SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    if (order.status == 'Completed')
+                      FilledButton.icon(
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _printOrder(order);
+                        },
+                        icon: const Icon(Icons.print, size: 16),
+                        label: Text(order.printCount > 0 ? 'In lại' : 'In'),
+                        style: FilledButton.styleFrom(backgroundColor: _blue),
+                      ),
+                    if (canEdit && order.status == 'Draft')
+                      FilledButton.icon(
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _openEditor(orderId: order.id);
+                        },
+                        icon: const Icon(Icons.edit, size: 16),
+                        label: const Text('Chỉnh sửa'),
+                      ),
+                    if (canEdit && order.status == 'Completed')
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _cancelOrder(order);
+                        },
+                        icon: const Icon(Icons.cancel_outlined, size: 16),
+                        label: const Text('Hủy đơn'),
+                      ),
+                    if (canEdit &&
+                        (order.status == 'Cancelled' || order.status == 'Draft'))
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _deleteOrder(order);
+                        },
+                        icon: const Icon(Icons.delete_outline, size: 16),
+                        style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+                        label: const Text('Xóa'),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildKiotInvoiceTile(PosSaleOrder o, bool canEdit) {
     final dt = o.saleDate ?? o.createdAt;
     final timeStr =
         dt != null ? DateFormat('dd/MM/yyyy HH:mm', 'vi_VN').format(dt.toLocal()) : '—';
@@ -910,7 +1118,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     return Material(
       color: Colors.white,
       child: InkWell(
-        onTap: () => _toggleExpand(o),
+        onTap: () => _showMobileOrderDetail(o, canEdit),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Column(
@@ -927,13 +1135,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                       ),
                     ),
                   ),
-                  Text(
-                    _moneyFmt.format(o.total),
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  _buildOrderTotalColumn(o),
                 ],
               ),
               const SizedBox(height: 4),
@@ -977,7 +1179,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     return q == q.roundToDouble() ? q.toStringAsFixed(0) : q.toStringAsFixed(1);
   }
 
-  Widget _buildOrderBlock(PosSaleOrder o, bool canEdit, bool canCreate) {
+  Widget _buildOrderBlock(PosSaleOrder o, bool canEdit) {
     final expanded = _expandedId == o.id;
     final dt = o.saleDate ?? o.createdAt;
     if (posUseMobileList(context)) {
@@ -993,10 +1195,12 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
             dt != null ? _dateFmt.format(dt.toLocal()) : '—',
           ),
           PosMobileField('Khách', o.customerName ?? 'Khách lẻ'),
-          PosMobileField('Tổng', '${_moneyFmt.format(o.total)} đ'),
+          PosMobileField('Tổng còn', '${_moneyFmt.format(o.total)} đ'),
+          if (o.hasReturns)
+            PosMobileField('Đã trả', '${_moneyFmt.format(o.returnedAmount)} đ'),
           PosMobileField('Còn lại', '${_moneyFmt.format(_balance(o))} đ'),
         ],
-        detail: expanded ? _buildDetailPanel(o, canEdit, canCreate) : null,
+        detail: expanded ? _buildDetailPanel(o, canEdit) : null,
       );
     }
     return Material(
@@ -1063,9 +1267,24 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                   if (_visibleColumns.contains(_ListColumn.total))
                     Expanded(
                       flex: 2,
-                      child: Text('${_moneyFmt.format(o.total)} đ',
-                          style: const TextStyle(fontSize: 12),
-                          textAlign: TextAlign.right),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text('${_moneyFmt.format(o.total)} đ',
+                              style: const TextStyle(
+                                  fontSize: 12, fontWeight: FontWeight.w600),
+                              textAlign: TextAlign.right),
+                          if (o.hasReturns)
+                            Text(
+                              'Đã trả ${_moneyFmt.format(o.returnedAmount)}',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Colors.orange.shade800,
+                              ),
+                              textAlign: TextAlign.right,
+                            ),
+                        ],
+                      ),
                     ),
                   if (_visibleColumns.contains(_ListColumn.paid))
                     Expanded(
@@ -1106,13 +1325,13 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
               ),
             ),
           ),
-          if (expanded) _buildDetailPanel(o, canEdit, canCreate),
+          if (expanded) _buildDetailPanel(o, canEdit),
         ],
       ),
     );
   }
 
-  Widget _buildDetailPanel(PosSaleOrder summary, bool canEdit, bool canCreate) {
+  Widget _buildDetailPanel(PosSaleOrder summary, bool canEdit) {
     if (_detailLoading) {
       return const Padding(
         padding: EdgeInsets.all(24),
@@ -1167,27 +1386,30 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                   label: const Text('Hủy'),
                 ),
                 OutlinedButton.icon(
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => PosSaleReturnScreen(orderId: o.id),
-                    ),
-                  ),
+                  onPressed: () async {
+                    final ok = await Navigator.of(context).push<bool>(
+                      MaterialPageRoute(
+                        builder: (_) => PosSaleReturnScreen(orderId: o.id),
+                      ),
+                    );
+                    if (ok == true && mounted) _load();
+                  },
                   icon: const Icon(Icons.assignment_return_outlined, size: 16),
                   label: const Text('Trả hàng'),
                 ),
                 OutlinedButton.icon(
                   onPressed: () => _printOrder(o),
                   icon: const Icon(Icons.print, size: 16),
-                  label: const Text('In'),
+                  label: Text(o.printCount > 0 ? 'In lại' : 'In'),
                 ),
               ],
-              if (canCreate && o.status == 'Completed')
+              if (canEdit && o.status == 'Completed')
                 OutlinedButton.icon(
                   onPressed: () => _copyOrder(o),
                   icon: const Icon(Icons.copy, size: 16),
                   label: const Text('Sao chép'),
                 ),
-              if (canEdit && o.status == 'Cancelled')
+              if (canEdit && (o.status == 'Cancelled' || o.status == 'Draft'))
                 OutlinedButton.icon(
                   onPressed: () => _deleteOrder(o),
                   icon: const Icon(Icons.delete_outline, size: 16),
@@ -1218,95 +1440,9 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
   }
 
   Widget _buildInfoTab(PosSaleOrder o) {
-    final dt = o.saleDate ?? o.createdAt;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Wrap(
-          spacing: 24,
-          runSpacing: 6,
-          children: [
-            _meta('Người tạo', o.createdBy ?? '—'),
-            _meta('Người bán', o.soldBy ?? '—'),
-            _meta('Ngày bán',
-                dt != null ? _dateFmt.format(dt.toLocal()) : '—'),
-            _meta('Kênh bán', o.salesChannel ?? '—'),
-            _meta('Bảng giá', o.priceListName ?? '—'),
-            _meta('Khách hàng', o.customerName ?? 'Khách lẻ'),
-            if (o.isDelivery) ...[
-              _meta('Giao hàng', 'Có'),
-              _meta('Địa chỉ GH', o.deliveryAddress ?? '—'),
-              _meta('SĐT GH', o.deliveryPhone ?? '—'),
-              _meta('Đối tác GH', o.deliveryPartner ?? '—'),
-              _meta('TT giao hàng', o.deliveryStatus ?? '—'),
-            ],
-            _meta('Thanh toán', o.paymentMethod),
-          ],
-        ),
-        if (o.note != null && o.note!.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          _meta('Ghi chú', o.note!),
-        ],
-        const SizedBox(height: 10),
-        if (o.lines.isNotEmpty)
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              headingRowHeight: 36,
-              dataRowMinHeight: 32,
-              dataRowMaxHeight: 40,
-              columnSpacing: 16,
-              headingRowColor: WidgetStateProperty.all(Colors.white),
-              columns: const [
-                DataColumn(
-                    label: Text('Tên hàng',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
-                DataColumn(
-                    label: Text('SL',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
-                DataColumn(
-                    label: Text('Đơn giá',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
-                DataColumn(
-                    label: Text('Thành tiền',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
-              ],
-              rows: o.lines.map((l) {
-                return DataRow(cells: [
-                  DataCell(Text(l.productName, style: const TextStyle(fontSize: 12))),
-                  DataCell(Text(l.qty.toStringAsFixed(0),
-                      style: const TextStyle(fontSize: 12))),
-                  DataCell(Text('${_moneyFmt.format(l.unitPrice)} đ',
-                      style: const TextStyle(fontSize: 12))),
-                  DataCell(Text('${_moneyFmt.format(l.lineTotal)} đ',
-                      style: const TextStyle(fontSize: 12))),
-                ]);
-              }).toList(),
-            ),
-          ),
-        const SizedBox(height: 8),
-        Align(
-          alignment: Alignment.centerRight,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text('Tạm tính: ${_moneyFmt.format(o.subTotal)} đ',
-                  style: const TextStyle(fontSize: 12)),
-              Text('Giảm giá: ${_moneyFmt.format(o.discount)} đ',
-                  style: const TextStyle(fontSize: 12)),
-              Text('Tổng cộng: ${_moneyFmt.format(o.total)} đ',
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-              Text('Đã thanh toán: ${_moneyFmt.format(o.paidAmount)} đ',
-                  style: const TextStyle(fontSize: 12)),
-              Text('Còn lại: ${_moneyFmt.format(_balance(o))} đ',
-                  style: const TextStyle(fontSize: 12)),
-              if (o.returnedAmount > 0)
-                Text('Đã trả hàng: ${_moneyFmt.format(o.returnedAmount)} đ',
-                    style: const TextStyle(fontSize: 12)),
-            ],
-          ),
-        ),
-      ],
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: PosSaleOrderReceiptView(order: o),
     );
   }
 

@@ -86,6 +86,8 @@ class PosProductFilterSidebar extends StatelessWidget {
     return Material(
       color: Colors.white,
       child: ListView(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         children: [
           _sectionHeader('Nhóm hàng',

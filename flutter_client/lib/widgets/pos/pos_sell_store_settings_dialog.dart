@@ -1,79 +1,248 @@
 import 'package:flutter/material.dart';
 
+import '../../models/cash_transaction.dart';
+import '../../services/api_service.dart';
 import '../../utils/pos_sell_store_settings.dart';
+import 'pos_bank_account_form_dialog.dart';
 import 'pos_theme.dart';
 
 const _kiotBlue = PosTheme.kiotBlue;
 
-/// Dialog thiết lập tên cửa hàng, địa chỉ, điện thoại.
+/// Dialog thiết lập cửa hàng, thuế và VietQR.
 Future<PosSellStoreSettings?> showPosSellStoreSettingsDialog(
   BuildContext context, {
   required PosSellStoreSettings initial,
 }) async {
+  final api = ApiService();
+  final banksRes = await api.getPosBankAccounts();
+  var bankAccounts = <BankAccount>[];
+  if (banksRes['isSuccess'] == true && banksRes['data'] is List) {
+    bankAccounts = (banksRes['data'] as List)
+        .map((e) => BankAccount.fromJson(e as Map<String, dynamic>))
+        .where((a) => a.isActive)
+        .toList();
+  }
+
+  if (!context.mounted) return null;
+
   final nameCtrl = TextEditingController(text: initial.storeName);
   final addressCtrl = TextEditingController(text: initial.address);
   final phoneCtrl = TextEditingController(text: initial.phone);
+  var taxMode = initial.taxMode;
+  var vatRate = initial.defaultVatRate;
+  var vietQrBankId = initial.vietQrBankAccountId;
+  var showVietQr = initial.showVietQrAtPayment;
+  var accounts = List<BankAccount>.from(bankAccounts);
+
+  Future<void> reloadAccounts(StateSetter setDlg) async {
+    final res = await api.getPosBankAccounts();
+    if (res['isSuccess'] == true && res['data'] is List) {
+      setDlg(() {
+        accounts = (res['data'] as List)
+            .map((e) => BankAccount.fromJson(e as Map<String, dynamic>))
+            .where((a) => a.isActive)
+            .toList();
+        if (vietQrBankId != null &&
+            !accounts.any((a) => a.id == vietQrBankId)) {
+          vietQrBankId = null;
+        }
+      });
+    }
+  }
 
   final result = await showDialog<PosSellStoreSettings>(
     context: context,
-    builder: (ctx) => AlertDialog(
-      title: const Text('Thiết lập cửa hàng'),
-      content: SizedBox(
-        width: 400,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Tên cửa hàng',
-                border: OutlineInputBorder(),
-              ),
-              textCapitalization: TextCapitalization.words,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setDlg) => AlertDialog(
+        title: const Text('Thiết lập cửa hàng'),
+        content: SizedBox(
+          width: 420,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextField(
+                  controller: nameCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Tên cửa hàng',
+                    border: OutlineInputBorder(),
+                  ),
+                  textCapitalization: TextCapitalization.words,
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: addressCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Địa chỉ',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 2,
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: phoneCtrl,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(
+                    labelText: 'Số điện thoại',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                const Text(
+                  'Tài khoản VietQR',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 6),
+                if (accounts.isEmpty)
+                  Text(
+                    'Chưa có tài khoản ngân hàng. Thêm tài khoản để tạo mã QR thanh toán.',
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                  )
+                else
+                  DropdownButtonFormField<String?>(
+                    value: vietQrBankId ??
+                        accounts
+                            .where((a) => a.isDefault)
+                            .map((a) => a.id)
+                            .firstOrNull ??
+                        accounts.first.id,
+                    decoration: const InputDecoration(
+                      labelText: 'Tài khoản nhận tiền',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: accounts
+                        .map(
+                          (a) => DropdownMenuItem(
+                            value: a.id,
+                            child: Text(
+                              '${a.bankShortName ?? a.bankName} · ${a.accountNumber}'
+                              '${a.isDefault ? ' (Mặc định)' : ''}',
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (v) => setDlg(() => vietQrBankId = v),
+                  ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    TextButton.icon(
+                      onPressed: () async {
+                        final ok = await showPosBankAccountFormDialog(ctx);
+                        if (ok) await reloadAccounts(setDlg);
+                      },
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('Thêm tài khoản'),
+                    ),
+                    if (accounts.isNotEmpty) ...[
+                      const SizedBox(width: 4),
+                      TextButton(
+                        onPressed: () async {
+                          final current = accounts.firstWhere(
+                            (a) => a.id == (vietQrBankId ?? accounts.first.id),
+                            orElse: () => accounts.first,
+                          );
+                          final ok = await showPosBankAccountFormDialog(
+                            ctx,
+                            account: current,
+                          );
+                          if (ok) await reloadAccounts(setDlg);
+                        },
+                        child: const Text('Sửa'),
+                      ),
+                    ],
+                  ],
+                ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Hiện mã VietQR khi thanh toán'),
+                  subtitle: const Text(
+                    'Tạo QR động theo tổng tiền trên điện thoại',
+                    style: TextStyle(fontSize: 11),
+                  ),
+                  value: showVietQr,
+                  onChanged: (v) => setDlg(() => showVietQr = v),
+                ),
+                const Divider(height: 20),
+                const Text(
+                  'Cách tính thuế VAT',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 6),
+                ...PosSellTaxMode.values.map(
+                  (m) => RadioListTile<PosSellTaxMode>(
+                    value: m,
+                    groupValue: taxMode,
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(m.label, style: const TextStyle(fontSize: 13)),
+                    onChanged: (v) {
+                      if (v != null) setDlg(() => taxMode = v);
+                    },
+                  ),
+                ),
+                if (taxMode != PosSellTaxMode.perItem) ...[
+                  const SizedBox(height: 6),
+                  DropdownButtonFormField<double>(
+                    value: vatRate,
+                    decoration: InputDecoration(
+                      labelText: 'Thuế suất VAT (%)',
+                      border: const OutlineInputBorder(),
+                      helperText: taxMode == PosSellTaxMode.includedInPrice
+                          ? 'Giá bán đã gồm VAT — chỉ tách hiển thị trên hóa đơn'
+                          : 'VAT cộng thêm trên tổng tiền hàng sau chiết khấu',
+                      helperMaxLines: 2,
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 0, child: Text('0%')),
+                      DropdownMenuItem(value: 5, child: Text('5%')),
+                      DropdownMenuItem(value: 8, child: Text('8%')),
+                      DropdownMenuItem(value: 10, child: Text('10%')),
+                    ],
+                    onChanged: (v) {
+                      if (v != null) setDlg(() => vatRate = v);
+                    },
+                  ),
+                ] else ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    'Thuế suất được thiết lập riêng trên từng hàng hóa (mục Giá bán).',
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                  ),
+                ],
+                const SizedBox(height: 8),
+                const Text(
+                  'In mã VietQR trên hóa đơn: bật trong Thiết lập máy in.',
+                  style: TextStyle(fontSize: 11, color: PosTheme.textSecondary),
+                ),
+              ],
             ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: addressCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Địa chỉ',
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 2,
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: phoneCtrl,
-              keyboardType: TextInputType.phone,
-              decoration: const InputDecoration(
-                labelText: 'Số điện thoại',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Thông tin này hiển thị trên màn bán hàng và in trên hóa đơn.',
-              style: TextStyle(fontSize: 11, color: PosTheme.textSecondary),
-            ),
-          ],
+          ),
         ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Huỷ')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: _kiotBlue),
+            onPressed: () {
+              Navigator.pop(
+                ctx,
+                PosSellStoreSettings(
+                  storeName: nameCtrl.text.trim(),
+                  address: addressCtrl.text.trim(),
+                  phone: phoneCtrl.text.trim(),
+                  taxMode: taxMode,
+                  defaultVatRate: vatRate,
+                  vietQrBankAccountId: vietQrBankId,
+                  showVietQrAtPayment: showVietQr,
+                ),
+              );
+            },
+            child: const Text('Lưu'),
+          ),
+        ],
       ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Huỷ')),
-        FilledButton(
-          style: FilledButton.styleFrom(backgroundColor: _kiotBlue),
-          onPressed: () {
-            Navigator.pop(
-              ctx,
-              PosSellStoreSettings(
-                storeName: nameCtrl.text.trim(),
-                address: addressCtrl.text.trim(),
-                phone: phoneCtrl.text.trim(),
-              ),
-            );
-          },
-          child: const Text('Lưu'),
-        ),
-      ],
     ),
   );
 

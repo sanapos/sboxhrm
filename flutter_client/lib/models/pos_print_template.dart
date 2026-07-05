@@ -91,6 +91,7 @@ abstract final class PosPrintDocumentTypes {
   static const purchaseReceipt = 'PurchaseReceipt';
   static const purchaseReturn = 'PurchaseReturn';
   static const stockTransfer = 'StockTransfer';
+  static const stockIssue = 'StockIssue';
   static const cashReceipt = 'CashReceipt';
   static const cashPayment = 'CashPayment';
 
@@ -104,6 +105,7 @@ abstract final class PosPrintDocumentTypes {
     purchaseReceipt: 'Nhập hàng',
     purchaseReturn: 'Trả hàng nhập',
     stockTransfer: 'Chuyển hàng',
+    stockIssue: 'Phiếu xuất kho',
     cashReceipt: 'Phiếu thu',
     cashPayment: 'Phiếu chi',
   };

@@ -289,6 +289,8 @@ class PosProduct {
   final String? imageUrl;
   final double costPrice;
   final double basePrice;
+  final double vatRate;
+  final bool vatExempt;
   final double onHandQty;
   final double reservedQty;
   final double minStockQty;
@@ -300,11 +302,16 @@ class PosProduct {
   final bool isFavorite;
   final bool isActive;
   final int variantCount;
+  final List<PosProductVariant>? variants;
   final double? avgDailySales;
   final DateTime? estimatedStockoutDate;
   final List<PosProductUnit>? units;
   final List<PosProductAttribute>? attributes;
   final List<String> saleQuickNotes;
+  final List<PosComboLine>? comboLines;
+  final double? sellableQty;
+  final int? warrantyMonths;
+  final bool requiresSerial;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -327,6 +334,8 @@ class PosProduct {
     this.imageUrl,
     this.costPrice = 0,
     this.basePrice = 0,
+    this.vatRate = 8,
+    this.vatExempt = false,
     this.onHandQty = 0,
     this.reservedQty = 0,
     this.minStockQty = 0,
@@ -338,11 +347,16 @@ class PosProduct {
     this.isFavorite = false,
     this.isActive = true,
     this.variantCount = 0,
+    this.variants,
     this.avgDailySales,
     this.estimatedStockoutDate,
     this.units,
     this.attributes,
     this.saleQuickNotes = const [],
+    this.comboLines,
+    this.sellableQty,
+    this.warrantyMonths,
+    this.requiresSerial = false,
     this.createdAt,
     this.updatedAt,
   });
@@ -378,6 +392,8 @@ class PosProduct {
       imageUrl: json['imageUrl'] ?? json['ImageUrl'] as String?,
       costPrice: numVal(json['costPrice'] ?? json['CostPrice']),
       basePrice: numVal(json['basePrice'] ?? json['BasePrice']),
+      vatRate: numVal(json['vatRate'] ?? json['VatRate']),
+      vatExempt: json['vatExempt'] == true || json['VatExempt'] == true,
       onHandQty: numVal(json['onHandQty'] ?? json['OnHandQty']),
       reservedQty: numVal(json['reservedQty'] ?? json['ReservedQty']),
       minStockQty: numVal(json['minStockQty'] ?? json['MinStockQty']),
@@ -392,6 +408,11 @@ class PosProduct {
       isFavorite: json['isFavorite'] == true || json['IsFavorite'] == true,
       isActive: json['isActive'] != false && json['IsActive'] != false,
       variantCount: (json['variantCount'] ?? json['VariantCount'] as num?)?.toInt() ?? 0,
+      variants: json['variants'] != null || json['Variants'] != null
+          ? ((json['variants'] ?? json['Variants']) as List)
+              .map((e) => PosProductVariant.fromJson(e as Map<String, dynamic>))
+              .toList()
+          : null,
       avgDailySales: json['avgDailySales'] != null || json['AvgDailySales'] != null
           ? numVal(json['avgDailySales'] ?? json['AvgDailySales'])
           : null,
@@ -409,6 +430,20 @@ class PosProduct {
           : null,
       saleQuickNotes: parsePosStringList(
           json['saleQuickNotes'] ?? json['SaleQuickNotes']),
+      comboLines: json['comboLines'] != null || json['ComboLines'] != null
+          ? ((json['comboLines'] ?? json['ComboLines']) as List)
+              .whereType<Map>()
+              .map((e) => PosComboLine.fromJson(Map<String, dynamic>.from(e)))
+              .toList()
+          : null,
+      sellableQty: json['sellableQty'] != null || json['SellableQty'] != null
+          ? numVal(json['sellableQty'] ?? json['SellableQty'])
+          : null,
+      warrantyMonths: json['warrantyMonths'] != null || json['WarrantyMonths'] != null
+          ? (json['warrantyMonths'] ?? json['WarrantyMonths'] as num?)?.toInt()
+          : null,
+      requiresSerial:
+          json['requiresSerial'] == true || json['RequiresSerial'] == true,
       createdAt: dt(json['createdAt'] ?? json['CreatedAt']),
       updatedAt: dt(json['updatedAt'] ?? json['UpdatedAt']),
     );
@@ -438,6 +473,8 @@ class PosProduct {
         'imageBase64': imageBase64,
       'costPrice': costPrice,
       'basePrice': basePrice,
+      'vatRate': vatExempt ? 0 : vatRate,
+      'vatExempt': vatExempt,
       'onHandQty': onHandQty,
       'reservedQty': reservedQty,
       'minStockQty': minStockQty,
@@ -449,8 +486,18 @@ class PosProduct {
       'isFavorite': isFavorite,
       if (saleQuickNotes.isNotEmpty) 'saleQuickNotes': saleQuickNotes,
       if (attributes != null) 'attributes': attributes,
+      if (warrantyMonths != null && warrantyMonths! > 0) 'warrantyMonths': warrantyMonths,
+      if (requiresSerial) 'requiresSerial': true,
     };
   }
+
+  bool get hasWarranty => (warrantyMonths ?? 0) > 0;
+
+  bool get needsSerialCapture =>
+      productType == PosProductType.goods && requiresSerial;
+
+  bool get needsWarrantyRegistration =>
+      productType == PosProductType.goods && (requiresSerial || hasWarranty);
 
   PosProduct copyWith({
     String? id,
@@ -466,6 +513,8 @@ class PosProduct {
     String? imageUrl,
     double? costPrice,
     double? basePrice,
+    double? vatRate,
+    bool? vatExempt,
     double? onHandQty,
     double? reservedQty,
     double? minStockQty,
@@ -475,6 +524,10 @@ class PosProduct {
     String? baseUnitName,
     bool? isDirectSale,
     bool? isFavorite,
+    List<PosProductVariant>? variants,
+    List<PosProductUnit>? units,
+    List<PosComboLine>? comboLines,
+    double? sellableQty,
   }) {
     return PosProduct(
       id: id ?? this.id,
@@ -495,6 +548,8 @@ class PosProduct {
       imageUrl: imageUrl ?? this.imageUrl,
       costPrice: costPrice ?? this.costPrice,
       basePrice: basePrice ?? this.basePrice,
+      vatRate: vatRate ?? this.vatRate,
+      vatExempt: vatExempt ?? this.vatExempt,
       onHandQty: onHandQty ?? this.onHandQty,
       reservedQty: reservedQty ?? this.reservedQty,
       minStockQty: minStockQty ?? this.minStockQty,
@@ -504,10 +559,72 @@ class PosProduct {
       baseUnitName: baseUnitName ?? this.baseUnitName,
       isDirectSale: isDirectSale ?? this.isDirectSale,
       isFavorite: isFavorite ?? this.isFavorite,
+      units: units ?? this.units,
+      variants: variants ?? this.variants,
+      comboLines: comboLines ?? this.comboLines,
+      sellableQty: sellableQty ?? this.sellableQty,
+      saleQuickNotes: this.saleQuickNotes,
       createdAt: createdAt,
       updatedAt: updatedAt,
     );
   }
+
+  PosProduct copyWithVariants(List<PosProductVariant> variants) =>
+      copyWith(variants: variants);
+
+  Map<String, dynamic> toSellCacheJson() => {
+        'id': id,
+        'productCode': productCode,
+        'barcode': barcode,
+        'name': name,
+        'categoryId': categoryId,
+        'categoryName': categoryName,
+        'productType': productType.name,
+        'costPrice': costPrice,
+        'basePrice': basePrice,
+        'vatRate': vatRate,
+        'vatExempt': vatExempt,
+        'onHandQty': onHandQty,
+        'reservedQty': reservedQty,
+        'imageUrl': imageUrl,
+        'baseUnitName': baseUnitName,
+        'isDirectSale': isDirectSale,
+        'isFavorite': isFavorite,
+        'variantCount': variantCount,
+        'saleQuickNotes': saleQuickNotes,
+        'updatedAt': updatedAt?.toUtc().toIso8601String(),
+        if (sellableQty != null) 'sellableQty': sellableQty,
+        if (comboLines != null)
+          'comboLines': comboLines!.map((c) => {
+                'componentProductId': c.componentProductId,
+                'componentProductCode': c.componentProductCode,
+                'componentProductName': c.componentProductName,
+                'qty': c.qty,
+                'componentOnHandQty': c.componentOnHandQty,
+                'componentBasePrice': c.componentBasePrice,
+              }).toList(),
+        if (units != null)
+          'units': units!.map((u) => {
+                'id': u.id,
+                'unitName': u.unitName,
+                'conversionRate': u.conversionRate,
+                'basePrice': u.basePrice,
+                'isDirectSale': u.isDirectSale,
+                'isBaseUnit': u.isBaseUnit,
+              }).toList(),
+        if (variants != null)
+          'variants': variants!.map((v) => {
+                'id': v.id,
+                'skuCode': v.skuCode,
+                'barcode': v.barcode,
+                'name': v.name,
+                'attributeJson': v.attributeJson,
+                'costPrice': v.costPrice,
+                'basePrice': v.basePrice,
+                'onHandQty': v.onHandQty,
+                'isActive': v.isActive,
+              }).toList(),
+      };
 }
 
 class PosComboLine {

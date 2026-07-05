@@ -25,6 +25,7 @@ public partial class PosProductsController
             .Include(p => p.Category)
             .Include(p => p.Brand)
             .Include(p => p.Supplier)
+            .Include(p => p.DefaultPrinter)
             .Include(p => p.StorageLocation)
             .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsActive);
 
@@ -47,7 +48,7 @@ public partial class PosProductsController
         {
             "STT", "Mã hàng", "Mã vạch", "Tên hàng", "Nhóm hàng", "Thương hiệu", "Nhà cung cấp",
             "Giá vốn", "Giá bán", "Tồn kho", "Tồn thấp nhất", "Tồn cao nhất",
-            "Đơn vị", "Loại hàng", "Bán trực tiếp", "Trọng lượng", "Vị trí", "Mô tả"
+            "Đơn vị", "Loại hàng", "Bán trực tiếp", "Trọng lượng", "Vị trí", "Mô tả", "Máy in"
         };
 
         var meta = ReportExcelMeta.FromUser(
@@ -73,11 +74,17 @@ public partial class PosProductsController
             ws.Cell(row, 11).Value = p.MinStockQty;
             ws.Cell(row, 12).Value = p.MaxStockQty;
             ws.Cell(row, 13).Value = p.BaseUnitName;
-            ws.Cell(row, 14).Value = p.ProductType == PosProductType.Service ? "Dịch vụ" : "Hàng hóa";
+            ws.Cell(row, 14).Value = p.ProductType switch
+            {
+                PosProductType.Service => "Dịch vụ",
+                PosProductType.Combo => "Combo",
+                _ => "Hàng hóa",
+            };
             ws.Cell(row, 15).Value = p.IsDirectSale ? "Có" : "Không";
             ws.Cell(row, 16).Value = p.Weight.HasValue ? p.Weight.Value : "";
             ws.Cell(row, 17).Value = p.StorageLocation?.Name ?? "";
             ws.Cell(row, 18).Value = p.Description ?? "";
+            ws.Cell(row, 19).Value = p.DefaultPrinter?.Name ?? "";
             row++;
         }
 
@@ -124,6 +131,9 @@ public partial class PosProductsController
             .ToDictionaryAsync(x => x.Name.ToLower(), x => x.Id);
         var locations = await dbContext.PosStorageLocations
             .Where(x => x.StoreId == storeId && x.Deleted == null)
+            .ToDictionaryAsync(x => x.Name.ToLower(), x => x.Id);
+        var printers = await dbContext.PosStorePrinters
+            .Where(x => x.StoreId == storeId && x.Deleted == null && x.IsActive)
             .ToDictionaryAsync(x => x.Name.ToLower(), x => x.Id);
 
         var created = 0;
@@ -215,6 +225,13 @@ public partial class PosProductsController
                 entity.IsDirectSale = row.IsDirectSale;
                 entity.Weight = row.Weight;
                 entity.Description = row.Description;
+                NormalizeByProductType(entity);
+                if (!string.IsNullOrWhiteSpace(row.PrinterName))
+                {
+                    var pkey = row.PrinterName.Trim().ToLower();
+                    if (printers.TryGetValue(pkey, out var pid))
+                        entity.DefaultPrinterId = pid;
+                }
                 entity.UpdatedAt = DateTime.UtcNow;
                 entity.UpdatedBy = CurrentUserEmail;
             }

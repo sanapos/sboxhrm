@@ -86,9 +86,11 @@ class PosMobileHubScreenState extends State<PosMobileHubScreen> {
 
     return Scaffold(
       backgroundColor: PosTheme.background,
-      body: PosHubScope(
-        embeddedInHub: true,
-        child: IndexedStack(
+      body: SafeArea(
+        bottom: false,
+        child: PosHubScope(
+          embeddedInHub: true,
+          child: IndexedStack(
           index: _tab,
           children: const [
             PosOverviewScreen(key: ValueKey('pos_overview')),
@@ -98,32 +100,35 @@ class PosMobileHubScreenState extends State<PosMobileHubScreen> {
             PosMoreScreen(key: ValueKey('pos_more')),
           ],
         ),
-      ),
-      bottomNavigationBar: Material(
-        elevation: 8,
-        color: Colors.white,
-        child: SafeArea(
-          top: false,
-          child: SizedBox(
-            height: PosTheme.mobileBottomNavHeight + 4,
-            child: Row(
-              children: List.generate(5, (i) {
-                if (!_canViewTab(i, perm)) {
-                  return const SizedBox.shrink();
-                }
-                return Expanded(
-                  child: _navItem(
-                    index: i,
-                    icon: _iconFor(i, false),
-                    activeIcon: _iconFor(i, true),
-                    label: PosHubModules.tabLabels[i],
-                  ),
-                );
-              }),
-            ),
-          ),
         ),
       ),
+      bottomNavigationBar: _tab == 2
+          ? null
+          : Material(
+              elevation: 8,
+              color: Colors.white,
+              child: SafeArea(
+                top: false,
+                child: SizedBox(
+                  height: PosTheme.mobileBottomNavHeight + 4,
+                  child: Row(
+                    children: List.generate(5, (i) {
+                      if (!_canViewTab(i, perm)) {
+                        return const SizedBox.shrink();
+                      }
+                      return Expanded(
+                        child: _navItem(
+                          index: i,
+                          icon: _iconFor(i, false),
+                          activeIcon: _iconFor(i, true),
+                          label: PosHubModules.tabLabels[i],
+                        ),
+                      );
+                    }),
+                  ),
+                ),
+              ),
+            ),
     );
   }
 

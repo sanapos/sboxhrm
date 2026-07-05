@@ -7,10 +7,11 @@ import '../models/pos_store_printer.dart';
 import '../services/api_service.dart';
 import '../services/signalr_service.dart';
 import '../utils/pos_print_agent_settings.dart';
+import '../utils/pos_print_role.dart';
 import '../utils/pos_print_orchestrator.dart';
 import '../utils/pos_printer_transport.dart';
 import '../utils/pos_store_printer_mapper.dart';
-import '../utils/pos_thermal_printer_settings.dart';
+import '../widgets/notification_overlay.dart';
 
 /// Print Agent: thiết bị nhận job in cloud (LAN/BT/USB) và in cục bộ.
 class PosPrintAgentService {
@@ -29,6 +30,9 @@ class PosPrintAgentService {
   bool _running = false;
   bool _claimInFlight = false;
   List<PosStorePrinter> _printers = [];
+  final _activeJobIds = <String>{};
+  final _notifiedReceiveJobIds = <String>{};
+  Timer? _claimDebounce;
 
   bool get isRunning => _running;
 
@@ -50,8 +54,8 @@ class PosPrintAgentService {
     await _register();
 
     _heartbeatTimer = Timer.periodic(const Duration(seconds: 25), (_) => _register());
-    _claimTimer = Timer.periodic(const Duration(seconds: 4), (_) => _tryClaim());
-    _jobNewSub = _signalR.onPrintJobNew.listen((_) => _tryClaim());
+    _claimTimer = Timer.periodic(const Duration(seconds: 4), (_) => _scheduleClaim());
+    _jobNewSub = _signalR.onPrintJobNew.listen((_) => _scheduleClaim());
 
     debugPrint('🖨️ Print Agent started for store $storeId');
   }
@@ -60,10 +64,14 @@ class PosPrintAgentService {
     _running = false;
     _heartbeatTimer?.cancel();
     _claimTimer?.cancel();
+    _claimDebounce?.cancel();
     await _jobNewSub?.cancel();
     _heartbeatTimer = null;
     _claimTimer = null;
+    _claimDebounce = null;
     _jobNewSub = null;
+    _activeJobIds.clear();
+    _notifiedReceiveJobIds.clear();
     if (_storeId != null) {
       await _signalR.leavePrintAgentGroup(_storeId!);
     }
@@ -83,10 +91,7 @@ class PosPrintAgentService {
     await PosPrintOrchestrator.instance.refreshConfig(force: true);
     _printers = PosPrintOrchestrator.instance.printers;
 
-    final printerIds = settings.assignedPrinterIds.isNotEmpty
-        ? settings.assignedPrinterIds
-        : _printers.where((p) => p.needsPrintAgent).map((p) => p.id).toList();
-
+    final printerIds = settings.assignedPrinterIds;
     if (printerIds.isEmpty) return;
 
     try {
@@ -103,6 +108,12 @@ class PosPrintAgentService {
     }
   }
 
+  void _scheduleClaim() {
+    if (!_running) return;
+    _claimDebounce?.cancel();
+    _claimDebounce = Timer(const Duration(milliseconds: 250), _tryClaim);
+  }
+
   Future<void> _tryClaim() async {
     if (!_running || _claimInFlight || _agentId == null) return;
     _claimInFlight = true;
@@ -115,6 +126,19 @@ class PosPrintAgentService {
 
       final jobId = data['jobId']?.toString() ?? '';
       if (jobId.isEmpty) return;
+      if (PosPrintSessionRegistry.isOutbound(jobId)) return;
+      if (_activeJobIds.contains(jobId)) return;
+
+      final printerId = data['printerId']?.toString() ?? '';
+      if (printerId.isEmpty) return;
+      if (!await PosPrintRole.isAgentForPrinter(printerId)) return;
+
+      _activeJobIds.add(jobId);
+      if (_activeJobIds.length > 50) {
+        _activeJobIds.remove(_activeJobIds.first);
+      }
+
+      _notifyReceivedOnce(data, jobId);
 
       await _api.markPosPrintJobPrinting(jobId, _agentId!);
       await _executeJob(data, jobId);
@@ -123,6 +147,20 @@ class PosPrintAgentService {
     } finally {
       _claimInFlight = false;
     }
+  }
+
+  void _notifyReceivedOnce(Map<String, dynamic> job, String jobId) {
+    if (_notifiedReceiveJobIds.contains(jobId)) return;
+    _notifiedReceiveJobIds.add(jobId);
+    if (_notifiedReceiveJobIds.length > 50) {
+      _notifiedReceiveJobIds.remove(_notifiedReceiveJobIds.first);
+    }
+    final ref = job['referenceNo']?.toString() ?? '';
+    NotificationOverlayManager().show(
+      title: 'Đã nhận lệnh in',
+      message: ref.isNotEmpty ? 'Đơn $ref — đang in…' : 'Đang in chứng từ…',
+      duration: const Duration(seconds: 4),
+    );
   }
 
   Future<void> _executeJob(Map<String, dynamic> job, String jobId) async {
@@ -192,6 +230,13 @@ class PosPrintAgentService {
     if (ok) {
       await _api.completePosPrintJob(jobId, _agentId!);
       await _api.reportPosPrinterHealth(printer.id, status: 'Online');
+      final ref = job['referenceNo']?.toString() ?? '';
+      NotificationOverlayManager().showSuccess(
+        title: 'In xong',
+        message: ref.isNotEmpty
+            ? 'Đơn $ref — ${printer.name}'
+            : printer.name,
+      );
     } else {
       await _api.failPosPrintJob(
         jobId,

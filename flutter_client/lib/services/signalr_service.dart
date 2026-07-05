@@ -87,6 +87,7 @@ class SignalRService {
   String? _currentStoreId;
   String? _currentUserId;
   final Set<String> _currentDeviceIds = {};
+  bool _printAgentJoined = false;
   
   // Stream controllers for broadcasting events
   final _attendanceController = StreamController<Attendance>.broadcast();
@@ -95,6 +96,9 @@ class SignalRService {
   final _connectionStateController = StreamController<bool>.broadcast();
   final _communicationController = StreamController<Map<String, dynamic>>.broadcast();
   final _notificationReadController = StreamController<Map<String, dynamic>>.broadcast();
+  final _printJobNewController = StreamController<Map<String, dynamic>>.broadcast();
+  final _printJobStatusController = StreamController<Map<String, dynamic>>.broadcast();
+  final _printerStatusController = StreamController<Map<String, dynamic>>.broadcast();
 
   // Recent notification IDs for deduplication (id -> arrival time).
   // Drops duplicate NewNotification events delivered within [_dedupWindow].
@@ -119,6 +123,17 @@ class SignalRService {
 
   /// Stream of communication events (created, published, comment, reaction)
   Stream<Map<String, dynamic>> get onCommunicationEvent => _communicationController.stream;
+
+  /// POS print cloud: job mới trong hàng đợi
+  Stream<Map<String, dynamic>> get onPrintJobNew => _printJobNewController.stream;
+
+  /// POS print cloud: trạng thái job thay đổi
+  Stream<Map<String, dynamic>> get onPrintJobStatusChanged =>
+      _printJobStatusController.stream;
+
+  /// POS print cloud: trạng thái máy in thay đổi
+  Stream<Map<String, dynamic>> get onPrinterStatusChanged =>
+      _printerStatusController.stream;
   
   /// Whether the connection is active
   bool get isConnected => _isConnected;
@@ -196,6 +211,9 @@ class SignalRService {
       _hubConnection!.on('CommunicationPublished', _handleCommunicationEvent);
       _hubConnection!.on('CommunicationCommentAdded', _handleCommunicationEvent);
       _hubConnection!.on('CommunicationReactionUpdated', _handleCommunicationEvent);
+      _hubConnection!.on('PrintJobNew', _handlePrintJobNew);
+      _hubConnection!.on('PrintJobStatusChanged', _handlePrintJobStatusChanged);
+      _hubConnection!.on('PrinterStatusChanged', _handlePrinterStatusChanged);
 
       // Connection state handlers
       _hubConnection!.onclose(({Exception? error}) {
@@ -357,10 +375,64 @@ class SignalRService {
     }
   }
 
+  void _handlePrintJobNew(List<Object?>? args) {
+    try {
+      if (args == null || args.isEmpty) return;
+      final data = Map<String, dynamic>.from(args[0] as Map);
+      debugPrint('📡 PrintJobNew: $data');
+      _printJobNewController.add(data);
+    } catch (e) {
+      debugPrint('📡 Error parsing PrintJobNew: $e');
+    }
+  }
+
+  void _handlePrintJobStatusChanged(List<Object?>? args) {
+    try {
+      if (args == null || args.isEmpty) return;
+      final data = Map<String, dynamic>.from(args[0] as Map);
+      debugPrint('📡 PrintJobStatusChanged: $data');
+      _printJobStatusController.add(data);
+    } catch (e) {
+      debugPrint('📡 Error parsing PrintJobStatusChanged: $e');
+    }
+  }
+
+  void _handlePrinterStatusChanged(List<Object?>? args) {
+    try {
+      if (args == null || args.isEmpty) return;
+      final data = Map<String, dynamic>.from(args[0] as Map);
+      debugPrint('📡 PrinterStatusChanged: $data');
+      _printerStatusController.add(data);
+    } catch (e) {
+      debugPrint('📡 Error parsing PrinterStatusChanged: $e');
+    }
+  }
+
   /// Join a store group to receive store-scoped notifications
   Future<void> joinStoreGroup(String storeId) async {
     _currentStoreId = storeId;
     await _invokeWithRetry('JoinStoreGroup', [storeId], 'store group: $storeId');
+  }
+
+  /// Join print-agent group (nhận job in cloud trên thiết bị agent).
+  Future<void> joinPrintAgentGroup(String storeId) async {
+    _printAgentJoined = true;
+    await _invokeWithRetry(
+      'JoinPrintAgentGroup',
+      [storeId],
+      'print agent group: $storeId',
+    );
+  }
+
+  Future<void> leavePrintAgentGroup(String storeId) async {
+    if (!_isConnected || _hubConnection == null) return;
+    _printAgentJoined = false;
+    try {
+      await _hubConnection!.invoke('LeavePrintAgentGroup', args: [storeId]);
+      debugPrint('📡 Left print agent group: $storeId');
+    } catch (e) {
+      debugPrint('📡 Error leaving print agent group: $e');
+    }
   }
 
   /// Leave a store group
@@ -441,6 +513,13 @@ class SignalRService {
     if (_currentStoreId != null) {
       await _invokeWithRetry('JoinStoreGroup', [_currentStoreId!], 'store group: $_currentStoreId');
     }
+    if (_printAgentJoined && _currentStoreId != null) {
+      await _invokeWithRetry(
+        'JoinPrintAgentGroup',
+        [_currentStoreId!],
+        'print agent group: $_currentStoreId',
+      );
+    }
     if (_currentUserId != null) {
       await _invokeWithRetry('JoinUserGroup', [_currentUserId!], 'user group: $_currentUserId');
     }
@@ -466,6 +545,9 @@ class SignalRService {
     _connectionStateController.close();
     _communicationController.close();
     _notificationReadController.close();
+    _printJobNewController.close();
+    _printJobStatusController.close();
+    _printerStatusController.close();
     // Fire-and-forget but suppress any errors during teardown
     disconnect().catchError((_) {});
   }

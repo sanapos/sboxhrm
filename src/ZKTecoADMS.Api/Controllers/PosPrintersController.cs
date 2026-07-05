@@ -15,7 +15,7 @@ namespace ZKTecoADMS.Api.Controllers;
 [ApiController]
 [Route("api/pos/printers")]
 [Authorize]
-public class PosPrintersController(
+public partial class PosPrintersController(
     ZKTecoDbContext db,
     IPosPrintDispatchService dispatch) : AuthenticatedControllerBase
 {
@@ -176,12 +176,14 @@ public class PosPrintersController(
         var existing = await db.PosPrinterDocumentRoutes
             .Where(r => r.StoreId == storeId && r.Deleted == null).ToListAsync();
 
+        var incoming = new HashSet<(PosPrintDocumentType DocumentType, Guid PrinterId)>();
         foreach (var r in dto.Routes)
         {
             if (!validPrinters.Contains(r.PrinterId)) continue;
             if (!Enum.TryParse<PosPrintDocumentType>(r.DocumentType, out var dt)) continue;
 
-            var row = existing.FirstOrDefault(x => x.DocumentType == dt);
+            incoming.Add((dt, r.PrinterId));
+            var row = existing.FirstOrDefault(x => x.DocumentType == dt && x.PrinterId == r.PrinterId);
             if (row == null)
             {
                 db.PosPrinterDocumentRoutes.Add(new PosPrinterDocumentRoute
@@ -198,11 +200,21 @@ public class PosPrintersController(
             }
             else
             {
-                row.PrinterId = r.PrinterId;
                 row.DefaultCopies = Math.Clamp(r.DefaultCopies, 1, 10);
+                row.IsActive = true;
                 row.UpdatedAt = DateTime.UtcNow;
                 row.UpdatedBy = CurrentUserId.ToString();
             }
+        }
+
+        var now = DateTime.UtcNow;
+        foreach (var row in existing)
+        {
+            if (incoming.Contains((row.DocumentType, row.PrinterId))) continue;
+            row.Deleted = now;
+            row.DeletedBy = CurrentUserId.ToString();
+            row.UpdatedAt = now;
+            row.UpdatedBy = CurrentUserId.ToString();
         }
 
         await db.SaveChangesAsync();

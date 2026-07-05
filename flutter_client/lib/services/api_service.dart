@@ -1166,23 +1166,27 @@ class ApiService {
             headers: _headers,
             body: json.encode(body),
           )
-          .timeout(const Duration(seconds: 15)));
+          .timeout(Duration(seconds: pageSize >= 500 ? 45 : 15)));
 
       debugPrint('📥 Attendance response status: ${response.statusCode}');
       final data = _handleResponse(response);
 
       if (data['isSuccess'] == true) {
         final responseData = data['data'];
+        final map = responseData is Map ? responseData as Map : null;
         return {
-          'items': responseData is Map
-              ? (responseData['items'] ?? [])
+          'items': map != null
+              ? (map['items'] ?? map['Items'] ?? [])
               : (responseData ?? []),
           'totalCount': _toInt(
-              responseData is Map ? responseData['totalCount'] : null, 0),
+              map != null ? (map['totalCount'] ?? map['TotalCount']) : null,
+              0),
           'pageNumber': _toInt(
-              responseData is Map ? responseData['pageNumber'] : null, page),
+              map != null ? (map['pageNumber'] ?? map['PageNumber']) : null,
+              page),
           'pageSize': _toInt(
-              responseData is Map ? responseData['pageSize'] : null, pageSize),
+              map != null ? (map['pageSize'] ?? map['PageSize']) : null,
+              pageSize),
         };
       }
       debugPrint('❌ Attendance response error: ${data['message']}');
@@ -13832,12 +13836,27 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> getPosSellProducts({String? search}) async {
+  Future<Map<String, dynamic>> getPosSellProducts({
+    String? search,
+    String? categoryId,
+    bool categoryIncludeChildren = true,
+    int pageSize = 500,
+  }) async {
     try {
-      final uri = Uri.parse('$baseUrl/api/pos/sales/products').replace(
-          queryParameters: search != null && search.trim().isNotEmpty
-              ? {'search': search.trim()}
-              : null);
+      final params = <String, String>{
+        'pageSize': pageSize.clamp(1, 500).toString(),
+      };
+      if (categoryIncludeChildren) {
+        params['categoryIncludeChildren'] = 'true';
+      }
+      if (search != null && search.trim().isNotEmpty) {
+        params['search'] = search.trim();
+      }
+      if (categoryId != null && categoryId.trim().isNotEmpty) {
+        params['categoryId'] = categoryId.trim();
+      }
+      final uri = Uri.parse('$baseUrl/api/pos/sales/products')
+          .replace(queryParameters: params);
       final response =
           await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
@@ -13879,6 +13898,116 @@ class ApiService {
       final response = await http
           .get(Uri.parse('$baseUrl/api/pos/sales/sellers'), headers: _headers)
           .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosBankAccounts() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/sales/bank-accounts'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosPriceLists() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/price-lists'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> createPosPriceList(Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/price-lists'),
+            headers: _headers,
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> updatePosPriceList(
+      String id, Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .put(
+            Uri.parse('$baseUrl/api/pos/price-lists/$id'),
+            headers: _headers,
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> deletePosPriceList(String id) async {
+    try {
+      final response = await http
+          .delete(Uri.parse('$baseUrl/api/pos/price-lists/$id'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosPriceListItems(String priceListId,
+      {String? productId, String? search}) async {
+    try {
+      final q = <String, String>{};
+      if (productId != null) q['productId'] = productId;
+      if (search != null && search.isNotEmpty) q['search'] = search;
+      final uri = Uri.parse('$baseUrl/api/pos/price-lists/$priceListId/items')
+          .replace(queryParameters: q.isEmpty ? null : q);
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> upsertPosPriceListItems(
+      String priceListId, List<Map<String, dynamic>> items) async {
+    try {
+      final response = await http
+          .put(
+            Uri.parse('$baseUrl/api/pos/price-lists/$priceListId/items'),
+            headers: _headers,
+            body: jsonEncode({'items': items}),
+          )
+          .timeout(const Duration(seconds: 60));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosPriceListResolvedPrices(String priceListId) async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/api/pos/price-lists/$priceListId/resolved-prices'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 60));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -13951,6 +14080,43 @@ class ApiService {
       if (from != null) q['from'] = from.toIso8601String();
       if (to != null) q['to'] = to.toIso8601String();
       final uri = Uri.parse('$baseUrl/api/pos/reports/sales/summary')
+          .replace(queryParameters: q.isEmpty ? null : q);
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosGoodsReportSummary({
+    DateTime? from,
+    DateTime? to,
+    int limit = 20,
+  }) async {
+    try {
+      final q = <String, String>{'limit': '$limit'};
+      if (from != null) q['from'] = from.toIso8601String();
+      if (to != null) q['to'] = to.toIso8601String();
+      final uri = Uri.parse('$baseUrl/api/pos/reports/goods/summary')
+          .replace(queryParameters: q);
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosBusinessAnalysis({
+    DateTime? from,
+    DateTime? to,
+  }) async {
+    try {
+      final q = <String, String>{};
+      if (from != null) q['from'] = from.toIso8601String();
+      if (to != null) q['to'] = to.toIso8601String();
+      final uri = Uri.parse('$baseUrl/api/pos/reports/analysis/overview')
           .replace(queryParameters: q.isEmpty ? null : q);
       final response =
           await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
@@ -14851,6 +15017,21 @@ class ApiService {
     }
   }
 
+  /// Ghi nhận lần in — tăng PrintCount, trả daily context cho mẫu in.
+  Future<Map<String, dynamic>> recordPosSalePrint(String id) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/sales/$id/record-print'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> getPosSales({
     String? search,
     String? status,
@@ -14959,6 +15140,24 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> getPosSaleReturnHistory({
+    String? search,
+    int page = 1,
+    int pageSize = 50,
+  }) async {
+    try {
+      final q = <String, String>{'page': '$page', 'pageSize': '$pageSize'};
+      if (search != null && search.trim().isNotEmpty) q['search'] = search.trim();
+      final uri = Uri.parse('$baseUrl/api/pos/sales/return-history')
+          .replace(queryParameters: q);
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> returnPosSale(
       String id, Map<String, dynamic> body) async {
     try {
@@ -15002,6 +15201,42 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> lookupPosWarranty({
+    String? serial,
+    String? phone,
+    String? orderNo,
+  }) async {
+    try {
+      final q = <String, String>{};
+      if (serial != null && serial.trim().isNotEmpty) q['serial'] = serial.trim();
+      if (phone != null && phone.trim().isNotEmpty) q['phone'] = phone.trim();
+      if (orderNo != null && orderNo.trim().isNotEmpty) q['orderNo'] = orderNo.trim();
+      final uri = Uri.parse('$baseUrl/api/pos/warranty/lookup').replace(queryParameters: q);
+      final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosWarrantyExpiring({
+    int days = 30,
+    bool includeExpired = false,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/pos/warranty/expiring').replace(
+        queryParameters: {
+          'days': '$days',
+          'includeExpired': includeExpired.toString(),
+        },
+      );
+      final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> exportPosSalesExcel({
     String? search,
     List<String>? statuses,
@@ -15035,16 +15270,189 @@ class ApiService {
 
   Future<Map<String, dynamic>> getPosCustomers({
     String? search,
+    double? debtFrom,
+    double? debtTo,
+    bool? hasDebt,
     int page = 1,
     int pageSize = 50,
   }) async {
     try {
       final q = <String, String>{'page': '$page', 'pageSize': '$pageSize'};
       if (search != null && search.trim().isNotEmpty) q['search'] = search.trim();
+      if (debtFrom != null) q['debtFrom'] = '$debtFrom';
+      if (debtTo != null) q['debtTo'] = '$debtTo';
+      if (hasDebt == true) q['hasDebt'] = 'true';
       final uri = Uri.parse('$baseUrl/api/pos/customers')
           .replace(queryParameters: q);
       final response =
           await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosCustomerPayments(String customerId) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/customers/$customerId/payments'),
+              headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> createPosCustomerPayment(
+    String customerId,
+    Map<String, dynamic> body,
+  ) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/customers/$customerId/payments'),
+            headers: _headers,
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosCustomerPointHistory(
+    String customerId, {
+    int page = 1,
+    int pageSize = 50,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/pos/customers/$customerId/points')
+          .replace(queryParameters: {'page': '$page', 'pageSize': '$pageSize'});
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosCustomerHistory(String customerId,
+      {int take = 30}) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/pos/customers/$customerId/history')
+          .replace(queryParameters: {'take': '$take'});
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosCustomerDebtReport({
+    String? search,
+    double? debtFrom,
+    double? debtTo,
+    bool includeZeroDebt = false,
+  }) async {
+    try {
+      final q = <String, String>{'includeZeroDebt': includeZeroDebt ? 'true' : 'false'};
+      if (search != null && search.trim().isNotEmpty) q['search'] = search.trim();
+      if (debtFrom != null) q['debtFrom'] = '$debtFrom';
+      if (debtTo != null) q['debtTo'] = '$debtTo';
+      final uri = Uri.parse('$baseUrl/api/pos/reports/customer-debt')
+          .replace(queryParameters: q);
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 60));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosVouchers({
+    String? search,
+    bool activeOnly = true,
+    int page = 1,
+    int pageSize = 50,
+  }) async {
+    try {
+      final q = <String, String>{
+        'page': '$page',
+        'pageSize': '$pageSize',
+        'activeOnly': activeOnly ? 'true' : 'false',
+      };
+      if (search != null && search.trim().isNotEmpty) q['search'] = search.trim();
+      final uri = Uri.parse('$baseUrl/api/pos/vouchers').replace(queryParameters: q);
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> validatePosVoucher({
+    required String code,
+    required double orderAmount,
+    String? customerId,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/vouchers/validate'),
+            headers: _headers,
+            body: jsonEncode({
+              'code': code,
+              'orderAmount': orderAmount,
+              if (customerId != null && customerId.isNotEmpty) 'customerId': customerId,
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> createPosVoucher(Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/vouchers'),
+            headers: _headers,
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> updatePosVoucher(
+      String id, Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .put(
+            Uri.parse('$baseUrl/api/pos/vouchers/$id'),
+            headers: _headers,
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> deletePosVoucher(String id) async {
+    try {
+      final response = await http
+          .delete(Uri.parse('$baseUrl/api/pos/vouchers/$id'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -15179,6 +15587,505 @@ class ApiService {
       final response = await http
           .post(uri, headers: _headers)
           .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  // ── POS Print Cloud (printers, routes, jobs, agents) ──
+
+  Future<Map<String, dynamic>> getPosStorePrinters() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/printers'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosStorePrinter(String id) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/printers/$id'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> createPosStorePrinter(
+      Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/printers'),
+            headers: _headers,
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> updatePosStorePrinter(
+      String id, Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .put(
+            Uri.parse('$baseUrl/api/pos/printers/$id'),
+            headers: _headers,
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> deletePosStorePrinter(String id) async {
+    try {
+      final response = await http
+          .delete(Uri.parse('$baseUrl/api/pos/printers/$id'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> reportPosPrinterHealth(
+    String printerId, {
+    required String status,
+    String? errorMessage,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/printers/$printerId/health'),
+            headers: _headers,
+            body: jsonEncode({
+              'status': status,
+              'errorMessage': errorMessage,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosPrinterRoutes() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/printers/routes'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> savePosPrinterRoutes(
+      List<Map<String, dynamic>> routes) async {
+    try {
+      final response = await http
+          .put(
+            Uri.parse('$baseUrl/api/pos/printers/routes'),
+            headers: _headers,
+            body: jsonEncode({'routes': routes}),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosProductPrinterMap() async {
+    return _getProductPrinterApi('/map');
+  }
+
+  Future<Map<String, dynamic>> _getProductPrinterApi(
+    String suffix, {
+    Map<String, String>? query,
+  }) async {
+    for (final base in [
+      '$baseUrl/api/pos/printers/product-assignment',
+      '$baseUrl/api/pos/product-printers',
+    ]) {
+      try {
+        final uri = Uri.parse('$base$suffix').replace(queryParameters: query);
+        final response = await _retryOnUnauthorized(() => http
+            .get(uri, headers: _headers)
+            .timeout(const Duration(seconds: 45)));
+        if (response.statusCode == 404) continue;
+        return _handleResponse(response);
+      } catch (e) {
+        if (base.contains('product-printers')) return _connectionFailure(e);
+      }
+    }
+    return {'isSuccess': false, 'message': 'API gán máy in không khả dụng (404)'};
+  }
+
+  Future<Map<String, dynamic>> _mutateProductPrinterApi(
+    String suffix,
+    Future<http.Response> Function(Uri uri) request,
+  ) async {
+    for (final base in [
+      '$baseUrl/api/pos/printers/product-assignment',
+      '$baseUrl/api/pos/product-printers',
+    ]) {
+      try {
+        final uri = Uri.parse('$base$suffix');
+        final response =
+            await _retryOnUnauthorized(() => request(uri))
+                .timeout(const Duration(seconds: 120));
+        if (response.statusCode == 404) continue;
+        return _handleResponse(response);
+      } catch (e) {
+        if (base.contains('product-printers')) return _connectionFailure(e);
+      }
+    }
+    return {'isSuccess': false, 'message': 'API gán máy in không khả dụng (404)'};
+  }
+
+  Future<Map<String, dynamic>> getPosProductPrinterCategories() async {
+    return _getProductPrinterApi('/categories');
+  }
+
+  Future<Map<String, dynamic>> getPosProductPrinterProducts({
+    String? search,
+    String? categoryId,
+    bool unassignedOnly = false,
+    int page = 1,
+    int pageSize = 50,
+  }) async {
+    final q = <String, String>{
+      'page': '$page',
+      'pageSize': '$pageSize',
+      'unassignedOnly': '$unassignedOnly',
+    };
+    if (search != null && search.trim().isNotEmpty) q['search'] = search.trim();
+    if (categoryId != null && categoryId.isNotEmpty) q['categoryId'] = categoryId;
+    return _getProductPrinterApi('/products', query: q);
+  }
+
+  Future<Map<String, dynamic>> setPosProductPrinterCategory(
+      String id, String? printerId) async {
+    return _mutateProductPrinterApi(
+      '/categories/$id',
+      (uri) => http.put(
+        uri,
+        headers: _headers,
+        body: jsonEncode({'printerId': printerId}),
+      ),
+    );
+  }
+
+  Future<Map<String, dynamic>> applyPosProductPrinterCategory(
+    String id, {
+    bool includeChildCategories = true,
+    bool overwriteExisting = false,
+  }) async {
+    return _mutateProductPrinterApi(
+      '/categories/$id/apply',
+      (uri) => http.post(
+        uri,
+        headers: _headers,
+        body: jsonEncode({
+          'includeChildCategories': includeChildCategories,
+          'overwriteExisting': overwriteExisting,
+        }),
+      ),
+    );
+  }
+
+  Future<Map<String, dynamic>> setPosProductPrinterProduct(
+      String id, String? printerId) async {
+    return _mutateProductPrinterApi(
+      '/products/$id',
+      (uri) => http.put(
+        uri,
+        headers: _headers,
+        body: jsonEncode({'printerId': printerId}),
+      ),
+    );
+  }
+
+  Future<Map<String, dynamic>> getPosPrinterProductSummary() async {
+    return _getProductPrinterApi('/printers/summary');
+  }
+
+  Future<Map<String, dynamic>> getPosPrinterProducts(
+    String printerId, {
+    bool assignedOnly = true,
+    String? search,
+    String? categoryId,
+    int page = 1,
+    int pageSize = 50,
+  }) async {
+    final q = <String, String>{
+      'assignedOnly': '$assignedOnly',
+      'page': '$page',
+      'pageSize': '$pageSize',
+    };
+    if (search != null && search.trim().isNotEmpty) q['search'] = search.trim();
+    if (categoryId != null && categoryId.isNotEmpty) q['categoryId'] = categoryId;
+    return _getProductPrinterApi('/printers/$printerId/products', query: q);
+  }
+
+  Future<Map<String, dynamic>> assignProductsToPosPrinter(
+    String printerId, {
+    List<String>? productIds,
+    List<String>? categoryIds,
+    bool allProducts = false,
+    bool includeChildCategories = true,
+  }) async {
+    return _mutateProductPrinterApi(
+      '/printers/$printerId/assign',
+      (uri) => http.post(
+        uri,
+        headers: _headers,
+        body: jsonEncode({
+          'productIds': productIds ?? [],
+          'categoryIds': categoryIds ?? [],
+          'allProducts': allProducts,
+          'includeChildCategories': includeChildCategories,
+        }),
+      ),
+    );
+  }
+
+  Future<Map<String, dynamic>> unassignProductsFromPosPrinter(
+    String printerId, {
+    List<String>? productIds,
+    List<String>? categoryIds,
+    bool allProducts = false,
+    bool includeChildCategories = true,
+  }) async {
+    return _mutateProductPrinterApi(
+      '/printers/$printerId/unassign',
+      (uri) => http.post(
+        uri,
+        headers: _headers,
+        body: jsonEncode({
+          'productIds': productIds ?? [],
+          'categoryIds': categoryIds ?? [],
+          'allProducts': allProducts,
+          'includeChildCategories': includeChildCategories,
+        }),
+      ),
+    );
+  }
+
+  Future<Map<String, dynamic>> exportPosProductPrintersExcel() async {
+    for (final url in [
+      '$baseUrl/api/pos/printers/product-assignment/export/excel',
+      '$baseUrl/api/pos/product-printers/export/excel',
+    ]) {
+      try {
+        final response = await http
+            .get(Uri.parse(url), headers: _headers)
+            .timeout(const Duration(seconds: 90));
+        if (response.statusCode == 404) continue;
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          return {'isSuccess': true, 'data': response.bodyBytes.toList()};
+        }
+        return {'isSuccess': false, 'message': 'Export thất bại: ${response.statusCode}'};
+      } catch (e) {
+        if (url.contains('product-printers')) return _connectionFailure(e);
+      }
+    }
+    return {'isSuccess': false, 'message': 'Export Excel không khả dụng (404)'};
+  }
+
+  Future<Map<String, dynamic>> importPosProductPrintersExcelFile(
+      List<int> fileBytes, String fileName) async {
+    for (final base in [
+      '$baseUrl/api/pos/printers/product-assignment/import/excel/file',
+      '$baseUrl/api/pos/product-printers/import/excel/file',
+    ]) {
+      try {
+        final request = http.MultipartRequest('POST', Uri.parse(base));
+        final authHeaders = _headers;
+        if (authHeaders.containsKey('Authorization')) {
+          request.headers['Authorization'] = authHeaders['Authorization']!;
+        }
+        request.files.add(
+            http.MultipartFile.fromBytes('file', fileBytes, filename: fileName));
+        final streamed = await request.send().timeout(const Duration(seconds: 120));
+        final response = await http.Response.fromStream(streamed);
+        if (response.statusCode == 404) continue;
+        return _handleResponse(response);
+      } catch (e) {
+        if (base.contains('product-printers')) return _connectionFailure(e);
+      }
+    }
+    return {'isSuccess': false, 'message': 'Import Excel không khả dụng (404)'};
+  }
+
+  Future<Map<String, dynamic>> createPosPrintJob({
+    required String documentType,
+    required String payloadFormat,
+    required String payload,
+    int copies = 1,
+    String? referenceNo,
+    String? referenceId,
+    String? printerId,
+  }) async {
+    try {
+      final body = <String, dynamic>{
+        'documentType': documentType,
+        'payloadFormat': payloadFormat,
+        'payload': payload,
+        'copies': copies,
+      };
+      if (referenceNo != null && referenceNo.isNotEmpty) {
+        body['referenceNo'] = referenceNo;
+      }
+      if (referenceId != null && referenceId.isNotEmpty) {
+        body['referenceId'] = referenceId;
+      }
+      if (printerId != null && printerId.isNotEmpty) {
+        body['printerId'] = printerId;
+      }
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/print-jobs'),
+            headers: _headers,
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 45));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosPrintJob(String id) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/print-jobs/$id'), headers: _headers)
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosPrintJobs({
+    int limit = 30,
+    String? status,
+  }) async {
+    try {
+      final q = <String, String>{'limit': '$limit'};
+      if (status != null && status.isNotEmpty) q['status'] = status;
+      final uri = Uri.parse('$baseUrl/api/pos/print-jobs')
+          .replace(queryParameters: q);
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> registerPosPrintAgent({
+    required String deviceId,
+    String? deviceName,
+    String? employeeName,
+    required List<String> printerIds,
+    String? appVersion,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/print-jobs/agents/register'),
+            headers: _headers,
+            body: jsonEncode({
+              'deviceId': deviceId,
+              'deviceName': deviceName,
+              'employeeName': employeeName,
+              'printerIds': printerIds,
+              'appVersion': appVersion,
+            }),
+          )
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> claimPosPrintJob(String agentId) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/print-jobs/agents/$agentId/claim'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 25));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> markPosPrintJobPrinting(
+      String jobId, String agentId) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/pos/print-jobs/$jobId/printing')
+          .replace(queryParameters: {'agentId': agentId});
+      final response = await http
+          .post(uri, headers: _headers)
+          .timeout(const Duration(seconds: 15));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> completePosPrintJob(
+      String jobId, String agentId) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/pos/print-jobs/$jobId/complete')
+          .replace(queryParameters: {'agentId': agentId});
+      final response = await http
+          .post(uri, headers: _headers)
+          .timeout(const Duration(seconds: 15));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> failPosPrintJob(
+    String jobId,
+    String agentId, {
+    required String errorCode,
+    required String errorMessage,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/pos/print-jobs/$jobId/fail')
+          .replace(queryParameters: {'agentId': agentId});
+      final response = await http
+          .post(
+            uri,
+            headers: _headers,
+            body: jsonEncode({
+              'errorCode': errorCode,
+              'errorMessage': errorMessage,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);

@@ -18,6 +18,7 @@ import '../widgets/pos/pos_module_toolbar.dart';
 import '../widgets/pos/pos_purchase_product_search_bar.dart';
 import '../widgets/pos/pos_theme.dart';
 import '../widgets/pos_barcode_scanner.dart';
+import 'main_layout.dart' show ScreenRefreshNotifier;
 
 const _blue = Color(0xFF2563EB);
 
@@ -308,6 +309,9 @@ class _PosSaleOrderEditorScreenState extends State<PosSaleOrderEditorScreen> {
         title: complete ? 'Hoàn thành đơn' : 'Đã lưu phiếu tạm',
         message: o.orderNo,
       );
+      if (complete) {
+        ScreenRefreshNotifier.refreshPosAfterStockChange();
+      }
       if (complete && mounted) {
         Navigator.pop(context, true);
       } else {
@@ -327,6 +331,7 @@ class _PosSaleOrderEditorScreenState extends State<PosSaleOrderEditorScreen> {
     setState(() => _saving = false);
     if (res['isSuccess'] == true) {
       NotificationOverlayManager().showSuccess(title: 'Hoàn tất', message: 'Đơn đã hoàn thành');
+      ScreenRefreshNotifier.refreshPosAfterStockChange();
       if (mounted) Navigator.pop(context, true);
     } else {
       NotificationOverlayManager()
@@ -729,7 +734,7 @@ class _PosSaleOrderEditorScreenState extends State<PosSaleOrderEditorScreen> {
               final res = await _api.getPosSale(_orderId!);
               if (!mounted || res['isSuccess'] != true) return;
               final o = PosSaleOrder.fromJson(res['data'] as Map<String, dynamic>);
-              await printPosSaleOrder(context: context, order: o);
+              await printPosSaleOrder(context: context, order: o, skipDedup: true);
             },
             icon: const Icon(Icons.print, size: 16),
             label: const Text('In'),

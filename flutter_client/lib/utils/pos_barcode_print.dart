@@ -10,6 +10,8 @@ import 'package:printing/printing.dart';
 
 import '../models/pos_product.dart';
 import 'file_saver.dart' as file_saver;
+import 'pos_label_printer_settings.dart';
+import 'pos_label_printer_service.dart';
 
 enum PosBarcodeCodeField {
   productCode,
@@ -134,6 +136,27 @@ const posBarcodeLabelTemplates = [
     labelHeightMm: 30,
   ),
   PosBarcodeLabelTemplate(
+    id: 'roll_1_40x30',
+    name: 'Mẫu giấy cuộn 1 nhãn',
+    sizeLabel: '40 x 30 mm',
+    labelWidthMm: 40,
+    labelHeightMm: 30,
+  ),
+  PosBarcodeLabelTemplate(
+    id: 'roll_1_60x40',
+    name: 'Mẫu giấy cuộn 1 nhãn',
+    sizeLabel: '60 x 40 mm',
+    labelWidthMm: 60,
+    labelHeightMm: 40,
+  ),
+  PosBarcodeLabelTemplate(
+    id: 'roll_1_100x50',
+    name: 'Mẫu giấy cuộn 1 nhãn',
+    sizeLabel: '100 x 50 mm',
+    labelWidthMm: 100,
+    labelHeightMm: 50,
+  ),
+  PosBarcodeLabelTemplate(
     id: 'sheet_12_tomy103',
     name: 'Mẫu giấy 12 nhãn',
     sizeLabel: 'Tomy 103, 202 x 167 mm',
@@ -164,6 +187,16 @@ const posBarcodeLabelTemplates = [
   ),
 ];
 
+PosBarcodeLabelTemplate? posBarcodeLabelTemplateById(String id) {
+  for (final t in posBarcodeLabelTemplates) {
+    if (t.id == id) return t;
+  }
+  return null;
+}
+
+PosBarcodeLabelTemplate get defaultBarcodeLabelTemplate =>
+    posBarcodeLabelTemplates.firstWhere((t) => t.id == 'roll_1_50x30');
+
 class PosBarcodePrintOptions {
   const PosBarcodePrintOptions({
     required this.template,
@@ -193,6 +226,18 @@ Future<Uint8List> buildPosBarcodeLabelPdfBytes(
   final pdf = await _buildLabelPdf(products, options, copies);
   return Uint8List.fromList(await pdf.save());
 }
+
+/// In tem trực tiếp ra máy in nhãn (Bluetooth / LAN / USB).
+Future<bool> printPosBarcodeLabelsToDevice(
+  List<PosProduct> products, {
+  required PosBarcodePrintOptions options,
+  required PosLabelPrinterSettings settings,
+}) =>
+    PosLabelPrinterService.printLabels(
+      products,
+      options: options,
+      settings: settings,
+    );
 
 Future<void> printPosBarcodeLabels(
   List<PosProduct> products, {

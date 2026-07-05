@@ -700,15 +700,15 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
         ),
         if (!_readOnly) ...[
           const SizedBox(height: 16),
-          OutlinedButton(
-            onPressed: _saving ? null : _saveDraft,
-            child: Text(_saving ? '…' : 'Lưu tạm'),
-          ),
-          const SizedBox(height: 8),
           FilledButton(
             onPressed: _saving ? null : _complete,
             style: FilledButton.styleFrom(backgroundColor: _blue),
-            child: Text(_saving ? '…' : 'Hoàn thành'),
+            child: Text(_saving ? '…' : _config.completeActionLabel),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton(
+            onPressed: _saving ? null : _saveDraft,
+            child: Text(_saving ? '…' : 'Lưu tạm (chưa trừ kho)'),
           ),
           const SizedBox(height: 8),
           OutlinedButton.icon(
@@ -739,14 +739,25 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
     if (_readOnly || !posUseMobileList(context)) return null;
     return PosMobileEditorActionBar(
       children: [
-        OutlinedButton(
-          onPressed: _saving ? null : _saveDraft,
-          child: const Text('Lưu tạm'),
-        ),
         FilledButton(
           onPressed: _saving ? null : _complete,
           style: FilledButton.styleFrom(backgroundColor: _blue),
-          child: const Text('Hoàn thành'),
+          child: Text(_saving ? '…' : _config.completeActionLabel),
+        ),
+        PopupMenuButton<String>(
+          enabled: !_saving,
+          itemBuilder: (ctx) => [
+            const PopupMenuItem(value: 'draft', child: Text('Lưu tạm (chưa trừ kho)')),
+            const PopupMenuItem(value: 'delete', child: Text('Xóa phiếu')),
+          ],
+          onSelected: (v) {
+            if (v == 'draft') _saveDraft();
+            if (v == 'delete') _deleteDraft();
+          },
+          child: const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 12),
+            child: Icon(Icons.more_horiz),
+          ),
         ),
       ],
     );

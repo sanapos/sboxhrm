@@ -13,13 +13,13 @@ namespace ZKTecoADMS.Api.Controllers;
 [ApiController]
 [Route("api/pos/customers")]
 [Authorize]
-public class PosCustomersController(ZKTecoDbContext dbContext) : AuthenticatedControllerBase
+public partial class PosCustomersController(ZKTecoDbContext dbContext) : AuthenticatedControllerBase
 {
     public record CustomerDto(
         Guid Id, string CustomerCode, string Name, string? Phone, string? Email,
         string? Address, string? Province, string? Ward,
         string? CompanyName, string? TaxCode, string? Note,
-        decimal TotalPurchase, decimal CurrentDebt, bool IsActive,
+        decimal TotalPurchase, decimal CurrentDebt, decimal PointBalance, bool IsActive,
         DateTime CreatedAt, string? CreatedBy);
 
     public record CustomerSaveDto(
@@ -30,6 +30,11 @@ public class PosCustomersController(ZKTecoDbContext dbContext) : AuthenticatedCo
     [RequireModulePermission("PosProducts", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> List(
         [FromQuery] string? search,
+        [FromQuery] decimal? debtFrom,
+        [FromQuery] decimal? debtTo,
+        [FromQuery] decimal? purchaseFrom,
+        [FromQuery] decimal? purchaseTo,
+        [FromQuery] bool? hasDebt,
         [FromQuery] bool? activeOnly,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50)
@@ -49,14 +54,21 @@ public class PosCustomersController(ZKTecoDbContext dbContext) : AuthenticatedCo
                 c.CustomerCode.ToLower().Contains(s) ||
                 (c.Phone != null && c.Phone.Contains(s)));
         }
+        if (debtFrom.HasValue) query = query.Where(c => c.CurrentDebt >= debtFrom);
+        if (debtTo.HasValue) query = query.Where(c => c.CurrentDebt <= debtTo);
+        if (purchaseFrom.HasValue) query = query.Where(c => c.TotalPurchase >= purchaseFrom);
+        if (purchaseTo.HasValue) query = query.Where(c => c.TotalPurchase <= purchaseTo);
+        if (hasDebt == true) query = query.Where(c => c.CurrentDebt > 0);
 
         var total = await query.CountAsync();
-        var items = await query.OrderBy(c => c.CustomerCode)
+        var sumDebt = await query.SumAsync(c => c.CurrentDebt);
+        var sumPurchase = await query.SumAsync(c => c.TotalPurchase);
+        var items = await query.OrderByDescending(c => c.CurrentDebt).ThenBy(c => c.Name)
             .Skip((page - 1) * pageSize).Take(pageSize)
             .Select(c => MapCustomer(c))
             .ToListAsync();
 
-        return Ok(AppResponse<object>.Success(new { total, page, pageSize, items }));
+        return Ok(AppResponse<object>.Success(new { total, page, pageSize, sumDebt, sumPurchase, items }));
     }
 
     [HttpGet("{id:guid}")]
@@ -148,6 +160,6 @@ public class PosCustomersController(ZKTecoDbContext dbContext) : AuthenticatedCo
 
     private static CustomerDto MapCustomer(PosCustomer c) => new(
         c.Id, c.CustomerCode, c.Name, c.Phone, c.Email, c.Address, c.Province, c.Ward,
-        c.CompanyName, c.TaxCode, c.Note, c.TotalPurchase, c.CurrentDebt, c.IsActive,
+        c.CompanyName, c.TaxCode, c.Note, c.TotalPurchase, c.CurrentDebt, c.PointBalance, c.IsActive,
         c.CreatedAt, c.CreatedBy);
 }

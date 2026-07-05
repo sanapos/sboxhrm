@@ -1,4 +1,4 @@
-﻿using ZKTecoADMS.Application.Constants;
+using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.DTOs.Devices;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Domain.Enums;

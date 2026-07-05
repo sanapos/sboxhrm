@@ -18,7 +18,14 @@ namespace ZKTecoADMS.Api.Controllers;
 public class PosProductCatalogController(
     ZKTecoDbContext dbContext) : AuthenticatedControllerBase
 {
-    public record MasterDto(Guid Id, string Name, Guid? ParentId, int SortOrder, int ProductCount);
+    public record MasterDto(
+        Guid Id,
+        string Name,
+        Guid? ParentId,
+        int SortOrder,
+        int ProductCount,
+        Guid? DefaultPrinterId,
+        string? DefaultPrinterName);
     public record MasterCreateDto(string Name, Guid? ParentId, int SortOrder);
 
     // ── Categories ──
@@ -37,7 +44,9 @@ public class PosProductCatalogController(
                 x.Name,
                 x.ParentId,
                 x.SortOrder,
-                x.Products.Count(p => p.Deleted == null && p.IsActive)))
+                x.Products.Count(p => p.Deleted == null && p.IsActive),
+                x.DefaultPrinterId,
+                x.DefaultPrinter != null ? x.DefaultPrinter.Name : null))
             .ToListAsync();
         return Ok(AppResponse<List<MasterDto>>.Success(items));
     }
@@ -71,7 +80,7 @@ public class PosProductCatalogController(
         };
         dbContext.PosProductCategories.Add(entity);
         await dbContext.SaveChangesAsync();
-        return Ok(AppResponse<MasterDto>.Success(new MasterDto(entity.Id, entity.Name, entity.ParentId, entity.SortOrder, 0)));
+        return Ok(AppResponse<MasterDto>.Success(new MasterDto(entity.Id, entity.Name, entity.ParentId, entity.SortOrder, 0, null, null)));
     }
 
     [HttpPut("categories/{id:guid}")]
@@ -112,7 +121,7 @@ public class PosProductCatalogController(
         var productCount = await dbContext.PosProducts.CountAsync(p =>
             p.CategoryId == id && p.StoreId == storeId && p.Deleted == null && p.IsActive);
         return Ok(AppResponse<MasterDto>.Success(
-            new MasterDto(entity.Id, entity.Name, entity.ParentId, entity.SortOrder, productCount)));
+            new MasterDto(entity.Id, entity.Name, entity.ParentId, entity.SortOrder, productCount, entity.DefaultPrinterId, null)));
     }
 
     [HttpDelete("categories/{id:guid}")]
@@ -155,7 +164,8 @@ public class PosProductCatalogController(
             .OrderBy(x => x.Name)
             .Select(x => new MasterDto(
                 x.Id, x.Name, null, 0,
-                x.Products.Count(p => p.Deleted == null && p.IsActive)))
+                x.Products.Count(p => p.Deleted == null && p.IsActive),
+                null, null))
             .ToListAsync();
         return Ok(AppResponse<List<MasterDto>>.Success(items));
     }
@@ -179,7 +189,7 @@ public class PosProductCatalogController(
         };
         dbContext.PosProductBrands.Add(entity);
         await dbContext.SaveChangesAsync();
-        return Ok(AppResponse<MasterDto>.Success(new MasterDto(entity.Id, entity.Name, null, 0, 0)));
+        return Ok(AppResponse<MasterDto>.Success(new MasterDto(entity.Id, entity.Name, null, 0, 0, null, null)));
     }
 
     [HttpPut("brands/{id:guid}")]
@@ -203,7 +213,7 @@ public class PosProductCatalogController(
 
         var productCount = await dbContext.PosProducts.CountAsync(p =>
             p.BrandId == id && p.StoreId == storeId && p.Deleted == null && p.IsActive);
-        return Ok(AppResponse<MasterDto>.Success(new MasterDto(entity.Id, entity.Name, null, 0, productCount)));
+        return Ok(AppResponse<MasterDto>.Success(new MasterDto(entity.Id, entity.Name, null, 0, productCount, null, null)));
     }
 
     [HttpDelete("brands/{id:guid}")]
@@ -241,7 +251,8 @@ public class PosProductCatalogController(
             .OrderBy(x => x.Name)
             .Select(x => new MasterDto(
                 x.Id, x.Name, null, 0,
-                x.Products.Count(p => p.Deleted == null && p.IsActive)))
+                x.Products.Count(p => p.Deleted == null && p.IsActive),
+                null, null))
             .ToListAsync();
         return Ok(AppResponse<List<MasterDto>>.Success(items));
     }
@@ -265,7 +276,7 @@ public class PosProductCatalogController(
         };
         dbContext.PosStorageLocations.Add(entity);
         await dbContext.SaveChangesAsync();
-        return Ok(AppResponse<MasterDto>.Success(new MasterDto(entity.Id, entity.Name, null, 0, 0)));
+        return Ok(AppResponse<MasterDto>.Success(new MasterDto(entity.Id, entity.Name, null, 0, 0, null, null)));
     }
 
     [HttpPut("storage-locations/{id:guid}")]
@@ -289,7 +300,7 @@ public class PosProductCatalogController(
 
         var productCount = await dbContext.PosProducts.CountAsync(p =>
             p.StorageLocationId == id && p.StoreId == storeId && p.Deleted == null && p.IsActive);
-        return Ok(AppResponse<MasterDto>.Success(new MasterDto(entity.Id, entity.Name, null, 0, productCount)));
+        return Ok(AppResponse<MasterDto>.Success(new MasterDto(entity.Id, entity.Name, null, 0, productCount, null, null)));
     }
 
     [HttpDelete("storage-locations/{id:guid}")]
@@ -327,7 +338,8 @@ public class PosProductCatalogController(
             .OrderBy(x => x.Name)
             .Select(x => new MasterDto(
                 x.Id, x.Name, null, 0,
-                x.Products.Count(p => p.Deleted == null && p.IsActive)))
+                x.Products.Count(p => p.Deleted == null && p.IsActive),
+                null, null))
             .ToListAsync();
         return Ok(AppResponse<List<MasterDto>>.Success(items));
     }
@@ -352,7 +364,7 @@ public class PosProductCatalogController(
         };
         dbContext.PosSuppliers.Add(entity);
         await dbContext.SaveChangesAsync();
-        return Ok(AppResponse<MasterDto>.Success(new MasterDto(entity.Id, entity.Name, null, 0, 0)));
+        return Ok(AppResponse<MasterDto>.Success(new MasterDto(entity.Id, entity.Name, null, 0, 0, null, null)));
     }
 
     [HttpPut("suppliers/{id:guid}")]
@@ -376,7 +388,7 @@ public class PosProductCatalogController(
 
         var productCount = await dbContext.PosProducts.CountAsync(p =>
             p.SupplierId == id && p.StoreId == storeId && p.Deleted == null && p.IsActive);
-        return Ok(AppResponse<MasterDto>.Success(new MasterDto(entity.Id, entity.Name, null, 0, productCount)));
+        return Ok(AppResponse<MasterDto>.Success(new MasterDto(entity.Id, entity.Name, null, 0, productCount, null, null)));
     }
 
     [HttpDelete("suppliers/{id:guid}")]

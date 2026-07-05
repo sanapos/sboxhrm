@@ -4,27 +4,58 @@ import 'package:intl/intl.dart';
 import '../../models/pos_sale_order.dart';
 import '../../services/api_service.dart';
 import '../../utils/pos_kiot_time_range.dart';
+import 'pos_mobile_widgets.dart';
 import 'pos_theme.dart';
 
 const _kiotBlue = PosTheme.kiotBlue;
 
-/// Dialog chọn hóa đơn trả hàng kiểu KiotViet.
+/// Chọn hóa đơn để trả hàng — full-screen trên mobile, dialog trên desktop.
 Future<PosSaleOrder?> showPosPickSaleOrderDialog(BuildContext context) async {
+  if (posUseMobileList(context)) {
+    return Navigator.of(context).push<PosSaleOrder>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => const _PosPickSaleOrderPage(),
+      ),
+    );
+  }
   return showDialog<PosSaleOrder>(
     context: context,
     barrierDismissible: true,
-    builder: (_) => const _PosPickSaleOrderDialog(),
+    builder: (_) => const Dialog(
+      insetPadding: EdgeInsets.all(24),
+      child: _PosPickSaleOrderShell(compact: true),
+    ),
   );
 }
 
-class _PosPickSaleOrderDialog extends StatefulWidget {
-  const _PosPickSaleOrderDialog();
+class _PosPickSaleOrderPage extends StatelessWidget {
+  const _PosPickSaleOrderPage();
 
   @override
-  State<_PosPickSaleOrderDialog> createState() => _PosPickSaleOrderDialogState();
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: PosTheme.background,
+      appBar: AppBar(
+        title: const Text('Chọn hóa đơn trả hàng'),
+        backgroundColor: _kiotBlue,
+        foregroundColor: Colors.white,
+      ),
+      body: const SafeArea(child: _PosPickSaleOrderShell(compact: false)),
+    );
+  }
 }
 
-class _PosPickSaleOrderDialogState extends State<_PosPickSaleOrderDialog> {
+class _PosPickSaleOrderShell extends StatefulWidget {
+  const _PosPickSaleOrderShell({required this.compact});
+
+  final bool compact;
+
+  @override
+  State<_PosPickSaleOrderShell> createState() => _PosPickSaleOrderShellState();
+}
+
+class _PosPickSaleOrderShellState extends State<_PosPickSaleOrderShell> {
   final _api = ApiService();
   final _orderNoCtrl = TextEditingController();
   final _customerCtrl = TextEditingController();
@@ -39,7 +70,7 @@ class _PosPickSaleOrderDialogState extends State<_PosPickSaleOrderDialog> {
   List<PosSaleOrder> _items = [];
   int _total = 0;
   int _page = 1;
-  static const _pageSize = 7;
+  static const _pageSize = 15;
 
   @override
   void initState() {
@@ -116,12 +147,206 @@ class _PosPickSaleOrderDialogState extends State<_PosPickSaleOrderDialog> {
 
   void _select(PosSaleOrder order) => Navigator.pop(context, order);
 
+  Widget _filterFields() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _filterField(_orderNoCtrl, 'Theo mã hóa đơn'),
+        const SizedBox(height: 8),
+        _filterField(_customerCtrl, 'Theo khách hàng hoặc ĐT'),
+        const SizedBox(height: 8),
+        _filterField(_productCodeCtrl, 'Theo mã hàng'),
+        const SizedBox(height: 8),
+        _filterField(_productNameCtrl, 'Theo tên hàng'),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          onPressed: _pickDateRange,
+          icon: const Icon(Icons.date_range, size: 18),
+          label: Text(
+            _from != null && _to != null
+                ? '${DateFormat('dd/MM/yyyy').format(_from!)} – ${DateFormat('dd/MM/yyyy').format(_to!)}'
+                : 'Chọn khoảng ngày',
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _openMobileFilters() async {
+    await showPosMobileFilterSheet(
+      context,
+      title: 'Lọc hóa đơn',
+      onReset: () {
+        _orderNoCtrl.clear();
+        _customerCtrl.clear();
+        _productCodeCtrl.clear();
+        _productNameCtrl.clear();
+        final range = resolvePosKiotTimePreset(PosKiotTimePreset.thisMonth);
+        _from = range.$1;
+        _to = range.$2;
+      },
+      onApply: () {
+        Navigator.pop(context);
+        _load();
+      },
+      child: _filterFields(),
+    );
+  }
+
+  Widget _filterField(TextEditingController ctrl, String hint) {
+    return TextField(
+      controller: ctrl,
+      decoration: InputDecoration(
+        hintText: hint,
+        isDense: true,
+        border: const OutlineInputBorder(),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      ),
+      style: const TextStyle(fontSize: 13),
+      onSubmitted: (_) => _load(),
+    );
+  }
+
+  Widget _mobileList() {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator(color: _kiotBlue));
+    }
+    if (_items.isEmpty) {
+      return const Center(child: Text('Không có hóa đơn phù hợp'));
+    }
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      itemCount: _items.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      itemBuilder: (_, i) {
+        final o = _items[i];
+        return Material(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(PosTheme.mobileRadius),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () => _select(o),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          o.orderNo,
+                          style: const TextStyle(
+                            color: _kiotBlue,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        _moneyFmt.format(o.total),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    o.createdAt != null
+                        ? _dateFmt.format(o.createdAt!.toLocal())
+                        : '—',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: PosTheme.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Khách: ${o.customerName ?? 'Khách lẻ'}',
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                  if ((o.soldBy ?? o.createdBy)?.isNotEmpty == true)
+                    Text(
+                      'NV: ${o.soldBy ?? o.createdBy}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: PosTheme.textSecondary,
+                      ),
+                    ),
+                  if (o.returnedAmount > 0) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'Đã trả: ${_moneyFmt.format(o.returnedAmount)}',
+                      style: const TextStyle(fontSize: 12, color: Colors.orange),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _desktopTable() {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator(color: _kiotBlue));
+    }
+    if (_items.isEmpty) {
+      return const Center(child: Text('Không có hóa đơn phù hợp'));
+    }
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(12),
+      child: DataTable(
+        headingRowColor: WidgetStateProperty.all(_kiotBlue),
+        headingTextStyle: const TextStyle(
+          color: Colors.white,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
+        dataRowMinHeight: 40,
+        columns: const [
+          DataColumn(label: Text('Mã hóa đơn')),
+          DataColumn(label: Text('Thời gian')),
+          DataColumn(label: Text('Nhân viên')),
+          DataColumn(label: Text('Khách hàng')),
+          DataColumn(label: Text('Tổng cộng'), numeric: true),
+          DataColumn(label: Text('')),
+        ],
+        rows: _items.map((o) {
+          return DataRow(cells: [
+            DataCell(Text(o.orderNo,
+                style: const TextStyle(
+                    color: _kiotBlue, fontWeight: FontWeight.w600))),
+            DataCell(Text(
+                o.createdAt != null ? _dateFmt.format(o.createdAt!.toLocal()) : '—')),
+            DataCell(Text(o.soldBy ?? o.createdBy ?? '—',
+                overflow: TextOverflow.ellipsis)),
+            DataCell(Text(o.customerName ?? 'Khách lẻ',
+                overflow: TextOverflow.ellipsis)),
+            DataCell(Text(_moneyFmt.format(o.total))),
+            DataCell(
+              OutlinedButton(
+                onPressed: () => _select(o),
+                style: OutlinedButton.styleFrom(foregroundColor: _kiotBlue),
+                child: const Text('Chọn'),
+              ),
+            ),
+          ]);
+        }).toList(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final totalPages = (_total / _pageSize).ceil().clamp(1, 9999);
-    return Dialog(
-      insetPadding: const EdgeInsets.all(24),
-      child: ConstrainedBox(
+
+    if (widget.compact) {
+      return ConstrainedBox(
         constraints: BoxConstraints(
           maxWidth: 960,
           maxHeight: MediaQuery.sizeOf(context).height * 0.88,
@@ -139,7 +364,10 @@ class _PosPickSaleOrderDialogState extends State<_PosPickSaleOrderDialog> {
                       style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                     ),
                   ),
-                  IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                  ),
                 ],
               ),
             ),
@@ -158,28 +386,11 @@ class _PosPickSaleOrderDialogState extends State<_PosPickSaleOrderDialog> {
                       child: ListView(
                         padding: const EdgeInsets.all(12),
                         children: [
-                          const Text('Tìm kiếm', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                          const Text('Tìm kiếm',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w600, fontSize: 13)),
                           const SizedBox(height: 8),
-                          _filterField(_orderNoCtrl, 'Theo mã hóa đơn'),
-                          const SizedBox(height: 6),
-                          _filterField(_customerCtrl, 'Theo khách hàng hoặc ĐT'),
-                          const SizedBox(height: 6),
-                          _filterField(_productCodeCtrl, 'Theo mã hàng'),
-                          const SizedBox(height: 6),
-                          _filterField(_productNameCtrl, 'Theo tên hàng'),
-                          const SizedBox(height: 12),
-                          const Text('Thời gian', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                          const SizedBox(height: 8),
-                          OutlinedButton.icon(
-                            onPressed: _pickDateRange,
-                            icon: const Icon(Icons.date_range, size: 16),
-                            label: Text(
-                              _from != null && _to != null
-                                  ? '${DateFormat('dd/MM/yyyy').format(_from!)} – ${DateFormat('dd/MM/yyyy').format(_to!)}'
-                                  : 'Chọn khoảng ngày',
-                              style: const TextStyle(fontSize: 11),
-                            ),
-                          ),
+                          _filterFields(),
                           const SizedBox(height: 12),
                           FilledButton(
                             style: FilledButton.styleFrom(backgroundColor: _kiotBlue),
@@ -190,97 +401,86 @@ class _PosPickSaleOrderDialogState extends State<_PosPickSaleOrderDialog> {
                       ),
                     ),
                   ),
-                  Expanded(child: _buildTable()),
+                  Expanded(child: _desktopTable()),
                 ],
               ),
             ),
-            const Divider(height: 1),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: Row(
-                children: [
-                  if (totalPages > 1)
-                    Row(
-                      children: [
-                        IconButton(
-                          onPressed: _page > 1 && !_loading ? () => _load(page: _page - 1) : null,
-                          icon: const Icon(Icons.chevron_left),
-                        ),
-                        Text('$_page / $totalPages', style: const TextStyle(fontSize: 13)),
-                        IconButton(
-                          onPressed: _page < totalPages && !_loading
-                              ? () => _load(page: _page + 1)
-                              : null,
-                          icon: const Icon(Icons.chevron_right),
-                        ),
-                      ],
+            _pager(totalPages),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _orderNoCtrl,
+                  decoration: InputDecoration(
+                    hintText: 'Tìm mã HĐ, hàng, khách…',
+                    prefixIcon: const Icon(Icons.search, size: 20),
+                    isDense: true,
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide.none,
                     ),
-                  const Spacer(),
-                  Text(
-                    'Hiển thị ${_items.isEmpty ? 0 : ((_page - 1) * _pageSize + 1)} – '
-                    '${(_page - 1) * _pageSize + _items.length} trên tổng số $_total hóa đơn',
-                    style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                  ),
+                  onSubmitted: (_) => _load(),
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton.filled(
+                style: IconButton.styleFrom(backgroundColor: _kiotBlue),
+                onPressed: _openMobileFilters,
+                icon: const Icon(Icons.tune, color: Colors.white),
+              ),
+            ],
+          ),
+        ),
+        Expanded(child: _mobileList()),
+        _pager(totalPages),
+      ],
+    );
+  }
+
+  Widget _pager(int totalPages) {
+    return Material(
+      color: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Row(
+          children: [
+            if (totalPages > 1)
+              Row(
+                children: [
+                  IconButton(
+                    onPressed: _page > 1 && !_loading ? () => _load(page: _page - 1) : null,
+                    icon: const Icon(Icons.chevron_left),
+                  ),
+                  Text('$_page / $totalPages', style: const TextStyle(fontSize: 13)),
+                  IconButton(
+                    onPressed: _page < totalPages && !_loading
+                        ? () => _load(page: _page + 1)
+                        : null,
+                    icon: const Icon(Icons.chevron_right),
                   ),
                 ],
               ),
+            const Spacer(),
+            Text(
+              'Tổng $_total hóa đơn',
+              style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _filterField(TextEditingController ctrl, String hint) {
-    return TextField(
-      controller: ctrl,
-      decoration: InputDecoration(
-        hintText: hint,
-        isDense: true,
-        border: const OutlineInputBorder(),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      ),
-      style: const TextStyle(fontSize: 12),
-      onSubmitted: (_) => _load(),
-    );
-  }
-
-  Widget _buildTable() {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator(color: _kiotBlue));
-    }
-    if (_items.isEmpty) {
-      return const Center(child: Text('Không có hóa đơn phù hợp'));
-    }
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(12),
-      child: DataTable(
-        headingRowColor: WidgetStateProperty.all(_kiotBlue),
-        headingTextStyle: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
-        dataRowMinHeight: 40,
-        columns: const [
-          DataColumn(label: Text('Mã hóa đơn')),
-          DataColumn(label: Text('Thời gian')),
-          DataColumn(label: Text('Nhân viên')),
-          DataColumn(label: Text('Khách hàng')),
-          DataColumn(label: Text('Tổng cộng'), numeric: true),
-          DataColumn(label: Text('')),
-        ],
-        rows: _items.map((o) {
-          return DataRow(cells: [
-            DataCell(Text(o.orderNo, style: const TextStyle(color: _kiotBlue, fontWeight: FontWeight.w600))),
-            DataCell(Text(o.createdAt != null ? _dateFmt.format(o.createdAt!.toLocal()) : '—')),
-            DataCell(Text(o.soldBy ?? o.createdBy ?? '—', overflow: TextOverflow.ellipsis)),
-            DataCell(Text(o.customerName ?? 'Khách lẻ', overflow: TextOverflow.ellipsis)),
-            DataCell(Text(_moneyFmt.format(o.total))),
-            DataCell(
-              OutlinedButton(
-                onPressed: () => _select(o),
-                style: OutlinedButton.styleFrom(foregroundColor: _kiotBlue),
-                child: const Text('Chọn'),
-              ),
-            ),
-          ]);
-        }).toList(),
       ),
     );
   }

@@ -5,12 +5,14 @@ import 'dart:io' show Platform;
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
 
+import '../models/hrm.dart';
 import '../models/pos_store_printer.dart';
 import '../services/api_service.dart';
 import '../services/signalr_service.dart';
 import '../widgets/notification_overlay.dart';
 import 'pos_label_printer_service.dart';
 import 'pos_print_agent_settings.dart';
+import 'pos_print_role.dart';
 import 'pos_printer_transport.dart';
 import 'pos_store_printer_mapper.dart';
 import 'pos_thermal_printer_service.dart';
@@ -25,6 +27,8 @@ class PosPrintOrchestrator {
   final _api = ApiService();
   final _signalR = SignalRService();
   final _pendingJobs = <String, Completer<_JobOutcome>>{};
+  final _jobMeta = <String, _JobFeedbackMeta>{};
+  final _feedbackSent = <String>{};
 
   List<PosStorePrinter> _printers = [];
   List<PosPrinterRoute> _routes = [];
@@ -50,35 +54,53 @@ class PosPrintOrchestrator {
       }
     }
     _pendingJobs.clear();
+    _jobMeta.clear();
+    _feedbackSent.clear();
+  }
+
+  void _finishJob(String jobId, _JobOutcome outcome, {bool showFeedback = true}) {
+    final completer = _pendingJobs[jobId];
+    if (completer != null && !completer.isCompleted) {
+      completer.complete(outcome);
+    }
+    _pendingJobs.remove(jobId);
+    if (!showFeedback || _feedbackSent.contains(jobId)) {
+      _jobMeta.remove(jobId);
+      return;
+    }
+    _feedbackSent.add(jobId);
+    _jobMeta.remove(jobId);
+
+    if (outcome.ok) {
+      // Máy gửi lệnh: không toast thêm khi agent xa in xong (tránh trùng "nhận in").
+      return;
+    }
+    NotificationOverlayManager().showError(
+      title: 'In thất bại',
+      message: outcome.error ?? 'Không in được chứng từ',
+    );
   }
 
   void _onJobStatus(Map<String, dynamic> data) {
     final jobId = data['jobId']?.toString() ?? data['id']?.toString() ?? '';
     if (jobId.isEmpty) return;
+    if (!_pendingJobs.containsKey(jobId)) return;
+
     final status = data['status']?.toString() ?? '';
     final printerName = data['printerName']?.toString() ?? '';
     final error = data['errorMessage']?.toString();
 
-    final completer = _pendingJobs[jobId];
-    if (completer == null) return;
-
     if (status == 'Completed') {
-      completer.complete(_JobOutcome(true, null, printerName: printerName));
-      _pendingJobs.remove(jobId);
-      NotificationOverlayManager().showSuccess(
-        title: 'In thành công',
-        message: printerName.isNotEmpty
-            ? 'Đã in qua $printerName'
-            : 'Lệnh in đã hoàn tất',
+      _finishJob(
+        jobId,
+        _JobOutcome(true, null, printerName: printerName),
       );
     } else if (status == 'Failed' ||
         status == 'Expired' ||
         status == 'Cancelled') {
-      completer.complete(_JobOutcome(false, error ?? 'In thất bại'));
-      _pendingJobs.remove(jobId);
-      NotificationOverlayManager().showError(
-        title: 'In thất bại',
-        message: error ?? 'Không in được chứng từ',
+      _finishJob(
+        jobId,
+        _JobOutcome(false, error ?? 'In thất bại', printerName: printerName),
       );
     }
   }
@@ -118,26 +140,39 @@ class PosPrintOrchestrator {
   List<PosStorePrinter> get printers => List.unmodifiable(_printers);
 
   PosStorePrinter? resolvePrinter(String documentType) {
-    if (_printers.isEmpty) return null;
+    final list = resolvePrinters(documentType);
+    return list.isEmpty ? null : list.first;
+  }
 
-    final route =
-        _routes.where((r) => r.documentType == documentType).firstOrNull;
-    if (route != null) {
-      final p = _printers.where((x) => x.id == route.printerId).firstOrNull;
-      if (p != null) return p;
-    }
+  /// Tất cả máy in gán cho loại chứng từ (in đa máy).
+  List<PosStorePrinter> resolvePrinters(String documentType) {
+    if (_printers.isEmpty) return const [];
+
+    final routed = _routes
+        .where((r) => r.documentType == documentType)
+        .map((r) => _printers.where((p) => p.id == r.printerId).firstOrNull)
+        .whereType<PosStorePrinter>()
+        .toList();
+    if (routed.isNotEmpty) return routed;
 
     final tagged =
         _printers.where((p) => p.documentTypes.contains(documentType)).toList();
-    if (tagged.length == 1) return tagged.first;
+    if (tagged.isNotEmpty) return tagged;
 
-    if (_printers.length == 1) return _printers.first;
+    if (_printers.length == 1) return [_printers.first];
 
-    return _printers.where((p) => p.isDefault).firstOrNull ??
-        _printers.firstOrNull;
+    final def = _printers.where((p) => p.isDefault).firstOrNull ?? _printers.firstOrNull;
+    return def != null ? [def] : const [];
   }
 
-  int copiesFor(String documentType, {int fallback = 1}) {
+  int copiesFor(String documentType, {String? printerId, int fallback = 1}) {
+    if (printerId != null && printerId.isNotEmpty) {
+      final perPrinter = _routes
+          .where((r) =>
+              r.documentType == documentType && r.printerId == printerId)
+          .firstOrNull;
+      if (perPrinter != null) return perPrinter.defaultCopies;
+    }
     final route =
         _routes.where((r) => r.documentType == documentType).firstOrNull;
     return route?.defaultCopies ?? fallback;
@@ -153,8 +188,20 @@ class PosPrintOrchestrator {
     String? printerId,
     bool showFeedback = true,
     String? successTitle,
+    bool waitForCompletion = true,
+    bool skipDedup = false,
   }) async {
     if (kIsWeb) return false;
+
+    if (!skipDedup &&
+        PosPrintDedup.shouldSkip(
+          documentType: documentType,
+          referenceId: referenceId,
+          referenceNo: referenceNo,
+          printerId: printerId,
+        )) {
+      return true;
+    }
 
     await ensureListening();
     final hasCloud = await refreshConfig();
@@ -165,6 +212,18 @@ class PosPrintOrchestrator {
 
     if (printer != null) {
       final n = copies.clamp(1, 10);
+
+      // Thiết bị gắn máy in → in trực tiếp, không qua cloud.
+      if (await PosPrintRole.isAgentForPrinter(printer.id)) {
+        return _printDirectOnStorePrinter(
+          printer: printer,
+          bytes: bytes,
+          copies: n,
+          referenceNo: referenceNo,
+          showFeedback: showFeedback,
+          successTitle: successTitle,
+        );
+      }
 
       if (!hasCloud) return false;
       final payload = base64Encode(bytes);
@@ -191,18 +250,176 @@ class PosPrintOrchestrator {
       final jobId = data?['jobId']?.toString() ?? '';
       if (jobId.isEmpty) return false;
 
+      PosPrintSessionRegistry.markOutbound(jobId);
+
+      _jobMeta[jobId] = _JobFeedbackMeta(
+        referenceNo: referenceNo,
+        printerName: printer.name,
+      );
+
       if (showFeedback) {
+        final ref = referenceNo?.trim() ?? '';
         NotificationOverlayManager().show(
-          title: 'Đang in…',
-          message: 'Chờ Print Agent (${printer.name})',
-          duration: const Duration(seconds: 4),
+          title: 'Đã gửi lệnh in',
+          message: ref.isNotEmpty
+              ? 'Đơn $ref → ${printer.name}'
+              : 'Đã gửi tới Print Agent (${printer.name})',
+          type: NotificationType.success,
+          duration: const Duration(seconds: 3),
         );
       }
 
-      final outcome = await _waitJob(jobId);
+      if (!waitForCompletion) return true;
+
+      final outcome = await _waitJob(jobId, showFeedback: showFeedback);
+      PosPrintSessionRegistry.clearOutbound(jobId);
       return outcome.ok;
     }
 
+    return false;
+  }
+
+  /// In cùng lúc lên mọi máy in được gán cho [documentType].
+  Future<bool> dispatchEscPosToAll({
+    required String documentType,
+    required Future<List<int>> Function(PosStorePrinter printer) buildBytes,
+    int copies = 1,
+    String? referenceNo,
+    String? referenceId,
+    bool showFeedback = true,
+    String? successTitle,
+    bool skipDedup = false,
+  }) async {
+    if (kIsWeb) return false;
+
+    if (!skipDedup &&
+        PosPrintDedup.shouldSkip(
+          documentType: documentType,
+          referenceId: referenceId,
+          referenceNo: referenceNo,
+        )) {
+      return true;
+    }
+
+    await ensureListening();
+    await refreshConfig();
+    final printers = resolvePrinters(documentType);
+    if (printers.isEmpty) return false;
+
+    var okCount = 0;
+    var failCount = 0;
+    final okNames = <String>[];
+
+    for (final printer in printers) {
+      final bytes = await buildBytes(printer);
+      final n = copiesFor(documentType, printerId: printer.id, fallback: copies);
+      final isAgent = await PosPrintRole.isAgentForPrinter(printer.id);
+      final ok = await dispatchEscPos(
+        documentType: documentType,
+        bytes: bytes,
+        copies: n,
+        referenceNo: referenceNo,
+        referenceId: referenceId,
+        printerId: printer.id,
+        showFeedback: false,
+        successTitle: successTitle,
+        waitForCompletion: isAgent,
+        skipDedup: true,
+      );
+      if (ok) {
+        okCount++;
+        okNames.add(printer.name);
+      } else {
+        failCount++;
+      }
+    }
+
+    if (showFeedback) {
+      final ref = referenceNo?.trim() ?? '';
+      if (okCount > 0) {
+        final names = okNames.join(', ');
+        NotificationOverlayManager().show(
+          title: okCount > 1 ? 'Đã gửi lệnh in ($okCount máy)' : 'Đã gửi lệnh in',
+          message: ref.isNotEmpty ? 'Đơn $ref → $names' : names,
+          type: NotificationType.success,
+          duration: const Duration(seconds: 4),
+        );
+      }
+      if (failCount > 0) {
+        NotificationOverlayManager().showError(
+          title: 'In thất bại',
+          message: failCount == printers.length
+              ? 'Không in được trên máy in đã chọn'
+              : '$failCount/${printers.length} máy in không in được',
+        );
+      }
+    }
+
+    return okCount > 0;
+  }
+
+  /// In trực tiếp trên thiết bị Agent (máy in gắn tại đây).
+  Future<bool> _printDirectOnStorePrinter({
+    required PosStorePrinter printer,
+    required List<int> bytes,
+    required int copies,
+    String? referenceNo,
+    bool showFeedback = true,
+    String? successTitle,
+  }) async {
+    final settings = toThermalSettings(printer);
+    final ref = referenceNo?.trim() ?? '';
+
+    if (showFeedback) {
+      NotificationOverlayManager().show(
+        title: 'Đã nhận lệnh in',
+        message: ref.isNotEmpty
+            ? 'Đơn $ref — đang in trên ${printer.name}…'
+            : 'Đang in trên ${printer.name}…',
+        duration: const Duration(seconds: 4),
+      );
+    }
+
+    var ok = true;
+    for (var i = 0; i < copies; i++) {
+      final sent = await PosPrinterTransport.send(
+        connectionType: settings.connectionType,
+        bluetoothAddress: settings.bluetoothAddress,
+        lanHost: settings.lanHost,
+        lanPort: settings.lanPort,
+        bytes: bytes,
+        sunmiFeedLines: settings.resolvedFeedBeforeCut,
+      );
+      if (!sent) {
+        ok = false;
+        break;
+      }
+    }
+
+    if (ok) {
+      unawaited(_api.reportPosPrinterHealth(printer.id, status: 'Online'));
+      if (showFeedback) {
+        NotificationOverlayManager().showSuccess(
+          title: successTitle ?? 'In xong',
+          message: ref.isNotEmpty
+              ? 'Đơn $ref — ${printer.name}'
+              : printer.name,
+        );
+      }
+      return true;
+    }
+
+    unawaited(_api.reportPosPrinterHealth(
+      printer.id,
+      status: 'Offline',
+      errorMessage: 'Không kết nối được máy in',
+    ));
+    if (showFeedback) {
+      NotificationOverlayManager().showError(
+        title: 'In thất bại',
+        message: 'Không kết nối được ${printer.name}',
+      );
+    }
     return false;
   }
 
@@ -213,8 +430,22 @@ class PosPrintOrchestrator {
     bool showFeedback = true,
     String? successTitle,
     PosThermalPrinterSettings? settingsOverride,
+    String? documentType,
+    String? referenceId,
+    String? referenceNo,
+    bool skipDedup = false,
   }) async {
     if (kIsWeb) return false;
+
+    if (!skipDedup &&
+        documentType != null &&
+        PosPrintDedup.shouldSkip(
+          documentType: documentType,
+          referenceId: referenceId,
+          referenceNo: referenceNo,
+        )) {
+      return true;
+    }
 
     final local = settingsOverride ?? await PosThermalPrinterSettings.load();
     if (!local.enabled) return false;
@@ -250,40 +481,50 @@ class PosPrintOrchestrator {
         sunmiFeedLines: settings.resolvedFeedBeforeCut,
       );
 
-  Future<_JobOutcome> _waitJob(String jobId) async {
+  Future<_JobOutcome> _waitJob(String jobId, {bool showFeedback = true}) async {
     final completer = Completer<_JobOutcome>();
     _pendingJobs[jobId] = completer;
 
     Timer(_jobTimeout, () {
       if (!completer.isCompleted) {
-        completer.complete(
-            const _JobOutcome(false, 'Hết thời gian chờ Print Agent'));
-        _pendingJobs.remove(jobId);
+        _finishJob(
+          jobId,
+          const _JobOutcome(false, 'Hết thời gian chờ Print Agent'),
+          showFeedback: showFeedback,
+        );
       }
     });
 
-    unawaited(_pollJobUntilDone(jobId, completer));
+    unawaited(_pollJobUntilDone(jobId, showFeedback: showFeedback));
     return completer.future;
   }
 
   Future<void> _pollJobUntilDone(
-      String jobId, Completer<_JobOutcome> completer) async {
+    String jobId, {
+    bool showFeedback = true,
+  }) async {
     for (var i = 0; i < 18; i++) {
-      if (completer.isCompleted) return;
+      if (!_pendingJobs.containsKey(jobId)) return;
       await Future<void>.delayed(const Duration(seconds: 5));
-      if (completer.isCompleted) return;
+      if (!_pendingJobs.containsKey(jobId)) return;
       try {
         final res = await _api.getPosPrintJob(jobId);
         if (res['isSuccess'] != true || res['data'] is! Map) continue;
-        final status = (res['data'] as Map)['status']?.toString() ?? '';
-        if (status == 'Completed' && !completer.isCompleted) {
-          completer.complete(const _JobOutcome(true, null));
-          _pendingJobs.remove(jobId);
-        } else if ((status == 'Failed' || status == 'Expired') &&
-            !completer.isCompleted) {
-          final err = (res['data'] as Map)['errorMessage']?.toString();
-          completer.complete(_JobOutcome(false, err ?? status));
-          _pendingJobs.remove(jobId);
+        final data = res['data'] as Map;
+        final status = data['status']?.toString() ?? '';
+        if (status == 'Completed') {
+          _finishJob(
+            jobId,
+            const _JobOutcome(true, null),
+            showFeedback: showFeedback,
+          );
+        } else if (status == 'Failed' || status == 'Expired') {
+          final err = data['errorMessage']?.toString();
+          _finishJob(
+            jobId,
+            _JobOutcome(false, err ?? status),
+            showFeedback: showFeedback,
+          );
         }
       } catch (_) {}
     }
@@ -353,5 +594,11 @@ class _JobOutcome {
   const _JobOutcome(this.ok, this.error, {this.printerName});
   final bool ok;
   final String? error;
+  final String? printerName;
+}
+
+class _JobFeedbackMeta {
+  const _JobFeedbackMeta({this.referenceNo, this.printerName});
+  final String? referenceNo;
   final String? printerName;
 }

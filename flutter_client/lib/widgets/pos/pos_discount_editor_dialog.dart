@@ -199,6 +199,180 @@ Future<PosDiscountEditResult?> showPosDiscountEditorDialog({
   return result;
 }
 
+/// Bottom sheet chỉnh chiết khấu — tối ưu mobile.
+Future<PosDiscountEditResult?> showPosDiscountEditorSheet({
+  required BuildContext context,
+  required String title,
+  required double baseAmount,
+  double initialInput = 0,
+  bool initialIsPercent = false,
+}) {
+  return showModalBottomSheet<PosDiscountEditResult>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    builder: (ctx) => Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
+      child: _PosDiscountEditorBody(
+        title: title,
+        baseAmount: baseAmount,
+        initialInput: initialInput,
+        initialIsPercent: initialIsPercent,
+        onDone: (r) => Navigator.pop(ctx, r),
+        onCancel: () => Navigator.pop(ctx),
+      ),
+    ),
+  );
+}
+
+class _PosDiscountEditorBody extends StatefulWidget {
+  const _PosDiscountEditorBody({
+    required this.title,
+    required this.baseAmount,
+    required this.initialInput,
+    required this.initialIsPercent,
+    required this.onDone,
+    required this.onCancel,
+  });
+
+  final String title;
+  final double baseAmount;
+  final double initialInput;
+  final bool initialIsPercent;
+  final ValueChanged<PosDiscountEditResult> onDone;
+  final VoidCallback onCancel;
+
+  @override
+  State<_PosDiscountEditorBody> createState() => _PosDiscountEditorBodyState();
+}
+
+class _PosDiscountEditorBodyState extends State<_PosDiscountEditorBody> {
+  late final TextEditingController ctrl;
+  late bool isPercent;
+  final moneyFmt = NumberFormat('#,##0', 'vi_VN');
+
+  @override
+  void initState() {
+    super.initState();
+    isPercent = widget.initialIsPercent;
+    ctrl = TextEditingController(
+      text: widget.initialInput == 0
+          ? ''
+          : (widget.initialIsPercent
+              ? widget.initialInput.toStringAsFixed(
+                  widget.initialInput % 1 == 0 ? 0 : 2)
+              : moneyFmt.format(widget.initialInput)),
+    );
+  }
+
+  @override
+  void dispose() {
+    ctrl.dispose();
+    super.dispose();
+  }
+
+  double computeAmount(String raw) {
+    final v = double.tryParse(raw.replaceAll(',', '').replaceAll('%', '')) ?? 0;
+    if (isPercent) {
+      return (widget.baseAmount * v / 100).clamp(0, widget.baseAmount);
+    }
+    return v.clamp(0, widget.baseAmount);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final preview = computeAmount(ctrl.text);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(widget.title,
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _modeChip('%', true, isPercent, () => setState(() {
+                    isPercent = true;
+                    ctrl.text = ctrl.text.replaceAll(',', '');
+                  })),
+              const SizedBox(width: 6),
+              _modeChip('đ', false, isPercent, () => setState(() => isPercent = false)),
+              const Spacer(),
+              Text(
+                'Tối đa: ${moneyFmt.format(widget.baseAmount)}',
+                style: const TextStyle(fontSize: 11, color: PosTheme.textSecondary),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: ctrl,
+            autofocus: true,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(
+              labelText: isPercent ? 'Phần trăm (%)' : 'Số tiền (đ)',
+              border: const OutlineInputBorder(),
+              suffixText: isPercent ? '%' : 'đ',
+            ),
+            onChanged: (_) => setState(() {}),
+          ),
+          const SizedBox(height: 8),
+          if (isPercent)
+            buildPosDiscountPresetChips(
+              onPickPercent: (p) => setState(() {
+                isPercent = true;
+                ctrl.text = p % 1 == 0 ? p.toStringAsFixed(0) : p.toStringAsFixed(2);
+              }),
+            )
+          else
+            buildPosDiscountMoneyPresetChips(
+              moneyFmt: moneyFmt,
+              baseAmount: widget.baseAmount,
+              onPickAmount: (a) => setState(() {
+                isPercent = false;
+                ctrl.text = moneyFmt.format(a);
+              }),
+            ),
+          if (preview > 0) ...[
+            const SizedBox(height: 10),
+            Text(
+              'Chiết khấu: -${moneyFmt.format(preview)}',
+              textAlign: TextAlign.right,
+              style: TextStyle(fontSize: 13, color: Colors.red.shade700),
+            ),
+          ],
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(onPressed: widget.onCancel, child: const Text('Huỷ')),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: FilledButton(
+                  onPressed: () {
+                    final raw = ctrl.text.replaceAll(',', '').replaceAll('%', '');
+                    final input = double.tryParse(raw) ?? 0;
+                    widget.onDone(PosDiscountEditResult(
+                      input: input,
+                      isPercent: isPercent,
+                      amount: computeAmount(ctrl.text),
+                    ));
+                  },
+                  style: FilledButton.styleFrom(backgroundColor: _kiotBlue),
+                  child: const Text('Áp dụng'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 Widget _modeChip(String label, bool value, bool selected, VoidCallback onTap) {
   final active = selected == value;
   return InkWell(

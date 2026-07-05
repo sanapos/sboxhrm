@@ -11,6 +11,7 @@ namespace ZKTecoADMS.Api.Services;
 public interface IPosPrintDispatchService
 {
     Task<PosStorePrinter?> ResolvePrinterAsync(Guid storeId, PosPrintDocumentType documentType, CancellationToken ct = default);
+    Task<IReadOnlyList<PosStorePrinter>> ResolvePrintersAsync(Guid storeId, PosPrintDocumentType documentType, CancellationToken ct = default);
     Task EnsureDefaultRoutesAsync(Guid storeId, CancellationToken ct = default);
     Task<PosPrintJob> EnqueueJobAsync(EnqueuePrintJobRequest request, CancellationToken ct = default);
     Task<PosPrintJob?> ClaimNextJobAsync(Guid storeId, Guid agentId, CancellationToken ct = default);
@@ -73,19 +74,31 @@ public class PosPrintDispatchService(
 
     public async Task<PosStorePrinter?> ResolvePrinterAsync(Guid storeId, PosPrintDocumentType documentType, CancellationToken ct = default)
     {
+        var list = await ResolvePrintersAsync(storeId, documentType, ct);
+        return list.FirstOrDefault();
+    }
+
+    public async Task<IReadOnlyList<PosStorePrinter>> ResolvePrintersAsync(
+        Guid storeId, PosPrintDocumentType documentType, CancellationToken ct = default)
+    {
         await EnsureDefaultRoutesAsync(storeId, ct);
 
-        var route = await db.PosPrinterDocumentRoutes.AsNoTracking()
+        var routed = await db.PosPrinterDocumentRoutes.AsNoTracking()
             .Include(r => r.Printer)
-            .FirstOrDefaultAsync(r => r.StoreId == storeId && r.DocumentType == documentType
+            .Where(r => r.StoreId == storeId && r.DocumentType == documentType
                 && r.Deleted == null && r.IsActive && r.Printer != null
-                && r.Printer.Deleted == null && r.Printer.IsActive, ct);
+                && r.Printer.Deleted == null && r.Printer.IsActive)
+            .OrderBy(r => r.CreatedAt)
+            .Select(r => r.Printer!)
+            .ToListAsync(ct);
 
-        if (route?.Printer != null) return route.Printer;
+        if (routed.Count > 0) return routed;
 
-        return await db.PosStorePrinters.AsNoTracking()
+        var fallback = await db.PosStorePrinters.AsNoTracking()
             .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsActive && p.IsDefault)
             .FirstOrDefaultAsync(ct);
+
+        return fallback != null ? [fallback] : [];
     }
 
     public async Task<PosPrintJob> EnqueueJobAsync(EnqueuePrintJobRequest request, CancellationToken ct = default)
@@ -140,27 +153,36 @@ public class PosPrintDispatchService(
         if (assignedIds.Count == 0) return null;
 
         var now = DateTime.UtcNow;
-        var job = await db.PosPrintJobs
+        var candidateId = await db.PosPrintJobs
             .Where(j => j.StoreId == storeId && j.Deleted == null
                 && j.Status == PosPrintJobStatus.Queued
                 && assignedIds.Contains(j.PrinterId)
                 && j.ExpiresAt > now)
             .OrderBy(j => j.CreatedAt)
+            .Select(j => j.Id)
             .FirstOrDefaultAsync(ct);
 
-        if (job == null) return null;
+        if (candidateId == Guid.Empty) return null;
 
-        job.Status = PosPrintJobStatus.Claimed;
-        job.AgentId = agentId;
-        job.ClaimedAt = now;
-        job.AttemptCount += 1;
-        job.UpdatedAt = now;
+        // Chỉ claim khi vẫn Queued — tránh 2 agent in trùng một job.
+        var claimed = await db.PosPrintJobs
+            .Where(j => j.Id == candidateId && j.Status == PosPrintJobStatus.Queued)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(j => j.Status, PosPrintJobStatus.Claimed)
+                .SetProperty(j => j.AgentId, agentId)
+                .SetProperty(j => j.ClaimedAt, now)
+                .SetProperty(j => j.UpdatedAt, now)
+                .SetProperty(j => j.AttemptCount, j => j.AttemptCount + 1), ct);
+
+        if (claimed == 0) return null;
+
+        var job = await db.PosPrintJobs.FirstAsync(j => j.Id == candidateId, ct);
 
         var printer = await db.PosStorePrinters.FirstAsync(p => p.Id == job.PrinterId, ct);
         printer.HealthStatus = PosPrinterHealthStatus.Busy;
         printer.LastSeenAt = now;
-
         await db.SaveChangesAsync(ct);
+
         await BroadcastJobAsync("PrintJobStatusChanged", job, printer, ct);
         return job;
     }
@@ -344,10 +366,9 @@ public class PosPrintDispatchService(
             completedAt = job.CompletedAt,
         };
 
-        await hubContext.Clients.Group(StoreGroup(job.StoreId)).SendAsync(eventName, payload, ct);
-
         if (eventName == "PrintJobNew" && printer.RequiresAgent)
         {
+            // Chỉ gửi cho Print Agent — không broadcast store group (tránh nhận 2 lần).
             await hubContext.Clients.Group(AgentGroup(job.StoreId)).SendAsync(eventName, new
             {
                 payload.jobId,
@@ -356,9 +377,11 @@ public class PosPrintDispatchService(
                 payload.referenceNo,
                 copies = job.Copies,
                 payloadFormat = job.PayloadFormat.ToString(),
-                // Payload chỉ gửi cho agent khi claim qua API (bảo mật)
             }, ct);
+            return;
         }
+
+        await hubContext.Clients.Group(StoreGroup(job.StoreId)).SendAsync(eventName, payload, ct);
     }
 
     static List<Guid> ParsePrinterIds(string json)

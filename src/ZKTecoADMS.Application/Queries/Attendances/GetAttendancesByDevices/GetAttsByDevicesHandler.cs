@@ -31,11 +31,6 @@ public class GetAttsByDevicesHandler(
         var hasDeviceFilter = deviceIds is { Count: > 0 };
 
         var pagination = request.PaginationRequest;
-        if (pagination.PageSize >= 200)
-        {
-            pagination.SortBy = nameof(Attendance.AttendanceTime);
-            pagination.SortOrder = "asc";
-        }
 
         var atts = await attRepository.GetPagedResultWithProjectionAsync(
             pagination,
@@ -68,6 +63,7 @@ public class GetAttsByDevicesHandler(
                 null,
                 null
             ),
+            applyOrdering: q => q.OrderBy(a => a.AttendanceTime).ThenBy(a => a.Id),
             cancellationToken: cancellationToken);
         
         // Enrich manual attendances with full employee names

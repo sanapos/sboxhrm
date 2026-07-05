@@ -249,3 +249,63 @@ PosProductUnitView resolveUnitView(
     orElse: () => views.first,
   );
 }
+
+/// Tồn hiển thị trên lưới bán — khớp kho hàng (SP gốc + biến thể + ĐVT + combo).
+double resolvePosSellListStockQty(
+  PosProduct product,
+  List<PosProductUnitView> views,
+) {
+  if (product.productType == PosProductType.service) {
+    return double.infinity;
+  }
+  if (product.productType == PosProductType.combo) {
+    final sellable = product.sellableQty ??
+        (product.comboLines != null && product.comboLines!.isNotEmpty
+            ? product.onHandQty
+            : 0);
+    return sellable;
+  }
+
+  if (views.isEmpty) return product.onHandQty;
+
+  final variants = product.variants ?? const <PosProductVariant>[];
+  final hasAttributeVariants = variants.any(variantHasRealAttributes);
+
+  if (hasAttributeVariants) {
+    final variantQty = views
+        .where((v) => v.variantId != null)
+        .fold(0.0, (sum, v) => sum + v.onHandQty);
+    if (variantQty > 0) return variantQty;
+  }
+
+  final maxViewQty =
+      views.fold(0.0, (max, v) => v.onHandQty > max ? v.onHandQty : max);
+  if (maxViewQty > 0) return maxViewQty;
+  if (product.onHandQty > 0) return product.onHandQty;
+  return views.first.onHandQty;
+}
+
+/// Hết hàng trên lưới bán khi mọi ĐVT/biến thể đều 0 (trừ dịch vụ).
+bool isPosSellOutOfStock(PosProduct product, List<PosProductUnitView> views) {
+  if (product.productType == PosProductType.service) {
+    return false;
+  }
+  if (product.productType == PosProductType.combo) {
+    final lines = product.comboLines;
+    if (lines == null || lines.isEmpty) return true;
+    return resolvePosSellListStockQty(product, views) <= 0;
+  }
+  return resolvePosSellListStockQty(product, views) <= 0;
+}
+
+/// Chip ĐVT/biến thể có tồn > 0 — ưu tiên khi thêm vào giỏ từ lưới.
+PosProductUnitView? pickDefaultSellUnitView(
+  PosProduct product,
+  List<PosProductUnitView> views,
+) {
+  if (views.isEmpty) return null;
+  for (final v in views) {
+    if (v.onHandQty > 0) return v;
+  }
+  return views.first;
+}

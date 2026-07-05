@@ -81,6 +81,7 @@ Invoke-PuttyScp -Pscp $pscp -Password $Password -LocalPath "$RepoRoot\scripts\ad
 Invoke-PuttyScp -Pscp $pscp -Password $Password -LocalPath "$RepoRoot\scripts\add_pos_sale_customer_delivery.sql" -RemotePath "${User}@${Server}:/root/add_pos_sale_customer_delivery.sql"
 Invoke-PuttyScp -Pscp $pscp -Password $Password -LocalPath "$RepoRoot\scripts\add_pos_sale_line_discount_note.sql" -RemotePath "${User}@${Server}:/root/add_pos_sale_line_discount_note.sql"
 Invoke-PuttyScp -Pscp $pscp -Password $Password -LocalPath "$RepoRoot\scripts\add_pos_print_templates.sql" -RemotePath "${User}@${Server}:/root/add_pos_print_templates.sql"
+Invoke-PuttyScp -Pscp $pscp -Password $Password -LocalPath "$RepoRoot\scripts\add_pos_print_cloud.sql" -RemotePath "${User}@${Server}:/root/add_pos_print_cloud.sql"
 Invoke-PuttyScp -Pscp $pscp -Password $Password -LocalPath "$RepoRoot\scripts\add_pos_stock_unit_cost.sql" -RemotePath "${User}@${Server}:/root/add_pos_stock_unit_cost.sql"
 if (Test-Path "$RepoRoot\apply_all_migrations.sql") {
     Invoke-PuttyScp -Pscp $pscp -Password $Password -LocalPath "$RepoRoot\apply_all_migrations.sql" -RemotePath "${User}@${Server}:/root/apply_all_migrations.sql"

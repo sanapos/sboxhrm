@@ -256,6 +256,7 @@ Future<void> printPosSaleOrder({
   int copies = 1,
   String? templateId,
   String? vietQrImageUrl,
+  bool skipDedup = false,
 }) async {
   final printOrder = await _resolvePrintOrder(order);
   final template = await _resolveSalePrintTemplate(templateId);
@@ -263,31 +264,36 @@ Future<void> printPosSaleOrder({
   final thermal = await PosThermalPrinterSettings.load();
   if (!kIsWeb) {
     await PosPrintOrchestrator.instance.refreshConfig();
-    final cloudPrinter = PosPrintOrchestrator.instance
-        .resolvePrinter(PosCloudDocumentTypes.saleInvoice);
+    final cloudPrinters = PosPrintOrchestrator.instance
+        .resolvePrinters(PosCloudDocumentTypes.saleInvoice);
 
-    if (cloudPrinter != null) {
-      var settings = toThermalSettings(cloudPrinter);
-      settings = _thermalSettingsForTemplate(settings, template);
-      final bytes = await PosThermalPrinterService.buildSaleOrderEscPosBytes(
-        printOrder,
-        settings: settings,
-        storeName: branchName,
-        storeAddress: storeAddress,
-        storePhone: storePhone,
-        mergeSameItems: mergeSameItems,
-        vietQrImageUrl: vietQrImageUrl,
-      );
-      final printed = await PosPrintOrchestrator.instance.dispatchEscPos(
+    if (cloudPrinters.isNotEmpty) {
+      final printed =
+          await PosPrintOrchestrator.instance.dispatchEscPosToAll(
         documentType: PosCloudDocumentTypes.saleInvoice,
-        bytes: bytes,
         copies: copies,
         referenceNo: printOrder.orderNo.isEmpty ? null : printOrder.orderNo,
         referenceId: printOrder.id,
         showFeedback: true,
         successTitle: printOrder.isReprint ? 'In lại hóa đơn' : 'In hóa đơn',
+        skipDedup: skipDedup,
+        buildBytes: (printer) async {
+          var settings = toThermalSettings(printer);
+          settings = _thermalSettingsForTemplate(settings, template);
+          return PosThermalPrinterService.buildSaleOrderEscPosBytes(
+            printOrder,
+            settings: settings,
+            storeName: branchName,
+            storeAddress: storeAddress,
+            storePhone: storePhone,
+            mergeSameItems: mergeSameItems,
+            vietQrImageUrl: vietQrImageUrl,
+          );
+        },
       );
-      if (printed) return;
+      if (printed) {
+        return;
+      }
     }
 
     if (thermal.enabled) {
@@ -307,8 +313,14 @@ Future<void> printPosSaleOrder({
         showFeedback: true,
         successTitle: printOrder.isReprint ? 'In lại hóa đơn' : 'In hóa đơn',
         settingsOverride: settings,
+        documentType: PosPrintDocumentTypes.saleInvoice,
+        referenceId: printOrder.id,
+        referenceNo: printOrder.orderNo.isEmpty ? null : printOrder.orderNo,
+        skipDedup: skipDedup,
       );
-      if (printed) return;
+      if (printed) {
+        return;
+      }
     }
   }
 

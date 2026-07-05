@@ -40,6 +40,8 @@ public partial class PosProductsController(
         string? ImageUrl,
         decimal CostPrice,
         decimal BasePrice,
+        decimal VatRate,
+        bool VatExempt,
         decimal OnHandQty,
         decimal ReservedQty,
         decimal MinStockQty,
@@ -57,7 +59,11 @@ public partial class PosProductsController(
         List<PosProductAttributeDto>? Attributes,
         List<string>? SaleQuickNotes,
         DateTime CreatedAt,
-        DateTime? UpdatedAt);
+        DateTime? UpdatedAt,
+        Guid? DefaultPrinterId = null,
+        string? DefaultPrinterName = null,
+        int? WarrantyMonths = null,
+        bool RequiresSerial = false);
 
     public record PosProductUnitDto(
         Guid Id, string UnitName, decimal ConversionRate,
@@ -79,6 +85,8 @@ public partial class PosProductsController(
         string? ImageUrl,
         decimal CostPrice,
         decimal BasePrice,
+        decimal VatRate,
+        bool VatExempt,
         decimal OnHandQty,
         decimal ReservedQty,
         decimal MinStockQty,
@@ -89,7 +97,10 @@ public partial class PosProductsController(
         bool IsDirectSale,
         bool IsFavorite,
         List<string>? SaleQuickNotes,
-        List<PosProductAttributeInput>? Attributes);
+        List<PosProductAttributeInput>? Attributes,
+        Guid? DefaultPrinterId = null,
+        int? WarrantyMonths = null,
+        bool RequiresSerial = false);
 
     public record PosProductAttributeInput(Guid? AttributeId, string? AttributeName, string Value);
 
@@ -222,6 +233,8 @@ public partial class PosProductsController(
                 p.ImageUrl,
                 p.CostPrice,
                 p.BasePrice,
+                p.VatRate,
+                p.VatExempt,
                 p.OnHandQty,
                 p.ReservedQty,
                 p.MinStockQty,
@@ -259,7 +272,7 @@ public partial class PosProductsController(
                 r.StorageLocationId, r.StorageLocationName,
                 r.SupplierId, r.SupplierName,
                 r.ProductType, r.Description, r.ImageUrl,
-                r.CostPrice, r.BasePrice, r.OnHandQty, r.ReservedQty,
+                r.CostPrice, r.BasePrice, r.VatRate, r.VatExempt, r.OnHandQty, r.ReservedQty,
                 r.MinStockQty, r.MaxStockQty, r.Weight, r.WeightUnit, r.BaseUnitName,
                 r.IsDirectSale, r.IsFavorite, r.IsActive, variantCount,
                 avg > 0 ? avg : null, stockout,
@@ -466,6 +479,8 @@ public partial class PosProductsController(
             Description = dto.Description?.Trim(),
             CostPrice = dto.CostPrice,
             BasePrice = dto.BasePrice,
+            VatRate = dto.VatExempt ? 0 : Math.Max(0, dto.VatRate),
+            VatExempt = dto.VatExempt,
             OnHandQty = dto.OnHandQty,
             ReservedQty = dto.ReservedQty,
             MinStockQty = dto.MinStockQty,
@@ -476,6 +491,9 @@ public partial class PosProductsController(
             IsDirectSale = dto.IsDirectSale,
             IsFavorite = dto.IsFavorite,
             SaleQuickNotesJson = PosSaleQuickNotesHelper.Serialize(dto.SaleQuickNotes),
+            DefaultPrinterId = await ResolvePrinterIdAsync(storeId, dto.DefaultPrinterId),
+            WarrantyMonths = dto.WarrantyMonths > 0 ? dto.WarrantyMonths : null,
+            RequiresSerial = dto.RequiresSerial,
             IsActive = true,
             CreatedBy = CurrentUserEmail,
         };
@@ -534,6 +552,8 @@ public partial class PosProductsController(
         var oldCost = entity.CostPrice;
         entity.CostPrice = dto.CostPrice;
         entity.BasePrice = dto.BasePrice;
+        entity.VatRate = dto.VatExempt ? 0 : Math.Max(0, dto.VatRate);
+        entity.VatExempt = dto.VatExempt;
 
         var hasVariants = await dbContext.PosProductVariants.AnyAsync(v =>
             v.ProductId == id && v.StoreId == storeId && v.Deleted == null && v.IsActive);
@@ -567,6 +587,9 @@ public partial class PosProductsController(
         entity.IsDirectSale = dto.IsDirectSale;
         entity.IsFavorite = dto.IsFavorite;
         entity.SaleQuickNotesJson = PosSaleQuickNotesHelper.Serialize(dto.SaleQuickNotes);
+        entity.DefaultPrinterId = await ResolvePrinterIdAsync(storeId, dto.DefaultPrinterId);
+        entity.WarrantyMonths = dto.WarrantyMonths > 0 ? dto.WarrantyMonths : null;
+        entity.RequiresSerial = dto.RequiresSerial;
         entity.UpdatedAt = DateTime.UtcNow;
         entity.UpdatedBy = CurrentUserEmail;
 
@@ -647,6 +670,8 @@ public partial class PosProductsController(
             ImageUrl = source.ImageUrl,
             CostPrice = source.CostPrice,
             BasePrice = source.BasePrice,
+            VatRate = source.VatRate,
+            VatExempt = source.VatExempt,
             OnHandQty = 0,
             ReservedQty = 0,
             MinStockQty = source.MinStockQty,
@@ -657,12 +682,35 @@ public partial class PosProductsController(
             IsDirectSale = source.IsDirectSale,
             IsFavorite = false,
             SaleQuickNotesJson = source.SaleQuickNotesJson,
+            WarrantyMonths = source.WarrantyMonths,
+            RequiresSerial = source.RequiresSerial,
             IsActive = true,
             CreatedBy = CurrentUserEmail,
         };
         dbContext.PosProducts.Add(copy);
         await dbContext.SaveChangesAsync();
         await EnsureBaseUnitAsync(copy);
+
+        if (source.ProductType == Domain.Enums.PosProductType.Combo)
+        {
+            var sourceLines = await dbContext.PosProductComboLines.AsNoTracking()
+                .Where(x => x.ComboProductId == id && x.StoreId == storeId && x.Deleted == null)
+                .ToListAsync();
+            foreach (var line in sourceLines)
+            {
+                dbContext.PosProductComboLines.Add(new PosProductComboLine
+                {
+                    Id = Guid.NewGuid(),
+                    StoreId = storeId,
+                    ComboProductId = copy.Id,
+                    ComponentProductId = line.ComponentProductId,
+                    Qty = line.Qty,
+                    IsActive = true,
+                    CreatedBy = CurrentUserEmail,
+                });
+            }
+            await dbContext.SaveChangesAsync();
+        }
 
         var result = await MapProductAsync(copy.Id, storeId);
         return Ok(AppResponse<PosProductDto>.Success(result!));
@@ -691,6 +739,7 @@ public partial class PosProductsController(
             .Include(x => x.Brand)
             .Include(x => x.StorageLocation)
             .Include(x => x.Supplier)
+            .Include(x => x.DefaultPrinter)
             .FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId && x.Deleted == null);
         if (p == null) return null;
 
@@ -734,13 +783,23 @@ public partial class PosProductsController(
             p.StorageLocationId, p.StorageLocation?.Name,
             p.SupplierId, p.Supplier?.Name,
             p.ProductType.ToString(), p.Description, p.ImageUrl,
-            p.CostPrice, p.BasePrice, p.OnHandQty, p.ReservedQty,
+            p.CostPrice, p.BasePrice, p.VatRate, p.VatExempt, p.OnHandQty, p.ReservedQty,
             p.MinStockQty, p.MaxStockQty, p.Weight, p.WeightUnit, p.BaseUnitName,
             p.IsDirectSale, p.IsFavorite, p.IsActive, variantCount,
             avg > 0 ? avg : null, stockout,
             units, attrs,
             PosSaleQuickNotesHelper.Parse(p.SaleQuickNotesJson),
-            p.CreatedAt, p.UpdatedAt);
+            p.CreatedAt, p.UpdatedAt,
+            p.DefaultPrinterId, p.DefaultPrinter?.Name,
+            p.WarrantyMonths, p.RequiresSerial);
+    }
+
+    private async Task<Guid?> ResolvePrinterIdAsync(Guid storeId, Guid? printerId)
+    {
+        if (!printerId.HasValue) return null;
+        var ok = await dbContext.PosStorePrinters.AnyAsync(p =>
+            p.Id == printerId && p.StoreId == storeId && p.Deleted == null && p.IsActive);
+        return ok ? printerId : null;
     }
 
     private static void NormalizeByProductType(PosProduct entity)
@@ -751,6 +810,8 @@ public partial class PosProductsController(
             entity.ReservedQty = 0;
             entity.MinStockQty = 0;
             entity.MaxStockQty = 0;
+            entity.WarrantyMonths = null;
+            entity.RequiresSerial = false;
         }
         else if (entity.ProductType == PosProductType.Combo)
         {
@@ -758,6 +819,8 @@ public partial class PosProductsController(
             entity.ReservedQty = 0;
             entity.MinStockQty = 0;
             entity.MaxStockQty = 0;
+            entity.WarrantyMonths = null;
+            entity.RequiresSerial = false;
         }
     }
 

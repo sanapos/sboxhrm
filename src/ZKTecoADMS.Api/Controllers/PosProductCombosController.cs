@@ -78,10 +78,25 @@ public class PosProductCombosController(ZKTecoDbContext dbContext) : Authenticat
         }
 
         var componentIds = lines.Select(l => l.ComponentProductId).Distinct().ToList();
-        var validCount = await dbContext.PosProducts.CountAsync(p =>
-            componentIds.Contains(p.Id) && p.StoreId == storeId && p.Deleted == null);
-        if (validCount != componentIds.Count)
+        var components = await dbContext.PosProducts.AsNoTracking()
+            .Where(p => componentIds.Contains(p.Id) && p.StoreId == storeId && p.Deleted == null)
+            .Select(p => new { p.Id, p.ProductType, p.Name })
+            .ToListAsync();
+        var componentMap = components.ToDictionary(c => c.Id);
+        if (componentMap.Count != componentIds.Count)
             return BadRequest(AppResponse<List<ComboLineDto>>.Fail("Thành phần không hợp lệ"));
+
+        foreach (var cid in componentIds)
+        {
+            var comp = componentMap[cid];
+            if (comp.ProductType == Domain.Enums.PosProductType.Combo)
+                return BadRequest(AppResponse<List<ComboLineDto>>.Fail("Combo không thể chứa combo khác"));
+            if (comp.ProductType == Domain.Enums.PosProductType.Service)
+                return BadRequest(AppResponse<List<ComboLineDto>>.Fail(
+                    $"«{comp.Name}» là dịch vụ — không thể làm thành phần combo"));
+        }
+
+        var validCount = componentIds.Count;
 
         var existing = await dbContext.PosProductComboLines
             .Where(x => x.ComboProductId == comboProductId && x.Deleted == null)

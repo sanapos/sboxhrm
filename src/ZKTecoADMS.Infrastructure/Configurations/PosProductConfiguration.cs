@@ -14,6 +14,7 @@ public class PosProductCategoryConfiguration : IEntityTypeConfiguration<PosProdu
         builder.HasIndex(x => new { x.StoreId, x.Name });
         builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne(x => x.Parent).WithMany(x => x.Children).HasForeignKey(x => x.ParentId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(x => x.DefaultPrinter).WithMany().HasForeignKey(x => x.DefaultPrinterId).OnDelete(DeleteBehavior.SetNull);
     }
 }
 
@@ -57,6 +58,7 @@ public class PosProductConfiguration : IEntityTypeConfiguration<PosProduct>
         builder.Property(x => x.SaleQuickNotesJson).HasMaxLength(4000);
         builder.Property(x => x.CostPrice).HasPrecision(18, 2);
         builder.Property(x => x.BasePrice).HasPrecision(18, 2);
+        builder.Property(x => x.VatRate).HasPrecision(5, 2);
         builder.Property(x => x.OnHandQty).HasPrecision(18, 4);
         builder.Property(x => x.ReservedQty).HasPrecision(18, 4);
         builder.Property(x => x.MinStockQty).HasPrecision(18, 4);
@@ -70,6 +72,7 @@ public class PosProductConfiguration : IEntityTypeConfiguration<PosProduct>
         builder.HasOne(x => x.Brand).WithMany(x => x.Products).HasForeignKey(x => x.BrandId).OnDelete(DeleteBehavior.SetNull);
         builder.HasOne(x => x.StorageLocation).WithMany(x => x.Products).HasForeignKey(x => x.StorageLocationId).OnDelete(DeleteBehavior.SetNull);
         builder.HasOne(x => x.Supplier).WithMany(x => x.Products).HasForeignKey(x => x.SupplierId).OnDelete(DeleteBehavior.SetNull);
+        builder.HasOne(x => x.DefaultPrinter).WithMany().HasForeignKey(x => x.DefaultPrinterId).OnDelete(DeleteBehavior.SetNull);
     }
 }
 
@@ -144,6 +147,7 @@ public class PosCustomerConfiguration : IEntityTypeConfiguration<PosCustomer>
         builder.Property(x => x.Note).HasMaxLength(1000);
         builder.Property(x => x.TotalPurchase).HasPrecision(18, 2);
         builder.Property(x => x.CurrentDebt).HasPrecision(18, 2);
+        builder.Property(x => x.PointBalance).HasPrecision(18, 2);
         builder.HasIndex(x => new { x.StoreId, x.CustomerCode }).IsUnique();
         builder.HasIndex(x => new { x.StoreId, x.Name });
         builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Cascade);
@@ -222,6 +226,14 @@ public class PosSaleOrderConfiguration : IEntityTypeConfiguration<PosSaleOrder>
         builder.Property(x => x.SalesChannel).HasMaxLength(100);
         builder.HasIndex(x => new { x.StoreId, x.SoldByEmployeeId });
         builder.Property(x => x.PriceListName).HasMaxLength(100);
+        builder.Property(x => x.PrintCount).HasDefaultValue(0);
+        builder.Property(x => x.VoucherCode).HasMaxLength(50);
+        builder.Property(x => x.VoucherDiscount).HasPrecision(18, 2);
+        builder.Property(x => x.PointsRedeemed).HasPrecision(18, 2);
+        builder.Property(x => x.PointsDiscount).HasPrecision(18, 2);
+        builder.Property(x => x.PointsEarned).HasPrecision(18, 2);
+        builder.HasOne(x => x.PriceList).WithMany().HasForeignKey(x => x.PriceListId).OnDelete(DeleteBehavior.SetNull);
+        builder.HasOne(x => x.Voucher).WithMany().HasForeignKey(x => x.VoucherId).OnDelete(DeleteBehavior.SetNull);
         builder.HasIndex(x => new { x.StoreId, x.OrderNo }).IsUnique();
         builder.HasIndex(x => new { x.StoreId, x.Status, x.CreatedAt });
         builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Cascade);
@@ -452,6 +464,80 @@ public class PosSupplierPaymentConfiguration : IEntityTypeConfiguration<PosSuppl
         builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne(x => x.Supplier).WithMany(x => x.Payments).HasForeignKey(x => x.SupplierId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne(x => x.StockReceipt).WithMany(x => x.Payments).HasForeignKey(x => x.StockReceiptId).OnDelete(DeleteBehavior.SetNull);
+    }
+}
+
+public class PosCustomerPaymentConfiguration : IEntityTypeConfiguration<PosCustomerPayment>
+{
+    public void Configure(EntityTypeBuilder<PosCustomerPayment> builder)
+    {
+        builder.ToTable("PosCustomerPayments");
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.PaymentNo).IsRequired().HasMaxLength(30);
+        builder.Property(x => x.Amount).HasPrecision(18, 2);
+        builder.Property(x => x.PaymentMethod).HasMaxLength(50);
+        builder.Property(x => x.Note).HasMaxLength(500);
+        builder.HasIndex(x => new { x.StoreId, x.CustomerId });
+        builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(x => x.Customer).WithMany(x => x.Payments).HasForeignKey(x => x.CustomerId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(x => x.SaleOrder).WithMany().HasForeignKey(x => x.SaleOrderId).OnDelete(DeleteBehavior.SetNull);
+    }
+}
+
+public class PosCustomerPointTransactionConfiguration : IEntityTypeConfiguration<PosCustomerPointTransaction>
+{
+    public void Configure(EntityTypeBuilder<PosCustomerPointTransaction> builder)
+    {
+        builder.ToTable("PosCustomerPointTransactions");
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.Points).HasPrecision(18, 2);
+        builder.Property(x => x.BalanceAfter).HasPrecision(18, 2);
+        builder.Property(x => x.Note).HasMaxLength(500);
+        builder.HasIndex(x => new { x.StoreId, x.CustomerId });
+        builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(x => x.Customer).WithMany(x => x.PointTransactions).HasForeignKey(x => x.CustomerId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(x => x.SaleOrder).WithMany().HasForeignKey(x => x.SaleOrderId).OnDelete(DeleteBehavior.SetNull);
+    }
+}
+
+public class PosVoucherConfiguration : IEntityTypeConfiguration<PosVoucher>
+{
+    public void Configure(EntityTypeBuilder<PosVoucher> builder)
+    {
+        builder.ToTable("PosVouchers");
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.Code).IsRequired().HasMaxLength(50);
+        builder.Property(x => x.Name).HasMaxLength(200);
+        builder.Property(x => x.DiscountValue).HasPrecision(18, 2);
+        builder.Property(x => x.MinOrderAmount).HasPrecision(18, 2);
+        builder.Property(x => x.MaxDiscountAmount).HasPrecision(18, 2);
+        builder.HasIndex(x => new { x.StoreId, x.Code }).IsUnique();
+        builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(x => x.Customer).WithMany().HasForeignKey(x => x.CustomerId).OnDelete(DeleteBehavior.SetNull);
+    }
+}
+
+public class PosProductWarrantyRegistrationConfiguration : IEntityTypeConfiguration<PosProductWarrantyRegistration>
+{
+    public void Configure(EntityTypeBuilder<PosProductWarrantyRegistration> builder)
+    {
+        builder.ToTable("PosProductWarrantyRegistrations");
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.SerialNumber).IsRequired().HasMaxLength(100);
+        builder.Property(x => x.Imei).HasMaxLength(50);
+        builder.Property(x => x.Note).HasMaxLength(500);
+        builder.HasIndex(x => new { x.StoreId, x.SerialNumber })
+            .IsUnique()
+            .HasFilter("\"Deleted\" IS NULL AND \"Status\" = 0");
+        builder.HasIndex(x => new { x.StoreId, x.SaleOrderId });
+        builder.HasIndex(x => new { x.StoreId, x.ProductId });
+        builder.HasIndex(x => new { x.StoreId, x.WarrantyExpiry });
+        builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(x => x.SaleOrder).WithMany().HasForeignKey(x => x.SaleOrderId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(x => x.SaleOrderLine).WithMany().HasForeignKey(x => x.SaleOrderLineId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(x => x.Product).WithMany().HasForeignKey(x => x.ProductId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(x => x.Variant).WithMany().HasForeignKey(x => x.VariantId).OnDelete(DeleteBehavior.SetNull);
+        builder.HasOne(x => x.Customer).WithMany().HasForeignKey(x => x.CustomerId).OnDelete(DeleteBehavior.SetNull);
     }
 }
 

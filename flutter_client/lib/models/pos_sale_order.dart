@@ -1,5 +1,6 @@
 import '../utils/api_datetime.dart';
 import '../utils/pos_doc_status.dart';
+import 'pos_product.dart' show parsePosStringList;
 
 class PosSaleOrderLine {
   final String? id;
@@ -12,6 +13,8 @@ class PosSaleOrderLine {
   final double discountAmount;
   final double lineTotal;
   final String? lineNote;
+  final double returnedQty;
+  final List<String> serialNumbers;
 
   PosSaleOrderLine({
     this.id,
@@ -24,6 +27,8 @@ class PosSaleOrderLine {
     this.discountAmount = 0,
     this.lineTotal = 0,
     this.lineNote,
+    this.returnedQty = 0,
+    this.serialNumbers = const [],
   });
 
   factory PosSaleOrderLine.fromJson(Map<String, dynamic> json) {
@@ -39,6 +44,10 @@ class PosSaleOrderLine {
       discountAmount: n(json['discountAmount'] ?? json['DiscountAmount']),
       lineTotal: n(json['lineTotal'] ?? json['LineTotal']),
       lineNote: json['lineNote'] ?? json['LineNote'] as String?,
+      returnedQty: n(json['returnedQty'] ?? json['ReturnedQty']),
+      serialNumbers: json['serialNumbers'] != null || json['SerialNumbers'] != null
+          ? parsePosStringList(json['serialNumbers'] ?? json['SerialNumbers'])
+          : const [],
     );
   }
 }
@@ -72,6 +81,9 @@ class PosSaleOrder {
   final String? createdBy;
   final int lineCount;
   final List<PosSaleOrderLine> lines;
+  final int printCount;
+  final int dailyOrderIndex;
+  final double dailySalesTotal;
 
   PosSaleOrder({
     required this.id,
@@ -102,7 +114,56 @@ class PosSaleOrder {
     this.createdBy,
     this.lineCount = 0,
     this.lines = const [],
+    this.printCount = 0,
+    this.dailyOrderIndex = 0,
+    this.dailySalesTotal = 0,
   });
+
+  PosSaleOrder copyWithPrintContext({
+    int? printCount,
+    int? dailyOrderIndex,
+    double? dailySalesTotal,
+  }) =>
+      PosSaleOrder(
+        id: id,
+        orderNo: orderNo,
+        status: status,
+        subTotal: subTotal,
+        discount: discount,
+        total: total,
+        paidAmount: paidAmount,
+        balanceDue: balanceDue,
+        returnedAmount: returnedAmount,
+        paymentMethod: paymentMethod,
+        customerName: customerName,
+        customerId: customerId,
+        isDelivery: isDelivery,
+        deliveryAddress: deliveryAddress,
+        deliveryPhone: deliveryPhone,
+        deliveryPartner: deliveryPartner,
+        deliveryStatus: deliveryStatus,
+        deliveryDate: deliveryDate,
+        note: note,
+        saleDate: saleDate,
+        soldBy: soldBy,
+        soldByEmployeeId: soldByEmployeeId,
+        salesChannel: salesChannel,
+        priceListName: priceListName,
+        createdAt: createdAt,
+        createdBy: createdBy,
+        lineCount: lineCount,
+        lines: lines,
+        printCount: printCount ?? this.printCount,
+        dailyOrderIndex: dailyOrderIndex ?? this.dailyOrderIndex,
+        dailySalesTotal: dailySalesTotal ?? this.dailySalesTotal,
+      );
+
+  bool get isReprint => printCount > 1;
+
+  /// Tổng gốc trước khi trả (net + đã trả).
+  double get grossTotal => total + returnedAmount;
+
+  bool get hasReturns => returnedAmount > 0;
 
   factory PosSaleOrder.fromJson(Map<String, dynamic> json) {
     double n(dynamic v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
@@ -147,6 +208,10 @@ class PosSaleOrder {
       lineCount: (json['lineCount'] ?? json['LineCount'] as num?)?.toInt() ??
           lines.length,
       lines: lines,
+      printCount: (json['printCount'] ?? json['PrintCount'] as num?)?.toInt() ?? 0,
+      dailyOrderIndex:
+          (json['dailyOrderIndex'] ?? json['DailyOrderIndex'] as num?)?.toInt() ?? 0,
+      dailySalesTotal: n(json['dailySalesTotal'] ?? json['DailySalesTotal']),
     );
   }
 }

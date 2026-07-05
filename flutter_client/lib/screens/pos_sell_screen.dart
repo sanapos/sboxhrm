@@ -5,39 +5,55 @@ import 'package:provider/provider.dart';
 
 import '../models/cash_transaction.dart';
 import '../models/pos_customer.dart';
+import '../models/pos_price_list.dart';
 import '../models/pos_product.dart';
 import '../models/pos_print_template.dart';
 import '../models/pos_sale_order.dart';
+import '../models/pos_store_printer.dart';
 import '../providers/permission_provider.dart';
 import '../providers/auth_provider.dart';
 import '../utils/responsive_helper.dart';
 import '../utils/store_role_helper.dart';
 import '../services/api_service.dart';
 import '../utils/pos_purchase_product_lookup.dart';
+import '../utils/pos_combo_stock.dart';
+import '../utils/pos_kitchen_print.dart';
+import '../utils/pos_print_config_session.dart';
+import '../utils/pos_print_orchestrator.dart';
 import '../utils/pos_sale_order_print.dart';
 import '../utils/pos_sell_print_settings.dart';
+import '../utils/pos_sell_stock_patch.dart';
 import '../utils/pos_sell_store_settings.dart';
+import '../utils/pos_sell_tax.dart';
+import '../utils/pos_vietqr_helper.dart';
+import '../widgets/pos/pos_vietqr_payment_panel.dart';
+import '../utils/pos_thermal_printer_settings.dart';
+import '../utils/pos_price_list_resolver.dart';
 import '../utils/pos_sell_unit_views.dart';
+import '../widgets/pos/pos_sell_mobile_print_settings_screen.dart';
 import '../widgets/pos/pos_barcode_keyboard_scope.dart';
 import '../widgets/pos_barcode_scanner.dart';
 import '../widgets/pos/pos_sell_product_grid.dart';
 import '../widgets/notification_overlay.dart';
 import '../screens/main_layout.dart' show ScreenRefreshNotifier;
+import '../utils/navigation_notifier.dart';
 import '../screens/pos/pos_product_editor_page.dart';
 import '../widgets/pos/pos_discount_editor_dialog.dart';
 import '../widgets/pos/pos_customer_form_dialog.dart';
 import '../widgets/pos/pos_product_image.dart';
 import '../widgets/pos/pos_product_unit_view.dart';
 import '../widgets/pos/pos_purchase_product_search_bar.dart';
+import '../widgets/pos/pos_pending_warehouse_print_sheet.dart';
 import '../widgets/pos/pos_sell_print_popover.dart';
 import '../widgets/pos/pos_sell_store_settings_dialog.dart';
 import '../widgets/pos/pos_sale_quick_notes_widgets.dart';
+import '../widgets/pos/pos_serial_capture_dialog.dart';
 import '../widgets/pos/pos_theme.dart';
 import '../widgets/pos/pos_hub_scope.dart';
-import 'pos_sale_order_editor_screen.dart';
 import 'pos/pos_end_of_day_screen.dart';
 import 'pos_reports_screen.dart';
 import 'pos_sale_return_screen.dart';
+import 'pos_sale_return_list_screen.dart';
 import '../widgets/pos/pos_cash_voucher_dialog.dart';
 import '../widgets/pos/pos_pick_sale_order_dialog.dart';
 
@@ -108,6 +124,17 @@ class _PosPaymentSource {
       bankAccountId: account.id,
     );
   }
+
+  factory _PosPaymentSource.fromVietQR(BankAccount account) {
+    final short = account.bankShortName ?? account.bankName;
+    return _PosPaymentSource(
+      key: 'vietqr_${account.id}',
+      label: 'VietQR · $short',
+      methodLabel: 'VietQR',
+      methodType: PaymentMethodType.vietQR,
+      bankAccountId: account.id,
+    );
+  }
 }
 
 class _SellPaymentLine {
@@ -140,6 +167,8 @@ class _SellCartLine {
     this.lineNote,
     this.discountIsPercent = false,
     this.discountInput = 0,
+    this.vatRate = 8,
+    this.vatExempt = false,
   })  : noteCtrl = TextEditingController(),
         priceCtrl = TextEditingController(
           text: unitPrice == unitPrice.roundToDouble()
@@ -155,7 +184,7 @@ class _SellCartLine {
         );
 
   final int rowId;
-  final PosProduct product;
+  PosProduct product;
   String? variantId;
   String? unitId;
   PosProductVariant? variant;
@@ -164,10 +193,16 @@ class _SellCartLine {
   String displayCode;
   double unitPrice;
   double qty;
+  /// Số lượng đã gửi in báo kho (theo dòng giỏ hiện tại).
+  double warehouseSlipPrintedQty = 0;
   List<PosProductUnitView> unitViews;
   String? lineNote;
   bool discountIsPercent;
   double discountInput;
+  double vatRate;
+  bool vatExempt;
+  List<String> serialNumbers = [];
+  List<String> serialImeis = [];
   final Set<String> selectedQuickNotes = {};
   final TextEditingController noteCtrl;
   final TextEditingController priceCtrl;
@@ -210,6 +245,8 @@ class _SellInvoiceTab {
   bool discountIsPercent = false;
   double discountInput = 0;
   double discount = 0;
+  double vatRate = 8;
+  bool vatExempt = false;
   String paymentMethod = 'Tiền mặt';
   double paidAmount = 0;
   bool paidManuallyEdited = false;
@@ -218,10 +255,19 @@ class _SellInvoiceTab {
   String? note;
   PosCustomer? customer;
   String priceListLabel = 'Bảng giá chung';
+  String? priceListId;
   String? deliveryAddress;
   String? deliveryPhone;
   String? deliveryPartner;
   String? sellerEmployeeId;
+  String? voucherCode;
+  double voucherDiscount = 0;
+  String? voucherName;
+  double pointsToRedeem = 0;
+  double pointsDiscount = 0;
+  bool _voucherValidating = false;
+  final _voucherCtrl = TextEditingController();
+  final _pointsCtrl = TextEditingController();
   final _noteCtrl = TextEditingController();
   final _discountCtrl = TextEditingController(text: '0');
   final _paidCtrl = TextEditingController();
@@ -238,6 +284,8 @@ class _SellInvoiceTab {
     _deliveryAddressCtrl.dispose();
     _deliveryPhoneCtrl.dispose();
     _deliveryPartnerCtrl.dispose();
+    _voucherCtrl.dispose();
+    _pointsCtrl.dispose();
     for (final line in cart) {
       line.dispose();
     }
@@ -253,7 +301,7 @@ class _SellInvoiceTab {
     paymentLines.clear();
   }
 
-  void reset() {
+  void reset({double defaultVatRate = 8}) {
     for (final line in cart) {
       line.dispose();
     }
@@ -263,6 +311,8 @@ class _SellInvoiceTab {
     discountIsPercent = false;
     discountInput = 0;
     discount = 0;
+    vatRate = defaultVatRate;
+    vatExempt = false;
     paymentMethod = 'Tiền mặt';
     paidAmount = 0;
     paidManuallyEdited = false;
@@ -270,10 +320,18 @@ class _SellInvoiceTab {
     note = null;
     customer = null;
     priceListLabel = 'Bảng giá chung';
+    priceListId = null;
     deliveryAddress = null;
     deliveryPhone = null;
     deliveryPartner = null;
     sellerEmployeeId = null;
+    voucherCode = null;
+    voucherDiscount = 0;
+    voucherName = null;
+    pointsToRedeem = 0;
+    pointsDiscount = 0;
+    _voucherCtrl.clear();
+    _pointsCtrl.clear();
     _noteCtrl.clear();
     _discountCtrl.text = '0';
     _paidCtrl.clear();
@@ -316,17 +374,36 @@ class _PosSellScreenState extends State<PosSellScreen> {
   int _activeTab = 0;
   _SellMode _sellMode = _SellMode.quick;
   PosSellPrintSettings _printSettings = const PosSellPrintSettings();
+  PosThermalPrinterSettings _thermalPrintSettings =
+      const PosThermalPrinterSettings();
   PosSellStoreSettings _storeSettings = const PosSellStoreSettings();
   bool _checkingOut = false;
+  bool _warehousePrinting = false;
+  final List<PendingWarehousePrintJob> _failedWarehousePrints = [];
+  final Set<String> _checkoutPrintGuard = {};
+  bool _mobileMergeSameOnAdd = true;
+  bool _mobileProductPickerOpen = false;
   List<PosCustomer> _customerSuggestions = [];
   List<_PosPaymentSource> _paymentSources = const [_PosPaymentSource.cash];
+  List<BankAccount> _bankAccounts = [];
   int _nextCartRowId = 1;
   int? _expandedCartRowId;
   _CartRowExpand? _expandedCartMode;
   List<Map<String, dynamic>> _sellSellers = [];
   bool _canPickSeller = false;
   String? _defaultSellerEmployeeId;
+  List<PosPriceList> _priceLists = [];
+  final Map<String, Map<String, double>> _priceOverrideCache = {};
   _SellInvoiceTab get _tab => _tabs[_activeTab];
+
+  String? get _storeId =>
+      Provider.of<AuthProvider>(context, listen: false).user?.storeId;
+
+  Map<String, double> get _currentPriceOverrides {
+    final id = _tab.priceListId;
+    if (id == null || id.isEmpty) return const {};
+    return _priceOverrideCache[id] ?? const {};
+  }
 
   void _collapseExpandedCartRow() {
     if (_expandedCartRowId == null) return;
@@ -379,25 +456,47 @@ class _PosSellScreenState extends State<PosSellScreen> {
     _tabs.first.paymentLines.add(_SellPaymentLine(sourceKey: _PosPaymentSource.cashKey));
     _loadPrintSettings();
     _loadStoreSettings();
+    PosPrintConfigSession.instance.warmUp();
     _loadPaymentSources();
     _loadSellSellers();
-    _ensurePosPrintTemplates();
+    _loadPriceLists();
     HardwareKeyboard.instance.addHandler(_onKey);
+    ScreenRefreshNotifier.posSellStockPatch.addListener(_syncCartStockFromPatch);
   }
 
   Future<void> _loadPaymentSources() async {
-    final res = await _api.getBankAccounts();
+    var res = await _api.getPosBankAccounts();
+    if (res['isSuccess'] != true) {
+      res = await _api.getBankAccounts();
+    }
     if (!mounted) return;
-    final sources = <_PosPaymentSource>[_PosPaymentSource.cash];
+
+    final accounts = <BankAccount>[];
     if (res['isSuccess'] == true && res['data'] is List) {
       for (final raw in res['data'] as List) {
         final account = BankAccount.fromJson(raw as Map<String, dynamic>);
-        if (account.isActive) {
-          sources.add(_PosPaymentSource.fromBank(account));
-        }
+        if (account.isActive) accounts.add(account);
       }
     }
-    setState(() => _paymentSources = sources);
+
+    final sources = <_PosPaymentSource>[_PosPaymentSource.cash];
+    if (accounts.isNotEmpty) {
+      final qrAccount = PosVietQrHelper.resolveAccount(
+        accounts,
+        preferredId: _storeSettings.vietQrBankAccountId,
+      );
+      if (qrAccount != null) {
+        sources.add(_PosPaymentSource.fromVietQR(qrAccount));
+      }
+      for (final account in accounts) {
+        sources.add(_PosPaymentSource.fromBank(account));
+      }
+    }
+
+    setState(() {
+      _bankAccounts = accounts;
+      _paymentSources = sources;
+    });
   }
 
   Future<void> _loadSellSellers() async {
@@ -431,6 +530,89 @@ class _PosSellScreenState extends State<PosSellScreen> {
     });
   }
 
+  Future<void> _loadPriceLists() async {
+    final res = await _api.getPosPriceLists();
+    if (!mounted) return;
+    if (res['isSuccess'] != true) {
+      // Bảng giá lỗi không chặn bán hàng — dùng giá gốc SP
+      return;
+    }
+    if (res['data'] is! List) return;
+
+    final lists = (res['data'] as List)
+        .map((e) => PosPriceList.fromJson(e as Map<String, dynamic>))
+        .toList();
+    PosPriceList? defaultList;
+    for (final l in lists) {
+      if (l.isDefault) {
+        defaultList = l;
+        break;
+      }
+    }
+    defaultList ??= lists.isNotEmpty ? lists.first : null;
+
+    setState(() {
+      _priceLists = lists;
+      if (_tab.priceListId == null && defaultList != null) {
+        _tab.priceListId = defaultList.id;
+        _tab.priceListLabel = defaultList.name;
+      }
+    });
+
+    if (_tab.priceListId != null) {
+      await _ensurePriceOverrides(_tab.priceListId!);
+      if (mounted) _applyPriceListToCart();
+    }
+  }
+
+  Future<Map<String, double>> _ensurePriceOverrides(String priceListId) async {
+    final cached = _priceOverrideCache[priceListId];
+    if (cached != null) return cached;
+
+    final res = await _api.getPosPriceListResolvedPrices(priceListId);
+    final map = res['isSuccess'] == true && res['data'] is List
+        ? buildPosPriceOverrideMap(res['data'] as List)
+        : <String, double>{};
+    _priceOverrideCache[priceListId] = map;
+    return map;
+  }
+
+  void _applyPriceListToCart() {
+    final overrides = _currentPriceOverrides;
+    if (overrides.isEmpty) return;
+    for (final line in _tab.cart) {
+      final price = resolvePosPriceListPrice(
+        overrides,
+        productId: line.product.id,
+        variantId: line.variantId,
+        unitId: line.unitId,
+      );
+      if (price != null) {
+        line.unitPrice = price;
+        line.priceCtrl.text = price == price.roundToDouble()
+            ? price.toStringAsFixed(0)
+            : price.toStringAsFixed(2);
+      }
+      if (line.unitViews != null) {
+        line.unitViews = applyPosPriceListToViews(
+          line.unitViews!,
+          line.product,
+          overrides,
+        );
+      }
+    }
+  }
+
+  Future<void> _selectPriceList(PosPriceList list) async {
+    await _ensurePriceOverrides(list.id);
+    if (!mounted) return;
+    setState(() {
+      _tab.priceListId = list.id;
+      _tab.priceListLabel = list.name;
+      _applyPriceListToCart();
+    });
+  }
+
   _PosPaymentSource _sourceByKey(String key) {
     return _paymentSources.firstWhere(
       (s) => s.key == key,
@@ -440,6 +622,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
 
   @override
   void dispose() {
+    ScreenRefreshNotifier.posSellStockPatch.removeListener(_syncCartStockFromPatch);
     HardwareKeyboard.instance.removeHandler(_onKey);
     _tabScrollCtrl.dispose();
     _productSearchFocus.dispose();
@@ -465,23 +648,35 @@ class _PosSellScreenState extends State<PosSellScreen> {
 
   Future<void> _loadPrintSettings() async {
     final s = await PosSellPrintSettings.load();
-    if (mounted) setState(() => _printSettings = s);
+    final thermal = await PosThermalPrinterSettings.load();
+    if (mounted) {
+      setState(() {
+        _printSettings = s;
+        _thermalPrintSettings = thermal;
+      });
+      PosPrintConfigSession.instance.invalidate(warehouseTemplateOnly: true);
+      PosPrintConfigSession.instance.warmUp(
+        warehouseTemplateId: s.warehouseTemplateId,
+      );
+    }
   }
 
   Future<void> _loadStoreSettings() async {
     final s = await PosSellStoreSettings.load();
-    if (mounted) setState(() => _storeSettings = s);
-  }
-
-  Future<void> _ensurePosPrintTemplates() async {
-    await _api.getPosPrintTemplates(
-      documentType: PosPrintDocumentTypes.saleInvoice,
-    );
+    if (mounted) {
+      setState(() {
+        _storeSettings = s;
+        for (final t in _tabs) {
+          t.vatRate = s.defaultVatRate;
+        }
+      });
+    }
   }
 
   void _newTab() {
     setState(() {
       final tab = _SellInvoiceTab(id: _nextTabSeq++);
+      tab.vatRate = _storeSettings.defaultVatRate;
       tab.paymentLines.add(_SellPaymentLine(sourceKey: _PosPaymentSource.cashKey));
       _tabs.add(tab);
       _activeTab = _tabs.length - 1;
@@ -520,7 +715,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
     }
     if (_tabs.length <= 1) {
       setState(() {
-        _tab.reset();
+        _tab.reset(defaultVatRate: _storeSettings.defaultVatRate);
         _customerSuggestions = [];
         _syncPaidAmount();
       });
@@ -561,6 +756,44 @@ class _PosSellScreenState extends State<PosSellScreen> {
 
   double get _total => (_afterLineDiscount - _tab.discount).clamp(0, double.infinity);
 
+  double get _merchandiseAfterPromo =>
+      (_total - _tab.voucherDiscount - _tab.pointsDiscount).clamp(0, double.infinity);
+
+  List<PosSellTaxLine> get _taxLines => _tab.cart
+      .map((c) => PosSellTaxLine(
+            lineTotal: c.lineTotal,
+            vatRate: c.vatRate,
+            vatExempt: c.vatExempt,
+          ))
+      .toList();
+
+  double get _vatAmount {
+    final net = _storeSettings.taxMode == PosSellTaxMode.perItem ? _total : _merchandiseAfterPromo;
+    return PosSellTax.vatAmount(
+      mode: _storeSettings.taxMode,
+      netTotal: net,
+      orderVatRate: _tab.vatRate,
+      orderVatExempt: _tab.vatExempt,
+      lines: _taxLines,
+    );
+  }
+
+  double get _grandTotal {
+    if (_storeSettings.taxMode == PosSellTaxMode.perItem) {
+      final base = PosSellTax.grandTotal(
+        mode: _storeSettings.taxMode,
+        netTotal: _total,
+        vatAmount: _vatAmount,
+      );
+      return (base - _tab.voucherDiscount - _tab.pointsDiscount).clamp(0, double.infinity);
+    }
+    return PosSellTax.grandTotal(
+      mode: _storeSettings.taxMode,
+      netTotal: _merchandiseAfterPromo,
+      vatAmount: _vatAmount,
+    );
+  }
+
   double get _effectivePaidAmount {
     if (_tab.paymentLines.isNotEmpty) {
       return _tab.paymentLines.fold(0.0, (a, p) => a + p.amount);
@@ -571,10 +804,10 @@ class _PosSellScreenState extends State<PosSellScreen> {
   }
 
   double get _changeAmount =>
-      (_effectivePaidAmount - _total).clamp(0, double.infinity);
+      (_effectivePaidAmount - _grandTotal).clamp(0, double.infinity);
 
   double get _dueAmount =>
-      (_total - _effectivePaidAmount).clamp(0, double.infinity);
+      (_grandTotal - _effectivePaidAmount).clamp(0, double.infinity);
 
   static double _parseMoneyInput(String raw) {
     final cleaned = raw.replaceAll(RegExp(r'[^\d]'), '');
@@ -582,11 +815,129 @@ class _PosSellScreenState extends State<PosSellScreen> {
     return double.tryParse(cleaned) ?? 0;
   }
 
-  double get _vatAmount => 0;
+  void _notifyPaymentUi(VoidCallback? onMutate) {
+    if (onMutate != null) {
+      onMutate();
+    } else if (mounted) {
+      setState(() {});
+    }
+  }
+
+  double _cartQtyFor({
+    required String productId,
+    String? variantId,
+    String? unitId,
+  }) {
+    return _tab.cart
+        .where((l) =>
+            l.product.id == productId &&
+            l.variantId == variantId &&
+            l.unitId == unitId)
+        .fold(0.0, (a, l) => a + l.qty);
+  }
+
+  Map<String, double> _componentReservation({String? excludeProductId}) {
+    final lines = <CartLineForStock>[];
+    for (final l in _tab.cart) {
+      if (excludeProductId != null && l.product.id == excludeProductId) continue;
+      lines.add(
+        CartLineForStock(
+          productId: l.product.id,
+          productType: l.product.productType,
+          qty: l.qty,
+          comboLines: l.product.comboLines ?? const [],
+        ),
+      );
+    }
+    return buildComponentReservation(lines);
+  }
+
+  bool _validateStockQty(
+    PosProduct p,
+    PosProductUnitView view,
+    double requiredQty, {
+    bool warnLow = true,
+  }) {
+    if (p.productType == PosProductType.service) {
+      return true;
+    }
+    if (p.productType == PosProductType.combo) {
+      final reserved = _componentReservation(excludeProductId: p.id);
+      final err = comboStockErrorMessage(
+        combo: p,
+        requiredComboQty: requiredQty,
+        componentReserved: reserved,
+      );
+      if (err != null) {
+        NotificationOverlayManager().showError(
+          title: 'Không đủ tồn combo',
+          message: err,
+        );
+        return false;
+      }
+      return true;
+    }
+    if (view.onHandQty < requiredQty) {
+      NotificationOverlayManager().showError(
+        title: view.onHandQty <= 0 ? 'Hết hàng' : 'Không đủ tồn',
+        message: '${p.name} (${view.label}): còn ${_qtyFmt.format(view.onHandQty)}, '
+            'cần ${_qtyFmt.format(requiredQty)}',
+      );
+      return false;
+    }
+    if (warnLow &&
+        p.minStockQty > 0 &&
+        view.onHandQty - requiredQty < p.minStockQty &&
+        view.onHandQty > 0) {
+      NotificationOverlayManager().showWarning(
+        title: 'Sắp hết hàng',
+        message:
+            '${p.name} sẽ còn ${_qtyFmt.format(view.onHandQty - requiredQty)} sau khi bán',
+      );
+    }
+    return true;
+  }
+
+  bool _validateStockForAdd(
+    PosProduct p,
+    PosProductUnitView view, {
+    required double addQty,
+  }) {
+    final inCart = _cartQtyFor(
+      productId: p.id,
+      variantId: view.variantId,
+      unitId: view.unitId,
+    );
+    return _validateStockQty(p, view, inCart + addQty);
+  }
+
+  bool _validateFullCartStock() {
+    final seen = <String>{};
+    for (final line in _tab.cart) {
+      final key = '${line.product.id}|${line.variantId}|${line.unitId}';
+      if (seen.contains(key)) continue;
+      seen.add(key);
+      final total = _cartQtyFor(
+        productId: line.product.id,
+        variantId: line.variantId,
+        unitId: line.unitId,
+      );
+      if (!_validateStockQty(
+        line.product,
+        line.activeView,
+        total,
+        warnLow: false,
+      )) {
+        return false;
+      }
+    }
+    return true;
+  }
 
   Future<void> _addPick(PosPurchaseLookupPick pick, {bool mergeIfSame = false}) async {
     final p = pick.product;
-    final views = await loadPosSellUnitViews(_api, p);
+    var views = await loadPosSellUnitViews(_api, p);
+    views = applyPosPriceListToViews(views, p, _currentPriceOverrides);
     if (!mounted || views.isEmpty) return;
 
     final view = pickUnitView(
@@ -597,13 +948,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
         ) ??
         views.first;
 
-    if (p.productType != PosProductType.combo && view.onHandQty <= 0) {
-      NotificationOverlayManager().showError(
-        title: 'Hết hàng',
-        message: '${p.name} (${view.label}) không còn tồn kho',
-      );
-      return;
-    }
+    if (!_validateStockForAdd(p, view, addQty: 1)) return;
 
     PosProductVariant? variant;
     if (view.variantId != null) {
@@ -617,6 +962,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
             l.variantId == view.variantId &&
             l.unitId == view.unitId);
         if (idx >= 0) {
+          if (!_validateStockForAdd(p, view, addQty: 1)) return;
           _tab.cart[idx].qty += 1;
           _syncPaidAmount();
           return;
@@ -634,13 +980,15 @@ class _PosSellScreenState extends State<PosSellScreen> {
         unitPrice: view.basePrice,
         unitViews: views,
         qty: 1,
+        vatRate: p.vatExempt ? 0 : p.vatRate,
+        vatExempt: p.vatExempt,
       ));
       _syncPaidAmount();
     });
     HapticFeedback.lightImpact();
   }
 
-  Future<void> _onBarcodeScanned(String code) async {
+  Future<void> _onBarcodeScanned(String code, {bool mergeIfSame = true}) async {
     final trimmed = code.trim();
     if (trimmed.isEmpty) return;
     final pick = await lookupOrPickPosProduct(context, _api, trimmed);
@@ -652,7 +1000,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
       );
       return;
     }
-    await _addPick(pick, mergeIfSame: true);
+    await _addPick(pick, mergeIfSame: mergeIfSame);
   }
 
   Future<void> _openNewProduct() async {
@@ -686,24 +1034,24 @@ class _PosSellScreenState extends State<PosSellScreen> {
       _tab.paymentLines.add(_SellPaymentLine(sourceKey: _PosPaymentSource.cashKey));
     }
     final first = _tab.paymentLines.first;
-    first.amount = _total;
-    first.amountCtrl.text = _moneyFmt.format(_total);
-    _tab.paidAmount = _total;
+    first.amount = _grandTotal;
+    first.amountCtrl.text = _moneyFmt.format(_grandTotal);
+    _tab.paidAmount = _grandTotal;
     _tab.paidManuallyEdited = false;
-    _tab._paidCtrl.text = _moneyFmt.format(_total);
+    _tab._paidCtrl.text = _moneyFmt.format(_grandTotal);
   }
 
   void _onDiscountInputChanged(String raw, {VoidCallback? onMutate}) {
     final v = _parseMoneyInput(raw);
     setState(() {
       _tab.discountInput = v;
-      _recalcTotals();
       if (!_tab.paidManuallyEdited && !_tab.paymentsManuallyEdited) {
-        _tab.paidAmount = _total;
-        _tab._paidCtrl.text = _moneyFmt.format(_total);
+        _syncPaidAmount();
+      } else {
+        _recalcTotals();
       }
     });
-    onMutate?.call();
+    _notifyPaymentUi(onMutate);
   }
 
   void _setDiscountMode(bool isPercent, {VoidCallback? onMutate}) {
@@ -712,13 +1060,13 @@ class _PosSellScreenState extends State<PosSellScreen> {
       _tab.discountIsPercent = isPercent;
       _tab.discountInput = 0;
       _tab._discountCtrl.text = '0';
-      _recalcTotals();
       if (!_tab.paidManuallyEdited && !_tab.paymentsManuallyEdited) {
-        _tab.paidAmount = _total;
-        _tab._paidCtrl.text = _moneyFmt.format(_total);
+        _syncPaidAmount();
+      } else {
+        _recalcTotals();
       }
     });
-    onMutate?.call();
+    _notifyPaymentUi(onMutate);
   }
 
   void _removeLine(int index) => setState(() {
@@ -732,19 +1080,37 @@ class _PosSellScreenState extends State<PosSellScreen> {
       });
 
   void _adjustQty(_SellCartLine line, double delta) {
-    setState(() {
-      final next = line.qty + delta;
-      if (next <= 0) {
+    final next = line.qty + delta;
+    if (next <= 0) {
+      setState(() {
         line.dispose();
         if (_expandedCartRowId == line.rowId) {
           _expandedCartRowId = null;
           _expandedCartMode = null;
         }
         _tab.cart.remove(line);
-      } else if (line.product.productType != PosProductType.combo && next > line.maxQty) {
+        _syncPaidAmount();
+      });
+      return;
+    }
+    if (delta > 0) {
+      final others = _cartQtyFor(
+            productId: line.product.id,
+            variantId: line.variantId,
+            unitId: line.unitId,
+          ) -
+          line.qty;
+      if (!_validateStockQty(line.product, line.activeView, others + next)) {
         return;
-      } else {
-        line.qty = next;
+      }
+    } else if (line.product.productType == PosProductType.goods &&
+        next > line.maxQty) {
+      return;
+    }
+    setState(() {
+      line.qty = next;
+      if (line.warehouseSlipPrintedQty > next) {
+        line.warehouseSlipPrintedQty = next;
       }
       _syncPaidAmount();
     });
@@ -774,6 +1140,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
       line.variantId = fresh.variantId;
       line.unitId = fresh.unitId;
       line.variant = variant;
+      line.warehouseSlipPrintedQty = 0;
       if (!line.discountIsPercent && line.discountInput > line.lineGross) {
         line.discountInput = 0;
       }
@@ -791,33 +1158,35 @@ class _PosSellScreenState extends State<PosSellScreen> {
     _syncPaidAmount();
   }
 
-  void _applyOrderDiscountPreset(double percent) {
+  void _applyOrderDiscountPreset(double percent, {VoidCallback? onMutate}) {
     setState(() {
       _tab.discountIsPercent = true;
       _tab.discountInput = percent;
       _tab._discountCtrl.text = percent % 1 == 0
           ? percent.toStringAsFixed(0)
           : percent.toStringAsFixed(2);
-      _recalcTotals();
       if (!_tab.paidManuallyEdited && !_tab.paymentsManuallyEdited) {
-        _tab.paidAmount = _total;
-        _tab._paidCtrl.text = _moneyFmt.format(_total);
+        _syncPaidAmount();
+      } else {
+        _recalcTotals();
       }
     });
+    _notifyPaymentUi(onMutate);
   }
 
-  void _applyOrderDiscountAmountPreset(double amount) {
+  void _applyOrderDiscountAmountPreset(double amount, {VoidCallback? onMutate}) {
     setState(() {
       _tab.discountIsPercent = false;
       final capped = amount.clamp(0, _afterLineDiscount).toDouble();
       _tab.discountInput = capped;
       _tab._discountCtrl.text = _moneyFmt.format(capped);
-      _recalcTotals();
       if (!_tab.paidManuallyEdited && !_tab.paymentsManuallyEdited) {
-        _tab.paidAmount = _total;
-        _tab._paidCtrl.text = _moneyFmt.format(_total);
+        _syncPaidAmount();
+      } else {
+        _recalcTotals();
       }
     });
+    _notifyPaymentUi(onMutate);
   }
 
   void _applyLineDiscountPreset(_SellCartLine line, double percent) {
@@ -884,6 +1253,9 @@ class _PosSellScreenState extends State<PosSellScreen> {
       _tab.customer = c;
       _tab._customerSearchCtrl.text = c.name;
       _customerSuggestions = [];
+      _tab.pointsToRedeem = 0;
+      _tab.pointsDiscount = 0;
+      _tab._pointsCtrl.clear();
       if (_sellMode == _SellMode.delivery) {
         if (c.phone != null && c.phone!.isNotEmpty) {
           _tab.deliveryPhone = c.phone;
@@ -897,11 +1269,137 @@ class _PosSellScreenState extends State<PosSellScreen> {
     });
   }
 
+  Future<void> _applyVoucher({VoidCallback? onMutate}) async {
+    final code = _tab._voucherCtrl.text.trim();
+    if (code.isEmpty) {
+      setState(() {
+        _tab.voucherCode = null;
+        _tab.voucherDiscount = 0;
+        _tab.voucherName = null;
+      });
+      _syncPaidAmount();
+      _notifyPaymentUi(onMutate);
+      return;
+    }
+    setState(() => _tab._voucherValidating = true);
+    try {
+      final res = await _api.validatePosVoucher(
+        code: code,
+        orderAmount: _total,
+        customerId: _tab.customer?.id,
+      );
+      if (!mounted) return;
+      if (res['isSuccess'] != true || res['data'] is! Map) {
+        NotificationOverlayManager().showError(
+          title: 'Voucher',
+          message: res['message']?.toString() ?? 'Không kiểm tra được mã',
+        );
+        return;
+      }
+      final data = res['data'] as Map<String, dynamic>;
+      if (data['valid'] != true) {
+        setState(() {
+          _tab.voucherCode = null;
+          _tab.voucherDiscount = 0;
+          _tab.voucherName = null;
+        });
+        NotificationOverlayManager().showError(
+          title: 'Voucher không hợp lệ',
+          message: data['message']?.toString() ?? '',
+        );
+        return;
+      }
+      final discount = (data['discountAmount'] is num)
+          ? (data['discountAmount'] as num).toDouble()
+          : double.tryParse('${data['discountAmount']}') ?? 0;
+      setState(() {
+        _tab.voucherCode = code.toUpperCase();
+        _tab.voucherDiscount = discount;
+        _tab.voucherName = data['name']?.toString();
+      });
+      _recalcPointsDiscount(onMutate: onMutate);
+      _syncPaidAmount();
+      _notifyPaymentUi(onMutate);
+      NotificationOverlayManager().showSuccess(
+        title: 'Voucher',
+        message: 'Giảm ${_moneyFmt.format(discount)} đ',
+      );
+    } finally {
+      if (mounted) setState(() => _tab._voucherValidating = false);
+    }
+  }
+
+  void _recalcPointsDiscount({VoidCallback? onMutate}) {
+    const pointValue = 100.0;
+    final maxBase = (_total - _tab.voucherDiscount).clamp(0, double.infinity);
+    var points = double.tryParse(_tab._pointsCtrl.text.replaceAll(',', '')) ?? 0;
+    if (points <= 0 || _tab.customer == null) {
+      _tab.pointsToRedeem = 0;
+      _tab.pointsDiscount = 0;
+      return;
+    }
+    if (points > _tab.customer!.pointBalance) {
+      points = _tab.customer!.pointBalance;
+      _tab._pointsCtrl.text = points == points.roundToDouble()
+          ? points.toStringAsFixed(0)
+          : points.toString();
+    }
+    var discount = points * pointValue;
+    if (discount > maxBase) {
+      points = (maxBase / pointValue).floorToDouble();
+      discount = points * pointValue;
+      _tab._pointsCtrl.text = points.toStringAsFixed(0);
+    }
+    _tab.pointsToRedeem = points;
+    _tab.pointsDiscount = discount;
+    _notifyPaymentUi(onMutate);
+  }
+
+  Future<bool> _collectSerialsBeforeCheckout() async {
+    final needsSerial = _tab.cart
+        .where((c) => c.product.needsSerialCapture)
+        .toList();
+    if (needsSerial.isEmpty) return true;
+
+    for (final line in needsSerial) {
+      if (line.qty != line.qty.roundToDouble()) {
+        NotificationOverlayManager().showError(
+          title: 'Seri máy',
+          message: 'Số lượng phải là số nguyên: ${line.product.name}',
+        );
+        return false;
+      }
+    }
+
+    final captured = await showPosSerialCaptureDialog(
+      context,
+      lines: needsSerial
+          .map(
+            (c) => (
+              rowId: c.rowId,
+              product: c.product,
+              displayName: c.product.name,
+              qty: c.qty,
+            ),
+          )
+          .toList(),
+    );
+    if (captured == null) return false;
+
+    for (final line in needsSerial) {
+      final data = captured[line.rowId];
+      if (data == null) continue;
+      line.serialNumbers = List<String>.from(data.serials);
+      line.serialImeis = List<String>.from(data.imeis);
+    }
+    return true;
+  }
+
   Future<void> _checkout() async {
-    if (_tab.cart.isEmpty) return;
+    if (_checkingOut || _tab.cart.isEmpty) return;
 
     final paid = _effectivePaidAmount;
-    final due = (_total - paid).clamp(0, double.infinity);
+    final due = (_grandTotal - paid).clamp(0, double.infinity);
     if (due > 0 && _tab.customer == null) {
       NotificationOverlayManager().showError(
         title: 'Thiếu khách hàng',
@@ -910,121 +1408,464 @@ class _PosSellScreenState extends State<PosSellScreen> {
       return;
     }
 
+    const complete = true;
+    if (!_validateFullCartStock()) return;
+
+    if (!await _collectSerialsBeforeCheckout()) return;
+
     setState(() => _checkingOut = true);
+    try {
+      final body = <String, dynamic>{
+        'lines': _tab.cart
+            .map((c) => {
+                  'productId': c.product.id,
+                  if (c.variantId != null) 'variantId': c.variantId,
+                  if (c.unitId != null) 'unitId': c.unitId,
+                  'qty': c.qty,
+                  'unitPrice': c.unitPrice,
+                  if (c.discountAmount > 0) 'discountAmount': c.discountAmount,
+                  if (c.lineNote != null && c.lineNote!.isNotEmpty) 'lineNote': c.lineNote,
+                  if (c.serialNumbers.isNotEmpty) 'serialNumbers': c.serialNumbers,
+                  if (c.serialImeis.any((e) => e.trim().isNotEmpty)) 'serialImeis': c.serialImeis,
+                })
+            .toList(),
+        'discount': _tab.discount,
+        'paidAmount': paid,
+        'paymentMethod': _tab.paymentLines.length == 1
+            ? _sourceByKey(_tab.paymentLines.first.sourceKey).methodLabel
+            : _tab.paymentLines
+                .where((p) => p.amount > 0)
+                .map((p) => _sourceByKey(p.sourceKey).methodLabel)
+                .join(' + '),
+        'payments': _tab.paymentLines
+            .where((p) => p.amount > 0)
+            .map((p) {
+              final src = _sourceByKey(p.sourceKey);
+              return {
+                'amount': p.amount,
+                'paymentMethod': src.methodLabel,
+                if (src.bankAccountId != null) 'bankAccountId': src.bankAccountId,
+              };
+            })
+            .toList(),
+        'note': _tab.note,
+        'complete': complete,
+        'isDelivery': _sellMode == _SellMode.delivery,
+        if (_sellMode == _SellMode.delivery) ...{
+          if (_tab.deliveryAddress != null && _tab.deliveryAddress!.isNotEmpty)
+            'deliveryAddress': _tab.deliveryAddress,
+          if (_tab.deliveryPhone != null && _tab.deliveryPhone!.isNotEmpty)
+            'deliveryPhone': _tab.deliveryPhone,
+          if (_tab.deliveryPartner != null && _tab.deliveryPartner!.isNotEmpty)
+            'deliveryPartner': _tab.deliveryPartner,
+        },
+        if (_tab.customer != null) ...{
+          'customerId': _tab.customer!.id,
+          'customerName': _tab.customer!.name,
+        },
+        if ((_tab.sellerEmployeeId ?? _defaultSellerEmployeeId) != null)
+          'soldByEmployeeId': _tab.sellerEmployeeId ?? _defaultSellerEmployeeId,
+        'salesChannel': _sellMode == _SellMode.delivery
+            ? 'Bán giao hàng'
+            : _sellMode == _SellMode.normal
+                ? 'Bán thường'
+                : 'Bán nhanh',
+        if (_tab.priceListId != null) 'priceListId': _tab.priceListId,
+        if (_tab.priceListLabel.isNotEmpty) 'priceListName': _tab.priceListLabel,
+        if (_tab.voucherCode != null && _tab.voucherCode!.isNotEmpty)
+          'voucherCode': _tab.voucherCode,
+        if (_tab.pointsToRedeem > 0) 'pointsToRedeem': _tab.pointsToRedeem,
+      };
 
-    final complete = _sellMode != _SellMode.normal;
-    final body = <String, dynamic>{
-      'lines': _tab.cart
-          .map((c) => {
-                'productId': c.product.id,
-                if (c.variantId != null) 'variantId': c.variantId,
-                if (c.unitId != null) 'unitId': c.unitId,
-                'qty': c.qty,
-                'unitPrice': c.unitPrice,
-                if (c.discountAmount > 0) 'discountAmount': c.discountAmount,
-                if (c.lineNote != null && c.lineNote!.isNotEmpty) 'lineNote': c.lineNote,
-              })
-          .toList(),
-      'discount': _tab.discount,
-      'paidAmount': paid > 0 ? paid : _total,
-      'paymentMethod': _tab.paymentLines.length == 1
-          ? _sourceByKey(_tab.paymentLines.first.sourceKey).methodLabel
-          : _tab.paymentLines
-              .where((p) => p.amount > 0)
-              .map((p) => _sourceByKey(p.sourceKey).methodLabel)
-              .join(' + '),
-      'payments': _tab.paymentLines
-          .where((p) => p.amount > 0)
-          .map((p) {
-            final src = _sourceByKey(p.sourceKey);
-            return {
-              'amount': p.amount,
-              'paymentMethod': src.methodLabel,
-              if (src.bankAccountId != null) 'bankAccountId': src.bankAccountId,
-            };
-          })
-          .toList(),
-      'note': _tab.note,
-      'complete': complete,
-      'isDelivery': _sellMode == _SellMode.delivery,
-      if (_sellMode == _SellMode.delivery) ...{
-        if (_tab.deliveryAddress != null && _tab.deliveryAddress!.isNotEmpty)
-          'deliveryAddress': _tab.deliveryAddress,
-        if (_tab.deliveryPhone != null && _tab.deliveryPhone!.isNotEmpty)
-          'deliveryPhone': _tab.deliveryPhone,
-        if (_tab.deliveryPartner != null && _tab.deliveryPartner!.isNotEmpty)
-          'deliveryPartner': _tab.deliveryPartner,
-      },
-      if (_tab.customer != null) ...{
-        'customerId': _tab.customer!.id,
-        'customerName': _tab.customer!.name,
-      },
-      if ((_tab.sellerEmployeeId ?? _defaultSellerEmployeeId) != null)
-        'soldByEmployeeId': _tab.sellerEmployeeId ?? _defaultSellerEmployeeId,
-      'salesChannel': _sellMode == _SellMode.delivery
-          ? 'Bán giao hàng'
-          : _sellMode == _SellMode.normal
-              ? 'Bán thường'
-              : 'Bán nhanh',
-    };
+      final res = await _api.createPosSale(body);
+      if (!mounted) return;
 
-    final res = await _api.createPosSale(body);
-    if (!mounted) return;
-    setState(() => _checkingOut = false);
+      if (res['isSuccess'] != true) {
+        NotificationOverlayManager().showError(
+          title: 'Lỗi',
+          message: res['message']?.toString() ?? 'Thanh toán thất bại',
+        );
+        return;
+      }
 
-    if (res['isSuccess'] != true) {
-      NotificationOverlayManager().showError(
-        title: 'Lỗi',
-        message: res['message']?.toString() ?? 'Thanh toán thất bại',
+      final data = res['data'] as Map<String, dynamic>?;
+      final orderId = data?['id']?.toString();
+      final orderNo = data?['orderNo']?.toString() ?? '';
+
+      NotificationOverlayManager().showSuccess(
+        title: 'Thanh toán thành công',
+        message: 'Mã đơn: $orderNo',
       );
-      return;
+
+      final soldLines = _cartStockLinesFromCart();
+      final alreadySentToWarehouse = _warehouseAlreadyPrintedMap();
+
+      setState(() {
+        _tab.reset(defaultVatRate: _storeSettings.defaultVatRate);
+        _tab.sellerEmployeeId = _defaultSellerEmployeeId;
+        _syncPaidAmount();
+      });
+
+      _patchLocalStock(soldLines);
+      ScreenRefreshNotifier.refreshPosAfterStockChange(reloadSellCatalog: false);
+
+      if (orderId != null && _printSettings.autoPrint) {
+        await _maybePrintOrder(orderId);
+      }
+      if (orderId != null &&
+          _printSettings.warehousePrintMode == PosWarehousePrintMode.auto) {
+        await _maybePrintWarehouseSlip(
+          orderId,
+          alreadyPrinted: alreadySentToWarehouse,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _checkingOut = false);
     }
+  }
 
-    final data = res['data'] as Map<String, dynamic>?;
-    final orderId = data?['id']?.toString();
-    final orderNo = data?['orderNo']?.toString() ?? '';
-
-    NotificationOverlayManager().showSuccess(
-      title: complete ? 'Thanh toán thành công' : 'Đã lưu đơn tạm',
-      message: 'Mã đơn: $orderNo',
-    );
-
-    if (orderId != null && _printSettings.autoPrint) {
-      await _maybePrintOrder(orderId);
-    }
-
-    if (_sellMode == _SellMode.normal && orderId != null) {
-      await Navigator.of(context).push<void>(
-        MaterialPageRoute(
-          builder: (_) => PosSaleOrderEditorScreen(orderId: orderId),
+  List<PosSellStockLineDelta> _cartStockLinesFromCart() {
+    final raw = <PosSellStockLineDelta>[];
+    for (final l in _tab.cart) {
+      if (l.product.productType == PosProductType.service) continue;
+      if (l.product.productType == PosProductType.combo) {
+        for (final cl in l.product.comboLines ?? const <PosComboLine>[]) {
+          raw.add(
+            PosSellStockLineDelta(
+              productId: cl.componentProductId,
+              qty: cl.qty * l.qty,
+            ),
+          );
+        }
+        continue;
+      }
+      raw.add(
+        PosSellStockLineDelta(
+          productId: l.product.id,
+          variantId: l.variantId,
+          qty: l.qty,
         ),
       );
     }
+    return mergeStockLineDeltas(raw);
+  }
 
+  void _patchLocalStock(List<PosSellStockLineDelta> lines) {
+    if (lines.isEmpty) return;
+    _productGridKey.currentState?.applyStockLinePatches(lines);
+    if (!mounted) return;
     setState(() {
-      _tab.reset();
-      _tab.sellerEmployeeId = _defaultSellerEmployeeId;
-      _syncPaidAmount();
+      for (final line in _tab.cart) {
+        line.product = applyPosSellStockLines(line.product, lines);
+        line.unitViews = buildPosSellUnitViewsFromProduct(line.product);
+      }
     });
   }
 
-  Future<void> _maybePrintOrder(String orderId) async {
-    final res = await _api.getPosSale(orderId);
-    if (!mounted || res['isSuccess'] != true || res['data'] is! Map) return;
-    final order = PosSaleOrder.fromJson(res['data'] as Map<String, dynamic>);
-    await printPosSaleOrder(
-      context: context,
-      order: order,
-      branchName: _storeSettings.storeName.isNotEmpty ? _storeSettings.storeName : null,
-      storeAddress: _storeSettings.address.isNotEmpty ? _storeSettings.address : null,
-      storePhone: _storeSettings.phone.isNotEmpty ? _storeSettings.phone : null,
-      mergeSameItems: _printSettings.mergeSameItems,
-      copies: _printSettings.copies,
-      templateId: _printSettings.templateId,
+  void _syncCartStockFromPatch() {
+    final lines = ScreenRefreshNotifier.posSellStockPatch.value;
+    if (lines == null || lines.isEmpty || !mounted) return;
+    setState(() {
+      for (final line in _tab.cart) {
+        line.product = applyPosSellStockLines(line.product, lines);
+        line.unitViews = buildPosSellUnitViewsFromProduct(line.product);
+      }
+    });
+  }
+
+  double _warehouseSlipPendingQty(_SellCartLine line) =>
+      (line.qty - line.warehouseSlipPrintedQty).clamp(0.0, double.infinity);
+
+  bool _hasWarehouseSlipPending() =>
+      _tab.cart.any((l) => _warehouseSlipPendingQty(l) > 0);
+
+  int _warehouseSlipPendingLineCount() =>
+      _tab.cart.where((l) => _warehouseSlipPendingQty(l) > 0).length;
+
+  List<PosSaleOrderLine> _warehouseSlipPendingLinesFromCart() {
+    final lines = <PosSaleOrderLine>[];
+    for (final l in _tab.cart) {
+      final pending = _warehouseSlipPendingQty(l);
+      if (pending <= 0) continue;
+      if (l.product.productType == PosProductType.combo) {
+        lines.addAll(
+          expandComboToWarehouseLines(
+            combo: l.product,
+            comboQty: pending,
+            lineNote: l.lineNote,
+          ),
+        );
+        continue;
+      }
+      lines.add(
+        PosSaleOrderLine(
+          productId: l.product.id,
+          variantId: l.variantId,
+          productName: l.product.name,
+          unitName: l.unitLabel,
+          qty: pending,
+          unitPrice: l.unitPrice,
+          lineNote: l.lineNote,
+        ),
+      );
+    }
+    return lines;
+  }
+
+  Map<String, double> _warehouseAlreadyPrintedMap() {
+    final map = <String, double>{};
+    for (final line in _tab.cart) {
+      if (line.warehouseSlipPrintedQty <= 0) continue;
+      final key = '${line.product.id}|${line.variantId ?? ''}';
+      map[key] = (map[key] ?? 0) + line.warehouseSlipPrintedQty;
+    }
+    return map;
+  }
+
+  void _markWarehouseSlipPrintedLines(List<PosSaleOrderLine> printedLines) {
+    for (final pl in printedLines) {
+      for (final cartLine in _tab.cart) {
+        if (cartLine.product.id != pl.productId) continue;
+        if ((cartLine.variantId ?? '') != (pl.variantId ?? '')) continue;
+        cartLine.warehouseSlipPrintedQty =
+            (cartLine.warehouseSlipPrintedQty + pl.qty).clamp(0, cartLine.qty);
+        break;
+      }
+    }
+  }
+
+  void _enqueueFailedWarehousePrints(
+    WarehouseSlipPrintResult result,
+    PosSaleOrder order,
+  ) {
+    final jobs = result.toPendingJobs(order: order, tabId: _tab.id);
+    if (jobs.isEmpty) return;
+    setState(() {
+      for (final job in jobs) {
+        _failedWarehousePrints.removeWhere((j) => j.id == job.id);
+        _failedWarehousePrints.insert(0, job);
+      }
+    });
+  }
+
+  void _removeFailedWarehouseJob(PendingWarehousePrintJob job) {
+    setState(() => _failedWarehousePrints.removeWhere((j) => j.id == job.id));
+  }
+
+  void _clearFailedWarehouseJobsForTab(int tabId) {
+    setState(
+      () => _failedWarehousePrints.removeWhere((j) => j.tabId == tabId),
     );
   }
 
+  void _applyWarehousePrintResult({
+    required WarehouseSlipPrintResult result,
+    required PosSaleOrder order,
+    required int lineCount,
+    required String successTitle,
+  }) {
+    if (result.anySuccess) {
+      setState(() => _markWarehouseSlipPrintedLines(result.printedLines));
+    }
+    if (result.hasFailures) {
+      _enqueueFailedWarehousePrints(result, order);
+    }
+    if (result.anySuccess && !result.hasFailures) {
+      NotificationOverlayManager().showSuccess(
+        title: successTitle,
+        message: result.summaryMessage(lineCount: lineCount),
+      );
+    } else if (result.anySuccess && result.hasFailures) {
+      NotificationOverlayManager().showWarning(
+        title: 'In kho một phần',
+        message: result.summaryMessage(lineCount: lineCount),
+      );
+    } else if (result.noPrinterLines.isNotEmpty && result.failCount == 0) {
+      NotificationOverlayManager().showWarning(
+        title: 'Không in được phiếu xuất kho',
+        message: result.summaryMessage(lineCount: lineCount),
+      );
+    } else if (result.failCount > 0) {
+      NotificationOverlayManager().showError(
+        title: 'In kho thất bại',
+        message: result.summaryMessage(lineCount: lineCount),
+      );
+    } else {
+      NotificationOverlayManager().showWarning(
+        title: 'Không in được phiếu xuất kho',
+        message: 'Kiểm tra máy in, Print Agent hoặc gán SP → máy in kho',
+      );
+    }
+  }
+
+  String? get _warehouseBranchName =>
+      _storeSettings.storeName.isNotEmpty ? _storeSettings.storeName : null;
+
+  String? get _warehouseStoreAddress =>
+      _storeSettings.address.isNotEmpty ? _storeSettings.address : null;
+
+  String? get _warehouseStorePhone =>
+      _storeSettings.phone.isNotEmpty ? _storeSettings.phone : null;
+
+  Future<void> _openPendingPrintQueue() async {
+    if (_failedWarehousePrints.isEmpty) {
+      NotificationOverlayManager().showInfo(
+        title: 'Không có phiếu treo',
+        message: 'Tất cả phiếu xuất kho đã in thành công',
+      );
+      return;
+    }
+    await showPendingWarehousePrintSheet(
+      context: context,
+      jobs: List.unmodifiable(_failedWarehousePrints),
+      printers: PosPrintOrchestrator.instance.printers,
+      onDismiss: _removeFailedWarehouseJob,
+      onDismissAll: () {
+        setState(() => _failedWarehousePrints.clear());
+        if (mounted) Navigator.pop(context);
+      },
+      onRetry: (job, method, {overridePrinterId}) async {
+        final result = await printWarehouseSlipWithMethod(
+          context: context,
+          order: job.order,
+          method: method,
+          branchName: _warehouseBranchName,
+          storeAddress: _warehouseStoreAddress,
+          storePhone: _warehouseStorePhone,
+          templateId: _printSettings.warehouseTemplateId,
+          overridePrinterId: overridePrinterId ?? job.printerId,
+        );
+        if (!mounted) return result;
+        if (result.anySuccess) {
+          _markWarehouseSlipPrintedLines(result.printedLines);
+          if (!result.hasFailures) {
+            _removeFailedWarehouseJob(job);
+          } else {
+            _enqueueFailedWarehousePrints(result, job.order);
+          }
+        }
+        return result;
+      },
+    );
+    if (mounted) setState(() {});
+  }
+
+  void _onWarehouseSlipButtonTap() {
+    if (_warehousePrinting || _checkingOut) return;
+    if (!_hasWarehouseSlipPending()) {
+      NotificationOverlayManager().showInfo(
+        title: 'Đã báo kho',
+        message: _tab.cart.isEmpty
+            ? 'Giỏ hàng trống'
+            : 'Tất cả hàng trong giỏ đã gửi kho. Thêm hàng mới để in tiếp.',
+      );
+      return;
+    }
+    _printWarehouseSlipFromCart();
+  }
+
+  Future<void> _printWarehouseSlipFromCart() async {
+    final pendingLines = _warehouseSlipPendingLinesFromCart();
+    if (pendingLines.isEmpty || _warehousePrinting || _checkingOut) return;
+    setState(() => _warehousePrinting = true);
+    try {
+      final order = buildWarehouseSlipOrderFromCart(
+        lines: pendingLines,
+        note: _tab.note,
+        customerName: _tab.customer?.name,
+      );
+      final result = await printWarehouseSlipForOrder(
+        order: order,
+        branchName: _warehouseBranchName,
+        storeAddress: _warehouseStoreAddress,
+        storePhone: _warehouseStorePhone,
+        templateId: _printSettings.warehouseTemplateId,
+      );
+      if (!mounted) return;
+      _applyWarehousePrintResult(
+        result: result,
+        order: order,
+        lineCount: pendingLines.length,
+        successTitle: 'Đã gửi kho',
+      );
+    } finally {
+      if (mounted) setState(() => _warehousePrinting = false);
+    }
+  }
+
+  Future<void> _maybePrintWarehouseSlip(
+    String orderId, {
+    Map<String, double> alreadyPrinted = const {},
+  }) async {
+    if (orderId.isEmpty) return;
+    final res = await _api.getPosSale(orderId);
+    if (!mounted || res['isSuccess'] != true || res['data'] is! Map) return;
+    var order = PosSaleOrder.fromJson(res['data'] as Map<String, dynamic>);
+    order = filterWarehouseSlipOrder(order, alreadyPrinted);
+    if (order.lines.isEmpty) return;
+
+    final result = await printWarehouseSlipForOrder(
+      order: order,
+      branchName: _warehouseBranchName,
+      storeAddress: _warehouseStoreAddress,
+      storePhone: _warehouseStorePhone,
+      templateId: _printSettings.warehouseTemplateId,
+    );
+    if (!mounted) return;
+    _applyWarehousePrintResult(
+      result: result,
+      order: order,
+      lineCount: order.lines.length,
+      successTitle: 'Đã gửi kho',
+    );
+  }
+
+  Future<void> _maybePrintOrder(String orderId) async {
+    if (orderId.isEmpty || _checkoutPrintGuard.contains(orderId)) return;
+    _checkoutPrintGuard.add(orderId);
+    try {
+      final res = await _api.getPosSale(orderId);
+      if (!mounted || res['isSuccess'] != true || res['data'] is! Map) return;
+      final order = PosSaleOrder.fromJson(res['data'] as Map<String, dynamic>);
+      await printPosSaleOrder(
+        context: context,
+        order: order,
+        branchName: _storeSettings.storeName.isNotEmpty ? _storeSettings.storeName : null,
+        storeAddress: _storeSettings.address.isNotEmpty ? _storeSettings.address : null,
+        storePhone: _storeSettings.phone.isNotEmpty ? _storeSettings.phone : null,
+        mergeSameItems: _printSettings.mergeSameItems,
+        copies: _printSettings.copies,
+        templateId: _printSettings.templateId,
+        vietQrImageUrl: _buildVietQrImageUrlForOrder(order),
+      );
+    } finally {
+      _checkoutPrintGuard.remove(orderId);
+    }
+  }
+
   Future<void> _openPrintSettings() async {
+    if (Responsive.isMobile(context)) {
+      final result = await Navigator.of(context)
+          .push<(PosSellPrintSettings, PosThermalPrinterSettings)>(
+        MaterialPageRoute(
+          builder: (_) => PosSellMobilePrintSettingsScreen(
+            initialPrintSettings: _printSettings,
+            initialThermalSettings: _thermalPrintSettings,
+          ),
+        ),
+      );
+      if (result != null && mounted) {
+        setState(() {
+          _printSettings = result.$1;
+          _thermalPrintSettings = result.$2;
+        });
+        PosPrintConfigSession.instance.invalidate(warehouseTemplateOnly: true);
+        PosPrintConfigSession.instance.warmUp(
+          warehouseTemplateId: result.$1.warehouseTemplateId,
+        );
+      }
+      return;
+    }
     final box = _printBtnKey.currentContext?.findRenderObject() as RenderBox?;
     final screen = MediaQuery.sizeOf(context);
     final offset = box != null
@@ -1038,7 +1879,13 @@ class _PosSellScreenState extends State<PosSellScreen> {
         offset.dy + (box?.size.height ?? 40),
       ),
     );
-    if (updated != null && mounted) setState(() => _printSettings = updated);
+    if (updated != null && mounted) {
+      setState(() => _printSettings = updated);
+      PosPrintConfigSession.instance.invalidate(warehouseTemplateOnly: true);
+      PosPrintConfigSession.instance.warmUp(
+        warehouseTemplateId: updated.warehouseTemplateId,
+      );
+    }
   }
 
   Future<void> _openStoreSettings() async {
@@ -1048,7 +1895,83 @@ class _PosSellScreenState extends State<PosSellScreen> {
     );
     if (updated == null || !mounted) return;
     await updated.save();
-    setState(() => _storeSettings = updated);
+    setState(() {
+      _storeSettings = updated;
+      for (final t in _tabs) {
+        t.vatRate = updated.defaultVatRate;
+        t.vatExempt = false;
+      }
+      _syncPaidAmount();
+    });
+    await _loadPaymentSources();
+  }
+
+  double get _vietQrAmount =>
+      _dueAmount > 0 ? _dueAmount : _grandTotal;
+
+  String get _vietQrTransferNote =>
+      PosVietQrHelper.transferNote(prefix: 'POS');
+
+  Widget _buildVietQrPaymentSection({
+    bool compact = false,
+    VoidCallback? onMutate,
+  }) {
+    if (!_storeSettings.showVietQrAtPayment ||
+        _bankAccounts.isEmpty ||
+        _vietQrAmount <= 0) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 10),
+        PosVietQrPaymentPanel(
+          accounts: _bankAccounts,
+          amount: _vietQrAmount,
+          preferredAccountId: _storeSettings.vietQrBankAccountId,
+          description: _vietQrTransferNote,
+          compact: compact,
+        ),
+        const SizedBox(height: 6),
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton.icon(
+            onPressed: () {
+              showPosVietQrPaymentDialog(
+                context,
+                accounts: _bankAccounts,
+                amount: _vietQrAmount,
+                preferredAccountId: _storeSettings.vietQrBankAccountId,
+                description: _vietQrTransferNote,
+              ).then((_) => onMutate?.call());
+            },
+            icon: const Icon(Icons.qr_code_scanner, size: 18),
+            label: const Text('Phóng to mã QR'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  String? _buildVietQrImageUrlForOrder(PosSaleOrder order) {
+    if (!_printSettings.printVietQrOnReceipt || _bankAccounts.isEmpty) {
+      return null;
+    }
+    final account = PosVietQrHelper.resolveAccount(
+      _bankAccounts,
+      preferredId: _storeSettings.vietQrBankAccountId,
+    );
+    if (account == null) return null;
+    final amount = order.total > 0 ? order.total : order.paidAmount;
+    return PosVietQrHelper.qrImageUrl(
+      account: account,
+      amount: amount,
+      description: PosVietQrHelper.transferNote(
+        orderNo: order.orderNo,
+        prefix: 'POS',
+      ),
+    );
   }
 
   Future<void> _openPosMenu() async {
@@ -1102,6 +2025,16 @@ class _PosSellScreenState extends State<PosSellScreen> {
               dense: true,
               leading: Icon(Icons.analytics_outlined, size: 20),
               title: Text('Báo cáo doanh thu / tồn kho'),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+        if (canReturn)
+          const PopupMenuItem(
+            value: 'return_list',
+            child: ListTile(
+              dense: true,
+              leading: Icon(Icons.list_alt_outlined, size: 20),
+              title: Text('Danh sách trả hàng'),
               contentPadding: EdgeInsets.zero,
             ),
           ),
@@ -1162,6 +2095,10 @@ class _PosSellScreenState extends State<PosSellScreen> {
         await Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => const PosReportsScreen()),
         );
+      case 'return_list':
+        await Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const PosSaleReturnListScreen()),
+        );
       case 'pick_return':
         final order = await showPosPickSaleOrderDialog(context);
         if (!mounted || order == null) return;
@@ -1203,10 +2140,10 @@ class _PosSellScreenState extends State<PosSellScreen> {
       onBarcode: _onBarcodeScanned,
       child: Scaffold(
       backgroundColor: const Color(0xFFF3F4F6),
-      body: SafeArea(
-        bottom: false,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
+      body: Builder(
+        builder: (context) {
+          final body = LayoutBuilder(
+            builder: (context, constraints) {
             final wide = constraints.maxWidth >= 1024;
             final isMobile = Responsive.isMobile(context);
             final isNormal = _sellMode == _SellMode.normal;
@@ -1227,6 +2164,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
                                   child: PosSellProductGrid(
                                     key: _productGridKey,
                                     api: _api,
+                                    storeId: _storeId,
+                                    priceOverrides: _currentPriceOverrides,
                                     onPick: (pick) => _addPick(pick),
                                   ),
                                 ),
@@ -1258,6 +2197,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
                                   ? PosSellProductGrid(
                                       key: _productGridKey,
                                       api: _api,
+                                      storeId: _storeId,
+                                      priceOverrides: _currentPriceOverrides,
                                       onPick: (pick) => _addPick(pick),
                                     )
                                   : _buildCartPanel(showFooterTotal: false),
@@ -1280,7 +2221,10 @@ class _PosSellScreenState extends State<PosSellScreen> {
               ],
             );
           },
-        ),
+          );
+          if (PosHubScope.of(context)) return body;
+          return SafeArea(bottom: false, child: body);
+        },
       ),
     ),
     );
@@ -1352,6 +2296,10 @@ class _PosSellScreenState extends State<PosSellScreen> {
               tooltip: 'Thêm',
               icon: const Icon(Icons.menu, size: 24, color: Colors.white),
               onPressed: _openPosMenu,
+            ),
+            PosPendingPrintIconButton(
+              pendingCount: _failedWarehousePrints.length,
+              onTap: _openPendingPrintQueue,
             ),
             IconButton(
               key: _printBtnKey,
@@ -1621,11 +2569,11 @@ class _PosSellScreenState extends State<PosSellScreen> {
                               style: const TextStyle(
                                   fontSize: 10, color: PosTheme.textSecondary)),
                         Text(
-                          'Tồn: ${_qtyFmt.format(line.product.onHandQty)}',
+                          'Tồn: ${_qtyFmt.format(line.activeView.onHandQty)}',
                           maxLines: 1,
                           style: TextStyle(
                             fontSize: 10,
-                            color: line.product.onHandQty <= 0
+                            color: line.activeView.onHandQty <= 0
                                 ? Colors.red.shade700
                                 : PosTheme.textSecondary,
                           ),
@@ -1933,20 +2881,13 @@ class _PosSellScreenState extends State<PosSellScreen> {
               _KiotLayout.sidePadding,
               12,
             ),
-            child: FilledButton(
-              onPressed: _tab.cart.isEmpty || _checkingOut || !canPay ? null : _checkout,
-              style: FilledButton.styleFrom(
-                backgroundColor: _kiotBlue,
-                minimumSize: Size(double.infinity, compact ? 44 : 48),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-              ),
-              child: _checkingOut
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                    )
-                  : const Text('THANH TOÁN', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+            child: _buildCheckoutActions(
+              canPay: canPay,
+              busy: _checkingOut,
+              onComplete: _checkout,
+              height: compact ? 44 : 48,
+              radius: 6,
+              completeLabel: 'THANH TOÁN',
             ),
           ),
         ],
@@ -2024,6 +2965,9 @@ class _PosSellScreenState extends State<PosSellScreen> {
                               _tab.customer = null;
                               _tab._customerSearchCtrl.clear();
                               _customerSuggestions = [];
+                              _tab.pointsToRedeem = 0;
+                              _tab.pointsDiscount = 0;
+                              _tab._pointsCtrl.clear();
                             }),
                           )
                         : null,
@@ -2149,11 +3093,15 @@ class _PosSellScreenState extends State<PosSellScreen> {
         Padding(
           padding: const EdgeInsets.only(top: 6),
           child: _tab.discountIsPercent
-              ? buildPosDiscountPresetChips(onPickPercent: _applyOrderDiscountPreset)
+              ? buildPosDiscountPresetChips(
+                  onPickPercent: (p) =>
+                      _applyOrderDiscountPreset(p, onMutate: onMutate),
+                )
               : buildPosDiscountMoneyPresetChips(
                   moneyFmt: _moneyFmt,
                   baseAmount: _afterLineDiscount,
-                  onPickAmount: _applyOrderDiscountAmountPreset,
+                  onPickAmount: (a) =>
+                      _applyOrderDiscountAmountPreset(a, onMutate: onMutate),
                 ),
         ),
         if (_tab.discount > 0)
@@ -2203,16 +3151,138 @@ class _PosSellScreenState extends State<PosSellScreen> {
             onChanged: (v) => _tab.deliveryPartner = v.trim().isEmpty ? null : v.trim(),
           ),
         ],
+        const SizedBox(height: 8),
+        if (_storeSettings.taxMode != PosSellTaxMode.perItem) ...[
+          const Text('Thuế VAT', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              _vatRateChip('KCT', exempt: true, onMutate: onMutate),
+              _vatRateChip('0%', rate: 0, onMutate: onMutate),
+              _vatRateChip('5%', rate: 5, onMutate: onMutate),
+              _vatRateChip('8%', rate: 8, onMutate: onMutate),
+              _vatRateChip('10%', rate: 10, onMutate: onMutate),
+            ],
+          ),
+        ] else
+          Text(
+            'Thuế VAT theo từng mặt hàng (thiết lập trên hàng hóa)',
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+          ),
+        if (_storeSettings.taxMode == PosSellTaxMode.perItem && _vatAmount > 0) ...[
+          const SizedBox(height: 4),
+          _summaryRow('VAT', _moneyFmt.format(_vatAmount)),
+        ] else if (_storeSettings.taxMode != PosSellTaxMode.perItem) ...[
+          if (_tab.vatExempt)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                'Không chịu thuế GTGT',
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+              ),
+            )
+          else if (_vatAmount > 0) ...[
+            const SizedBox(height: 4),
+            if (_storeSettings.taxMode == PosSellTaxMode.orderTotal)
+              _summaryRow('Tiền hàng', _moneyFmt.format(_total)),
+            _summaryRow(
+              _storeSettings.taxMode == PosSellTaxMode.includedInPrice
+                  ? 'VAT (${_tab.vatRate.toStringAsFixed(_tab.vatRate % 1 == 0 ? 0 : 1)}%)'
+                  : 'VAT (${_tab.vatRate.toStringAsFixed(_tab.vatRate % 1 == 0 ? 0 : 1)}%)',
+              _moneyFmt.format(_vatAmount),
+            ),
+            if (_storeSettings.taxMode == PosSellTaxMode.includedInPrice)
+              _summaryRow(
+                'Tiền hàng trước VAT',
+                _moneyFmt.format(_total - _vatAmount),
+              ),
+          ],
+        ],
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _tab._voucherCtrl,
+                decoration: InputDecoration(
+                  hintText: 'Mã voucher',
+                  isDense: true,
+                  prefixIcon: const Icon(Icons.confirmation_number_outlined, size: 18),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                ),
+                style: const TextStyle(fontSize: 12),
+                textCapitalization: TextCapitalization.characters,
+                onSubmitted: (_) => _applyVoucher(onMutate: onMutate),
+              ),
+            ),
+            const SizedBox(width: 6),
+            TextButton(
+              onPressed: _tab._voucherValidating ? null : () => _applyVoucher(onMutate: onMutate),
+              child: _tab._voucherValidating
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Text('Áp dụng', style: TextStyle(fontSize: 12)),
+            ),
+          ],
+        ),
+        if (_tab.voucherDiscount > 0)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: _summaryRow(
+              'Voucher${_tab.voucherName != null ? ' (${_tab.voucherName})' : ''}',
+              '-${_moneyFmt.format(_tab.voucherDiscount)}',
+            ),
+          ),
+        if (_tab.customer != null && _tab.customer!.pointBalance > 0) ...[
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _tab._pointsCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    hintText: 'Đổi điểm (có ${_moneyFmt.format(_tab.customer!.pointBalance)})',
+                    isDense: true,
+                    prefixIcon: const Icon(Icons.stars_outlined, size: 18),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  ),
+                  style: const TextStyle(fontSize: 12),
+                  onChanged: (_) {
+                    _recalcPointsDiscount(onMutate: onMutate);
+                    _syncPaidAmount();
+                  },
+                ),
+              ),
+            ],
+          ),
+        ],
+        if (_tab.pointsDiscount > 0)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: _summaryRow(
+              'Đổi ${_moneyFmt.format(_tab.pointsToRedeem)} điểm',
+              '-${_moneyFmt.format(_tab.pointsDiscount)}',
+            ),
+          ),
         const SizedBox(height: 6),
-        _summaryRow('VAT', _moneyFmt.format(_vatAmount)),
-        const SizedBox(height: 6),
-        _summaryRow('Khách cần trả', _moneyFmt.format(_total), bold: true, blue: true),
+        _summaryRow('Khách cần trả', _moneyFmt.format(_grandTotal), bold: true, blue: true),
         if (_tab.customer != null && _tab.customer!.currentDebt > 0) ...[
           const SizedBox(height: 4),
           _summaryRow('Nợ cũ KH', _moneyFmt.format(_tab.customer!.currentDebt)),
         ],
         const SizedBox(height: 6),
-        _buildPaymentSplits(),
+        _buildPaymentSplits(
+          onMutate: onMutate,
+          forMobile: forMobilePayment,
+        ),
+        _buildVietQrPaymentSection(
+          compact: forMobilePayment,
+          onMutate: onMutate,
+        ),
         Padding(
           padding: const EdgeInsets.only(top: 4),
           child: _summaryRow(
@@ -2245,7 +3315,55 @@ class _PosSellScreenState extends State<PosSellScreen> {
     );
   }
 
-  Widget _buildPaymentSplits() {
+  Widget _vatRateChip(
+    String label, {
+    double rate = 0,
+    bool exempt = false,
+    VoidCallback? onMutate,
+  }) {
+    final selected = exempt ? _tab.vatExempt : (!_tab.vatExempt && _tab.vatRate == rate);
+    return Material(
+      color: selected ? PosTheme.kiotBlueLight : Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: () {
+          setState(() {
+            if (exempt) {
+              _tab.vatExempt = true;
+            } else {
+              _tab.vatExempt = false;
+              _tab.vatRate = rate;
+            }
+            if (!_tab.paidManuallyEdited && !_tab.paymentsManuallyEdited) {
+              _syncPaidAmount();
+            }
+          });
+          _notifyPaymentUi(onMutate);
+        },
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: selected ? _kiotBlue : PosTheme.border),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: selected ? _kiotBlue : PosTheme.textSecondary,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPaymentSplits({
+    VoidCallback? onMutate,
+    bool forMobile = false,
+  }) {
     if (_tab.paymentLines.isEmpty) {
       _tab.paymentLines.add(_SellPaymentLine(sourceKey: _PosPaymentSource.cashKey));
     }
@@ -2261,7 +3379,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
               ),
             ),
             TextButton.icon(
-              onPressed: _addPaymentLine,
+              onPressed: () => _addPaymentLine(onMutate: onMutate),
               icon: const Icon(Icons.add, size: 16),
               label: const Text('Thêm', style: TextStyle(fontSize: 12)),
             ),
@@ -2272,94 +3390,163 @@ class _PosSellScreenState extends State<PosSellScreen> {
           final pay = entry.value;
           return Padding(
             padding: const EdgeInsets.only(bottom: 6),
-            child: Row(
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: _paymentSources.any((s) => s.key == pay.sourceKey)
-                          ? pay.sourceKey
-                          : _PosPaymentSource.cashKey,
-                      isExpanded: true,
-                      isDense: true,
-                      style: const TextStyle(fontSize: 12, color: PosTheme.textPrimary),
-                      items: _paymentSources
-                          .map((s) => DropdownMenuItem(
-                                value: s.key,
-                                child: Text(
-                                  s.label,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontSize: 12),
-                                ),
-                              ))
-                          .toList(),
-                      onChanged: (v) {
-                        if (v == null) return;
-                        setState(() => pay.sourceKey = v);
-                      },
-                    ),
+            child: forMobile
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _paymentSources.any((s) => s.key == pay.sourceKey)
+                              ? pay.sourceKey
+                              : _PosPaymentSource.cashKey,
+                          isExpanded: true,
+                          isDense: true,
+                          style: const TextStyle(fontSize: 13, color: PosTheme.textPrimary),
+                          items: _paymentSources
+                              .map((s) => DropdownMenuItem(
+                                    value: s.key,
+                                    child: Text(
+                                      s.label,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ))
+                              .toList(),
+                          onChanged: (v) {
+                            if (v == null) return;
+                            setState(() => pay.sourceKey = v);
+                            _notifyPaymentUi(onMutate);
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: pay.amountCtrl,
+                              keyboardType: TextInputType.number,
+                              textAlign: TextAlign.right,
+                              decoration: const InputDecoration(
+                                labelText: 'Số tiền',
+                                isDense: true,
+                                border: OutlineInputBorder(),
+                                contentPadding:
+                                    EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                              ),
+                              style: const TextStyle(fontSize: 13),
+                              onChanged: (v) =>
+                                  _onPaymentLineAmountChanged(pay, v, onMutate: onMutate),
+                            ),
+                          ),
+                          if (_tab.paymentLines.length > 1)
+                            IconButton(
+                              icon: const Icon(Icons.close, size: 18, color: Colors.red),
+                              onPressed: () =>
+                                  _removePaymentLine(index, onMutate: onMutate),
+                            ),
+                        ],
+                      ),
+                    ],
+                  )
+                : Row(
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _paymentSources.any((s) => s.key == pay.sourceKey)
+                                ? pay.sourceKey
+                                : _PosPaymentSource.cashKey,
+                            isExpanded: true,
+                            isDense: true,
+                            style: const TextStyle(fontSize: 12, color: PosTheme.textPrimary),
+                            items: _paymentSources
+                                .map((s) => DropdownMenuItem(
+                                      value: s.key,
+                                      child: Text(
+                                        s.label,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(fontSize: 12),
+                                      ),
+                                    ))
+                                .toList(),
+                            onChanged: (v) {
+                              if (v == null) return;
+                              setState(() => pay.sourceKey = v);
+                              _notifyPaymentUi(onMutate);
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        flex: 2,
+                        child: TextField(
+                          controller: pay.amountCtrl,
+                          keyboardType: TextInputType.number,
+                          textAlign: TextAlign.right,
+                          decoration: const InputDecoration(
+                            isDense: true,
+                            border: OutlineInputBorder(),
+                            contentPadding:
+                                EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                          ),
+                          style: const TextStyle(fontSize: 12),
+                          onChanged: (v) =>
+                              _onPaymentLineAmountChanged(pay, v, onMutate: onMutate),
+                        ),
+                      ),
+                      if (_tab.paymentLines.length > 1)
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          constraints:
+                              const BoxConstraints(minWidth: 28, minHeight: 28),
+                          icon: const Icon(Icons.close, size: 16, color: Colors.red),
+                          onPressed: () => _removePaymentLine(index, onMutate: onMutate),
+                        ),
+                    ],
                   ),
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  flex: 2,
-                  child: TextField(
-                    controller: pay.amountCtrl,
-                    keyboardType: TextInputType.number,
-                    textAlign: TextAlign.right,
-                    decoration: const InputDecoration(
-                      isDense: true,
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                    ),
-                    style: const TextStyle(fontSize: 12),
-                    onChanged: (v) => _onPaymentLineAmountChanged(pay, v),
-                  ),
-                ),
-                if (_tab.paymentLines.length > 1)
-                  IconButton(
-                    visualDensity: VisualDensity.compact,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                    icon: const Icon(Icons.close, size: 16, color: Colors.red),
-                    onPressed: () => _removePaymentLine(index),
-                  ),
-              ],
-            ),
           );
         }),
       ],
     );
   }
 
-  void _addPaymentLine() {
+  void _addPaymentLine({VoidCallback? onMutate}) {
     setState(() {
       _tab.paymentsManuallyEdited = true;
       final src = _paymentSources.length > 1
           ? _paymentSources[1]
           : _PosPaymentSource.cash;
       final line = _SellPaymentLine(sourceKey: src.key);
-      final remain = (_total - _effectivePaidAmount).clamp(0, double.infinity);
+      final remain = (_grandTotal - _effectivePaidAmount).clamp(0, double.infinity);
       line.amount = remain.toDouble();
       line.amountCtrl.text = remain > 0 ? _moneyFmt.format(remain) : '';
       _tab.paymentLines.add(line);
     });
+    _notifyPaymentUi(onMutate);
   }
 
-  void _removePaymentLine(int index) {
+  void _removePaymentLine(int index, {VoidCallback? onMutate}) {
     setState(() {
       _tab.paymentLines[index].dispose();
       _tab.paymentLines.removeAt(index);
       _tab.paymentsManuallyEdited = true;
     });
+    _notifyPaymentUi(onMutate);
   }
 
-  void _onPaymentLineAmountChanged(_SellPaymentLine pay, String raw) {
+  void _onPaymentLineAmountChanged(
+    _SellPaymentLine pay,
+    String raw, {
+    VoidCallback? onMutate,
+  }) {
     setState(() {
       _tab.paymentsManuallyEdited = true;
       pay.amount = _parseMoneyInput(raw);
     });
+    _notifyPaymentUi(onMutate);
   }
 
   Widget _qtyControls(_SellCartLine line) {
@@ -2395,26 +3582,113 @@ class _PosSellScreenState extends State<PosSellScreen> {
     );
   }
 
+  Widget _buildCheckoutActions({
+    required bool canPay,
+    required bool busy,
+    required VoidCallback? onComplete,
+    double height = 50,
+    double radius = 10,
+    String completeLabel = 'HOÀN TẤT',
+  }) {
+    final showWarehouse =
+        _printSettings.showWarehouseManualButton && _tab.cart.isNotEmpty;
+    final pendingLines = _warehouseSlipPendingLineCount();
+    final hasWarehousePending = pendingLines > 0;
+    final warehouseBusy = _warehousePrinting || busy;
+
+    Widget completeBtn({required bool expanded}) {
+      return FilledButton(
+        onPressed: _tab.cart.isEmpty || busy || !canPay ? null : onComplete,
+        style: FilledButton.styleFrom(
+          backgroundColor: _kiotBlue,
+          minimumSize: Size(expanded ? double.infinity : 0, height),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(radius),
+          ),
+        ),
+        child: busy
+            ? SizedBox(
+                height: height * 0.44,
+                width: height * 0.44,
+                child: const CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+            : Text(
+                completeLabel,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              ),
+      );
+    }
+
+    if (!showWarehouse) return completeBtn(expanded: true);
+
+    final warehouseLabel = _warehousePrinting
+        ? 'Đang in...'
+        : hasWarehousePending
+            ? (pendingLines > 1 ? 'Báo kho ($pendingLines)' : 'Báo kho')
+            : 'Đã báo kho';
+
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: warehouseBusy ? null : _onWarehouseSlipButtonTap,
+            style: OutlinedButton.styleFrom(
+              minimumSize: Size(0, height),
+              foregroundColor: hasWarehousePending
+                  ? _kiotBlue
+                  : const Color(0xFF64748B),
+              side: BorderSide(
+                color: hasWarehousePending
+                    ? _kiotBlue
+                    : const Color(0xFFCBD5E1),
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(radius),
+              ),
+            ),
+            icon: _warehousePrinting
+                ? SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.orange.shade800,
+                    ),
+                  )
+                : Icon(
+                    hasWarehousePending
+                        ? Icons.inventory_2_outlined
+                        : Icons.check_circle_outline,
+                    size: 18,
+                  ),
+            label: Text(
+              warehouseLabel,
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(flex: 2, child: completeBtn(expanded: false)),
+      ],
+    );
+  }
+
   Widget _buildPaymentSidebar(PermissionProvider perm, {required double width, bool compact = false}) {
     _recalcTotals();
     final canPay = perm.canCreate('PosSell') || perm.canCreate('PosProducts');
 
     final summary = _buildPaymentSummaryContent();
 
-    final payButton = FilledButton(
-      onPressed: _tab.cart.isEmpty || _checkingOut || !canPay ? null : _checkout,
-      style: FilledButton.styleFrom(
-        backgroundColor: _kiotBlue,
-        minimumSize: Size(double.infinity, compact ? 44 : 48),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-      ),
-      child: _checkingOut
-          ? const SizedBox(
-              height: 20,
-              width: 20,
-              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-            )
-          : const Text('THANH TOÁN', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+    final payButton = _buildCheckoutActions(
+      canPay: canPay,
+      busy: _checkingOut,
+      onComplete: _checkout,
+      height: compact ? 44 : 48,
+      radius: 6,
+      completeLabel: 'THANH TOÁN',
     );
 
     return Container(
@@ -2525,30 +3799,112 @@ class _PosSellScreenState extends State<PosSellScreen> {
     _recalcTotals();
     final inHub = PosHubScope.of(context);
     final canPay = perm.canCreate('PosSell') || perm.canCreate('PosProducts');
-    return Column(
+    return Stack(
       children: [
-        _buildMobileTopBar(),
-        _buildMobileSellActionBar(),
-        Expanded(child: _buildMobileSellCartBody()),
-        _buildMobileCheckoutBar(perm, canPay),
-        if (inHub) _buildMobileModePill() else _buildMobileModeBar(),
+        Column(
+          children: [
+            _buildMobileTopBar(),
+            _buildMobileSellActionBar(),
+            Expanded(child: _buildMobileSellCartBody()),
+            _buildMobileCheckoutBar(perm, canPay),
+            if (!inHub) _buildMobileModeBar(),
+          ],
+        ),
+        Offstage(
+          offstage: !_mobileProductPickerOpen,
+          child: IgnorePointer(
+            ignoring: !_mobileProductPickerOpen,
+            child: _buildMobileProductPickerOverlay(),
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildMobileTopBar() {
-    final inHub = PosHubScope.of(context);
+  Widget _buildMobileProductPickerOverlay() {
     return Material(
-      color: Colors.white,
+      color: const Color(0xFFF3F4F6),
       child: SafeArea(
-        bottom: false,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 6, 4, 0),
-              child: Row(
+            AppBar(
+              title: const Text('Chọn hàng hóa'),
+              backgroundColor: Colors.white,
+              foregroundColor: PosTheme.textPrimary,
+              elevation: 0,
+              leading: IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => setState(() => _mobileProductPickerOpen = false),
+              ),
+              actions: [
+                IconButton(
+                  tooltip: 'Thêm hàng mới',
+                  icon: const Icon(Icons.add),
+                  onPressed: () async {
+                    await _openNewProduct();
+                    if (mounted) setState(() {});
+                  },
+                ),
+              ],
+            ),
+            Expanded(
+              child: PosSellProductGrid(
+                key: _productGridKey,
+                api: _api,
+                storeId: _storeId,
+                sellListLayout: true,
+                priceOverrides: _currentPriceOverrides,
+                cartQtyByProductId: _cartQtyByProductId(),
+                onPick: (pick) async {
+                  await _addPick(pick, mergeIfSame: _mobileMergeSameOnAdd);
+                  if (mounted) setState(() {});
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Map<String, double> _cartQtyByProductId() {
+    final map = <String, double>{};
+    for (final line in _tab.cart) {
+      map[line.product.id] = (map[line.product.id] ?? 0) + line.qty;
+    }
+    return map;
+  }
+
+  void _goMobileSellHome() {
+    if (PosHubScope.of(context)) {
+      NavigationNotifier.posHubTab.value = 0;
+      return;
+    }
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    } else {
+      NavigationNotifier.goBack();
+    }
+  }
+
+  Widget _buildMobileTopBar() {
+    final inHub = PosHubScope.of(context);
+    final bar = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: EdgeInsets.fromLTRB(inHub ? 4 : 12, 4, 4, 0),
+          child: Row(
                 children: [
+                  if (inHub)
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      tooltip: 'Về trang chủ',
+                      icon: const Icon(Icons.home_outlined,
+                          color: PosTheme.textPrimary),
+                      onPressed: _goMobileSellHome,
+                    ),
                   const Expanded(
                     child: Text(
                       'Bán hàng',
@@ -2561,10 +3917,22 @@ class _PosSellScreenState extends State<PosSellScreen> {
                   ),
                   IconButton(
                     visualDensity: VisualDensity.compact,
-                    tooltip: 'Quét mã vạch',
+                    tooltip: 'Chọn bảng giá',
+                    icon: const Icon(Icons.sell_outlined, color: PosTheme.kiotBlue),
+                    onPressed: _openMobilePriceListPicker,
+                  ),
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    tooltip: 'Quét liên tục',
                     icon: const Icon(Icons.qr_code_scanner,
                         color: PosTheme.kiotBlue),
-                    onPressed: _openMobileCameraScan,
+                    onPressed: _openMobileContinuousScan,
+                  ),
+                  PosPendingPrintIconButton(
+                    pendingCount: _failedWarehousePrints.length,
+                    onTap: _openPendingPrintQueue,
+                    iconColor: PosTheme.textPrimary,
+                    compact: true,
                   ),
                   IconButton(
                     visualDensity: VisualDensity.compact,
@@ -2607,48 +3975,72 @@ class _PosSellScreenState extends State<PosSellScreen> {
               ),
             const Divider(height: 1, color: PosTheme.border),
           ],
-        ),
-      ),
     );
+    return Material(color: Colors.white, child: bar);
   }
 
   Widget _buildMobileSellActionBar() {
     return Material(
       color: const Color(0xFFFAFBFC),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-        child: Row(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
+        child: Column(
           children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: _openMobileProductPicker,
-                icon: const Icon(Icons.inventory_2_outlined, size: 20),
-                label: const Text('Hàng hóa'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: PosTheme.kiotBlue,
-                  side: const BorderSide(color: PosTheme.border),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _openMobileProductPicker,
+                    icon: const Icon(Icons.inventory_2_outlined, size: 20),
+                    label: const Text('Hàng hóa'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: PosTheme.kiotBlue,
+                      side: const BorderSide(color: PosTheme.border),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: FilledButton.icon(
-                onPressed: _openMobileCameraScan,
-                icon: const Icon(Icons.qr_code_scanner, size: 20),
-                label: const Text('Quét mã'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: PosTheme.kiotBlue,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: _openMobileCameraScan,
+                    icon: const Icon(Icons.qr_code_scanner, size: 20),
+                    label: const Text('Quét mã'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: PosTheme.kiotBlue,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
                   ),
                 ),
-              ),
+              ],
             ),
+            Row(
+              children: [
+                const Text(
+                  'Tự động gộp cùng sản phẩm',
+                  style: TextStyle(fontSize: 12, color: PosTheme.textSecondary),
+                ),
+                const Spacer(),
+                Switch.adaptive(
+                  value: _mobileMergeSameOnAdd,
+                  onChanged: (v) => setState(() => _mobileMergeSameOnAdd = v),
+                ),
+              ],
+            ),
+            if (!_mobileMergeSameOnAdd)
+              const Padding(
+                padding: EdgeInsets.only(top: 2),
+                child: Text(
+                  'Tắt gộp để quét/tách dòng riêng cho từng ghi chú',
+                  style: TextStyle(fontSize: 11, color: PosTheme.kiotBlue),
+                ),
+              ),
           ],
         ),
       ),
@@ -2686,9 +4078,9 @@ class _PosSellScreenState extends State<PosSellScreen> {
       );
     }
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+      padding: const EdgeInsets.fromLTRB(10, 4, 10, 8),
       itemCount: _tab.cart.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      separatorBuilder: (_, __) => const SizedBox(height: 4),
       itemBuilder: (ctx, i) {
         final cartIndex = _tab.cart.length - 1 - i;
         final line = _tab.cart[cartIndex];
@@ -2726,7 +4118,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
                       ),
                     ),
                     Text(
-                      '${_moneyFmt.format(_total)} đ',
+                      '${_moneyFmt.format(_grandTotal)} đ',
                       style: const TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
@@ -2736,6 +4128,20 @@ class _PosSellScreenState extends State<PosSellScreen> {
                   ],
                 ),
               ),
+              if (_bankAccounts.isNotEmpty && _vietQrAmount > 0) ...[
+                IconButton(
+                  tooltip: 'Mã VietQR',
+                  onPressed: () => showPosVietQrPaymentDialog(
+                    context,
+                    accounts: _bankAccounts,
+                    amount: _vietQrAmount,
+                    preferredAccountId: _storeSettings.vietQrBankAccountId,
+                    description: _vietQrTransferNote,
+                  ),
+                  icon: const Icon(Icons.qr_code_2, color: _kiotBlue, size: 28),
+                ),
+                const SizedBox(width: 4),
+              ],
               const SizedBox(width: 12),
               SizedBox(
                 width: 148,
@@ -2766,45 +4172,158 @@ class _PosSellScreenState extends State<PosSellScreen> {
   Future<void> _openMobileCameraScan() async {
     final code = await scanBarcodeWithCamera(context);
     if (code != null && code.trim().isNotEmpty) {
-      await _onBarcodeScanned(code);
+      await _onBarcodeScanned(code, mergeIfSame: _mobileMergeSameOnAdd);
     }
   }
 
-  Future<void> _openMobileProductPicker() async {
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute(
-        fullscreenDialog: true,
-        builder: (ctx) => Scaffold(
-          backgroundColor: const Color(0xFFF3F4F6),
-          appBar: AppBar(
-            title: const Text('Chọn hàng hóa'),
-            backgroundColor: Colors.white,
-            foregroundColor: PosTheme.textPrimary,
-            elevation: 0,
-            actions: [
-              IconButton(
-                tooltip: 'Thêm hàng mới',
-                icon: const Icon(Icons.add),
-                onPressed: () async {
-                  await _openNewProduct();
-                  if (ctx.mounted) {
-                    _productGridKey.currentState?.reload();
-                  }
-                },
-              ),
-            ],
-          ),
-          body: PosSellProductGrid(
-            key: _productGridKey,
-            api: _api,
-            sellListLayout: true,
-            onPick: (pick) {
-              _addPick(pick);
-            },
+  Future<void> _openMobileContinuousScan() async {
+    await scanBarcodeContinuously(
+      context,
+      onScan: (code) =>
+          _onBarcodeScanned(code, mergeIfSame: _mobileMergeSameOnAdd),
+    );
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _openMobileLineDiscount(_SellCartLine line) async {
+    final result = await showPosDiscountEditorSheet(
+      context: context,
+      title: 'Chiết khấu dòng',
+      baseAmount: line.lineGross,
+      initialInput: line.discountInput,
+      initialIsPercent: line.discountIsPercent,
+    );
+    if (result == null || !mounted) return;
+    setState(() {
+      line.discountIsPercent = result.isPercent;
+      line.discountInput = result.input;
+      line.discountCtrl.text = result.input == 0
+          ? '0'
+          : (result.isPercent
+              ? result.input.toStringAsFixed(
+                  result.input % 1 == 0 ? 0 : 2)
+              : _moneyFmt.format(result.input));
+      _syncPaidAmount();
+    });
+  }
+
+  Future<void> _openMobileLineNote(_SellCartLine line) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
+        child: DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.55,
+          minChildSize: 0.35,
+          maxChildSize: 0.9,
+          builder: (_, scroll) => SingleChildScrollView(
+            controller: scroll,
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'Ghi chú sản phẩm',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 12),
+                PosLineQuickNotesPicker(
+                  quickNotes: line.product.saleQuickNotes,
+                  selected: line.selectedQuickNotes,
+                  onSelectedChanged: (next) => setState(() {
+                    line.selectedQuickNotes
+                      ..clear()
+                      ..addAll(next);
+                    _applyLineNoteFromPicker(line);
+                  }),
+                  extraController: line.noteCtrl,
+                  onExtraChanged: () => setState(() => _applyLineNoteFromPicker(line)),
+                ),
+                const SizedBox(height: 12),
+                FilledButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Xong'),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
+  }
+
+  void _splitMobileCartLine(int cartIndex) {
+    final line = _tab.cart[cartIndex];
+    if (line.qty <= 1) return;
+    setState(() {
+      line.qty -= 1;
+      final cloned = _SellCartLine(
+        rowId: _nextCartRowId++,
+        product: line.product,
+        variantId: line.variantId,
+        unitId: line.unitId,
+        variant: line.variant,
+        activeViewKey: line.activeViewKey,
+        unitLabel: line.unitLabel,
+        displayCode: line.displayCode,
+        unitPrice: line.unitPrice,
+        unitViews: line.unitViews,
+        qty: 1,
+        lineNote: line.lineNote,
+        discountIsPercent: line.discountIsPercent,
+        discountInput: line.discountInput,
+      );
+      cloned.selectedQuickNotes
+        ..clear()
+        ..addAll(line.selectedQuickNotes);
+      cloned.noteCtrl.text = line.noteCtrl.text;
+      _tab.cart.insert(cartIndex + 1, cloned);
+      _syncPaidAmount();
+    });
+  }
+
+  void _mergeMobileCartLine(int cartIndex) {
+    final line = _tab.cart[cartIndex];
+    final matches = <int>[];
+    for (var i = 0; i < _tab.cart.length; i++) {
+      if (i == cartIndex) continue;
+      final other = _tab.cart[i];
+      final sameIdentity = other.product.id == line.product.id &&
+          other.variantId == line.variantId &&
+          other.unitId == line.unitId;
+      final sameNoteDiscount = (other.lineNote ?? '') == (line.lineNote ?? '') &&
+          other.discountIsPercent == line.discountIsPercent &&
+          (other.discountInput - line.discountInput).abs() < 0.0001;
+      if (sameIdentity && sameNoteDiscount) {
+        matches.add(i);
+      }
+    }
+    if (matches.isEmpty) {
+      NotificationOverlayManager().showWarning(
+        title: 'Không thể gộp',
+        message: 'Chỉ gộp được dòng cùng sản phẩm, cùng ghi chú và cùng chiết khấu.',
+      );
+      return;
+    }
+    setState(() {
+      var qtyToAdd = 0.0;
+      for (final i in matches) {
+        qtyToAdd += _tab.cart[i].qty;
+      }
+      line.qty += qtyToAdd;
+      for (final i in matches.reversed) {
+        _tab.cart[i].dispose();
+        _tab.cart.removeAt(i);
+      }
+      _syncPaidAmount();
+    });
+  }
+
+  void _openMobileProductPicker() {
+    setState(() => _mobileProductPickerOpen = true);
   }
 
   Future<void> _openMobileCustomerPicker() async {
@@ -2920,7 +4439,12 @@ class _PosSellScreenState extends State<PosSellScreen> {
   }
 
   Future<void> _openMobilePriceListPicker() async {
-    final options = ['Bảng giá chung'];
+    if (_priceLists.isEmpty) {
+      await _loadPriceLists();
+    }
+    final options = _priceLists.isNotEmpty
+        ? _priceLists
+        : [PosPriceList(id: '', name: 'Bảng giá chung')];
     await showModalBottomSheet<void>(
       context: context,
       builder: (ctx) => SafeArea(
@@ -2935,14 +4459,24 @@ class _PosSellScreenState extends State<PosSellScreen> {
               ),
             ),
             ...options.map(
-              (label) => ListTile(
-                title: Text(label),
-                trailing: _tab.priceListLabel == label
+              (pl) => ListTile(
+                title: Text(pl.name),
+                subtitle: pl.isDefault ? const Text('Mặc định') : null,
+                trailing: _tab.priceListId == pl.id ||
+                        (_tab.priceListId == null &&
+                            _tab.priceListLabel == pl.name)
                     ? const Icon(Icons.check, color: _kiotBlue)
                     : null,
-                onTap: () {
-                  setState(() => _tab.priceListLabel = label);
+                onTap: () async {
                   Navigator.pop(ctx);
+                  if (pl.id.isNotEmpty) {
+                    await _selectPriceList(pl);
+                  } else {
+                    setState(() {
+                      _tab.priceListId = null;
+                      _tab.priceListLabel = pl.name;
+                    });
+                  }
                 },
               ),
             ),
@@ -3007,8 +4541,9 @@ class _PosSellScreenState extends State<PosSellScreen> {
   }
 
   Future<void> _openMobilePaymentScreen(PermissionProvider perm) async {
-    if (_tab.cart.isEmpty) return;
+    if (_tab.cart.isEmpty || _checkingOut) return;
     final canPay = perm.canCreate('PosSell') || perm.canCreate('PosProducts');
+    var paying = false;
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
         fullscreenDialog: true,
@@ -3023,6 +4558,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
           body: StatefulBuilder(
             builder: (ctx, setPay) {
               _recalcTotals();
+              final busy = paying || _checkingOut;
               return Column(
                 children: [
                   Expanded(
@@ -3033,25 +4569,29 @@ class _PosSellScreenState extends State<PosSellScreen> {
                           icon: Icons.person_outline,
                           title: 'Khách hàng',
                           value: _tab.customer?.name ?? 'Khách lẻ',
-                          onTap: () async {
-                            await _openMobileCustomerPicker();
-                            setPay(() {});
-                          },
+                          onTap: busy
+                              ? () {}
+                              : () async {
+                                  await _openMobileCustomerPicker();
+                                  setPay(() {});
+                                },
                         ),
                         const SizedBox(height: 8),
                         _buildMobilePaymentActionTile(
                           icon: Icons.sell_outlined,
                           title: 'Bảng giá',
                           value: _tab.priceListLabel,
-                          onTap: () async {
-                            await _openMobilePriceListPicker();
-                            setPay(() {});
-                          },
+                          onTap: busy
+                              ? () {}
+                              : () async {
+                                  await _openMobilePriceListPicker();
+                                  setPay(() {});
+                                },
                         ),
                         const SizedBox(height: 14),
                         _buildPaymentSummaryContent(
                           forMobilePayment: true,
-                          onMutate: () => setPay(() {}),
+                          onMutate: busy ? null : () => setPay(() {}),
                         ),
                       ],
                     ),
@@ -3060,39 +4600,22 @@ class _PosSellScreenState extends State<PosSellScreen> {
                     top: false,
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-                      child: FilledButton(
-                        onPressed: _tab.cart.isEmpty || _checkingOut || !canPay
-                            ? null
-                            : () async {
-                                await _checkout();
-                                setPay(() {});
-                                if (ctx.mounted && _tab.cart.isEmpty) {
-                                  Navigator.pop(ctx);
-                                }
-                              },
-                        style: FilledButton.styleFrom(
-                          backgroundColor: _kiotBlue,
-                          minimumSize: const Size(double.infinity, 50),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        child: _checkingOut
-                            ? const SizedBox(
-                                height: 22,
-                                width: 22,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : Text(
-                                'HOÀN TẤT · ${_moneyFmt.format(_total)} đ',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 15,
-                                ),
-                              ),
+                      child: _buildCheckoutActions(
+                        canPay: canPay,
+                        busy: busy,
+                        completeLabel:
+                            'HOÀN TẤT · ${_moneyFmt.format(_grandTotal)} đ',
+                        onComplete: () async {
+                          setPay(() => paying = true);
+                          try {
+                            await _checkout();
+                          } finally {
+                            if (ctx.mounted) {
+                              setPay(() => paying = false);
+                              if (_tab.cart.isEmpty) Navigator.pop(ctx);
+                            }
+                          }
+                        },
                       ),
                     ),
                   ),
@@ -3104,58 +4627,6 @@ class _PosSellScreenState extends State<PosSellScreen> {
       ),
     );
     if (mounted) setState(() {});
-  }
-
-  Widget _buildMobileModePill() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
-      child: Material(
-        elevation: 3,
-        borderRadius: BorderRadius.circular(24),
-        color: Colors.white,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-          child: Row(
-            children: [
-              _modePillTab('Đặt hàng', _SellMode.quick),
-              _modePillTab('Bán hàng', _SellMode.normal),
-              IconButton(
-                visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.more_horiz, size: 20),
-                onPressed: _openPosMenu,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _modePillTab(String label, _SellMode mode) {
-    final active = _sellMode == mode ||
-        (mode == _SellMode.normal && _sellMode == _SellMode.delivery);
-    return Expanded(
-      child: InkWell(
-        onTap: () => setState(() => _sellMode = mode),
-        borderRadius: BorderRadius.circular(20),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          decoration: BoxDecoration(
-            color: active ? PosTheme.kiotBlueLight : Colors.transparent,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: active ? PosTheme.kiotBlue : PosTheme.textSecondary,
-            ),
-          ),
-        ),
-      ),
-    );
   }
 
   Widget _buildMobileModeBar() {
@@ -3184,81 +4655,156 @@ class _PosSellScreenState extends State<PosSellScreen> {
 
   Widget _buildMobileCartCard(
       _SellCartLine line, int index, int cartIndex) {
+    final hasNote = line.lineNote != null && line.lineNote!.isNotEmpty;
+    final hasDiscount = line.discountAmount > 0;
     return Container(
       decoration: PosTheme.mobileCardDecoration(),
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               PosProductImage(
                 productId: line.product.id,
                 imageUrl: line.product.imageUrl,
-                size: 52,
-                borderRadius: 8,
+                size: 38,
+                borderRadius: 6,
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       line.product.name,
-                      maxLines: 2,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 14,
+                        fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        height: 1.25,
+                        height: 1.2,
                       ),
                     ),
-                    if (line.displayCode.isNotEmpty)
-                      Text(
-                        line.displayCode,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: PosTheme.textSecondary,
-                        ),
-                      ),
-                    const SizedBox(height: 4),
                     Text(
-                      '${_moneyFmt.format(line.unitPrice)} đ / ${line.unitLabel}',
+                      '${_moneyFmt.format(line.unitPrice)} đ/${line.unitLabel}',
                       style: const TextStyle(
-                        fontSize: 12,
+                        fontSize: 11,
                         color: _kiotBlue,
-                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
                 ),
               ),
+              PopupMenuButton<String>(
+                padding: EdgeInsets.zero,
+                icon: const Icon(Icons.more_vert, size: 20),
+                onSelected: (action) {
+                  switch (action) {
+                    case 'note':
+                      _openMobileLineNote(line);
+                    case 'discount':
+                      _openMobileLineDiscount(line);
+                    case 'split':
+                      if (line.qty > 1) _splitMobileCartLine(cartIndex);
+                    case 'merge':
+                      _mergeMobileCartLine(cartIndex);
+                  }
+                },
+                itemBuilder: (ctx) => [
+                  const PopupMenuItem(
+                    value: 'note',
+                    height: 36,
+                    child: Row(
+                      children: [
+                        Icon(Icons.notes_outlined, size: 18),
+                        SizedBox(width: 8),
+                        Text('Ghi chú', style: TextStyle(fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'discount',
+                    height: 36,
+                    child: Row(
+                      children: [
+                        Icon(Icons.discount_outlined, size: 18),
+                        SizedBox(width: 8),
+                        Text('Chiết khấu', style: TextStyle(fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'split',
+                    height: 36,
+                    enabled: line.qty > 1,
+                    child: const Row(
+                      children: [
+                        Icon(Icons.call_split_outlined, size: 18),
+                        SizedBox(width: 8),
+                        Text('Tách dòng', style: TextStyle(fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'merge',
+                    height: 36,
+                    child: Row(
+                      children: [
+                        Icon(Icons.merge_type_outlined, size: 18),
+                        SizedBox(width: 8),
+                        Text('Gộp dòng', style: TextStyle(fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
               IconButton(
                 visualDensity: VisualDensity.compact,
                 padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                icon: const Icon(Icons.delete_outline,
-                    size: 20, color: Colors.red),
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
                 onPressed: () => _removeLine(cartIndex),
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          if (hasDiscount || hasNote) ...[
+            const SizedBox(height: 2),
+            Wrap(
+              spacing: 6,
+              runSpacing: 2,
+              children: [
+                if (hasDiscount)
+                  Text(
+                    'CK -${_moneyFmt.format(line.discountAmount)}',
+                    style: TextStyle(fontSize: 10, color: Colors.red.shade700),
+                  ),
+                if (hasNote)
+                  Text(
+                    '↳ ${line.lineNote}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 10, color: _kiotBlue),
+                  ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 4),
           Row(
             children: [
               _mobileQtyButton(
                 icon: Icons.remove,
-                onTap: line.qty > 1
-                    ? () => _adjustQty(line, -1)
-                    : null,
+                onTap: line.qty > 1 ? () => _adjustQty(line, -1) : null,
+                compact: true,
               ),
-              Expanded(
+              SizedBox(
+                width: 44,
                 child: Text(
                   _qtyFmt.format(line.qty),
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    fontSize: 16,
+                    fontSize: 14,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -3267,12 +4813,13 @@ class _PosSellScreenState extends State<PosSellScreen> {
                 icon: Icons.add,
                 onTap: () => _adjustQty(line, 1),
                 primary: true,
+                compact: true,
               ),
-              const SizedBox(width: 12),
+              const Spacer(),
               Text(
                 '${_moneyFmt.format(line.lineTotal)} đ',
                 style: const TextStyle(
-                  fontSize: 16,
+                  fontSize: 14,
                   fontWeight: FontWeight.bold,
                   color: PosTheme.textPrimary,
                 ),
@@ -3288,21 +4835,24 @@ class _PosSellScreenState extends State<PosSellScreen> {
     required IconData icon,
     required VoidCallback? onTap,
     bool primary = false,
+    bool compact = false,
   }) {
+    final size = compact ? 32.0 : 40.0;
+    final height = compact ? 30.0 : 36.0;
     return Material(
       color: primary
           ? _kiotBlue.withValues(alpha: 0.1)
           : const Color(0xFFF1F5F9),
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(6),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(6),
         child: SizedBox(
-          width: 40,
-          height: 36,
+          width: size,
+          height: height,
           child: Icon(
             icon,
-            size: 18,
+            size: compact ? 16 : 18,
             color: onTap == null
                 ? Colors.grey.shade400
                 : (primary ? _kiotBlue : PosTheme.textPrimary),

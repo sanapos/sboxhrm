@@ -55,6 +55,7 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
   late DateTime _fromDate;
   late DateTime _toDate;
   bool _attendanceLoadTruncated = false;
+  int? _attendanceExpectedCount;
   Map<String, double> _travelHoursByEmployeeKey = {};
   Map<String, double> _travelHoursByEmployeeDateKey = {};
 
@@ -264,18 +265,19 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
           _approvedLeaves = approvedLeaves;
           _allowManualCorrection = allowManual;
           _attendanceLoadTruncated = attLoad.truncated;
+          _attendanceExpectedCount = attLoad.totalCount;
           _travelHoursByEmployeeKey = travelMaps.byEmployeeKey;
           _travelHoursByEmployeeDateKey = travelMaps.byEmployeeDateKey;
           if (!silent) _isLoading = false;
         });
-        if (attLoad.truncated && mounted) {
+        if (attLoad.isIncomplete && mounted) {
           final tc = attLoad.totalCount;
           final msg = tc != null && tc > attendances.length
-              ? 'Đã tải ${attendances.length} / $tc log chấm công.'
-              : 'Đã tải ${attendances.length} log (giới hạn tải).';
+              ? 'Đã tải ${attendances.length} / $tc log. Thiếu dữ liệu cuối kỳ — vuốt xuống tải lại hoặc thu hẹp ngày.'
+              : 'Đã tải ${attendances.length} log (có thể chưa đủ).';
           appNotification.showWarning(
-            title: 'Dữ liệu có thể chưa đủ',
-            message: '$msg Thu hẹp khoảng ngày nếu thiếu ngày cuối tháng.',
+            title: 'Dữ liệu chấm công chưa đủ',
+            message: msg,
           );
         }
       }
@@ -478,6 +480,38 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
                               size: 14, color: Color(0xFF9CA3AF)),
                         ),
                       ),
+                  ],
+                ),
+              ),
+            ),
+          if (_attendanceLoadTruncated ||
+              (_attendanceExpectedCount != null &&
+                  _attendances.length < _attendanceExpectedCount!))
+            Material(
+              color: const Color(0xFFFFF7ED),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                child: Row(
+                  children: [
+                    Icon(Icons.warning_amber_rounded,
+                        size: 20, color: Colors.orange.shade800),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _attendanceExpectedCount != null
+                            ? 'Chỉ tải được ${_attendances.length} / ${_attendanceExpectedCount!} log chấm công — báo cáo có thể thiếu ngày cuối tháng.'
+                            : 'Log chấm công có thể chưa đủ — kéo xuống để tải lại.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.orange.shade900,
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: _loadData,
+                      child: const Text('Tải lại'),
+                    ),
                   ],
                 ),
               ),

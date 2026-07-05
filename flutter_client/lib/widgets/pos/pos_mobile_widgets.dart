@@ -1,11 +1,28 @@
 import 'package:flutter/material.dart';
 
+import '../../utils/navigation_notifier.dart';
 import '../../utils/responsive_helper.dart';
+import '../hrm_page_chrome.dart';
+import 'pos_hub_scope.dart';
 import 'pos_theme.dart';
 
 /// POS dùng layout mobile (thẻ + cuộn dọc) thay vì bảng ngang.
 bool posUseMobileList(BuildContext context) =>
     !Responsive.preferTableListLayout(context);
+
+/// SafeArea trên cùng — hub / AppBar ngoài đã xử lý thì bỏ qua.
+bool posNeedsTopSafeArea(BuildContext context) {
+  if (!posUseMobileList(context)) return false;
+  if (PosHubScope.of(context)) return false;
+  if (HrmPageChrome.usesMainLayoutAppBar) return false;
+  return true;
+}
+
+/// Bọc nội dung mobile POS (giống màn Bán hàng: SafeArea top, full width).
+Widget posMobileSafeBody(BuildContext context, Widget child) {
+  if (!posNeedsTopSafeArea(context)) return child;
+  return SafeArea(bottom: false, child: child);
+}
 
 /// Mở bottom sheet bộ lọc trên mobile (có Đặt lại / Áp dụng).
 Future<void> showPosMobileFilterSheet(
@@ -154,86 +171,125 @@ class PosMobileListHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final mobile = posUseMobileList(context);
-    return Container(
-      color: Colors.white,
-      padding: EdgeInsets.fromLTRB(mobile ? 12 : 16, 10, mobile ? 8 : 16, 10),
-      child: mobile
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+    return ListenableBuilder(
+      listenable: NavigationNotifier.mobileDrawerModuleActive,
+      builder: (context, _) {
+        final usesMainAppBar = HrmPageChrome.usesMainLayoutAppBar;
+        final pushed = PosHubScope.pushedSubPageOf(context);
+        final hideTitle = mobile && usesMainAppBar && !pushed;
+
+        Widget actionButtons() => Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Row(
-                  children: [
-                    Icon(icon, color: PosTheme.kiotBlue, size: 22),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(title,
-                          style: const TextStyle(
-                              fontSize: 17, fontWeight: FontWeight.bold)),
-                    ),
-                    if (onOpenFilters != null)
-                      IconButton(
-                        tooltip: 'Bộ lọc',
-                        onPressed: onOpenFilters,
-                        icon: Badge(
-                          isLabelVisible: activeFilterCount > 0,
-                          label: Text('$activeFilterCount'),
-                          child: const Icon(Icons.filter_list),
-                        ),
-                      ),
-                    if (onRefresh != null)
-                      IconButton(
-                        onPressed: onRefresh,
-                        icon: const Icon(Icons.refresh),
-                        tooltip: 'Tải lại',
-                      ),
-                    if (trailing != null) ...trailing!,
-                  ],
-                ),
-                if (onCreate != null) ...[
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: onCreate,
-                      icon: const Icon(Icons.add, size: 18),
-                      label: Text(createLabel),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: PosTheme.kiotBlue,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
+                if (onOpenFilters != null)
+                  IconButton(
+                    tooltip: 'Bộ lọc',
+                    onPressed: onOpenFilters,
+                    icon: Badge(
+                      isLabelVisible: activeFilterCount > 0,
+                      label: Text('$activeFilterCount'),
+                      child: const Icon(Icons.filter_list),
                     ),
                   ),
-                ],
-              ],
-            )
-          : Row(
-              children: [
-                Icon(icon, color: PosTheme.kiotBlue),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(title,
-                      style: const TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.bold)),
-                ),
-                if (onCreate != null)
-                  FilledButton.icon(
-                    onPressed: onCreate,
-                    icon: const Icon(Icons.add, size: 18),
-                    label: Text(createLabel),
-                    style: FilledButton.styleFrom(
-                        backgroundColor: PosTheme.kiotBlue),
-                  ),
-                if (trailing != null) ...trailing!,
-                if (onRefresh != null) ...[
-                  const SizedBox(width: 8),
+                if (onRefresh != null)
                   IconButton(
                     onPressed: onRefresh,
                     icon: const Icon(Icons.refresh),
                     tooltip: 'Tải lại',
                   ),
-                ],
+                if (trailing != null) ...trailing!,
               ],
-            ),
+            );
+
+        return Container(
+          color: Colors.white,
+          padding:
+              EdgeInsets.fromLTRB(mobile ? 12 : 16, 10, mobile ? 8 : 16, 10),
+          child: mobile
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (!hideTitle)
+                      Row(
+                        children: [
+                          if (pushed)
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              icon: const Icon(Icons.arrow_back),
+                              onPressed: () => Navigator.maybePop(context),
+                            ),
+                          if (!pushed) ...[
+                            Icon(icon,
+                                color: PosTheme.kiotBlue, size: 22),
+                            const SizedBox(width: 8),
+                          ],
+                          Expanded(
+                            child: Text(
+                              title,
+                              style: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          actionButtons(),
+                        ],
+                      )
+                    else if (onOpenFilters != null ||
+                        onRefresh != null ||
+                        (trailing != null && trailing!.isNotEmpty))
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [actionButtons()],
+                      ),
+                    if (onCreate != null) ...[
+                      if (!hideTitle || onOpenFilters != null || onRefresh != null)
+                        const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          onPressed: onCreate,
+                          icon: const Icon(Icons.add, size: 18),
+                          label: Text(createLabel),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: PosTheme.kiotBlue,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                )
+              : Row(
+                  children: [
+                    Icon(icon, color: PosTheme.kiotBlue),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(title,
+                          style: const TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.bold)),
+                    ),
+                    if (onCreate != null)
+                      FilledButton.icon(
+                        onPressed: onCreate,
+                        icon: const Icon(Icons.add, size: 18),
+                        label: Text(createLabel),
+                        style: FilledButton.styleFrom(
+                            backgroundColor: PosTheme.kiotBlue),
+                      ),
+                    if (trailing != null) ...trailing!,
+                    if (onRefresh != null) ...[
+                      const SizedBox(width: 8),
+                      IconButton(
+                        onPressed: onRefresh,
+                        icon: const Icon(Icons.refresh),
+                        tooltip: 'Tải lại',
+                      ),
+                    ],
+                  ],
+                ),
+        );
+      },
     );
   }
 }
@@ -599,7 +655,7 @@ class PosMobileEditorShell extends StatelessWidget {
   }
 }
 
-/// Header danh sách kiểu KiotViet: tiêu đề lớn + search/sort/filter.
+/// Header mobile POS — đồng bộ với màn Bán hàng (SafeArea + nút Home trong hub).
 class PosMobileKiotHeader extends StatelessWidget {
   const PosMobileKiotHeader({
     super.key,
@@ -608,8 +664,11 @@ class PosMobileKiotHeader extends StatelessWidget {
     this.onFilter,
     this.onSort,
     this.onMore,
+    this.onRefresh,
+    this.onHome,
     this.activeFilterCount = 0,
     this.filterChips,
+    this.trailing,
   });
 
   final String title;
@@ -617,73 +676,174 @@ class PosMobileKiotHeader extends StatelessWidget {
   final VoidCallback? onFilter;
   final VoidCallback? onSort;
   final VoidCallback? onMore;
+  final VoidCallback? onRefresh;
+  final VoidCallback? onHome;
   final int activeFilterCount;
   final Widget? filterChips;
+  final List<Widget>? trailing;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 10, 6, 6),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: PosTheme.textPrimary,
-                    ),
+    final inHub = PosHubScope.of(context);
+    final pushed = PosHubScope.pushedSubPageOf(context);
+    final compactHeader = inHub;
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: EdgeInsets.fromLTRB(
+              inHub ? 4 : (pushed ? 0 : 12), 4, 4, 0),
+          child: Row(
+            children: [
+              if (pushed)
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () => Navigator.maybePop(context),
+                ),
+              if (inHub)
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  tooltip: 'Về trang chủ',
+                  icon: const Icon(Icons.home_outlined,
+                      color: PosTheme.textPrimary),
+                  onPressed: onHome ??
+                      () => NavigationNotifier.posHubTab.value = 0,
+                ),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: PosTheme.textPrimary,
                   ),
                 ),
-                if (onSearch != null)
-                  IconButton(
-                    onPressed: onSearch,
-                    icon: const Icon(Icons.search),
-                    tooltip: 'Tìm kiếm',
+              ),
+              if (trailing != null) ...trailing!,
+              if (compactHeader)
+                _buildCompactActions(context)
+              else ...[
+              if (onRefresh != null)
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  onPressed: onRefresh,
+                  icon: const Icon(Icons.refresh),
+                  tooltip: 'Làm mới',
+                ),
+              if (onSearch != null)
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  onPressed: onSearch,
+                  icon: const Icon(Icons.search),
+                  tooltip: 'Tìm kiếm',
+                ),
+              if (onFilter != null)
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  onPressed: onFilter,
+                  icon: Badge(
+                    isLabelVisible: activeFilterCount > 0,
+                    label: Text('$activeFilterCount'),
+                    child: const Icon(Icons.filter_list, size: 22),
                   ),
-                if (onSort != null)
+                ),
+              if (onSort != null)
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  onPressed: onSort,
+                  icon: const Icon(Icons.import_export),
+                  tooltip: 'Sắp xếp',
+                ),
+              if (onMore != null)
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  onPressed: onMore,
+                  icon: const Icon(Icons.more_horiz),
+                  tooltip: 'Thêm',
+                ),
+              ],
+            ],
+          ),
+        ),
+        if ((onFilter != null || filterChips != null) && !compactHeader)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10, 0, 10, 6),
+            child: Row(
+              children: [
+                if (onFilter != null)
                   IconButton(
-                    onPressed: onSort,
-                    icon: const Icon(Icons.import_export),
-                    tooltip: 'Sắp xếp',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: onFilter,
+                    icon: Badge(
+                      isLabelVisible: activeFilterCount > 0,
+                      label: Text('$activeFilterCount'),
+                      child: const Icon(Icons.filter_list, size: 22),
+                    ),
                   ),
-                if (onMore != null)
-                  IconButton(
-                    onPressed: onMore,
-                    icon: const Icon(Icons.more_horiz),
-                    tooltip: 'Thêm',
-                  ),
+                if (filterChips != null) Expanded(child: filterChips!),
               ],
             ),
           ),
-          if (onFilter != null || filterChips != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
-              child: Row(
-                children: [
-                  if (onFilter != null)
-                    IconButton(
-                      visualDensity: VisualDensity.compact,
-                      onPressed: onFilter,
-                      icon: Badge(
-                        isLabelVisible: activeFilterCount > 0,
-                        label: Text('$activeFilterCount'),
-                        child: const Icon(Icons.filter_list, size: 22),
-                      ),
-                    ),
-                  if (filterChips != null) Expanded(child: filterChips!),
-                ],
+        const Divider(height: 1, color: PosTheme.border),
+      ],
+    );
+    return Material(
+      color: Colors.white,
+      child: posNeedsTopSafeArea(context)
+          ? SafeArea(bottom: false, child: content)
+          : content,
+    );
+  }
+
+  Widget _buildCompactActions(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (onSearch != null)
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            onPressed: onSearch,
+            icon: const Icon(Icons.search),
+            tooltip: 'Tìm kiếm',
+          ),
+        PopupMenuButton<String>(
+          icon: Badge(
+            isLabelVisible: activeFilterCount > 0,
+            label: Text('$activeFilterCount'),
+            child: const Icon(Icons.more_horiz),
+          ),
+          onSelected: (v) {
+            switch (v) {
+              case 'filter':
+                onFilter?.call();
+              case 'sort':
+                onSort?.call();
+              case 'refresh':
+                onRefresh?.call();
+              case 'more':
+                onMore?.call();
+            }
+          },
+          itemBuilder: (ctx) => [
+            if (onFilter != null)
+              PopupMenuItem(
+                value: 'filter',
+                child: Text(
+                  activeFilterCount > 0
+                      ? 'Bộ lọc ($activeFilterCount)'
+                      : 'Bộ lọc',
+                ),
               ),
-            ),
-          const Divider(height: 1, color: PosTheme.border),
-        ],
-      ),
+            if (onSort != null)
+              const PopupMenuItem(value: 'sort', child: Text('Sắp xếp')),
+            if (onRefresh != null)
+              const PopupMenuItem(value: 'refresh', child: Text('Làm mới')),
+            if (onMore != null)
+              const PopupMenuItem(value: 'more', child: Text('Thêm chức năng')),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -702,6 +862,8 @@ class PosMobileProductRow extends StatelessWidget {
     this.kiotSellStyle = false,
     this.orderReservedText,
     this.onScanCode,
+    this.isSelected = false,
+    this.selectedQty,
   });
 
   final String name;
@@ -715,11 +877,13 @@ class PosMobileProductRow extends StatelessWidget {
   final bool kiotSellStyle;
   final String? orderReservedText;
   final VoidCallback? onScanCode;
+  final bool isSelected;
+  final double? selectedQty;
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white,
+      color: isSelected ? const Color(0xFFE8F0FE) : Colors.white,
       child: InkWell(
         onTap: onTap,
         onLongPress: onLongPress,
@@ -750,10 +914,11 @@ class PosMobileProductRow extends StatelessWidget {
                       name,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
                         height: 1.25,
+                        color: isSelected ? PosTheme.kiotBlue : PosTheme.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -801,6 +966,26 @@ class PosMobileProductRow extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
+                  if (selectedQty != null && selectedQty! > 0) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: PosTheme.kiotBlue,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        selectedQty == selectedQty!.roundToDouble()
+                            ? selectedQty!.toStringAsFixed(0)
+                            : selectedQty!.toStringAsFixed(1),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                  ],
                   Text(
                     priceText,
                     style: const TextStyle(

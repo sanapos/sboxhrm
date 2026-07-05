@@ -63,5 +63,27 @@ public class PosSaleOrder : AuditableEntity<Guid>
     [MaxLength(100)]
     public string? PriceListName { get; set; }
 
+    /// <summary>Số lần đã in hóa đơn (lần 1 = in mới, >1 = in lại).</summary>
+    public int PrintCount { get; set; }
+
+    public DateTime? LastPrintedAt { get; set; }
+
+    public Guid? PriceListId { get; set; }
+    public virtual PosPriceList? PriceList { get; set; }
+
+    public Guid? VoucherId { get; set; }
+    public virtual PosVoucher? Voucher { get; set; }
+
+    [MaxLength(50)]
+    public string? VoucherCode { get; set; }
+
+    public decimal VoucherDiscount { get; set; }
+
+    public decimal PointsRedeemed { get; set; }
+
+    public decimal PointsDiscount { get; set; }
+
+    public decimal PointsEarned { get; set; }
+
     public virtual ICollection<PosSaleOrderLine> Lines { get; set; } = [];
 }

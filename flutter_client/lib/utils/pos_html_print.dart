@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../widgets/pos/pos_html_preview_stub.dart'
     if (dart.library.js_interop) '../widgets/pos/pos_html_preview_web.dart';
@@ -14,6 +15,8 @@ Future<void> showPosHtmlPrintDialog(
   int initialCopies = 1,
 }) async {
   var copies = initialCopies.clamp(1, 10);
+  final screenW = MediaQuery.sizeOf(context).width;
+  final isMobile = !kIsWeb && screenW < 600;
   await showDialog<void>(
     context: context,
     barrierDismissible: true,
@@ -22,10 +25,10 @@ Future<void> showPosHtmlPrintDialog(
       insetPadding: const EdgeInsets.all(16),
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxWidth: MediaQuery.sizeOf(ctx).width * 0.95,
+          maxWidth: screenW * 0.95,
           maxHeight: MediaQuery.sizeOf(ctx).height * 0.92,
-          minWidth: 720,
-          minHeight: 520,
+          minWidth: isMobile ? 0 : 720,
+          minHeight: isMobile ? 0 : 520,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -69,6 +72,16 @@ Future<void> showPosHtmlPrintDialog(
                       },
                       icon: const Icon(Icons.print, size: 18),
                       label: const Text('In'),
+                    )
+                  else if (isMobile)
+                    FilledButton.icon(
+                      style: FilledButton.styleFrom(backgroundColor: _blue),
+                      onPressed: () async {
+                        Navigator.pop(ctx);
+                        await Share.share(htmlDocument, subject: title);
+                      },
+                      icon: const Icon(Icons.share, size: 18),
+                      label: const Text('Chia sẻ / In'),
                     ),
                 ],
               ),

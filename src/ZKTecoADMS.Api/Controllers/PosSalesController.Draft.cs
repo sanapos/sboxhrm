@@ -46,8 +46,9 @@ public partial class PosSalesController
     }
 
     [HttpPost("{id:guid}/complete")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Edit)]
-    public async Task<ActionResult<AppResponse<SaleOrderDto>>> CompleteSale(Guid id)
+    [RequireModulePermission("PosSaleOrders", ModulePermissionAction.Edit)]
+    public async Task<ActionResult<AppResponse<SaleOrderDto>>> CompleteSale(
+        Guid id, [FromBody] CompleteSaleDto? dto = null)
     {
         var storeId = RequiredStoreId;
         var order = await dbContext.PosSaleOrders
@@ -64,13 +65,33 @@ public partial class PosSalesController
         var (plan, stockErr) = await PosSaleStockHelper.PrepareSaleStockAsync(dbContext, storeId, lineInputs);
         if (stockErr != null) return BadRequest(AppResponse<SaleOrderDto>.Fail(stockErr));
 
+        var productIds = order.Lines.Select(l => l.ProductId).Distinct().ToList();
+        var products = plan?.Products ?? await dbContext.PosProducts
+            .Where(p => productIds.Contains(p.Id) && p.StoreId == storeId && p.Deleted == null)
+            .ToDictionaryAsync(p => p.Id);
+
+        var dtoLines = BuildCompleteSaleLineDtos(order.Lines.ToList(), dto?.Lines);
+        var warrantyLines = dtoLines
+            .Where(l => products.TryGetValue(l.ProductId, out var wp) &&
+                        PosSaleWarrantyHelper.NeedsRegistration(wp))
+            .Select(l => (l, products[l.ProductId]))
+            .ToList();
+        if (warrantyLines.Count > 0)
+        {
+            var warrantyErr = await PosSaleWarrantyHelper.ValidateSerialsAsync(
+                dbContext, storeId, warrantyLines);
+            if (warrantyErr != null) return BadRequest(AppResponse<SaleOrderDto>.Fail(warrantyErr));
+        }
+
         order.Status = PosSaleOrderStatus.Completed;
         order.SaleDate ??= DateTime.UtcNow;
         order.SoldBy ??= CurrentUserEmail;
-        order.PaidAmount = order.PaidAmount > 0 ? order.PaidAmount : order.Total;
+        order.PaidAmount = order.PaidAmount > 0 ? order.PaidAmount : 0;
         await PosSaleStockHelper.ApplySaleStockAsync(
             dbContext, storeId, order, order.Lines.ToList(), plan!, CurrentUserEmail);
         await PosSaleStockHelper.UpdateCustomerOnSaleCompleteAsync(dbContext, storeId, order);
+        await PosSaleWarrantyHelper.RegisterOnSaleAsync(
+            dbContext, storeId, order, order.Lines.ToList(), dtoLines, products, CurrentUserEmail);
         order.UpdatedAt = DateTime.UtcNow;
         order.UpdatedBy = CurrentUserEmail;
         await PosFinanceSyncHelper.SyncSaleOnCompleteAsync(dbContext, order, CurrentUserId);
@@ -81,6 +102,26 @@ public partial class PosSalesController
             order.Total, order.SoldBy, CurrentUserId);
 
         return Ok(AppResponse<SaleOrderDto>.Success(await MapOrderAsync(storeId, order)));
+    }
+
+    private static List<SaleLineDto> BuildCompleteSaleLineDtos(
+        List<PosSaleOrderLine> orderLines, List<SaleLineDto>? inputLines)
+    {
+        if (inputLines == null || inputLines.Count == 0)
+        {
+            return orderLines.Select(l => new SaleLineDto(
+                l.ProductId, l.Qty, null, l.UnitPrice, l.VariantId)).ToList();
+        }
+
+        var byKey = inputLines.ToDictionary(
+            l => (l.ProductId, l.VariantId), l => l);
+
+        return orderLines.Select(l =>
+        {
+            if (byKey.TryGetValue((l.ProductId, l.VariantId), out var matched))
+                return matched with { Qty = l.Qty };
+            return new SaleLineDto(l.ProductId, l.Qty, null, l.UnitPrice, l.VariantId);
+        }).ToList();
     }
 
     [HttpGet("export/excel")]
@@ -211,7 +252,7 @@ public partial class PosSalesController
             {
                 Id = Guid.NewGuid(),
                 StoreId = storeId,
-                OrderNo = await PosSaleStockHelper.NextOrderNoAsync(dbContext, storeId),
+                OrderNo = await PosSaleStockHelper.NextOrderNoAsync(dbContext, storeId, now),
                 IsActive = true,
                 CreatedBy = CurrentUserEmail,
             };
@@ -244,7 +285,38 @@ public partial class PosSalesController
         order.SaleDate = complete ? now : order.SaleDate;
         await ResolveSoldByAsync(storeId, order, dto.SoldByEmployeeId, dto.SoldBy);
         order.SalesChannel = dto.SalesChannel?.Trim() ?? "Bán trực tiếp";
-        order.PriceListName = dto.PriceListName?.Trim() ?? "Bảng giá chung";
+        if (dto.PriceListId.HasValue)
+        {
+            var pl = await dbContext.PosPriceLists.AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Id == dto.PriceListId && x.StoreId == storeId && x.Deleted == null);
+            if (pl == null)
+                return (null, null, "Bảng giá không hợp lệ");
+            order.PriceListId = pl.Id;
+            order.PriceListName = pl.Name;
+        }
+        else
+        {
+            var defaultPl = await dbContext.PosPriceLists.AsNoTracking()
+                .FirstOrDefaultAsync(x => x.StoreId == storeId && x.IsDefault && x.Deleted == null);
+            if (defaultPl == null)
+            {
+                defaultPl = await dbContext.PosPriceLists.AsNoTracking()
+                    .Where(x => x.StoreId == storeId && x.Deleted == null && x.IsActive)
+                    .OrderByDescending(x => x.IsDefault).ThenBy(x => x.SortOrder)
+                    .FirstOrDefaultAsync();
+            }
+            if (defaultPl != null)
+            {
+                order.PriceListId = defaultPl.Id;
+                order.PriceListName = defaultPl.Name;
+            }
+            else
+            {
+                order.PriceListName = string.IsNullOrWhiteSpace(dto.PriceListName)
+                    ? "Bảng giá chung"
+                    : dto.PriceListName.Trim();
+            }
+        }
         order.UpdatedAt = DateTime.UtcNow;
         order.UpdatedBy = CurrentUserEmail;
 
@@ -253,10 +325,15 @@ public partial class PosSalesController
         decimal lineDiscountTotal = 0;
         foreach (var line in dto.Lines)
         {
-            var p = products[line.ProductId];
+            if (!products.TryGetValue(line.ProductId, out var p))
+                return (null, null, "Hàng hóa không hợp lệ hoặc đã ngừng kinh doanh");
+
             PosProductVariant? soldVariant = null;
             if (line.VariantId.HasValue)
-                variants.TryGetValue(line.VariantId.Value, out soldVariant);
+            {
+                if (!variants.TryGetValue(line.VariantId.Value, out soldVariant))
+                    return (null, null, "Biến thể hàng hóa không hợp lệ");
+            }
 
             var unitPrice = line.UnitPrice ?? soldVariant?.BasePrice ?? p.BasePrice;
             string? unitName = p.BaseUnitName;
@@ -308,7 +385,43 @@ public partial class PosSalesController
         }
 
         order.SubTotal = subTotal;
-        order.Total = subTotal - lineDiscountTotal - dto.Discount;
+        var merchandise = subTotal - lineDiscountTotal - dto.Discount;
+        if (merchandise < 0) merchandise = 0;
+
+        var voucherApply = await PosCustomerFinanceHelper.TryApplyVoucherAsync(
+            dbContext, storeId, dto.VoucherCode, merchandise, dto.CustomerId);
+        if (voucherApply?.Error != null)
+            return (null, null, voucherApply.Error);
+        decimal voucherDiscount = 0;
+        PosVoucher? appliedVoucher = null;
+        if (voucherApply != null)
+        {
+            appliedVoucher = voucherApply.Voucher;
+            voucherDiscount = voucherApply.DiscountAmount;
+            order.VoucherId = appliedVoucher.Id;
+            order.VoucherCode = appliedVoucher.Code;
+            order.VoucherDiscount = voucherDiscount;
+        }
+
+        var afterVoucher = merchandise - voucherDiscount;
+        if (dto.PointsToRedeem > 0)
+        {
+            if (!dto.CustomerId.HasValue)
+                return (null, null, "Cần chọn khách hàng để đổi điểm");
+            var ptCust = await dbContext.PosCustomers.AsNoTracking()
+                .FirstOrDefaultAsync(c => c.Id == dto.CustomerId && c.StoreId == storeId && c.Deleted == null);
+            if (ptCust == null) return (null, null, "Khách hàng không hợp lệ");
+            var (ptDisc, ptRedeem, ptErr) = PosCustomerFinanceHelper.CalcPointsRedeem(
+                dto.PointsToRedeem, ptCust.PointBalance, afterVoucher);
+            if (ptErr != null) return (null, null, ptErr);
+            order.PointsRedeemed = ptRedeem;
+            order.PointsDiscount = ptDisc;
+        }
+
+        order.Total = Math.Max(0, afterVoucher - order.PointsDiscount);
+        order.PointsEarned = complete && dto.CustomerId.HasValue
+            ? PosCustomerFinanceHelper.CalcPointsEarn(order.Total)
+            : 0;
 
         var paymentInputs = dto.Payments?
             .Where(p => p.Amount > 0)
@@ -327,9 +440,7 @@ public partial class PosSalesController
         }
         else
         {
-            order.PaidAmount = complete
-                ? (dto.PaidAmount > 0 ? dto.PaidAmount : order.Total)
-                : dto.PaidAmount;
+            order.PaidAmount = dto.PaidAmount;
         }
 
         var paymentSync = paymentInputs
@@ -338,11 +449,40 @@ public partial class PosSalesController
 
         if (complete && plan != null)
         {
+            var warrantyLines = dto.Lines
+                .Where(l => products.TryGetValue(l.ProductId, out var wp) &&
+                            PosSaleWarrantyHelper.NeedsRegistration(wp))
+                .Select(l => (l, products[l.ProductId]))
+                .ToList();
+            if (warrantyLines.Count > 0)
+            {
+                var warrantyErr = await PosSaleWarrantyHelper.ValidateSerialsAsync(
+                    dbContext, storeId, warrantyLines);
+                if (warrantyErr != null) return (null, null, warrantyErr);
+            }
+
             await PosSaleStockHelper.ApplySaleStockAsync(
                 dbContext, storeId, order, lines, plan, CurrentUserEmail);
             await PosSaleStockHelper.UpdateCustomerOnSaleCompleteAsync(dbContext, storeId, order);
+            if (order.CustomerId.HasValue)
+            {
+                var saleCustomer = await dbContext.PosCustomers.AsTracking()
+                    .FirstOrDefaultAsync(c => c.Id == order.CustomerId && c.StoreId == storeId && c.Deleted == null);
+                if (saleCustomer != null)
+                {
+                    await PosCustomerFinanceHelper.ApplyPointsOnSaleCompleteAsync(
+                        dbContext, storeId, order, saleCustomer, CurrentUserEmail);
+                    if (appliedVoucher != null)
+                    {
+                        appliedVoucher.UsedCount += 1;
+                        appliedVoucher.UpdatedAt = DateTime.UtcNow;
+                    }
+                }
+            }
             await PosFinanceSyncHelper.SyncSaleOnCompleteAsync(
                 dbContext, order, CurrentUserId, paymentSync);
+            await PosSaleWarrantyHelper.RegisterOnSaleAsync(
+                dbContext, storeId, order, lines, dto.Lines, products, CurrentUserEmail);
 
             var lowStockItems = plan.Products.Values
                 .Select(p => (p.Id, p.Name, p.OnHandQty, p.MinStockQty));

@@ -14,6 +14,7 @@ public static class PosFinanceSyncHelper
     public const string PurchaseReceiptMarker = "pos nhập hàng #";
     public const string SupplierPaymentMarker = "pos thanh toán ncc #";
     public const string CustomerReturnMarker = "pos trả khách #";
+    public const string CustomerPaymentMarker = "pos thu nợ kh #";
     public const string PurchaseReturnRefundMarker = "pos thu trả ncc #";
 
     public static async Task SyncSaleOnCompleteAsync(
@@ -206,6 +207,49 @@ public static class PosFinanceSyncHelper
             ContactName = order.CustomerName,
             CreatedByUserId = createdByUserId,
             StoreId = order.StoreId,
+            InternalNote = marker,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+        };
+        db.CashTransactions.Add(cash);
+    }
+
+    public static async Task SyncCustomerPaymentAsync(
+        ZKTecoDbContext db,
+        PosCustomerPayment payment,
+        PosCustomer customer,
+        Guid createdByUserId,
+        Guid? bankAccountId = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (payment.Amount <= 0) return;
+
+        var marker = $"{CustomerPaymentMarker}{payment.Id}";
+        if (await HasActiveCashAsync(db, payment.StoreId, marker, cancellationToken))
+            return;
+
+        var category = await EnsureCategoryAsync(
+            db, payment.StoreId, CashTransactionType.Income, "Thu nợ khách",
+            "account_balance_wallet", "#0EA5E9", cancellationToken);
+        if (category == null) return;
+
+        var cash = new CashTransaction
+        {
+            Id = Guid.NewGuid(),
+            TransactionCode = await GenerateCodeAsync(db, payment.StoreId, CashTransactionType.Income, cancellationToken),
+            Type = CashTransactionType.Income,
+            CategoryId = category.Id,
+            Amount = payment.Amount,
+            TransactionDate = payment.PaidAt,
+            Description = $"Thu nợ khách — {customer.Name} ({payment.PaymentNo})",
+            PaymentMethod = ParsePaymentMethod(payment.PaymentMethod),
+            BankAccountId = bankAccountId,
+            Status = CashTransactionStatus.Completed,
+            IsPaid = true,
+            PaidDate = payment.PaidAt,
+            ContactName = customer.Name,
+            CreatedByUserId = createdByUserId,
+            StoreId = payment.StoreId,
             InternalNote = marker,
             IsActive = true,
             CreatedAt = DateTime.UtcNow,

@@ -40,6 +40,7 @@ class _PosSellMobilePrintSettingsScreenState
   late PosThermalPrinterSettings _thermal;
   PosLabelPrinterSettings _label = const PosLabelPrinterSettings();
   List<PosPrintTemplate> _templates = [];
+  List<PosPrintTemplate> _warehouseTemplates = [];
   List<Map<String, String>> _btDevices = [];
   List<Map<String, String>> _labelBtDevices = [];
   bool _loading = false;
@@ -93,15 +94,50 @@ class _PosSellMobilePrintSettingsScreenState
   Future<void> _loadTemplates() async {
     setState(() => _loading = true);
     try {
-      final res = await _api
+      final invoiceRes = await _api
           .getPosPrintTemplates(
             documentType: PosPrintDocumentTypes.saleInvoice,
           )
           .timeout(const Duration(seconds: 8), onTimeout: () => {'isSuccess': false});
-      if (res['isSuccess'] == true && res['data'] is List) {
-        _templates = (res['data'] as List)
+      if (invoiceRes['isSuccess'] == true && invoiceRes['data'] is List) {
+        _templates = (invoiceRes['data'] as List)
             .map((e) => PosPrintTemplate.fromJson(e as Map<String, dynamic>))
             .toList();
+      }
+      if (_templates.isEmpty) {
+        await _api.seedPosPrintTemplates(
+          documentType: PosPrintDocumentTypes.saleInvoice,
+        );
+        final retry = await _api.getPosPrintTemplates(
+          documentType: PosPrintDocumentTypes.saleInvoice,
+        );
+        if (retry['isSuccess'] == true && retry['data'] is List) {
+          _templates = (retry['data'] as List)
+              .map((e) => PosPrintTemplate.fromJson(e as Map<String, dynamic>))
+              .toList();
+        }
+      }
+
+      var whRes = await _api.getPosPrintTemplates(
+        documentType: PosPrintDocumentTypes.stockIssue,
+      );
+      if (whRes['isSuccess'] == true && whRes['data'] is List) {
+        _warehouseTemplates = (whRes['data'] as List)
+            .map((e) => PosPrintTemplate.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
+      if (_warehouseTemplates.isEmpty) {
+        await _api.seedPosPrintTemplates(
+          documentType: PosPrintDocumentTypes.stockIssue,
+        );
+        whRes = await _api.getPosPrintTemplates(
+          documentType: PosPrintDocumentTypes.stockIssue,
+        );
+        if (whRes['isSuccess'] == true && whRes['data'] is List) {
+          _warehouseTemplates = (whRes['data'] as List)
+              .map((e) => PosPrintTemplate.fromJson(e as Map<String, dynamic>))
+              .toList();
+        }
       }
     } catch (e) {
       debugPrint('load print settings failed: $e');
@@ -121,6 +157,55 @@ class _PosSellMobilePrintSettingsScreenState
     if (saved != null && _templates.any((t) => t.id == saved)) return saved;
     return _templates.where((t) => t.isDefault).firstOrNull?.id ??
         _templates.first.id;
+  }
+
+  String? _resolveWarehouseTemplateId() {
+    if (_warehouseTemplates.isEmpty) return null;
+    final saved = _print.warehouseTemplateId;
+    if (saved != null && _warehouseTemplates.any((t) => t.id == saved)) {
+      return saved;
+    }
+    return _warehouseTemplates.where((t) => t.isDefault).firstOrNull?.id ??
+        _warehouseTemplates.first.id;
+  }
+
+  Future<void> _pickTemplate({
+    required String title,
+    required List<PosPrintTemplate> templates,
+    required String? selectedId,
+    required ValueChanged<String> onPick,
+  }) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(title,
+                  style: const TextStyle(
+                      fontSize: 17, fontWeight: FontWeight.w600)),
+            ),
+            ...templates.map(
+              (t) => ListTile(
+                title: Text(t.name),
+                subtitle: Text(
+                  PosPrintPaperSizes.labels[t.paperSize] ?? t.paperSize,
+                ),
+                trailing: selectedId == t.id
+                    ? const Icon(Icons.check, color: _blue)
+                    : null,
+                onTap: () {
+                  onPick(t.id);
+                  Navigator.pop(ctx);
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _save() async {
@@ -189,10 +274,13 @@ class _PosSellMobilePrintSettingsScreenState
     }
   }
 
-  Future<void> _openTemplateEditor() async {
+  Future<void> _openTemplateEditor({String? documentType}) async {
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
-        builder: (_) => const PosPrintTemplatesScreen(embeddedInSettings: true),
+        builder: (_) => PosPrintTemplatesScreen(
+          embeddedInSettings: true,
+          initialDocumentType: documentType,
+        ),
       ),
     );
     await _load();
@@ -328,7 +416,61 @@ class _PosSellMobilePrintSettingsScreenState
                     title: const Text('Thiết kế mẫu in (K58/K80/A5/A4)'),
                     subtitle: const Text('Mở trình soạn mẫu tối ưu mobile'),
                     trailing: const Icon(Icons.chevron_right),
-                    onTap: _openTemplateEditor,
+                    onTap: () => _openTemplateEditor(),
+                  ),
+                ]),
+                const SizedBox(height: 16),
+                _sectionTitle('Phiếu báo xuất kho'),
+                _card([
+                  ...PosWarehousePrintMode.values.map(
+                    (mode) => RadioListTile<PosWarehousePrintMode>(
+                      title: Text(mode.label),
+                      value: mode,
+                      groupValue: _print.warehousePrintMode,
+                      activeColor: _blue,
+                      onChanged: (v) {
+                        if (v == null) return;
+                        setState(
+                            () => _print = _print.copyWith(warehousePrintMode: v));
+                      },
+                    ),
+                  ),
+                  ListTile(
+                    title: const Text('Mẫu in phiếu xuất kho'),
+                    subtitle: Text(
+                      _warehouseTemplates.isEmpty
+                          ? 'Chưa có mẫu'
+                          : _warehouseTemplates
+                                  .where((t) =>
+                                      t.id == _resolveWarehouseTemplateId())
+                                  .firstOrNull
+                                  ?.name ??
+                              'Mặc định',
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: _warehouseTemplates.isEmpty
+                        ? null
+                        : () async {
+                            final id = _resolveWarehouseTemplateId();
+                            if (id == null) return;
+                            await _pickTemplate(
+                              title: 'Chọn mẫu phiếu xuất kho',
+                              templates: _warehouseTemplates,
+                              selectedId: id,
+                              onPick: (picked) => setState(() => _print =
+                                  _print.copyWith(warehouseTemplateId: picked)),
+                            );
+                          },
+                  ),
+                  ListTile(
+                    leading:
+                        const Icon(Icons.design_services_outlined, color: _blue),
+                    title: const Text('Thiết kế mẫu phiếu xuất kho'),
+                    subtitle: const Text('K58/K80/A5/A4 — loại Phiếu xuất kho'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => _openTemplateEditor(
+                      documentType: PosPrintDocumentTypes.stockIssue,
+                    ),
                   ),
                 ]),
                 const SizedBox(height: 16),

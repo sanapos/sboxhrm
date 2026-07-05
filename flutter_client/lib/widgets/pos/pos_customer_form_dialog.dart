@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
-import '../../models/pos_customer.dart';
-import '../../services/api_service.dart';
+import '../../models/pos_customer.dart';import '../../services/api_service.dart';
 import '../notification_overlay.dart';
 import 'pos_theme.dart';
 
@@ -124,6 +124,51 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      if (_isEdit && widget.customer != null) ...[
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: PosTheme.kiotBlueLight,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text('Công nợ',
+                                        style: TextStyle(fontSize: 12, color: PosTheme.textSecondary)),
+                                    Text(
+                                      NumberFormat('#,##0', 'vi_VN')
+                                          .format(widget.customer!.currentDebt),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.red,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text('Điểm tích luỹ',
+                                        style: TextStyle(fontSize: 12, color: PosTheme.textSecondary)),
+                                    Text(
+                                      NumberFormat('#,##0', 'vi_VN')
+                                          .format(widget.customer!.pointBalance),
+                                      style: const TextStyle(fontWeight: FontWeight.bold),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
                       TextFormField(
                         controller: _nameCtrl,
                         decoration: PosTheme.inputDecoration(label: 'Tên khách hàng *'),

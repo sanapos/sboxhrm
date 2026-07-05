@@ -16,6 +16,7 @@ public static class PosPrintTemplateDefaults
         PosPrintDocumentType.PurchaseReceipt => "PHIẾU NHẬP HÀNG",
         PosPrintDocumentType.PurchaseReturn => "TRẢ HÀNG NHẬP",
         PosPrintDocumentType.StockTransfer => "PHIẾU CHUYỂN HÀNG",
+        PosPrintDocumentType.StockIssue => "PHIẾU BÁO XUẤT KHO",
         PosPrintDocumentType.CashReceipt => "PHIẾU THU",
         PosPrintDocumentType.CashPayment => "PHIẾU CHI",
         _ => "CHỨNG TỪ",

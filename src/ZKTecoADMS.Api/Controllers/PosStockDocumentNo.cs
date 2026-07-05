@@ -26,4 +26,7 @@ internal static class PosStockDocumentNo
 
     public static string NewSupplierPayment() =>
         "TTN" + DateTime.UtcNow.ToString("yyMMdd") + Random.Shared.Next(1000, 9999);
+
+    public static string NewCustomerPayment() =>
+        "TTK" + DateTime.UtcNow.ToString("yyMMdd") + Random.Shared.Next(1000, 9999);
 }

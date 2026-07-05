@@ -1,4 +1,4 @@
-﻿// ignore: avoid_web_libraries_in_flutter, deprecated_member_use
+// ignore: avoid_web_libraries_in_flutter, deprecated_member_use
 import '../utils/file_saver.dart' as file_saver;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';

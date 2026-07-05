@@ -84,6 +84,7 @@ public class StorePackageModuleMiddleware
         ("/api/pos/customers", "PosProducts"),
         ("/api/pos/catalog", "PosProducts"),
         ("/api/pos/products", "PosProducts"),
+        ("/api/pos/price-lists", "PosSell"),
     ];
 
     public StorePackageModuleMiddleware(RequestDelegate next, ILogger<StorePackageModuleMiddleware> logger)
