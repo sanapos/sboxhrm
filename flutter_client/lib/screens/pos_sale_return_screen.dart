@@ -175,6 +175,59 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
     _setReturnQty(rl, _returnQty(rl) + delta);
   }
 
+  Future<void> _voidReturn(String returnNo) async {
+    final order = _order;
+    if (order == null) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Hủy phiếu trả hàng'),
+        content: Text(
+            'Hủy phiếu $returnNo?\nTrừ lại kho, hoàn tác tiền trên đơn ${order.orderNo}.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Không')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Hủy trả'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    setState(() => _submitting = true);
+    final res = await _api.cancelPosSaleReturn(order.id, returnNo);
+    if (!mounted) return;
+    setState(() => _submitting = false);
+    if (res['isSuccess'] == true && res['data'] is Map) {
+      final updated =
+          PosSaleOrder.fromJson(res['data'] as Map<String, dynamic>);
+      for (final l in _lines) {
+        l.qtyCtrl.dispose();
+      }
+      _lines.clear();
+      for (final l in updated.lines) {
+        if (l.returnedQty >= l.qty) continue;
+        _lines.add(
+            _ReturnLine(line: l, qtyCtrl: TextEditingController(text: '0')));
+      }
+      await _loadReturnHistory(order.id);
+      setState(() => _order = updated);
+      ScreenRefreshNotifier.refreshPosAfterStockChange();
+      NotificationOverlayManager().showSuccess(
+        title: 'Đã hủy trả hàng',
+        message: '$returnNo · ${updated.orderNo}',
+      );
+    } else {
+      NotificationOverlayManager().showError(
+        title: 'Lỗi',
+        message: res['message']?.toString() ?? 'Không hủy được phiếu trả',
+      );
+    }
+  }
+
   Future<void> _submit() async {
     final order = _order;
     if (order == null) return;
@@ -464,16 +517,52 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
                     Expanded(
                       child: Text(
                         h.returnNo,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
-                          color: _kiotBlue,
+                          color: h.isVoided
+                              ? PosTheme.textSecondary
+                              : _kiotBlue,
+                          decoration:
+                              h.isVoided ? TextDecoration.lineThrough : null,
                         ),
                       ),
                     ),
+                    if (h.isVoided)
+                      Container(
+                        margin: const EdgeInsets.only(right: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade200,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text('Đã hủy',
+                            style: TextStyle(fontSize: 10)),
+                      )
+                    else
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(
+                            minWidth: 32, minHeight: 32),
+                        tooltip: 'Hủy phiếu trả',
+                        icon: const Icon(Icons.cancel_outlined,
+                            size: 18, color: Colors.red),
+                        onPressed: _submitting
+                            ? null
+                            : () => _voidReturn(h.returnNo),
+                      ),
                     Text(
                       _moneyFmt.format(h.refundAmount),
-                      style: const TextStyle(fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: h.isVoided
+                            ? PosTheme.textSecondary
+                            : null,
+                        decoration:
+                            h.isVoided ? TextDecoration.lineThrough : null,
+                      ),
                     ),
                   ],
                 ),
@@ -890,11 +979,13 @@ class _ReturnHistory {
     required this.returnNo,
     required this.refundAmount,
     this.createdAt,
+    this.isVoided = false,
   });
 
   final String returnNo;
   final double refundAmount;
   final DateTime? createdAt;
+  final bool isVoided;
 
   factory _ReturnHistory.fromJson(Map<String, dynamic> json) {
     double n(dynamic v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
@@ -904,6 +995,7 @@ class _ReturnHistory {
       createdAt: json['createdAt'] != null
           ? DateTime.tryParse(json['createdAt'].toString())
           : null,
+      isVoided: json['isVoided'] == true || json['IsVoided'] == true,
     );
   }
 }

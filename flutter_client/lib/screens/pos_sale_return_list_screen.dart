@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
+import '../widgets/notification_overlay.dart';
 import '../widgets/pos/pos_mobile_widgets.dart';
 import '../widgets/pos/pos_theme.dart';
 import 'pos_sale_return_screen.dart';
@@ -74,9 +75,46 @@ class _PosSaleReturnListScreenState extends State<PosSaleReturnListScreen> {
     if (mounted) await _load();
   }
 
+  Future<void> _voidReturn(_ReturnRow row) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Hủy phiếu trả hàng'),
+        content: Text(
+            'Hủy phiếu ${row.returnNo} trên HĐ ${row.orderNo}?\nTrừ lại kho và cập nhật đơn hàng.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Không')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Hủy trả'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final res = await _api.cancelPosSaleReturn(row.orderId, row.returnNo);
+    if (!mounted) return;
+    if (res['isSuccess'] == true) {
+      NotificationOverlayManager().showSuccess(
+        title: 'Đã hủy trả hàng',
+        message: row.returnNo,
+      );
+      await _load();
+    } else {
+      NotificationOverlayManager().showError(
+        title: 'Lỗi',
+        message: res['message']?.toString() ?? 'Không hủy được',
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final perm = Provider.of<PermissionProvider>(context);
+    final canEdit = perm.canEdit('PosSell') || perm.canEdit('PosProducts');
     if (!perm.canView('PosSell') && !perm.canView('PosProducts')) {
       return const Scaffold(
         body: Center(child: Text('Không có quyền xem trả hàng')),
@@ -182,17 +220,54 @@ class _PosSaleReturnListScreenState extends State<PosSaleReturnListScreen> {
                                         Expanded(
                                           child: Text(
                                             r.returnNo,
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                               fontWeight: FontWeight.w700,
-                                              color: PosTheme.kiotBlue,
+                                              color: r.isVoided
+                                                  ? PosTheme.textSecondary
+                                                  : PosTheme.kiotBlue,
+                                              decoration: r.isVoided
+                                                  ? TextDecoration.lineThrough
+                                                  : null,
                                             ),
                                           ),
                                         ),
+                                        if (r.isVoided)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: Colors.grey.shade200,
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                            ),
+                                            child: const Text('Đã hủy',
+                                                style: TextStyle(fontSize: 10)),
+                                          )
+                                        else if (canEdit)
+                                          IconButton(
+                                            visualDensity:
+                                                VisualDensity.compact,
+                                            padding: EdgeInsets.zero,
+                                            constraints: const BoxConstraints(
+                                                minWidth: 32, minHeight: 32),
+                                            tooltip: 'Hủy phiếu trả',
+                                            icon: const Icon(
+                                                Icons.cancel_outlined,
+                                                size: 18,
+                                                color: Colors.red),
+                                            onPressed: () => _voidReturn(r),
+                                          ),
                                         Text(
                                           _moneyFmt.format(r.refundAmount),
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             fontWeight: FontWeight.bold,
                                             fontSize: 15,
+                                            color: r.isVoided
+                                                ? PosTheme.textSecondary
+                                                : null,
+                                            decoration: r.isVoided
+                                                ? TextDecoration.lineThrough
+                                                : null,
                                           ),
                                         ),
                                       ],
@@ -262,6 +337,7 @@ class _ReturnRow {
     this.refundPaymentMethod,
     this.createdAt,
     this.customerName,
+    this.isVoided = false,
   });
 
   final String returnNo;
@@ -271,6 +347,7 @@ class _ReturnRow {
   final String? refundPaymentMethod;
   final DateTime? createdAt;
   final String? customerName;
+  final bool isVoided;
 
   factory _ReturnRow.fromJson(Map<String, dynamic> j) {
     double n(dynamic v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
@@ -285,6 +362,7 @@ class _ReturnRow {
           ? DateTime.tryParse(j['createdAt'].toString())
           : null,
       customerName: j['customerName']?.toString() ?? j['CustomerName']?.toString(),
+      isVoided: j['isVoided'] == true || j['IsVoided'] == true,
     );
   }
 }

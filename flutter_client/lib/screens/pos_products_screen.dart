@@ -1123,6 +1123,14 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                       hintText: 'Theo mã, tên hàng',
                       isDense: true,
                       prefixIcon: const Icon(Icons.search, size: 20),
+                      suffixIcon: PosBarcodeScanIcon(
+                        controller: _searchCtrl,
+                        iconSize: 20,
+                        onScanned: (_) {
+                          // ignore: discarded_futures
+                          _reloadProducts();
+                        },
+                      ),
                       filled: true,
                       fillColor: const Color(0xFFF5F7FA),
                       border: OutlineInputBorder(

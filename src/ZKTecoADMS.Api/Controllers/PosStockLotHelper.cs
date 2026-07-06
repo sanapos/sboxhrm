@@ -105,6 +105,29 @@ internal static class PosStockLotHelper
         lot.UpdatedBy = updatedBy;
     }
 
+    /// <summary>Trừ lại lô khi hủy phiếu trả hàng (hoàn tác nhập lô từ trả).</summary>
+    public static async Task<(bool ok, string? error)> DeductLotQtyAsync(
+        ZKTecoDbContext db, Guid storeId, Guid lotId, decimal qty, string? updatedBy)
+    {
+        if (qty <= 0) return (true, null);
+        var lot = await db.PosStockLots.AsTracking()
+            .FirstOrDefaultAsync(l => l.Id == lotId && l.StoreId == storeId && l.Deleted == null);
+        if (lot == null) return (false, "Không tìm thấy lô hàng");
+        if (lot.QtyOnHand < qty)
+            return (false, $"Không đủ tồn lô để hủy trả (lô {lot.LotNo ?? lot.Id.ToString()[..8]}, cần {qty}, còn {lot.QtyOnHand})");
+        lot.QtyOnHand -= qty;
+        if (lot.QtyOnHand <= 0)
+        {
+            lot.QtyOnHand = 0;
+            lot.Status = PosStockLotStatus.Depleted;
+        }
+        else if (lot.Status == PosStockLotStatus.Depleted)
+            lot.Status = PosStockLotStatus.Active;
+        lot.UpdatedAt = DateTime.UtcNow;
+        lot.UpdatedBy = updatedBy;
+        return (true, null);
+    }
+
     /// <summary>Hoàn lô theo thứ tự ngược FEFO dựa trên giao dịch bán gốc.</summary>
     public static async Task<List<LotAllocation>> PlanReturnLotRestoreAsync(
         ZKTecoDbContext db,
@@ -132,7 +155,8 @@ internal static class PosStockLotHelper
                         t.ProductId == productId && t.VariantId == variantId &&
                         t.Deleted == null && t.IsActive &&
                         t.TransactionType == PosStockTransactionType.Return &&
-                        t.LotId.HasValue)
+                        t.LotId.HasValue &&
+                        (t.Note == null || (!t.Note.StartsWith("Hủy đơn") && !t.Note.StartsWith("Hủy trả hàng"))))
             .GroupBy(t => t.LotId!.Value)
             .Select(g => new { LotId = g.Key, Qty = g.Sum(x => x.QtyChange) })
             .ToDictionaryAsync(x => x.LotId, x => x.Qty);

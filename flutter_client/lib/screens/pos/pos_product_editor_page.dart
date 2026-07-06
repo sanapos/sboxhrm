@@ -19,6 +19,7 @@ import '../../widgets/pos/pos_unit_attribute_setup_dialog.dart';
 import '../../widgets/pos/pos_product_unit_view.dart';
 import '../../widgets/pos/pos_sale_quick_notes_widgets.dart';
 import '../../widgets/pos/pos_theme.dart';
+import '../../widgets/pos_barcode_scanner.dart';
 
 class PosProductEditorPage extends StatefulWidget {
   const PosProductEditorPage({
@@ -615,6 +616,13 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           .toList();
     }
     return null;
+  }
+
+  InputDecoration _barcodeInputDecoration({String hint = 'Nhập mã vạch'}) {
+    return posBarcodeScanDecoration(
+      PosTheme.inputDecoration(label: 'Mã vạch', hint: hint),
+      controller: _barcodeCtrl,
+    );
   }
 
   @override
@@ -1428,10 +1436,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             Expanded(
               child: TextField(
                 controller: _barcodeCtrl,
-                decoration: PosTheme.inputDecoration(
-                  label: 'Mã vạch',
-                  hint: 'Nhập mã vạch',
-                ),
+                decoration: _barcodeInputDecoration(),
               ),
             ),
           ],
@@ -1565,10 +1570,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             Expanded(
               child: TextField(
                 controller: _barcodeCtrl,
-                decoration: PosTheme.inputDecoration(
-                  label: 'Mã vạch',
-                  hint: 'Nhập mã vạch',
-                ),
+                decoration: _barcodeInputDecoration(),
               ),
             ),
           ],
@@ -1744,10 +1746,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             Expanded(
               child: TextField(
                 controller: _barcodeCtrl,
-                decoration: PosTheme.inputDecoration(
-                  label: 'Mã vạch',
-                  hint: 'Nhập mã vạch',
-                ),
+                decoration: _barcodeInputDecoration(),
               ),
             ),
           ],
@@ -2601,7 +2600,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                 Expanded(
                   child: TextField(
                     controller: _barcodeCtrl,
-                    decoration: PosTheme.inputDecoration(label: 'Mã vạch'),
+                    decoration: _barcodeInputDecoration(),
                   ),
                 ),
               ],

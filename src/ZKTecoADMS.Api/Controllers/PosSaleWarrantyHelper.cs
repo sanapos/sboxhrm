@@ -174,6 +174,36 @@ public static class PosSaleWarrantyHelper
         }
     }
 
+    public static async Task UnmarkReturnedAsync(
+        ZKTecoDbContext db,
+        Guid storeId,
+        Guid saleOrderId,
+        IReadOnlyList<(Guid ProductId, Guid? VariantId, decimal Qty)> returnLines,
+        string updatedBy)
+    {
+        var now = DateTime.UtcNow;
+        foreach (var (productId, variantId, qty) in returnLines)
+        {
+            var toRestore = (int)Math.Ceiling(qty);
+            if (toRestore <= 0) continue;
+
+            var returned = await db.PosProductWarrantyRegistrations
+                .Where(r => r.StoreId == storeId && r.SaleOrderId == saleOrderId &&
+                            r.ProductId == productId && r.VariantId == variantId &&
+                            r.Deleted == null && r.Status == PosWarrantyStatus.Returned)
+                .OrderByDescending(r => r.UpdatedAt)
+                .Take(toRestore)
+                .ToListAsync();
+
+            foreach (var r in returned)
+            {
+                r.Status = PosWarrantyStatus.Active;
+                r.UpdatedAt = now;
+                r.UpdatedBy = updatedBy;
+            }
+        }
+    }
+
     public static async Task<Dictionary<Guid, List<string>>> GetSerialsByLineAsync(
         ZKTecoDbContext db, Guid storeId, IEnumerable<Guid> lineIds)
     {

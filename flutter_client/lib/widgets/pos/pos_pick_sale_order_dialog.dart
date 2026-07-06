@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../models/pos_sale_order.dart';
 import '../../services/api_service.dart';
 import '../../utils/pos_kiot_time_range.dart';
+import '../../widgets/pos_barcode_scanner.dart';
 import 'pos_mobile_widgets.dart';
 import 'pos_theme.dart';
 
@@ -155,7 +156,7 @@ class _PosPickSaleOrderShellState extends State<_PosPickSaleOrderShell> {
         const SizedBox(height: 8),
         _filterField(_customerCtrl, 'Theo khách hàng hoặc ĐT'),
         const SizedBox(height: 8),
-        _filterField(_productCodeCtrl, 'Theo mã hàng'),
+        _filterField(_productCodeCtrl, 'Theo mã hàng', enableScan: true),
         const SizedBox(height: 8),
         _filterField(_productNameCtrl, 'Theo tên hàng'),
         const SizedBox(height: 12),
@@ -193,7 +194,8 @@ class _PosPickSaleOrderShellState extends State<_PosPickSaleOrderShell> {
     );
   }
 
-  Widget _filterField(TextEditingController ctrl, String hint) {
+  Widget _filterField(TextEditingController ctrl, String hint,
+      {bool enableScan = false}) {
     return TextField(
       controller: ctrl,
       decoration: InputDecoration(
@@ -201,6 +203,9 @@ class _PosPickSaleOrderShellState extends State<_PosPickSaleOrderShell> {
         isDense: true,
         border: const OutlineInputBorder(),
         contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        suffixIcon: enableScan
+            ? PosBarcodeScanIcon(controller: ctrl, iconSize: 20, outlined: true)
+            : null,
       ),
       style: const TextStyle(fontSize: 13),
       onSubmitted: (_) => _load(),
@@ -424,6 +429,14 @@ class _PosPickSaleOrderShellState extends State<_PosPickSaleOrderShell> {
                   decoration: InputDecoration(
                     hintText: 'Tìm mã HĐ, hàng, khách…',
                     prefixIcon: const Icon(Icons.search, size: 20),
+                    suffixIcon: PosBarcodeScanIcon(
+                      controller: _orderNoCtrl,
+                      iconSize: 20,
+                      onScanned: (_) {
+                        // ignore: discarded_futures
+                        _load();
+                      },
+                    ),
                     isDense: true,
                     filled: true,
                     fillColor: Colors.white,

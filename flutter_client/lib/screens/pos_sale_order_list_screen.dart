@@ -1039,7 +1039,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                       ),
                     ),
                   ),
-                  posSaleOrderStatusChip(order.status),
+                  posSaleOrderStatusChip(order.status, returnStatus: order.returnStatus),
                   IconButton(
                     onPressed: () => Navigator.pop(ctx),
                     icon: const Icon(Icons.close),
@@ -1190,7 +1190,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
         expanded: expanded,
         onTap: () => _toggleExpand(o),
         code: o.orderNo,
-        status: posSaleOrderStatusChip(o.status),
+        status: posSaleOrderStatusChip(o.status, returnStatus: o.returnStatus),
         accentColor: _blue,
         fields: [
           PosMobileField(
@@ -1321,7 +1321,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                       width: 90,
                       child: Align(
                         alignment: Alignment.centerRight,
-                        child: posSaleOrderStatusChip(o.status),
+                        child: posSaleOrderStatusChip(o.status, returnStatus: o.returnStatus),
                       ),
                     ),
                 ],
@@ -1354,7 +1354,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
               _detailTabBtn(0, 'Thông tin'),
               _detailTabBtn(1, 'Lịch sử thanh toán'),
               const Spacer(),
-              posSaleOrderStatusChip(o.status),
+              posSaleOrderStatusChip(o.status, returnStatus: o.returnStatus),
             ],
           ),
           const SizedBox(height: 8),

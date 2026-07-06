@@ -56,6 +56,8 @@ class PosSaleOrder {
   final String id;
   final String orderNo;
   final String status;
+  /// `Partial` | `Full` when order has customer returns (status stays Completed).
+  final String? returnStatus;
   final double subTotal;
   final double discount;
   final double total;
@@ -96,6 +98,7 @@ class PosSaleOrder {
     required this.id,
     required this.orderNo,
     this.status = 'Draft',
+    this.returnStatus,
     this.subTotal = 0,
     this.discount = 0,
     this.total = 0,
@@ -142,6 +145,7 @@ class PosSaleOrder {
         id: id,
         orderNo: orderNo,
         status: status,
+        returnStatus: returnStatus,
         subTotal: subTotal,
         discount: discount,
         total: total,
@@ -186,6 +190,10 @@ class PosSaleOrder {
 
   bool get hasReturns => returnedAmount > 0;
 
+  bool get isFullyReturned => returnStatus == 'Full';
+
+  bool get isPartiallyReturned => returnStatus == 'Partial';
+
   factory PosSaleOrder.fromJson(Map<String, dynamic> json) {
     double n(dynamic v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
     final linesRaw = json['lines'] ?? json['Lines'];
@@ -201,6 +209,7 @@ class PosSaleOrder {
       id: (json['id'] ?? json['Id'] ?? '').toString(),
       orderNo: (json['orderNo'] ?? json['OrderNo'] ?? '').toString(),
       status: normalizePosDocStatus(json['status'] ?? json['Status']),
+      returnStatus: (json['returnStatus'] ?? json['ReturnStatus'])?.toString(),
       subTotal: n(json['subTotal'] ?? json['SubTotal']),
       discount: n(json['discount'] ?? json['Discount']),
       total: total,

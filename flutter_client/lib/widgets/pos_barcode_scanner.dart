@@ -2,6 +2,60 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
+/// Nút quét mã vạch / QR bằng camera — dùng làm suffix ô nhập hoặc IconButton riêng.
+class PosBarcodeScanIcon extends StatelessWidget {
+  const PosBarcodeScanIcon({
+    super.key,
+    this.controller,
+    this.onScanned,
+    this.iconSize = 22,
+    this.color,
+    this.outlined = false,
+  });
+
+  final TextEditingController? controller;
+  final ValueChanged<String>? onScanned;
+  final double iconSize;
+  final Color? color;
+  final bool outlined;
+
+  Future<void> _scan(BuildContext context) async {
+    final code = await scanBarcodeWithCamera(context);
+    if (code == null || code.isEmpty) return;
+    controller?.text = code;
+    onScanned?.call(code);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: 'Quét mã vạch / QR',
+      icon: Icon(
+        outlined ? Icons.qr_code_scanner_outlined : Icons.qr_code_scanner,
+        size: iconSize,
+        color: color ?? Colors.grey.shade700,
+      ),
+      onPressed: () => _scan(context),
+    );
+  }
+}
+
+/// Gắn nút quét camera vào [InputDecoration].
+InputDecoration posBarcodeScanDecoration(
+  InputDecoration base, {
+  TextEditingController? controller,
+  ValueChanged<String>? onScanned,
+  bool outlined = false,
+}) {
+  return base.copyWith(
+    suffixIcon: PosBarcodeScanIcon(
+      controller: controller,
+      onScanned: onScanned,
+      outlined: outlined,
+    ),
+  );
+}
+
 /// Mở camera quét mã vạch một lần, trả về chuỗi mã hoặc null nếu hủy.
 Future<String?> scanBarcodeWithCamera(BuildContext context) async {
   return showModalBottomSheet<String>(

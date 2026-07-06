@@ -15238,6 +15238,22 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> cancelPosSaleReturn(
+      String orderId, String returnNo) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/sales/$orderId/returns/cancel'),
+            headers: _headers,
+            body: jsonEncode({'returnNo': returnNo}),
+          )
+          .timeout(const Duration(seconds: 60));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> updatePosSale(
       String id, Map<String, dynamic> body) async {
     try {

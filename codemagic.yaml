@@ -36,74 +36,25 @@ workflows:
       - name: Fetch signing files and set up code signing
         script: |
           set -e
-          
-          echo "=== Step 1: Generate certificate private key ==="
-          openssl genrsa -out /tmp/cert_key.pem 2048
-          
-          echo "=== Step 2: Revoke existing distribution certificates ==="
-          # Revoke both IOS_DISTRIBUTION and DISTRIBUTION cert types
-          for cert_type in IOS_DISTRIBUTION DISTRIBUTION; do
-            echo "Checking $cert_type certificates..."
-            app-store-connect certificates list \
-              --type "$cert_type" \
-              --json 2>/dev/null | python3 -c "
-          import sys, json
-          try:
-              certs = json.load(sys.stdin)
-              for cert in certs:
-                  print(cert.get('id', ''))
-          except:
-              pass
-          " | while read cert_id; do
-              if [ -n "$cert_id" ]; then
-                echo "Deleting $cert_type certificate: $cert_id"
-                app-store-connect certificates delete "$cert_id" || true
-              fi
-            done
-          done
-          
-          echo "=== Step 3: Delete existing provisioning profiles to force fresh creation with latest capabilities ==="
-          app-store-connect profiles list \
-            --bundle-id-identifier "$BUNDLE_ID" \
-            --profile-type IOS_APP_STORE \
-            --json 2>/dev/null | python3 -c "
-          import sys, json
-          try:
-              profiles = json.load(sys.stdin)
-              for p in profiles:
-                  print(p.get('id', ''))
-          except:
-              pass
-          " | while read profile_id; do
-            if [ -n "$profile_id" ]; then
-              echo "Deleting old provisioning profile: $profile_id"
-              app-store-connect profiles delete "$profile_id" || true
-            fi
-          done
-
-          echo "=== Step 4: Fetch signing files (create fresh cert + profile with Push Notifications) ==="
+          echo "=== Preflight: App Store Connect API ==="
+          if ! app-store-connect apps list --limit 1 >/dev/null 2>&1; then
+            echo ""
+            echo "ERROR: App Store Connect API từ chối (thường gặp HTTP 403)."
+            echo "Nguyên nhân phổ biến: thỏa thuận Apple Developer chưa ký hoặc đã hết hạn."
+            echo "Sửa: https://appstoreconnect.apple.com → Agreements, Tax, and Banking → chấp nhận thỏa thuận đang chờ."
+            echo "Sau đó chạy lại build iOS Release."
+            exit 1
+          fi
+          echo "=== Fetch signing files (App Store) ==="
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --platform IOS \
-            --create \
-            --certificate-key=@file:/tmp/cert_key.pem
-          
-          echo "=== Step 5: Initialize keychain ==="
+            --create
           keychain initialize
-          
-          echo "=== Step 6: List and save certificates ==="
-          app-store-connect certificates list \
-            --type IOS_DISTRIBUTION \
-            --certificate-key=@file:/tmp/cert_key.pem \
-            --save
-          
-          echo "=== Step 7: Add certificates to keychain ==="
+          app-store-connect certificates list --type IOS_DISTRIBUTION --save
           keychain add-certificates
-          
-          echo "=== Step 8: Apply profiles to Xcode project ==="
           xcode-project use-profiles
-          
-          echo "=== Done ==="
+          echo "=== Code signing OK ==="
 
       - name: Get Flutter packages
         script: flutter pub get

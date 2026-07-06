@@ -8,28 +8,58 @@ String posSaleOrderStatusLabel(String status) => switch (status) {
       _ => status,
     };
 
+String? posSaleReturnStatusLabel(String? returnStatus) => switch (returnStatus) {
+      'Full' => 'Trả hết',
+      'Partial' => 'Trả một phần',
+      _ => null,
+    };
+
 Color posSaleOrderStatusColor(String status) => switch (status) {
       'Completed' => Colors.green,
       'Cancelled' => Colors.grey,
       _ => Colors.orange,
     };
 
-Widget posSaleOrderStatusChip(String status) {
+Widget posSaleOrderStatusChip(String status, {String? returnStatus}) {
   final color = posSaleOrderStatusColor(status);
-  return Container(
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-    decoration: BoxDecoration(
-      color: color.withValues(alpha: 0.12),
-      borderRadius: BorderRadius.circular(12),
-    ),
-    child: Text(
-      posSaleOrderStatusLabel(status),
-      style: TextStyle(
-        fontSize: 11,
-        color: color is MaterialColor ? color.shade700 : color,
-        fontWeight: FontWeight.w600,
+  final returnLabel = posSaleReturnStatusLabel(returnStatus);
+  return Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          posSaleOrderStatusLabel(status),
+          style: TextStyle(
+            fontSize: 11,
+            color: color is MaterialColor ? color.shade700 : color,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
       ),
-    ),
+      if (returnLabel != null) ...[
+        const SizedBox(width: 4),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: Colors.orange.shade50,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            returnLabel,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: Colors.orange.shade800,
+            ),
+          ),
+        ),
+      ],
+    ],
   );
 }
 

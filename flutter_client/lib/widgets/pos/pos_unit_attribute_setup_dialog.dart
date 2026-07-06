@@ -9,6 +9,7 @@ import '../../screens/main_layout.dart' show ScreenRefreshNotifier;
 import '../../services/api_service.dart';
 import '../../utils/number_formatter.dart';
 import '../notification_overlay.dart';
+import '../pos_barcode_scanner.dart';
 import 'pos_theme.dart';
 
 /// Dữ liệu mở dialog «Thiết lập đơn vị tính và thuộc tính» (kiểu KiotViet).
@@ -1865,11 +1866,16 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
               padding: const EdgeInsets.only(right: 8),
               child: TextField(
                 controller: r.barcodeCtrl,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   isDense: true,
-                  border: OutlineInputBorder(),
+                  border: const OutlineInputBorder(),
                   contentPadding:
-                      EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                  suffixIcon: PosBarcodeScanIcon(
+                    controller: r.barcodeCtrl,
+                    iconSize: 18,
+                    outlined: true,
+                  ),
                 ),
                 style: const TextStyle(fontSize: 12),
               ),

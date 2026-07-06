@@ -478,28 +478,35 @@ class PosPurchaseProductSearchBarState extends State<PosPurchaseProductSearchBar
                 vertical: widget.compactSellMobile ? 10 : 12,
               ),
               suffixIcon: widget.hideSuffix
-                  ? null
+                  ? PosBarcodeScanIcon(
+                      iconSize: 20,
+                      onScanned: (_) {
+                        // ignore: discarded_futures
+                        _scanBarcode();
+                      },
+                    )
                   : Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        if (widget.sellMode)
-                          IconButton(
-                            tooltip: 'Quét mã vạch / QR',
-                            icon: Icon(Icons.qr_code_scanner,
-                                size: 20, color: Colors.grey.shade700),
-                            onPressed: _scanBarcode,
-                          ),
+                        PosBarcodeScanIcon(
+                          iconSize: 20,
+                          onScanned: (_) {
+                            // ignore: discarded_futures
+                            _scanBarcode();
+                          },
+                        ),
                         IconButton(
                           tooltip: 'Chọn từ danh sách',
                           icon: Icon(Icons.grid_view_rounded,
                               size: 20, color: Colors.grey.shade600),
                           onPressed: _openBrowseSheet,
                         ),
-                        IconButton(
-                          tooltip: 'Thêm hàng hóa mới',
-                          icon: const Icon(Icons.add, color: _blue, size: 22),
-                          onPressed: widget.onAddProduct,
-                        ),
+                        if (widget.onAddProduct != null)
+                          IconButton(
+                            tooltip: 'Thêm hàng hóa mới',
+                            icon: const Icon(Icons.add, color: _blue, size: 22),
+                            onPressed: widget.onAddProduct,
+                          ),
                         const SizedBox(width: 4),
                       ],
                     ),
@@ -847,6 +854,14 @@ class _BrowseProductsSheetState extends State<_BrowseProductsSheet> {
                 decoration: InputDecoration(
                   hintText: 'Tìm mã, tên hàng hóa…',
                   prefixIcon: const Icon(Icons.search, size: 20),
+                  suffixIcon: PosBarcodeScanIcon(
+                    controller: _search,
+                    iconSize: 20,
+                    onScanned: (code) {
+                      // ignore: discarded_futures
+                      _load(code);
+                    },
+                  ),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(24)),
                   isDense: true,
                   filled: true,

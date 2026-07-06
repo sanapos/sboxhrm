@@ -214,6 +214,21 @@ public static class PosFinanceSyncHelper
         db.CashTransactions.Add(cash);
     }
 
+    public static async Task ReverseCustomerReturnAsync(
+        ZKTecoDbContext db,
+        PosSaleOrder order,
+        string returnNo,
+        CancellationToken cancellationToken = default)
+    {
+        var marker = $"{CustomerReturnMarker}{order.Id}|{returnNo}";
+        var cashList = await db.CashTransactions
+            .Where(c => c.StoreId == order.StoreId && c.Deleted == null && c.IsActive
+                && c.InternalNote != null && c.InternalNote.StartsWith(marker))
+            .ToListAsync(cancellationToken);
+        foreach (var cash in cashList)
+            PaymentFinanceHelper.CancelLinkedCashTransaction(cash, $"Hủy trả hàng {returnNo} — {order.OrderNo}");
+    }
+
     public static async Task SyncCustomerPaymentAsync(
         ZKTecoDbContext db,
         PosCustomerPayment payment,
