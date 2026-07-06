@@ -63,7 +63,9 @@ public partial class PosProductsController(
         Guid? DefaultPrinterId = null,
         string? DefaultPrinterName = null,
         int? WarrantyMonths = null,
-        bool RequiresSerial = false);
+        bool RequiresSerial = false,
+        bool TrackExpiry = false,
+        int ExpiryWarningDays = 30);
 
     public record PosProductUnitDto(
         Guid Id, string UnitName, decimal ConversionRate,
@@ -100,7 +102,9 @@ public partial class PosProductsController(
         List<PosProductAttributeInput>? Attributes,
         Guid? DefaultPrinterId = null,
         int? WarrantyMonths = null,
-        bool RequiresSerial = false);
+        bool RequiresSerial = false,
+        bool TrackExpiry = false,
+        int ExpiryWarningDays = 30);
 
     public record PosProductAttributeInput(Guid? AttributeId, string? AttributeName, string Value);
 
@@ -494,6 +498,8 @@ public partial class PosProductsController(
             DefaultPrinterId = await ResolvePrinterIdAsync(storeId, dto.DefaultPrinterId),
             WarrantyMonths = dto.WarrantyMonths > 0 ? dto.WarrantyMonths : null,
             RequiresSerial = dto.RequiresSerial,
+            TrackExpiry = dto.TrackExpiry,
+            ExpiryWarningDays = dto.ExpiryWarningDays > 0 ? dto.ExpiryWarningDays : 30,
             IsActive = true,
             CreatedBy = CurrentUserEmail,
         };
@@ -590,6 +596,8 @@ public partial class PosProductsController(
         entity.DefaultPrinterId = await ResolvePrinterIdAsync(storeId, dto.DefaultPrinterId);
         entity.WarrantyMonths = dto.WarrantyMonths > 0 ? dto.WarrantyMonths : null;
         entity.RequiresSerial = dto.RequiresSerial;
+        entity.TrackExpiry = dto.TrackExpiry;
+        entity.ExpiryWarningDays = dto.ExpiryWarningDays > 0 ? dto.ExpiryWarningDays : 30;
         entity.UpdatedAt = DateTime.UtcNow;
         entity.UpdatedBy = CurrentUserEmail;
 
@@ -684,6 +692,8 @@ public partial class PosProductsController(
             SaleQuickNotesJson = source.SaleQuickNotesJson,
             WarrantyMonths = source.WarrantyMonths,
             RequiresSerial = source.RequiresSerial,
+            TrackExpiry = source.TrackExpiry,
+            ExpiryWarningDays = source.ExpiryWarningDays,
             IsActive = true,
             CreatedBy = CurrentUserEmail,
         };
@@ -791,7 +801,7 @@ public partial class PosProductsController(
             PosSaleQuickNotesHelper.Parse(p.SaleQuickNotesJson),
             p.CreatedAt, p.UpdatedAt,
             p.DefaultPrinterId, p.DefaultPrinter?.Name,
-            p.WarrantyMonths, p.RequiresSerial);
+            p.WarrantyMonths, p.RequiresSerial, p.TrackExpiry, p.ExpiryWarningDays);
     }
 
     private async Task<Guid?> ResolvePrinterIdAsync(Guid storeId, Guid? printerId)
@@ -812,6 +822,7 @@ public partial class PosProductsController(
             entity.MaxStockQty = 0;
             entity.WarrantyMonths = null;
             entity.RequiresSerial = false;
+            entity.TrackExpiry = false;
         }
         else if (entity.ProductType == PosProductType.Combo)
         {
@@ -821,6 +832,7 @@ public partial class PosProductsController(
             entity.MaxStockQty = 0;
             entity.WarrantyMonths = null;
             entity.RequiresSerial = false;
+            entity.TrackExpiry = false;
         }
     }
 

@@ -266,8 +266,9 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Hủy đơn hàng'),
-        content: Text('Hủy đơn ${o.orderNo} và hoàn kho hàng đã bán?'),
+        title: const Text('Hủy đơn (hoàn kho)'),
+        content: Text(
+            'Hủy đơn ${o.orderNo}, hoàn kho hàng đã bán và chuyển trạng thái «Đã hủy»?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Không')),
           FilledButton(
@@ -313,8 +314,9 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
           )
           .toList();
       ScreenRefreshNotifier.refreshPosAfterStockChange(sellStockLines: stockLines);
-      NotificationOverlayManager()
-          .showSuccess(title: 'Đã hủy', message: o.orderNo);
+      NotificationOverlayManager().showSuccess(
+          title: 'Đã hủy đơn',
+          message: '${o.orderNo} · trạng thái: Đã hủy');
       await _load(page: _page);
       await _refreshExpandedDetail(o.id);
     } else {
@@ -327,8 +329,9 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Xóa đơn hàng'),
-        content: Text('Xóa hẳn đơn ${o.orderNo}? Thao tác không thể hoàn tác.'),
+        title: const Text('Xóa khỏi danh sách'),
+        content: Text(
+            'Xóa hẳn đơn ${o.orderNo} khỏi danh sách? (Không hoàn kho thêm — chỉ ẩn phiếu)'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Không')),
           FilledButton(
@@ -1048,7 +1051,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
             Expanded(
               child: SingleChildScrollView(
                 controller: scrollCtrl,
-                child: PosSaleOrderReceiptView(order: order, showMeta: false),
+                child: PosSaleOrderReceiptView(order: order),
               ),
             ),
             const Divider(height: 1),
@@ -1086,7 +1089,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                           _cancelOrder(order);
                         },
                         icon: const Icon(Icons.cancel_outlined, size: 16),
-                        label: const Text('Hủy đơn'),
+                        label: const Text('Hủy đơn (hoàn kho)'),
                       ),
                     if (canEdit &&
                         (order.status == 'Cancelled' || order.status == 'Draft'))
@@ -1097,7 +1100,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                         },
                         icon: const Icon(Icons.delete_outline, size: 16),
                         style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
-                        label: const Text('Xóa'),
+                        label: const Text('Xóa khỏi DS'),
                       ),
                   ],
                 ),
@@ -1376,14 +1379,14 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                 OutlinedButton.icon(
                   onPressed: () => _deleteOrder(o),
                   icon: const Icon(Icons.delete_outline, size: 16),
-                  label: const Text('Xóa'),
+                  label: const Text('Xóa khỏi DS'),
                 ),
               ],
               if (canEdit && o.status == 'Completed') ...[
                 OutlinedButton.icon(
                   onPressed: () => _cancelOrder(o),
                   icon: const Icon(Icons.cancel_outlined, size: 16),
-                  label: const Text('Hủy'),
+                  label: const Text('Hủy đơn (hoàn kho)'),
                 ),
                 OutlinedButton.icon(
                   onPressed: () async {
@@ -1413,7 +1416,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                 OutlinedButton.icon(
                   onPressed: () => _deleteOrder(o),
                   icon: const Icon(Icons.delete_outline, size: 16),
-                  label: const Text('Xóa'),
+                  label: const Text('Xóa khỏi DS'),
                 ),
             ],
           ),

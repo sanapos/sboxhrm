@@ -90,5 +90,12 @@ public class PosStockReceiptLine : AuditableEntity<Guid>
 
     public string? LineNote { get; set; }
 
+    [MaxLength(50)]
+    public string? LotNo { get; set; }
+
+    public DateTime? ManufactureDate { get; set; }
+
+    public DateTime? ExpiryDate { get; set; }
+
 }
 

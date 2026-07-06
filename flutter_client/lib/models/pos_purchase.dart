@@ -104,6 +104,10 @@ class PosPurchaseLine {
   final bool vatExempt;
   final double lineTotal;
   final String? lineNote;
+  final String? lotNo;
+  final DateTime? manufactureDate;
+  final DateTime? expiryDate;
+  final bool trackExpiry;
 
   PosPurchaseLine({
     this.id,
@@ -121,6 +125,10 @@ class PosPurchaseLine {
     this.vatExempt = false,
     this.lineTotal = 0,
     this.lineNote,
+    this.lotNo,
+    this.manufactureDate,
+    this.expiryDate,
+    this.trackExpiry = false,
   });
 
   factory PosPurchaseLine.fromJson(Map<String, dynamic> json) {
@@ -141,6 +149,10 @@ class PosPurchaseLine {
       vatExempt: json['vatExempt'] == true || json['VatExempt'] == true,
       lineTotal: n(json['lineTotal'] ?? json['LineTotal']),
       lineNote: json['lineNote'] ?? json['LineNote'] as String?,
+      lotNo: json['lotNo'] ?? json['LotNo'] as String?,
+      manufactureDate: parseApiUtcDateTime(json['manufactureDate'] ?? json['ManufactureDate']),
+      expiryDate: parseApiUtcDateTime(json['expiryDate'] ?? json['ExpiryDate']),
+      trackExpiry: json['trackExpiry'] == true || json['TrackExpiry'] == true,
     );
   }
 
@@ -155,6 +167,9 @@ class PosPurchaseLine {
         'vatExempt': vatExempt,
         if (unitName != null) 'unitName': unitName,
         if (lineNote != null) 'lineNote': lineNote,
+        if (lotNo != null && lotNo!.isNotEmpty) 'lotNo': lotNo,
+        if (manufactureDate != null) 'manufactureDate': manufactureDate!.toUtc().toIso8601String(),
+        if (expiryDate != null) 'expiryDate': expiryDate!.toUtc().toIso8601String(),
       };
 }
 

@@ -958,7 +958,7 @@ public class PosStockIssueKiotController(ZKTecoDbContext dbContext) : Authentica
 
             CostPrice = cost,
 
-            Qty = 0,
+            Qty = 1,
 
             IsActive = true,
 

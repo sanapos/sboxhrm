@@ -10841,6 +10841,9 @@ class ApiService {
     if (result['isSuccess'] == null && result['IsSuccess'] != null) {
       result['isSuccess'] = result['IsSuccess'];
     }
+    if (result['data'] == null && result['Data'] != null) {
+      result['data'] = result['Data'];
+    }
     final errors = result['errors'] ?? result['Errors'];
     if ((result['message'] == null ||
             result['message'].toString().isEmpty) &&
@@ -14612,6 +14615,67 @@ class ApiService {
       if (search != null && search.trim().isNotEmpty) q['search'] = search.trim();
       if (filter != null && filter.isNotEmpty) q['filter'] = filter;
       final uri = Uri.parse('$baseUrl/api/pos/reports/stock/products')
+          .replace(queryParameters: q);
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosStockLotsExpiringSummary({int days = 30}) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/pos/stock/lots/expiring/summary')
+          .replace(queryParameters: {'days': '$days'});
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosStockLotsByProduct(
+    String productId, {
+    String? variantId,
+  }) async {
+    try {
+      final q = <String, String>{};
+      if (variantId != null && variantId.isNotEmpty) q['variantId'] = variantId;
+      final uri = Uri.parse('$baseUrl/api/pos/stock/lots/by-product/$productId')
+          .replace(queryParameters: q.isEmpty ? null : q);
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 15));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosStockLotReportSummary() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/reports/stock/lots/summary'),
+              headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosStockLotReport({
+    String? search,
+    String? filter,
+    int page = 1,
+    int pageSize = 50,
+  }) async {
+    try {
+      final q = <String, String>{'page': '$page', 'pageSize': '$pageSize'};
+      if (search != null && search.trim().isNotEmpty) q['search'] = search.trim();
+      if (filter != null && filter.isNotEmpty) q['filter'] = filter;
+      final uri = Uri.parse('$baseUrl/api/pos/reports/stock/lots')
           .replace(queryParameters: q);
       final response =
           await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));

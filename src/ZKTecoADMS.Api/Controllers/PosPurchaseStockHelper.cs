@@ -52,6 +52,7 @@ internal static class PosPurchaseStockHelper
             decimal txQtyChange;
             decimal? unitCost = null;
             decimal? lineAmount = null;
+            Guid? lotId = null;
             if (variant != null)
             {
                 txQtyChange = PosVariantStockHelper.StockDeltaInBase(variant, line.Qty);
@@ -95,12 +96,22 @@ internal static class PosPurchaseStockHelper
                 lineAmount = line.Qty * (unitCost ?? line.CostPrice);
             }
 
+            if (PosStockLotHelper.ShouldTrackLot(p, line))
+            {
+                var lotUnitCost = unitCost ?? line.CostPrice;
+                var lot = PosStockLotHelper.CreateLotFromReceiptLine(
+                    storeId, receipt, line, txQtyChange, lotUnitCost, createdBy);
+                db.PosStockLots.Add(lot);
+                lotId = lot.Id;
+            }
+
             db.PosStockTransactions.Add(new PosStockTransaction
             {
                 Id = Guid.NewGuid(),
                 StoreId = storeId,
                 ProductId = p.Id,
                 VariantId = variant?.Id,
+                LotId = lotId,
                 TransactionType = PosStockTransactionType.StockIn,
                 QtyChange = txQtyChange,
                 QtyAfter = qtyAfter,
@@ -126,6 +137,8 @@ internal static class PosPurchaseStockHelper
         List<PosStockReceiptLine> lines,
         string? createdBy)
     {
+        await PosStockLotHelper.VoidLotsForReceiptAsync(db, receipt.Id, createdBy);
+
         var productIds = lines.Select(l => l.ProductId).Distinct().ToList();
         var products = await db.PosProducts
             .AsTracking()
@@ -521,6 +534,7 @@ internal static class PosPurchaseStockHelper
                 .ToDictionaryAsync(v => v.Id);
 
         var touchedProducts = new HashSet<Guid>();
+        var note = issue.Note?.Trim() ?? noteFallback;
         foreach (var line in lines)
         {
             if (!products.TryGetValue(line.ProductId, out var p)) continue;
@@ -528,57 +542,94 @@ internal static class PosPurchaseStockHelper
             if (line.VariantId.HasValue)
                 variants.TryGetValue(line.VariantId.Value, out variant);
 
-            decimal qtyAfter;
-            decimal txQtyChange;
-            if (variant != null)
-            {
-                txQtyChange = PosVariantStockHelper.StockDeltaInBase(variant, line.Qty);
-                if (PosVariantStockHelper.IsUnitOnlyVariant(variant.AttributeJson))
-                {
-                    if (p.OnHandQty < txQtyChange)
-                        throw new InvalidOperationException($"Không đủ tồn: {line.ProductName}");
-                }
-                else if (variant.OnHandQty < line.Qty)
-                {
-                    throw new InvalidOperationException($"Không đủ tồn: {line.ProductName}");
-                }
-                qtyAfter = PosVariantStockHelper.ApplyStockDelta(p, variant, line.Qty, add: false);
-                variant.UpdatedAt = DateTime.UtcNow;
-                variant.UpdatedBy = createdBy;
-                p.UpdatedAt = DateTime.UtcNow;
-                p.UpdatedBy = createdBy;
-                touchedProducts.Add(p.Id);
-            }
-            else
-            {
-                if (p.OnHandQty < line.Qty)
-                    throw new InvalidOperationException($"Không đủ tồn: {line.ProductName}");
-                p.OnHandQty -= line.Qty;
-                p.UpdatedAt = DateTime.UtcNow;
-                p.UpdatedBy = createdBy;
-                qtyAfter = p.OnHandQty;
-                txQtyChange = line.Qty;
-            }
-
-            db.PosStockTransactions.Add(new PosStockTransaction
-            {
-                Id = Guid.NewGuid(),
-                StoreId = storeId,
-                ProductId = p.Id,
-                VariantId = variant?.Id,
-                TransactionType = PosStockTransactionType.StockOut,
-                QtyChange = -txQtyChange,
-                QtyAfter = qtyAfter,
-                ReferenceNo = issue.IssueNo,
-                StockIssueId = issue.Id,
-                Note = issue.Note?.Trim() ?? noteFallback,
-                IsActive = true,
-                CreatedBy = createdBy,
-            });
+            await ApplyFefoIssueLineAsync(
+                db, storeId, issue, p, variant, line.Qty, line.ProductName, note, createdBy, touchedProducts);
         }
 
         foreach (var pid in touchedProducts)
             await PosVariantStockHelper.SyncParentStockFromVariantsAsync(db, products[pid]);
+    }
+
+    private static async Task ApplyFefoIssueLineAsync(
+        ZKTecoDbContext db,
+        Guid storeId,
+        PosStockIssue issue,
+        PosProduct product,
+        PosProductVariant? variant,
+        decimal lineQty,
+        string displayName,
+        string note,
+        string? createdBy,
+        HashSet<Guid> touchedProducts)
+    {
+        var baseDeduct = variant != null
+            ? PosVariantStockHelper.StockDeltaInBase(variant, lineQty)
+            : lineQty;
+
+        if (product.TrackExpiry)
+        {
+            var lotQty = await PosStockLotHelper.GetAvailableLotQtyAsync(
+                db, storeId, product.Id, variant?.Id);
+            if (lotQty < baseDeduct)
+                throw new InvalidOperationException(
+                    $"Không đủ tồn lô/HSD: {displayName} (cần {baseDeduct}, còn {lotQty})");
+        }
+
+        decimal qtyAfter;
+        if (variant != null)
+        {
+            if (PosVariantStockHelper.IsUnitOnlyVariant(variant.AttributeJson))
+            {
+                if (product.OnHandQty < baseDeduct)
+                    throw new InvalidOperationException($"Không đủ tồn: {displayName}");
+            }
+            else if (variant.OnHandQty < lineQty)
+            {
+                throw new InvalidOperationException($"Không đủ tồn: {displayName}");
+            }
+            qtyAfter = PosVariantStockHelper.ApplyStockDelta(product, variant, lineQty, add: false);
+            variant.UpdatedAt = DateTime.UtcNow;
+            variant.UpdatedBy = createdBy;
+            product.UpdatedAt = DateTime.UtcNow;
+            product.UpdatedBy = createdBy;
+            touchedProducts.Add(product.Id);
+        }
+        else
+        {
+            if (product.OnHandQty < lineQty)
+                throw new InvalidOperationException($"Không đủ tồn: {displayName}");
+            product.OnHandQty -= lineQty;
+            product.UpdatedAt = DateTime.UtcNow;
+            product.UpdatedBy = createdBy;
+            qtyAfter = product.OnHandQty;
+        }
+
+        var (allocations, lotErr) = await PosStockLotHelper.AllocateFefoAsync(
+            db, storeId, product.Id, variant?.Id, baseDeduct, product, createdBy);
+        if (lotErr != null)
+            throw new InvalidOperationException(lotErr);
+
+        foreach (var alloc in allocations!)
+        {
+            db.PosStockTransactions.Add(new PosStockTransaction
+            {
+                Id = Guid.NewGuid(),
+                StoreId = storeId,
+                ProductId = product.Id,
+                VariantId = variant?.Id,
+                LotId = alloc.LotId,
+                TransactionType = PosStockTransactionType.StockOut,
+                QtyChange = -alloc.Qty,
+                QtyAfter = qtyAfter,
+                UnitCost = alloc.UnitCost,
+                LineAmount = alloc.Qty * alloc.UnitCost,
+                ReferenceNo = issue.IssueNo,
+                StockIssueId = issue.Id,
+                Note = note,
+                IsActive = true,
+                CreatedBy = createdBy,
+            });
+        }
     }
 
     public static async Task ReverseIssueStockAsync(
@@ -589,27 +640,115 @@ internal static class PosPurchaseStockHelper
         string? createdBy,
         string noteFallback)
     {
-        var productIds = lines.Select(l => l.ProductId).Distinct().ToList();
-        var products = await db.PosProducts
+        var outTxs = await db.PosStockTransactions
+            .AsNoTracking()
+            .Where(t => t.StockIssueId == issue.Id && t.StoreId == storeId &&
+                        t.Deleted == null && t.IsActive &&
+                        t.TransactionType == PosStockTransactionType.StockOut)
+            .ToListAsync();
+
+        if (outTxs.Count > 0)
+        {
+            var productIds = outTxs.Select(t => t.ProductId).Distinct().ToList();
+            var products = await db.PosProducts
+                .AsTracking()
+                .Where(p => productIds.Contains(p.Id) && p.StoreId == storeId && p.Deleted == null)
+                .ToDictionaryAsync(p => p.Id);
+
+            var variantIds = outTxs.Where(t => t.VariantId.HasValue)
+                .Select(t => t.VariantId!.Value).Distinct().ToList();
+            var variants = variantIds.Count == 0
+                ? new Dictionary<Guid, PosProductVariant>()
+                : await db.PosProductVariants
+                    .AsTracking()
+                    .Where(v => variantIds.Contains(v.Id) && v.StoreId == storeId && v.Deleted == null)
+                    .ToDictionaryAsync(v => v.Id);
+
+            var touchedProducts = new HashSet<Guid>();
+            foreach (var tx in outTxs)
+            {
+                if (!products.TryGetValue(tx.ProductId, out var p)) continue;
+                var restore = -tx.QtyChange;
+                PosProductVariant? variant = null;
+                if (tx.VariantId.HasValue)
+                    variants.TryGetValue(tx.VariantId.Value, out variant);
+
+                decimal qtyAfter;
+                if (variant != null)
+                {
+                    if (PosVariantStockHelper.IsUnitOnlyVariant(variant.AttributeJson))
+                    {
+                        p.OnHandQty += restore;
+                        qtyAfter = p.OnHandQty;
+                        p.UpdatedAt = DateTime.UtcNow;
+                        p.UpdatedBy = createdBy;
+                    }
+                    else
+                    {
+                        variant.OnHandQty += restore;
+                        qtyAfter = variant.OnHandQty;
+                        variant.UpdatedAt = DateTime.UtcNow;
+                        variant.UpdatedBy = createdBy;
+                        touchedProducts.Add(p.Id);
+                    }
+                }
+                else
+                {
+                    p.OnHandQty += restore;
+                    qtyAfter = p.OnHandQty;
+                    p.UpdatedAt = DateTime.UtcNow;
+                    p.UpdatedBy = createdBy;
+                }
+
+                if (tx.LotId.HasValue)
+                    await PosStockLotHelper.RestoreLotQtyAsync(db, storeId, tx.LotId.Value, restore, createdBy);
+
+                db.PosStockTransactions.Add(new PosStockTransaction
+                {
+                    Id = Guid.NewGuid(),
+                    StoreId = storeId,
+                    ProductId = p.Id,
+                    VariantId = variant?.Id,
+                    LotId = tx.LotId,
+                    TransactionType = PosStockTransactionType.StockIn,
+                    QtyChange = restore,
+                    QtyAfter = qtyAfter,
+                    UnitCost = tx.UnitCost,
+                    LineAmount = tx.LineAmount,
+                    ReferenceNo = issue.IssueNo,
+                    StockIssueId = issue.Id,
+                    Note = $"Hủy phiếu: {noteFallback} {issue.IssueNo}",
+                    IsActive = true,
+                    CreatedBy = createdBy,
+                });
+            }
+
+            foreach (var pid in touchedProducts)
+                await PosVariantStockHelper.SyncParentStockFromVariantsAsync(db, products[pid]);
+            return;
+        }
+
+        var lineProductIds = lines.Select(l => l.ProductId).Distinct().ToList();
+        var lineProducts = await db.PosProducts
             .AsTracking()
-            .Where(p => productIds.Contains(p.Id) && p.StoreId == storeId && p.Deleted == null)
+            .Where(p => lineProductIds.Contains(p.Id) && p.StoreId == storeId && p.Deleted == null)
             .ToDictionaryAsync(p => p.Id);
 
-        var variantIds = lines.Where(l => l.VariantId.HasValue).Select(l => l.VariantId!.Value).Distinct().ToList();
-        var variants = variantIds.Count == 0
+        var lineVariantIds = lines.Where(l => l.VariantId.HasValue).Select(l => l.VariantId!.Value).Distinct().ToList();
+        var lineVariants = lineVariantIds.Count == 0
             ? new Dictionary<Guid, PosProductVariant>()
             : await db.PosProductVariants
                 .AsTracking()
-                .Where(v => variantIds.Contains(v.Id) && v.StoreId == storeId && v.Deleted == null)
+                .Where(v => lineVariantIds.Contains(v.Id) && v.StoreId == storeId && v.Deleted == null)
                 .ToDictionaryAsync(v => v.Id);
 
-        var touchedProducts = new HashSet<Guid>();
+        var legacyTouched = new HashSet<Guid>();
         foreach (var line in lines)
         {
-            if (!products.TryGetValue(line.ProductId, out var p)) continue;
+            if (!lineProducts.TryGetValue(line.ProductId, out var p)) continue;
             PosProductVariant? variant = null;
             if (line.VariantId.HasValue)
-                variants.TryGetValue(line.VariantId.Value, out variant);
+                lineVariants.TryGetValue(line.VariantId.Value, out variant);
 
             decimal qtyAfter;
             decimal txQtyChange;
@@ -621,7 +760,7 @@ internal static class PosPurchaseStockHelper
                 variant.UpdatedBy = createdBy;
                 p.UpdatedAt = DateTime.UtcNow;
                 p.UpdatedBy = createdBy;
-                touchedProducts.Add(p.Id);
+                legacyTouched.Add(p.Id);
             }
             else
             {
@@ -649,8 +788,8 @@ internal static class PosPurchaseStockHelper
             });
         }
 
-        foreach (var pid in touchedProducts)
-            await PosVariantStockHelper.SyncParentStockFromVariantsAsync(db, products[pid]);
+        foreach (var pid in legacyTouched)
+            await PosVariantStockHelper.SyncParentStockFromVariantsAsync(db, lineProducts[pid]);
     }
 
     public static async Task<string> NextSupplierCodeAsync(ZKTecoDbContext db, Guid storeId)

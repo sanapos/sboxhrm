@@ -51,4 +51,7 @@ public class PosStockTransaction : AuditableEntity<Guid>
 
     public Guid? PurchaseReturnId { get; set; }
     public virtual PosPurchaseReturn? PurchaseReturn { get; set; }
+
+    public Guid? LotId { get; set; }
+    public virtual PosStockLot? Lot { get; set; }
 }

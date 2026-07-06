@@ -87,7 +87,6 @@ public class PosStockIssuesController(ZKTecoDbContext dbContext) : Authenticated
 
         var issueLines = new List<PosStockIssueLine>();
         decimal totalQty = 0;
-        var touchedProducts = new HashSet<Guid>();
 
         foreach (var line in dto.Lines)
         {
@@ -113,63 +112,23 @@ public class PosStockIssuesController(ZKTecoDbContext dbContext) : Authenticated
                 IsActive = true,
                 CreatedBy = CurrentUserEmail,
             });
-
-            decimal qtyAfter;
-            decimal txQtyChange;
-            if (variant != null)
-            {
-                txQtyChange = PosVariantStockHelper.StockDeltaInBase(variant, line.Qty);
-                if (PosVariantStockHelper.IsUnitOnlyVariant(variant.AttributeJson))
-                {
-                    if (p.OnHandQty < txQtyChange)
-                        return BadRequest(AppResponse<StockIssueDto>.Fail($"Không đủ tồn: {displayName}"));
-                }
-                else if (variant.OnHandQty < line.Qty)
-                {
-                    return BadRequest(AppResponse<StockIssueDto>.Fail($"Không đủ tồn: {displayName}"));
-                }
-
-                qtyAfter = PosVariantStockHelper.ApplyStockDelta(p, variant, line.Qty, add: false);
-                variant.UpdatedAt = DateTime.UtcNow;
-                variant.UpdatedBy = CurrentUserEmail;
-                p.UpdatedAt = DateTime.UtcNow;
-                p.UpdatedBy = CurrentUserEmail;
-                touchedProducts.Add(p.Id);
-            }
-            else
-            {
-                if (p.OnHandQty < line.Qty)
-                    return BadRequest(AppResponse<StockIssueDto>.Fail($"Không đủ tồn: {p.Name}"));
-                p.OnHandQty -= line.Qty;
-                p.UpdatedAt = DateTime.UtcNow;
-                p.UpdatedBy = CurrentUserEmail;
-                qtyAfter = p.OnHandQty;
-                txQtyChange = line.Qty;
-            }
-
-            dbContext.PosStockTransactions.Add(new PosStockTransaction
-            {
-                Id = Guid.NewGuid(),
-                StoreId = storeId,
-                ProductId = p.Id,
-                VariantId = variant?.Id,
-                TransactionType = PosStockTransactionType.StockOut,
-                QtyChange = -txQtyChange,
-                QtyAfter = qtyAfter,
-                ReferenceNo = issueNo,
-                StockIssueId = issue.Id,
-                Note = dto.Note?.Trim() ?? dto.Reason?.Trim() ?? "Xuất kho",
-                IsActive = true,
-                CreatedBy = CurrentUserEmail,
-            });
         }
-
-        foreach (var pid in touchedProducts)
-            await PosVariantStockHelper.SyncParentStockFromVariantsAsync(dbContext, products[pid]);
 
         issue.TotalQty = totalQty;
         dbContext.PosStockIssues.Add(issue);
         dbContext.PosStockIssueLines.AddRange(issueLines);
+
+        try
+        {
+            await PosPurchaseStockHelper.ApplyIssueStockAsync(
+                dbContext, storeId, issue, issueLines, CurrentUserEmail,
+                dto.Note?.Trim() ?? dto.Reason?.Trim() ?? "Xuất kho");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(AppResponse<StockIssueDto>.Fail(ex.Message));
+        }
+
         await dbContext.SaveChangesAsync();
 
         return Ok(AppResponse<StockIssueDto>.Success(new StockIssueDto(

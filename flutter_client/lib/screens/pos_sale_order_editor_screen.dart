@@ -115,6 +115,8 @@ class _PosSaleOrderEditorScreenState extends State<PosSaleOrderEditorScreen> {
   String _orderNo = '';
   String _status = 'Draft';
   String? _customerId;
+  String? _customerName;
+  String? _customerPhone;
   List<PosCustomer> _customers = [];
   bool _isDelivery = false;
   String _deliveryStatus = 'Chờ giao';
@@ -164,6 +166,20 @@ class _PosSaleOrderEditorScreenState extends State<PosSaleOrderEditorScreen> {
     });
   }
 
+  String _customerDisplayLabel() {
+    final fromList = _customers.where((c) => c.id == _customerId).firstOrNull;
+    if (fromList != null) {
+      return '${fromList.customerCode} — ${fromList.name}';
+    }
+    final name = _customerName?.trim();
+    if (name != null && name.isNotEmpty) {
+      final phone = _customerPhone?.trim();
+      if (phone != null && phone.isNotEmpty) return '$name · $phone';
+      return name;
+    }
+    return 'Khách lẻ';
+  }
+
   Future<void> _loadOrder(String id) async {
     final res = await _api.getPosSale(id);
     if (!mounted || res['isSuccess'] != true) return;
@@ -191,6 +207,8 @@ class _PosSaleOrderEditorScreenState extends State<PosSaleOrderEditorScreen> {
       _orderNo = o.orderNo;
       _status = o.status;
       _customerId = o.customerId;
+      _customerName = o.customerName;
+      _customerPhone = o.customerPhone;
       _isDelivery = o.isDelivery;
       _deliveryStatus = o.deliveryStatus ?? 'Chờ giao';
       _deliveryPartner = o.deliveryPartner ?? 'Tự giao';
@@ -477,22 +495,31 @@ class _PosSaleOrderEditorScreenState extends State<PosSaleOrderEditorScreen> {
             Row(
               children: [
                 Expanded(
-                  child: DropdownButtonFormField<String?>(
-                    value: _customerId,
-                    decoration: PosTheme.inputDecoration(label: 'Khách hàng'),
-                    hint: const Text('Khách lẻ'),
-                    items: [
-                      const DropdownMenuItem<String?>(value: null, child: Text('Khách lẻ')),
-                      ..._customers.map(
-                        (c) => DropdownMenuItem<String?>(
-                          value: c.id,
-                          child: Text('${c.customerCode} — ${c.name}',
-                              overflow: TextOverflow.ellipsis),
+                  child: _readOnly
+                      ? InputDecorator(
+                          decoration: PosTheme.inputDecoration(label: 'Khách hàng'),
+                          child: Text(
+                            _customerDisplayLabel(),
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                        )
+                      : DropdownButtonFormField<String?>(
+                          value: _customerId,
+                          decoration: PosTheme.inputDecoration(label: 'Khách hàng'),
+                          hint: const Text('Khách lẻ'),
+                          items: [
+                            const DropdownMenuItem<String?>(
+                                value: null, child: Text('Khách lẻ')),
+                            ..._customers.map(
+                              (c) => DropdownMenuItem<String?>(
+                                value: c.id,
+                                child: Text('${c.customerCode} — ${c.name}',
+                                    overflow: TextOverflow.ellipsis),
+                              ),
+                            ),
+                          ],
+                          onChanged: (v) => setState(() => _customerId = v),
                         ),
-                      ),
-                    ],
-                    onChanged: _readOnly ? null : (v) => setState(() => _customerId = v),
-                  ),
                 ),
                 if (!_readOnly) ...[
                   const SizedBox(width: 8),

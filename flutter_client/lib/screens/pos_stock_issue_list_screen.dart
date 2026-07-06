@@ -206,6 +206,14 @@ class _PosStockIssueListScreenState extends State<PosStockIssueListScreen> {
       ),
     );
     if (ok != true || !mounted) return;
+    if (doc.totalQty <= 0) {
+      NotificationOverlayManager().showWarning(
+        title: 'Số lượng',
+        message:
+            'Phiếu ${doc.issueNo} chưa có số lượng xuất. Mở phiếu, nhập SL và lưu trước khi hoàn thành.',
+      );
+      return;
+    }
     final res = await _api.completePosStockIssueDoc(_config.kind, doc.id);
     if (!mounted) return;
     if (res['isSuccess'] == true) {

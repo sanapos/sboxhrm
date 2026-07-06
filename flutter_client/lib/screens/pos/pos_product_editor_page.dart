@@ -3,13 +3,13 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/pos_product.dart';
 import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
+import '../../utils/image_source_picker.dart';
 import '../../widgets/notification_overlay.dart';
 import '../main_layout.dart' show ScreenRefreshNotifier;
 import '../../utils/number_formatter.dart';
@@ -234,7 +234,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   double _vatRate = 8;
   bool _vatExempt = false;
   late final TextEditingController _warrantyMonthsCtrl;
+  late final TextEditingController _expiryWarningDaysCtrl;
   bool _requiresSerial = false;
+  bool _trackExpiry = false;
 
   List<PosCatalogItem> _categories = [];
   List<PosCatalogItem> _brands = [];
@@ -348,6 +350,10 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           : '',
     );
     _requiresSerial = p?.requiresSerial ?? false;
+    _trackExpiry = p?.trackExpiry ?? false;
+    _expiryWarningDaysCtrl = TextEditingController(
+      text: '${p?.expiryWarningDays ?? 30}',
+    );
     _imagePreviewUrl = p?.imageUrl;
     if (p?.units != null) _units = List.from(p!.units!);
     if (p?.attributes != null) _attributeValues.addAll(p!.attributes!);
@@ -455,6 +461,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               ? '${data.warrantyMonths}'
               : '';
       _requiresSerial = data.requiresSerial;
+      _trackExpiry = data.trackExpiry;
+      _expiryWarningDaysCtrl.text = '${data.expiryWarningDays}';
     });
     if (_isCombo) {
       final comboRes = await _api.getPosComboLines(id);
@@ -624,6 +632,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     _descCtrl.dispose();
     _unitCtrl.dispose();
     _warrantyMonthsCtrl.dispose();
+    _expiryWarningDaysCtrl.dispose();
     super.dispose();
   }
 
@@ -633,28 +642,22 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       parseFormattedNumber(s)?.toDouble() ?? 0;
 
   Future<void> _pickImage() async {
-    final picker = ImagePicker();
-    final file = await picker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 1200,
-      imageQuality: 80,
-    );
-    if (file == null) return;
-    final bytes = await file.readAsBytes();
-    if (bytes.length > 2 * 1024 * 1024) {
+    final picked = await pickSingleImageWithCamera(context);
+    if (picked == null) return;
+    if (picked.bytes.length > 2 * 1024 * 1024) {
       NotificationOverlayManager().showError(
         title: 'Lỗi',
         message: 'Ảnh không được vượt quá 2 MB',
       );
       return;
     }
-    var name = file.name.trim();
+    var name = picked.name.trim();
     if (name.isEmpty) name = 'product.jpg';
     if (!name.contains('.')) name = '$name.jpg';
     setState(() {
-      _pendingImageBytes = bytes;
+      _pendingImageBytes = picked.bytes;
       _pendingImageName = name;
-      _imageBase64 = base64Encode(bytes);
+      _imageBase64 = base64Encode(picked.bytes);
       _imagePreviewUrl = null;
     });
   }
@@ -736,6 +739,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       if (_isGoods) ...{
         'warrantyMonths': int.tryParse(_warrantyMonthsCtrl.text.trim()),
         'requiresSerial': _requiresSerial,
+        'trackExpiry': _trackExpiry,
+        'expiryWarningDays':
+            int.tryParse(_expiryWarningDaysCtrl.text.trim()) ?? 30,
         'attributes': _attributeSchemaForSave(),
       },
     };
@@ -1873,8 +1879,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
 
   Widget _buildProductWarrantySection() {
     return _kvSection(
-      title: 'Bảo hành & seri máy',
-      subtitle: 'Thời hạn BH tính từ ngày bán. Bật seri để bắt buộc nhập khi thanh toán.',
+      title: 'Bảo hành, seri & lô/HSD',
+      subtitle: 'BH tính từ ngày bán. Bật theo dõi HSD để nhập lô khi nhập hàng.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -1898,6 +1904,28 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             value: _requiresSerial,
             onChanged: (v) => setState(() => _requiresSerial = v),
           ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Theo dõi lô / HSD'),
+            subtitle: const Text(
+              'Bắt buộc nhập HSD trên phiếu nhập hàng',
+              style: TextStyle(fontSize: 12),
+            ),
+            value: _trackExpiry,
+            onChanged: (v) => setState(() => _trackExpiry = v),
+          ),
+          if (_trackExpiry) ...[
+            const SizedBox(height: 4),
+            TextField(
+              controller: _expiryWarningDaysCtrl,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: PosTheme.inputDecoration(
+                label: 'Cảnh báo trước HSD (ngày)',
+                hint: 'Mặc định 30',
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -2036,7 +2064,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         Icon(Icons.add_photo_alternate_outlined,
             size: 36, color: Colors.grey.shade500),
         const SizedBox(height: 8),
-        Text('Thêm ảnh',
+        Text('Chụp hoặc chọn ảnh',
             style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
       ],
     );
@@ -2545,7 +2573,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         TextButton.icon(
           onPressed: _pickImage,
           icon: const Icon(Icons.photo_camera_outlined, color: PosTheme.primary),
-          label: const Text('Chọn ảnh', style: TextStyle(color: PosTheme.primary)),
+          label: const Text('Chụp / chọn ảnh', style: TextStyle(color: PosTheme.primary)),
         ),
       ],
     );

@@ -216,6 +216,7 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     public DbSet<PosProductVariant> PosProductVariants => Set<PosProductVariant>();
     public DbSet<PosStockReceipt> PosStockReceipts => Set<PosStockReceipt>();
     public DbSet<PosStockReceiptLine> PosStockReceiptLines => Set<PosStockReceiptLine>();
+    public DbSet<PosStockLot> PosStockLots => Set<PosStockLot>();
     public DbSet<PosStockIssue> PosStockIssues => Set<PosStockIssue>();
     public DbSet<PosStockIssueLine> PosStockIssueLines => Set<PosStockIssueLine>();
     public DbSet<PosStockCount> PosStockCounts => Set<PosStockCount>();

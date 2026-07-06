@@ -64,9 +64,13 @@ class _EditorLine {
   final TextEditingController costCtrl;
   final TextEditingController discountCtrl;
   final TextEditingController lineNoteCtrl;
+  final TextEditingController lotNoCtrl;
   double vatRate;
   bool vatExempt;
   bool costIncludesVat;
+  bool trackExpiry;
+  DateTime? manufactureDate;
+  DateTime? expiryDate;
 
   static const vatOptions = <double>[0, 5, 8, 10];
 
@@ -83,11 +87,16 @@ class _EditorLine {
     this.vatRate = 0,
     this.vatExempt = false,
     this.costIncludesVat = false,
+    this.trackExpiry = false,
+    this.manufactureDate,
+    this.expiryDate,
     String? lineNote,
+    String? lotNo,
   })  : qtyCtrl = TextEditingController(text: qty.toStringAsFixed(0)),
         costCtrl = TextEditingController(text: cost.toStringAsFixed(0)),
         discountCtrl = TextEditingController(text: discount.toStringAsFixed(0)),
-        lineNoteCtrl = TextEditingController(text: lineNote ?? '');
+        lineNoteCtrl = TextEditingController(text: lineNote ?? ''),
+        lotNoCtrl = TextEditingController(text: lotNo ?? '');
 
   String get lineKey => '$productId:${variantId ?? 'base'}';
 
@@ -136,6 +145,19 @@ class _EditorLine {
         'vatExempt': vatExempt,
         'unitName': unitName,
         if (lineNoteCtrl.text.trim().isNotEmpty) 'lineNote': lineNoteCtrl.text.trim(),
+        if (lotNoCtrl.text.trim().isNotEmpty) 'lotNo': lotNoCtrl.text.trim(),
+        if (manufactureDate != null)
+          'manufactureDate': DateTime.utc(
+            manufactureDate!.year,
+            manufactureDate!.month,
+            manufactureDate!.day,
+          ).toIso8601String(),
+        if (expiryDate != null)
+          'expiryDate': DateTime.utc(
+            expiryDate!.year,
+            expiryDate!.month,
+            expiryDate!.day,
+          ).toIso8601String(),
       };
 
   void dispose() {
@@ -143,6 +165,7 @@ class _EditorLine {
     costCtrl.dispose();
     discountCtrl.dispose();
     lineNoteCtrl.dispose();
+    lotNoCtrl.dispose();
   }
 }
 
@@ -264,6 +287,10 @@ class _PosPurchaseReceiptEditorScreenState
         vatExempt: ln.vatExempt,
         costIncludesVat: ln.vatIncluded,
         lineNote: ln.lineNote,
+        trackExpiry: ln.trackExpiry,
+        lotNo: ln.lotNo,
+        manufactureDate: ln.manufactureDate?.toLocal(),
+        expiryDate: ln.expiryDate?.toLocal(),
       );
       await _loadVariantsForLine(line);
       _lines.add(line);
@@ -698,6 +725,7 @@ class _PosPurchaseReceiptEditorScreenState
           (variants.isNotEmpty ? resolveUnitView(p, variants, null).variantId : null),
       variants: variants,
       cost: p.costPrice,
+      trackExpiry: p.trackExpiry,
     );
     if (preselectVariantId != null && variants.isNotEmpty) {
       final v = variants.where((x) => x.id == preselectVariantId).firstOrNull;
@@ -755,11 +783,114 @@ class _PosPurchaseReceiptEditorScreenState
         .toList();
   }
 
+  String? _validateLotLines() {
+    for (final l in _lines) {
+      if (l.trackExpiry && l.expiryDate == null) {
+        return '«${l.productName}» bắt buộc nhập HSD';
+      }
+      if (l.manufactureDate != null &&
+          l.expiryDate != null &&
+          l.manufactureDate!.isAfter(l.expiryDate!)) {
+        return 'NSX không được sau HSD: ${l.productName}';
+      }
+    }
+    return null;
+  }
+
+  Future<void> _pickLineDate(_EditorLine line, {required bool expiry}) async {
+    final initial = expiry
+        ? (line.expiryDate ?? DateTime.now())
+        : (line.manufactureDate ?? DateTime.now());
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+      helpText: expiry ? 'Chọn HSD' : 'Chọn NSX',
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      if (expiry) {
+        line.expiryDate = picked;
+      } else {
+        line.manufactureDate = picked;
+      }
+    });
+  }
+
+  Widget _buildLotExpiryFields(_EditorLine l) {
+    if (!l.trackExpiry &&
+        l.lotNoCtrl.text.isEmpty &&
+        l.manufactureDate == null &&
+        l.expiryDate == null) {
+      return const SizedBox.shrink();
+    }
+
+    final dateFmt = DateFormat('dd/MM/yyyy');
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            controller: l.lotNoCtrl,
+            readOnly: _readOnly,
+            decoration: const InputDecoration(
+              labelText: 'Mã lô',
+              isDense: true,
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _readOnly ? null : () => _pickLineDate(l, expiry: false),
+                  icon: const Icon(Icons.calendar_today, size: 14),
+                  label: Text(
+                    l.manufactureDate != null
+                        ? 'NSX: ${dateFmt.format(l.manufactureDate!)}'
+                        : 'NSX',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _readOnly ? null : () => _pickLineDate(l, expiry: true),
+                  icon: Icon(Icons.event, size: 14, color: l.trackExpiry ? Colors.orange : null),
+                  label: Text(
+                    l.expiryDate != null
+                        ? 'HSD: ${dateFmt.format(l.expiryDate!)}'
+                        : l.trackExpiry ? 'HSD *' : 'HSD',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: l.trackExpiry && l.expiryDate == null ? Colors.orange.shade800 : null,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _save({required bool complete}) async {
     if (_lines.isEmpty) {
       NotificationOverlayManager()
           .showWarning(title: 'Phiếu trống', message: 'Thêm ít nhất một dòng hàng');
       return;
+    }
+    if (complete) {
+      final lotErr = _validateLotLines();
+      if (lotErr != null) {
+        NotificationOverlayManager().showWarning(title: 'Thiếu HSD', message: lotErr);
+        return;
+      }
     }
     setState(() => _saving = true);
     final body = _buildBody(complete: complete);
@@ -1173,6 +1304,7 @@ class _PosPurchaseReceiptEditorScreenState
               'Thành tiền: ${_moneyFmt.format(l.lineTotal)} đ',
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
+            _buildLotExpiryFields(l),
           ],
         );
       },
@@ -1491,6 +1623,7 @@ class _PosPurchaseReceiptEditorScreenState
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
+                                _buildLotExpiryFields(l),
                               ],
                             ),
                             flex,

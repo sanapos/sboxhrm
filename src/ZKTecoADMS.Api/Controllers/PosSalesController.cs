@@ -91,6 +91,8 @@ public partial class PosSalesController(
         string PaymentMethod,
         string? CustomerName,
         Guid? CustomerId,
+        string? CustomerCode,
+        string? CustomerPhone,
         bool IsDelivery,
         string? DeliveryAddress,
         string? DeliveryPhone,
@@ -103,6 +105,11 @@ public partial class PosSalesController(
         Guid? SoldByEmployeeId,
         string? SalesChannel,
         string? PriceListName,
+        string? VoucherCode,
+        decimal VoucherDiscount,
+        decimal PointsRedeemed,
+        decimal PointsDiscount,
+        decimal PointsEarned,
         DateTime CreatedAt,
         string? CreatedBy,
         int PrintCount,
@@ -749,6 +756,8 @@ public partial class PosSalesController(
             .FirstOrDefaultAsync(o => o.Id == id && o.StoreId == storeId && o.Deleted == null);
         if (order == null)
             return NotFound(AppResponse<SaleOrderDto>.Fail("Không tìm thấy đơn hàng"));
+        if (order.Status == PosSaleOrderStatus.Cancelled)
+            return BadRequest(AppResponse<SaleOrderDto>.Fail("Đơn đã hủy"));
         if (order.Status != PosSaleOrderStatus.Completed)
             return BadRequest(AppResponse<SaleOrderDto>.Fail("Chỉ hủy được đơn đã hoàn thành"));
 
@@ -759,21 +768,31 @@ public partial class PosSalesController(
         if (hasReturns)
             return BadRequest(AppResponse<SaleOrderDto>.Fail("Đơn đã có trả hàng — không thể hủy"));
 
-        await PosSaleStockHelper.ReverseSaleOrderAsync(dbContext, storeId, order, CurrentUserEmail);
-        await PosSaleStockHelper.ReverseCustomerOnSaleCancelAsync(dbContext, storeId, order);
-        await PosCustomerFinanceHelper.ReversePointsOnSaleCancelAsync(dbContext, storeId, order, CurrentUserEmail);
-        if (order.VoucherId.HasValue)
+        var stockAlreadyReversed =
+            await PosSaleStockHelper.HasBeenCancelledInStockAsync(dbContext, storeId, order);
+        if (!stockAlreadyReversed)
         {
-            var vch = await dbContext.PosVouchers.AsTracking()
-                .FirstOrDefaultAsync(v => v.Id == order.VoucherId && v.StoreId == storeId);
-            if (vch != null && vch.UsedCount > 0)
+            var reversed =
+                await PosSaleStockHelper.ReverseSaleOrderAsync(dbContext, storeId, order, CurrentUserEmail);
+            if (!reversed)
+                return BadRequest(AppResponse<SaleOrderDto>.Fail("Đơn không có giao dịch kho để hủy"));
+
+            await PosSaleStockHelper.ReverseCustomerOnSaleCancelAsync(dbContext, storeId, order);
+            await PosCustomerFinanceHelper.ReversePointsOnSaleCancelAsync(dbContext, storeId, order, CurrentUserEmail);
+            if (order.VoucherId.HasValue)
             {
-                vch.UsedCount -= 1;
-                vch.UpdatedAt = DateTime.UtcNow;
+                var vch = await dbContext.PosVouchers.AsTracking()
+                    .FirstOrDefaultAsync(v => v.Id == order.VoucherId && v.StoreId == storeId);
+                if (vch != null && vch.UsedCount > 0)
+                {
+                    vch.UsedCount -= 1;
+                    vch.UpdatedAt = DateTime.UtcNow;
+                }
             }
+            await PosFinanceSyncHelper.ReverseSaleOnCancelAsync(dbContext, order);
+            await PosSaleWarrantyHelper.VoidOrderAsync(dbContext, storeId, order.Id, CurrentUserEmail);
         }
-        await PosFinanceSyncHelper.ReverseSaleOnCancelAsync(dbContext, order);
-        await PosSaleWarrantyHelper.VoidOrderAsync(dbContext, storeId, order.Id, CurrentUserEmail);
+
         order.Status = PosSaleOrderStatus.Cancelled;
         order.UpdatedAt = DateTime.UtcNow;
         order.UpdatedBy = CurrentUserEmail;
@@ -1048,74 +1067,24 @@ public partial class PosSalesController(
             if (p.ProductType == PosProductType.Combo &&
                 comboLinesMap.TryGetValue(p.Id, out var comboLines))
             {
+                var comboNote = BuildReturnNote(dto.Note, refundMethod, order.OrderNo) +
+                                $" — hoàn combo: {p.Name}";
                 foreach (var cl in comboLines)
                 {
                     if (!products.TryGetValue(cl.ComponentProductId, out var comp)) continue;
                     var restore = cl.Qty * line.Qty;
-                    comp.OnHandQty += restore;
-                    comp.UpdatedAt = DateTime.UtcNow;
-                    comp.UpdatedBy = CurrentUserEmail;
-                    dbContext.PosStockTransactions.Add(new PosStockTransaction
-                    {
-                        Id = Guid.NewGuid(),
-                        StoreId = storeId,
-                        ProductId = comp.Id,
-                        TransactionType = PosStockTransactionType.Return,
-                        QtyChange = restore,
-                        QtyAfter = comp.OnHandQty,
-                        UnitCost = comp.CostPrice,
-                        LineAmount = lineRefund,
-                        ReferenceNo = returnNo,
-                        SaleOrderId = order.Id,
-                        Note = BuildReturnNote(dto.Note, refundMethod, order.OrderNo) +
-                               $" — hoàn combo: {p.Name}",
-                        IsActive = true,
-                        CreatedBy = CurrentUserEmail,
-                    });
+                    await PosSaleStockHelper.ApplyComboReturnComponentAsync(
+                        dbContext, storeId, order, comp, restore, lineRefund,
+                        returnNo, comboNote, CurrentUserEmail);
                 }
                 refundTotal += lineRefund;
                 continue;
             }
 
-            decimal qtyAfter;
-            decimal txChange;
-            if (variant != null)
-            {
-                txChange = PosVariantStockHelper.StockDeltaInBase(variant, line.Qty);
-                qtyAfter = PosVariantStockHelper.ApplyStockDelta(p, variant, line.Qty, add: true);
-                variant.UpdatedAt = DateTime.UtcNow;
-                variant.UpdatedBy = CurrentUserEmail;
-                p.UpdatedAt = DateTime.UtcNow;
-                p.UpdatedBy = CurrentUserEmail;
-                if (!PosVariantStockHelper.IsUnitOnlyVariant(variant.AttributeJson))
-                    touchedProducts.Add(p.Id);
-            }
-            else
-            {
-                p.OnHandQty += line.Qty;
-                p.UpdatedAt = DateTime.UtcNow;
-                p.UpdatedBy = CurrentUserEmail;
-                qtyAfter = p.OnHandQty;
-                txChange = line.Qty;
-            }
-
-            dbContext.PosStockTransactions.Add(new PosStockTransaction
-            {
-                Id = Guid.NewGuid(),
-                StoreId = storeId,
-                ProductId = p.Id,
-                VariantId = variant?.Id,
-                TransactionType = PosStockTransactionType.Return,
-                QtyChange = txChange,
-                QtyAfter = qtyAfter,
-                UnitCost = saleLine.UnitPrice,
-                LineAmount = lineRefund,
-                ReferenceNo = returnNo,
-                SaleOrderId = order.Id,
-                Note = BuildReturnNote(dto.Note, refundMethod, order.OrderNo),
-                IsActive = true,
-                CreatedBy = CurrentUserEmail,
-            });
+            await PosSaleStockHelper.ApplySaleReturnLineAsync(
+                dbContext, storeId, order, p, variant, line.Qty, lineRefund,
+                returnNo, BuildReturnNote(dto.Note, refundMethod, order.OrderNo),
+                CurrentUserEmail, touchedProducts);
 
             refundTotal += lineRefund;
             warrantyReturns.Add((line.ProductId, line.VariantId, line.Qty));
@@ -1232,16 +1201,26 @@ public partial class PosSalesController(
             await PosSaleStockHelper.GetDailyPrintContextAsync(dbContext, storeId, order);
         var serialMap = await PosSaleWarrantyHelper.GetSerialsByLineAsync(
             dbContext, storeId, lines.Select(l => l.Id));
+        string? customerCode = null;
+        string? customerPhone = null;
+        if (order.CustomerId.HasValue)
+        {
+            var customer = await dbContext.PosCustomers.AsNoTracking()
+                .FirstOrDefaultAsync(c => c.Id == order.CustomerId && c.StoreId == storeId && c.Deleted == null);
+            customerCode = customer?.CustomerCode;
+            customerPhone = customer?.Phone;
+        }
         return MapOrder(
             order, lines, returnedMap.GetValueOrDefault(order.Id),
-            returnedQtyMap, dailyIndex, dailyTotal, serialMap);
+            returnedQtyMap, dailyIndex, dailyTotal, serialMap, customerCode, customerPhone);
     }
 
     private static SaleOrderDto MapOrder(
         PosSaleOrder order, List<PosSaleOrderLine> lines, decimal returnedAmount = 0,
         Dictionary<(Guid ProductId, Guid? VariantId), decimal>? returnedQtyByLine = null,
         int dailyOrderIndex = 0, decimal dailySalesTotal = 0,
-        Dictionary<Guid, List<string>>? serialsByLine = null)
+        Dictionary<Guid, List<string>>? serialsByLine = null,
+        string? customerCode = null, string? customerPhone = null)
     {
         returnedQtyByLine ??= new Dictionary<(Guid, Guid?), decimal>();
         serialsByLine ??= new Dictionary<Guid, List<string>>();
@@ -1250,10 +1229,12 @@ public partial class PosSalesController(
             order.SubTotal, order.Discount, order.Total, order.PaidAmount,
             order.Total - order.PaidAmount, returnedAmount,
             order.PaymentMethod, order.CustomerName, order.CustomerId,
+            customerCode, customerPhone,
             order.IsDelivery, order.DeliveryAddress, order.DeliveryPhone,
             order.DeliveryPartner, order.DeliveryStatus, order.DeliveryDate,
             order.Note,
             order.SaleDate, order.SoldBy, order.SoldByEmployeeId, order.SalesChannel, order.PriceListName,
+            order.VoucherCode, order.VoucherDiscount, order.PointsRedeemed, order.PointsDiscount, order.PointsEarned,
             order.CreatedAt, order.CreatedBy,
             order.PrintCount, dailyOrderIndex, dailySalesTotal,
             lines.Select(l => new SaleOrderLineDto(

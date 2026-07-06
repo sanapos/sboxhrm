@@ -65,6 +65,8 @@ class PosSaleOrder {
   final String paymentMethod;
   final String? customerName;
   final String? customerId;
+  final String? customerCode;
+  final String? customerPhone;
   final bool isDelivery;
   final String? deliveryAddress;
   final String? deliveryPhone;
@@ -77,6 +79,11 @@ class PosSaleOrder {
   final String? soldByEmployeeId;
   final String? salesChannel;
   final String? priceListName;
+  final String? voucherCode;
+  final double voucherDiscount;
+  final double pointsRedeemed;
+  final double pointsDiscount;
+  final double pointsEarned;
   final DateTime? createdAt;
   final String? createdBy;
   final int lineCount;
@@ -98,6 +105,8 @@ class PosSaleOrder {
     this.paymentMethod = 'Tiền mặt',
     this.customerName,
     this.customerId,
+    this.customerCode,
+    this.customerPhone,
     this.isDelivery = false,
     this.deliveryAddress,
     this.deliveryPhone,
@@ -110,6 +119,11 @@ class PosSaleOrder {
     this.soldByEmployeeId,
     this.salesChannel,
     this.priceListName,
+    this.voucherCode,
+    this.voucherDiscount = 0,
+    this.pointsRedeemed = 0,
+    this.pointsDiscount = 0,
+    this.pointsEarned = 0,
     this.createdAt,
     this.createdBy,
     this.lineCount = 0,
@@ -137,6 +151,8 @@ class PosSaleOrder {
         paymentMethod: paymentMethod,
         customerName: customerName,
         customerId: customerId,
+        customerCode: customerCode,
+        customerPhone: customerPhone,
         isDelivery: isDelivery,
         deliveryAddress: deliveryAddress,
         deliveryPhone: deliveryPhone,
@@ -149,6 +165,11 @@ class PosSaleOrder {
         soldByEmployeeId: soldByEmployeeId,
         salesChannel: salesChannel,
         priceListName: priceListName,
+        voucherCode: voucherCode,
+        voucherDiscount: voucherDiscount,
+        pointsRedeemed: pointsRedeemed,
+        pointsDiscount: pointsDiscount,
+        pointsEarned: pointsEarned,
         createdAt: createdAt,
         createdBy: createdBy,
         lineCount: lineCount,
@@ -190,6 +211,8 @@ class PosSaleOrder {
           (json['paymentMethod'] ?? json['PaymentMethod'] ?? 'Tiền mặt').toString(),
       customerName: json['customerName'] ?? json['CustomerName'] as String?,
       customerId: (json['customerId'] ?? json['CustomerId'])?.toString(),
+      customerCode: json['customerCode'] ?? json['CustomerCode'] as String?,
+      customerPhone: json['customerPhone'] ?? json['CustomerPhone'] as String?,
       isDelivery: json['isDelivery'] == true || json['IsDelivery'] == true,
       deliveryAddress: json['deliveryAddress'] ?? json['DeliveryAddress'] as String?,
       deliveryPhone: json['deliveryPhone'] ?? json['DeliveryPhone'] as String?,
@@ -203,6 +226,11 @@ class PosSaleOrder {
           (json['soldByEmployeeId'] ?? json['SoldByEmployeeId'])?.toString(),
       salesChannel: json['salesChannel'] ?? json['SalesChannel'] as String?,
       priceListName: json['priceListName'] ?? json['PriceListName'] as String?,
+      voucherCode: json['voucherCode'] ?? json['VoucherCode'] as String?,
+      voucherDiscount: n(json['voucherDiscount'] ?? json['VoucherDiscount']),
+      pointsRedeemed: n(json['pointsRedeemed'] ?? json['PointsRedeemed']),
+      pointsDiscount: n(json['pointsDiscount'] ?? json['PointsDiscount']),
+      pointsEarned: n(json['pointsEarned'] ?? json['PointsEarned']),
       createdAt: parseApiDateTime(json['createdAt'] ?? json['CreatedAt']),
       createdBy: json['createdBy'] ?? json['CreatedBy'] as String?,
       lineCount: (json['lineCount'] ?? json['LineCount'] as num?)?.toInt() ??

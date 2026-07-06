@@ -94,3 +94,11 @@ public enum PosStockIssueStatus
     Completed = 1,
     Cancelled = 2,
 }
+
+/// <summary>Trạng thái lô hàng POS.</summary>
+public enum PosStockLotStatus
+{
+    Active = 0,
+    Depleted = 1,
+    Voided = 2,
+}

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -59,16 +61,20 @@ class _IssueLine {
     costCtrl.dispose();
   }
 
-  factory _IssueLine.fromApi(PosStockIssueLine ln) => _IssueLine(
-        lineId: ln.id,
-        productId: ln.productId,
-        variantId: ln.variantId,
-        productCode: ln.productCode,
-        productName: ln.productName,
-        unitName: ln.unitName ?? 'Cái',
-        qty: ln.qty,
-        costPrice: ln.costPrice,
-      );
+  factory _IssueLine.fromApi(PosStockIssueLine ln, {double defaultQtyIfZero = 0}) {
+    var qty = ln.qty;
+    if (qty <= 0 && defaultQtyIfZero > 0) qty = defaultQtyIfZero;
+    return _IssueLine(
+      lineId: ln.id,
+      productId: ln.productId,
+      variantId: ln.variantId,
+      productCode: ln.productCode,
+      productName: ln.productName,
+      unitName: ln.unitName ?? 'Cái',
+      qty: qty,
+      costPrice: ln.costPrice,
+    );
+  }
 }
 
 class PosStockIssueEditorScreen extends StatefulWidget {
@@ -101,6 +107,9 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
   String _status = 'Draft';
   String? _categoryName;
   final List<_IssueLine> _lines = [];
+  Timer? _lineSaveDebounce;
+  bool _lineSaveInFlight = false;
+  int _lineSaveSeq = 0;
 
   PosStockIssueConfig get _config => widget.config;
   bool get _readOnly => _status != 'Draft';
@@ -114,6 +123,7 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
 
   @override
   void dispose() {
+    _lineSaveDebounce?.cancel();
     _noteCtrl.dispose();
     _issueNoCtrl.dispose();
     _recipientCtrl.dispose();
@@ -131,14 +141,7 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
     if (mounted) setState(() => _loading = false);
   }
 
-  void _applyDoc(PosStockIssueDoc doc) {
-    for (final l in _lines) {
-      l.dispose();
-    }
-    _lines.clear();
-    for (final ln in doc.lines) {
-      _lines.add(_IssueLine.fromApi(ln));
-    }
+  void _applyDocMeta(PosStockIssueDoc doc) {
     _issueId = doc.id.isEmpty ? null : doc.id;
     _issueNo = doc.issueNo;
     _issueNoCtrl.text = doc.issueNo;
@@ -146,6 +149,166 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
     _noteCtrl.text = doc.note ?? '';
     _categoryName = doc.categoryName;
     _recipientCtrl.text = doc.recipientName ?? '';
+  }
+
+  void _syncLinesFromServer(
+    PosStockIssueDoc doc, {
+    bool defaultQtyOneForNew = false,
+  }) {
+    final existing = {for (final l in _lines) l.lineId: l};
+    final serverIds = doc.lines.map((l) => l.id).toSet();
+
+    final removed =
+        _lines.where((l) => !serverIds.contains(l.lineId)).toList(growable: false);
+    for (final l in removed) {
+      _lines.remove(l);
+      l.dispose();
+    }
+
+    for (final ln in doc.lines) {
+      if (existing.containsKey(ln.id)) continue;
+      _lines.add(_IssueLine.fromApi(
+        ln,
+        defaultQtyIfZero: defaultQtyOneForNew ? 1 : 0,
+      ));
+    }
+  }
+
+  void _applyDoc(
+    PosStockIssueDoc doc, {
+    bool mergeLines = false,
+    bool defaultQtyOneForNew = false,
+  }) {
+    if (mergeLines) {
+      _applyDocMeta(doc);
+      _syncLinesFromServer(doc, defaultQtyOneForNew: defaultQtyOneForNew);
+      return;
+    }
+
+    for (final l in _lines) {
+      l.dispose();
+    }
+    _lines.clear();
+    for (final ln in doc.lines) {
+      _lines.add(_IssueLine.fromApi(ln));
+    }
+    _applyDocMeta(doc);
+  }
+
+  PosStockIssueDoc _docFromResponse(Map<String, dynamic> res) =>
+      PosStockIssueDoc.fromJson(res['data'] as Map<String, dynamic>);
+
+  void _cancelLineAutoSave() {
+    _lineSaveDebounce?.cancel();
+    _lineSaveDebounce = null;
+    _lineSaveSeq++;
+  }
+
+  void _scheduleLineAutoSave() {
+    if (_readOnly || _issueId == null || _lines.isEmpty) return;
+    _lineSaveDebounce?.cancel();
+    _lineSaveDebounce = Timer(const Duration(milliseconds: 500), () {
+      unawaited(_flushLineAutoSave());
+    });
+  }
+
+  Future<bool> _flushLineAutoSave({bool silent = false}) async {
+    if (_readOnly || _issueId == null || _lines.isEmpty || !mounted) {
+      return true;
+    }
+    _lineSaveDebounce?.cancel();
+    _lineSaveDebounce = null;
+
+    if (_lineSaveInFlight) {
+      _scheduleLineAutoSave();
+      return false;
+    }
+
+    _lineSaveInFlight = true;
+    final seq = ++_lineSaveSeq;
+    try {
+      final res = await _api.updatePosStockIssueDocLines(
+        _config.kind,
+        _issueId!,
+        _lines.map((l) => l.toUpdateJson()).toList(),
+      );
+      if (!mounted || seq != _lineSaveSeq) return false;
+      if (res['isSuccess'] == true && res['data'] != null) {
+        _applyDoc(_docFromResponse(res), mergeLines: true);
+        if (mounted) setState(() {});
+        return true;
+      }
+      if (!silent) {
+        NotificationOverlayManager().showError(
+          title: 'Lỗi',
+          message: res['message']?.toString() ?? 'Không lưu được số lượng',
+        );
+      }
+      return false;
+    } finally {
+      _lineSaveInFlight = false;
+    }
+  }
+
+  void _onLineFieldChanged() {
+    setState(() {});
+    _scheduleLineAutoSave();
+  }
+
+  Future<bool> _handleNavigateBack() async {
+    if (_readOnly) return true;
+
+    _lineSaveDebounce?.cancel();
+    if (_issueId != null && _lines.isNotEmpty) {
+      final saved = await _flushLineAutoSave(silent: true);
+      if (!saved || !mounted) return false;
+      final headerRes = await _api.updatePosStockIssueDoc(
+        _config.kind,
+        _issueId!,
+        _headerBody(),
+      );
+      if (!mounted) return false;
+      if (headerRes['isSuccess'] == true && headerRes['data'] != null) {
+        _applyDocMeta(_docFromResponse(headerRes));
+      }
+      return true;
+    }
+
+    if (_issueId == null || _issueId!.isEmpty) return true;
+
+    final action = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Thoát phiếu tạm'),
+        content: Text(
+          'Phiếu $_issueNo chưa có hàng. Xóa phiếu tạm hay giữ lại trong danh sách?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, 'keep'),
+            child: const Text('Giữ lại'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, 'delete'),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Xóa phiếu'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted) return false;
+    if (action == 'delete') {
+      final res = await _api.deletePosStockIssueDoc(_config.kind, _issueId!);
+      if (!mounted) return false;
+      if (res['isSuccess'] != true) {
+        NotificationOverlayManager().showError(
+          title: 'Lỗi',
+          message: res['message']?.toString() ?? 'Không xóa được phiếu',
+        );
+        return false;
+      }
+    }
+    return true;
   }
 
   Future<void> _loadIssue(String id) async {
@@ -211,9 +374,14 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
 
     if (!mounted) return;
     if (res['isSuccess'] == true && res['data'] != null) {
-      _applyDoc(
-          PosStockIssueDoc.fromJson(res['data'] as Map<String, dynamic>));
-      setState(() {});
+      setState(() {
+        _applyDoc(
+          _docFromResponse(res),
+          mergeLines: true,
+          defaultQtyOneForNew: true,
+        );
+      });
+      _scheduleLineAutoSave();
     } else {
       NotificationOverlayManager().showError(
           title: 'Lỗi',
@@ -235,9 +403,10 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
         await _api.removePosStockIssueDocLine(_config.kind, _issueId!, line.lineId);
     if (!mounted) return;
     if (res['isSuccess'] == true && res['data'] != null) {
-      _applyDoc(
-          PosStockIssueDoc.fromJson(res['data'] as Map<String, dynamic>));
-      setState(() {});
+      _cancelLineAutoSave();
+      setState(() {
+        _applyDoc(_docFromResponse(res), mergeLines: true);
+      });
     } else {
       NotificationOverlayManager().showError(
           title: 'Lỗi', message: res['message']?.toString() ?? 'Không xóa được dòng');
@@ -249,13 +418,15 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
     line.qtyCtrl.text = next == next.roundToDouble()
         ? next.toStringAsFixed(0)
         : next.toStringAsFixed(2);
-    setState(() {});
+    _onLineFieldChanged();
   }
 
   Future<bool> _saveLinesAndHeader() async {
     if ((_issueId == null || _issueId!.isEmpty) && _lines.isEmpty) {
       return false;
     }
+
+    _cancelLineAutoSave();
 
     final issueId = await _ensureIssueId();
     if (issueId == null) return false;
@@ -272,8 +443,7 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
             message: lineRes['message']?.toString() ?? 'Không lưu được dòng');
         return false;
       }
-      _applyDoc(
-          PosStockIssueDoc.fromJson(lineRes['data'] as Map<String, dynamic>));
+      _applyDoc(_docFromResponse(lineRes), mergeLines: true);
     }
 
     final headerRes =
@@ -284,8 +454,7 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
           message: headerRes['message']?.toString() ?? 'Không lưu được thông tin phiếu');
       return false;
     }
-    _applyDoc(
-        PosStockIssueDoc.fromJson(headerRes['data'] as Map<String, dynamic>));
+    _applyDocMeta(_docFromResponse(headerRes));
     return true;
   }
 
@@ -377,6 +546,7 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
       ),
     );
     if (ok != true || !mounted) return;
+    _cancelLineAutoSave();
     final res = await _api.deletePosStockIssueDoc(_config.kind, _issueId!);
     if (!mounted) return;
     if (res['isSuccess'] == true) {
@@ -443,7 +613,7 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
               border: OutlineInputBorder(),
               contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
             ),
-            onChanged: (_) => setState(() {}),
+            onChanged: (_) => _onLineFieldChanged(),
           ),
         ),
         IconButton(
@@ -472,7 +642,7 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
         contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 8),
         suffixText: 'đ',
       ),
-      onChanged: (_) => setState(() {}),
+      onChanged: (_) => _onLineFieldChanged(),
     );
   }
 
@@ -766,10 +936,48 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
   @override
   Widget build(BuildContext context) {
     final perm = Provider.of<PermissionProvider>(context);
-    if (!perm.canEdit('PosProducts')) {
+    if (!perm.canEdit(_config.moduleCode)) {
       return Scaffold(
           body: Center(child: Text('Không có quyền ${_config.title}')));
     }
+
+    final body = _loading
+        ? const LoadingWidget()
+        : posUseMobileList(context)
+            ? posMobileEditorScrollBody(
+                searchBar: _buildSearchBar(),
+                lines: ColoredBox(
+                  color: Colors.white,
+                  child: _buildLinesTable(),
+                ),
+                metaPanel: _buildMetaPanel(),
+                actionBar: _buildMobileActionBar(),
+              )
+            : Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: Column(
+                      children: [
+                        _buildSearchBar(),
+                        Expanded(
+                          child: ColoredBox(
+                            color: Colors.white,
+                            child: _buildLinesTable(),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    width: 320,
+                    color: Colors.white,
+                    padding: const EdgeInsets.all(16),
+                    child: SingleChildScrollView(child: _buildMetaPanel()),
+                  ),
+                ],
+              );
 
     return Shortcuts(
       shortcuts: const {SingleActivator(LogicalKeyboardKey.f3): _IssueSearchIntent()},
@@ -777,59 +985,31 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
         actions: {
           _IssueSearchIntent: CallbackAction<_IssueSearchIntent>(onInvoke: (_) => null),
         },
-        child: Scaffold(
-          backgroundColor: HrmPageChrome.background,
-          appBar: AppBar(
-            backgroundColor: Colors.white,
-            foregroundColor: PosTheme.textPrimary,
-            elevation: 0,
-            title: Row(
-              children: [
-                Icon(_config.icon, color: _blue, size: 22),
-                const SizedBox(width: 8),
-                Text(_issueId == null
-                    ? _config.title
-                    : '${_config.title} · $_issueNo'),
-              ],
+        child: PopScope(
+          canPop: _readOnly || (_issueId == null && _lines.isEmpty),
+          onPopInvokedWithResult: (didPop, result) async {
+            if (didPop) return;
+            final ok = await _handleNavigateBack();
+            if (ok && mounted) Navigator.pop(context, true);
+          },
+          child: Scaffold(
+            backgroundColor: HrmPageChrome.background,
+            appBar: AppBar(
+              backgroundColor: Colors.white,
+              foregroundColor: PosTheme.textPrimary,
+              elevation: 0,
+              title: Row(
+                children: [
+                  Icon(_config.icon, color: _blue, size: 22),
+                  const SizedBox(width: 8),
+                  Text(_issueId == null
+                      ? _config.title
+                      : '${_config.title} · $_issueNo'),
+                ],
+              ),
             ),
+            body: body,
           ),
-          body: _loading
-              ? const LoadingWidget()
-              : posUseMobileList(context)
-                  ? posMobileEditorScrollBody(
-                      searchBar: _buildSearchBar(),
-                      lines: ColoredBox(
-                        color: Colors.white,
-                        child: _buildLinesTable(),
-                      ),
-                      metaPanel: _buildMetaPanel(),
-                      actionBar: _buildMobileActionBar(),
-                    )
-                  : Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(
-                      flex: 3,
-                      child: Column(
-                        children: [
-                          _buildSearchBar(),
-                          Expanded(
-                            child: ColoredBox(
-                              color: Colors.white,
-                              child: _buildLinesTable(),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      width: 320,
-                      color: Colors.white,
-                      padding: const EdgeInsets.all(16),
-                      child: SingleChildScrollView(child: _buildMetaPanel()),
-                    ),
-                  ],
-                ),
         ),
       ),
     );

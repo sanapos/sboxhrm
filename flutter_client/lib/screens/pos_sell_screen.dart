@@ -394,6 +394,9 @@ class _PosSellScreenState extends State<PosSellScreen> {
   String? _defaultSellerEmployeeId;
   List<PosPriceList> _priceLists = [];
   final Map<String, Map<String, double>> _priceOverrideCache = {};
+  int _expiringLotCount = 0;
+  int _expiredLotCount = 0;
+  bool _expiryBannerDismissed = false;
   _SellInvoiceTab get _tab => _tabs[_activeTab];
 
   String? get _storeId =>
@@ -460,6 +463,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
     _loadPaymentSources();
     _loadSellSellers();
     _loadPriceLists();
+    _loadExpiryLotSummary();
     HardwareKeyboard.instance.addHandler(_onKey);
     ScreenRefreshNotifier.posSellStockPatch.addListener(_syncCartStockFromPatch);
   }
@@ -934,6 +938,97 @@ class _PosSellScreenState extends State<PosSellScreen> {
     return true;
   }
 
+  Future<void> _loadExpiryLotSummary() async {
+    final res = await _api.getPosStockLotsExpiringSummary(days: 30);
+    if (!mounted || res['isSuccess'] != true) return;
+    final data = res['data'];
+    if (data is! Map) return;
+    setState(() {
+      _expiringLotCount =
+          (data['expiringSoonLotCount'] ?? data['ExpiringSoonLotCount'] as num?)?.toInt() ?? 0;
+      _expiredLotCount =
+          (data['expiredLotCount'] ?? data['ExpiredLotCount'] as num?)?.toInt() ?? 0;
+    });
+  }
+
+  Future<void> _maybeWarnProductExpiry(PosProduct p, {String? variantId}) async {
+    if (!p.trackExpiry) return;
+    final res = await _api.getPosStockLotsByProduct(p.id, variantId: variantId);
+    if (!mounted || res['isSuccess'] != true) return;
+    final data = res['data'];
+    if (data is! Map) return;
+    final isExpired = data['isExpired'] == true || data['IsExpired'] == true;
+    final isExpiringSoon =
+        data['isExpiringSoon'] == true || data['IsExpiringSoon'] == true;
+    if (!isExpired && !isExpiringSoon) return;
+
+    final days = (data['daysUntilExpiry'] ?? data['DaysUntilExpiry'] as num?)?.toInt();
+    final lotNo = (data['nearestLotNo'] ?? data['NearestLotNo'])?.toString();
+    final expiryRaw = data['nearestExpiry'] ?? data['NearestExpiry'];
+    DateTime? expiry;
+    if (expiryRaw != null) expiry = DateTime.tryParse(expiryRaw.toString())?.toLocal();
+
+    if (isExpired) {
+      NotificationOverlayManager().showWarning(
+        title: 'Lô đã hết HSD',
+        message: '${p.name}${lotNo != null ? ' · lô $lotNo' : ''}'
+            '${expiry != null ? ' · HSD ${_dateFmt.format(expiry)}' : ''}',
+      );
+    } else {
+      NotificationOverlayManager().showWarning(
+        title: 'Lô sắp hết HSD',
+        message: '${p.name}: còn ${days ?? '?'} ngày'
+            '${lotNo != null ? ' · lô $lotNo' : ''}',
+      );
+    }
+  }
+
+  Widget _buildExpiryLotBanner() {
+    final total = _expiringLotCount + _expiredLotCount;
+    if (total <= 0 || _expiryBannerDismissed) return const SizedBox.shrink();
+    final isExpired = _expiredLotCount > 0;
+    return Material(
+      color: isExpired ? const Color(0xFFFEE2E2) : const Color(0xFFFEF3C7),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Row(
+          children: [
+            Icon(
+              isExpired ? Icons.error_outline : Icons.schedule,
+              size: 18,
+              color: isExpired ? const Color(0xFFB91C1C) : const Color(0xFFB45309),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                isExpired
+                    ? 'Có $_expiredLotCount lô đã hết HSD'
+                        '${_expiringLotCount > 0 ? ', $_expiringLotCount lô sắp hết' : ''}'
+                    : 'Có $_expiringLotCount lô sắp hết HSD trong 30 ngày',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: isExpired ? const Color(0xFFB91C1C) : const Color(0xFFB45309),
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const PosReportsScreen(initialTab: 2)),
+              ),
+              child: const Text('Xem', style: TextStyle(fontSize: 12)),
+            ),
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(Icons.close, size: 16),
+              onPressed: () => setState(() => _expiryBannerDismissed = true),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _addPick(PosPurchaseLookupPick pick, {bool mergeIfSame = false}) async {
     final p = pick.product;
     var views = await loadPosSellUnitViews(_api, p);
@@ -986,6 +1081,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
       _syncPaidAmount();
     });
     HapticFeedback.lightImpact();
+    await _maybeWarnProductExpiry(p, variantId: view.variantId);
   }
 
   Future<void> _onBarcodeScanned(String code, {bool mergeIfSame = true}) async {
@@ -2153,6 +2249,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
             return Column(
               children: [
                 _buildTopBar(),
+                _buildExpiryLotBanner(),
                 Expanded(
                   child: wide
                       ? (isNormal
@@ -3804,6 +3901,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
         Column(
           children: [
             _buildMobileTopBar(),
+            _buildExpiryLotBanner(),
             _buildMobileSellActionBar(),
             Expanded(child: _buildMobileSellCartBody()),
             _buildMobileCheckoutBar(perm, canPay),

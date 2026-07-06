@@ -16,19 +16,32 @@ internal sealed class SaleStockPlan
 
 internal static class PosSaleStockHelper
 {
-    public static async Task ReverseSaleOrderAsync(
+    public static string CancelReturnNotePrefix(string orderNo) => $"Hủy đơn: {orderNo}";
+
+    public static Task<bool> HasBeenCancelledInStockAsync(
+        ZKTecoDbContext db, Guid storeId, PosSaleOrder order) =>
+        db.PosStockTransactions.AsNoTracking().AnyAsync(t =>
+            t.SaleOrderId == order.Id && t.StoreId == storeId && t.Deleted == null &&
+            t.TransactionType == PosStockTransactionType.Return &&
+            t.Note != null && t.Note.StartsWith(CancelReturnNotePrefix(order.OrderNo)));
+
+    /// <returns>true nếu đã hoàn kho; false nếu đơn chưa có giao dịch Sale hoặc đã hoàn trước đó.</returns>
+    public static async Task<bool> ReverseSaleOrderAsync(
         ZKTecoDbContext db,
         Guid storeId,
         PosSaleOrder order,
         string? createdBy)
     {
+        if (await HasBeenCancelledInStockAsync(db, storeId, order))
+            return false;
+
         var saleTxs = await db.PosStockTransactions
             .AsNoTracking()
             .Where(t => t.SaleOrderId == order.Id && t.StoreId == storeId &&
                         t.Deleted == null && t.IsActive &&
                         t.TransactionType == PosStockTransactionType.Sale)
             .ToListAsync();
-        if (saleTxs.Count == 0) return;
+        if (saleTxs.Count == 0) return false;
 
         var productIds = saleTxs.Select(t => t.ProductId).Distinct().ToList();
         var products = await db.PosProducts
@@ -87,19 +100,24 @@ internal static class PosSaleStockHelper
                 StoreId = storeId,
                 ProductId = p.Id,
                 VariantId = variant?.Id,
+                LotId = tx.LotId,
                 TransactionType = PosStockTransactionType.Return,
                 QtyChange = restore,
                 QtyAfter = qtyAfter,
                 ReferenceNo = order.OrderNo,
                 SaleOrderId = order.Id,
-                Note = $"Hủy đơn: {order.OrderNo}",
+                Note = CancelReturnNotePrefix(order.OrderNo),
                 IsActive = true,
                 CreatedBy = createdBy,
             });
+
+            if (tx.LotId.HasValue)
+                await PosStockLotHelper.RestoreLotQtyAsync(db, storeId, tx.LotId.Value, restore, createdBy);
         }
 
         foreach (var pid in touchedProducts)
             await PosVariantStockHelper.SyncParentStockFromVariantsAsync(db, products[pid]);
+        return true;
     }
 
     public static async Task UpdateCustomerOnSaleCompleteAsync(
@@ -148,6 +166,117 @@ internal static class PosSaleStockHelper
         if (variant != null && !PosVariantStockHelper.IsUnitOnlyVariant(variant.AttributeJson))
             return variant.CostPrice > 0 ? variant.CostPrice : product.CostPrice;
         return product.CostPrice;
+    }
+
+    private static async Task ApplyFefoSaleDeductionAsync(
+        ZKTecoDbContext db,
+        Guid storeId,
+        PosSaleOrder order,
+        PosProduct product,
+        PosProductVariant? variant,
+        decimal saleLineQty,
+        string note,
+        string? createdBy,
+        SaleStockPlan plan)
+    {
+        var baseDeduct = variant != null
+            ? PosVariantStockHelper.StockDeltaInBase(variant, saleLineQty)
+            : saleLineQty;
+        var variantId = variant?.Id;
+
+        decimal qtyAfter;
+        if (variant != null)
+        {
+            if (PosVariantStockHelper.IsUnitOnlyVariant(variant.AttributeJson))
+            {
+                product.OnHandQty -= baseDeduct;
+                product.UpdatedAt = DateTime.UtcNow;
+                product.UpdatedBy = createdBy;
+                qtyAfter = product.OnHandQty;
+            }
+            else
+            {
+                variant.OnHandQty -= saleLineQty;
+                variant.UpdatedAt = DateTime.UtcNow;
+                variant.UpdatedBy = createdBy;
+                qtyAfter = variant.OnHandQty;
+                plan.ProductsNeedingVariantSync.Add(product.Id);
+            }
+        }
+        else
+        {
+            product.OnHandQty -= saleLineQty;
+            product.UpdatedAt = DateTime.UtcNow;
+            product.UpdatedBy = createdBy;
+            qtyAfter = product.OnHandQty;
+        }
+
+        var (allocations, lotErr) = await PosStockLotHelper.AllocateFefoAsync(
+            db, storeId, product.Id, variantId, baseDeduct, product, createdBy);
+        if (lotErr != null)
+            throw new InvalidOperationException(lotErr);
+
+        foreach (var alloc in allocations!)
+        {
+            db.PosStockTransactions.Add(new PosStockTransaction
+            {
+                Id = Guid.NewGuid(),
+                StoreId = storeId,
+                ProductId = product.Id,
+                VariantId = variantId,
+                LotId = alloc.LotId,
+                TransactionType = PosStockTransactionType.Sale,
+                QtyChange = -alloc.Qty,
+                QtyAfter = qtyAfter,
+                UnitCost = alloc.UnitCost,
+                LineAmount = alloc.Qty * alloc.UnitCost,
+                ReferenceNo = order.OrderNo,
+                SaleOrderId = order.Id,
+                Note = note,
+                IsActive = true,
+                CreatedBy = createdBy,
+            });
+        }
+    }
+
+    private static async Task ApplyFefoComboComponentSaleAsync(
+        ZKTecoDbContext db,
+        Guid storeId,
+        PosSaleOrder order,
+        PosProduct component,
+        decimal deduct,
+        string note,
+        string? createdBy)
+    {
+        component.OnHandQty -= deduct;
+        component.UpdatedAt = DateTime.UtcNow;
+        component.UpdatedBy = createdBy;
+
+        var (allocations, lotErr) = await PosStockLotHelper.AllocateFefoAsync(
+            db, storeId, component.Id, null, deduct, component, createdBy);
+        if (lotErr != null)
+            throw new InvalidOperationException(lotErr);
+
+        foreach (var alloc in allocations!)
+        {
+            db.PosStockTransactions.Add(new PosStockTransaction
+            {
+                Id = Guid.NewGuid(),
+                StoreId = storeId,
+                ProductId = component.Id,
+                LotId = alloc.LotId,
+                TransactionType = PosStockTransactionType.Sale,
+                QtyChange = -alloc.Qty,
+                QtyAfter = component.OnHandQty,
+                UnitCost = alloc.UnitCost,
+                LineAmount = alloc.Qty * alloc.UnitCost,
+                ReferenceNo = order.OrderNo,
+                SaleOrderId = order.Id,
+                Note = note,
+                IsActive = true,
+                CreatedBy = createdBy,
+            });
+        }
     }
 
     public static async Task<(SaleStockPlan? plan, string? error)> PrepareSaleStockAsync(
@@ -254,6 +383,14 @@ internal static class PosSaleStockHelper
         foreach (var (vid, need) in variantStockNeeds)
         {
             var v = variants[vid];
+            var p = products[v.ProductId];
+            if (p.TrackExpiry)
+            {
+                var baseNeed = PosVariantStockHelper.StockDeltaInBase(v, need);
+                var lotQty = await PosStockLotHelper.GetAvailableLotQtyAsync(db, storeId, p.Id, vid);
+                if (lotQty < baseNeed)
+                    return (null, $"Không đủ tồn lô/HSD: {v.Name} (cần {baseNeed}, còn {lotQty})");
+            }
             if (v.OnHandQty < need)
                 return (null, $"Không đủ tồn kho: {v.Name} (cần {need}, còn {v.OnHandQty})");
         }
@@ -261,6 +398,12 @@ internal static class PosSaleStockHelper
         foreach (var (pid, need) in stockNeeds)
         {
             var p = products[pid];
+            if (p.TrackExpiry)
+            {
+                var lotQty = await PosStockLotHelper.GetAvailableLotQtyAsync(db, storeId, pid, null);
+                if (lotQty < need)
+                    return (null, $"Không đủ tồn lô/HSD: {p.Name} (cần {need}, còn {lotQty})");
+            }
             if (p.OnHandQty < need)
                 return (null, $"Không đủ tồn kho: {p.Name} (cần {need}, còn {p.OnHandQty})");
         }
@@ -289,41 +432,9 @@ internal static class PosSaleStockHelper
 
             if (soldVariant != null)
             {
-                var baseDeduct = PosVariantStockHelper.StockDeltaInBase(soldVariant, line.Qty);
-                var unitCost = ResolveUnitCost(p, soldVariant);
-                decimal qtyAfter;
-                if (PosVariantStockHelper.IsUnitOnlyVariant(soldVariant.AttributeJson))
-                {
-                    p.OnHandQty -= baseDeduct;
-                    p.UpdatedAt = DateTime.UtcNow;
-                    p.UpdatedBy = createdBy;
-                    qtyAfter = p.OnHandQty;
-                }
-                else
-                {
-                    soldVariant.OnHandQty -= line.Qty;
-                    soldVariant.UpdatedAt = DateTime.UtcNow;
-                    soldVariant.UpdatedBy = createdBy;
-                    qtyAfter = soldVariant.OnHandQty;
-                    plan.ProductsNeedingVariantSync.Add(p.Id);
-                }
-                db.PosStockTransactions.Add(new PosStockTransaction
-                {
-                    Id = Guid.NewGuid(),
-                    StoreId = storeId,
-                    ProductId = p.Id,
-                    VariantId = soldVariant.Id,
-                    TransactionType = PosStockTransactionType.Sale,
-                    QtyChange = -baseDeduct,
-                    QtyAfter = qtyAfter,
-                    UnitCost = unitCost,
-                    LineAmount = baseDeduct * unitCost,
-                    ReferenceNo = order.OrderNo,
-                    SaleOrderId = order.Id,
-                    Note = $"Bán hàng POS — {soldVariant.SkuCode}",
-                    IsActive = true,
-                    CreatedBy = createdBy,
-                });
+                var note = $"Bán hàng POS — {soldVariant.SkuCode}";
+                await ApplyFefoSaleDeductionAsync(
+                    db, storeId, order, p, soldVariant, line.Qty, note, createdBy, plan);
             }
             else if (p.ProductType == PosProductType.Combo &&
                      plan.ComboLinesMap.TryGetValue(p.Id, out var comboLines))
@@ -332,26 +443,9 @@ internal static class PosSaleStockHelper
                 {
                     var comp = plan.Products[cl.ComponentProductId];
                     var deduct = cl.Qty * line.Qty;
-                    var unitCost = comp.CostPrice;
-                    comp.OnHandQty -= deduct;
-                    comp.UpdatedAt = DateTime.UtcNow;
-                    comp.UpdatedBy = createdBy;
-                    db.PosStockTransactions.Add(new PosStockTransaction
-                    {
-                        Id = Guid.NewGuid(),
-                        StoreId = storeId,
-                        ProductId = comp.Id,
-                        TransactionType = PosStockTransactionType.Sale,
-                        QtyChange = -deduct,
-                        QtyAfter = comp.OnHandQty,
-                        UnitCost = unitCost,
-                        LineAmount = deduct * unitCost,
-                        ReferenceNo = order.OrderNo,
-                        SaleOrderId = order.Id,
-                        Note = $"Bán combo: {p.Name}",
-                        IsActive = true,
-                        CreatedBy = createdBy,
-                    });
+                    await ApplyFefoComboComponentSaleAsync(
+                        db, storeId, order, comp, deduct,
+                        $"Bán combo: {p.Name}", createdBy);
                 }
             }
             else if (p.ProductType == PosProductType.Service)
@@ -360,31 +454,117 @@ internal static class PosSaleStockHelper
             }
             else
             {
-                var unitCost = p.CostPrice;
-                p.OnHandQty -= line.Qty;
-                p.UpdatedAt = DateTime.UtcNow;
-                p.UpdatedBy = createdBy;
-                db.PosStockTransactions.Add(new PosStockTransaction
-                {
-                    Id = Guid.NewGuid(),
-                    StoreId = storeId,
-                    ProductId = p.Id,
-                    TransactionType = PosStockTransactionType.Sale,
-                    QtyChange = -line.Qty,
-                    QtyAfter = p.OnHandQty,
-                    UnitCost = unitCost,
-                    LineAmount = line.Qty * unitCost,
-                    ReferenceNo = order.OrderNo,
-                    SaleOrderId = order.Id,
-                    Note = "Bán hàng POS",
-                    IsActive = true,
-                    CreatedBy = createdBy,
-                });
+                await ApplyFefoSaleDeductionAsync(
+                    db, storeId, order, p, null, line.Qty, "Bán hàng POS", createdBy, plan);
             }
         }
 
         foreach (var pid in plan.ProductsNeedingVariantSync)
             await PosVariantStockHelper.SyncParentStockFromVariantsAsync(db, plan.Products[pid]);
+    }
+
+    public static async Task ApplySaleReturnLineAsync(
+        ZKTecoDbContext db,
+        Guid storeId,
+        PosSaleOrder order,
+        PosProduct product,
+        PosProductVariant? variant,
+        decimal returnQty,
+        decimal lineRefund,
+        string returnNo,
+        string note,
+        string? createdBy,
+        HashSet<Guid> touchedProducts)
+    {
+        decimal txChange;
+        decimal qtyAfter;
+        if (variant != null)
+        {
+            txChange = PosVariantStockHelper.StockDeltaInBase(variant, returnQty);
+            qtyAfter = PosVariantStockHelper.ApplyStockDelta(product, variant, returnQty, add: true);
+            variant.UpdatedAt = DateTime.UtcNow;
+            variant.UpdatedBy = createdBy;
+            product.UpdatedAt = DateTime.UtcNow;
+            product.UpdatedBy = createdBy;
+            if (!PosVariantStockHelper.IsUnitOnlyVariant(variant.AttributeJson))
+                touchedProducts.Add(product.Id);
+        }
+        else
+        {
+            product.OnHandQty += returnQty;
+            product.UpdatedAt = DateTime.UtcNow;
+            product.UpdatedBy = createdBy;
+            qtyAfter = product.OnHandQty;
+            txChange = returnQty;
+        }
+
+        var lotRestores = await PosStockLotHelper.PlanReturnLotRestoreAsync(
+            db, storeId, order.Id, product.Id, variant?.Id, txChange,
+            ResolveUnitCost(product, variant));
+        await PosStockLotHelper.ApplyReturnLotRestoreAsync(db, storeId, lotRestores, createdBy);
+
+        foreach (var alloc in lotRestores)
+        {
+            db.PosStockTransactions.Add(new PosStockTransaction
+            {
+                Id = Guid.NewGuid(),
+                StoreId = storeId,
+                ProductId = product.Id,
+                VariantId = variant?.Id,
+                LotId = alloc.LotId,
+                TransactionType = PosStockTransactionType.Return,
+                QtyChange = alloc.Qty,
+                QtyAfter = qtyAfter,
+                UnitCost = alloc.UnitCost,
+                LineAmount = lineRefund,
+                ReferenceNo = returnNo,
+                SaleOrderId = order.Id,
+                Note = note,
+                IsActive = true,
+                CreatedBy = createdBy,
+            });
+        }
+    }
+
+    public static async Task ApplyComboReturnComponentAsync(
+        ZKTecoDbContext db,
+        Guid storeId,
+        PosSaleOrder order,
+        PosProduct component,
+        decimal restoreQty,
+        decimal lineRefund,
+        string returnNo,
+        string note,
+        string? createdBy)
+    {
+        component.OnHandQty += restoreQty;
+        component.UpdatedAt = DateTime.UtcNow;
+        component.UpdatedBy = createdBy;
+
+        var lotRestores = await PosStockLotHelper.PlanReturnLotRestoreAsync(
+            db, storeId, order.Id, component.Id, null, restoreQty, component.CostPrice);
+        await PosStockLotHelper.ApplyReturnLotRestoreAsync(db, storeId, lotRestores, createdBy);
+
+        foreach (var alloc in lotRestores)
+        {
+            db.PosStockTransactions.Add(new PosStockTransaction
+            {
+                Id = Guid.NewGuid(),
+                StoreId = storeId,
+                ProductId = component.Id,
+                LotId = alloc.LotId,
+                TransactionType = PosStockTransactionType.Return,
+                QtyChange = alloc.Qty,
+                QtyAfter = component.OnHandQty,
+                UnitCost = alloc.UnitCost,
+                LineAmount = lineRefund,
+                ReferenceNo = returnNo,
+                SaleOrderId = order.Id,
+                Note = note,
+                IsActive = true,
+                CreatedBy = createdBy,
+            });
+        }
     }
 
     /// <summary>Mã HĐ: HD + dd + MM + STT trong ngày (VN, 3 chữ số).</summary>

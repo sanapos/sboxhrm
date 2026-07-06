@@ -312,6 +312,8 @@ class PosProduct {
   final double? sellableQty;
   final int? warrantyMonths;
   final bool requiresSerial;
+  final bool trackExpiry;
+  final int expiryWarningDays;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -357,6 +359,8 @@ class PosProduct {
     this.sellableQty,
     this.warrantyMonths,
     this.requiresSerial = false,
+    this.trackExpiry = false,
+    this.expiryWarningDays = 30,
     this.createdAt,
     this.updatedAt,
   });
@@ -444,6 +448,9 @@ class PosProduct {
           : null,
       requiresSerial:
           json['requiresSerial'] == true || json['RequiresSerial'] == true,
+      trackExpiry: json['trackExpiry'] == true || json['TrackExpiry'] == true,
+      expiryWarningDays:
+          (json['expiryWarningDays'] ?? json['ExpiryWarningDays'] as num?)?.toInt() ?? 30,
       createdAt: dt(json['createdAt'] ?? json['CreatedAt']),
       updatedAt: dt(json['updatedAt'] ?? json['UpdatedAt']),
     );
@@ -488,6 +495,8 @@ class PosProduct {
       if (attributes != null) 'attributes': attributes,
       if (warrantyMonths != null && warrantyMonths! > 0) 'warrantyMonths': warrantyMonths,
       if (requiresSerial) 'requiresSerial': true,
+      if (trackExpiry) 'trackExpiry': true,
+      if (trackExpiry) 'expiryWarningDays': expiryWarningDays,
     };
   }
 

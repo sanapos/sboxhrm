@@ -559,6 +559,131 @@ public class PosReportsController(ZKTecoDbContext dbContext) : AuthenticatedCont
         return Ok(AppResponse<object>.Success(new { total, page, pageSize, items }));
     }
 
+    [HttpGet("stock/lots/summary")]
+    [RequireModulePermission("PosProducts", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<object>>> GetStockLotsSummary()
+    {
+        var storeId = RequiredStoreId;
+        var today = DateTime.UtcNow.Date;
+
+        var lots = await dbContext.PosStockLots.AsNoTracking()
+            .Include(l => l.Product)
+            .Where(l => l.StoreId == storeId && l.Deleted == null && l.IsActive &&
+                        l.Status == PosStockLotStatus.Active && l.QtyOnHand > 0)
+            .Select(l => new
+            {
+                l.QtyOnHand,
+                l.ExpiryDate,
+                l.UnitCost,
+                WarningDays = l.Product != null ? l.Product.ExpiryWarningDays : 30,
+            })
+            .ToListAsync();
+
+        var withExpiry = lots.Where(l => l.ExpiryDate.HasValue).ToList();
+        var expired = withExpiry.Where(l => l.ExpiryDate!.Value.Date < today).ToList();
+        var expiringSoon = withExpiry.Where(l =>
+        {
+            var days = (l.ExpiryDate!.Value.Date - today).Days;
+            return days >= 0 && days <= l.WarningDays;
+        }).ToList();
+
+        return Ok(AppResponse<object>.Success(new
+        {
+            activeLotCount = lots.Count,
+            totalLotQty = lots.Sum(l => l.QtyOnHand),
+            lotInventoryValue = lots.Sum(l => l.QtyOnHand * l.UnitCost),
+            expiredLotCount = expired.Count,
+            expiredQty = expired.Sum(l => l.QtyOnHand),
+            expiringSoonLotCount = expiringSoon.Count,
+            expiringSoonQty = expiringSoon.Sum(l => l.QtyOnHand),
+        }));
+    }
+
+    [HttpGet("stock/lots")]
+    [RequireModulePermission("PosProducts", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<object>>> GetStockLotsReport(
+        [FromQuery] string? search,
+        [FromQuery] string? filter,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50)
+    {
+        var storeId = RequiredStoreId;
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 1, 200);
+        var today = DateTime.UtcNow.Date;
+
+        var query = dbContext.PosStockLots.AsNoTracking()
+            .Include(l => l.Product)
+            .Where(l => l.StoreId == storeId && l.Deleted == null && l.IsActive &&
+                        l.Status == PosStockLotStatus.Active && l.QtyOnHand > 0);
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var s = search.Trim().ToLower();
+            query = query.Where(l =>
+                (l.Product != null && l.Product.Name.ToLower().Contains(s)) ||
+                (l.Product != null && l.Product.ProductCode.ToLower().Contains(s)) ||
+                (l.LotNo != null && l.LotNo.ToLower().Contains(s)));
+        }
+
+        if (string.Equals(filter, "expired", StringComparison.OrdinalIgnoreCase))
+            query = query.Where(l => l.ExpiryDate != null && l.ExpiryDate < today);
+        else if (string.Equals(filter, "expiring", StringComparison.OrdinalIgnoreCase))
+            query = query.Where(l => l.ExpiryDate != null && l.ExpiryDate >= today &&
+                                     l.ExpiryDate <= today.AddDays(30));
+
+        var total = await query.CountAsync();
+        var rows = await query
+            .OrderBy(l => l.ExpiryDate ?? DateTime.MaxValue)
+            .ThenBy(l => l.Product!.Name)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(l => new
+            {
+                l.Id,
+                l.ProductId,
+                l.VariantId,
+                ProductCode = l.Product != null ? l.Product.ProductCode : null,
+                ProductName = l.Product != null ? l.Product.Name : "",
+                l.LotNo,
+                l.ManufactureDate,
+                l.ExpiryDate,
+                l.QtyOnHand,
+                l.UnitCost,
+                stockValue = l.QtyOnHand * l.UnitCost,
+                WarningDays = l.Product != null ? l.Product.ExpiryWarningDays : 30,
+            })
+            .ToListAsync();
+
+        var items = rows.Select(r =>
+        {
+            int? daysUntil = r.ExpiryDate.HasValue
+                ? (int?)(r.ExpiryDate.Value.Date - today).TotalDays
+                : null;
+            var status = !daysUntil.HasValue ? "ok"
+                : daysUntil.Value < 0 ? "expired"
+                : daysUntil.Value <= r.WarningDays ? "expiring" : "ok";
+            return new
+            {
+                r.Id,
+                r.ProductId,
+                r.VariantId,
+                r.ProductCode,
+                r.ProductName,
+                r.LotNo,
+                r.ManufactureDate,
+                r.ExpiryDate,
+                r.QtyOnHand,
+                r.UnitCost,
+                r.stockValue,
+                daysUntilExpiry = daysUntil,
+                status,
+            };
+        }).ToList();
+
+        return Ok(AppResponse<object>.Success(new { total, page, pageSize, items }));
+    }
+
     [HttpGet("stock/export/excel")]
     [RequireModulePermission("PosProducts", ModulePermissionAction.Export)]
     public async Task<IActionResult> ExportStockExcel([FromQuery] string? search)

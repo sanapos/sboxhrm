@@ -83,6 +83,12 @@ public class PosProduct : AuditableEntity<Guid>
     /// <summary>Bắt buộc nhập seri máy khi bán.</summary>
     public bool RequiresSerial { get; set; }
 
+    /// <summary>Theo dõi lô / HSD khi nhập hàng.</summary>
+    public bool TrackExpiry { get; set; }
+
+    /// <summary>Số ngày cảnh báo trước HSD (mặc định 30).</summary>
+    public int ExpiryWarningDays { get; set; } = 30;
+
     public virtual ICollection<PosProductUnit> Units { get; set; } = [];
     public virtual ICollection<PosProductAttributeValue> AttributeValues { get; set; } = [];
     public virtual ICollection<PosStockTransaction> StockTransactions { get; set; } = [];

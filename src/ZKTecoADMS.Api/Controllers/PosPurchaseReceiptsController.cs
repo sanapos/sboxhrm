@@ -24,7 +24,8 @@ public class PosPurchaseReceiptsController(
     public record ReceiptLineInput(
         Guid ProductId, Guid? VariantId, decimal Qty, decimal CostPrice,
         decimal DiscountAmount, decimal VatRate, bool VatIncluded, bool VatExempt,
-        string? UnitName, string? LineNote);
+        string? UnitName, string? LineNote,
+        string? LotNo = null, DateTime? ManufactureDate = null, DateTime? ExpiryDate = null);
 
     public record SaveReceiptDto(
         Guid? SupplierId, string? Note, string? InputInvoiceNo, string? PurchaseOrderNo,
@@ -36,7 +37,8 @@ public class PosPurchaseReceiptsController(
         Guid Id, Guid ProductId, Guid? VariantId, string ProductCode, string ProductName,
         string? UnitName, decimal Qty, decimal CostPrice, decimal DiscountAmount,
         decimal VatRate, decimal VatAmount, bool VatIncluded, bool VatExempt,
-        decimal LineTotal, string? LineNote);
+        decimal LineTotal, string? LineNote,
+        string? LotNo, DateTime? ManufactureDate, DateTime? ExpiryDate, bool TrackExpiry);
 
     public record ReceiptDto(
         Guid Id, string ReceiptNo, Guid? SupplierId, string? SupplierCode, string? SupplierName,
@@ -137,7 +139,7 @@ public class PosPurchaseReceiptsController(
             .Include(x => x.Lines)
             .FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId && x.Deleted == null);
         if (r == null) return NotFound(AppResponse<ReceiptDto>.Fail("Không tìm thấy phiếu nhập"));
-        return Ok(AppResponse<ReceiptDto>.Success(MapReceipt(r)));
+        return Ok(AppResponse<ReceiptDto>.Success(await MapReceiptAsync(r)));
     }
 
     [HttpPost]
@@ -163,7 +165,7 @@ public class PosPurchaseReceiptsController(
         receipt!.Supplier = dto.SupplierId.HasValue
             ? await dbContext.PosSuppliers.AsNoTracking().FirstOrDefaultAsync(s => s.Id == dto.SupplierId)
             : null;
-        return Ok(AppResponse<ReceiptDto>.Success(MapReceipt(receipt, lines!)));
+        return Ok(AppResponse<ReceiptDto>.Success(await MapReceiptAsync(receipt, lines!)));
     }
 
     [HttpPut("{id:guid}")]
@@ -197,7 +199,7 @@ public class PosPurchaseReceiptsController(
         receipt.Supplier = receipt.SupplierId.HasValue
             ? await dbContext.PosSuppliers.AsNoTracking().FirstOrDefaultAsync(s => s.Id == receipt.SupplierId)
             : null;
-        return Ok(AppResponse<ReceiptDto>.Success(MapReceipt(receipt, lines!)));
+        return Ok(AppResponse<ReceiptDto>.Success(await MapReceiptAsync(receipt, lines!)));
     }
 
     [HttpPost("{id:guid}/complete")]
@@ -227,7 +229,7 @@ public class PosPurchaseReceiptsController(
             notificationService, dbContext, storeId, receipt.Id, receipt.ReceiptNo,
             receipt.GrandTotal, receipt.Supplier?.Name, CurrentUserId);
 
-        return Ok(AppResponse<ReceiptDto>.Success(MapReceipt(receipt)));
+        return Ok(AppResponse<ReceiptDto>.Success(await MapReceiptAsync(receipt)));
     }
 
     [HttpPost("{id:guid}/cancel")]
@@ -261,7 +263,7 @@ public class PosPurchaseReceiptsController(
         receipt.UpdatedAt = DateTime.UtcNow;
         receipt.UpdatedBy = CurrentUserEmail;
         await dbContext.SaveChangesAsync();
-        return Ok(AppResponse<ReceiptDto>.Success(MapReceipt(receipt)));
+        return Ok(AppResponse<ReceiptDto>.Success(await MapReceiptAsync(receipt)));
     }
 
     [HttpDelete("{id:guid}")]
@@ -299,7 +301,8 @@ public class PosPurchaseReceiptsController(
             null, "Tiền mặt",
             src.Lines.Select(l => new ReceiptLineInput(
                 l.ProductId, l.VariantId, l.Qty, l.CostPrice, l.DiscountAmount, l.VatRate,
-                l.VatIncluded, l.VatExempt, l.UnitName, l.LineNote)).ToList());
+                l.VatIncluded, l.VatExempt, l.UnitName, l.LineNote,
+                l.LotNo, l.ManufactureDate, l.ExpiryDate)).ToList());
         return await Create(dto);
     }
 
@@ -386,6 +389,14 @@ public class PosPurchaseReceiptsController(
             {
                 if (!variants.TryGetValue(line.VariantId.Value, out var v) || v.ProductId != line.ProductId)
                     return (null, null, "Biến thể không hợp lệ");
+            }
+
+            if (!draft)
+            {
+                var p = products[line.ProductId];
+                var lotErr = PosStockLotHelper.ValidateReceiptLineLot(
+                    p, line.LotNo, line.ManufactureDate, line.ExpiryDate, p.TrackExpiry);
+                if (lotErr != null) return (null, null, lotErr);
             }
         }
 
@@ -485,6 +496,9 @@ public class PosPurchaseReceiptsController(
                 VatExempt = vatExempt,
                 LineTotal = lineTotal,
                 LineNote = line.LineNote?.Trim(),
+                LotNo = string.IsNullOrWhiteSpace(line.LotNo) ? null : line.LotNo.Trim(),
+                ManufactureDate = line.ManufactureDate?.Date,
+                ExpiryDate = line.ExpiryDate?.Date,
                 IsActive = true,
                 CreatedBy = CurrentUserEmail,
             });
@@ -515,9 +529,18 @@ public class PosPurchaseReceiptsController(
         });
     }
 
-    private static ReceiptDto MapReceipt(PosStockReceipt r, List<PosStockReceiptLine>? linesOverride = null)
+    private async Task<ReceiptDto> MapReceiptAsync(
+        PosStockReceipt r, List<PosStockReceiptLine>? linesOverride = null)
     {
         var lines = linesOverride ?? r.Lines.ToList();
+        var productIds = lines.Select(l => l.ProductId).Distinct().ToList();
+        var trackFlags = productIds.Count == 0
+            ? new Dictionary<Guid, bool>()
+            : await dbContext.PosProducts.AsNoTracking()
+                .Where(p => productIds.Contains(p.Id))
+                .Select(p => new { p.Id, p.TrackExpiry })
+                .ToDictionaryAsync(x => x.Id, x => x.TrackExpiry);
+
         return new ReceiptDto(
             r.Id, r.ReceiptNo, r.SupplierId, r.Supplier?.SupplierCode, r.Supplier?.Name,
             r.Status.ToString(), r.Note, r.InputInvoiceNo, r.PurchaseOrderNo,
@@ -528,6 +551,8 @@ public class PosPurchaseReceiptsController(
             lines.Select(l => new ReceiptLineDto(
                 l.Id, l.ProductId, l.VariantId, l.ProductCode ?? "", l.ProductName, l.UnitName,
                 l.Qty, l.CostPrice, l.DiscountAmount, l.VatRate, l.VatAmount,
-                l.VatIncluded, l.VatExempt, l.LineTotal, l.LineNote)).ToList());
+                l.VatIncluded, l.VatExempt, l.LineTotal, l.LineNote,
+                l.LotNo, l.ManufactureDate, l.ExpiryDate,
+                trackFlags.GetValueOrDefault(l.ProductId))).ToList());
     }
 }

@@ -201,6 +201,7 @@ public class PosStockTransactionConfiguration : IEntityTypeConfiguration<PosStoc
         builder.HasOne(x => x.StockIssue).WithMany().HasForeignKey(x => x.StockIssueId).OnDelete(DeleteBehavior.SetNull);
         builder.HasOne(x => x.StockCount).WithMany().HasForeignKey(x => x.StockCountId).OnDelete(DeleteBehavior.SetNull);
         builder.HasOne(x => x.PurchaseReturn).WithMany().HasForeignKey(x => x.PurchaseReturnId).OnDelete(DeleteBehavior.SetNull);
+        builder.HasOne(x => x.Lot).WithMany().HasForeignKey(x => x.LotId).OnDelete(DeleteBehavior.SetNull);
     }
 }
 
@@ -332,10 +333,31 @@ public class PosStockReceiptLineConfiguration : IEntityTypeConfiguration<PosStoc
         builder.Property(x => x.VatAmount).HasPrecision(18, 2);
         builder.Property(x => x.UnitName).HasMaxLength(100);
         builder.Property(x => x.LineNote).HasMaxLength(500);
+        builder.Property(x => x.LotNo).HasMaxLength(50);
         builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne(x => x.Receipt).WithMany(x => x.Lines).HasForeignKey(x => x.ReceiptId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne(x => x.Product).WithMany().HasForeignKey(x => x.ProductId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(x => x.Variant).WithMany().HasForeignKey(x => x.VariantId).OnDelete(DeleteBehavior.SetNull);
+    }
+}
+
+public class PosStockLotConfiguration : IEntityTypeConfiguration<PosStockLot>
+{
+    public void Configure(EntityTypeBuilder<PosStockLot> builder)
+    {
+        builder.ToTable("PosStockLots");
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.LotNo).HasMaxLength(50);
+        builder.Property(x => x.QtyOnHand).HasPrecision(18, 4);
+        builder.Property(x => x.UnitCost).HasPrecision(18, 4);
+        builder.HasIndex(x => new { x.StoreId, x.ProductId, x.Status });
+        builder.HasIndex(x => new { x.StoreId, x.ExpiryDate });
+        builder.HasIndex(x => x.StockReceiptLineId);
+        builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(x => x.Product).WithMany().HasForeignKey(x => x.ProductId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(x => x.Variant).WithMany().HasForeignKey(x => x.VariantId).OnDelete(DeleteBehavior.SetNull);
+        builder.HasOne(x => x.StockReceipt).WithMany().HasForeignKey(x => x.StockReceiptId).OnDelete(DeleteBehavior.SetNull);
+        builder.HasOne(x => x.StockReceiptLine).WithMany().HasForeignKey(x => x.StockReceiptLineId).OnDelete(DeleteBehavior.SetNull);
     }
 }
 

@@ -17,9 +17,11 @@ import '../widgets/pos/pos_theme.dart';
 
 const _kiotBlue = PosTheme.kiotBlue;
 
-/// Báo cáo POS: doanh thu + tồn kho (API `/api/pos/reports/*`).
+/// Báo cáo POS: doanh thu + tồn kho + lô/HSD (API `/api/pos/reports/*`).
 class PosReportsScreen extends StatefulWidget {
-  const PosReportsScreen({super.key});
+  const PosReportsScreen({super.key, this.initialTab = 0});
+
+  final int initialTab;
 
   @override
   State<PosReportsScreen> createState() => _PosReportsScreenState();
@@ -38,17 +40,27 @@ class _PosReportsScreenState extends State<PosReportsScreen>
   bool _exporting = false;
   Map<String, dynamic>? _salesSummary;
   Map<String, dynamic>? _stockSummary;
+  Map<String, dynamic>? _lotSummary;
   List<Map<String, dynamic>> _stockProducts = [];
+  List<Map<String, dynamic>> _lotItems = [];
   int _stockTotal = 0;
+  int _lotTotal = 0;
   int _stockPage = 1;
+  int _lotPage = 1;
+  String? _lotFilter;
   static const _stockPageSize = 30;
 
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 2, vsync: this);
+    _tabs = TabController(
+      length: 3,
+      vsync: this,
+      initialIndex: widget.initialTab.clamp(0, 2),
+    );
     _loadSales();
     _loadStock();
+    _loadLots();
   }
 
   @override
@@ -92,6 +104,33 @@ class _PosReportsScreenState extends State<PosReportsScreen>
         final data = listRes['data'] as Map;
         _stockTotal = (data['total'] as num?)?.toInt() ?? 0;
         _stockProducts = ((data['items'] as List?) ?? [])
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+      }
+    });
+  }
+
+  Future<void> _loadLots({int page = 1}) async {
+    setState(() => _loadingStock = true);
+    final sumRes = await _api.getPosStockLotReportSummary();
+    final listRes = await _api.getPosStockLotReport(
+      search: _stockSearchCtrl.text.trim().isEmpty ? null : _stockSearchCtrl.text.trim(),
+      filter: _lotFilter,
+      page: page,
+      pageSize: _stockPageSize,
+    );
+    if (!mounted) return;
+    setState(() {
+      _loadingStock = false;
+      _lotPage = page;
+      if (sumRes['isSuccess'] == true && sumRes['data'] is Map) {
+        _lotSummary = Map<String, dynamic>.from(sumRes['data'] as Map);
+      }
+      if (listRes['isSuccess'] == true && listRes['data'] is Map) {
+        final data = listRes['data'] as Map;
+        _lotTotal = (data['total'] as num?)?.toInt() ?? 0;
+        _lotItems = ((data['items'] as List?) ?? [])
             .whereType<Map>()
             .map((e) => Map<String, dynamic>.from(e))
             .toList();
@@ -174,6 +213,7 @@ class _PosReportsScreenState extends State<PosReportsScreen>
               tabs: [
                 Tab(text: mobile ? 'Doanh thu' : 'Doanh thu bán hàng'),
                 const Tab(text: 'Tồn kho'),
+                Tab(text: mobile ? 'Lô/HSD' : 'Lô / HSD'),
               ],
             ),
           ),
@@ -183,6 +223,7 @@ class _PosReportsScreenState extends State<PosReportsScreen>
               children: [
                 _buildSalesTab(canExport),
                 _buildStockTab(canExport),
+                _buildLotsTab(),
               ],
             ),
           ),
@@ -424,6 +465,181 @@ class _PosReportsScreenState extends State<PosReportsScreen>
               ],
             ),
           ),
+      ],
+    );
+  }
+
+  Widget _buildLotsTab() {
+    final totalPages = (_lotTotal / _stockPageSize).ceil().clamp(1, 9999);
+    final mobile = posUseMobileList(context);
+    final dateFmt = DateFormat('dd/MM/yyyy', 'vi_VN');
+
+    Color statusColor(String? status) => switch (status) {
+          'expired' => const Color(0xFFEF4444),
+          'expiring' => const Color(0xFFF59E0B),
+          _ => const Color(0xFF64748B),
+        };
+
+    String statusLabel(String? status) => switch (status) {
+          'expired' => 'Hết HSD',
+          'expiring' => 'Sắp hết',
+          _ => 'OK',
+        };
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextField(
+                controller: _stockSearchCtrl,
+                decoration: const InputDecoration(
+                  hintText: 'Tìm hàng / mã lô',
+                  prefixIcon: Icon(Icons.search, size: 20),
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+                onSubmitted: (_) => _loadLots(),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: [
+                  FilterChip(
+                    label: const Text('Tất cả'),
+                    selected: _lotFilter == null,
+                    onSelected: (_) {
+                      setState(() => _lotFilter = null);
+                      _loadLots();
+                    },
+                  ),
+                  FilterChip(
+                    label: const Text('Sắp hết HSD'),
+                    selected: _lotFilter == 'expiring',
+                    onSelected: (_) {
+                      setState(() => _lotFilter = 'expiring');
+                      _loadLots();
+                    },
+                  ),
+                  FilterChip(
+                    label: const Text('Đã hết HSD'),
+                    selected: _lotFilter == 'expired',
+                    onSelected: (_) {
+                      setState(() => _lotFilter = 'expired');
+                      _loadLots();
+                    },
+                  ),
+                  FilledButton(
+                    style: FilledButton.styleFrom(backgroundColor: _kiotBlue),
+                    onPressed: _loadingStock ? null : () => _loadLots(),
+                    child: const Text('Lọc'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        if (_lotSummary != null)
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Wrap(
+              spacing: 16,
+              runSpacing: 8,
+              children: [
+                _chip('Lô active', '${_lotSummary!['activeLotCount'] ?? 0}'),
+                _chip('SL lô', '${_lotSummary!['totalLotQty'] ?? 0}'),
+                _chip('Giá trị', _moneyFmt.format(_num(_lotSummary!['lotInventoryValue']))),
+                _chip('Sắp hết', '${_lotSummary!['expiringSoonLotCount'] ?? 0}'),
+                _chip('Hết HSD', '${_lotSummary!['expiredLotCount'] ?? 0}'),
+              ],
+            ),
+          ),
+        Expanded(
+          child: _loadingStock
+              ? const Center(child: CircularProgressIndicator(color: _kiotBlue))
+              : ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  itemCount: _lotItems.length,
+                  itemBuilder: (_, i) {
+                    final l = _lotItems[i];
+                    final status = l['status']?.toString();
+                    final expiryRaw = l['expiryDate'] ?? l['ExpiryDate'];
+                    final expiry = expiryRaw != null
+                        ? DateTime.tryParse(expiryRaw.toString())?.toLocal()
+                        : null;
+                    final days = (l['daysUntilExpiry'] ?? l['DaysUntilExpiry'] as num?)?.toInt();
+                    final subtitle = [
+                      if (l['lotNo'] != null && l['lotNo'].toString().isNotEmpty)
+                        'Lô: ${l['lotNo']}',
+                      if (expiry != null) 'HSD: ${dateFmt.format(expiry)}',
+                      if (days != null) 'Còn $days ngày',
+                      'SL: ${l['qtyOnHand'] ?? l['QtyOnHand']}',
+                    ].join(' · ');
+
+                    final tile = ListTile(
+                      title: Text(l['productName']?.toString() ?? ''),
+                      subtitle: Text(subtitle),
+                      trailing: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            _moneyFmt.format(_num(l['stockValue'] ?? l['StockValue'])),
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          Text(
+                            statusLabel(status),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: statusColor(status),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    if (mobile) {
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        decoration: PosTheme.mobileCardDecoration(),
+                        child: tile,
+                      );
+                    }
+                    return tile;
+                  },
+                ),
+        ),
+        if (totalPages > 1)
+          mobile
+              ? PosMobilePager(
+                  total: _lotTotal,
+                  page: _lotPage,
+                  pageSize: _stockPageSize,
+                  label: 'Lô',
+                  onPageChanged: (p) => _loadLots(page: p),
+                )
+              : Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IconButton(
+                        onPressed: _lotPage > 1 ? () => _loadLots(page: _lotPage - 1) : null,
+                        icon: const Icon(Icons.chevron_left),
+                      ),
+                      Text('$_lotPage / $totalPages'),
+                      IconButton(
+                        onPressed: _lotPage < totalPages
+                            ? () => _loadLots(page: _lotPage + 1)
+                            : null,
+                        icon: const Icon(Icons.chevron_right),
+                      ),
+                    ],
+                  ),
+                ),
       ],
     );
   }
