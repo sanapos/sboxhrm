@@ -48,16 +48,21 @@ workflows:
           echo "=== Fetch signing files (App Store) ==="
           CERT_KEY=$(mktemp)
           openssl genrsa -out "$CERT_KEY" 2048
+          # Apple allows only one active Distribution cert; revoke stale certs before --create
+          app-store-connect certificates list --type IOS_DISTRIBUTION --json 2>/dev/null | python3 -c "
+import json, sys, subprocess
+certs = json.load(sys.stdin)
+for c in certs:
+    cid = c.get('id') or c.get('Id')
+    if cid:
+        subprocess.run(['app-store-connect', 'certificates', 'delete', cid], check=False)
+" || true
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --platform IOS \
             --certificate-key "@file:$CERT_KEY" \
             --create
           keychain initialize
-          app-store-connect certificates list \
-            --type IOS_DISTRIBUTION \
-            --certificate-key "@file:$CERT_KEY" \
-            --save
           keychain add-certificates
           xcode-project use-profiles
           rm -f "$CERT_KEY"
@@ -148,16 +153,20 @@ workflows:
         script: |
           CERT_KEY=$(mktemp)
           openssl genrsa -out "$CERT_KEY" 2048
+          app-store-connect certificates list --type IOS_DISTRIBUTION --json 2>/dev/null | python3 -c "
+import json, sys, subprocess
+certs = json.load(sys.stdin)
+for c in certs:
+    cid = c.get('id') or c.get('Id')
+    if cid:
+        subprocess.run(['app-store-connect', 'certificates', 'delete', cid], check=False)
+" || true
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_ADHOC \
             --platform IOS \
             --certificate-key "@file:$CERT_KEY" \
             --create
           keychain initialize
-          app-store-connect certificates list \
-            --type IOS_DISTRIBUTION \
-            --certificate-key "@file:$CERT_KEY" \
-            --save
           keychain add-certificates
           xcode-project use-profiles
           rm -f "$CERT_KEY"
