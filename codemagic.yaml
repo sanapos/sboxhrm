@@ -49,14 +49,7 @@ workflows:
           CERT_KEY=$(mktemp)
           openssl genrsa -out "$CERT_KEY" 2048
           # Apple allows only one active Distribution cert; revoke stale certs before --create
-          app-store-connect certificates list --type IOS_DISTRIBUTION --json 2>/dev/null | python3 -c "
-import json, sys, subprocess
-certs = json.load(sys.stdin)
-for c in certs:
-    cid = c.get('id') or c.get('Id')
-    if cid:
-        subprocess.run(['app-store-connect', 'certificates', 'delete', cid], check=False)
-" || true
+          app-store-connect certificates list --type IOS_DISTRIBUTION --json 2>/dev/null | python3 -c "import json,sys,subprocess; [subprocess.run(['app-store-connect','certificates','delete',c['id']], check=False) for c in json.load(sys.stdin)]" || true
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --platform IOS \
@@ -153,14 +146,7 @@ for c in certs:
         script: |
           CERT_KEY=$(mktemp)
           openssl genrsa -out "$CERT_KEY" 2048
-          app-store-connect certificates list --type IOS_DISTRIBUTION --json 2>/dev/null | python3 -c "
-import json, sys, subprocess
-certs = json.load(sys.stdin)
-for c in certs:
-    cid = c.get('id') or c.get('Id')
-    if cid:
-        subprocess.run(['app-store-connect', 'certificates', 'delete', cid], check=False)
-" || true
+          app-store-connect certificates list --type IOS_DISTRIBUTION --json 2>/dev/null | python3 -c "import json,sys,subprocess; [subprocess.run(['app-store-connect','certificates','delete',c['id']], check=False) for c in json.load(sys.stdin)]" || true
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_ADHOC \
             --platform IOS \
