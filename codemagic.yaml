@@ -19,6 +19,7 @@ workflows:
       cocoapods: default
       groups:
         - appstore_credentials
+        - ok
       vars:
         APP_STORE_APP_ID: "6762365741"
         BUNDLE_ID: "vn.sana.sbox"
@@ -36,18 +37,20 @@ workflows:
         script: |
           set -e
           echo "=== Preflight: App Store Connect API ==="
+          if [ -z "$APP_STORE_CONNECT_ISSUER_ID" ] || [ -z "$APP_STORE_CONNECT_KEY_IDENTIFIER" ] || [ -z "$APP_STORE_CONNECT_PRIVATE_KEY" ]; then
+            echo "ERROR: Missing APP_STORE_CONNECT_* env vars (group appstore_credentials)."
+            exit 1
+          fi
           if ! app-store-connect bundle-ids list --limit 1 2>&1; then
             echo ""
-            echo "ERROR: App Store Connect API failed (HTTP 403 thường do thỏa thuận chưa ký)."
-            echo "Đã ký Developer Program License trên developer.apple.com — cần thêm:"
-            echo "  App Store Connect → Agreements, Tax, and Banking → Paid Applications Agreement (Action Required)."
-            echo "Chờ 15–30 phút sau khi ký rồi build lại."
+            echo "ERROR: App Store Connect API failed."
             exit 1
           fi
           echo "=== Fetch signing files (App Store) ==="
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --platform IOS \
+            --certificate-key "$CERTIFICATE_PRIVATE_KEY" \
             --create
           keychain initialize
           app-store-connect certificates list --type IOS_DISTRIBUTION --save
@@ -127,6 +130,7 @@ workflows:
       cocoapods: default
       groups:
         - appstore_credentials
+        - ok
       vars:
         BUNDLE_ID: "vn.sana.sbox"
 
@@ -141,6 +145,7 @@ workflows:
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_AD_HOC \
             --platform IOS \
+            --certificate-key "$CERTIFICATE_PRIVATE_KEY" \
             --create
           keychain initialize
           app-store-connect certificates list \
