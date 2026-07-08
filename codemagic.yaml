@@ -53,11 +53,14 @@ workflows:
             --platform IOS \
             --certificate-key "@file:$CERT_KEY" \
             --create
-          rm -f "$CERT_KEY"
           keychain initialize
-          app-store-connect certificates list --type IOS_DISTRIBUTION --save
+          app-store-connect certificates list \
+            --type IOS_DISTRIBUTION \
+            --certificate-key "@file:$CERT_KEY" \
+            --save
           keychain add-certificates
           xcode-project use-profiles
+          rm -f "$CERT_KEY"
           echo "=== Code signing OK ==="
 
       - name: Get Flutter packages
@@ -150,13 +153,14 @@ workflows:
             --platform IOS \
             --certificate-key "@file:$CERT_KEY" \
             --create
-          rm -f "$CERT_KEY"
           keychain initialize
           app-store-connect certificates list \
             --type IOS_DISTRIBUTION \
+            --certificate-key "@file:$CERT_KEY" \
             --save
           keychain add-certificates
           xcode-project use-profiles
+          rm -f "$CERT_KEY"
 
       - name: Get Flutter packages
         script: flutter pub get
