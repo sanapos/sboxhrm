@@ -9,6 +9,20 @@ class PickedImageResult {
   const PickedImageResult(this.bytes, this.name);
 }
 
+/// Bottom sheet: Chụp ảnh / Chọn thư viện (mobile). Web → file picker.
+Future<PickedImageResult?> pickSingleImageWithCamera(
+  BuildContext context, {
+  List<String>? allowedExtensions,
+}) async {
+  final list = await pickImagesWithCamera(
+    context,
+    allowMultiple: false,
+    allowedExtensions: allowedExtensions,
+  );
+  if (list == null || list.isEmpty) return null;
+  return list.first;
+}
+
 /// Shows Camera / Gallery bottom sheet on mobile.
 /// On web, directly opens file picker (no camera).
 Future<List<PickedImageResult>?> pickImagesWithCamera(
