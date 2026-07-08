@@ -46,9 +46,14 @@ workflows:
             exit 1
           fi
           echo "=== Fetch signing files (App Store) ==="
+          CERT_KEY=$(mktemp)
+          openssl genrsa -out "$CERT_KEY" 2048
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
-            --platform IOS
+            --platform IOS \
+            --certificate-key "@file:$CERT_KEY" \
+            --create
+          rm -f "$CERT_KEY"
           keychain initialize
           app-store-connect certificates list --type IOS_DISTRIBUTION --save
           keychain add-certificates
@@ -138,9 +143,14 @@ workflows:
 
       - name: Fetch signing files and set up code signing
         script: |
+          CERT_KEY=$(mktemp)
+          openssl genrsa -out "$CERT_KEY" 2048
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_ADHOC \
-            --platform IOS
+            --platform IOS \
+            --certificate-key "@file:$CERT_KEY" \
+            --create
+          rm -f "$CERT_KEY"
           keychain initialize
           app-store-connect certificates list \
             --type IOS_DISTRIBUTION \
