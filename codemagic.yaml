@@ -41,7 +41,7 @@ workflows:
             echo "ERROR: Missing APP_STORE_CONNECT_* env vars (group appstore_credentials)."
             exit 1
           fi
-          if ! app-store-connect bundle-ids list --limit 1 2>&1; then
+          if ! app-store-connect bundle-ids list 2>&1 | head -5; then
             echo ""
             echo "ERROR: App Store Connect API failed."
             exit 1
