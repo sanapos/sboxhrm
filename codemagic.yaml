@@ -183,7 +183,7 @@ workflows:
       - /tmp/xcodebuild_logs/*.log
 
   android-release:
-    name: Android Release (APK)
+    name: Android Release (AAB)
     max_build_duration: 60
     instance_type: linux_x2
     working_directory: flutter_client
@@ -191,38 +191,59 @@ workflows:
     environment:
       flutter: stable
       java: 17
+      groups:
+        - android_keystore
+        - google_play
       vars:
-        PACKAGE_NAME: "vn.sana.sbox"
-      # To sign the APK, add these groups in Codemagic UI → Environment variables:
-      #   group: android_keystore
-      #     CM_KEYSTORE_PATH, CM_KEY_ALIAS, CM_KEY_PASSWORD, CM_STORE_PASSWORD
-      # groups:
-      #   - android_keystore
+        PACKAGE_NAME: "sbox.sana.vn"
+        GOOGLE_PLAY_TRACK: internal
+        API_BASE_URL: "https://sbox.sana.vn"
 
     scripts:
+      - name: Set up Android keystore
+        script: |
+          set -e
+          if [ -z "$CM_KEYSTORE" ]; then
+            echo "ERROR: Missing CM_KEYSTORE (group android_keystore)."
+            exit 1
+          fi
+          KEYSTORE_PATH="${CM_KEYSTORE_PATH:-android/app/sana-release.jks}"
+          mkdir -p "$(dirname "$KEYSTORE_PATH")"
+          echo "$CM_KEYSTORE" | base64 --decode > "$KEYSTORE_PATH"
+          echo "Keystore written to $KEYSTORE_PATH"
+
       - name: Get Flutter packages
         script: flutter pub get
 
-      - name: Build release APK
+      - name: Build release AAB
         script: |
+          set -e
           VERSION_LINE=$(grep '^version:' pubspec.yaml | head -1 | tr -d ' ')
           APP_VERSION_NAME=$(echo "$VERSION_LINE" | cut -d':' -f2 | cut -d'+' -f1)
-          flutter build apk --release \
-            --dart-define=API_BASE_URL=https://sbox.sana.vn \
+          BUILD_NUMBER=$(echo "$VERSION_LINE" | cut -d'+' -f2)
+          if [ -z "$APP_VERSION_NAME" ] || [ -z "$BUILD_NUMBER" ]; then
+            echo "ERROR: Invalid pubspec version line: $VERSION_LINE"
+            exit 1
+          fi
+          echo "Building AAB version=$APP_VERSION_NAME build=$BUILD_NUMBER"
+          flutter build appbundle --release \
+            --dart-define=API_BASE_URL="$API_BASE_URL" \
             --build-name="$APP_VERSION_NAME" \
-            --build-number=$PROJECT_BUILD_NUMBER
-
-      # Uncomment the block below once you add android_keystore env group in Codemagic UI
-      # - name: Sign APK
-      #   script: |
-      #     jarsigner -verbose \
-      #       -sigalg SHA256withRSA -digestalg SHA-256 \
-      #       -keystore "$CM_KEYSTORE_PATH" \
-      #       -storepass "$CM_STORE_PASSWORD" \
-      #       -keypass "$CM_KEY_PASSWORD" \
-      #       build/app/outputs/flutter-apk/app-release.apk \
-      #       "$CM_KEY_ALIAS"
+            --build-number="$BUILD_NUMBER"
+          AAB="build/app/outputs/bundle/release/app-release.aab"
+          if [ ! -f "$AAB" ]; then
+            echo "ERROR: AAB not found at $AAB"
+            exit 1
+          fi
+          OUT="build/app/outputs/bundle/release/SBOX-HRM-${PACKAGE_NAME}-release-v${BUILD_NUMBER}.aab"
+          cp "$AAB" "$OUT"
+          ls -lh build/app/outputs/bundle/release/*.aab
 
     artifacts:
-      - build/app/outputs/flutter-apk/app-release.apk
-      - build/app/outputs/flutter-apk/app-release.apk.sha1
+      - build/app/outputs/bundle/release/*.aab
+
+    publishing:
+      google_play:
+        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+        track: $GOOGLE_PLAY_TRACK
+        submit_as_draft: false

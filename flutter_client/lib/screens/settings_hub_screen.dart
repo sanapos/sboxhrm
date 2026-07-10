@@ -12,6 +12,9 @@ import '../widgets/hrm_page_chrome.dart';
 import '../services/api_service.dart';
 import '../widgets/settings_hub_sidebar_config_dialog.dart';
 import '../widgets/store_agent_support_card.dart';
+import '../widgets/pos/pos_mobile_widgets.dart';
+import '../widgets/pos/pos_theme.dart';
+import '../models/user.dart';
 
 import 'account_management_screen.dart';
 import 'ai_settings_screen.dart';
@@ -292,9 +295,9 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
         return _getScreen(_selectedIndex!);
       }
       _closeSubPage();
-      return Scaffold(
-        backgroundColor: _bgColor,
-        body: _buildMobileHome(),
+      return ColoredBox(
+        color: PosTheme.background,
+        child: _buildMobileHome(),
       );
     }
 
@@ -320,164 +323,96 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
     );
   }
 
-  // ===== MOBILE HOME =====
+  // ===== MOBILE HOME (lưới KiotViet) =====
   Widget _buildMobileHome() {
-    return CustomScrollView(
-      slivers: [
-        // Header
-        SliverToBoxAdapter(
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Color(0xFF0F172A),
-                  Color(0xFF1D4ED8),
-                  HrmPageChrome.primaryNavy
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-            child: SafeArea(
-              bottom: false,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(Icons.tune,
-                            color: Colors.white, size: 18),
+    final groups = _orderedHubGroups();
+
+    return ColoredBox(
+      color: PosTheme.background,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
+        children: [
+          _buildMobileSettingsHeaderCard(),
+          if (_storeAgentContact != null) ...[
+            const SizedBox(height: 12),
+            StoreAgentSupportCard.fromMap(_storeAgentContact!),
+          ],
+          const SizedBox(height: 12),
+          ...groups.expand((g) {
+            if (g.items.isEmpty) return <Widget>[];
+            return [
+              PosMobileHubSectionGrid(
+                title: g.title,
+                items: g.items
+                    .map(
+                      (item) => PosMobileHubGridItem(
+                        label: item.label,
+                        icon: item.icon,
+                        onTap: () => _openSubPage(item.index),
                       ),
-                      const SizedBox(width: 10),
-                      const Expanded(
-                        child: Text('Thiết lập HRM',
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold)),
-                      ),
-                      if (_canCustomizeSidebar())
-                        IconButton(
-                          tooltip: 'Tùy chỉnh menu',
-                          onPressed: _sidebarConfigLoading
-                              ? null
-                              : _openSidebarConfigDialog,
-                          icon: const Icon(Icons.dashboard_customize_outlined,
-                              color: Colors.white, size: 20),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Quản lý toàn bộ cấu hình hệ thống',
-                    style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.7),
-                        fontSize: 12),
-                  ),
-                ],
+                    )
+                    .toList(),
               ),
-            ),
-          ),
-        ),
-        if (_storeAgentContact != null)
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              child: StoreAgentSupportCard.fromMap(_storeAgentContact!),
-            ),
-          ),
-        // Groups
-        ..._orderedHubGroups().expand((g) {
-          if (g.items.isEmpty) return <Widget>[];
-          return [
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
-                child: Row(
-                  children: [
-                    Icon(g.icon, size: 14, color: g.accent),
-                    const SizedBox(width: 6),
-                    Text(g.title.toUpperCase(),
-                        style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: g.accent,
-                            letterSpacing: 0.5)),
-                  ],
-                ),
-              ),
-            ),
-            SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (ctx, i) => _buildMobileMenuItem(g.items[i]),
-                childCount: g.items.length,
-              ),
-            ),
-          ];
-        }),
-        const SliverPadding(padding: EdgeInsets.only(bottom: 24)),
-      ],
+              const SizedBox(height: 12),
+            ];
+          }),
+        ],
+      ),
     );
   }
 
-  Widget _buildMobileMenuItem(SettingsHubItemDef item) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-      child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          onTap: () => _openSubPage(item.index),
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: _borderColor),
-            ),
-            child: Row(
+  Widget _buildMobileSettingsHeaderCard() {
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    final subtitle = user?.department?.trim().isNotEmpty == true
+        ? user!.department!.trim()
+        : (user?.position?.trim().isNotEmpty == true
+            ? user!.position!.trim()
+            : 'Quản lý cấu hình hệ thống');
+
+    return Container(
+      decoration: PosTheme.mobileCardDecoration(),
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 26,
+            backgroundColor: PosTheme.kiotBlueLight,
+            child: const Icon(Icons.tune_rounded,
+                color: PosTheme.kiotBlue, size: 26),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: item.accent.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(item.icon, size: 18, color: item.accent),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(item.label,
-                          style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: _textDark)),
-                      const SizedBox(height: 2),
-                      Text(item.desc,
-                          style:
-                              const TextStyle(fontSize: 11, color: _textMuted),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis),
-                    ],
+                Text(
+                  user?.fullName ?? 'Thiết lập HRM',
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-                Icon(Icons.chevron_right,
-                    size: 18, color: item.accent.withValues(alpha: 0.5)),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: PosTheme.textSecondary,
+                  ),
+                ),
               ],
             ),
           ),
-        ),
+          if (_canCustomizeSidebar())
+            IconButton(
+              tooltip: 'Tùy chỉnh menu',
+              onPressed:
+                  _sidebarConfigLoading ? null : _openSidebarConfigDialog,
+              icon: const Icon(Icons.dashboard_customize_outlined,
+                  color: PosTheme.kiotBlue),
+            ),
+        ],
       ),
     );
   }

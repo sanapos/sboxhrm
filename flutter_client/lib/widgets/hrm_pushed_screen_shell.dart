@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../utils/navigation_notifier.dart';
 import 'hrm_page_chrome.dart';
 
 /// Back bar khi màn hình được mở bằng [Navigator.push] (không qua [MainLayout]).
@@ -13,12 +14,13 @@ class HrmPushedScreenShell extends StatelessWidget {
     required this.child,
   });
 
-  /// Chỉ bọc back bar nếu route có thể pop; màn trong menu chính giữ nguyên.
+  /// Chỉ bọc back bar khi route được push ngoài [MainLayout].
   static Widget maybeWrap(
     BuildContext context, {
     String? title,
     required Widget child,
   }) {
+    if (NavigationNotifier.mainLayoutReady.value) return child;
     if (!Navigator.canPop(context)) return child;
     return HrmPushedScreenShell(title: title, child: child);
   }

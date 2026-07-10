@@ -4,6 +4,7 @@ import '../models/mobile_bottom_nav_config.dart';
 import '../services/mobile_bottom_nav_prefs.dart';
 import '../utils/mobile_bottom_nav_catalog.dart';
 import '../widgets/hrm_page_chrome.dart';
+import 'mobile_quick_actions_config_sheet.dart';
 
 /// Sheet tùy chỉnh 5 ô cố định — kéo thả thứ tự, đổi chức năng từng ô.
 class MobileBottomNavConfigSheet extends StatefulWidget {
@@ -187,10 +188,23 @@ class _MobileBottomNavConfigSheetState extends State<MobileBottomNavConfigSheet>
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Text(
-              '5 vị trí cố định — kéo để đổi thứ tự, chạm để đổi chức năng.',
+              '5 vị trí cố định — kéo để đổi thứ tự, chạm để đổi chức năng.\n'
+              'Mặc định: Trang chủ · Tổng quan · Chấm công · Công việc · Thêm.',
               style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
             ),
           ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: OutlinedButton.icon(
+              onPressed: () {
+                Navigator.pop(context);
+                MobileQuickActionsConfigSheet.show(context);
+              },
+              icon: const Icon(Icons.apps_outlined, size: 18),
+              label: const Text('Tùy chỉnh truy cập nhanh (tab Thêm)'),
+            ),
+          ),
+          const SizedBox(height: 8),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: SegmentedButton<int>(
@@ -234,7 +248,7 @@ class _MobileBottomNavConfigSheetState extends State<MobileBottomNavConfigSheet>
                     title: Text(_labelFor(id)),
                     subtitle: index == 2
                         ? const Text(
-                            'Vị trí giữa — nút nổi (Chấm công / Bán hàng)',
+                            'Vị trí giữa — nút nổi (Chấm công)',
                             style: TextStyle(fontSize: 11),
                           )
                         : null,

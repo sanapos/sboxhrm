@@ -5,16 +5,19 @@ class MobileBottomNavLayout {
   const MobileBottomNavLayout({required this.slots});
 
   static const slotCount = 5;
-  static const storageKeyMain = 'mobile_bottom_nav_main_v1';
-  static const storageKeyPos = 'mobile_bottom_nav_pos_v1';
+  static const storageKeyMain = 'mobile_bottom_nav_main_v2';
+  static const storageKeyPos = 'mobile_bottom_nav_pos_v2';
+  /// Legacy keys — bỏ qua sau khi nâng bố cục mặc định (Trang chủ · Tổng quan · …).
+  static const legacyStorageKeyMain = 'mobile_bottom_nav_main_v1';
+  static const legacyStorageKeyPos = 'mobile_bottom_nav_pos_v1';
 
   /// Module code hoặc id đặc biệt: [_drawer], [_posMore].
   final List<String> slots;
 
   static const defaultMainSlots = [
     'Home',
+    'Dashboard',
     'MobileAttendance',
-    'PosSell',
     'Task',
     '_drawer',
   ];

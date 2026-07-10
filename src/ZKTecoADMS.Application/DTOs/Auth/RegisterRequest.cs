@@ -9,6 +9,8 @@ public record RegisterRequest(
     string Province,       // Tỉnh / thành phố (bắt buộc)
     string? StoreCode = null,     // Mã cửa hàng tùy chỉnh (tùy chọn, auto-generate nếu không có)
     string? AgentCode = null,     // Mã đại lý (tùy chọn). Nếu hợp lệ → cửa hàng sẽ thuộc đại lý này
+    string? Agent = null,         // Alias query ?agent=
+    string? Ref = null,           // Alias query ?ref=
     Guid? ServicePackageId = null // Gói dịch vụ dùng thử được chọn khi đăng ký
 );
 

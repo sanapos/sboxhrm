@@ -16,6 +16,7 @@ import '../providers/permission_provider.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/hrm_fab_clearance.dart';
+import '../widgets/pos/pos_theme.dart';
 import '../utils/image_source_picker.dart';
 import '../utils/navigation_notifier.dart';
 import '../utils/store_role_helper.dart';
@@ -564,7 +565,8 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
             .canCreate('Task');
 
     return Scaffold(
-      backgroundColor: HrmPageChrome.background,
+      backgroundColor:
+          isMobile ? PosTheme.background : HrmPageChrome.background,
       body: Column(
         children: [
           if (!showMobileDetail) _buildHeader(),
@@ -628,7 +630,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                   .canCreate('Task')
               ? FloatingActionButton(
                   onPressed: _showCreateDialog,
-                  backgroundColor: const Color(0xFF059669),
+                  backgroundColor: _taskPrimary,
                   foregroundColor: Colors.white,
                   child: Icon(isMobile ? Icons.add : Icons.add_task),
                 )
@@ -637,7 +639,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
   }
 
   // ======================== HEADER ========================
-  static const _taskPrimary = Color(0xFF059669);
+  static const _taskPrimary = PosTheme.kiotBlue;
 
   int get _activeFilterCount {
     var n = 0;
@@ -655,7 +657,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
   }
 
   Widget _headerActionIcon(IconData icon, VoidCallback onTap,
-      {Color? color, int badge = 0}) {
+      {Color? color, int badge = 0, bool lightStyle = false}) {
     return GestureDetector(
       onTap: onTap,
       child: Stack(
@@ -664,10 +666,17 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
           Container(
             padding: const EdgeInsets.all(7),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.15),
+              color: lightStyle
+                  ? PosTheme.kiotBlueLight
+                  : Colors.white.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(icon, size: 18, color: color ?? Colors.white),
+            child: Icon(
+              icon,
+              size: 18,
+              color: color ??
+                  (lightStyle ? PosTheme.kiotBlue : Colors.white),
+            ),
           ),
           if (badge > 0)
             Positioned(
@@ -694,10 +703,22 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
     int count, {
     WorkTaskStatus? status,
     bool overdue = false,
+    bool lightStyle = false,
   }) {
     final selected = overdue
         ? _isOverdueFilter
         : status != null && _statusFilter == status;
+    final chipColor = overdue
+        ? const Color(0xFFEF4444)
+        : (lightStyle ? _taskPrimary : Colors.white);
+    final idleBg = lightStyle
+        ? (overdue
+            ? const Color(0xFFEF4444).withValues(alpha: 0.1)
+            : PosTheme.kiotBlueLight)
+        : Colors.white.withValues(alpha: 0.15);
+    final idleLabelColor = lightStyle
+        ? (overdue ? const Color(0xFFEF4444) : _taskPrimary)
+        : Colors.white.withValues(alpha: 0.9);
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: GestureDetector(
@@ -712,11 +733,16 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
             color: selected
-                ? Colors.white
-                : Colors.white.withValues(alpha: 0.15),
+                ? chipColor
+                : idleBg,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-                color: Colors.white.withValues(alpha: selected ? 1 : 0.3)),
+              color: lightStyle
+                  ? (selected
+                      ? chipColor
+                      : PosTheme.kiotBlue.withValues(alpha: 0.2))
+                  : Colors.white.withValues(alpha: selected ? 1 : 0.3),
+            ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -725,14 +751,18 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                   style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
-                      color: selected ? _taskPrimary : Colors.white)),
+                      color: selected
+                          ? Colors.white
+                          : (lightStyle ? idleLabelColor : Colors.white))),
               const SizedBox(width: 4),
               Text(label,
                   style: TextStyle(
                       fontSize: 11,
                       color: selected
-                          ? _taskPrimary
-                          : Colors.white.withValues(alpha: 0.9))),
+                          ? Colors.white
+                          : (lightStyle
+                              ? idleLabelColor
+                              : Colors.white.withValues(alpha: 0.9)))),
             ],
           ),
         ),
@@ -741,6 +771,173 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
   }
 
   Widget _buildHeader() {
+    if (Responsive.isMobile(context)) return _buildMobileKiotHeader();
+    return _buildDesktopHeader();
+  }
+
+  Widget _buildMobileKiotHeader() {
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    final canEditTask = perm.canEdit('Task');
+    final canDeleteTask = perm.canDelete('Task');
+    final s = _stats;
+
+    return ColoredBox(
+      color: PosTheme.background,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+            child: Container(
+              decoration: PosTheme.mobileCardDecoration(),
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: PosTheme.kiotBlueLight,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.task_alt,
+                            size: 20, color: PosTheme.kiotBlue),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Công việc',
+                                style: TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.bold,
+                                    color: PosTheme.textPrimary)),
+                            if (_total > 0)
+                              Text(
+                                  '$_total công việc${_isMyTasks ? ' của tôi' : ''}',
+                                  style: const TextStyle(
+                                      fontSize: 12,
+                                      color: PosTheme.textSecondary)),
+                          ],
+                        ),
+                      ),
+                      if (_selectMode && _sel.isNotEmpty) ...[
+                        Text('${_sel.length}',
+                            style: const TextStyle(
+                                color: PosTheme.kiotBlue,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14)),
+                        const SizedBox(width: 6),
+                        if (canEditTask)
+                          _headerActionIcon(Icons.check_circle,
+                              () => _batchStatus(WorkTaskStatus.completed),
+                              lightStyle: true),
+                        if (canEditTask)
+                          _headerActionIcon(Icons.person_add, _showBatchAssign,
+                              lightStyle: true),
+                        if (canDeleteTask)
+                          _headerActionIcon(Icons.delete, _confirmBatchDelete,
+                              color: Colors.red.shade600, lightStyle: true),
+                      ] else ...[
+                        _headerActionIcon(
+                            _selectMode ? Icons.close : Icons.checklist,
+                            () => setState(() {
+                                  _selectMode = !_selectMode;
+                                  if (!_selectMode) _sel.clear();
+                                }),
+                            color: _selectMode ? Colors.red.shade600 : null,
+                            lightStyle: true),
+                        if (_tabCtrl.index == 0) ...[
+                          const SizedBox(width: 6),
+                          _headerActionIcon(
+                              _showFilters
+                                  ? Icons.filter_list_off
+                                  : Icons.filter_list,
+                              () => setState(
+                                  () => _showFilters = !_showFilters),
+                              badge: _activeFilterCount,
+                              lightStyle: true),
+                        ],
+                      ],
+                    ],
+                  ),
+                  if (s != null) ...[
+                    const SizedBox(height: 10),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          if (s.assignedCount > 0)
+                            _headerStatChip(
+                              'Chờ XN',
+                              s.assignedCount,
+                              status: WorkTaskStatus.assigned,
+                              lightStyle: true,
+                            ),
+                          _headerStatChip(
+                            'Chờ',
+                            s.todoCount,
+                            status: WorkTaskStatus.todo,
+                            lightStyle: true,
+                          ),
+                          _headerStatChip(
+                            'Đang làm',
+                            s.inProgressCount,
+                            status: WorkTaskStatus.inProgress,
+                            lightStyle: true,
+                          ),
+                          _headerStatChip(
+                            'Xong',
+                            s.completedCount,
+                            status: WorkTaskStatus.completed,
+                            lightStyle: true,
+                          ),
+                          if (s.overdueCount > 0)
+                            _headerStatChip(
+                              'Trễ hạn',
+                              s.overdueCount,
+                              overdue: true,
+                              lightStyle: true,
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+            child: Container(
+              decoration: PosTheme.mobileCardDecoration(),
+              child: TabBar(
+                controller: _tabCtrl,
+                indicatorColor: _taskPrimary,
+                indicatorWeight: 3,
+                labelColor: _taskPrimary,
+                unselectedLabelColor: PosTheme.textSecondary,
+                dividerColor: Colors.transparent,
+                labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+                labelStyle: const TextStyle(
+                    fontSize: 12, fontWeight: FontWeight.w600),
+                unselectedLabelStyle: const TextStyle(fontSize: 12),
+                tabs: const [
+                  Tab(height: 36, text: 'Danh sách'),
+                  Tab(height: 36, text: 'Kanban'),
+                  Tab(height: 36, text: 'Tổng kết'),
+                  Tab(height: 36, text: 'Phân công'),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDesktopHeader() {
     final perm = Provider.of<PermissionProvider>(context, listen: false);
     final canEditTask = perm.canEdit('Task');
     final canDeleteTask = perm.canDelete('Task');
@@ -934,6 +1131,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
         _buildFilters(),
         Expanded(
           child: RefreshIndicator(
+            color: isMobile ? _taskPrimary : null,
             onRefresh: () async {
               await _loadTasks();
               await _loadStats();
@@ -977,21 +1175,11 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 8),
                             child: Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                    color: task.isOverdue
-                                        ? const Color(0xFFEF4444)
-                                            .withValues(alpha: 0.35)
-                                        : const Color(0xFFE4E4E7)),
-                                boxShadow: [
-                                  BoxShadow(
-                                      color: Colors.black
-                                          .withValues(alpha: 0.03),
-                                      blurRadius: 4,
-                                      offset: const Offset(0, 1)),
-                                ],
+                              decoration: PosTheme.mobileCardDecoration(
+                                borderColor: task.isOverdue
+                                    ? const Color(0xFFEF4444)
+                                        .withValues(alpha: 0.35)
+                                    : null,
                               ),
                               child: _buildTaskDeckItem(task),
                             ),
@@ -2733,7 +2921,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                                   size: 18),
                               label: const Text('Nhận & bắt đầu'),
                               style: FilledButton.styleFrom(
-                                backgroundColor: const Color(0xFF059669),
+                                backgroundColor: _taskPrimary,
                               ),
                             ),
                           ),
@@ -3223,7 +3411,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
   Widget _buildActivityCard(TaskComment c) {
     final isProgress = c.isProgressUpdate;
     final badgeColor =
-        isProgress ? const Color(0xFF059669) : HrmPageChrome.primaryNavy;
+        isProgress ? _taskPrimary : HrmPageChrome.primaryNavy;
     final images = c.imageUrlList;
     final links = c.linkUrlList;
 

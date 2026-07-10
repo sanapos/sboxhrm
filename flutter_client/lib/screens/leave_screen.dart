@@ -20,7 +20,7 @@ import '../widgets/hrm_mini_stat_chip.dart';
 import '../widgets/leave_request_form.dart';
 import '../features/leave/leave_catalog.dart';
 import '../utils/navigation_notifier.dart';
-import '../widgets/hrm_pushed_screen_shell.dart';
+import '../utils/vietnamese_font.dart';
 class LeaveScreen extends StatefulWidget {
   final String? highlightId;
   const LeaveScreen({super.key, this.highlightId});
@@ -63,7 +63,7 @@ class _LeaveScreenState extends State<LeaveScreen>
   int _itemsPerPage = 50;
   final List<int> _pageSizeOptions = [25, 50, 100, 200];
 
-  // T?ng quan + b? l?c (?n/hi?n c�ng nhau)
+  // Tổng quan + bộ lọc (ẩn/hiện cùng nhau)
   bool _showOverviewPanel = false;
   double? _myAnnualLeaveBalance;
   String? _effectiveHighlightId;
@@ -375,7 +375,7 @@ class _LeaveScreenState extends State<LeaveScreen>
   // ---------------------------------------------------
   // BUILD
   // ---------------------------------------------------
-  /// One tab: loading spinner, or list (mobile uses plain ListView � no NestedScrollView).
+  /// One tab: loading spinner, or list (mobile uses plain ListView — no NestedScrollView).
   Widget _buildLeaveTabContent(
     List<dynamic> leaves, {
     bool isMyLeaves = false,
@@ -420,12 +420,11 @@ class _LeaveScreenState extends State<LeaveScreen>
       );
     }
 
-    return Scaffold(
+    return Theme(
+      data: vietnameseThemeOverlay(context),
+      child: Scaffold(
       backgroundColor: HrmPageChrome.background,
-      body: HrmPushedScreenShell.maybeWrap(
-        context,
-        title: _l10n.leaveManagement,
-        child: Column(
+      body: Column(
         children: [
           _buildHeader(theme),
           if (!isMobile) _buildTabBar(theme),
@@ -531,7 +530,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                 Icon(Icons.analytics_outlined,
                     size: 16, color: Colors.blue.shade700),
                 const SizedBox(width: 6),
-                Text('T?ng quan & b? l?c',
+                Text('Tổng quan & bộ lọc',
                     style: TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 13,
@@ -646,7 +645,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
                     child: Text(
-                      'Ph�p nam c�n: ${_myAnnualLeaveBalance!.toStringAsFixed(_myAnnualLeaveBalance!.truncateToDouble() == _myAnnualLeaveBalance ? 0 : 1)} ng�y',
+                      'Phép năm còn: ${_myAnnualLeaveBalance!.toStringAsFixed(_myAnnualLeaveBalance!.truncateToDouble() == _myAnnualLeaveBalance ? 0 : 1)} ngày',
                       style: TextStyle(
                         fontSize: isMobile ? 11 : 12,
                         fontWeight: FontWeight.w600,
@@ -660,7 +659,7 @@ class _LeaveScreenState extends State<LeaveScreen>
           IconButton(
             onPressed: _showLeaveLegalGuide,
             icon: const Icon(Icons.menu_book_rounded, color: Colors.white),
-            tooltip: 'Quy d?nh ngh? ph�p',
+            tooltip: 'Quy định nghỉ phép',
           ),
           const SizedBox(width: 4),
           Material(
@@ -722,11 +721,11 @@ class _LeaveScreenState extends State<LeaveScreen>
       _buildStatCard(
           _l10n.rejected, '$rejected', Icons.cancel_rounded, Colors.red),
       _buildStatCard(
-          'Ph�p nam', '$annual', Icons.beach_access_rounded, Colors.teal),
-      _buildStatCard('L? t?t', '$holiday', Icons.celebration_rounded,
+          'Phép năm', '$annual', Icons.beach_access_rounded, Colors.teal),
+      _buildStatCard('Nghỉ lễ, Tết', '$holiday', Icons.celebration_rounded,
           const Color(0xFFF59E0B)),
       _buildStatCard(
-          'C� luong', '$personalPaid', Icons.paid_rounded, Colors.blue),
+          'Có lương', '$personalPaid', Icons.paid_rounded, Colors.blue),
     ];
 
     if (Responsive.isMobile(context)) {
@@ -871,17 +870,17 @@ class _LeaveScreenState extends State<LeaveScreen>
   }
 
   // ---------------------------------------------------
-  // FILTER BAR (3 h�ng � 2 chip)
+  // FILTER BAR (3 hàng × 2 chip)
   // ---------------------------------------------------
   static const _leaveTypeLabels = <int, String>{
-    0: 'Ph�p nam',
-    1: 'L? t?t',
-    2: 'VR c� luong',
-    3: 'VR kh�ng luong',
-    4: '?m dau',
-    5: 'Thai s?n',
-    6: 'Ngh? b�',
-    7: 'Ngh? d�i h?n',
+    0: 'Phép năm',
+    1: 'Nghỉ lễ, Tết',
+    2: 'Việc riêng có luong',
+    3: 'Việc riêng không luong',
+    4: 'Nghỉ ốm',
+    5: 'Thai sản',
+    6: 'Nghỉ bù',
+    7: 'Nghỉ dài hạn',
   };
 
   String _filterLeaveTypeLabel() {
@@ -921,11 +920,11 @@ class _LeaveScreenState extends State<LeaveScreen>
       case 'custom':
         if (_filterDateRange != null) {
           final f = DateFormat('dd/MM');
-          return '${f.format(_filterDateRange!.start)}�${f.format(_filterDateRange!.end)}';
+          return '${f.format(_filterDateRange!.start)}–${f.format(_filterDateRange!.end)}';
         }
         return _l10n.custom;
       default:
-        return 'To�n b?';
+        return 'Toàn bộ';
     }
   }
 
@@ -941,8 +940,8 @@ class _LeaveScreenState extends State<LeaveScreen>
 
   String _filterEmployeeLabel() {
     final q = _filterEmployeeId?.trim();
-    if (q == null || q.isEmpty) return 'T?t c? NV';
-    return q.length > 22 ? '${q.substring(0, 22)}�' : q;
+    if (q == null || q.isEmpty) return 'Tất cả NV';
+    return q.length > 22 ? '${q.substring(0, 22)}…' : q;
   }
 
   void _clearAllFilters() {
@@ -1036,7 +1035,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                       controller: scroll,
                       children: [
                         ListTile(
-                          title: const Text('T?t c? nh�n vi�n'),
+                          title: const Text('Tất cả nhân viên'),
                           onTap: () => Navigator.pop(ctx, ''),
                         ),
                         ...list.map((emp) {
@@ -1164,12 +1163,12 @@ class _LeaveScreenState extends State<LeaveScreen>
     final pad = Responsive.isMobile(context) ? 10.0 : 14.0;
 
     final chipType = _buildFilterChip(
-      title: 'Lo?i ngh?',
+      title: 'Loại nghỉ',
       value: _filterLeaveTypeLabel(),
       icon: Icons.category_rounded,
       active: _filterLeaveType != null,
       onTap: () => _showFilterOptionsSheet(
-        title: 'Lo?i ngh?',
+        title: 'Loại nghỉ',
         options: [
           (label: _l10n.allTypes, onPick: () => setState(() {
                 _filterLeaveType = null;
@@ -1189,12 +1188,12 @@ class _LeaveScreenState extends State<LeaveScreen>
     );
 
     final chipStatus = _buildFilterChip(
-      title: 'Tr?ng th�i',
+      title: 'Trạng thái',
       value: _filterStatusLabel(),
       icon: Icons.flag_rounded,
       active: _filterStatus != null,
       onTap: () => _showFilterOptionsSheet(
-        title: 'Tr?ng th�i',
+        title: 'Trạng thái',
         options: [
           (label: _l10n.allStatus, onPick: () => setState(() {
                 _filterStatus = null;
@@ -1221,14 +1220,14 @@ class _LeaveScreenState extends State<LeaveScreen>
     );
 
     final chipTime = _buildFilterChip(
-      title: 'Th?i gian',
+      title: 'Thời gian',
       value: _filterTimeLabel(),
       icon: Icons.date_range_rounded,
       active: _filterTimePreset != 'all',
       onTap: () => _showFilterOptionsSheet(
-        title: 'Th?i gian',
+        title: 'Thời gian',
         options: [
-          (label: 'To�n b?', onPick: () => _applyTimePreset('all')),
+          (label: 'Toàn bộ', onPick: () => _applyTimePreset('all')),
           (label: _l10n.today, onPick: () => _applyTimePreset('today')),
           (label: _l10n.yesterday, onPick: () => _applyTimePreset('yesterday')),
           (label: _l10n.thisWeek, onPick: () => _applyTimePreset('this_week')),
@@ -1242,12 +1241,12 @@ class _LeaveScreenState extends State<LeaveScreen>
 
     final chipBranchOrCount = _branches.isNotEmpty
         ? _buildFilterChip(
-            title: 'Chi nh�nh',
+            title: 'Chi nhánh',
             value: _filterBranchLabel(),
             icon: Icons.account_tree_outlined,
             active: _filterBranchId != null,
             onTap: () => _showFilterOptionsSheet(
-              title: 'Chi nh�nh',
+              title: 'Chi nhánh',
               options: [
                 (label: _l10n.all, onPick: () => setState(() {
                       _filterBranchId = null;
@@ -1266,8 +1265,8 @@ class _LeaveScreenState extends State<LeaveScreen>
             ),
           )
         : _buildFilterChip(
-            title: 'S? don',
-            value: '$orderCount don',
+            title: 'Số đơn',
+            value: '$orderCount đơn',
             icon: Icons.analytics_outlined,
             accentColor: theme.primaryColor,
             onTap: null,
@@ -1275,25 +1274,25 @@ class _LeaveScreenState extends State<LeaveScreen>
 
     final chipEmployeeOrBalance = _isManager
         ? _buildFilterChip(
-            title: 'Nh�n vi�n',
+            title: 'Nhân viên',
             value: _filterEmployeeLabel(),
             icon: Icons.person_search_rounded,
             active: _filterEmployeeId != null && _filterEmployeeId!.isNotEmpty,
             onTap: _pickFilterEmployee,
           )
         : _buildFilterChip(
-            title: 'Ph�p nam',
+            title: 'Phép năm',
             value: _myAnnualLeaveBalance != null
-                ? 'C�n ${_myAnnualLeaveBalance!.toStringAsFixed(_myAnnualLeaveBalance!.truncateToDouble() == _myAnnualLeaveBalance ? 0 : 1)} ng�y'
-                : '�',
+                ? 'Còn ${_myAnnualLeaveBalance!.toStringAsFixed(_myAnnualLeaveBalance!.truncateToDouble() == _myAnnualLeaveBalance ? 0 : 1)} ngày'
+                : '—',
             icon: Icons.beach_access_rounded,
             accentColor: const Color(0xFF059669),
             onTap: null,
           );
 
     final chipClear = _buildFilterChip(
-      title: 'B? l?c',
-      value: hasFilters ? _l10n.clearFilter : 'Chua l?c',
+      title: 'Bộ lọc',
+      value: hasFilters ? _l10n.clearFilter : 'Chưa lọc',
       icon: Icons.filter_alt_off,
       accentColor: Colors.red.shade700,
       active: hasFilters,
@@ -1339,7 +1338,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                   fontWeight: FontWeight.w500),
             ),
             const SizedBox(height: 8),
-            Text('C�c don ngh? ph�p s? hi?n th? t?i d�y',
+            Text('Các đơn nghỉ phép sẽ hiển thị tại đây',
                 style: TextStyle(fontSize: 13, color: Colors.grey[400])),
             if (isMyLeaves) ...[
               const SizedBox(height: 20),
@@ -1495,7 +1494,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                                       _sortAscending = asc;
                                       _currentPage = 1;
                                     })),
-                            const DataColumn(label: Text('Thao t�c')),
+                            const DataColumn(label: Text('Thao tác')),
                           ],
                           rows: List.generate(pageLeaves.length, (index) {
                             final leave = pageLeaves[index]
@@ -1538,7 +1537,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                               if (endDate != null &&
                                   endDate.difference(startDate).inDays > 0) {
                                 dateDisplay =
-                                    '${DateFormat('dd/MM/yyyy').format(startDate)} ? ${DateFormat('dd/MM/yyyy').format(endDate)}';
+                                    '${DateFormat('dd/MM/yyyy').format(startDate)} → ${DateFormat('dd/MM/yyyy').format(endDate)}';
                               } else {
                                 dateDisplay =
                                     DateFormat('dd/MM/yyyy').format(startDate);
@@ -1597,7 +1596,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                                                     .withValues(alpha: 0.1),
                                                 borderRadius:
                                                     BorderRadius.circular(4)),
-                                            child: const Text('�',
+                                            child: const Text('½',
                                                 style: TextStyle(
                                                     fontSize: 11,
                                                     color: Colors.purple,
@@ -1664,7 +1663,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                                           padding:
                                               const EdgeInsets.only(top: 2),
                                           child: Text(
-                                            '${leave['currentApprovalStep'] ?? 0}/${leave['totalApprovalLevels']} c?p',
+                                            '${leave['currentApprovalStep'] ?? 0}/${leave['totalApprovalLevels']} cấp',
                                             style: TextStyle(
                                                 fontSize: 10,
                                                 color: Colors.grey.shade600),
@@ -1732,7 +1731,7 @@ class _LeaveScreenState extends State<LeaveScreen>
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Hi?n th? ${startIndex + 1}-$endIndex / $totalItems',
+              'Hiển thị ${startIndex + 1}-$endIndex / $totalItems',
               style: TextStyle(
                   fontSize: 13,
                   color: Colors.grey[600],
@@ -1740,7 +1739,7 @@ class _LeaveScreenState extends State<LeaveScreen>
             ),
             Row(
               children: [
-                Text('Hi?n th?:',
+                Text('Hiển thị:',
                     style: TextStyle(fontSize: 12, color: Colors.grey[500])),
                 const SizedBox(width: 8),
                 Container(
@@ -1897,24 +1896,24 @@ class _LeaveScreenState extends State<LeaveScreen>
   }
 
   // ---------------------------------------------------
-  // LEAVE CARD � 3 d�ng (t�n � lo?i � ng�y ngh?)
+  // LEAVE CARD — 3 dòng (tên · lo?i · ngày ngh?)
   // ---------------------------------------------------
   String _formatLeaveDateLine(
     DateTime? startDate,
     DateTime? endDate, {
     required bool isHalfShift,
   }) {
-    if (startDate == null) return 'Chua c� ng�y ngh?';
+    if (startDate == null) return 'Chưa có ngày nghỉ';
     final fmt = DateFormat('dd/MM/yyyy');
     final startStr = fmt.format(startDate);
     final effectiveEnd = endDate ?? startDate;
     final dayCount = effectiveEnd.difference(startDate).inDays + 1;
-    final halfNote = isHalfShift ? ' � n?a ca' : '';
+    final halfNote = isHalfShift ? ' · nửa ca' : '';
 
     if (dayCount <= 1) {
-      return '$startStr � 1 ng�y$halfNote';
+      return '$startStr · 1 ngày$halfNote';
     }
-    return '$startStr ? ${fmt.format(effectiveEnd)} � $dayCount ng�y$halfNote';
+    return '$startStr → ${fmt.format(effectiveEnd)} · $dayCount ngày$halfNote';
   }
 
   Widget _buildLeaveStatusChip(_StatusInfo statusInfo) {
@@ -1982,7 +1981,7 @@ class _LeaveScreenState extends State<LeaveScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // D�ng 1 � nh�n vi�n + tr?ng th�i
+                  // Dòng 1 — nhân viên + trạng thái
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -2004,7 +2003,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                     ],
                   ),
                   const SizedBox(height: 6),
-                  // D�ng 2 � lo?i ngh?
+                  // Dòng 2 — loại nghỉ
                   Text(
                     typeInfo.label,
                     style: TextStyle(
@@ -2017,7 +2016,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                     softWrap: true,
                   ),
                   const SizedBox(height: 5),
-                  // D�ng 3 � ng�y xin ngh? (d? dd/MM/yyyy)
+                  // Dòng 3 — ngày xin ngh? (đủ dd/MM/yyyy)
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -2045,7 +2044,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                   if (approvalLevels > 1) ...[
                     const SizedBox(height: 4),
                     Text(
-                      'Duy?t $approvalStep/$approvalLevels c?p',
+                      'Duyệt $approvalStep/$approvalLevels cấp',
                       style: TextStyle(
                         fontSize: 11,
                         color: Colors.grey[600],
@@ -2109,7 +2108,7 @@ class _LeaveScreenState extends State<LeaveScreen>
     if (isPending && (isMyLeaves || isAllTab) && permProv.canEdit('Leave')) {
       buttons.add(_ActionBtn(
           icon: Icons.edit_rounded,
-          label: 'S?a',
+          label: 'Sửa',
           color: Colors.blue,
           onTap: () => _showLeaveFormDialog(leave: leave)));
       buttons.add(const SizedBox(width: 6));
@@ -2122,7 +2121,7 @@ class _LeaveScreenState extends State<LeaveScreen>
           (showApprovalActions && _isManager)) {
         buttons.add(_ActionBtn(
             icon: Icons.cancel_outlined,
-            label: 'H?y',
+            label: 'Hủy',
             color: Colors.red,
             onTap: () => _cancelLeave(leave['id'])));
         buttons.add(const SizedBox(width: 6));
@@ -2139,7 +2138,7 @@ class _LeaveScreenState extends State<LeaveScreen>
         leaveOwnerId != _currentUserId) {
       buttons.add(_ActionBtn(
           icon: Icons.check_circle_outline,
-          label: 'Duy?t',
+          label: 'Duyệt',
           color: Colors.green,
           onTap: () => _approveLeave(
               leave['id']?.toString(),
@@ -2147,7 +2146,7 @@ class _LeaveScreenState extends State<LeaveScreen>
       buttons.add(const SizedBox(width: 6));
       buttons.add(_ActionBtn(
           icon: Icons.highlight_off,
-          label: 'T? ch?i',
+          label: 'Từ chối',
           color: Colors.red,
           onTap: () => _rejectLeave(leave['id'])));
       buttons.add(const SizedBox(width: 6));
@@ -2159,13 +2158,13 @@ class _LeaveScreenState extends State<LeaveScreen>
         (status == 1 || status == 2)) {
       buttons.add(_ActionBtn(
           icon: Icons.undo_rounded,
-          label: 'Ho�n t�c',
+          label: 'Hoàn tác',
           color: Colors.orange,
           onTap: () => _undoLeaveApproval(leave['id'])));
       buttons.add(const SizedBox(width: 6));
     }
 
-    // Delete: c� quy?n x�a module � NV x�a don pending c?a m�nh; QL x�a tr�n tab qu?n l�
+    // Delete: có quyền xóa module — NV xóa đơn pending của mình; QL xóa trên tab quản lý
     final canDeleteLeave = permProv.canDelete('Leave');
     if (canDeleteLeave &&
         ((isMyLeaves && isPending) ||
@@ -2174,7 +2173,7 @@ class _LeaveScreenState extends State<LeaveScreen>
             permProv.canApprove('Leave'))) {
       buttons.add(_ActionBtn(
           icon: Icons.delete_forever_outlined,
-          label: 'X�a',
+          label: 'Xóa',
           color: Colors.red.shade700,
           onTap: () => _forceDeleteLeave(leave['id'])));
     }
@@ -2220,7 +2219,7 @@ class _LeaveScreenState extends State<LeaveScreen>
     if (isPending && (isMyLeaves || isAllTab) && dlgPerm.canEdit('Leave')) {
       dialogActions.add(_ActionBtn(
           icon: Icons.edit_rounded,
-          label: 'S?a',
+          label: 'Sửa',
           color: Colors.blue,
           onTap: () {
             Navigator.pop(context);
@@ -2235,7 +2234,7 @@ class _LeaveScreenState extends State<LeaveScreen>
           (showApprovalActions && _isManager)) {
         dialogActions.add(_ActionBtn(
             icon: Icons.cancel_outlined,
-            label: 'H?y',
+            label: 'Hủy',
             color: Colors.red,
             onTap: () {
               Navigator.pop(context);
@@ -2244,7 +2243,7 @@ class _LeaveScreenState extends State<LeaveScreen>
         dialogActions.add(const SizedBox(width: 6));
       }
     }
-    // Approve/Reject � NOT own leave
+    // Approve/Reject — NOT own leave
     final dlgLeaveOwnerId = leave['employeeUserId']?.toString() ??
         leave['userId']?.toString() ??
         '';
@@ -2254,7 +2253,7 @@ class _LeaveScreenState extends State<LeaveScreen>
         dlgLeaveOwnerId != _currentUserId) {
       dialogActions.add(_ActionBtn(
           icon: Icons.check_circle_outline,
-          label: 'Duy?t',
+          label: 'Duyệt',
           color: Colors.green,
           onTap: () {
             Navigator.pop(context);
@@ -2265,7 +2264,7 @@ class _LeaveScreenState extends State<LeaveScreen>
       dialogActions.add(const SizedBox(width: 6));
       dialogActions.add(_ActionBtn(
           icon: Icons.highlight_off,
-          label: 'T? ch?i',
+          label: 'Từ chối',
           color: Colors.red,
           onTap: () {
             Navigator.pop(context);
@@ -2279,7 +2278,7 @@ class _LeaveScreenState extends State<LeaveScreen>
         (status == 1 || status == 2)) {
       dialogActions.add(_ActionBtn(
           icon: Icons.undo_rounded,
-          label: 'Ho�n t�c',
+          label: 'Hoàn tác',
           color: Colors.orange,
           onTap: () {
             Navigator.pop(context);
@@ -2295,7 +2294,7 @@ class _LeaveScreenState extends State<LeaveScreen>
             dlgPerm.canApprove('Leave'))) {
       dialogActions.add(_ActionBtn(
           icon: Icons.delete_forever_outlined,
-          label: 'X�a',
+          label: 'Xóa',
           color: Colors.red.shade700,
           onTap: () {
             Navigator.pop(context);
@@ -2314,52 +2313,52 @@ class _LeaveScreenState extends State<LeaveScreen>
         horizontalInside: BorderSide(color: Colors.grey.shade100),
       ),
       children: [
-        _detailTableRow('Nh�n vi�n', leave['employeeName'] ?? 'N/A'),
-        _detailTableRow('Lo?i ngh?', typeInfo.label,
+        _detailTableRow('Nhân viên', leave['employeeName'] ?? 'N/A'),
+        _detailTableRow('Loại nghỉ', typeInfo.label,
             valueColor: typeInfo.color),
-        _detailTableRow('Chi tr?', payment.label,
+        _detailTableRow('Chi trả', payment.label,
             valueColor: payment.color),
         if (leave['bhxhDocumentNote']?.toString().isNotEmpty == true)
           _detailTableRow(
-              'Gi?y BHXH', leave['bhxhDocumentNote']?.toString() ?? ''),
+              'Giấy BHXH', leave['bhxhDocumentNote']?.toString() ?? ''),
         if (leave['countAsWork'] == true)
           _detailTableRow(
-            'T�nh c�ng',
-            'C� � kh�ng ghi Ph�p tr�n ch?m c�ng',
+            'Tính công',
+            'Có — không ghi Phép trên chấm công',
             valueColor: const Color(0xFF059669),
           ),
         if (leave['annualBalanceApplied'] == true)
           _detailTableRow(
-            '�� tr? ph�p nam',
-            '${leave['annualLeaveDaysDeducted'] ?? 0} ng�y',
+            'Đã trừ phép năm',
+            '${leave['annualLeaveDaysDeducted'] ?? 0} ngày',
             valueColor: const Color(0xFF0D9488),
           ),
-        _detailTableRow('Tr?ng th�i', statusInfo.label,
+        _detailTableRow('Trạng thái', statusInfo.label,
             valueColor: statusInfo.color),
         _detailTableRow(
-            'T? ng�y',
+            'Từ ngày',
             startDate != null
                 ? DateFormat('EEEE, dd/MM/yyyy', 'vi').format(startDate)
                 : 'N/A'),
         _detailTableRow(
-            '�?n ng�y',
+            'Đến ngày',
             endDate != null
                 ? DateFormat('EEEE, dd/MM/yyyy', 'vi').format(endDate)
                 : 'N/A'),
         _detailTableRow(
-            'S? ng�y', '$duration ng�y${isHalfShift ? ' (N?a ca)' : ''}'),
+            'Số ngày', '$duration ngày${isHalfShift ? ' (Nửa ca)' : ''}'),
         if (displayShiftNames.isNotEmpty)
-          _detailTableRow('Ca l�m vi?c', displayShiftNames),
+          _detailTableRow('Ca làm việc', displayShiftNames),
         if (replacementName.isNotEmpty)
-          _detailTableRow('Ngu?i thay', replacementName),
-        _detailTableRow('L� do', reason.isNotEmpty ? reason : 'N/A'),
+          _detailTableRow('Người thay', replacementName),
+        _detailTableRow('Lý do', reason.isNotEmpty ? reason : 'N/A'),
         if (status == 2 && leave['rejectionReason'] != null)
-          _detailTableRow('L� do t? ch?i', leave['rejectionReason'],
+          _detailTableRow('Lý do từ chối', leave['rejectionReason'],
               valueColor: Colors.red),
         if (createdAt != null)
-          _detailTableRow('Ng�y t?o', formatApiDateTime(createdAt)),
+          _detailTableRow('Ngày tạo', formatApiDateTime(createdAt)),
         if (updatedAt != null)
-          _detailTableRow('C?p nh?t', formatApiDateTime(updatedAt)),
+          _detailTableRow('Cập nhật', formatApiDateTime(updatedAt)),
         _detailTableRow('ID', leave['id']?.toString().substring(0, 8) ?? 'N/A'),
       ],
     );
@@ -2385,7 +2384,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                 const Icon(Icons.linear_scale_rounded,
                     size: 18, color: Colors.blueGrey),
                 const SizedBox(width: 8),
-                Text('Ti?n tr�nh duy?t: $currentStep/$totalLevels c?p',
+                Text('Tiến trình duyệt: $currentStep/$totalLevels cấp',
                     style: const TextStyle(
                         fontSize: 13, fontWeight: FontWeight.w600)),
               ],
@@ -2407,7 +2406,7 @@ class _LeaveScreenState extends State<LeaveScreen>
             const SizedBox(height: 12),
           ],
           // Timeline
-          const Text('L?ch s? ph� duy?t',
+          const Text('Lịch sử phê duyệt',
               style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
           ...approvalRecords.asMap().entries.map((entry) {
@@ -2415,7 +2414,7 @@ class _LeaveScreenState extends State<LeaveScreen>
             final record = entry.value;
             final stepStatus = record['status'] ?? 0;
             final stepName =
-                record['stepName'] ?? 'C?p ${record['stepOrder'] ?? idx + 1}';
+                record['stepName'] ?? 'Cấp ${record['stepOrder'] ?? idx + 1}';
             final assignedUser = record['assignedUserName'] ?? '';
             final actualUser = record['actualUserName'] ?? '';
             final actionDate = parseApiUtcDateTime(record['actionDate']);
@@ -2473,13 +2472,24 @@ class _LeaveScreenState extends State<LeaveScreen>
                                   fontWeight: FontWeight.w600,
                                   color: dotColor)),
                           if (assignedUser.isNotEmpty)
-                            Text('Ph�n c�ng: $assignedUser',
+                            Text('Phân công: $assignedUser',
                                 style: TextStyle(
                                     fontSize: 12, color: Colors.grey.shade600)),
                           if (actualUser.isNotEmpty && stepStatus != 0)
-                            Text('Th?c hi?n: $actualUser',
+                            Text('Thực hiện: $actualUser',
                                 style: TextStyle(
                                     fontSize: 12, color: Colors.grey.shade600)),
+                          if (stepStatus != 0)
+                            Text(
+                              _approvalStepStatusLabel(stepStatus is int
+                                  ? stepStatus
+                                  : int.tryParse('$stepStatus') ?? 0),
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: dotColor,
+                              ),
+                            ),
                           if (actionDate != null)
                             Text(
                                 formatApiDateTime(actionDate),
@@ -2508,12 +2518,15 @@ class _LeaveScreenState extends State<LeaveScreen>
 
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (context) => Theme(
+        data: vietnameseThemeOverlay(context),
+        child: Builder(
+          builder: (context) {
         if (isMobile) {
           return Dialog.fullscreen(
             child: Scaffold(
               appBar: AppBar(
-                title: const Text('Chi ti?t don ngh? ph�p'),
+                title: const Text('Chi tiết đơn nghỉ phép'),
                 leading: IconButton(
                   icon: const Icon(Icons.close),
                   onPressed: () => Navigator.pop(context),
@@ -2591,7 +2604,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Chi ti?t don ngh? ph�p',
+                            const Text('Chi tiết đơn nghỉ phép',
                                 style: TextStyle(
                                     color: Colors.white,
                                     fontSize: 16,
@@ -2654,7 +2667,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                       const Spacer(),
                       TextButton(
                           onPressed: () => Navigator.pop(context),
-                          child: const Text('��ng')),
+                          child: const Text('Đóng')),
                     ],
                   ),
                 ),
@@ -2662,7 +2675,9 @@ class _LeaveScreenState extends State<LeaveScreen>
             ),
           ),
         );
-      },
+          },
+        ),
+      ),
     );
   }
 
@@ -2722,22 +2737,22 @@ class _LeaveScreenState extends State<LeaveScreen>
     showDialog<void>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Ngh? ph�p theo ph�p lu?t'),
+        title: const Text('Nghỉ phép theo pháp luật'),
         content: const SingleChildScrollView(
           child: Text(
-            '1. Doanh nghi?p tr? luong\n'
-            '   Ph�p nam, l?, vi?c ri�ng c� luong, ngh? b�, ?m d�ng ph�p nam.\n\n'
-            '2. Kh�ng hu?ng luong\n'
-            '   Vi?c ri�ng kh�ng luong, ngh? d�i h?n kh�ng luong.\n\n'
-            '3. BHXH & d?c bi?t\n'
-            '   ?m hu?ng BHXH (c?n gi?y ngh?), thai s?n DN + d?i so�t BHXH.\n\n'
-            'M?i ng�y ngh? ch? m?t ch? d? � kh�ng v?a luong DN v?a tr? c?p BHXH.\n'
-            'Ca ngh?: theo Thi?t l?p luong. Ngu?i thay ca: c�ng ph�ng ban.',
+            '1. Doanh nghiệp trả lương\n'
+            '   Phép năm, lễ, việc riêng có lương, nghỉ bù, ốm dùng phép năm.\n\n'
+            '2. Không hưởng lương\n'
+            '   Việc riêng không lương, nghỉ dài hạn không lương.\n\n'
+            '3. BHXH & đặc biệt\n'
+            '   Ốm hưởng BHXH (cần giấy nghỉ), thai sản DN + đối soát BHXH.\n\n'
+            'Mỗi ngày nghỉ chỉ một chế độ — không vừa lương DN vừa trợ cấp BHXH.\n'
+            'Ca nghỉ: theo Thiết lập luong. Người thay ca: cùng phòng ban.',
             style: TextStyle(fontSize: 14, height: 1.45),
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('��ng')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Đóng')),
         ],
       ),
     );
@@ -2762,46 +2777,46 @@ class _LeaveScreenState extends State<LeaveScreen>
   Future<void> _cancelLeave(String? leaveId) async {
     if (leaveId == null) return;
     final confirm = await _showConfirmDialog(
-      title: 'H?y don ngh? ph�p',
-      content: 'B?n c� ch?c ch?n mu?n h?y don ngh? ph�p n�y?',
-      confirmText: 'H?y don',
+      title: 'Hủy đơn nghỉ phép',
+      content: 'Bạn có chắc chắn muốn hủy đơn nghỉ phép này?',
+      confirmText: 'Hủy đơn',
       confirmVariant: AppButtonVariant.danger,
       icon: Icons.cancel_rounded,
     );
     if (confirm != true) return;
     final result = await _apiService.cancelLeave(leaveId);
-    _showResultSnackBar(result, '�� h?y don ngh? ph�p', 'L?i khi h?y don');
+    _showResultSnackBar(result, 'Đã hủy đơn nghỉ phép', 'Lỗi khi hủy đơn');
   }
 
   Future<void> _undoLeaveApproval(String? leaveId) async {
     if (leaveId == null) return;
     final confirm = await _showConfirmDialog(
-      title: 'Ho�n t�c duy?t',
+      title: 'Hoàn tác duyệt',
       content:
-          'B?n c� ch?c ch?n mu?n ho�n t�c tr?ng th�i don ngh? ph�p n�y v? Ch? duy?t?\nH? th?ng s? kh�i ph?c l?ch l�m vi?c n?u don d� du?c duy?t.',
-      confirmText: 'Ho�n t�c',
+          'Bạn có chắc chắn muốn hoàn tác trạng thái đơn nghỉ phép này về Chờ duyệt?\nHệ thống sẽ khôi phục lịch làm việc nếu đơn đã được duyệt.',
+      confirmText: 'Hoàn tác',
       confirmVariant: AppButtonVariant.warning,
       icon: Icons.undo_rounded,
     );
     if (confirm != true) return;
     final result = await _apiService.undoLeaveApproval(leaveId);
     _showResultSnackBar(
-        result, '�� ho�n t�c tr?ng th�i don', 'L?i khi ho�n t�c');
+        result, 'Đã hoàn tác trạng thái đơn', 'Lỗi khi hoàn tác');
   }
 
   Future<void> _forceDeleteLeave(String? leaveId) async {
     if (leaveId == null) return;
     final confirm = await _showConfirmDialog(
-      title: 'X�a don ngh? ph�p',
+      title: 'Xóa đơn nghỉ phép',
       content:
-          'B?n c� ch?c ch?n mu?n x�a vinh vi?n don ngh? ph�p n�y?\nH�nh d?ng n�y kh�ng th? ho�n t�c.',
-      confirmText: 'X�a',
+          'Bạn có chắc chắn muốn xóa vĩnh viễn đơn nghỉ phép này?\nHành động này không thể hoàn tác.',
+      confirmText: 'Xóa',
       confirmVariant: AppButtonVariant.danger,
       icon: Icons.delete_forever_rounded,
     );
     if (confirm != true) return;
     final result = await _apiService.forceDeleteLeave(leaveId);
-    _showResultSnackBar(result, '�� x�a don ngh? ph�p', 'L?i khi x�a don');
+    _showResultSnackBar(result, 'Đã xóa đơn nghỉ phép', 'Lỗi khi xóa đơn');
   }
 
   Future<void> _approveLeave(String? leaveId, [Map<String, dynamic>? leave]) async {
@@ -2845,18 +2860,18 @@ class _LeaveScreenState extends State<LeaveScreen>
             children: [
               Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A)),
               SizedBox(width: 8),
-              Text('Duy?t don ngh? ph�p'),
+              Text('Duyệt đơn nghỉ phép'),
             ],
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('X�c nh?n duy?t don n�y?'),
+              const Text('Xác nhận duyệt đơn này?'),
               if (willDeductAnnual && balanceRemaining != null) ...[
                 const SizedBox(height: 10),
                 Text(
-                  'S? tr? $daysNeeded ng�y ph�p nam. C�n l?i: $balanceRemaining ng�y.',
+                  'Sẽ trừ $daysNeeded ngày phép năm. Còn lại: $balanceRemaining ngày.',
                   style: TextStyle(
                     fontSize: 13,
                     color: daysNeeded > balanceRemaining
@@ -2871,11 +2886,11 @@ class _LeaveScreenState extends State<LeaveScreen>
                 contentPadding: EdgeInsets.zero,
                 value: countAsWork,
                 title: const Text(
-                  'Ph�p duy?t nhung v?n t�nh c�ng',
+                  'Phép duyệt nhưng vẫn tính công',
                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                 ),
                 subtitle: const Text(
-                  'Kh�ng ghi "Ph�p" tr�n b?ng ch?m c�ng',
+                  'Không ghi "Phép" trên bảng chấm công',
                   style: TextStyle(fontSize: 12),
                 ),
                 onChanged: (v) => setLocal(() => countAsWork = v),
@@ -2885,11 +2900,11 @@ class _LeaveScreenState extends State<LeaveScreen>
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('H?y'),
+              child: const Text('Hủy'),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Duy?t'),
+              child: const Text('Duyệt'),
             ),
           ],
         ),
@@ -2900,7 +2915,7 @@ class _LeaveScreenState extends State<LeaveScreen>
       leaveId,
       countAsWork: countAsWork ? true : null,
     );
-    _showResultSnackBar(result, '�� duy?t don ngh? ph�p', 'L?i khi duy?t don');
+    _showResultSnackBar(result, 'Đã duyệt đơn nghỉ phép', 'Lỗi khi duyệt đơn');
   }
 
   Future<void> _rejectLeave(String? leaveId) async {
@@ -2913,21 +2928,21 @@ class _LeaveScreenState extends State<LeaveScreen>
         title: Row(children: [
           Icon(Icons.cancel_rounded, color: Colors.red[400]),
           const SizedBox(width: 8),
-          const Text('T? ch?i don ngh? ph�p')
+          const Text('Từ chối đơn nghỉ phép')
         ]),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Vui l�ng nh?p l� do t? ch?i:'),
+              const Text('Vui lòng nhập lý do từ chối:'),
               const SizedBox(height: 12),
               TextField(
                 controller: reasonController,
                 maxLines: 3,
                 autofocus: true,
                 decoration: InputDecoration(
-                    hintText: 'L� do t? ch?i...',
+                    hintText: 'Lý do từ chối...',
                     border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12))),
               ),
@@ -2940,13 +2955,13 @@ class _LeaveScreenState extends State<LeaveScreen>
             onConfirm: () {
               if (reasonController.text.trim().isEmpty) {
                 NotificationOverlayManager().showWarning(
-                    title: 'Thi?u th�ng tin',
-                    message: 'Vui l�ng nh?p l� do t? ch?i');
+                    title: 'Thiếu thông tin',
+                    message: 'Vui lòng nhập lý do từ chối');
                 return;
               }
               Navigator.pop(ctx, true);
             },
-            confirmLabel: 'T? ch?i',
+            confirmLabel: 'Từ chối',
             confirmVariant: AppButtonVariant.danger,
           ),
         ],
@@ -2956,7 +2971,7 @@ class _LeaveScreenState extends State<LeaveScreen>
       final result =
           await _apiService.rejectLeave(leaveId, reasonController.text.trim());
       _showResultSnackBar(
-          result, '�� t? ch?i don ngh? ph�p', 'L?i khi t? ch?i don');
+          result, 'Đã từ chối đơn nghỉ phép', 'Lỗi khi từ chối đơn');
     }
   }
 
@@ -2987,7 +3002,7 @@ class _LeaveScreenState extends State<LeaveScreen>
           AppDialogActions(
             onCancel: () => Navigator.pop(ctx, false),
             onConfirm: () => Navigator.pop(ctx, true),
-            cancelLabel: 'Kh�ng',
+            cancelLabel: 'Không',
             confirmLabel: confirmText,
             confirmVariant: confirmVariant,
           ),
@@ -3001,11 +3016,11 @@ class _LeaveScreenState extends State<LeaveScreen>
     if (!mounted) return;
     if (result['isSuccess'] == true) {
       NotificationOverlayManager()
-          .showSuccess(title: 'Th�nh c�ng', message: successMsg);
+          .showSuccess(title: 'Thành công', message: successMsg);
       _loadData();
     } else {
       NotificationOverlayManager()
-          .showError(title: 'L?i', message: result['message'] ?? errorMsg);
+          .showError(title: 'Lỗi', message: result['message'] ?? errorMsg);
       // Refresh to clear stale data (e.g. leave already approved by another device)
       _loadData();
     }
@@ -3014,18 +3029,32 @@ class _LeaveScreenState extends State<LeaveScreen>
   // ---------------------------------------------------
   // HELPERS
   // ---------------------------------------------------
+
+  static String _approvalStepStatusLabel(int status) {
+    switch (status) {
+      case 1:
+        return 'Đã phê duyệt';
+      case 2:
+        return 'Từ chối';
+      case 3:
+        return 'Đã hủy';
+      default:
+        return 'Chờ duyệt';
+    }
+  }
+
   static _StatusInfo _getStatusInfo(int status) {
     switch (status) {
       case 0:
         return const _StatusInfo(
-            'Ch? duy?t', Colors.orange, Icons.hourglass_bottom_rounded);
+            'Chờ duyệt', Colors.orange, Icons.hourglass_bottom_rounded);
       case 1:
         return const _StatusInfo(
-            '�� duy?t', Colors.green, Icons.check_circle_rounded);
+            'Đã duyệt', Colors.green, Icons.check_circle_rounded);
       case 2:
-        return const _StatusInfo('T? ch?i', Colors.red, Icons.cancel_rounded);
+        return const _StatusInfo('Từ chối', Colors.red, Icons.cancel_rounded);
       case 3:
-        return const _StatusInfo('�� h?y', Colors.grey, Icons.block_rounded);
+        return const _StatusInfo('Đã hủy', Colors.grey, Icons.block_rounded);
       default:
         return const _StatusInfo(
             'N/A', Colors.grey, Icons.help_outline_rounded);
@@ -3041,30 +3070,30 @@ class _LeaveScreenState extends State<LeaveScreen>
     switch (type) {
       case 0:
         return const _LeaveTypeInfo(
-            'Ph�p nam', Colors.teal, Icons.beach_access_rounded);
+            'Phép năm', Colors.teal, Icons.beach_access_rounded);
       case 1:
         return const _LeaveTypeInfo(
-            'L? t?t', Colors.orange, Icons.celebration_rounded);
+            'Nghỉ lễ, Tết', Colors.orange, Icons.celebration_rounded);
       case 2:
         return const _LeaveTypeInfo(
-            'VR c� luong', Colors.blue, Icons.paid_rounded);
+            'VR có luong', Colors.blue, Icons.paid_rounded);
       case 3:
         return const _LeaveTypeInfo(
-            'VR kh�ng luong', Colors.amber, Icons.money_off_rounded);
+            'VR không luong', Colors.amber, Icons.money_off_rounded);
       case 4:
         return const _LeaveTypeInfo(
-            '?m dau', Colors.red, Icons.local_hospital_rounded);
+            'Nghỉ ốm', Colors.red, Icons.local_hospital_rounded);
       case 5:
         return const _LeaveTypeInfo(
-            'Thai s?n', Colors.pink, Icons.child_friendly_rounded);
+            'Thai sản', Colors.pink, Icons.child_friendly_rounded);
       case 6:
         return const _LeaveTypeInfo(
-            'Ngh? b�', Colors.indigo, Icons.swap_horiz_rounded);
+            'Nghỉ bù', Colors.indigo, Icons.swap_horiz_rounded);
       case 7:
         return const _LeaveTypeInfo(
-            'Ngh? d�i h?n', Colors.brown, Icons.hourglass_full_rounded);
+            'Nghỉ dài hạn', Colors.brown, Icons.hourglass_full_rounded);
       default:
-        return const _LeaveTypeInfo('Kh�c', Colors.grey, Icons.help_outline);
+        return const _LeaveTypeInfo('Khác', Colors.grey, Icons.help_outline);
     }
   }
 }

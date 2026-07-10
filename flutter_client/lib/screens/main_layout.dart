@@ -17,13 +17,18 @@ import '../services/pos_print_agent_service.dart';
 import '../utils/pos_print_orchestrator.dart';
 import '../utils/pos_sell_stock_patch.dart';
 import '../models/mobile_bottom_nav_config.dart';
+import '../models/mobile_quick_actions_config.dart';
 import '../services/mobile_bottom_nav_prefs.dart';
+import '../services/mobile_quick_actions_prefs.dart';
 import '../utils/mobile_bottom_nav_catalog.dart';
+import '../utils/mobile_quick_actions_catalog.dart';
 import '../widgets/mobile_bottom_nav_config_sheet.dart';
+import '../widgets/mobile_quick_actions_config_sheet.dart';
 import '../widgets/announcement_banner.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/hrm_pushed_screen_shell.dart';
 import '../models/hrm.dart';
+import '../models/user.dart';
 import '../models/attendance.dart';
 import '../widgets/notification_overlay.dart';
 import '../utils/navigation_notifier.dart';
@@ -89,6 +94,8 @@ import '../utils/responsive_helper.dart';
 import '../utils/store_role_helper.dart';
 import '../widgets/module_route_guard.dart';
 import '../widgets/pos/pos_hub_scope.dart';
+import '../widgets/pos/pos_mobile_widgets.dart';
+import '../widgets/pos/pos_theme.dart';
 import '../utils/notification_sound_stub.dart';
 import '../services/system_notification_service.dart';
 import '../services/app_permission_service.dart';
@@ -302,6 +309,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     _loadSidebarPreference();
     MobileBottomNavPrefs.loadAll();
     MobileBottomNavPrefs.revision.addListener(_onMobileNavPrefsChanged);
+    MobileQuickActionsPrefs.revision.addListener(_onMobileNavPrefsChanged);
 
     // Listen for navigation requests from other screens
     NavigationNotifier.navigateTo.addListener(_onNavigationRequested);
@@ -618,6 +626,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   @override
   void dispose() {
     MobileBottomNavPrefs.revision.removeListener(_onMobileNavPrefsChanged);
+    MobileQuickActionsPrefs.revision.removeListener(_onMobileNavPrefsChanged);
     NavigationNotifier.mainLayoutReady.value = false;
     NavigationNotifier.mobileDrawerModuleActive.value = false;
     WidgetsBinding.instance.removeObserver(this);
@@ -1849,6 +1858,22 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         return 'Hàng hóa';
       case 'PosSaleOrders':
         return 'Đơn hàng';
+      case 'Employee':
+        return 'Nhân sự';
+      case 'Payroll':
+        return 'Lương';
+      case 'Leave':
+        return 'Nghỉ phép';
+      case 'Communication':
+        return 'Truyền thông';
+      case 'PosSalesReport':
+        return 'Báo cáo';
+      case 'SettingsHub':
+        return 'Cài đặt';
+      case 'Notification':
+        return 'Thông báo';
+      case 'Payslip':
+        return 'Phiếu lương';
       default:
         return moduleCode;
     }
@@ -1857,6 +1882,20 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   // Scaffold key for programmatic drawer open from bottom nav "Thêm"
   final GlobalKey<ScaffoldState> _mobileScaffoldKey =
       GlobalKey<ScaffoldState>();
+
+  int _bottomNavSlotIndexForModule(String? moduleCode) {
+    if (moduleCode == null || moduleCode.isEmpty) return -1;
+    final layout = _resolvedMainNavLayout();
+    for (var i = 0; i < layout.slots.length; i++) {
+      final slotId = layout.slots[i];
+      if (slotId == MobileBottomNavCatalog.drawerId) continue;
+      final def = _mainNavDef(slotId);
+      if (def?.moduleCode == moduleCode && _canAccessMainSlot(slotId)) {
+        return i;
+      }
+    }
+    return -1;
+  }
 
   // Mobile Layout với Bottom Navigation
   Widget _buildMobileLayout() {
@@ -1886,11 +1925,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       );
     }
 
-    final layout = _resolvedMainNavLayout();
-    final bottomNavIndex = layout.slots.indexWhere((id) => id == moduleCode);
-    final isBottomNav = moduleCode != null &&
-        bottomNavIndex >= 0 &&
-        _canAccessMainSlot(moduleCode);
+    final bottomNavIndex = _bottomNavSlotIndexForModule(moduleCode);
+    final isBottomNav = bottomNavIndex >= 0;
     NavigationNotifier.mobileDrawerModuleActive.value = !isBottomNav;
     final safeBottomIndex = isBottomNav ? bottomNavIndex : -1;
 
@@ -2027,6 +2063,133 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
   MobileBottomNavItemDef? _mainNavDef(String slotId) =>
       MobileBottomNavCatalog.mapFor(MobileBottomNavCatalog.mainItems)[slotId];
+
+  Set<String> _allowedQuickActionModuleCodes() {
+    final authUser = Provider.of<AuthProvider>(context, listen: false).user;
+    final allowedModules = authUser?.allowedModules;
+    final role = authUser?.role;
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    final out = <String>{};
+    for (final def in MobileQuickActionsCatalog.items) {
+      if (PermissionNavigation.canAccessModule(
+        def.moduleCode,
+        allowedModules: allowedModules,
+        perm: perm,
+        role: role,
+      )) {
+        out.add(def.moduleCode);
+      }
+    }
+    return out;
+  }
+
+  MobileQuickActionsLayout _resolvedQuickActionsLayout() {
+    return MobileQuickActionsPrefs.layout.normalized(
+      allowedModules: _allowedQuickActionModuleCodes(),
+    );
+  }
+
+  Widget _buildDrawerQuickActionsSection() {
+    final layout = _resolvedQuickActionsLayout();
+    final modules =
+        layout.modules.where((c) => c.isNotEmpty).toList(growable: false);
+    if (modules.isEmpty) return const SizedBox.shrink();
+
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE5E7EB)),
+        ),
+        padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'TRUY CẬP NHANH',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFFA1A1AA),
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  tooltip: 'Tùy chỉnh truy cập nhanh',
+                  icon: const Icon(Icons.tune_rounded, size: 18),
+                  onPressed: () {
+                    Navigator.pop(context);
+                    MobileQuickActionsConfigSheet.show(context);
+                  },
+                ),
+              ],
+            ),
+            GridView.count(
+              crossAxisCount: 3,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              mainAxisSpacing: 2,
+              crossAxisSpacing: 2,
+              childAspectRatio: 0.92,
+              children: modules.map((code) {
+                final def = MobileQuickActionsCatalog.map[code];
+                return Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(10),
+                    onTap: () {
+                      final idx = _navIndexForModule(code);
+                      if (idx != null && _tryNavigateToIndex(idx)) {
+                        Navigator.pop(context);
+                      }
+                    },
+                    onLongPress: () {
+                      Navigator.pop(context);
+                      MobileQuickActionsConfigSheet.show(context);
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 8, horizontal: 4),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            def?.icon ?? Icons.apps_outlined,
+                            color: theme.colorScheme.primary,
+                            size: 24,
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            def?.label ?? code,
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              height: 1.2,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   String _mobileNavLabelForSlot(String slotId, AppLocalizations l) {
     if (slotId == MobileBottomNavCatalog.drawerId) return l.more;
@@ -2845,7 +3008,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           Expanded(
             child: ListView(
               padding: const EdgeInsets.symmetric(vertical: 4),
-              children: groupOrder
+              children: [
+                _buildDrawerQuickActionsSection(),
+                ...groupOrder
                   .where((g) => groupedItems.containsKey(g))
                   .map((groupName) {
                 final items = groupedItems[groupName]!;
@@ -2911,6 +3076,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                   ],
                 );
               }).toList(),
+              ],
             ),
           ),
           const Divider(),
@@ -3176,6 +3342,109 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
     }
   }
 
+  String _profileSubtitle(User? user) {
+    if (user == null) return 'Chi nhánh';
+    if (user.department != null && user.department!.trim().isNotEmpty) {
+      return user.department!.trim();
+    }
+    if (user.position != null && user.position!.trim().isNotEmpty) {
+      return user.position!.trim();
+    }
+    if (user.email.isNotEmpty) return user.email;
+    return 'Chi nhánh';
+  }
+
+  Widget _buildMobileQuickActionsGrid(BuildContext context) {
+    final authUser =
+        Provider.of<AuthProvider>(context, listen: false).user;
+    final perm = Provider.of<PermissionProvider>(context);
+    final allowedModules = widget.allowedModules ?? authUser?.allowedModules;
+    final role = authUser?.role;
+    final allowed = <String>{};
+    for (final def in MobileQuickActionsCatalog.items) {
+      if (PermissionNavigation.canAccessModule(
+        def.moduleCode,
+        allowedModules: allowedModules,
+        perm: perm,
+        role: role,
+      )) {
+        allowed.add(def.moduleCode);
+      }
+    }
+    final modules = MobileQuickActionsPrefs.layout
+        .normalized(allowedModules: allowed)
+        .modules
+        .where((c) => c.isNotEmpty)
+        .toList(growable: false);
+    if (modules.isEmpty) return const SizedBox.shrink();
+
+    return PosMobileHubSectionGrid(
+      title: 'Truy cập nhanh',
+      items: modules
+          .map((code) {
+            final def = MobileQuickActionsCatalog.map[code];
+            if (def == null) return null;
+            return PosMobileHubGridItem(
+              label: def.label,
+              icon: def.icon,
+              onTap: () {
+                final idx = widget.navItems
+                    .indexWhere((n) => n.moduleCode == code);
+                if (idx >= 0) widget.onItemTap(idx);
+              },
+            );
+          })
+          .whereType<PosMobileHubGridItem>()
+          .toList(),
+    );
+  }
+
+  Widget _buildMobileKiotHome(
+    BuildContext context,
+    User? user,
+    Map<String, List<MapEntry<int, NavItem>>> groupedItems,
+  ) {
+    final l = AppLocalizations.of(context);
+    return ColoredBox(
+      color: PosTheme.background,
+      child: ListView(
+        controller: _scrollController,
+        key: const PageStorageKey<String>('home_menu_scroll'),
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
+        children: [
+          PosMobileProfileCard(
+            name: user?.fullName ?? 'User',
+            subtitle: _profileSubtitle(user),
+          ),
+          const SizedBox(height: 12),
+          _buildMobileQuickActionsGrid(context),
+          const SizedBox(height: 12),
+          ..._HomeMenuScreen._groupOrder
+              .where((g) => groupedItems.containsKey(g))
+              .map((groupName) {
+            final items = groupedItems[groupName]!;
+            final title = NavItem._groupMap[groupName]?.call(l) ?? groupName;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: PosMobileHubSectionGrid(
+                title: title,
+                items: items
+                    .map(
+                      (entry) => PosMobileHubGridItem(
+                        label: entry.value.localizedLabel(l),
+                        icon: entry.value.activeIcon,
+                        onTap: () => widget.onItemTap(entry.key),
+                      ),
+                    )
+                    .toList(),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -3199,11 +3468,14 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
       )) {
         continue;
       }
-      // Lọc theo quyền canView
       if (!permProvider.canViewNav(item.moduleCode)) continue;
       final group = item.group.isEmpty ? 'Khác' : item.group;
       groupedItems.putIfAbsent(group, () => []);
       groupedItems[group]!.add(MapEntry(i, item));
+    }
+
+    if (isMobile) {
+      return _buildMobileKiotHome(context, user, groupedItems);
     }
 
     return Container(
@@ -3213,6 +3485,52 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
         key: const PageStorageKey<String>('home_menu_scroll'),
         padding: EdgeInsets.all(padding),
         children: [
+          // ═══════════════ QUICK NAV STRIP (trước lưới chức năng) ═══════════════
+          SizedBox(
+            height: 42,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: _HomeMenuScreen._groupOrder
+                  .where((g) => groupedItems.containsKey(g))
+                  .map((groupName) {
+                final groupColor =
+                    _HomeMenuScreen._groupColors[groupName] ?? Colors.grey;
+                final groupIcon =
+                    _HomeMenuScreen._groupIcons[groupName] ?? Icons.folder;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: ActionChip(
+                    avatar: Icon(groupIcon, size: 16, color: groupColor),
+                    label: Builder(
+                      builder: (context) {
+                        final l = AppLocalizations.of(context);
+                        return Text(
+                          NavItem._groupMap[groupName]?.call(l) ?? groupName,
+                          style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: groupColor),
+                        );
+                      },
+                    ),
+                    backgroundColor: groupColor.withValues(alpha: 0.06),
+                    side: BorderSide(color: groupColor.withValues(alpha: 0.15)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20)),
+                    onPressed: () {
+                      final items = groupedItems[groupName];
+                      if (items != null && items.isNotEmpty) {
+                        widget.onItemTap(items.first.key);
+                      }
+                    },
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
           // ═══════════════ HERO GREETING BANNER ═══════════════
           Container(
             padding: EdgeInsets.all(isMobile ? 20 : 28),
@@ -3278,7 +3596,59 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
                     ],
                   ),
                 ),
-                if (!isMobile)
+                if (isMobile)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        tooltip: 'Cài đặt',
+                        onPressed: () {
+                          final idx = widget.navItems.indexWhere(
+                              (n) => n.moduleCode == 'SettingsHub');
+                          if (idx >= 0) widget.onItemTap(idx);
+                        },
+                        icon: Icon(
+                          Icons.settings_outlined,
+                          color: Colors.white.withValues(alpha: 0.95),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Đăng xuất',
+                        onPressed: () async {
+                          final l = AppLocalizations.of(context);
+                          final ok = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: Text(l.logout),
+                              content: Text(l.logoutConfirm),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx, false),
+                                  child: Text(l.cancel),
+                                ),
+                                FilledButton(
+                                  onPressed: () => Navigator.pop(ctx, true),
+                                  style: FilledButton.styleFrom(
+                                      backgroundColor: Colors.red),
+                                  child: Text(l.logout),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (ok == true && context.mounted) {
+                            await Provider.of<AuthProvider>(context,
+                                    listen: false)
+                                .logout();
+                          }
+                        },
+                        icon: Icon(
+                          Icons.logout,
+                          color: Colors.red.shade200,
+                        ),
+                      ),
+                    ],
+                  )
+                else
                   Container(
                     width: 80,
                     height: 80,
@@ -3293,53 +3663,6 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
                     ),
                   ),
               ],
-            ),
-          ),
-
-          const SizedBox(height: 24),
-
-          // ═══════════════ QUICK NAV STRIP ═══════════════
-          SizedBox(
-            height: 42,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              children: _HomeMenuScreen._groupOrder
-                  .where((g) => groupedItems.containsKey(g))
-                  .map((groupName) {
-                final groupColor =
-                    _HomeMenuScreen._groupColors[groupName] ?? Colors.grey;
-                final groupIcon =
-                    _HomeMenuScreen._groupIcons[groupName] ?? Icons.folder;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: ActionChip(
-                    avatar: Icon(groupIcon, size: 16, color: groupColor),
-                    label: Builder(
-                      builder: (context) {
-                        final l = AppLocalizations.of(context);
-                        return Text(
-                          NavItem._groupMap[groupName]?.call(l) ?? groupName,
-                          style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: groupColor),
-                        );
-                      },
-                    ),
-                    backgroundColor: groupColor.withValues(alpha: 0.06),
-                    side: BorderSide(color: groupColor.withValues(alpha: 0.15)),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20)),
-                    onPressed: () {
-                      // Scroll to group — scroll to first item of group
-                      final items = groupedItems[groupName];
-                      if (items != null && items.isNotEmpty) {
-                        widget.onItemTap(items.first.key);
-                      }
-                    },
-                  ),
-                );
-              }).toList(),
             ),
           ),
 

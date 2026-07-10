@@ -394,7 +394,8 @@ class ApiService {
       String? agentCode,
       String? servicePackageId}) async {
     try {
-      debugPrint('📝 Register attempt: $storeName - $email');
+      debugPrint('📝 Register attempt: $storeName - $email'
+          '${agentCode != null && agentCode.isNotEmpty ? ' (agent: $agentCode)' : ''}');
       final body = {
         'storeName': storeName,
         'email': email,

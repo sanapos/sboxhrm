@@ -60,7 +60,20 @@ class ZKTecoApp extends StatelessWidget {
             );
           },
           routes: {
-            '/register': (context) => const RegisterScreen(),
+            '/register': (context) {
+              final args = ModalRoute.of(context)?.settings.arguments;
+              String? agentCode;
+              String? packageName;
+              if (args is Map) {
+                agentCode = args['agentCode']?.toString();
+                packageName = args['packageName']?.toString();
+              }
+              agentCode ??= InitialWebRoute.agentCode;
+              return RegisterScreen(
+                initialAgentCode: agentCode,
+                initialPackageName: packageName,
+              );
+            },
             '/agent-register': (context) {
               final token = parseAgentRegistrationToken() ?? '';
               return AgentRegisterScreen(token: token);
@@ -121,7 +134,7 @@ class ZKTecoApp extends StatelessWidget {
                   return AgentRegisterScreen(token: token);
                 }
                 if (kIsWeb && InitialWebRoute.showRegister) {
-                  return const RegisterScreen();
+                  return RegisterScreen(initialAgentCode: InitialWebRoute.agentCode);
                 }
                 return kIsWeb ? const LandingScreen() : const LoginScreen();
               }

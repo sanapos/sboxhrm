@@ -49,7 +49,7 @@ public class AuthController(IMediator _bus, UserManager<ApplicationUser> _userMa
     [HttpPost]
     [AllowAnonymous]
     [EnableRateLimiting("login")]
-    public async Task<ActionResult<AppResponse<string>>> Register(RegisterRequest registerRequest, CancellationToken cancellationToken = new())
+    public async Task<ActionResult<AppResponse<string>>> Register([FromBody] RegisterRequest registerRequest, CancellationToken cancellationToken = new())
     {
         var command = new RegisterCommand(registerRequest);  
         return Ok(await _bus.Send(command, cancellationToken));

@@ -6,6 +6,7 @@ import '../../providers/permission_provider.dart';
 import '../../screens/overtime_screen.dart';
 import '../../utils/navigation_notifier.dart';
 import '../../widgets/hrm_pushed_screen_shell.dart';
+import '../pos/pos_mobile_widgets.dart';
 import '../hrm_page_chrome.dart';
 
 class EmployeeModuleGrid extends StatelessWidget {
@@ -266,6 +267,23 @@ class EmployeeModuleGrid extends StatelessWidget {
     if (tiles.isEmpty) return const SizedBox.shrink();
 
     final width = MediaQuery.sizeOf(context).width;
+    final isMobile = width < 768;
+
+    if (isMobile) {
+      return PosMobileHubSectionGrid(
+        title: 'Chức năng',
+        items: tiles
+            .map(
+              (tile) => PosMobileHubGridItem(
+                label: tile.label,
+                icon: tile.icon,
+                onTap: () => _openModule(context, tile),
+              ),
+            )
+            .toList(),
+      );
+    }
+
     final crossAxisCount = width >= 1024 ? 4 : (width >= 600 ? 3 : 2);
     const spacing = 10.0;
 

@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../models/mobile_bottom_nav_config.dart';
 import '../services/api_service.dart';
+import 'mobile_quick_actions_prefs.dart';
 
 /// Tải / lưu bố cục thanh điều hướng mobile (theo cửa hàng — AppSettings).
 class MobileBottomNavPrefs {
@@ -26,22 +27,31 @@ class MobileBottomNavPrefs {
   static void _notify() => revision.value++;
 
   static Future<void> loadAll() async {
-    await Future.wait([loadMain(), loadPos()]);
+    await Future.wait([
+      loadMain(),
+      loadPos(),
+      MobileQuickActionsPrefs.load(),
+    ]);
+    _notify();
   }
 
   static Future<MobileBottomNavLayout> loadMain() async {
     final parsed = await _loadKey(MobileBottomNavLayout.storageKeyMain);
-    _mainCache = parsed.slots.isEmpty
-        ? MobileBottomNavLayout.mainDefaults()
-        : parsed;
+    if (parsed.slots.isNotEmpty) {
+      _mainCache = parsed;
+      return _mainCache!;
+    }
+    _mainCache = MobileBottomNavLayout.mainDefaults();
     return _mainCache!;
   }
 
   static Future<MobileBottomNavLayout> loadPos() async {
     final parsed = await _loadKey(MobileBottomNavLayout.storageKeyPos);
-    _posCache = parsed.slots.isEmpty
-        ? MobileBottomNavLayout.posDefaults()
-        : parsed;
+    if (parsed.slots.isNotEmpty) {
+      _posCache = parsed;
+      return _posCache!;
+    }
+    _posCache = MobileBottomNavLayout.posDefaults();
     return _posCache!;
   }
 

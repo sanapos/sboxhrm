@@ -52,6 +52,7 @@ import '../widgets/pos/pos_sale_quick_notes_widgets.dart';
 import '../widgets/pos/pos_serial_capture_dialog.dart';
 import '../widgets/pos/pos_theme.dart';
 import '../widgets/pos/pos_hub_scope.dart';
+import '../widgets/pos/pos_mobile_widgets.dart';
 import 'pos/pos_end_of_day_screen.dart';
 import 'pos_reports_screen.dart';
 import 'pos_sale_return_screen.dart';
@@ -2302,11 +2303,21 @@ class _PosSellScreenState extends State<PosSellScreen> {
 
   Future<void> _openPosMenu() async {
     final perm = Provider.of<PermissionProvider>(context, listen: false);
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final user = auth.user;
     final canCash = perm.canCreate('CashTransaction') ||
         (perm.isLoaded && perm.canView('CashTransaction'));
     final canReturn = perm.canEdit('PosProducts') || perm.canCreate('PosSell');
     final canReport = perm.canView('PosSalesReport') || perm.canView('PosProducts');
     final canSell = perm.canView('PosSell') || perm.canView('PosProducts');
+    final accountName = user != null && user.fullName.trim().isNotEmpty
+        ? user.fullName.trim()
+        : (user?.email.isNotEmpty == true ? user!.email : 'Tài khoản');
+    final accountSubtitle = user != null
+        ? (user.email.isNotEmpty
+            ? user.email
+            : (user.position ?? user.department))
+        : null;
 
     final box = context.findRenderObject() as RenderBox?;
     final overlay = Overlay.of(context).context.findRenderObject() as RenderBox?;
@@ -2314,10 +2325,26 @@ class _PosSellScreenState extends State<PosSellScreen> {
         ? box.localToGlobal(box.size.topRight(Offset.zero), ancestor: overlay)
         : Offset(MediaQuery.sizeOf(context).width - 8, 56);
 
+    final isMobile = Responsive.isMobile(context);
     final action = await showMenu<String>(
       context: context,
       position: RelativeRect.fromLTRB(topRight.dx - 240, topRight.dy, topRight.dx, topRight.dy + 8),
       items: [
+        if (isMobile)
+          PopupMenuItem(
+            value: 'toggle_merge',
+            child: ListTile(
+              dense: true,
+              leading: const Icon(Icons.merge_type_outlined, size: 20),
+              title: const Text('Tự động gộp cùng sản phẩm'),
+              trailing: Icon(
+                _mobileMergeSameOnAdd ? Icons.check_circle : Icons.circle_outlined,
+                size: 20,
+                color: _mobileMergeSameOnAdd ? _kiotBlue : PosTheme.textSecondary,
+              ),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
         const PopupMenuItem(
           value: 'print_settings',
           child: ListTile(
@@ -2415,11 +2442,61 @@ class _PosSellScreenState extends State<PosSellScreen> {
               contentPadding: EdgeInsets.zero,
             ),
           ),
+        const PopupMenuDivider(),
+        PopupMenuItem<String>(
+          enabled: false,
+          child: ListTile(
+            dense: true,
+            leading: CircleAvatar(
+              radius: 14,
+              backgroundColor: PosTheme.kiotBlueLight,
+              child: Text(
+                accountName.isNotEmpty ? accountName[0].toUpperCase() : 'S',
+                style: const TextStyle(
+                  color: PosTheme.kiotBlue,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+            title: Text(
+              accountName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+            ),
+            subtitle: accountSubtitle != null && accountSubtitle.isNotEmpty
+                ? Text(
+                    accountSubtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 11),
+                  )
+                : null,
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        PopupMenuItem(
+          value: 'logout',
+          child: ListTile(
+            dense: true,
+            leading: const Icon(Icons.logout, size: 20, color: Colors.red),
+            title: Text(
+              'Đăng xuất',
+              style: TextStyle(color: Colors.red.shade700),
+            ),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
       ],
     );
     if (!mounted || action == null) return;
 
     switch (action) {
+      case 'logout':
+        await showPosLogoutDialog(context);
+      case 'toggle_merge':
+        setState(() => _mobileMergeSameOnAdd = !_mobileMergeSameOnAdd);
       case 'print_settings':
         await _openPrintSettings();
       case 'store_settings':
@@ -4337,64 +4414,39 @@ class _PosSellScreenState extends State<PosSellScreen> {
     return Material(
       color: const Color(0xFFFAFBFC),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
-        child: Column(
+        padding: const EdgeInsets.fromLTRB(12, 6, 12, 4),
+        child: Row(
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _openMobileProductPicker,
-                    icon: const Icon(Icons.inventory_2_outlined, size: 20),
-                    label: const Text('Hàng hóa'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: PosTheme.kiotBlue,
-                      side: const BorderSide(color: PosTheme.border),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _openMobileProductPicker,
+                icon: const Icon(Icons.inventory_2_outlined, size: 18),
+                label: const Text('Hàng hóa', style: TextStyle(fontSize: 13)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: PosTheme.kiotBlue,
+                  side: const BorderSide(color: PosTheme.border),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: _openMobileCameraScan,
-                    icon: const Icon(Icons.qr_code_scanner, size: 20),
-                    label: const Text('Quét mã'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: PosTheme.kiotBlue,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            Row(
-              children: [
-                const Text(
-                  'Tự động gộp cùng sản phẩm',
-                  style: TextStyle(fontSize: 12, color: PosTheme.textSecondary),
-                ),
-                const Spacer(),
-                Switch.adaptive(
-                  value: _mobileMergeSameOnAdd,
-                  onChanged: (v) => setState(() => _mobileMergeSameOnAdd = v),
-                ),
-              ],
-            ),
-            if (!_mobileMergeSameOnAdd)
-              const Padding(
-                padding: EdgeInsets.only(top: 2),
-                child: Text(
-                  'Tắt gộp để quét/tách dòng riêng cho từng ghi chú',
-                  style: TextStyle(fontSize: 11, color: PosTheme.kiotBlue),
                 ),
               ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: FilledButton.icon(
+                onPressed: _openMobileCameraScan,
+                icon: const Icon(Icons.qr_code_scanner, size: 18),
+                label: const Text('Quét mã', style: TextStyle(fontSize: 13)),
+                style: FilledButton.styleFrom(
+                  backgroundColor: PosTheme.kiotBlue,
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -4445,19 +4497,25 @@ class _PosSellScreenState extends State<PosSellScreen> {
   }
 
   Widget _buildMobileCheckoutBar(PermissionProvider perm, bool canPay) {
+    final inHub = PosHubScope.of(context);
+    final payLabel = _tab.cart.isEmpty
+        ? 'Thanh toán'
+        : 'TT · ${_moneyFmt.format(_grandTotal)}đ';
     return Material(
       elevation: 6,
       color: Colors.white,
       child: SafeArea(
         top: false,
+        bottom: !inHub,
         child: Container(
-          padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+          padding: EdgeInsets.fromLTRB(12, 8, 12, inHub ? 6 : 10),
           decoration: const BoxDecoration(
             border: Border(top: BorderSide(color: PosTheme.border)),
           ),
           child: Row(
             children: [
               Expanded(
+                flex: 5,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
@@ -4474,7 +4532,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
                     Text(
                       '${_moneyFmt.format(_grandTotal)} đ',
                       style: const TextStyle(
-                        fontSize: 18,
+                        fontSize: 20,
                         fontWeight: FontWeight.bold,
                         color: _kiotBlue,
                       ),
@@ -4486,6 +4544,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
               ),
               if (_bankAccounts.isNotEmpty && _vietQrAmount > 0) ...[
                 IconButton(
+                  visualDensity: VisualDensity.compact,
                   tooltip: 'Mã VietQR',
                   onPressed: () => showPosVietQrPaymentDialog(
                     context,
@@ -4494,33 +4553,32 @@ class _PosSellScreenState extends State<PosSellScreen> {
                     preferredAccountId: _storeSettings.vietQrBankAccountId,
                     description: _vietQrTransferNote,
                   ),
-                  icon: const Icon(Icons.qr_code_2, color: _kiotBlue, size: 28),
+                  icon: const Icon(Icons.qr_code_2, color: _kiotBlue, size: 26),
                 ),
-                const SizedBox(width: 4),
               ],
-              Flexible(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(minWidth: 88, maxWidth: 132),
+              Expanded(
+                flex: 4,
+                child: SizedBox(
+                  height: 48,
                   child: FilledButton(
                     onPressed: _tab.cart.isEmpty || _checkingOut || !canPay
                         ? null
                         : () => _openMobilePaymentScreen(perm),
                     style: FilledButton.styleFrom(
                       backgroundColor: _kiotBlue,
-                      minimumSize: const Size(0, 44),
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
                     ),
-                    child: const FittedBox(
+                    child: FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Text(
-                        'Thanh toán',
+                        payLabel,
                         maxLines: 1,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontWeight: FontWeight.bold,
-                          fontSize: 11,
+                          fontSize: 14,
                         ),
                       ),
                     ),

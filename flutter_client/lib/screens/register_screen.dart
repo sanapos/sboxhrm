@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../data/vietnam_provinces.dart';
 import '../utils/web_route_parser.dart';
+import '../utils/agent_referral_prefs.dart';
 import '../utils/permission_navigation.dart';
 import '../services/api_service.dart';
 import '../widgets/store_agent_support_card.dart';
@@ -53,7 +54,10 @@ class _StoreLoginNameInputFormatter extends TextInputFormatter {
 }
 
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({super.key});
+  const RegisterScreen({super.key, this.initialAgentCode, this.initialPackageName});
+
+  final String? initialAgentCode;
+  final String? initialPackageName;
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -95,7 +99,7 @@ class _RegisterScreenState extends State<RegisterScreen>
   @override
   void initState() {
     super.initState();
-    _readAgentCodeFromUrl();
+    _loadAgentCode();
     _loadServicePackages();
     _storeNameController.addListener(_onStoreNameChanged);
     _animController = AnimationController(
@@ -123,19 +127,42 @@ class _RegisterScreenState extends State<RegisterScreen>
         _initialPackageName = packageName;
         _applyInitialPackageSelection();
       }
+      final routeAgent = args['agentCode']?.toString().trim();
+      if (routeAgent != null && routeAgent.isNotEmpty) {
+        _applyAgentCode(routeAgent);
+      }
+    }
+    if (_initialPackageName == null &&
+        widget.initialPackageName != null &&
+        widget.initialPackageName!.trim().isNotEmpty) {
+      _initialPackageName = widget.initialPackageName!.trim();
+      _applyInitialPackageSelection();
     }
   }
 
-  void _readAgentCodeFromUrl() {
+  Future<void> _loadAgentCode() async {
     try {
-      final params = parseWebRouteQueryParams();
-      var code = params['agentCode'] ?? params['agent'] ?? params['ref'];
-      code ??= InitialWebRoute.agentCode;
+      var code = widget.initialAgentCode?.trim();
+      if (code == null || code.isEmpty) {
+        final params = parseWebRouteQueryParams();
+        code = params['agentCode'] ?? params['agent'] ?? params['ref'];
+        code ??= InitialWebRoute.agentCode;
+      }
+      code ??= await AgentReferralPrefs.load();
       if (code != null && code.trim().isNotEmpty) {
-        _agentCode = code.trim().toUpperCase();
-        _resolveAgentName();
+        _applyAgentCode(code);
       }
     } catch (_) {}
+  }
+
+  void _applyAgentCode(String code) {
+    final normalized = code.trim().toUpperCase();
+    if (normalized.isEmpty) return;
+    if (_agentCode == normalized) return;
+    _agentCode = normalized;
+    AgentReferralPrefs.save(normalized);
+    _resolveAgentName();
+    if (mounted) setState(() {});
   }
 
   Future<void> _resolveAgentName() async {
@@ -216,6 +243,36 @@ class _RegisterScreenState extends State<RegisterScreen>
   static String _generateLoginName(String storeName) =>
       _sanitizeStoreLoginNameInput(storeName);
 
+  static String _registerErrorMessage(dynamic raw) {
+    if (raw is List) {
+      final parts = raw.map((e) => e.toString()).where((s) => s.isNotEmpty);
+      if (parts.isNotEmpty) return parts.join('\n');
+    }
+    final msg = raw?.toString().trim() ?? '';
+    if (msg.isEmpty) return 'Đăng ký thất bại';
+    final lower = msg.toLowerCase();
+    if (lower.contains('province') && lower.contains('required')) {
+      return 'Vui lòng chọn tỉnh / thành phố';
+    }
+    if (lower.contains('phonenumber') && lower.contains('required')) {
+      return 'Vui lòng nhập số điện thoại';
+    }
+    if (lower.contains('duplicate') &&
+        (lower.contains('email') || lower.contains('username'))) {
+      return 'Email này đã được sử dụng';
+    }
+    if (lower.contains('phone') &&
+        (lower.contains('duplicate') || lower.contains('already'))) {
+      return 'Số điện thoại này đã được sử dụng';
+    }
+    if (msg.contains('đã được sử dụng') ||
+        msg.contains('đã tồn tại') ||
+        msg.contains('Không thể hoàn tất')) {
+      return msg;
+    }
+    return msg;
+  }
+
   @override
   void dispose() {
     _animController.dispose();
@@ -267,6 +324,7 @@ class _RegisterScreenState extends State<RegisterScreen>
       );
 
       if (result['isSuccess'] == true) {
+        await AgentReferralPrefs.clear();
         final message = result['data'] as String? ?? 'Đăng ký thành công!';
         final codeMatch =
             RegExp(r'Mã cửa hàng của bạn là:\s*(\S+)').firstMatch(message);
@@ -276,8 +334,12 @@ class _RegisterScreenState extends State<RegisterScreen>
           _navigateToSuccessScreen(storeCode);
         }
       } else {
+        final errors = result['errors'];
+        final message = result['message'];
         setState(() {
-          _errorMessage = result['message'] ?? 'Đăng ký thất bại';
+          _errorMessage = _registerErrorMessage(
+            (errors is List && errors.isNotEmpty) ? errors : message,
+          );
         });
       }
     } catch (e) {

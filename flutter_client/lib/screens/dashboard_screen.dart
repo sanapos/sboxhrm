@@ -18,6 +18,8 @@ import '../utils/salary_profile_load_utils.dart';
 import '../utils/dashboard_ui_capabilities.dart';
 import '../utils/shift_records_calculator.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/pos/pos_mobile_widgets.dart';
+import '../widgets/pos/pos_theme.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/app_scroll_safe.dart';
@@ -1444,61 +1446,62 @@ class _DashboardScreenState extends State<DashboardScreen> {
           allowedModules: authUser.user?.allowedModules,
         );
 
+        final isMobile = MediaQuery.of(context).size.width < 768;
         final body = _isEmployee
-            ? _buildEmployeeDashboard(caps)
-            : RefreshIndicator(
-                onRefresh: () => _loadAllData(caps),
-                child: SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: EdgeInsets.fromLTRB(
-                    MediaQuery.of(context).size.width < 768 ? 12 : 20,
-                    MediaQuery.of(context).size.width < 768 ? 12 : 20,
-                    MediaQuery.of(context).size.width < 768 ? 12 : 20,
-                    100,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildHeader(),
-                      const SizedBox(height: 14),
-                      if (_bannerItems.isNotEmpty) ...[
-                        _buildRollingBanner(),
-                        const SizedBox(height: 10),
-                      ],
-                      if (caps.isOverviewOnly) ...[
-                        _buildOverviewOnlyCard(),
-                        const SizedBox(height: 16),
-                      ],
-                      if (caps.showQuickActions) ...[
-                        _buildQuickActions(caps),
-                        const SizedBox(height: 16),
-                      ],
-                      if (caps.showAttendanceHero) ...[
-                        _buildHeroOverview(caps),
-                        const SizedBox(height: 14),
-                      ],
-                      if (caps.showShiftSchedule) ...[
-                        _buildTodayShiftSchedule(),
-                        const SizedBox(height: 20),
-                      ],
-                      if (caps.loadPendingApprovals && caps.insightPending) ...[
-                        _buildPendingApprovalsCard(),
-                        const SizedBox(height: 16),
-                      ],
-                      if (caps.showInsightSection && !caps.showAttendanceHero) ...[
-                        _buildInsightSectionTitle(),
-                        const SizedBox(height: 10),
-                        _buildInsightChipsRow(caps),
-                        const SizedBox(height: 20),
-                      ],
-                      if (caps.showMainGrid) _buildMainGrid(caps),
-                    ],
-                  ),
-                ),
-              );
+            ? _buildEmployeeDashboard(caps, isMobile: isMobile)
+            : isMobile
+                ? _buildMobileManagerDashboard(caps)
+                : RefreshIndicator(
+                    onRefresh: () => _loadAllData(caps),
+                    child: SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildHeader(),
+                          const SizedBox(height: 14),
+                          if (_bannerItems.isNotEmpty) ...[
+                            _buildRollingBanner(),
+                            const SizedBox(height: 10),
+                          ],
+                          if (caps.isOverviewOnly) ...[
+                            _buildOverviewOnlyCard(),
+                            const SizedBox(height: 16),
+                          ],
+                          if (caps.showQuickActions) ...[
+                            _buildQuickActions(caps),
+                            const SizedBox(height: 16),
+                          ],
+                          if (caps.showAttendanceHero) ...[
+                            _buildHeroOverview(caps),
+                            const SizedBox(height: 14),
+                          ],
+                          if (caps.showShiftSchedule) ...[
+                            _buildTodayShiftSchedule(),
+                            const SizedBox(height: 20),
+                          ],
+                          if (caps.loadPendingApprovals &&
+                              caps.insightPending) ...[
+                            _buildPendingApprovalsCard(),
+                            const SizedBox(height: 16),
+                          ],
+                          if (caps.showInsightSection &&
+                              !caps.showAttendanceHero) ...[
+                            _buildInsightSectionTitle(),
+                            const SizedBox(height: 10),
+                            _buildInsightChipsRow(caps),
+                            const SizedBox(height: 20),
+                          ],
+                          if (caps.showMainGrid) _buildMainGrid(caps),
+                        ],
+                      ),
+                    ),
+                  );
 
         return Scaffold(
-          backgroundColor: const Color(0xFFFAFAFA),
+          backgroundColor:
+              isMobile ? PosTheme.background : const Color(0xFFFAFAFA),
           body: Scrollbar(
             thumbVisibility: true,
             child: body,
@@ -1563,6 +1566,69 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  String _dashboardProfileSubtitle() {
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    if (user == null) return 'Chi nhánh';
+    if (user.department != null && user.department!.trim().isNotEmpty) {
+      return user.department!.trim();
+    }
+    if (user.position != null && user.position!.trim().isNotEmpty) {
+      return user.position!.trim();
+    }
+    if (user.email.isNotEmpty) return user.email;
+    return 'Chi nhánh';
+  }
+
+  Widget _buildMobileManagerDashboard(DashboardUiCapabilities caps) {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final fullName = auth.user?.fullName ?? 'User';
+
+    return RefreshIndicator(
+      color: PosTheme.kiotBlue,
+      onRefresh: () => _loadAllData(caps),
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 100),
+        children: [
+          PosMobileProfileCard(
+            name: fullName,
+            subtitle: _dashboardProfileSubtitle(),
+          ),
+          const SizedBox(height: 12),
+          if (_bannerItems.isNotEmpty) ...[
+            _buildRollingBanner(),
+            const SizedBox(height: 12),
+          ],
+          if (caps.isOverviewOnly) ...[
+            _buildOverviewOnlyCard(),
+            const SizedBox(height: 12),
+          ],
+          if (caps.showQuickActions) ...[
+            _buildQuickActions(caps, mobileGrid: true),
+            const SizedBox(height: 12),
+          ],
+          if (caps.showInsightSection) ...[
+            _buildInsightChipsRow(caps, mobileGrid: true),
+            const SizedBox(height: 12),
+          ],
+          if (caps.showAttendanceHero) ...[
+            _buildHeroOverview(caps, mobileGrid: true),
+            const SizedBox(height: 12),
+          ],
+          if (caps.showShiftSchedule) ...[
+            _buildTodayShiftSchedule(),
+            const SizedBox(height: 12),
+          ],
+          if (caps.loadPendingApprovals && caps.insightPending) ...[
+            _buildPendingApprovalsCard(),
+            const SizedBox(height: 12),
+          ],
+          if (caps.showMainGrid) _buildMainGrid(caps),
         ],
       ),
     );
@@ -1875,7 +1941,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   // ===================== QUICK ACTIONS =====================
-  Widget _buildQuickActions(DashboardUiCapabilities caps) {
+  Widget _buildQuickActions(DashboardUiCapabilities caps,
+      {bool mobileGrid = false}) {
     final actions = <_QuickAction>[
       if (caps.quickLeave)
         _QuickAction(Icons.beach_access_rounded, 'Xin nghỉ',
@@ -1913,6 +1980,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
     ];
 
     if (actions.isEmpty) return const SizedBox.shrink();
+
+    if (mobileGrid) {
+      return PosMobileHubSectionGrid(
+        title: 'Truy cập nhanh',
+        items: actions
+            .map(
+              (a) => PosMobileHubGridItem(
+                label: a.label,
+                icon: a.icon,
+                onTap: a.onTap,
+              ),
+            )
+            .toList(),
+      );
+    }
 
     return SizedBox(
       height: 96,
@@ -1991,7 +2073,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   // ===================== HERO OVERVIEW (donut + KPI + date filter) =====================
-  Widget _buildHeroOverview(DashboardUiCapabilities caps) {
+  Widget _buildHeroOverview(DashboardUiCapabilities caps,
+      {bool mobileGrid = false}) {
     final rate = _attendanceRate.clamp(0, 100).toDouble();
 
     return Container(
@@ -2130,7 +2213,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             },
           ),
           const SizedBox(height: 16),
-          if (caps.showInsightSection) ...[
+          if (caps.showInsightSection && !mobileGrid) ...[
             const Divider(height: 1, color: Color(0xFFE4E9F0)),
             const SizedBox(height: 12),
             const Text(
@@ -2142,7 +2225,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
             const SizedBox(height: 10),
-            _buildInsightChipsRow(caps),
+            _buildInsightChipsRow(caps, mobileGrid: mobileGrid),
           ],
         ],
       ),
@@ -2629,7 +2712,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   // ===================== INSIGHT CHIPS ROW =====================
-  Widget _buildInsightChipsRow(DashboardUiCapabilities caps) {
+  Widget _buildInsightChipsRow(DashboardUiCapabilities caps,
+      {bool mobileGrid = false}) {
     final pendingTotal = _pendingLeaves.length +
         _pendingCorrections.length +
         _pendingSwaps.length +
@@ -2747,6 +2831,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
             c.kind == 'payment_detail')
         .toList();
 
+    if (mobileGrid) {
+      return Column(
+        children: [
+          if (today.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _buildMobileInsightGrid('Hôm nay', today),
+            ),
+          if (ops.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _buildMobileInsightGrid('Vận hành', ops),
+            ),
+          if (hrFin.isNotEmpty)
+            _buildMobileInsightGrid('Hồ sơ & tài chính', hrFin),
+        ],
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2754,6 +2857,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
         if (ops.isNotEmpty) _buildInsightGroup('Vận hành', ops),
         if (hrFin.isNotEmpty) _buildInsightGroup('Hồ sơ & tài chính', hrFin),
       ],
+    );
+  }
+
+  Widget _buildMobileInsightGrid(String title, List<_InsightChipData> items) {
+    return PosMobileHubSectionGrid(
+      title: title,
+      items: items
+          .map(
+            (c) => PosMobileHubGridItem(
+              label: '${c.label}\n${c.value}',
+              icon: c.icon,
+              onTap: () => _showInsightDetail(c),
+            ),
+          )
+          .toList(),
     );
   }
 
@@ -10333,7 +10451,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   // ===================== EMPLOYEE DASHBOARD =====================
-  Widget _buildEmployeeDashboard(DashboardUiCapabilities caps) {
+  Widget _buildEmployeeDashboard(DashboardUiCapabilities caps,
+      {bool isMobile = false}) {
     final todayShift =
         _employeeDashboard['todayShift'] as Map<String, dynamic>?;
     final nextShift = _employeeDashboard['nextShift'] as Map<String, dynamic>?;
@@ -10346,26 +10465,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final empName = empMap?['fullName']?.toString() ?? '';
     final deptName = empMap?['departmentName']?.toString() ??
         empMap?['department']?.toString();
-    final isWide = MediaQuery.of(context).size.width >= 768;
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final isWide = !isMobile && MediaQuery.of(context).size.width >= 768;
+    final displayName =
+        empName.isNotEmpty ? empName : (auth.user?.fullName ?? 'User');
 
     return RefreshIndicator(
+      color: isMobile ? PosTheme.kiotBlue : null,
       onRefresh: _loadEmployeeData,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: EdgeInsets.fromLTRB(
-          isWide ? 20 : 12,
-          isWide ? 20 : 12,
-          isWide ? 20 : 12,
+          isMobile ? 12 : (isWide ? 20 : 12),
+          isMobile ? 8 : (isWide ? 20 : 12),
+          isMobile ? 12 : (isWide ? 20 : 12),
           100,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildEmployeeGreetingHeader(empName, deptName: deptName),
-            const SizedBox(height: 14),
+            if (isMobile)
+              PosMobileProfileCard(
+                name: displayName,
+                subtitle: deptName?.trim().isNotEmpty == true
+                    ? deptName!.trim()
+                    : _dashboardProfileSubtitle(),
+              )
+            else
+              _buildEmployeeGreetingHeader(empName, deptName: deptName),
+            SizedBox(height: isMobile ? 12 : 14),
             if (caps.showQuickActions) ...[
-              _buildQuickActions(caps),
-              const SizedBox(height: 14),
+              _buildQuickActions(caps, mobileGrid: isMobile),
+              SizedBox(height: isMobile ? 12 : 14),
             ],
             _buildEmployeeAttendanceCard(attendance, todayShift),
             _buildEmployeePunchCta(),

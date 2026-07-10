@@ -15,7 +15,7 @@ void captureInitialRouteFromStorage() {
       };
     }
     web.window.sessionStorage.removeItem('sbox_route');
-    web.window.sessionStorage.removeItem('sbox_agent_code');
+    // Giữ sbox_agent_code — RegisterScreen đọc và xóa sau khi đăng ký thành công.
     return;
   }
   if (route == 'agent-register') {

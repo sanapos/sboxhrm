@@ -8,6 +8,7 @@ import '../services/api_service.dart';
 import '../utils/landing_guide_url.dart';
 import '../utils/landing_public_url.dart';
 import '../utils/landing_usage_guide.dart';
+import '../utils/web_route_parser.dart';
 import '../widgets/landing_product_image.dart';
 import 'landing_guide_screen.dart';
 import '../widgets/landing_youtube_player.dart';
@@ -337,12 +338,23 @@ class _LandingScreenState extends State<LandingScreen> {
   }
 
   void _goToLogin() => Navigator.of(context).pushNamed('/login-app');
-  void _goToRegister([String? packageName]) => Navigator.of(context).pushNamed(
-        '/register',
-        arguments: packageName == null || packageName.trim().isEmpty
-            ? null
-            : {'packageName': packageName.trim()},
-      );
+
+  void _goToRegister([String? packageName]) {
+    final params = parseWebRouteQueryParams();
+    final agentCode = params['agentCode'] ??
+        params['agent'] ??
+        params['ref'] ??
+        InitialWebRoute.agentCode;
+    Navigator.of(context).pushNamed(
+      '/register',
+      arguments: {
+        if (packageName != null && packageName.trim().isNotEmpty)
+          'packageName': packageName.trim(),
+        if (agentCode != null && agentCode.trim().isNotEmpty)
+          'agentCode': agentCode.trim(),
+      },
+    );
+  }
 
   Future<void> _openUrl(String url) async {
     final uri = Uri.parse(url);

@@ -92,6 +92,62 @@ workflows:
         submit_to_testflight: true
         submit_to_app_store: false
 
+  android-release:
+    name: Android Release (AAB)
+    max_build_duration: 60
+    instance_type: linux_x2
+
+    environment:
+      flutter: stable
+      java: 17
+      groups:
+        - android_keystore
+        - google_play
+      vars:
+        PACKAGE_NAME: "sbox.sana.vn"
+        GOOGLE_PLAY_TRACK: internal
+        API_BASE_URL: "https://sbox.sana.vn"
+
+    scripts:
+      - name: Set up Android keystore
+        script: |
+          set -e
+          if [ -z "$CM_KEYSTORE" ]; then
+            echo "ERROR: Missing CM_KEYSTORE (group android_keystore)."
+            exit 1
+          fi
+          KEYSTORE_PATH="${CM_KEYSTORE_PATH:-android/app/sana-release.jks}"
+          mkdir -p "$(dirname "$KEYSTORE_PATH")"
+          echo "$CM_KEYSTORE" | base64 --decode > "$KEYSTORE_PATH"
+          echo "Keystore written to $KEYSTORE_PATH"
+
+      - name: Get Flutter packages
+        script: flutter pub get
+
+      - name: Build release AAB
+        script: |
+          set -e
+          VERSION_LINE=$(grep '^version:' pubspec.yaml | head -1 | tr -d ' ')
+          APP_VERSION_NAME=$(echo "$VERSION_LINE" | cut -d':' -f2 | cut -d'+' -f1)
+          BUILD_NUMBER=$(echo "$VERSION_LINE" | cut -d'+' -f2)
+          flutter build appbundle --release \
+            --dart-define=API_BASE_URL="$API_BASE_URL" \
+            --build-name="$APP_VERSION_NAME" \
+            --build-number="$BUILD_NUMBER"
+          AAB="build/app/outputs/bundle/release/app-release.aab"
+          OUT="build/app/outputs/bundle/release/SBOX-HRM-${PACKAGE_NAME}-release-v${BUILD_NUMBER}.aab"
+          cp "$AAB" "$OUT"
+          ls -lh build/app/outputs/bundle/release/*.aab
+
+    artifacts:
+      - build/app/outputs/bundle/release/*.aab
+
+    publishing:
+      google_play:
+        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+        track: $GOOGLE_PLAY_TRACK
+        submit_as_draft: false
+
   ios-debug:
     name: iOS Debug (Ad Hoc)
     max_build_duration: 90
