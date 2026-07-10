@@ -17,6 +17,8 @@ import '../widgets/pos/pos_mobile_widgets.dart';
 import '../widgets/pos/pos_purchase_toolbar.dart';
 import '../widgets/pos/pos_theme.dart';
 import '../widgets/pos/pos_purchase_product_search_bar.dart';
+import '../utils/pos_doc_status.dart';
+import '../utils/pos_mutation_result.dart';
 import '../utils/pos_purchase_product_lookup.dart';
 import '../utils/pos_purchase_receipt_print.dart';
 import '../widgets/pos/pos_barcode_keyboard_scope.dart';
@@ -903,10 +905,27 @@ class _PosPurchaseReceiptEditorScreenState
     if (!mounted) return;
     setState(() => _saving = false);
     if (res['isSuccess'] == true) {
+      PosDocMutationResult? completeCheck;
+      if (complete) {
+        completeCheck = PosDocMutationResult.parse(
+          Map<String, dynamic>.from(res),
+          expectedStatus: 'Completed',
+          completedLabel: 'Đã nhập hàng',
+        );
+        if (!completeCheck.ok) {
+          NotificationOverlayManager().showError(
+            title: 'Lỗi',
+            message: completeCheck.errorMessage ?? 'Không xác nhận được trạng thái phiếu',
+          );
+          return;
+        }
+      }
       final r = PosPurchaseReceipt.fromJson(res['data'] as Map<String, dynamic>);
       NotificationOverlayManager().showSuccess(
         title: complete ? 'Đã nhập hàng' : 'Đã lưu phiếu tạm',
-        message: r.receiptNo,
+        message: complete
+            ? completeCheck!.successMessage(r.receiptNo, completedLabel: 'Đã nhập hàng')
+            : r.receiptNo,
       );
       if (complete) {
         ScreenRefreshNotifier.refreshPosAfterStockChange(
@@ -928,15 +947,25 @@ class _PosPurchaseReceiptEditorScreenState
     final res = await _api.completePosPurchaseReceipt(_receiptId!);
     if (!mounted) return;
     setState(() => _saving = false);
-    if (res['isSuccess'] == true) {
-      NotificationOverlayManager().showSuccess(title: 'Hoàn tất', message: 'Phiếu đã nhập hàng');
+    final result = PosDocMutationResult.parse(
+      Map<String, dynamic>.from(res),
+      expectedStatus: 'Completed',
+      completedLabel: 'Đã nhập hàng',
+    );
+    if (result.ok) {
+      NotificationOverlayManager().showSuccess(
+        title: 'Hoàn tất',
+        message: result.successMessage(_receiptNo, completedLabel: 'Đã nhập hàng'),
+      );
       ScreenRefreshNotifier.refreshPosAfterStockChange(
         sellStockLines: _linesStockPatch(),
       );
       if (mounted) Navigator.pop(context, true);
     } else {
-      NotificationOverlayManager()
-          .showError(title: 'Lỗi', message: res['message']?.toString() ?? '');
+      NotificationOverlayManager().showError(
+        title: 'Lỗi',
+        message: result.errorMessage ?? res['message']?.toString() ?? '',
+      );
     }
   }
 
@@ -963,13 +992,18 @@ class _PosPurchaseReceiptEditorScreenState
     if (ok != true || !mounted) return;
     final res = await _api.deletePosPurchaseReceipt(_receiptId!);
     if (!mounted) return;
-    if (res['isSuccess'] == true) {
+    final deleteResult = PosDocMutationResult.parseDelete(
+      Map<String, dynamic>.from(res),
+    );
+    if (deleteResult.ok) {
       NotificationOverlayManager().showSuccess(title: 'Đã xóa', message: _receiptNo);
       ScreenRefreshNotifier.refreshPosPurchaseReceipts();
       if (mounted) Navigator.pop(context, true);
     } else {
-      NotificationOverlayManager()
-          .showError(title: 'Lỗi', message: res['message']?.toString() ?? 'Không xóa được');
+      NotificationOverlayManager().showError(
+        title: 'Lỗi',
+        message: deleteResult.errorMessage ?? res['message']?.toString() ?? 'Không xóa được',
+      );
     }
   }
 
@@ -995,14 +1029,25 @@ class _PosPurchaseReceiptEditorScreenState
     final res = await _api.cancelPosPurchaseReceipt(_receiptId!);
     if (!mounted) return;
     setState(() => _saving = false);
-    if (res['isSuccess'] == true) {
+    final result = PosDocMutationResult.parse(
+      Map<String, dynamic>.from(res),
+      expectedStatus: 'Cancelled',
+      completedLabel: 'Đã nhập hàng',
+    );
+    if (result.ok) {
+      setState(() => _status = result.status);
       NotificationOverlayManager().showSuccess(
-          title: 'Đã hủy', message: 'Đã hoàn kho · $_receiptNo');
+        title: 'Đã hủy',
+        message: result.successMessage(_receiptNo,
+            stockNote: 'Đã hoàn kho', completedLabel: 'Đã nhập hàng'),
+      );
       ScreenRefreshNotifier.refreshPosAfterStockChange();
       if (mounted) Navigator.pop(context, true);
     } else {
-      NotificationOverlayManager()
-          .showError(title: 'Lỗi', message: res['message']?.toString() ?? 'Không hủy được');
+      NotificationOverlayManager().showError(
+        title: 'Lỗi',
+        message: result.errorMessage ?? res['message']?.toString() ?? 'Không hủy được',
+      );
     }
   }
 
@@ -1335,6 +1380,17 @@ class _PosPurchaseReceiptEditorScreenState
                   Text(_receiptId == null ? 'Nhập hàng' : 'Nhập hàng · $_receiptNo'),
                 ],
               ),
+              bottom: _loading
+                  ? null
+                  : () {
+                      final banner = posDocStatusBanner(_status,
+                          completedLabel: 'Đã nhập hàng');
+                      if (banner == null) return null;
+                      return PreferredSize(
+                        preferredSize: const Size.fromHeight(40),
+                        child: banner,
+                      );
+                    }(),
             ),
             body: _loading
                 ? const LoadingWidget()

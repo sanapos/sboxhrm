@@ -249,9 +249,12 @@ class FcmService {
         if (msg.notification?.body != null) 'message': msg.notification!.body,
       });
       final title = display.title;
+      final actionUrl = data['actionUrl'] ?? '';
+      final adminPortalMode = actionUrl.startsWith('/admin') ||
+          _isAdminPortalEntity(entityType);
       if (kDebugMode) {
         debugPrint(
-            'FCM tap → entity=$entityType row=$notificationRowId highlight=$highlightId');
+            'FCM tap → entity=$entityType row=$notificationRowId highlight=$highlightId admin=$adminPortalMode');
       }
 
       PendingNotificationLaunch.store(
@@ -262,12 +265,25 @@ class FcmService {
         categoryCode: data['categoryCode'],
         actionUrl: data['actionUrl'],
       );
-      if (!PendingNotificationLaunch.tryConsume()) {
-        PendingNotificationLaunch.scheduleConsume();
+      if (!PendingNotificationLaunch.tryConsume(adminPortalMode: adminPortalMode)) {
+        PendingNotificationLaunch.scheduleConsume(adminPortalMode: adminPortalMode);
       }
       ScreenRefreshNotifier.refreshNotificationCount();
     } catch (e) {
       debugPrint('FcmService._queueNotificationLaunch failed: $e');
+    }
+  }
+
+  static bool _isAdminPortalEntity(String? entityType) {
+    switch (entityType?.trim().toLowerCase()) {
+      case 'store':
+      case 'renewal':
+      case 'licensekey':
+      case 'license':
+      case 'agent':
+        return true;
+      default:
+        return false;
     }
   }
 

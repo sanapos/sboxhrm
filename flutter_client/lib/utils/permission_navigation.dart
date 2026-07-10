@@ -7,12 +7,20 @@ import 'store_role_helper.dart';
 class PermissionNavigation {
   PermissionNavigation._();
 
+  static const Map<String, List<String>> _viewAliases = {
+    'PosSaleReturns': ['PosSell', 'PosProducts'],
+  };
+
   static bool canNavigate(PermissionProvider perm, String? moduleCode) {
     if (moduleCode == null || moduleCode.isEmpty) return true;
     if (PermissionModules.selfServiceModules.contains(moduleCode)) {
       return true;
     }
-    return perm.canViewNav(moduleCode);
+    if (perm.canViewNav(moduleCode)) return true;
+    for (final alt in _viewAliases[moduleCode] ?? const []) {
+      if (perm.canViewNav(alt)) return true;
+    }
+    return false;
   }
 
   /// Chỉ hiện menu khi module nằm trong gói dịch vụ (hoặc self-service).
@@ -99,6 +107,8 @@ class PermissionNavigation {
         return 'Mẫu in';
       case 'PosSaleOrders':
         return 'Đơn hàng';
+      case 'PosSaleReturns':
+        return 'Trả hàng bán';
       case 'PosPurchaseReceipts':
         return 'Nhập hàng NCC';
       case 'PosPurchaseReturns':

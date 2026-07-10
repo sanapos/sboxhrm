@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Application.DTOs.SystemAdmin;
 using ZKTecoADMS.Application.Helpers;
+using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
@@ -19,15 +21,18 @@ public class AgentRegistrationController : ControllerBase
 {
     private readonly ZKTecoDbContext _dbContext;
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly ISystemNotificationService _notificationService;
     private readonly ILogger<AgentRegistrationController> _logger;
 
     public AgentRegistrationController(
         ZKTecoDbContext dbContext,
         UserManager<ApplicationUser> userManager,
+        ISystemNotificationService notificationService,
         ILogger<AgentRegistrationController> logger)
     {
         _dbContext = dbContext;
         _userManager = userManager;
+        _notificationService = notificationService;
         _logger = logger;
     }
 
@@ -161,6 +166,24 @@ public class AgentRegistrationController : ControllerBase
             await _dbContext.SaveChangesAsync();
 
             _logger.LogInformation("Agent {AgentId} completed self-registration with user {UserId}", agent.Id, user.Id);
+
+            try
+            {
+                await SuperAdminNotificationHelper.NotifySuperAdminsAsync(
+                    _notificationService,
+                    _userManager,
+                    NotificationType.Info,
+                    "Đại lý hoàn tất đăng ký",
+                    $"Đại lý '{agent.Name}' (Mã: {agent.Code}) vừa hoàn tất đăng ký tài khoản. Email: {request.Email}",
+                    relatedUrl: SuperAdminNotificationHelper.AdminAgentsUrl,
+                    relatedEntityId: agent.Id,
+                    relatedEntityType: "Agent",
+                    categoryCode: "agent");
+            }
+            catch (Exception notifyEx)
+            {
+                _logger.LogWarning(notifyEx, "Failed to notify SuperAdmins about agent registration {AgentId}", agent.Id);
+            }
 
             var response = new AgentSelfRegisterResponse(
                 true,

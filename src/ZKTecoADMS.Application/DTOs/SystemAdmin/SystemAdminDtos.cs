@@ -137,7 +137,10 @@ public record SystemDeviceDto(
     string? StoreName,
     string? StoreCode,
     DateTime? LastSyncAt,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    Guid? AgentId = null,
+    string? AgentName = null,
+    bool IsClaimed = false
 );
 
 /// <summary>

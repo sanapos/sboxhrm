@@ -274,12 +274,11 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
       padding: const EdgeInsets.fromLTRB(_sidePadding, 10, _sidePadding, 8),
 
-      decoration: const BoxDecoration(
-
-        border: Border(bottom: BorderSide(color: PosTheme.border)),
-
-        color: Color(0xFFFAFBFC),
-
+      decoration: BoxDecoration(
+        border: const Border(bottom: BorderSide(color: PosTheme.border)),
+        color: order.status == 'Cancelled'
+            ? Colors.red.shade50.withValues(alpha: 0.55)
+            : const Color(0xFFFAFBFC),
       ),
 
       child: Column(
@@ -295,19 +294,16 @@ class PosSaleOrderReceiptView extends StatelessWidget {
               Expanded(
 
                 child: Text(
-
                   order.orderNo,
-
-                  style: const TextStyle(
-
+                  style: TextStyle(
                     fontSize: 15,
-
                     fontWeight: FontWeight.w700,
-
-                    color: _blue,
-
+                    color: posSaleOrderAccentColor(order.status),
+                    decoration: order.status == 'Cancelled'
+                        ? TextDecoration.lineThrough
+                        : null,
+                    decorationColor: Colors.red.shade400,
                   ),
-
                 ),
 
               ),
@@ -321,11 +317,16 @@ class PosSaleOrderReceiptView extends StatelessWidget {
           const SizedBox(height: 4),
 
           Text(
-
             '${money.format(order.total)} đ',
-
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: order.status == 'Cancelled' ? Colors.red.shade800 : null,
+              decoration: order.status == 'Cancelled'
+                  ? TextDecoration.lineThrough
+                  : null,
+              decorationColor: Colors.red.shade400,
+            ),
           ),
 
           const SizedBox(height: 8),

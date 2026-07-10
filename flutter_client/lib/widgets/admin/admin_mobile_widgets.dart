@@ -301,6 +301,82 @@ class AdminMobileFilterDropdown<T> extends StatelessWidget {
   }
 }
 
+/// Một hành động trong bottom sheet mobile SuperAdmin.
+class AdminActionSheetItem {
+  const AdminActionSheetItem({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.color,
+    this.destructive = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final Color? color;
+  final bool destructive;
+}
+
+/// Bottom sheet hành động — dùng chung tab Cửa hàng / Đại lý / License.
+Future<void> showAdminActionSheet(
+  BuildContext context, {
+  required String title,
+  String? subtitle,
+  required List<AdminActionSheetItem> actions,
+}) async {
+  if (actions.isEmpty) return;
+  await showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    isScrollControlled: actions.length > 6,
+    builder: (ctx) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style: const TextStyle(
+                        fontSize: 17, fontWeight: FontWeight.w700)),
+                if (subtitle != null && subtitle.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(subtitle,
+                      style: TextStyle(
+                          fontSize: 13, color: Colors.grey.shade600)),
+                ],
+              ],
+            ),
+          ),
+          ...actions.map((a) => ListTile(
+                leading: Icon(a.icon,
+                    color: a.destructive
+                        ? Colors.red
+                        : (a.color ?? const Color(0xFF0F172A)),
+                    size: 22),
+                title: Text(
+                  a.label,
+                  style: TextStyle(
+                    color: a.destructive ? Colors.red : null,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  a.onTap();
+                },
+              )),
+          const SizedBox(height: 8),
+        ],
+      ),
+    ),
+  );
+}
+
 /// Định nghĩa tab trong drawer Super Admin.
 class AdminNavItem {
   const AdminNavItem({
@@ -327,6 +403,7 @@ class AdminMobileDrawer extends StatelessWidget {
     required this.onSelect,
     this.healthStatus,
     this.onLogout,
+    this.roleLabel = 'SuperAdmin',
   });
 
   final List<AdminNavItem> items;
@@ -334,6 +411,7 @@ class AdminMobileDrawer extends StatelessWidget {
   final ValueChanged<int> onSelect;
   final String? healthStatus;
   final VoidCallback? onLogout;
+  final String roleLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -369,17 +447,17 @@ class AdminMobileDrawer extends StatelessWidget {
                           color: Colors.white, size: 22),
                     ),
                     const SizedBox(width: 12),
-                    const Expanded(
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Quản trị hệ thống',
+                          const Text('Quản trị hệ thống',
                               style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold)),
-                          Text('SuperAdmin',
-                              style: TextStyle(
+                          Text(roleLabel,
+                              style: const TextStyle(
                                   color: Colors.white70, fontSize: 13)),
                         ],
                       ),

@@ -7,6 +7,8 @@ import '../models/pos_purchase.dart';
 import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
+import '../utils/pos_doc_status.dart';
+import '../utils/pos_mutation_result.dart';
 import '../utils/pos_purchase_receipt_print.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../screens/main_layout.dart' show ScreenRefreshNotifier;
@@ -287,14 +289,25 @@ class _PosPurchaseReceiptListScreenState
     if (ok != true || !mounted) return;
     final res = await _api.completePosPurchaseReceipt(r.id);
     if (!mounted) return;
-    if (res['isSuccess'] == true) {
+    final result = PosDocMutationResult.parse(
+      Map<String, dynamic>.from(res),
+      expectedStatus: 'Completed',
+      completedLabel: 'Đã nhập hàng',
+    );
+    if (result.ok) {
       NotificationOverlayManager().showSuccess(
-          title: 'Thành công', message: 'Đã nhập hàng vào kho');
+        title: 'Thành công',
+        message: result.successMessage(r.receiptNo, completedLabel: 'Đã nhập hàng'),
+      );
+      ScreenRefreshNotifier.refreshPosAfterStockChange();
       await _load(page: _page);
       await _refreshExpandedDetail(r.id);
     } else {
       NotificationOverlayManager().showError(
-          title: 'Lỗi', message: res['message']?.toString() ?? 'Không thể hoàn thành');
+        title: 'Lỗi',
+        message: result.errorMessage ?? res['message']?.toString() ?? 'Không thể hoàn thành',
+      );
+      await _load(page: _page);
     }
   }
 
@@ -332,13 +345,24 @@ class _PosPurchaseReceiptListScreenState
     if (ok != true || !mounted) return;
     final res = await _api.deletePosPurchaseReceipt(r.id);
     if (!mounted) return;
-    if (res['isSuccess'] == true) {
+    final deleteResult = PosDocMutationResult.parseDelete(
+      Map<String, dynamic>.from(res),
+    );
+    if (deleteResult.ok) {
       NotificationOverlayManager().showSuccess(title: 'Đã xóa', message: r.receiptNo);
       _collapseExpanded();
+      setState(() {
+        _items = _items.where((x) => x.id != r.id).toList();
+        if (_total > 0) _total -= 1;
+      });
+      ScreenRefreshNotifier.refreshPosPurchaseReceipts();
       await _load(page: _page);
     } else {
       NotificationOverlayManager().showError(
-          title: 'Lỗi', message: res['message']?.toString() ?? 'Không xóa được');
+        title: 'Lỗi',
+        message: deleteResult.errorMessage ?? res['message']?.toString() ?? 'Không xóa được',
+      );
+      await _load(page: _page);
     }
   }
 
@@ -362,14 +386,26 @@ class _PosPurchaseReceiptListScreenState
     if (ok != true || !mounted) return;
     final res = await _api.cancelPosPurchaseReceipt(r.id);
     if (!mounted) return;
-    if (res['isSuccess'] == true) {
+    final result = PosDocMutationResult.parse(
+      Map<String, dynamic>.from(res),
+      expectedStatus: 'Cancelled',
+      completedLabel: 'Đã nhập hàng',
+    );
+    if (result.ok) {
       NotificationOverlayManager().showSuccess(
-          title: 'Đã hủy', message: 'Đã hoàn kho · ${r.receiptNo}');
+        title: 'Đã hủy',
+        message: result.successMessage(r.receiptNo,
+            stockNote: 'Đã hoàn kho', completedLabel: 'Đã nhập hàng'),
+      );
+      ScreenRefreshNotifier.refreshPosAfterStockChange();
       await _load(page: _page);
       await _refreshExpandedDetail(r.id);
     } else {
       NotificationOverlayManager().showError(
-          title: 'Lỗi', message: res['message']?.toString() ?? 'Không hủy được');
+        title: 'Lỗi',
+        message: result.errorMessage ?? res['message']?.toString() ?? 'Không hủy được',
+      );
+      await _load(page: _page);
     }
   }
 
@@ -697,8 +733,11 @@ class _PosPurchaseReceiptListScreenState
         children: [
           InkWell(
             onTap: () => _toggleExpand(r),
-            hoverColor: const Color(0xFFF1F5F9),
+            hoverColor: r.status == 'Cancelled'
+                ? Colors.red.shade50
+                : const Color(0xFFF1F5F9),
             child: Container(
+              color: posDocRowBackground(r.status),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
                 border: Border(
@@ -717,8 +756,7 @@ class _PosPurchaseReceiptListScreenState
                   Expanded(
                     flex: 2,
                     child: Text(r.receiptNo,
-                        style: const TextStyle(
-                            color: _blue, fontWeight: FontWeight.w600, fontSize: 13)),
+                        style: posDocNoTextStyle(r.status, activeColor: _blue)),
                   ),
                   Expanded(
                     flex: 2,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 
 
+import '../../utils/pos_doc_status.dart';
 import 'pos_theme.dart';
 
 
@@ -84,54 +85,7 @@ Widget purchaseFilterSection(String title, Widget content) => Column(
 
 
 
-Widget purchaseStatusChip(String status, {String completedLabel = 'Đã nhập hàng'}) {
-
-  final color = switch (status) {
-
-    'Completed' => Colors.green,
-
-    'Cancelled' => Colors.grey,
-
-    _ => Colors.orange,
-
-  };
-
-  final label = switch (status) {
-
-    'Completed' => completedLabel,
-
-    'Cancelled' => 'Đã hủy',
-
-    'Draft' => 'Phiếu tạm',
-
-    _ => status,
-
-  };
-
-  return Container(
-
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-
-    decoration: BoxDecoration(
-
-      color: color.withValues(alpha: 0.12),
-
-      borderRadius: BorderRadius.circular(12),
-
-    ),
-
-    child: Text(label,
-
-        style: TextStyle(
-
-            fontSize: 11,
-
-            color: color is MaterialColor ? color.shade700 : color,
-
-            fontWeight: FontWeight.w600)),
-
-  );
-
-}
+Widget purchaseStatusChip(String status, {String completedLabel = 'Đã nhập hàng'}) =>
+    posDocStatusChip(status, completedLabel: completedLabel);
 
 

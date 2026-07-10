@@ -355,14 +355,24 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
         foreach (var pid in touchedProducts)
             await PosVariantStockHelper.SyncParentStockFromVariantsAsync(dbContext, products[pid]);
 
-        count.Status = PosStockCountStatus.Completed;
-        count.CompletedAt = DateTime.UtcNow;
-        count.BalancedBy = CurrentUserEmail;
-        count.UpdatedAt = DateTime.UtcNow;
-        count.UpdatedBy = CurrentUserEmail;
         await dbContext.SaveChangesAsync();
 
-        return Ok(AppResponse<StockCountDto>.Success(MapCount(count, count.Lines.ToList())));
+        var completedAt = DateTime.UtcNow;
+        var (statusOk, statusErr) = await PosDocStatusPersistHelper.SetStockCountStatusAsync(
+            dbContext, id, storeId,
+            PosStockCountStatus.InProgress, PosStockCountStatus.Completed,
+            CurrentUserEmail, completedAt, CurrentUserEmail);
+        if (!statusOk)
+            return BadRequest(AppResponse<StockCountDto>.Fail(statusErr!));
+
+        dbContext.ChangeTracker.Clear();
+        var fresh = await dbContext.PosStockCounts.AsNoTracking()
+            .Include(c => c.Lines)
+            .FirstOrDefaultAsync(c => c.Id == id && c.StoreId == storeId && c.Deleted == null);
+        if (fresh == null)
+            return NotFound(AppResponse<StockCountDto>.Fail("Không tìm thấy phiếu kiểm kê"));
+
+        return Ok(AppResponse<StockCountDto>.Success(MapCount(fresh, fresh.Lines.ToList())));
     }
 
     [HttpPost("{id:guid}/copy")]
@@ -416,22 +426,43 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
         if (count.Status != PosStockCountStatus.Completed)
             return BadRequest(AppResponse<StockCountDto>.Fail("Chỉ hủy được phiếu đã cân bằng kho — phiếu tạm dùng Xóa"));
 
+        await using var tx = await dbContext.Database.BeginTransactionAsync();
         try
         {
             await PosPurchaseStockHelper.ReverseStockCountAdjustmentsAsync(
                 dbContext, storeId, count, CurrentUserEmail);
+            await dbContext.SaveChangesAsync();
+
+            var (statusOk, statusErr) = await PosDocStatusPersistHelper.SetStockCountStatusAsync(
+                dbContext, id, storeId,
+                PosStockCountStatus.Completed, PosStockCountStatus.Cancelled, CurrentUserEmail);
+            if (!statusOk)
+            {
+                await tx.RollbackAsync();
+                return BadRequest(AppResponse<StockCountDto>.Fail(statusErr!));
+            }
+
+            await tx.CommitAsync();
         }
         catch (InvalidOperationException ex)
         {
+            await tx.RollbackAsync();
             return BadRequest(AppResponse<StockCountDto>.Fail(ex.Message));
         }
+        catch
+        {
+            await tx.RollbackAsync();
+            throw;
+        }
 
-        count.Status = PosStockCountStatus.Cancelled;
-        count.UpdatedAt = DateTime.UtcNow;
-        count.UpdatedBy = CurrentUserEmail;
-        await dbContext.SaveChangesAsync();
+        dbContext.ChangeTracker.Clear();
+        var fresh = await dbContext.PosStockCounts.AsNoTracking()
+            .Include(c => c.Lines)
+            .FirstOrDefaultAsync(c => c.Id == id && c.StoreId == storeId && c.Deleted == null);
+        if (fresh == null)
+            return NotFound(AppResponse<StockCountDto>.Fail("Không tìm thấy phiếu kiểm kê"));
 
-        return Ok(AppResponse<StockCountDto>.Success(MapCount(count, count.Lines.ToList())));
+        return Ok(AppResponse<StockCountDto>.Success(MapCount(fresh, fresh.Lines.ToList())));
     }
 
     [HttpDelete("{id:guid}")]
@@ -446,10 +477,12 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
         if (count.Status == PosStockCountStatus.Completed)
             return BadRequest(AppResponse<object>.Fail("Phiếu đã cân bằng — hãy Hủy trước khi xóa"));
 
-        count.Deleted = DateTime.UtcNow;
-        count.UpdatedAt = DateTime.UtcNow;
-        count.UpdatedBy = CurrentUserEmail;
-        await dbContext.SaveChangesAsync();
+        var (deleteOk, deleteErr) = await PosDocStatusPersistHelper.SoftDeleteStockCountAsync(
+            dbContext, id, storeId, CurrentUserEmail);
+        if (!deleteOk)
+            return BadRequest(AppResponse<object>.Fail(deleteErr!));
+
+        dbContext.ChangeTracker.Clear();
         return Ok(AppResponse<object>.Success(new { deleted = true }));
     }
 

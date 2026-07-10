@@ -57,7 +57,7 @@ public class DeviceStatusNotificationService : IDeviceStatusNotificationService
                 Message: message
             );
 
-            var adminUserIds = await GetAdminUserIdsAsync(device);
+            var (adminUserIds, rolesByUserId) = await GetAdminUsersAsync(device);
             await SendDeviceStatusToTargetsAsync(notification, adminUserIds, device);
 
             await SendAndSaveNotificationAsync(
@@ -65,6 +65,7 @@ public class DeviceStatusNotificationService : IDeviceStatusNotificationService
                 message: message,
                 type: NotificationType.Success,
                 adminUserIds: adminUserIds,
+                rolesByUserId: rolesByUserId,
                 relatedEntityId: device.Id,
                 relatedEntityType: "Device",
                 storeId: device.StoreId
@@ -96,7 +97,7 @@ public class DeviceStatusNotificationService : IDeviceStatusNotificationService
                 Message: message
             );
 
-            var adminUserIds = await GetAdminUserIdsAsync(device);
+            var (adminUserIds, rolesByUserId) = await GetAdminUsersAsync(device);
             await SendDeviceStatusToTargetsAsync(notification, adminUserIds, device);
 
             await SendAndSaveNotificationAsync(
@@ -104,6 +105,7 @@ public class DeviceStatusNotificationService : IDeviceStatusNotificationService
                 message: message,
                 type: NotificationType.Warning,
                 adminUserIds: adminUserIds,
+                rolesByUserId: rolesByUserId,
                 relatedEntityId: device.Id,
                 relatedEntityType: "Device",
                 storeId: device.StoreId
@@ -135,7 +137,7 @@ public class DeviceStatusNotificationService : IDeviceStatusNotificationService
                 Message: message
             );
 
-            var adminUserIds = await GetAdminUserIdsAsync(device);
+            var (adminUserIds, rolesByUserId) = await GetAdminUsersAsync(device);
             await SendDeviceStatusToTargetsAsync(notification, adminUserIds, device);
 
             await SendAndSaveNotificationAsync(
@@ -143,6 +145,7 @@ public class DeviceStatusNotificationService : IDeviceStatusNotificationService
                 message: message,
                 type: NotificationType.Info,
                 adminUserIds: adminUserIds,
+                rolesByUserId: rolesByUserId,
                 relatedEntityId: device.Id,
                 relatedEntityType: "Device",
                 storeId: device.StoreId
@@ -160,15 +163,16 @@ public class DeviceStatusNotificationService : IDeviceStatusNotificationService
     /// <summary>
     /// Get admin user IDs in the same store + all SuperAdmins, filtered by notification preferences
     /// </summary>
-    private async Task<HashSet<Guid>> GetAdminUserIdsAsync(Device device)
+    private async Task<(HashSet<Guid> UserIds, Dictionary<Guid, string> RolesByUserId)> GetAdminUsersAsync(Device device)
     {
         var admins = await _userManager.Users
             .Where(u => u.IsActive && (u.Role == "SuperAdmin" ||
                  (u.Role == "Admin" && device.StoreId.HasValue && u.StoreId == device.StoreId)))
+            .Select(u => new { u.Id, u.Role })
             .ToListAsync();
-        var adminUserIds = admins.Select(u => u.Id).ToHashSet();
+        var rolesById = admins.ToDictionary(a => a.Id, a => a.Role ?? "");
+        var adminUserIds = rolesById.Keys.ToHashSet();
 
-        // Filter out users who disabled "device" notification category
         if (adminUserIds.Count > 0)
         {
             var userIdList = adminUserIds.ToList();
@@ -180,7 +184,7 @@ public class DeviceStatusNotificationService : IDeviceStatusNotificationService
             adminUserIds.ExceptWith(disabledPrefs.Select(p => p.UserId));
         }
 
-        return adminUserIds;
+        return (adminUserIds, rolesById);
     }
 
     /// <summary>
@@ -209,6 +213,7 @@ public class DeviceStatusNotificationService : IDeviceStatusNotificationService
         string message,
         NotificationType type,
         HashSet<Guid> adminUserIds,
+        Dictionary<Guid, string> rolesByUserId,
         Guid? relatedEntityId = null,
         string? relatedEntityType = null,
         Guid? storeId = null)
@@ -221,6 +226,12 @@ public class DeviceStatusNotificationService : IDeviceStatusNotificationService
                 return;
             }
 
+            static string DeviceActionUrl(Guid userId, Dictionary<Guid, string> roles) =>
+                roles.TryGetValue(userId, out var role)
+                && string.Equals(role, "SuperAdmin", StringComparison.OrdinalIgnoreCase)
+                    ? "/admin/devices"
+                    : "/adms-devices";
+
             var notifications = adminUserIds.Select(uid => new Notification
             {
                 Id = Guid.NewGuid(),
@@ -232,7 +243,7 @@ public class DeviceStatusNotificationService : IDeviceStatusNotificationService
                 IsRead = false,
                 RelatedEntityId = relatedEntityId,
                 RelatedEntityType = relatedEntityType,
-                RelatedUrl = "/adms-devices",
+                RelatedUrl = DeviceActionUrl(uid, rolesByUserId),
                 CategoryCode = "device",
                 StoreId = storeId
             }).ToList();
@@ -253,7 +264,7 @@ public class DeviceStatusNotificationService : IDeviceStatusNotificationService
                         var display = NotificationPushFormatter.Format(n);
                         var pushData = NotificationDtoMapper.ToFcmData(n, display: display);
                         await push.PushToUserAsync(n.TargetUserId!.Value, display.Title, display.Body,
-                            actionUrl: "/adms-devices", data: pushData);
+                            actionUrl: n.RelatedUrl, data: pushData);
                     }
                 }
             }

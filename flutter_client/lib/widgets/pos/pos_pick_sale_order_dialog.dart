@@ -10,47 +10,59 @@ import 'pos_theme.dart';
 
 const _kiotBlue = PosTheme.kiotBlue;
 
-/// Chọn hóa đơn để trả hàng — full-screen trên mobile, dialog trên desktop.
-Future<PosSaleOrder?> showPosPickSaleOrderDialog(BuildContext context) async {
+enum PosPickSaleOrderPurpose { returnSale, resumeDraft }
+
+/// Chọn hóa đơn — trả hàng hoặc tiếp tục đơn tạm.
+Future<PosSaleOrder?> showPosPickSaleOrderDialog(
+  BuildContext context, {
+  PosPickSaleOrderPurpose purpose = PosPickSaleOrderPurpose.returnSale,
+}) async {
   if (posUseMobileList(context)) {
     return Navigator.of(context).push<PosSaleOrder>(
       MaterialPageRoute(
         fullscreenDialog: true,
-        builder: (_) => const _PosPickSaleOrderPage(),
+        builder: (_) => _PosPickSaleOrderPage(purpose: purpose),
       ),
     );
   }
   return showDialog<PosSaleOrder>(
     context: context,
     barrierDismissible: true,
-    builder: (_) => const Dialog(
-      insetPadding: EdgeInsets.all(24),
-      child: _PosPickSaleOrderShell(compact: true),
+    builder: (_) => Dialog(
+      insetPadding: const EdgeInsets.all(24),
+      child: _PosPickSaleOrderShell(compact: true, purpose: purpose),
     ),
   );
 }
 
 class _PosPickSaleOrderPage extends StatelessWidget {
-  const _PosPickSaleOrderPage();
+  const _PosPickSaleOrderPage({required this.purpose});
+
+  final PosPickSaleOrderPurpose purpose;
+
+  String get _title => purpose == PosPickSaleOrderPurpose.resumeDraft
+      ? 'Chọn đơn tạm'
+      : 'Chọn hóa đơn trả hàng';
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: PosTheme.background,
       appBar: AppBar(
-        title: const Text('Chọn hóa đơn trả hàng'),
+        title: Text(_title),
         backgroundColor: _kiotBlue,
         foregroundColor: Colors.white,
       ),
-      body: const SafeArea(child: _PosPickSaleOrderShell(compact: false)),
+      body: SafeArea(child: _PosPickSaleOrderShell(compact: false, purpose: purpose)),
     );
   }
 }
 
 class _PosPickSaleOrderShell extends StatefulWidget {
-  const _PosPickSaleOrderShell({required this.compact});
+  const _PosPickSaleOrderShell({required this.compact, required this.purpose});
 
   final bool compact;
+  final PosPickSaleOrderPurpose purpose;
 
   @override
   State<_PosPickSaleOrderShell> createState() => _PosPickSaleOrderShellState();
@@ -105,7 +117,9 @@ class _PosPickSaleOrderShellState extends State<_PosPickSaleOrderShell> {
     final res = await _api.getPosSales(
       search: search.isEmpty ? null : search,
       customerName: _customerCtrl.text.trim().isEmpty ? null : _customerCtrl.text.trim(),
-      statuses: const ['Completed'],
+      statuses: widget.purpose == PosPickSaleOrderPurpose.resumeDraft
+          ? const ['Draft']
+          : const ['Completed'],
       from: _from,
       to: _to,
       page: page,
@@ -217,7 +231,13 @@ class _PosPickSaleOrderShellState extends State<_PosPickSaleOrderShell> {
       return const Center(child: CircularProgressIndicator(color: _kiotBlue));
     }
     if (_items.isEmpty) {
-      return const Center(child: Text('Không có hóa đơn phù hợp'));
+      return Center(
+        child: Text(
+          widget.purpose == PosPickSaleOrderPurpose.resumeDraft
+              ? 'Không có đơn tạm phù hợp'
+              : 'Không có hóa đơn phù hợp',
+        ),
+      );
     }
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
@@ -301,7 +321,13 @@ class _PosPickSaleOrderShellState extends State<_PosPickSaleOrderShell> {
       return const Center(child: CircularProgressIndicator(color: _kiotBlue));
     }
     if (_items.isEmpty) {
-      return const Center(child: Text('Không có hóa đơn phù hợp'));
+      return Center(
+        child: Text(
+          widget.purpose == PosPickSaleOrderPurpose.resumeDraft
+              ? 'Không có đơn tạm phù hợp'
+              : 'Không có hóa đơn phù hợp',
+        ),
+      );
     }
     return SingleChildScrollView(
       padding: const EdgeInsets.all(12),
@@ -348,6 +374,9 @@ class _PosPickSaleOrderShellState extends State<_PosPickSaleOrderShell> {
 
   @override
   Widget build(BuildContext context) {
+    final title = widget.purpose == PosPickSaleOrderPurpose.resumeDraft
+        ? 'Chọn đơn tạm'
+        : 'Chọn hóa đơn trả hàng';
     final totalPages = (_total / _pageSize).ceil().clamp(1, 9999);
 
     if (widget.compact) {
@@ -363,10 +392,10 @@ class _PosPickSaleOrderShellState extends State<_PosPickSaleOrderShell> {
               padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
               child: Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'Chọn hóa đơn trả hàng',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                      title,
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                     ),
                   ),
                   IconButton(

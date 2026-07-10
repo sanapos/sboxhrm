@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
+import '../utils/responsive_helper.dart';
+import '../widgets/mobile_bottom_nav_config_sheet.dart';
 import '../widgets/hrm_page_chrome.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -120,6 +122,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     );
                   },
                 ),
+                if (Responsive.isMobile(context))
+                  _buildSettingTile(
+                    context,
+                    icon: Icons.tune_rounded,
+                    title: 'Thanh công cụ dưới',
+                    subtitle:
+                        '5 vị trí cố định — đổi thứ tự và chức năng hiển thị',
+                    onTap: () => MobileBottomNavConfigSheet.show(context),
+                  ),
               ],
             ),
             const SizedBox(height: 24),

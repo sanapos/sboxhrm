@@ -8,6 +8,7 @@ import '../../screens/pos/pos_store_printers_screen.dart';
 import '../../utils/pos_barcode_print.dart';
 import '../../utils/pos_label_printer_service.dart';
 import '../../utils/pos_label_printer_settings.dart';
+import '../../utils/pos_print_template_loader.dart';
 import '../../utils/pos_sell_print_settings.dart';
 import '../../utils/pos_thermal_printer_service.dart';
 import '../../utils/pos_thermal_printer_settings.dart';
@@ -94,51 +95,11 @@ class _PosSellMobilePrintSettingsScreenState
   Future<void> _loadTemplates() async {
     setState(() => _loading = true);
     try {
-      final invoiceRes = await _api
-          .getPosPrintTemplates(
-            documentType: PosPrintDocumentTypes.saleInvoice,
-          )
-          .timeout(const Duration(seconds: 8), onTimeout: () => {'isSuccess': false});
-      if (invoiceRes['isSuccess'] == true && invoiceRes['data'] is List) {
-        _templates = (invoiceRes['data'] as List)
-            .map((e) => PosPrintTemplate.fromJson(e as Map<String, dynamic>))
-            .toList();
-      }
-      if (_templates.isEmpty) {
-        await _api.seedPosPrintTemplates(
-          documentType: PosPrintDocumentTypes.saleInvoice,
-        );
-        final retry = await _api.getPosPrintTemplates(
-          documentType: PosPrintDocumentTypes.saleInvoice,
-        );
-        if (retry['isSuccess'] == true && retry['data'] is List) {
-          _templates = (retry['data'] as List)
-              .map((e) => PosPrintTemplate.fromJson(e as Map<String, dynamic>))
-              .toList();
-        }
-      }
-
-      var whRes = await _api.getPosPrintTemplates(
-        documentType: PosPrintDocumentTypes.stockIssue,
-      );
-      if (whRes['isSuccess'] == true && whRes['data'] is List) {
-        _warehouseTemplates = (whRes['data'] as List)
-            .map((e) => PosPrintTemplate.fromJson(e as Map<String, dynamic>))
-            .toList();
-      }
-      if (_warehouseTemplates.isEmpty) {
-        await _api.seedPosPrintTemplates(
-          documentType: PosPrintDocumentTypes.stockIssue,
-        );
-        whRes = await _api.getPosPrintTemplates(
-          documentType: PosPrintDocumentTypes.stockIssue,
-        );
-        if (whRes['isSuccess'] == true && whRes['data'] is List) {
-          _warehouseTemplates = (whRes['data'] as List)
-              .map((e) => PosPrintTemplate.fromJson(e as Map<String, dynamic>))
-              .toList();
-        }
-      }
+      _templates = await loadPosPrintTemplates(_api, PosPrintDocumentTypes.saleInvoice)
+          .timeout(const Duration(seconds: 12), onTimeout: () => <PosPrintTemplate>[]);
+      _warehouseTemplates =
+          await loadPosPrintTemplates(_api, PosPrintDocumentTypes.stockIssue)
+              .timeout(const Duration(seconds: 12), onTimeout: () => <PosPrintTemplate>[]);
     } catch (e) {
       debugPrint('load print settings failed: $e');
     } finally {

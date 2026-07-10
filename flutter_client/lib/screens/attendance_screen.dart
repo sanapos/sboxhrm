@@ -1627,7 +1627,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               : Column(
                   children: [
                     Expanded(child: _buildAttendanceTable()),
-                    if (!Responsive.isMobile(context)) _buildPagination(),
+                    _buildPagination(),
                   ],
                 ),
       mobileSlivers: (_) => _detailTabMobileSlivers(),
@@ -1705,10 +1705,15 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       ];
     }
     final allFiltered = _filteredAttendances;
+    final startIndex = (_currentPage - 1) * _itemsPerPage;
+    final endIndex = (startIndex + _itemsPerPage).clamp(0, allFiltered.length);
+    final pageItems = allFiltered.sublist(startIndex, endIndex);
     return [
       SliverToBoxAdapter(
-        child: _buildAttendanceMobileList(allFiltered, 0, shrinkWrap: true),
+        child: _buildAttendanceMobileList(pageItems, startIndex, shrinkWrap: true),
       ),
+      if (allFiltered.length > _itemsPerPage)
+        SliverToBoxAdapter(child: _buildPagination()),
     ];
   }
 
@@ -2523,11 +2528,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
   Widget _buildAttendanceTable() {
     final allFiltered = _filteredAttendances;
-    final isMobile = Responsive.isMobile(context);
-    final startIndex = isMobile ? 0 : (_currentPage - 1) * _itemsPerPage;
-    final endIndex = isMobile
-        ? allFiltered.length
-        : (startIndex + _itemsPerPage).clamp(0, allFiltered.length);
+    final startIndex = (_currentPage - 1) * _itemsPerPage;
+    final endIndex = (startIndex + _itemsPerPage).clamp(0, allFiltered.length);
     final displayedAttendances = allFiltered.sublist(startIndex, endIndex);
 
     return LayoutBuilder(

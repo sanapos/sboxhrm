@@ -1,6 +1,7 @@
 using ClosedXML.Excel;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Data;
 using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Application.Interfaces;
@@ -87,15 +88,51 @@ public partial class PosSalesController
         order.SaleDate ??= DateTime.UtcNow;
         order.SoldBy ??= CurrentUserEmail;
         order.PaidAmount = order.PaidAmount > 0 ? order.PaidAmount : 0;
-        await PosSaleStockHelper.ApplySaleStockAsync(
-            dbContext, storeId, order, order.Lines.ToList(), plan!, CurrentUserEmail);
-        await PosSaleStockHelper.UpdateCustomerOnSaleCompleteAsync(dbContext, storeId, order);
-        await PosSaleWarrantyHelper.RegisterOnSaleAsync(
-            dbContext, storeId, order, order.Lines.ToList(), dtoLines, products, CurrentUserEmail);
-        order.UpdatedAt = DateTime.UtcNow;
-        order.UpdatedBy = CurrentUserEmail;
-        await PosFinanceSyncHelper.SyncSaleOnCompleteAsync(dbContext, order, CurrentUserId);
-        await dbContext.SaveChangesAsync();
+
+        await using var tx = await dbContext.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead);
+        try
+        {
+            await PosSaleStockHelper.ApplySaleStockAsync(
+                dbContext, storeId, order, order.Lines.ToList(), plan!, CurrentUserEmail);
+            await PosSaleStockHelper.UpdateCustomerOnSaleCompleteAsync(dbContext, storeId, order);
+            if (order.CustomerId.HasValue)
+            {
+                var saleCustomer = await dbContext.PosCustomers.AsTracking()
+                    .FirstOrDefaultAsync(c => c.Id == order.CustomerId && c.StoreId == storeId && c.Deleted == null);
+                if (saleCustomer != null)
+                {
+                    await PosCustomerFinanceHelper.ApplyPointsOnSaleCompleteAsync(
+                        dbContext, storeId, order, saleCustomer, CurrentUserEmail);
+                    if (order.VoucherId.HasValue)
+                    {
+                        var vch = await dbContext.PosVouchers.AsTracking()
+                            .FirstOrDefaultAsync(v => v.Id == order.VoucherId && v.StoreId == storeId);
+                        if (vch != null)
+                        {
+                            vch.UsedCount += 1;
+                            vch.UpdatedAt = DateTime.UtcNow;
+                        }
+                    }
+                }
+            }
+            await PosSaleWarrantyHelper.RegisterOnSaleAsync(
+                dbContext, storeId, order, order.Lines.ToList(), dtoLines, products, CurrentUserEmail);
+            order.UpdatedAt = DateTime.UtcNow;
+            order.UpdatedBy = CurrentUserEmail;
+            await PosFinanceSyncHelper.SyncSaleOnCompleteAsync(dbContext, order, CurrentUserId);
+            await dbContext.SaveChangesAsync();
+            await tx.CommitAsync();
+        }
+        catch
+        {
+            await tx.RollbackAsync();
+            throw;
+        }
+
+        var lowStockItems = plan!.Products.Values
+            .Select(p => (p.Id, p.Name, p.OnHandQty, p.MinStockQty));
+        await PosNotificationHelper.NotifyLowStockAsync(
+            notificationService, dbContext, storeId, lowStockItems, CurrentUserId);
 
         await PosNotificationHelper.NotifySaleCompletedAsync(
             notificationService, dbContext, storeId, order.Id, order.OrderNo,

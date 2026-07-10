@@ -17,6 +17,7 @@ import '../../widgets/pos/pos_catalog_manage.dart';
 import '../../widgets/pos/pos_product_image.dart';
 import '../../widgets/pos/pos_unit_attribute_setup_dialog.dart';
 import '../../widgets/pos/pos_product_unit_view.dart';
+import '../../widgets/pos/pos_combo_component_picker.dart';
 import '../../widgets/pos/pos_sale_quick_notes_widgets.dart';
 import '../../widgets/pos/pos_theme.dart';
 import '../../widgets/pos_barcode_scanner.dart';
@@ -246,12 +247,12 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   List<PosProductUnit> _units = [];
   final List<PosProductAttribute> _attributeValues = [];
   List<PosComboLine> _comboLines = [];
-  List<PosProduct> _allProductsForCombo = [];
   List<PosProductVariant> _variants = [];
+  late PosProductType _productType;
   final List<_VariantAttrRow> _variantAttrs = [];
   bool _generatingVariants = false;
 
-  PosProductType get _type => widget.productType;
+  PosProductType get _type => _productType;
   bool get _isGoods => _type == PosProductType.goods;
   bool get _isService => _type == PosProductType.service;
   bool get _isCombo => _type == PosProductType.combo;
@@ -308,6 +309,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   @override
   void initState() {
     super.initState();
+    _productType = widget.product?.productType ??
+        widget.templateProduct?.productType ??
+        widget.productType;
     _tabs = TabController(length: _tabLabels.length, vsync: this);
     final p = widget.product ?? widget.templateProduct;
     final copyName = p != null && _isCopyFromTemplate
@@ -365,7 +369,6 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     final templateId = widget.templateProduct?.id;
     await Future.wait([
       _loadCatalogs(),
-      if (_isCombo) _loadProductsForCombo(),
       if (_isEditing) _loadProductDetail(widget.product!.id),
       if (_isCopyFromTemplate && templateId != null)
         _loadTemplateExtras(templateId),
@@ -431,23 +434,12 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     }
   }
 
-  Future<void> _loadProductsForCombo() async {
-    final res = await _api.getPosProducts(pageSize: 200);
-    if (!mounted || res['isSuccess'] != true) return;
-    final items = ((res['data'] as Map?)?['items'] as List? ?? [])
-        .map((e) => PosProduct.fromJson(e as Map<String, dynamic>))
-        .where((p) =>
-            p.productType != PosProductType.combo &&
-            p.productType != PosProductType.service)
-        .toList();
-    setState(() => _allProductsForCombo = items);
-  }
-
   Future<void> _loadProductDetail(String id) async {
     final res = await _api.getPosProduct(id);
     if (!mounted || res['isSuccess'] != true) return;
     final data = PosProduct.fromJson(res['data'] as Map<String, dynamic>);
     setState(() {
+      _productType = data.productType;
       if (data.units != null) _units = List.from(data.units!);
       _attributeValues
         ..clear()
@@ -703,6 +695,13 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       );
       return;
     }
+    if (_isCombo && _comboLines.isEmpty) {
+      NotificationOverlayManager().showError(
+        title: 'Lỗi',
+        message: 'Combo cần ít nhất 1 hàng thành phần',
+      );
+      return;
+    }
     setState(() => _saving = true);
 
     final body = <String, dynamic>{
@@ -813,7 +812,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       final productId = widget.product?.id ??
           (res['data'] as Map<String, dynamic>?)?['id']?.toString();
       if (productId != null) {
-        await _api.savePosComboLines(
+        final comboRes = await _api.savePosComboLines(
           productId,
           _comboLines
               .map((c) => {
@@ -822,6 +821,16 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   })
               .toList(),
         );
+        if (comboRes['isSuccess'] != true) {
+          if (!mounted) return;
+          setState(() => _saving = false);
+          NotificationOverlayManager().showError(
+            title: 'Lưu thành phần combo thất bại',
+            message: comboRes['message']?.toString() ??
+                'Hàng hóa đã lưu nhưng thành phần combo chưa được gắn. Vui lòng thử lại.',
+          );
+          return;
+        }
       }
     }
 
@@ -1417,10 +1426,51 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     );
   }
 
+  Widget _buildProductTypeSelector() {
+    if (!_isEditing) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: DropdownButtonFormField<PosProductType>(
+        value: _productType,
+        decoration: PosTheme.inputDecoration(label: 'Loại hàng'),
+        items: const [
+          DropdownMenuItem(
+            value: PosProductType.goods,
+            child: Text('Hàng hóa'),
+          ),
+          DropdownMenuItem(
+            value: PosProductType.service,
+            child: Text('Dịch vụ'),
+          ),
+          DropdownMenuItem(
+            value: PosProductType.combo,
+            child: Text('Combo / Đóng gói'),
+          ),
+        ],
+        onChanged: (v) {
+          if (v == null || v == _productType) return;
+          setState(() {
+            final wasCombo = _isCombo;
+            _productType = v;
+            if (v != PosProductType.combo) {
+              _comboLines.clear();
+            } else if (!wasCombo) {
+              _comboLines.clear();
+            }
+            if (v == PosProductType.service || v == PosProductType.combo) {
+              _stockCtrl.text = '0';
+            }
+          });
+        },
+      ),
+    );
+  }
+
   Widget _goodsBasicFields() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        _buildProductTypeSelector(),
         Row(
           children: [
             Expanded(
@@ -1555,6 +1605,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        _buildProductTypeSelector(),
         Row(
           children: [
             Expanded(
@@ -1731,6 +1782,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        _buildProductTypeSelector(),
         Row(
           children: [
             Expanded(
@@ -3362,57 +3414,36 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   }
 
   Future<void> _addComboComponent() async {
-    String? pickedId;
-    final qtyCtrl = TextEditingController(text: '1');
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Thêm thành phần combo'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            DropdownButtonFormField<String>(
-              decoration: PosTheme.inputDecoration(label: 'Hàng hóa'),
-              items: _allProductsForCombo
-                  .where((p) => p.id != widget.product?.id)
-                  .map((p) => DropdownMenuItem(
-                        value: p.id,
-                        child: Text('${p.productCode} — ${p.name}',
-                            overflow: TextOverflow.ellipsis),
-                      ))
-                  .toList(),
-              onChanged: (v) => pickedId = v,
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: qtyCtrl,
-              keyboardType: TextInputType.number,
-              decoration: PosTheme.inputDecoration(label: 'Số lượng'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Hủy'),
-          ),
-          FilledButton(
-            style: PosTheme.filledButtonStyle,
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Thêm'),
-          ),
-        ],
-      ),
+    final existingIds =
+        _comboLines.map((c) => c.componentProductId).toSet();
+    final prod = await PosComboComponentPicker.show(
+      context,
+      api: _api,
+      excludeProductId: widget.product?.id,
+      excludeComponentIds: existingIds,
     );
-    if (ok != true || pickedId == null) return;
-    final prod = _allProductsForCombo.firstWhere((p) => p.id == pickedId);
+    if (prod == null || !mounted) return;
+
+    final existingIdx =
+        _comboLines.indexWhere((c) => c.componentProductId == prod.id);
+    if (existingIdx >= 0) {
+      NotificationOverlayManager().showError(
+        title: 'Đã có thành phần',
+        message: '«${prod.name}» đã nằm trong combo',
+      );
+      return;
+    }
+
+    final qty = await showComboComponentQtyDialog(context);
+    if (qty == null || !mounted) return;
+
     setState(() {
       _comboLines.add(PosComboLine(
         id: '',
-        componentProductId: pickedId!,
+        componentProductId: prod.id,
         componentProductCode: prod.productCode,
         componentProductName: prod.name,
-        qty: double.tryParse(qtyCtrl.text) ?? 1,
+        qty: qty,
         componentBasePrice: prod.basePrice,
       ));
     });

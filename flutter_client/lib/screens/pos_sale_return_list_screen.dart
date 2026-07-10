@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
+import '../screens/main_layout.dart' show ScreenRefreshNotifier;
 import '../widgets/notification_overlay.dart';
 import '../widgets/pos/pos_mobile_widgets.dart';
 import '../widgets/pos/pos_theme.dart';
@@ -103,6 +104,7 @@ class _PosSaleReturnListScreenState extends State<PosSaleReturnListScreen> {
         message: row.returnNo,
       );
       await _load();
+      ScreenRefreshNotifier.refreshPosAfterStockChange();
     } else {
       NotificationOverlayManager().showError(
         title: 'Lỗi',

@@ -18,6 +18,7 @@ class PosModuleToolbar extends StatelessWidget {
     _PosTab('PosProducts', 'Hàng hóa', Icons.inventory_2_outlined),
     _PosTab('PosSell', 'Bán hàng', Icons.point_of_sale),
     _PosTab('PosSaleOrders', 'Đơn hàng', Icons.receipt_long),
+    _PosTab('PosSaleReturns', 'Trả hàng', Icons.assignment_return),
     _PosTab('PosPurchaseReceipts', 'Nhập hàng', Icons.shopping_cart),
     _PosTab('PosPurchaseReturns', 'Trả hàng', Icons.undo),
     _PosTab('PosStockCounts', 'Kiểm kho', Icons.fact_check),

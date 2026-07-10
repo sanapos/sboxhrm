@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../utils/pos_doc_status.dart';
 import 'pos_theme.dart';
 String posSaleOrderStatusLabel(String status) => switch (status) {
       'Completed' => 'Hoàn thành',
@@ -16,31 +17,35 @@ String? posSaleReturnStatusLabel(String? returnStatus) => switch (returnStatus) 
 
 Color posSaleOrderStatusColor(String status) => switch (status) {
       'Completed' => Colors.green,
-      'Cancelled' => Colors.grey,
+      'Cancelled' => Colors.red,
       _ => Colors.orange,
     };
 
+bool posSaleOrderIsCancelled(String status) => status == 'Cancelled';
+
+Color posSaleOrderAccentColor(String status, {Color fallback = PosTheme.kiotBlue}) =>
+    posSaleOrderIsCancelled(status) ? Colors.red.shade700 : fallback;
+
+Color posSaleOrderRowBackground(String status) =>
+    posSaleOrderIsCancelled(status)
+        ? Colors.red.shade50.withValues(alpha: 0.55)
+        : Colors.white;
+
+TextStyle? posSaleOrderCancelledTextStyle(String status, {TextStyle? base}) {
+  if (!posSaleOrderIsCancelled(status)) return base;
+  return (base ?? const TextStyle()).copyWith(
+    color: Colors.red.shade800,
+    decoration: TextDecoration.lineThrough,
+    decorationColor: Colors.red.shade400,
+  );
+}
+
 Widget posSaleOrderStatusChip(String status, {String? returnStatus}) {
-  final color = posSaleOrderStatusColor(status);
   final returnLabel = posSaleReturnStatusLabel(returnStatus);
   return Row(
     mainAxisSize: MainAxisSize.min,
     children: [
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Text(
-          posSaleOrderStatusLabel(status),
-          style: TextStyle(
-            fontSize: 11,
-            color: color is MaterialColor ? color.shade700 : color,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
+      posDocStatusChip(status, completedLabel: 'Hoàn thành'),
       if (returnLabel != null) ...[
         const SizedBox(width: 4),
         Container(

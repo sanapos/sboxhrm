@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../models/pos_print_template.dart';
 import '../services/api_service.dart';
 import '../widgets/notification_overlay.dart';
+import '../utils/pos_print_template_loader.dart';
 import '../utils/pos_print_template_defaults.dart';
 import '../utils/pos_print_template_renderer.dart';
 import '../utils/pos_html_print.dart';
@@ -90,22 +91,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
     setState(() => _loading = true);
     await _loadPresets();
 
-    var res = await _api.getPosPrintTemplates(documentType: _docType);
-    if (res['isSuccess'] == true && res['data'] is List) {
-      _templates = (res['data'] as List)
-          .map((e) => PosPrintTemplate.fromJson(e as Map<String, dynamic>))
-          .toList();
-    }
-
-    if (_templates.isEmpty) {
-      await _api.seedPosPrintTemplates(documentType: _docType);
-      res = await _api.getPosPrintTemplates(documentType: _docType);
-      if (res['isSuccess'] == true && res['data'] is List) {
-        _templates = (res['data'] as List)
-            .map((e) => PosPrintTemplate.fromJson(e as Map<String, dynamic>))
-            .toList();
-      }
-    }
+    _templates = await loadPosPrintTemplates(_api, _docType);
 
     _selected = _templates.where((t) => t.isDefault).firstOrNull ??
         _templates.firstOrNull;

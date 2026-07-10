@@ -10,13 +10,21 @@ import '../widgets/loading_widget.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/notification_overlay.dart';
 import '../utils/notification_navigation.dart';
+import '../utils/admin_navigation.dart';
 import '../services/api_service.dart';
 import '../services/signalr_service.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
 import 'main_layout.dart' show ScreenRefreshNotifier;
 
 class NotificationsScreen extends StatefulWidget {
-  const NotificationsScreen({super.key});
+  final bool adminPortalMode;
+  final bool agentMode;
+
+  const NotificationsScreen({
+    super.key,
+    this.adminPortalMode = false,
+    this.agentMode = false,
+  });
 
   @override
   State<NotificationsScreen> createState() => _NotificationsScreenState();
@@ -470,6 +478,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       title: notification.title,
       categoryCode: notification.categoryCode,
       actionUrl: notification.actionUrl,
+      adminPortalMode: widget.adminPortalMode ||
+          AdminNavigationNotifier.systemAdminReady.value,
+      agentMode: widget.agentMode,
     );
   }
 

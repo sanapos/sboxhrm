@@ -1,7 +1,19 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:provider/provider.dart';
+import '../models/hrm.dart';
 import '../providers/auth_provider.dart';
+import '../services/api_service.dart';
+import '../services/signalr_service.dart';
+import '../utils/admin_navigation.dart';
+import '../utils/notification_display_utils.dart';
+import '../utils/notification_navigation.dart';
+import '../utils/pending_notification_launch.dart';
+import '../widgets/notification_overlay.dart';
+import 'notifications_screen.dart';
+import 'main_layout.dart' show ScreenRefreshNotifier;
 import '../widgets/admin/admin_mobile_widgets.dart';
 import '../widgets/hrm_page_chrome.dart';
 import 'system_admin/system_admin_helpers.dart';
@@ -24,7 +36,9 @@ import 'system_admin/consultation_requests_tab.dart';
 import 'system_admin/landing_content_tab.dart';
 
 class SystemAdminScreen extends StatefulWidget {
-  const SystemAdminScreen({super.key});
+  final bool agentMode;
+
+  const SystemAdminScreen({super.key, this.agentMode = false});
 
   @override
   State<SystemAdminScreen> createState() => _SystemAdminScreenState();
@@ -53,6 +67,13 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
   final _consultationRequestsKey = GlobalKey<ConsultationRequestsTabState>();
   final _landingContentKey = GlobalKey<LandingContentTabState>();
 
+  final _apiService = ApiService();
+  final _signalRService = SignalRService();
+  StreamSubscription<Map<String, dynamic>>? _notificationSubscription;
+  bool _isConnectingSignalR = false;
+  int _unreadNotificationsCount = 0;
+  VoidCallback? _adminTabListener;
+
   static const _tabLabels = [
     'Tổng quan',
     'Cửa hàng',
@@ -73,29 +94,248 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
     'Landing Page',
   ];
 
+  static const _agentTabLabels = [
+    'Tổng quan',
+    'Cửa hàng',
+    'Người dùng',
+    'Thiết bị',
+    'License',
+  ];
+
+  int get _tabCount => widget.agentMode ? _agentTabLabels.length : _tabLabels.length;
+
+  List<String> get _visibleTabLabels =>
+      widget.agentMode ? _agentTabLabels : _tabLabels;
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: _tabLabels.length, vsync: this);
+    _tabController = TabController(length: _tabCount, vsync: this);
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging) setState(() {});
     });
+    AdminNavigationNotifier.systemAdminReady.value = true;
+    _adminTabListener = _onAdminNavTabRequested;
+    AdminNavigationNotifier.systemAdminTab.addListener(_adminTabListener!);
+    _loadNotificationCount();
+    _connectSignalR();
+    PendingNotificationLaunch.scheduleConsume(
+      adminPortalMode: true,
+      agentMode: widget.agentMode,
+    );
   }
 
   @override
   void dispose() {
+    if (_adminTabListener != null) {
+      AdminNavigationNotifier.systemAdminTab.removeListener(_adminTabListener!);
+    }
+    AdminNavigationNotifier.systemAdminReady.value = false;
+    _notificationSubscription?.cancel();
     _tabController.dispose();
     super.dispose();
+  }
+
+  void _onAdminNavTabRequested() {
+    final tab = AdminNavigationNotifier.systemAdminTab.value;
+    if (tab == null || !mounted) return;
+    if (tab >= 0 && tab < _tabCount && _tabController.index != tab) {
+      _tabController.animateTo(tab);
+    }
+    AdminNavigationNotifier.systemAdminTab.value = null;
+  }
+
+  Future<void> _connectSignalR() async {
+    if (_isConnectingSignalR) return;
+    _isConnectingSignalR = true;
+    try {
+      await _notificationSubscription?.cancel();
+      if (!mounted) return;
+
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final token = await authProvider.getValidToken();
+      await _signalRService.connect(
+        null,
+        token,
+        () => authProvider.getValidToken(),
+      );
+
+      if (!mounted) return;
+      final userId = authProvider.user?.id;
+      if (userId != null && userId.isNotEmpty) {
+        await _signalRService.joinUserGroup(userId);
+      }
+
+      _notificationSubscription =
+          _signalRService.onNewNotification.listen(_handleNewNotification);
+    } catch (e) {
+      debugPrint('Error connecting SignalR in SystemAdminScreen: $e');
+    } finally {
+      _isConnectingSignalR = false;
+    }
+  }
+
+  Future<void> _loadNotificationCount() async {
+    try {
+      final summary = await _apiService.getNotificationSummary();
+      if (mounted) {
+        setState(() {
+          _unreadNotificationsCount = summary['unreadCount'] ?? 0;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading admin notification count: $e');
+    }
+  }
+
+  NotificationType _parseNotificationType(dynamic typeValue) {
+    if (typeValue is NotificationType) return typeValue;
+    final raw = typeValue?.toString() ?? '0';
+    final index = int.tryParse(raw) ?? 0;
+    if (index >= 0 && index < NotificationType.values.length) {
+      return NotificationType.values[index];
+    }
+    return NotificationType.info;
+  }
+
+  void _handleNewNotification(Map<String, dynamic> data) {
+    if (!mounted) return;
+    _loadNotificationCount();
+
+    final display = resolveNotificationDisplay(data);
+    final title = display.title;
+    final message = display.body;
+    final type = _parseNotificationType(data['type'] ?? 0);
+    final relatedEntityType = data['relatedEntityType'] as String?;
+    final notificationId = data['id']?.toString();
+    final actionUrl = data['actionUrl']?.toString();
+    final relatedEntityId = data['relatedEntityId']?.toString();
+
+    NotificationOverlayManager().show(
+      title: title,
+      message: message,
+      type: type,
+      relatedEntityType: relatedEntityType,
+      duration: const Duration(seconds: 4),
+      onTap: () {
+        if (notificationId != null && notificationId.isNotEmpty) {
+          _apiService.markNotificationAsRead(notificationId).then((_) {
+            _loadNotificationCount();
+          });
+        }
+        navigateFromNotification(
+          relatedEntityType: relatedEntityType,
+          relatedEntityId: relatedEntityId ?? notificationId,
+          title: title,
+          categoryCode: data['categoryCode']?.toString(),
+          actionUrl: actionUrl,
+          adminPortalMode: true,
+          agentMode: widget.agentMode,
+        );
+      },
+    );
+  }
+
+  void _openNotificationsInbox() {
+    Navigator.of(context)
+        .push(
+      MaterialPageRoute(
+        builder: (_) => NotificationsScreen(
+          adminPortalMode: true,
+          agentMode: widget.agentMode,
+        ),
+      ),
+    )
+        .then((_) {
+      _loadNotificationCount();
+      ScreenRefreshNotifier.refreshNotificationCount();
+    });
+  }
+
+  Widget _buildNotificationBell() {
+    return IconButton(
+      tooltip: 'Thông báo',
+      onPressed: _openNotificationsInbox,
+      icon: Badge(
+        isLabelVisible: _unreadNotificationsCount > 0,
+        label: Text(
+          _unreadNotificationsCount > 99 ? '99+' : '$_unreadNotificationsCount',
+        ),
+        child: const Icon(Icons.notifications_outlined, color: Colors.white),
+      ),
+    );
   }
 
   void _navigateToTab(int index) {
     _tabController.animateTo(index);
   }
 
+  int _dashCount(String key) =>
+      _dashboardKey.currentState?.dashboardData?[key] as int? ?? 0;
+
+  int _tabStoreCount() {
+    final state = _storesKey.currentState;
+    if (state != null) return state.stores.length;
+    return _dashCount('totalStores');
+  }
+
+  int _tabUserCount() {
+    final state = _usersKey.currentState;
+    if (state != null) return state.users.length;
+    return _dashCount('totalUsers');
+  }
+
+  int _tabDeviceCount() {
+    final state = _devicesKey.currentState;
+    if (state != null) return state.devices.length;
+    return _dashCount('totalDevices');
+  }
+
+  int _tabLicenseCount() {
+    final state = _licensesKey.currentState;
+    if (state != null) return state.licenses.length;
+    return _dashCount('totalLicenseKeys');
+  }
+
   List<Map<String, dynamic>> get _storesList =>
       _storesKey.currentState?.stores ?? [];
 
   List<AdminNavItem> _navItems() {
+    if (widget.agentMode) {
+      return [
+        AdminNavItem(
+            index: 0,
+            icon: Icons.dashboard,
+            label: 'Tổng quan',
+            group: 'Quản lý',
+            count: _dashboardKey.currentState != null ? 1 : null),
+        AdminNavItem(
+            index: 1,
+            icon: Icons.store,
+            label: 'Cửa hàng',
+            group: 'Quản lý',
+            count: _tabStoreCount()),
+        AdminNavItem(
+            index: 2,
+            icon: Icons.people,
+            label: 'Người dùng',
+            group: 'Quản lý',
+            count: _tabUserCount()),
+        AdminNavItem(
+            index: 3,
+            icon: Icons.router,
+            label: 'Thiết bị',
+            group: 'Quản lý',
+            count: _tabDeviceCount()),
+        AdminNavItem(
+            index: 4,
+            icon: Icons.vpn_key,
+            label: 'License',
+            group: 'Quản lý',
+            count: _tabLicenseCount()),
+      ];
+    }
+
     return [
       const AdminNavItem(
           index: 0, icon: Icons.dashboard, label: 'Tổng quan', group: 'Tổng quan'),
@@ -104,19 +344,19 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
           icon: Icons.store,
           label: 'Cửa hàng',
           group: 'Quản lý',
-          count: _storesKey.currentState?.stores.length),
+          count: _tabStoreCount()),
       AdminNavItem(
           index: 2,
           icon: Icons.people,
           label: 'Người dùng',
           group: 'Quản lý',
-          count: _usersKey.currentState?.users.length),
+          count: _tabUserCount()),
       AdminNavItem(
           index: 3,
           icon: Icons.router,
           label: 'Thiết bị',
           group: 'Quản lý',
-          count: _devicesKey.currentState?.devices.length),
+          count: _tabDeviceCount()),
       AdminNavItem(
           index: 4,
           icon: Icons.support_agent,
@@ -128,7 +368,7 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
           icon: Icons.vpn_key,
           label: 'License',
           group: 'Quản lý',
-          count: _licensesKey.currentState?.licenses.length),
+          count: _tabLicenseCount()),
       AdminNavItem(
           index: 6,
           icon: Icons.settings,
@@ -192,41 +432,67 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
   @override
   Widget build(BuildContext context) {
     final mobile = adminUseMobileLayout(context);
+    final role = Provider.of<AuthProvider>(context).userRole;
+    final roleLabel = widget.agentMode
+        ? 'Đại lý — ${role.isNotEmpty ? role : 'Agent'}'
+        : (role.isNotEmpty ? role : 'SuperAdmin');
 
-    return Scaffold(
-      key: _scaffoldKey,
-      backgroundColor: AdminHelpers.bgLight,
-      drawer: mobile
-          ? AdminMobileDrawer(
-              items: _navItems(),
-              currentIndex: _tabController.index,
-              onSelect: _navigateToTab,
-              healthStatus: _dashboardKey.currentState?.healthData?['status']
-                  ?.toString(),
-              onLogout: _handleLogout,
-            )
-          : null,
-      body: Column(
-        children: [
-          mobile ? _buildMobileHeader() : _buildDesktopHeader(),
-          Expanded(child: _buildTabViews()),
-        ],
+    return NotificationOverlay(
+      child: Scaffold(
+        key: _scaffoldKey,
+        backgroundColor: AdminHelpers.bgLight,
+        drawer: mobile
+            ? AdminMobileDrawer(
+                items: _navItems(),
+                currentIndex: _tabController.index,
+                onSelect: _navigateToTab,
+                healthStatus: _dashboardKey.currentState?.healthData?['status']
+                    ?.toString(),
+                onLogout: _handleLogout,
+                roleLabel: roleLabel,
+              )
+            : null,
+        body: Column(
+          children: [
+            mobile ? _buildMobileHeader(roleLabel) : _buildDesktopHeader(),
+            Expanded(child: _buildTabViews()),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildTabViews() {
+    final dashboard = DashboardTab(
+      key: _dashboardKey,
+      agentMode: widget.agentMode,
+      onLoaded: () {
+        if (mounted) setState(() {});
+      },
+      onNavigateToStores: () => _navigateToTab(1),
+      onNavigateToUsers: () => _navigateToTab(2),
+      onNavigateToDevices: () => _navigateToTab(3),
+      onNavigateToAgents: widget.agentMode ? null : () => _navigateToTab(4),
+      onNavigateToLicenses: () => _navigateToTab(widget.agentMode ? 4 : 5),
+    );
+
+    if (widget.agentMode) {
+      return TabBarView(
+        controller: _tabController,
+        children: [
+          dashboard,
+          StoresTab(key: _storesKey, agentMode: true),
+          UsersTab(key: _usersKey, agentMode: true),
+          DevicesTab(key: _devicesKey, stores: _storesList, agentMode: true),
+          LicensesTab(key: _licensesKey, agentMode: true),
+        ],
+      );
+    }
+
     return TabBarView(
       controller: _tabController,
       children: [
-        DashboardTab(
-          key: _dashboardKey,
-          onNavigateToStores: () => _navigateToTab(1),
-          onNavigateToUsers: () => _navigateToTab(2),
-          onNavigateToDevices: () => _navigateToTab(3),
-          onNavigateToAgents: () => _navigateToTab(4),
-          onNavigateToLicenses: () => _navigateToTab(5),
-        ),
+        dashboard,
         StoresTab(key: _storesKey),
         UsersTab(key: _usersKey),
         DevicesTab(key: _devicesKey, stores: _storesList),
@@ -247,8 +513,8 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
     );
   }
 
-  Widget _buildMobileHeader() {
-    final idx = _tabController.index.clamp(0, _tabLabels.length - 1);
+  Widget _buildMobileHeader(String roleLabel) {
+    final idx = _tabController.index.clamp(0, _visibleTabLabels.length - 1);
     final health = _dashboardKey.currentState?.healthData;
 
     return Material(
@@ -269,7 +535,7 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _tabLabels[idx],
+                      _visibleTabLabels[idx],
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 17,
@@ -278,9 +544,9 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const Text(
-                      'SuperAdmin',
-                      style: TextStyle(color: Colors.white60, fontSize: 12),
+                    Text(
+                      roleLabel,
+                      style: const TextStyle(color: Colors.white60, fontSize: 12),
                     ),
                   ],
                 ),
@@ -298,6 +564,7 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
                     size: 20,
                   ),
                 ),
+              _buildNotificationBell(),
             ],
           ),
         ),
@@ -307,11 +574,11 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
 
   Widget _buildDesktopHeader() {
     final health = _dashboardKey.currentState?.healthData;
-    final storeCount = _storesKey.currentState?.stores.length ?? 0;
-    final userCount = _usersKey.currentState?.users.length ?? 0;
-    final deviceCount = _devicesKey.currentState?.devices.length ?? 0;
+    final storeCount = _tabStoreCount();
+    final userCount = _tabUserCount();
+    final deviceCount = _tabDeviceCount();
     final agentCount = _agentsKey.currentState?.agents.length ?? 0;
-    final licenseCount = _licensesKey.currentState?.licenses.length ?? 0;
+    final licenseCount = _tabLicenseCount();
     final settingCount = _settingsKey.currentState?.settings.length ?? 0;
     final packageCount = _servicePackagesKey.currentState?.packages.length ?? 0;
     final promoCount = _keyPromotionsKey.currentState?.promotions.length ?? 0;
@@ -341,17 +608,21 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
                 child: const Icon(Icons.shield, color: Colors.white, size: 24),
               ),
               const SizedBox(width: 16),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Quản trị hệ thống',
+                    const Text('Quản trị hệ thống',
                         style: TextStyle(
                             color: Colors.white,
                             fontSize: 22,
                             fontWeight: FontWeight.bold)),
-                    Text('SuperAdmin — Quản lý toàn bộ hệ thống',
-                        style: TextStyle(color: Colors.white70, fontSize: 14)),
+                    Text(
+                      widget.agentMode
+                          ? 'Đại lý — Quản lý cửa hàng trong phạm vi được gán'
+                          : 'SuperAdmin — Quản lý toàn bộ hệ thống',
+                      style: const TextStyle(color: Colors.white70, fontSize: 14),
+                    ),
                   ],
                 ),
               ),
@@ -380,7 +651,9 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
                             fontWeight: FontWeight.w600)),
                   ]),
                 ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
+              _buildNotificationBell(),
+              const SizedBox(width: 8),
               _buildLogoutButton(),
             ],
           ),
@@ -393,7 +666,25 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
             unselectedLabelColor: Colors.white60,
             isScrollable: true,
             tabAlignment: TabAlignment.start,
-            tabs: [
+            tabs: widget.agentMode
+                ? [
+                    const Tab(
+                        icon: Icon(Icons.dashboard, size: 18),
+                        text: 'Tổng quan'),
+                    Tab(
+                        icon: const Icon(Icons.store, size: 18),
+                        text: 'Cửa hàng ($storeCount)'),
+                    Tab(
+                        icon: const Icon(Icons.people, size: 18),
+                        text: 'Người dùng ($userCount)'),
+                    Tab(
+                        icon: const Icon(Icons.router, size: 18),
+                        text: 'Thiết bị ($deviceCount)'),
+                    Tab(
+                        icon: const Icon(Icons.vpn_key, size: 18),
+                        text: 'License ($licenseCount)'),
+                  ]
+                : [
               const Tab(
                   icon: Icon(Icons.dashboard, size: 18), text: 'Tổng quan'),
               Tab(

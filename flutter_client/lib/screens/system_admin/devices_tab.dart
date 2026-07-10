@@ -6,8 +6,9 @@ import 'system_admin_helpers.dart';
 
 class DevicesTab extends StatefulWidget {
   final List<Map<String, dynamic>> stores;
+  final bool agentMode;
 
-  const DevicesTab({super.key, this.stores = const []});
+  const DevicesTab({super.key, this.stores = const [], this.agentMode = false});
 
   @override
   State<DevicesTab> createState() => DevicesTabState();
@@ -16,16 +17,39 @@ class DevicesTab extends StatefulWidget {
 class DevicesTabState extends State<DevicesTab> {
   final ApiService _apiService = ApiService();
   List<Map<String, dynamic>> _devices = [];
+  List<Map<String, dynamic>> _agents = [];
+  List<Map<String, dynamic>> _localStores = [];
   bool _isLoading = false;
 
   String? _storeFilter;
+  String? _agentFilter; // agentId | '__none__' | null
   String? _statusFilter; // 'online', 'offline', 'unassigned', null=all
   final _searchCtrl = TextEditingController();
 
   @override
   void initState() {
     super.initState();
+    _loadStores();
     loadData();
+    if (!widget.agentMode) _loadAgents();
+  }
+
+  List<Map<String, dynamic>> get _storesSource =>
+      widget.stores.isNotEmpty ? widget.stores : _localStores;
+
+  Future<void> _loadStores() async {
+    if (widget.stores.isNotEmpty) return;
+    try {
+      final res = widget.agentMode
+          ? await _apiService.getAgentStores(pageSize: 500)
+          : await _apiService.getSystemStores(pageSize: 500);
+      if (!mounted) return;
+      if (res['isSuccess'] == true) {
+        setState(() => _localStores = AdminHelpers.extractList(res['data']));
+      }
+    } catch (e) {
+      debugPrint('DevicesTab stores error: $e');
+    }
   }
 
   @override
@@ -36,18 +60,45 @@ class DevicesTabState extends State<DevicesTab> {
 
   List<Map<String, dynamic>> get devices => _devices;
 
+  Future<void> _loadAgents() async {
+    try {
+      final res = await _apiService.getSystemAgents(pageSize: 200);
+      if (!mounted) return;
+      if (res['isSuccess'] == true) {
+        setState(() => _agents = AdminHelpers.extractList(res['data']));
+      }
+    } catch (e) {
+      debugPrint('DevicesTab agents error: $e');
+    }
+  }
+
   Future<void> loadData() async {
     setState(() => _isLoading = true);
     try {
-      final res = await _apiService.getSystemDevices(
-        storeId: _storeFilter,
-        isOnline: _statusFilter == 'online'
-            ? true
-            : _statusFilter == 'offline'
-                ? false
-                : null,
-        isClaimed: _statusFilter == 'unassigned' ? false : null,
-      );
+      await _loadStores();
+      final res = widget.agentMode
+          ? await _apiService.getAgentAdminDevices(
+              storeId: _storeFilter,
+              isOnline: _statusFilter == 'online'
+                  ? true
+                  : _statusFilter == 'offline'
+                      ? false
+                      : null,
+              isClaimed: _statusFilter == 'unassigned' ? false : null,
+            )
+          : await _apiService.getSystemDevices(
+              storeId: _storeFilter,
+              agentId: _agentFilter != null && _agentFilter != '__none__'
+                  ? _agentFilter
+                  : null,
+              noAgent: _agentFilter == '__none__' ? true : null,
+              isOnline: _statusFilter == 'online'
+                  ? true
+                  : _statusFilter == 'offline'
+                      ? false
+                      : null,
+              isClaimed: _statusFilter == 'unassigned' ? false : null,
+            );
       if (!mounted) return;
       if (res['isSuccess'] == true) {
         setState(() =>
@@ -74,27 +125,122 @@ class DevicesTabState extends State<DevicesTab> {
     }).toList();
   }
 
+  bool _hasStoreAssignment(Map<String, dynamic> d) =>
+      d['storeId'] != null && d['storeId'].toString().isNotEmpty;
+
+  String _resolveStoreGroupLabel(Map<String, dynamic> d) {
+    if (!_hasStoreAssignment(d)) return 'Chưa gán cửa hàng';
+
+    final direct = d['storeName'] ?? d['storeCode'];
+    if (direct != null && direct.toString().trim().isNotEmpty) {
+      return direct.toString().trim();
+    }
+
+    final sid = d['storeId']?.toString();
+    for (final s in _storesSource) {
+      if (s['id']?.toString() == sid) {
+        final name = s['name'] ?? s['storeName'] ?? s['code'];
+        if (name != null && name.toString().trim().isNotEmpty) {
+          return name.toString().trim();
+        }
+      }
+    }
+    return sid != null ? 'Cửa hàng ($sid)' : 'Đã gán cửa hàng';
+  }
+
+  String _storeGroupKey(Map<String, dynamic> d) =>
+      _hasStoreAssignment(d) ? d['storeId']!.toString() : '__unassigned__';
+
+  ({List<Map<String, dynamic>> unassigned, List<({String label, Map<String, List<Map<String, dynamic>>> stores})> agents})
+      _groupByAgentAndStore(List<Map<String, dynamic>> devices) {
+    final unassigned = <Map<String, dynamic>>[];
+    final agentBuckets = <String, Map<String, List<Map<String, dynamic>>>>{};
+
+    for (final d in devices) {
+      if (!_hasStoreAssignment(d)) {
+        unassigned.add(d);
+        continue;
+      }
+      final agentLabel =
+          (d['agentName'] ?? 'Chưa có đại lý').toString().trim();
+      final storeLabel = _resolveStoreGroupLabel(d);
+      agentBuckets.putIfAbsent(agentLabel, () => {});
+      agentBuckets[agentLabel]!.putIfAbsent(storeLabel, () => []).add(d);
+    }
+
+    final agents = agentBuckets.entries
+        .map((e) => (label: e.key, stores: e.value))
+        .toList()
+      ..sort((a, b) {
+        if (a.label == 'Chưa có đại lý') return 1;
+        if (b.label == 'Chưa có đại lý') return -1;
+        return a.label.compareTo(b.label);
+      });
+
+    return (unassigned: unassigned, agents: agents);
+  }
+
+  Map<String, List<Map<String, dynamic>>> _groupByStoreOnly(
+      List<Map<String, dynamic>> devices) {
+    final grouped = <String, List<Map<String, dynamic>>>{};
+    for (final d in devices) {
+      grouped.putIfAbsent(_storeGroupKey(d), () => []).add(d);
+    }
+    return grouped;
+  }
+
+  String _labelForStoreGroupKey(String key, List<Map<String, dynamic>> devices) {
+    if (key == '__unassigned__') return 'Chưa gán cửa hàng';
+    if (devices.isNotEmpty) return _resolveStoreGroupLabel(devices.first);
+    return key;
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) return const Center(child: CircularProgressIndicator());
 
     final filtered = _filteredDevices;
-    final grouped = <String, List<Map<String, dynamic>>>{};
-    for (final d in filtered) {
-      final storeName =
-          d['storeName'] ?? d['storeCode'] ?? 'Chưa gán cửa hàng';
-      grouped.putIfAbsent(storeName, () => []).add(d);
-    }
-    final sortedKeys = grouped.keys.toList()
-      ..sort((a, b) => a == 'Chưa gán cửa hàng'
-          ? 1
-          : b == 'Chưa gán cửa hàng'
-              ? -1
-              : a.compareTo(b));
-
     final onlineCount = _devices.where((d) => d['isOnline'] == true).length;
     final unassignedCount =
-        _devices.where((d) => d['storeId'] == null).length;
+        _devices.where((d) => !_hasStoreAssignment(d)).length;
+
+    final listChildren = <Widget>[];
+
+    if (widget.agentMode) {
+      final grouped = _groupByStoreOnly(filtered);
+      final sortedKeys = grouped.keys.toList()
+        ..sort((a, b) {
+          if (a == '__unassigned__') return -1;
+          if (b == '__unassigned__') return 1;
+          return _labelForStoreGroupKey(a, grouped[a]!)
+              .compareTo(_labelForStoreGroupKey(b, grouped[b]!));
+        });
+      for (final storeKey in sortedKeys) {
+        final storeDevices = grouped[storeKey]!;
+        final storeOnline =
+            storeDevices.where((d) => d['isOnline'] == true).length;
+        listChildren.add(_buildDeviceStoreGroup(
+          _labelForStoreGroupKey(storeKey, storeDevices),
+          storeDevices,
+          storeOnline,
+        ));
+      }
+    } else {
+      final partitioned = _groupByAgentAndStore(filtered);
+      if (partitioned.unassigned.isNotEmpty) {
+        final online = partitioned.unassigned
+            .where((d) => d['isOnline'] == true)
+            .length;
+        listChildren.add(_buildDeviceStoreGroup(
+          'Chưa gán cửa hàng',
+          partitioned.unassigned,
+          online,
+        ));
+      }
+      for (final agentGroup in partitioned.agents) {
+        listChildren.add(_buildAgentDeviceGroup(agentGroup));
+      }
+    }
 
     return Column(
       children: [
@@ -106,22 +252,65 @@ class DevicesTabState extends State<DevicesTab> {
                   _searchCtrl.text.isNotEmpty
                       ? 'Không tìm thấy thiết bị'
                       : 'Không có thiết bị')
-              : ListView.builder(
+              : ListView(
                   padding: EdgeInsets.symmetric(
                       horizontal: adminUseMobileLayout(context) ? 12 : 20),
-                  itemCount: sortedKeys.length,
-                  itemBuilder: (ctx, i) {
-                    final storeName = sortedKeys[i];
-                    final storeDevices = grouped[storeName]!;
-                    final storeOnline = storeDevices
-                        .where((d) => d['isOnline'] == true)
-                        .length;
-                    return _buildDeviceStoreGroup(
-                        storeName, storeDevices, storeOnline);
-                  },
+                  children: listChildren,
                 ),
         ),
       ],
+    );
+  }
+
+  Widget _buildAgentDeviceGroup(
+      ({String label, Map<String, List<Map<String, dynamic>>> stores})
+          agentGroup) {
+    final storeEntries = agentGroup.stores.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+    final totalDevices = agentGroup.stores.values
+        .fold<int>(0, (sum, list) => sum + list.length);
+    final onlineDevices = agentGroup.stores.values
+        .expand((list) => list)
+        .where((d) => d['isOnline'] == true)
+        .length;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: AdminHelpers.cardDecoration(borderColor: AdminHelpers.primary),
+      child: ExpansionTile(
+        initiallyExpanded: true,
+        tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        leading: CircleAvatar(
+          backgroundColor: AdminHelpers.primary.withValues(alpha: 0.1),
+          child: const Icon(Icons.support_agent,
+              color: AdminHelpers.primary, size: 20),
+        ),
+        title: Text(agentGroup.label,
+            style: const TextStyle(fontWeight: FontWeight.w700)),
+        subtitle: Row(children: [
+          AdminHelpers.statusChip(
+              '$totalDevices thiết bị', AdminHelpers.info),
+          const SizedBox(width: 6),
+          AdminHelpers.statusChip('$onlineDevices online',
+              onlineDevices > 0 ? AdminHelpers.success : Colors.grey),
+          const SizedBox(width: 6),
+          AdminHelpers.statusChip('${storeEntries.length} cửa hàng',
+              AdminHelpers.primaryDark),
+        ]),
+        children: storeEntries.map((entry) {
+          final storeOnline =
+              entry.value.where((d) => d['isOnline'] == true).length;
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+            child: _buildDeviceStoreGroup(
+              entry.key,
+              entry.value,
+              storeOnline,
+              nested: true,
+            ),
+          );
+        }).toList(),
+      ),
     );
   }
 
@@ -147,8 +336,9 @@ class DevicesTabState extends State<DevicesTab> {
         searchController: _searchCtrl,
         searchHint: 'Tìm thiết bị theo tên, SN, IP...',
         onSearchChanged: () => setState(() {}),
-        activeFilterCount:
-            (_storeFilter != null ? 1 : 0) + (_statusFilter != null ? 1 : 0),
+        activeFilterCount: (_storeFilter != null ? 1 : 0) +
+            (_agentFilter != null ? 1 : 0) +
+            (_statusFilter != null ? 1 : 0),
         onRefresh: loadData,
         onOpenFilters: () => showAdminFilterSheet(
           context,
@@ -159,6 +349,7 @@ class DevicesTabState extends State<DevicesTab> {
           onClear: () {
             setState(() {
               _storeFilter = null;
+              _agentFilter = null;
               _statusFilter = null;
             });
             loadData();
@@ -188,6 +379,48 @@ class DevicesTabState extends State<DevicesTab> {
   }
 
   Widget _buildFilterFields({bool fullWidth = false}) {
+    final agentDropdown = !widget.agentMode
+        ? Container(
+            width: fullWidth ? double.infinity : 200,
+            height: 40,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.grey.shade300)),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                isExpanded: true,
+                value: _agentFilter,
+                hint: const Text('Tất cả đại lý',
+                    style: TextStyle(fontSize: 13)),
+                items: [
+                  const DropdownMenuItem<String>(
+                      value: null,
+                      child: Text('Tất cả đại lý',
+                          style: TextStyle(fontSize: 13))),
+                  const DropdownMenuItem<String>(
+                      value: '__none__',
+                      child: Text('Chưa có đại lý',
+                          style: TextStyle(fontSize: 13))),
+                  ..._agents.map((a) => DropdownMenuItem(
+                        value: a['id']?.toString(),
+                        child: Text(
+                          '${a['name'] ?? a['code'] ?? 'Đại lý'} (${a['code'] ?? ''})',
+                          style: const TextStyle(fontSize: 13),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      )),
+                ],
+                onChanged: (v) {
+                  setState(() => _agentFilter = v);
+                  loadData();
+                },
+              ),
+            ),
+          )
+        : null;
+
     final storeDropdown = Container(
       width: fullWidth ? double.infinity : 200,
       height: 40,
@@ -205,7 +438,7 @@ class DevicesTabState extends State<DevicesTab> {
             const DropdownMenuItem<String>(
                 value: null,
                 child: Text('Tất cả cửa hàng', style: TextStyle(fontSize: 13))),
-            ...widget.stores.map((s) => DropdownMenuItem(
+            ..._storesSource.map((s) => DropdownMenuItem(
                   value: s['id']?.toString(),
                   child: Text(s['name'] ?? 'N/A',
                       style: const TextStyle(fontSize: 13)),
@@ -258,6 +491,10 @@ class DevicesTabState extends State<DevicesTab> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (agentDropdown != null) ...[
+            agentDropdown,
+            const SizedBox(height: 12),
+          ],
           storeDropdown,
           const SizedBox(height: 12),
           statusDropdown,
@@ -267,17 +504,22 @@ class DevicesTabState extends State<DevicesTab> {
     return Wrap(
       spacing: 10,
       runSpacing: 6,
-      children: [storeDropdown, statusDropdown],
+      children: [
+        if (agentDropdown != null) agentDropdown,
+        storeDropdown,
+        statusDropdown,
+      ],
     );
   }
 
   Widget _buildDeviceStoreGroup(
       String storeName,
       List<Map<String, dynamic>> devices,
-      int onlineCount) {
+      int onlineCount,
+      {bool nested = false}) {
     final isUnclaimed = storeName == 'Chưa gán cửa hàng';
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: EdgeInsets.only(bottom: nested ? 0 : 10),
       decoration: AdminHelpers.cardDecoration(
         borderColor: isUnclaimed ? AdminHelpers.warning : AdminHelpers.info,
       ),
@@ -366,7 +608,7 @@ class DevicesTabState extends State<DevicesTab> {
     final serialNumber = device['serialNumber'] ?? '';
     final displayName =
         deviceName.isNotEmpty ? deviceName : serialNumber;
-    final hasStore = device['storeId'] != null;
+    final hasStore = _hasStoreAssignment(device);
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -434,6 +676,12 @@ class DevicesTabState extends State<DevicesTab> {
           if (device['storeName'] != null)
             AdminHelpers.infoRow(
                 Icons.store, 'Cửa hàng: ${device['storeName']}'),
+          if (hasStore && device['storeName'] == null)
+            AdminHelpers.infoRow(
+                Icons.store, 'Cửa hàng: ${_resolveStoreGroupLabel(device)}'),
+          if (device['agentName'] != null)
+            AdminHelpers.infoRow(
+                Icons.support_agent, 'Đại lý: ${device['agentName']}'),
           if (!hasStore)
             AdminHelpers.infoRow(Icons.warning_amber,
                 'Chưa gán cửa hàng'),
@@ -531,8 +779,10 @@ class DevicesTabState extends State<DevicesTab> {
 
     if (confirmed != true || !mounted) return;
 
-    final res = await _apiService
-        .unassignSystemDevice(device['id']?.toString() ?? '');
+    final res = widget.agentMode
+        ? await _apiService.agentUnassignDevice(device['id']?.toString() ?? '')
+        : await _apiService
+            .unassignSystemDevice(device['id']?.toString() ?? '');
     if (!mounted) return;
     if (res['isSuccess'] == true) {
       AdminHelpers.showSuccess(context, 'Đã gỡ "$name" khỏi cửa hàng');
@@ -661,8 +911,11 @@ class DevicesTabState extends State<DevicesTab> {
 
     if (result == null || !mounted) return;
 
-    final res = await _apiService.assignSystemDeviceToStore(
-        device['id']?.toString() ?? '', result);
+    final res = widget.agentMode
+        ? await _apiService.agentAssignDeviceToStore(
+            device['id']?.toString() ?? '', result)
+        : await _apiService.assignSystemDeviceToStore(
+            device['id']?.toString() ?? '', result);
     if (!mounted) return;
     if (res['isSuccess'] == true) {
       AdminHelpers.showSuccess(context, 'Đã chuyển "$name" sang cửa hàng mới');

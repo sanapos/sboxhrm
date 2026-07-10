@@ -34,21 +34,33 @@ internal static class PosSaleStockHelper
 
     public static Task<bool> HasBeenCancelledInStockAsync(
         ZKTecoDbContext db, Guid storeId, PosSaleOrder order) =>
-        db.PosStockTransactions.AsNoTracking().AnyAsync(t =>
-            t.SaleOrderId == order.Id && t.StoreId == storeId && t.Deleted == null &&
-            t.TransactionType == PosStockTransactionType.Return &&
-            t.Note != null && t.Note.StartsWith(CancelReturnNotePrefix(order.OrderNo)));
+        IsSaleStockFullyReversedAsync(db, storeId, order);
 
-    /// <returns>true nếu đã hoàn kho; false nếu đơn chưa có giao dịch Sale hoặc đã hoàn trước đó.</returns>
+    public static async Task<bool> IsSaleStockFullyReversedAsync(
+        ZKTecoDbContext db, Guid storeId, PosSaleOrder order)
+    {
+        var prefix = CancelReturnNotePrefix(order.OrderNo);
+        var saleTotal = await db.PosStockTransactions.AsNoTracking()
+            .Where(t => t.SaleOrderId == order.Id && t.StoreId == storeId && t.Deleted == null && t.IsActive &&
+                        t.TransactionType == PosStockTransactionType.Sale)
+            .SumAsync(t => -t.QtyChange);
+        if (saleTotal <= 0) return false;
+
+        var restoredTotal = await db.PosStockTransactions.AsNoTracking()
+            .Where(t => t.SaleOrderId == order.Id && t.StoreId == storeId && t.Deleted == null && t.IsActive &&
+                        t.TransactionType == PosStockTransactionType.Return &&
+                        t.Note != null && t.Note.StartsWith(prefix))
+            .SumAsync(t => t.QtyChange);
+        return restoredTotal >= saleTotal - 0.0001m;
+    }
+
+    /// <returns>true nếu đã hoàn kho (đủ số lượng); false nếu đơn chưa có giao dịch Sale.</returns>
     public static async Task<bool> ReverseSaleOrderAsync(
         ZKTecoDbContext db,
         Guid storeId,
         PosSaleOrder order,
         string? createdBy)
     {
-        if (await HasBeenCancelledInStockAsync(db, storeId, order))
-            return false;
-
         var saleTxs = await db.PosStockTransactions
             .AsNoTracking()
             .Where(t => t.SaleOrderId == order.Id && t.StoreId == storeId &&
@@ -56,6 +68,17 @@ internal static class PosSaleStockHelper
                         t.TransactionType == PosStockTransactionType.Sale)
             .ToListAsync();
         if (saleTxs.Count == 0) return false;
+
+        var prefix = CancelReturnNotePrefix(order.OrderNo);
+        var restoredByKey = await db.PosStockTransactions.AsNoTracking()
+            .Where(t => t.SaleOrderId == order.Id && t.StoreId == storeId && t.Deleted == null && t.IsActive &&
+                        t.TransactionType == PosStockTransactionType.Return &&
+                        t.Note != null && t.Note.StartsWith(prefix))
+            .GroupBy(t => new { t.ProductId, t.VariantId, t.LotId })
+            .Select(g => new { g.Key, Qty = g.Sum(x => x.QtyChange) })
+            .ToListAsync();
+        var restoredMap = restoredByKey.ToDictionary(
+            x => (x.Key.ProductId, x.Key.VariantId, x.Key.LotId), x => x.Qty);
 
         var productIds = saleTxs.Select(t => t.ProductId).Distinct().ToList();
         var products = await db.PosProducts
@@ -73,10 +96,16 @@ internal static class PosSaleStockHelper
                 .ToDictionaryAsync(v => v.Id);
 
         var touchedProducts = new HashSet<Guid>();
+        var restoredAny = false;
         foreach (var tx in saleTxs)
         {
             if (!products.TryGetValue(tx.ProductId, out var p)) continue;
-            var restore = -tx.QtyChange;
+            var sold = -tx.QtyChange;
+            if (sold <= 0) continue;
+            var already = restoredMap.GetValueOrDefault((tx.ProductId, tx.VariantId, tx.LotId));
+            var restore = sold - already;
+            if (restore <= 0.0001m) continue;
+            restoredAny = true;
             PosProductVariant? variant = null;
             if (tx.VariantId.HasValue)
                 variants.TryGetValue(tx.VariantId.Value, out variant);
@@ -131,7 +160,7 @@ internal static class PosSaleStockHelper
 
         foreach (var pid in touchedProducts)
             await PosVariantStockHelper.SyncParentStockFromVariantsAsync(db, products[pid]);
-        return true;
+        return restoredAny;
     }
 
     public static async Task UpdateCustomerOnSaleCompleteAsync(
@@ -754,27 +783,27 @@ internal static class PosSaleStockHelper
         var local = VnTimeHelper.UtcToVn(anchor);
         var dayStart = local.Date;
         var dayEnd = dayStart.AddDays(1);
+        var orderTime = anchor;
 
-        var dayOrders = await db.PosSaleOrders.AsNoTracking()
+        var baseQuery = db.PosSaleOrders.AsNoTracking()
             .Where(o => o.StoreId == storeId && o.Deleted == null && o.IsActive
                 && o.Status == PosSaleOrderStatus.Completed
                 && (o.SaleDate ?? o.CreatedAt) >= dayStart
-                && (o.SaleDate ?? o.CreatedAt) < dayEnd)
-            .OrderBy(o => o.SaleDate ?? o.CreatedAt)
-            .ThenBy(o => o.OrderNo)
-            .Select(o => new { o.Id, o.Total })
-            .ToListAsync();
+                && (o.SaleDate ?? o.CreatedAt) < dayEnd);
 
-        var index = 0;
-        decimal cumulative = 0;
-        foreach (var row in dayOrders)
-        {
-            cumulative += row.Total;
-            index++;
-            if (row.Id == order.Id)
-                return (index, cumulative);
-        }
-        return (0, 0);
+        var index = await baseQuery.CountAsync(o =>
+            (o.SaleDate ?? o.CreatedAt) < orderTime
+            || ((o.SaleDate ?? o.CreatedAt) == orderTime
+                && string.Compare(o.OrderNo, order.OrderNo, StringComparison.Ordinal) <= 0));
+
+        var cumulative = await baseQuery
+            .Where(o =>
+                (o.SaleDate ?? o.CreatedAt) < orderTime
+                || ((o.SaleDate ?? o.CreatedAt) == orderTime
+                    && string.Compare(o.OrderNo, order.OrderNo, StringComparison.Ordinal) <= 0))
+            .SumAsync(o => o.Total);
+
+        return (index, cumulative);
     }
 
     public static async Task<string> NextCustomerCodeAsync(ZKTecoDbContext db, Guid storeId)

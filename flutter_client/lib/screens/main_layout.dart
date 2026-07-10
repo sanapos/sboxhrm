@@ -16,6 +16,10 @@ import '../services/signalr_service.dart';
 import '../services/pos_print_agent_service.dart';
 import '../utils/pos_print_orchestrator.dart';
 import '../utils/pos_sell_stock_patch.dart';
+import '../models/mobile_bottom_nav_config.dart';
+import '../services/mobile_bottom_nav_prefs.dart';
+import '../utils/mobile_bottom_nav_catalog.dart';
+import '../widgets/mobile_bottom_nav_config_sheet.dart';
 import '../widgets/announcement_banner.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/hrm_pushed_screen_shell.dart';
@@ -72,6 +76,7 @@ import 'pos_products_screen.dart';
 import 'pos_sell_screen.dart';
 import 'pos_purchase_receipt_list_screen.dart';
 import 'pos_sale_order_list_screen.dart';
+import 'pos_sale_return_list_screen.dart';
 import 'pos_purchase_return_list_screen.dart';
 import 'pos_stock_count_list_screen.dart';
 import 'pos_damage_issue_list_screen.dart';
@@ -177,22 +182,64 @@ class ScreenRefreshNotifier {
     posOverview.value++;
   }
 
-  /// [sellStockLines]: patch tồn lưới bán hàng (trả hàng/nhập/hủy). Bán patch trực tiếp từ giỏ.
-  static void refreshPosAfterStockChange({
-    List<PosSellStockLineDelta>? sellStockLines,
-    bool reloadSellCatalog = true,
-  }) {
+  static Timer? _posStockRefreshTimer;
+  static _PendingPosStockRefresh? _pendingPosRefresh;
+
+  static void _flushPosStockRefresh() {
+    final pending = _pendingPosRefresh;
+    _pendingPosRefresh = null;
+    if (pending == null) return;
     refreshPosProducts();
     refreshPosSaleOrders();
     refreshPosPurchaseReceipts();
     refreshPosOverview();
-    if (reloadSellCatalog) {
+    if (pending.reloadCatalog) {
       refreshPosSellProductGrid();
     }
-    if (sellStockLines != null && sellStockLines.isNotEmpty) {
-      patchPosSellStockLines(sellStockLines);
-    }
   }
+
+  /// [sellStockLines]: patch tồn lưới bán hàng (trả hàng/nhập/hủy). Bán patch trực tiếp từ giỏ.
+  /// Mặc định không reload catalog khi đã có patch — tránh refresh storm.
+  static void refreshPosAfterStockChange({
+    List<PosSellStockLineDelta>? sellStockLines,
+    bool? reloadSellCatalog,
+  }) {
+    final hasPatch = sellStockLines != null && sellStockLines.isNotEmpty;
+    if (hasPatch) {
+      patchPosSellStockLines(sellStockLines!);
+    }
+    final reloadCatalog = reloadSellCatalog ?? !hasPatch;
+    _pendingPosRefresh = _PendingPosStockRefresh(reloadCatalog: reloadCatalog);
+    _posStockRefreshTimer?.cancel();
+    _posStockRefreshTimer = Timer(const Duration(milliseconds: 300), _flushPosStockRefresh);
+  }
+
+  static Timer? _attendanceRefreshTimer;
+  static Timer? _notificationCountTimer;
+
+  /// Gom refresh chấm công — tối đa 1 lần / 2s thay vì mỗi punch.
+  static void scheduleAttendanceDataRefresh() {
+    _attendanceRefreshTimer?.cancel();
+    _attendanceRefreshTimer = Timer(const Duration(seconds: 2), () {
+      refreshAttendanceScreen();
+      refreshAttendanceSummaryScreen();
+      refreshAttendanceByShiftScreen();
+      refreshPayrollScreen();
+      refreshDashboardScreen();
+    });
+  }
+
+  static void scheduleNotificationCountRefresh() {
+    _notificationCountTimer?.cancel();
+    _notificationCountTimer = Timer(const Duration(milliseconds: 800), () {
+      notifications.value++;
+    });
+  }
+}
+
+class _PendingPosStockRefresh {
+  const _PendingPosStockRefresh({required this.reloadCatalog});
+  final bool reloadCatalog;
 }
 
 class MainLayout extends StatefulWidget {
@@ -253,6 +300,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     _connectSignalR();
     _loadPermissions();
     _loadSidebarPreference();
+    MobileBottomNavPrefs.loadAll();
+    MobileBottomNavPrefs.revision.addListener(_onMobileNavPrefsChanged);
 
     // Listen for navigation requests from other screens
     NavigationNotifier.navigateTo.addListener(_onNavigationRequested);
@@ -562,8 +611,13 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     return _navItems[_selectedIndex].localizedLabel(l);
   }
 
+  void _onMobileNavPrefsChanged() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
+    MobileBottomNavPrefs.revision.removeListener(_onMobileNavPrefsChanged);
     NavigationNotifier.mainLayoutReady.value = false;
     NavigationNotifier.mobileDrawerModuleActive.value = false;
     WidgetsBinding.instance.removeObserver(this);
@@ -729,14 +783,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       }
     });
 
-    // Auto-refresh attendance screen (luôn refresh bất kể bật/tắt thông báo)
-    ScreenRefreshNotifier.refreshAttendanceScreen();
-    ScreenRefreshNotifier.refreshAttendanceSummaryScreen();
-    ScreenRefreshNotifier.refreshAttendanceByShiftScreen();
-    ScreenRefreshNotifier.refreshPayrollScreen();
-    ScreenRefreshNotifier.refreshDashboardScreen();
-    // Cập nhật badge chuông vì attendance notification đã lưu vào DB
-    _loadNotificationCount();
+    // Auto-refresh attendance screen (debounced — tránh refresh storm khi nhiều máy chấm)
+    ScreenRefreshNotifier.scheduleAttendanceDataRefresh();
+    ScreenRefreshNotifier.scheduleNotificationCountRefresh();
   }
 
   /// Show attendance popup via queue
@@ -1362,6 +1411,16 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       moduleCode: 'PosSaleOrders',
     ),
     NavItem(
+      icon: Icons.assignment_return_outlined,
+      activeIcon: Icons.assignment_return,
+      label: 'Trả hàng bán',
+      subtitle: 'Lịch sử phiếu trả hàng khách',
+      screen: const PosSaleReturnListScreen(),
+      group: 'POS',
+      themeColor: const Color(0xFF2563EB),
+      moduleCode: 'PosSaleReturns',
+    ),
+    NavItem(
       icon: Icons.shopping_cart_outlined,
       activeIcon: Icons.shopping_cart,
       label: 'Nhập hàng NCC',
@@ -1827,11 +1886,11 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       );
     }
 
-    final visibleBottomDefs = _visibleMobileBottomNavDefs();
-    final bottomNavIndex = visibleBottomDefs.indexWhere(
-      (d) => _navIndexForModule(d.moduleCode) == _selectedIndex,
-    );
-    final isBottomNav = bottomNavIndex >= 0;
+    final layout = _resolvedMainNavLayout();
+    final bottomNavIndex = layout.slots.indexWhere((id) => id == moduleCode);
+    final isBottomNav = moduleCode != null &&
+        bottomNavIndex >= 0 &&
+        _canAccessMainSlot(moduleCode);
     NavigationNotifier.mobileDrawerModuleActive.value = !isBottomNav;
     final safeBottomIndex = isBottomNav ? bottomNavIndex : -1;
 
@@ -1898,10 +1957,19 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
   /// Mobile body: chỉ mount màn bottom-nav khi user mở lần đầu (tránh gọi API module ngoài gói).
   Widget _buildMobileBody() {
-    final bottomNavIndices = _visibleMobileBottomNavDefs()
-        .map((d) => _navIndexForModule(d.moduleCode))
-        .whereType<int>()
-        .toList();
+    final layout = _resolvedMainNavLayout();
+    final bottomNavIndices = <int>[];
+    for (final slotId in layout.slots) {
+      if (slotId == MobileBottomNavCatalog.emptyId ||
+          slotId == MobileBottomNavCatalog.drawerId ||
+          !_canAccessMainSlot(slotId)) {
+        continue;
+      }
+      final def = _mainNavDef(slotId);
+      if (def?.moduleCode == null) continue;
+      final idx = _navIndexForModule(def!.moduleCode!);
+      if (idx != null) bottomNavIndices.add(idx);
+    }
     final isBottomNav = bottomNavIndices.contains(_selectedIndex);
     if (!isBottomNav) {
       return _getScreenForIndex(_selectedIndex);
@@ -1923,33 +1991,63 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildModernBottomNav(int selectedIndex, AppLocalizations l) {
+  // Mobile bottom nav: 5 ô cố định, chức năng tùy chỉnh qua [MobileBottomNavPrefs].
+  Set<String> _allowedMainNavSlotIds() {
+    final authUser = Provider.of<AuthProvider>(context, listen: false).user;
+    final allowedModules = authUser?.allowedModules;
+    final role = authUser?.role;
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    final ids = <String>{MobileBottomNavCatalog.drawerId};
+    for (final d in MobileBottomNavCatalog.mainItems) {
+      if (d.moduleCode == null) continue;
+      if (PermissionNavigation.canAccessModule(
+        d.moduleCode!,
+        allowedModules: allowedModules,
+        perm: perm,
+        role: role,
+      )) {
+        ids.add(d.id);
+      }
+    }
+    return ids;
+  }
+
+  MobileBottomNavLayout _resolvedMainNavLayout() {
+    return MobileBottomNavPrefs.mainLayout.normalized(
+      defaultSlots: MobileBottomNavLayout.defaultMainSlots,
+      allowedIds: _allowedMainNavSlotIds(),
+    );
+  }
+
+  bool _canAccessMainSlot(String slotId) {
+    if (slotId == MobileBottomNavCatalog.emptyId) return false;
+    if (slotId == MobileBottomNavCatalog.drawerId) return true;
+    return _allowedMainNavSlotIds().contains(slotId);
+  }
+
+  MobileBottomNavItemDef? _mainNavDef(String slotId) =>
+      MobileBottomNavCatalog.mapFor(MobileBottomNavCatalog.mainItems)[slotId];
+
+  String _mobileNavLabelForSlot(String slotId, AppLocalizations l) {
+    if (slotId == MobileBottomNavCatalog.drawerId) return l.more;
+    final def = _mainNavDef(slotId);
+    if (def == null) return 'Trống';
+    return _mobileNavLabel(def.moduleCode ?? def.id, l);
+  }
+
+  Widget _buildModernBottomNav(int selectedSlotIndex, AppLocalizations l) {
     final theme = Theme.of(context);
     final primaryColor = theme.colorScheme.primary;
     final isDark = theme.brightness == Brightness.dark;
     final surfaceColor = isDark ? const Color(0xFF1E1E2E) : Colors.white;
     final unselectedColor = isDark ? Colors.white54 : Colors.grey.shade500;
 
-    final visibleBottomDefs = _visibleMobileBottomNavDefs();
-    final allItems = [
-      ...visibleBottomDefs.map((d) => (
-            icon: d.icon,
-            activeIcon: d.activeIcon,
-            label: _mobileNavLabel(d.moduleCode, l),
-            moduleCode: d.moduleCode,
-            isCenterAction: d.moduleCode == 'MobileAttendance' ||
-                d.moduleCode == 'PosSell',
-          )),
-      (
-        icon: Icons.grid_view_outlined,
-        activeIcon: Icons.grid_view_rounded,
-        label: l.more,
-        moduleCode: null,
-        isCenterAction: false,
-      ),
-    ];
+    final layout = _resolvedMainNavLayout();
 
-    return Container(
+    return GestureDetector(
+      onLongPress: () =>
+          MobileBottomNavConfigSheet.show(context, initialPage: 0),
+      child: Container(
       decoration: BoxDecoration(
         color: surfaceColor,
         boxShadow: [
@@ -1965,43 +2063,84 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
           child: Row(
-            children: List.generate(allItems.length, (index) {
-              final item = allItems[index];
-              final isSelected = selectedIndex >= 0 && index == selectedIndex;
+            children: List.generate(MobileBottomNavLayout.slotCount, (index) {
+              final slotId = layout.slots[index];
+              final def = _mainNavDef(slotId);
+              final enabled = _canAccessMainSlot(slotId);
+              final isSelected = selectedSlotIndex == index;
+              final label = _mobileNavLabelForSlot(slotId, l);
+              final useCenter = index == 2 &&
+                  def != null &&
+                  def.centerStyle &&
+                  enabled &&
+                  slotId != MobileBottomNavCatalog.emptyId;
 
-              // Center punch button with special elevated style
-              if (item.isCenterAction) {
+              if (slotId == MobileBottomNavCatalog.emptyId || !enabled) {
+                return Expanded(child: _buildDisabledNavSlot(label: label));
+              }
+
+              if (slotId == MobileBottomNavCatalog.drawerId) {
+                return Expanded(
+                  child: _buildNavItem(
+                    icon: isSelected
+                        ? Icons.grid_view_rounded
+                        : Icons.grid_view_outlined,
+                    label: label,
+                    isSelected: isSelected,
+                    selectedColor: primaryColor,
+                    unselectedColor: unselectedColor,
+                    onTap: () =>
+                        _mobileScaffoldKey.currentState?.openDrawer(),
+                  ),
+                );
+              }
+
+              if (useCenter) {
                 return Expanded(
                   child: _buildCenterNavItem(
-                    icon: item.activeIcon,
-                    label: item.label,
+                    icon: def!.activeIcon,
+                    label: label,
                     isSelected: isSelected,
                     primaryColor: primaryColor,
                     surfaceColor: surfaceColor,
-                    onTap: () => _navigateToModule(item.moduleCode!),
+                    onTap: () => _navigateToModule(def.moduleCode!),
                   ),
                 );
               }
 
               return Expanded(
                 child: _buildNavItem(
-                  icon: isSelected ? item.activeIcon : item.icon,
-                  label: item.label,
+                  icon: isSelected ? def!.activeIcon : def!.icon,
+                  label: label,
                   isSelected: isSelected,
                   selectedColor: primaryColor,
                   unselectedColor: unselectedColor,
-                  onTap: () {
-                    if (item.moduleCode == null) {
-                      _mobileScaffoldKey.currentState?.openDrawer();
-                    } else {
-                      _navigateToModule(item.moduleCode!);
-                    }
-                  },
+                  onTap: () => _navigateToModule(def!.moduleCode!),
                 ),
               );
             }),
           ),
         ),
+      ),
+    ),
+    );
+  }
+
+  Widget _buildDisabledNavSlot({required String label}) {
+    return Opacity(
+      opacity: 0.35,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.remove, size: 20, color: Colors.grey),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 9, color: Colors.grey.shade500),
+          ),
+        ],
       ),
     );
   }
@@ -2893,6 +3032,7 @@ class NavItem {
     'PosProducts': (l) => 'Hàng hóa',
     'PosSell': (l) => 'Bán hàng',
     'PosSaleOrders': (l) => 'Đơn hàng',
+    'PosSaleReturns': (l) => 'Trả hàng bán',
     'PosPurchaseReceipts': (l) => 'Nhập hàng NCC',
     'PosPurchaseReturns': (l) => 'Trả hàng nhập',
     'PosStockCounts': (l) => 'Kiểm kho',

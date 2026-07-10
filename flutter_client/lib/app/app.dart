@@ -13,7 +13,6 @@ import '../screens/register_screen.dart';
 import '../screens/forgot_password_screen.dart';
 import '../screens/reset_password_screen.dart';
 import '../screens/system_admin_screen.dart';
-import '../screens/agent_portal_screen.dart';
 import '../screens/agent_register_screen.dart';
 import '../screens/admin_login_screen.dart';
 import '../screens/landing_screen.dart';
@@ -151,7 +150,7 @@ class _AdminRouteGuard extends StatelessWidget {
         }
 
         if (state.role == 'Agent') {
-          return const AgentPortalScreen();
+          return const SystemAdminScreen(agentMode: true);
         }
 
         return const AdminLoginScreen();

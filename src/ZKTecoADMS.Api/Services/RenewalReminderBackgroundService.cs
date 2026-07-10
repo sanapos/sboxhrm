@@ -1,6 +1,9 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity;
+using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Application.DTOs.SystemAdmin;
 using ZKTecoADMS.Application.Interfaces;
+using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Infrastructure;
 
@@ -39,6 +42,8 @@ public class RenewalReminderBackgroundService : BackgroundService
         using var scope = _sp.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ZKTecoDbContext>();
         var svc = scope.ServiceProvider.GetRequiredService<IAnnouncementService>();
+        var notificationService = scope.ServiceProvider.GetRequiredService<ISystemNotificationService>();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
         var today = DateTime.UtcNow.Date;
 
         foreach (var d in Thresholds)
@@ -88,6 +93,24 @@ public class RenewalReminderBackgroundService : BackgroundService
                             : s.ExpiryDate?.Date.AddDays(1)
                     }, Guid.Empty, ct);
                     _logger.LogInformation("Sent renewal reminder T-{D} for store {Store}", d, s.Name);
+
+                    var adminTitle = d == 0
+                        ? $"⏰ {s.Name}: license hết hạn hôm nay"
+                        : $"⏰ {s.Name}: sắp hết hạn license ({d} ngày)";
+                    var adminMessage = d == 0
+                        ? $"Cửa hàng \"{s.Name}\" hết hạn license hôm nay. Vui lòng liên hệ gia hạn."
+                        : $"Cửa hàng \"{s.Name}\" sẽ hết hạn license vào {s.ExpiryDate:dd/MM/yyyy} (còn {d} ngày).";
+                    await SuperAdminNotificationHelper.NotifySuperAdminsAsync(
+                        notificationService,
+                        userManager,
+                        d <= 3 ? NotificationType.Warning : NotificationType.Info,
+                        adminTitle,
+                        adminMessage,
+                        relatedUrl: SuperAdminNotificationHelper.AdminStoresUrl,
+                        relatedEntityId: s.Id,
+                        relatedEntityType: "Store",
+                        categoryCode: "renewal",
+                        storeId: s.Id);
                 }
                 catch (Exception ex)
                 {

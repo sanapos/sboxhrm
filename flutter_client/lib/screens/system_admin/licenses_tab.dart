@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:flutter/services.dart';
 import '../../services/api_service.dart';
+import '../../utils/agent_mutation_result.dart';
 import '../../utils/responsive_helper.dart';
 import '../../widgets/admin/admin_mobile_widgets.dart';
 import 'system_admin_helpers.dart';
 
 class LicensesTab extends StatefulWidget {
-  const LicensesTab({super.key});
+  final bool agentMode;
+
+  const LicensesTab({super.key, this.agentMode = false});
 
   @override
   State<LicensesTab> createState() => LicensesTabState();
@@ -47,23 +50,31 @@ class LicensesTabState extends State<LicensesTab> {
   Future<void> loadData() async {
     setState(() => _isLoading = true);
     try {
-      final results = await Future.wait([
-        _apiService.getLicenseKeys(pageSize: 500),
-        _apiService.getServicePackages(),
-        _apiService.getSystemAgents(pageSize: 200),
-      ]);
-      if (!mounted) return;
-      final licRes = results[0];
-      final pkgRes = results[1];
-      final agentRes = results[2];
-      if (licRes['isSuccess'] == true) {
-        _licenses = AdminHelpers.extractList(licRes['data']);
-      }
-      if (pkgRes['isSuccess'] == true) {
-        _servicePackages = AdminHelpers.extractList(pkgRes['data']);
-      }
-      if (agentRes['isSuccess'] == true) {
-        _agents = AdminHelpers.extractList(agentRes['data']);
+      if (widget.agentMode) {
+        final licRes = await _apiService.getAgentMyLicenses(pageSize: 500);
+        if (!mounted) return;
+        if (licRes['isSuccess'] == true) {
+          _licenses = AdminHelpers.extractList(licRes['data']);
+        }
+      } else {
+        final results = await Future.wait([
+          _apiService.getLicenseKeys(pageSize: 500),
+          _apiService.getServicePackages(),
+          _apiService.getSystemAgents(pageSize: 200),
+        ]);
+        if (!mounted) return;
+        final licRes = results[0];
+        final pkgRes = results[1];
+        final agentRes = results[2];
+        if (licRes['isSuccess'] == true) {
+          _licenses = AdminHelpers.extractList(licRes['data']);
+        }
+        if (pkgRes['isSuccess'] == true) {
+          _servicePackages = AdminHelpers.extractList(pkgRes['data']);
+        }
+        if (agentRes['isSuccess'] == true) {
+          _agents = AdminHelpers.extractList(agentRes['data']);
+        }
       }
       _applyFilters();
     } catch (e) {
@@ -198,19 +209,29 @@ class LicensesTabState extends State<LicensesTab> {
           child: _buildLicenseFilterPanel(types, fullWidth: true),
         ),
         trailing: [
-          FilledButton.icon(
-            onPressed: _showCreateLicenseDialog,
-            icon: const Icon(Icons.add, size: 18),
-            label: const Text('Tạo key'),
-            style: ElevatedButton.styleFrom(
-                backgroundColor: AdminHelpers.primaryDark,
-                foregroundColor: Colors.white),
-          ),
-          OutlinedButton.icon(
-            onPressed: _showBatchCreateDialog,
-            icon: const Icon(Icons.library_add, size: 18),
-            label: const Text('Hàng loạt'),
-          ),
+          if (context.systemAdminCanCreate) ...[
+            FilledButton.icon(
+              onPressed: _showCreateLicenseDialog,
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('Tạo key'),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: AdminHelpers.primaryDark,
+                  foregroundColor: Colors.white),
+            ),
+            OutlinedButton.icon(
+              onPressed: _showBatchCreateDialog,
+              icon: const Icon(Icons.library_add, size: 18),
+              label: const Text('Hàng loạt'),
+            ),
+          ],
+          if (context.systemAdminCanManageLicenses)
+            OutlinedButton.icon(
+              onPressed: _showBatchAssignAgentDialog,
+              icon: const Icon(Icons.assignment_ind, size: 18),
+              label: const Text('Cấp đại lý'),
+              style: OutlinedButton.styleFrom(
+                  foregroundColor: AdminHelpers.info),
+            ),
         ],
       );
     }
@@ -230,26 +251,29 @@ class LicensesTabState extends State<LicensesTab> {
           spacing: 8,
           runSpacing: 6,
           children: [
-            FilledButton.icon(
-              onPressed: _showCreateLicenseDialog,
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('Tạo key'),
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: AdminHelpers.primaryDark,
-                  foregroundColor: Colors.white),
-            ),
-            OutlinedButton.icon(
-              onPressed: _showBatchCreateDialog,
-              icon: const Icon(Icons.library_add, size: 18),
-              label: const Text('Tạo hàng loạt'),
-            ),
-            OutlinedButton.icon(
-              onPressed: _showBatchAssignAgentDialog,
-              icon: const Icon(Icons.assignment_ind, size: 18),
-              label: const Text('Cấp cho đại lý'),
-              style: OutlinedButton.styleFrom(
-                  foregroundColor: AdminHelpers.info),
-            ),
+            if (context.systemAdminCanCreate) ...[
+              FilledButton.icon(
+                onPressed: _showCreateLicenseDialog,
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Tạo key'),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: AdminHelpers.primaryDark,
+                    foregroundColor: Colors.white),
+              ),
+              OutlinedButton.icon(
+                onPressed: _showBatchCreateDialog,
+                icon: const Icon(Icons.library_add, size: 18),
+                label: const Text('Tạo hàng loạt'),
+              ),
+            ],
+            if (context.systemAdminCanManageLicenses)
+              OutlinedButton.icon(
+                onPressed: _showBatchAssignAgentDialog,
+                icon: const Icon(Icons.assignment_ind, size: 18),
+                label: const Text('Cấp cho đại lý'),
+                style: OutlinedButton.styleFrom(
+                    foregroundColor: AdminHelpers.info),
+              ),
           ],
         ),
       ]),
@@ -266,14 +290,17 @@ class LicensesTabState extends State<LicensesTab> {
           const DropdownMenuItem(value: null, child: Text('Tất cả')),
           DropdownMenuItem(
               value: 'available',
-              child: Text('Chưa dùng (${_countByStatus('available')})')),
+              child: Text(widget.agentMode
+                  ? 'Chưa kích hoạt (${_countByStatus('available')})'
+                  : 'Chưa dùng (${_countByStatus('available')})')),
           DropdownMenuItem(
               value: 'activated',
               child:
                   Text('Đã kích hoạt (${_countByStatus('activated')})')),
-          DropdownMenuItem(
-              value: 'revoked',
-              child: Text('Thu hồi (${_countByStatus('revoked')})')),
+          if (!widget.agentMode)
+            DropdownMenuItem(
+                value: 'revoked',
+                child: Text('Thu hồi (${_countByStatus('revoked')})')),
         ],
         onChanged: (v) {
           _statusFilter = v;
@@ -294,55 +321,57 @@ class LicensesTabState extends State<LicensesTab> {
           _applyFilters();
         },
       ),
-      _buildDropdown<String?>(
-        value: _packageFilter,
-        hint: 'Gói dịch vụ',
-        fullWidth: fullWidth,
-        items: [
-          const DropdownMenuItem(value: null, child: Text('Tất cả gói')),
-          ..._servicePackages.map((p) => DropdownMenuItem(
-              value: p['id']?.toString(),
-              child: Text(p['name']?.toString() ?? ''))),
-        ],
-        onChanged: (v) {
-          _packageFilter = v;
-          _applyFilters();
-        },
-      ),
-      _buildDropdown<String?>(
-        value: _assignFilter,
-        hint: 'Phân bổ',
-        fullWidth: fullWidth,
-        items: const [
-          DropdownMenuItem(value: null, child: Text('Tất cả')),
-          DropdownMenuItem(value: 'unassigned', child: Text('Chưa gán')),
-          DropdownMenuItem(
-              value: 'assigned_agent', child: Text('Đã gán đại lý')),
-          DropdownMenuItem(
-              value: 'assigned_store', child: Text('Đã gán cửa hàng')),
-        ],
-        onChanged: (v) {
-          _assignFilter = v;
-          _applyFilters();
-        },
-      ),
-      _buildDropdown<String?>(
-        value: _agentFilter,
-        hint: 'Đại lý',
-        fullWidth: fullWidth,
-        items: [
-          const DropdownMenuItem(value: null, child: Text('Tất cả đại lý')),
-          ..._agents.map((a) => DropdownMenuItem(
-              value: a['id']?.toString(),
-              child: Text(a['fullName']?.toString() ??
-                  a['userName']?.toString() ??
-                  ''))),
-        ],
-        onChanged: (v) {
-          _agentFilter = v;
-          _applyFilters();
-        },
-      ),
+      if (!widget.agentMode) ...[
+        _buildDropdown<String?>(
+          value: _packageFilter,
+          hint: 'Gói dịch vụ',
+          fullWidth: fullWidth,
+          items: [
+            const DropdownMenuItem(value: null, child: Text('Tất cả gói')),
+            ..._servicePackages.map((p) => DropdownMenuItem(
+                value: p['id']?.toString(),
+                child: Text(p['name']?.toString() ?? ''))),
+          ],
+          onChanged: (v) {
+            _packageFilter = v;
+            _applyFilters();
+          },
+        ),
+        _buildDropdown<String?>(
+          value: _assignFilter,
+          hint: 'Phân bổ',
+          fullWidth: fullWidth,
+          items: const [
+            DropdownMenuItem(value: null, child: Text('Tất cả')),
+            DropdownMenuItem(value: 'unassigned', child: Text('Chưa gán')),
+            DropdownMenuItem(
+                value: 'assigned_agent', child: Text('Đã gán đại lý')),
+            DropdownMenuItem(
+                value: 'assigned_store', child: Text('Đã gán cửa hàng')),
+          ],
+          onChanged: (v) {
+            _assignFilter = v;
+            _applyFilters();
+          },
+        ),
+        _buildDropdown<String?>(
+          value: _agentFilter,
+          hint: 'Đại lý',
+          fullWidth: fullWidth,
+          items: [
+            const DropdownMenuItem(value: null, child: Text('Tất cả đại lý')),
+            ..._agents.map((a) => DropdownMenuItem(
+                value: a['id']?.toString(),
+                child: Text(a['fullName']?.toString() ??
+                    a['userName']?.toString() ??
+                    ''))),
+          ],
+          onChanged: (v) {
+            _agentFilter = v;
+            _applyFilters();
+          },
+        ),
+      ],
     ];
 
     if (fullWidth) {
@@ -412,10 +441,12 @@ class LicensesTabState extends State<LicensesTab> {
           AdminHelpers.countBadge('Chưa dùng', available, AdminHelpers.success),
           const SizedBox(width: 8),
           AdminHelpers.countBadge('Đã kích hoạt', activated, AdminHelpers.primaryDark),
-          const SizedBox(width: 8),
-          AdminHelpers.countBadge('Thu hồi', revoked, AdminHelpers.danger),
-          const SizedBox(width: 8),
-          AdminHelpers.countBadge('Chưa gán', unassigned, AdminHelpers.warning),
+          if (!widget.agentMode) ...[
+            const SizedBox(width: 8),
+            AdminHelpers.countBadge('Thu hồi', revoked, AdminHelpers.danger),
+            const SizedBox(width: 8),
+            AdminHelpers.countBadge('Chưa gán', unassigned, AdminHelpers.warning),
+          ],
           const SizedBox(width: 8),
           Text('Hiển thị: ${_filteredLicenses.length}',
               style: TextStyle(fontSize: 12, color: Colors.grey[500])),
@@ -498,7 +529,11 @@ class LicensesTabState extends State<LicensesTab> {
     final licenseType = license['licenseType']?.toString() ?? '';
 
     return InkWell(
-      onTap: () {},
+      onTap: () {
+        if (adminUseMobileLayout(context)) {
+          _showLicenseMobileActions(license);
+        }
+      },
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         child: Row(children: [
@@ -523,6 +558,53 @@ class LicensesTabState extends State<LicensesTab> {
           ),
         ]),
       ),
+    );
+  }
+
+  Future<void> _showLicenseMobileActions(Map<String, dynamic> license) async {
+    final key = license['key']?.toString() ?? '';
+    final status = _getStatus(license);
+    final canDel = _canDelete(license);
+    final canDelete = context.systemAdminCanDelete;
+
+    final actions = <AdminActionSheetItem>[
+      AdminActionSheetItem(
+        icon: Icons.copy,
+        label: 'Sao chép key',
+        onTap: () {
+          Clipboard.setData(ClipboardData(text: key));
+          AdminHelpers.showSuccess(context, 'Đã copy key');
+        },
+      ),
+    ];
+
+    if (status == 'available' && context.systemAdminCanManageLicenses) {
+      actions.add(AdminActionSheetItem(
+        icon: Icons.block,
+        label: 'Thu hồi license',
+        color: AdminHelpers.warning,
+        onTap: () => _revokeLicense(license),
+      ));
+    }
+
+    if (canDel && canDelete) {
+      actions.add(AdminActionSheetItem(
+        icon: Icons.delete_forever,
+        label: 'Xóa vĩnh viễn',
+        destructive: true,
+        onTap: () => _deleteLicense(license),
+      ));
+    }
+
+    await showAdminActionSheet(
+      context,
+      title: key.length > 28 ? '${key.substring(0, 28)}...' : key,
+      subtitle: license['agentName'] != null
+          ? 'Đại lý: ${license['agentName']}'
+          : (license['storeName'] != null
+              ? 'Cửa hàng: ${license['storeName']}'
+              : 'Chưa gán'),
+      actions: actions,
     );
   }
 
@@ -621,7 +703,7 @@ class LicensesTabState extends State<LicensesTab> {
               ]),
             ),
             const SizedBox(width: 8),
-            if (status == 'available' && context.systemAdminCanEdit)
+            if (status == 'available' && context.systemAdminCanManageLicenses)
               IconButton(
                 icon: const Icon(Icons.block,
                     color: AdminHelpers.warning, size: 18),
@@ -1072,13 +1154,23 @@ class LicensesTabState extends State<LicensesTab> {
               if (!ctx.mounted) return;
               Navigator.pop(ctx);
               if (mounted) {
-                if (res['isSuccess'] == true) {
+                final assignResult = AgentMutationResult.parseLicenseAssign(
+                  Map<String, dynamic>.from(res),
+                  expectedAgentId: selectedAgentId,
+                  minAssignedCount: 1,
+                );
+                if (assignResult.ok) {
                   final assigned =
                       res['data']?['assignedCount'] ?? count;
                   AdminHelpers.showSuccess(
                       context, 'Đã cấp $assigned key cho đại lý');
                 } else {
-                  AdminHelpers.showApiError(context, res);
+                  AdminHelpers.showError(
+                    context,
+                    assignResult.errorMessage ??
+                        res['message']?.toString() ??
+                        'Không cấp được key',
+                  );
                 }
               }
               loadData();

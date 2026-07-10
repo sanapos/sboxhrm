@@ -1,27 +1,60 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/permission_provider.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/hrm_page_chrome.dart';
 
 /// Quyền thao tác trên màn Quản trị hệ thống (module `SystemAdmin`).
 extension SystemAdminPermissionContext on BuildContext {
+  bool get isAgentPortalMode =>
+      Provider.of<AuthProvider>(this, listen: false).userRole == 'Agent';
+
   bool get systemAdminCanCreate =>
+      !isAgentPortalMode &&
       Provider.of<PermissionProvider>(this, listen: false)
           .canCreate('SystemAdmin');
 
   bool get systemAdminCanEdit =>
+      isAgentPortalMode ||
+      Provider.of<PermissionProvider>(this, listen: false)
+          .canEdit('SystemAdmin');
+
+  /// Tạo / thu hồi / cấp key — chỉ SuperAdmin, không áp dụng đại lý.
+  bool get systemAdminCanManageLicenses =>
+      !isAgentPortalMode &&
       Provider.of<PermissionProvider>(this, listen: false)
           .canEdit('SystemAdmin');
 
   bool get systemAdminCanDelete =>
+      !isAgentPortalMode &&
       Provider.of<PermissionProvider>(this, listen: false)
           .canDelete('SystemAdmin');
+
+  /// SuperAdmin sanapos.vn@gmail.com — gia hạn không giới hạn 3 lần.
+  bool get canBypassStoreRenewalLimit {
+    final email =
+        Provider.of<AuthProvider>(this, listen: false).user?.email ?? '';
+    return email.toLowerCase() == AdminHelpers.storeRenewalBypassEmail;
+  }
 }
+
+/// Gợi ý số ngày gia hạn nhanh.
+const List<int> kStoreExtendDayPresets = [7, 14, 21, 30];
 
 /// Shared helper widgets used across all System Admin tabs
 class AdminHelpers {
+  static const String storeRenewalBypassEmail = 'sanapos.vn@gmail.com';
+  static const int maxStoreRenewals = 3;
+
+  static String storeRenewalLabel(BuildContext context, int renewalCount) {
+    if (context.canBypassStoreRenewalLimit && renewalCount >= maxStoreRenewals) {
+      return 'Gia hạn: $renewalCount lần (Super Admin)';
+    }
+    return 'Gia hạn: $renewalCount/$maxStoreRenewals lần';
+  }
+
   static const Color primary = HrmPageChrome.primaryNavy;
   static const Color primaryDark = HrmPageChrome.primaryNavy;
   static const Color success = Color(0xFF059669);
@@ -132,13 +165,14 @@ class AdminHelpers {
 
   static Widget dialogField(TextEditingController ctrl, String label,
       IconData icon,
-      {bool obscureText = false}) {
+      {bool obscureText = false, bool readOnly = false}) {
     if (obscureText) {
       // Trường mật khẩu: có nút con mắt để xem/ẩn nội dung đang nhập.
       return _PasswordDialogField(controller: ctrl, label: label, icon: icon);
     }
     return TextField(
       controller: ctrl,
+      readOnly: readOnly,
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon, size: 20),

@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Api.Controllers.Filters;
+using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Application.Authorization;
 using ZKTecoADMS.Application.DTOs.SystemAdmin;
 using ZKTecoADMS.Application.Interfaces;
@@ -26,6 +27,7 @@ public class SystemAdminController : AuthenticatedControllerBase
 {
     private readonly ZKTecoDbContext _dbContext;
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly RoleManager<IdentityRole<Guid>> _roleManager;
     private readonly ILogger<SystemAdminController> _logger;
     private readonly IConfiguration _configuration;
     private readonly ICacheService _cache;
@@ -34,6 +36,7 @@ public class SystemAdminController : AuthenticatedControllerBase
     public SystemAdminController(
         ZKTecoDbContext dbContext, 
         UserManager<ApplicationUser> userManager,
+        RoleManager<IdentityRole<Guid>> roleManager,
         ILogger<SystemAdminController> logger,
         IConfiguration configuration,
         ICacheService cache,
@@ -41,6 +44,7 @@ public class SystemAdminController : AuthenticatedControllerBase
     {
         _dbContext = dbContext;
         _userManager = userManager;
+        _roleManager = roleManager;
         _logger = logger;
         _configuration = configuration;
         _cache = cache;
@@ -568,6 +572,8 @@ public class SystemAdminController : AuthenticatedControllerBase
     public async Task<ActionResult<AppResponse<object>>> GetAllDevices(
         [FromQuery] string? search = null,
         [FromQuery] Guid? storeId = null,
+        [FromQuery] Guid? agentId = null,
+        [FromQuery] bool? noAgent = null,
         [FromQuery] bool? isOnline = null,
         [FromQuery] bool? isClaimed = null,
         [FromQuery] int pageNumber = 1,
@@ -579,7 +585,9 @@ public class SystemAdminController : AuthenticatedControllerBase
             if (pageNumber < 1) pageNumber = 1;
 
             var query = _dbContext.Devices
+                .AsNoTracking()
                 .Include(d => d.Store)
+                    .ThenInclude(s => s!.Agent)
                 .AsQueryable();
 
             if (!string.IsNullOrEmpty(search))
@@ -593,6 +601,17 @@ public class SystemAdminController : AuthenticatedControllerBase
             if (storeId.HasValue)
             {
                 query = query.Where(d => d.StoreId == storeId.Value);
+            }
+
+            if (agentId.HasValue)
+            {
+                query = query.Where(d =>
+                    d.StoreId != null && d.Store!.AgentId == agentId.Value);
+            }
+            else if (noAgent == true)
+            {
+                query = query.Where(d =>
+                    d.StoreId != null && d.Store!.AgentId == null);
             }
 
             // Filter by claimed status (connected to store or not)
@@ -616,23 +635,13 @@ public class SystemAdminController : AuthenticatedControllerBase
 
             var totalCount = await query.CountAsync();
 
-            var devices = await query
+            var rawDevices = await query
                 .OrderByDescending(d => d.LastOnline)
                 .Skip((pageNumber - 1) * pageSize)
                 .Take(pageSize)
-                .Select(d => new SystemDeviceDto(
-                    d.Id,
-                    d.SerialNumber,
-                    d.DeviceName,
-                    d.IpAddress,
-                    d.DeviceStatus == "Online",
-                    d.StoreId,
-                    d.Store != null ? d.Store.Name : null,
-                    d.Store != null ? d.Store.Code : null,
-                    d.LastOnline,
-                    d.CreatedAt
-                ))
                 .ToListAsync();
+
+            var devices = await DeviceStoreHydrator.ToSystemDeviceDtosAsync(_dbContext, rawDevices);
 
             return Ok(AppResponse<object>.Success(new { items = devices, totalCount, pageNumber, pageSize }));
         }
@@ -670,18 +679,7 @@ public class SystemAdminController : AuthenticatedControllerBase
 
             await _dbContext.SaveChangesAsync();
 
-            var dto = new SystemDeviceDto(
-                device.Id,
-                device.SerialNumber,
-                device.DeviceName,
-                device.IpAddress,
-                device.DeviceStatus == "Online",
-                device.StoreId,
-                null,
-                null,
-                device.LastOnline,
-                device.CreatedAt
-            );
+            var dto = AgentStoreMapper.ToSystemDeviceDto(device);
 
             _logger.LogInformation("SuperAdmin {UserId} unassigned device {DeviceId} from store", CurrentUserId, id);
             return Ok(AppResponse<SystemDeviceDto>.Success(dto));
@@ -712,6 +710,7 @@ public class SystemAdminController : AuthenticatedControllerBase
 
             var store = await _dbContext.Stores
                 .Include(s => s.Owner)
+                .Include(s => s.Agent)
                 .FirstOrDefaultAsync(s => s.Id == storeId);
 
             if (store == null)
@@ -728,18 +727,7 @@ public class SystemAdminController : AuthenticatedControllerBase
 
             await _dbContext.SaveChangesAsync();
 
-            var dto = new SystemDeviceDto(
-                device.Id,
-                device.SerialNumber,
-                device.DeviceName,
-                device.IpAddress,
-                device.DeviceStatus == "Online",
-                device.StoreId,
-                store.Name,
-                store.Code,
-                device.LastOnline,
-                device.CreatedAt
-            );
+            var dto = AgentStoreMapper.ToSystemDeviceDto(device, store);
 
             _logger.LogInformation("SuperAdmin {UserId} assigned device {DeviceId} to store {StoreId}", CurrentUserId, id, storeId);
             return Ok(AppResponse<SystemDeviceDto>.Success(dto));
@@ -846,7 +834,14 @@ public class SystemAdminController : AuthenticatedControllerBase
             await _userManager.UpdateAsync(newUser);
 
             // Add to SuperAdmin role
-            await _userManager.AddToRoleAsync(newUser, nameof(Roles.SuperAdmin));
+            var roleResult = await IdentityRoleSyncHelper.EnsureUserHasRoleAsync(
+                _userManager, _roleManager, newUser, nameof(Roles.SuperAdmin));
+            if (!roleResult.Ok)
+            {
+                await _userManager.DeleteAsync(newUser);
+                return BadRequest(AppResponse<SystemUserDto>.Fail(
+                    $"Không gán được quyền SuperAdmin: {roleResult.Error}"));
+            }
 
             _logger.LogInformation("SuperAdmin {CurrentUserId} created new SuperAdmin {NewUserId}", 
                 CurrentUserId, newUser.Id);
@@ -1098,13 +1093,13 @@ public class SystemAdminController : AuthenticatedControllerBase
                     return BadRequest(AppResponse<AgentDto>.Fail(errors));
                 }
 
-                var roleResult = await _userManager.AddToRoleAsync(user, nameof(Roles.Agent));
-                if (!roleResult.Succeeded)
+                var roleResult = await IdentityRoleSyncHelper.EnsureUserHasRoleAsync(
+                    _userManager, _roleManager, user, nameof(Roles.Agent));
+                if (!roleResult.Ok)
                 {
                     await _userManager.DeleteAsync(user);
-                    var roleErrors = string.Join(", ", roleResult.Errors.Select(e => e.Description));
                     return BadRequest(AppResponse<AgentDto>.Fail(
-                        $"Không gán được quyền đại lý: {roleErrors}. Liên hệ admin để kiểm tra role Agent trên hệ thống."));
+                        $"Không gán được quyền đại lý: {roleResult.Error}. Liên hệ admin để kiểm tra role Agent trên hệ thống."));
                 }
 
                 await _userManager.UpdateAsync(user);
@@ -1293,50 +1288,84 @@ public class SystemAdminController : AuthenticatedControllerBase
     /// Gán Store cho Agent
     /// </summary>
     [HttpPost("agents/{agentId}/stores/{storeId}")]
-    public async Task<ActionResult<AppResponse<bool>>> AssignStoreToAgent(Guid agentId, Guid storeId)
+    public async Task<ActionResult<AppResponse<object>>> AssignStoreToAgent(Guid agentId, Guid storeId)
     {
         try
         {
-            var agent = await _dbContext.Agents
-                .Include(a => a.Stores)
+            var agent = await _dbContext.Agents.AsNoTracking()
                 .FirstOrDefaultAsync(a => a.Id == agentId);
 
             if (agent == null)
             {
-                return NotFound(AppResponse<bool>.Fail("Agent không tồn tại"));
+                return NotFound(AppResponse<object>.Fail("Agent không tồn tại"));
             }
 
-            var store = await _dbContext.Stores.FindAsync(storeId);
-            if (store == null)
+            var storeExists = await _dbContext.Stores.AsNoTracking()
+                .AnyAsync(s => s.Id == storeId);
+            if (!storeExists)
             {
-                return NotFound(AppResponse<bool>.Fail("Store không tồn tại"));
+                return NotFound(AppResponse<object>.Fail("Store không tồn tại"));
             }
 
-            // Nếu store đã thuộc chính agent này thì không cần làm gì.
-            if (store.AgentId == agentId)
+            var currentAgentId = await _dbContext.Stores.AsNoTracking()
+                .Where(s => s.Id == storeId)
+                .Select(s => s.AgentId)
+                .FirstOrDefaultAsync();
+
+            if (currentAgentId == agentId)
             {
-                return Ok(AppResponse<bool>.Success(true));
+                return Ok(AppResponse<object>.Success(new
+                {
+                    assigned = true,
+                    storeId,
+                    agentId,
+                }));
             }
 
-            // SuperAdmin có thể chuyển store từ đại lý khác sang; chỉ check giới hạn của
-            // đại lý đích (store đang gán agent khác không tính vào agent.Stores hiện tại).
-            if (agent.MaxStores > 0 && agent.Stores.Count >= agent.MaxStores)
+            if (agent.MaxStores > 0)
             {
-                return BadRequest(AppResponse<bool>.Fail($"Agent đã đạt giới hạn {agent.MaxStores} cửa hàng"));
+                var storeCount = await _dbContext.Stores.AsNoTracking()
+                    .CountAsync(s => s.AgentId == agentId);
+                if (storeCount >= agent.MaxStores)
+                {
+                    return BadRequest(AppResponse<object>.Fail(
+                        $"Agent đã đạt giới hạn {agent.MaxStores} cửa hàng"));
+                }
             }
 
-            store.AgentId = agentId;
-            await _dbContext.SaveChangesAsync();
+            var (assignOk, assignErr) = await AgentAssignmentPersistHelper.AssignStoreToAgentAsync(
+                _dbContext, storeId, agentId, CurrentUserEmail);
+            if (!assignOk)
+            {
+                return BadRequest(AppResponse<object>.Fail(assignErr!));
+            }
 
-            _logger.LogInformation("SuperAdmin {UserId} assigned Store {StoreId} to Agent {AgentId}", 
+            _dbContext.ChangeTracker.Clear();
+
+            var verified = await _dbContext.Stores.AsNoTracking()
+                .Where(s => s.Id == storeId)
+                .Select(s => s.AgentId)
+                .FirstOrDefaultAsync();
+            if (verified != agentId)
+            {
+                return BadRequest(AppResponse<object>.Fail(
+                    "Server báo thành công nhưng cửa hàng chưa được gán — vui lòng tải lại"));
+            }
+
+            _logger.LogInformation("SuperAdmin {UserId} assigned Store {StoreId} to Agent {AgentId}",
                 CurrentUserId, storeId, agentId);
 
-            return Ok(AppResponse<bool>.Success(true));
+            return Ok(AppResponse<object>.Success(new
+            {
+                assigned = true,
+                storeId,
+                agentId,
+            }));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error assigning store to agent");
-            return StatusCode(500, AppResponse<bool>.Fail("Error assigning store to agent"));
+            return StatusCode(500, AppResponse<object>.Fail("Error assigning store to agent"));
         }
     }
 
@@ -1344,33 +1373,50 @@ public class SystemAdminController : AuthenticatedControllerBase
     /// Xóa Store khỏi Agent
     /// </summary>
     [HttpDelete("agents/{agentId}/stores/{storeId}")]
-    public async Task<ActionResult<AppResponse<bool>>> RemoveStoreFromAgent(Guid agentId, Guid storeId)
+    public async Task<ActionResult<AppResponse<object>>> RemoveStoreFromAgent(Guid agentId, Guid storeId)
     {
         try
         {
-            var store = await _dbContext.Stores.FindAsync(storeId);
-            if (store == null)
+            var storeExists = await _dbContext.Stores.AsNoTracking()
+                .AnyAsync(s => s.Id == storeId);
+            if (!storeExists)
             {
-                return NotFound(AppResponse<bool>.Fail("Store không tồn tại"));
+                return NotFound(AppResponse<object>.Fail("Store không tồn tại"));
             }
 
-            if (store.AgentId != agentId)
+            var (removeOk, removeErr) = await AgentAssignmentPersistHelper.RemoveStoreFromAgentAsync(
+                _dbContext, storeId, agentId, CurrentUserEmail);
+            if (!removeOk)
             {
-                return BadRequest(AppResponse<bool>.Fail("Store không thuộc Agent này"));
+                return BadRequest(AppResponse<object>.Fail(removeErr!));
             }
 
-            store.AgentId = null;
-            await _dbContext.SaveChangesAsync();
+            _dbContext.ChangeTracker.Clear();
 
-            _logger.LogInformation("SuperAdmin {UserId} removed Store {StoreId} from Agent {AgentId}", 
+            var verified = await _dbContext.Stores.AsNoTracking()
+                .Where(s => s.Id == storeId)
+                .Select(s => s.AgentId)
+                .FirstOrDefaultAsync();
+            if (verified != null)
+            {
+                return BadRequest(AppResponse<object>.Fail(
+                    "Server báo thành công nhưng cửa hàng vẫn còn đại lý — vui lòng tải lại"));
+            }
+
+            _logger.LogInformation("SuperAdmin {UserId} removed Store {StoreId} from Agent {AgentId}",
                 CurrentUserId, storeId, agentId);
 
-            return Ok(AppResponse<bool>.Success(true));
+            return Ok(AppResponse<object>.Success(new
+            {
+                assigned = false,
+                storeId,
+                agentId = (Guid?)null,
+            }));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error removing store from agent");
-            return StatusCode(500, AppResponse<bool>.Fail("Error removing store from agent"));
+            return StatusCode(500, AppResponse<object>.Fail("Error removing store from agent"));
         }
     }
     
@@ -1610,10 +1656,7 @@ public class SystemAdminController : AuthenticatedControllerBase
         try
         {
             var license = await _dbContext.LicenseKeys
-                .AsTracking()
-                .Include(l => l.Store)
-                .Include(l => l.Agent)
-                .Include(l => l.ServicePackage)
+                .AsNoTracking()
                 .FirstOrDefaultAsync(l => l.Id == id);
                 
             if (license == null)
@@ -1622,18 +1665,31 @@ public class SystemAdminController : AuthenticatedControllerBase
             if (license.IsUsed)
                 return BadRequest(AppResponse<LicenseKeyDto>.Fail("License key đã được sử dụng"));
                 
-            var agent = await _dbContext.Agents.FindAsync(request.AgentId);
+            var agent = await _dbContext.Agents.AsNoTracking()
+                .FirstOrDefaultAsync(a => a.Id == request.AgentId);
             if (agent == null)
                 return NotFound(AppResponse<LicenseKeyDto>.Fail("Agent not found"));
-                
-            license.AgentId = request.AgentId;
-            license.UpdatedAt = DateTime.UtcNow;
-            license.UpdatedBy = CurrentUserId.ToString();
+
+            var (assignOk, assignErr) = await AgentAssignmentPersistHelper.AssignLicenseToAgentAsync(
+                _dbContext, id, request.AgentId, CurrentUserId.ToString());
+            if (!assignOk)
+                return BadRequest(AppResponse<LicenseKeyDto>.Fail(assignErr!));
+
+            _dbContext.ChangeTracker.Clear();
+
+            var fresh = await _dbContext.LicenseKeys
+                .AsNoTracking()
+                .Include(l => l.Store)
+                .Include(l => l.Agent)
+                .Include(l => l.ServicePackage)
+                .FirstOrDefaultAsync(l => l.Id == id);
+            if (fresh == null || fresh.AgentId != request.AgentId)
+                return BadRequest(AppResponse<LicenseKeyDto>.Fail(
+                    "Server báo thành công nhưng license chưa gán được — vui lòng tải lại"));
+
+            _logger.LogInformation("SuperAdmin {UserId} assigned License {Key} to Agent {AgentId}", CurrentUserId, fresh.Key, request.AgentId);
             
-            await _dbContext.SaveChangesAsync();
-            _logger.LogInformation("SuperAdmin {UserId} assigned License {Key} to Agent {AgentId}", CurrentUserId, license.Key, request.AgentId);
-            
-            return Ok(AppResponse<LicenseKeyDto>.Success(MapToLicenseKeyDto(license)));
+            return Ok(AppResponse<LicenseKeyDto>.Success(MapToLicenseKeyDto(fresh)));
         }
         catch (Exception ex)
         {
@@ -1650,34 +1706,32 @@ public class SystemAdminController : AuthenticatedControllerBase
     {
         try
         {
-            var agent = await _dbContext.Agents.FindAsync(request.AgentId);
+            var agent = await _dbContext.Agents.AsNoTracking()
+                .FirstOrDefaultAsync(a => a.Id == request.AgentId);
             if (agent == null)
                 return NotFound(AppResponse<BatchAssignResult>.Fail("Agent not found"));
-                
-            var licenses = await _dbContext.LicenseKeys
-                .AsTracking()
-                .Where(l => request.LicenseKeyIds.Contains(l.Id) && !l.IsUsed && l.IsActive)
+
+            var eligibleIds = await _dbContext.LicenseKeys.AsNoTracking()
+                .Where(l => request.LicenseKeyIds.Contains(l.Id) && !l.IsUsed && l.IsActive
+                            && (l.AgentId == null || l.AgentId == request.AgentId))
+                .Select(l => l.Id)
                 .ToListAsync();
-                
-            var assignedCount = 0;
-            var failedIds = new List<Guid>();
-            
-            foreach (var license in licenses)
+
+            var failedIds = request.LicenseKeyIds
+                .Except(eligibleIds)
+                .ToList();
+
+            var assignedCount = await AgentAssignmentPersistHelper.BatchAssignLicensesToAgentAsync(
+                _dbContext, eligibleIds, request.AgentId, CurrentUserId.ToString());
+
+            _dbContext.ChangeTracker.Clear();
+
+            if (assignedCount == 0 && eligibleIds.Count > 0)
             {
-                if (license.AgentId == null || license.AgentId == request.AgentId)
-                {
-                    license.AgentId = request.AgentId;
-                    license.UpdatedAt = DateTime.UtcNow;
-                    license.UpdatedBy = CurrentUserId.ToString();
-                    assignedCount++;
-                }
-                else
-                {
-                    failedIds.Add(license.Id);
-                }
+                return BadRequest(AppResponse<BatchAssignResult>.Fail(
+                    "Không gán được license cho đại lý — vui lòng thử lại"));
             }
-            
-            await _dbContext.SaveChangesAsync();
+
             _logger.LogInformation("SuperAdmin {UserId} batch-assigned {Count} Licenses to Agent {AgentId}", CurrentUserId, assignedCount, request.AgentId);
             
             return Ok(AppResponse<BatchAssignResult>.Success(new BatchAssignResult(assignedCount, failedIds)));
@@ -1700,12 +1754,12 @@ public class SystemAdminController : AuthenticatedControllerBase
             if (request.Count <= 0)
                 return BadRequest(AppResponse<BatchAssignResult>.Fail("Số lượng phải lớn hơn 0"));
                 
-            var agent = await _dbContext.Agents.FindAsync(request.AgentId);
+            var agent = await _dbContext.Agents.AsNoTracking()
+                .FirstOrDefaultAsync(a => a.Id == request.AgentId);
             if (agent == null)
                 return NotFound(AppResponse<BatchAssignResult>.Fail("Agent not found"));
 
-            var query = _dbContext.LicenseKeys
-                .AsTracking()
+            var query = _dbContext.LicenseKeys.AsNoTracking()
                 .Where(l => !l.IsUsed && l.IsActive && l.AgentId == null);
 
             if (request.ServicePackageId.HasValue)
@@ -1714,25 +1768,29 @@ public class SystemAdminController : AuthenticatedControllerBase
             if (request.LicenseType.HasValue)
                 query = query.Where(l => l.LicenseType == request.LicenseType.Value);
 
-            var licenses = await query
+            var licenseIds = await query
                 .OrderBy(l => l.CreatedAt)
                 .Take(request.Count)
+                .Select(l => l.Id)
                 .ToListAsync();
 
-            if (!licenses.Any())
+            if (licenseIds.Count == 0)
                 return BadRequest(AppResponse<BatchAssignResult>.Fail("Không có key khả dụng phù hợp"));
 
-            foreach (var license in licenses)
+            var assignedCount = await AgentAssignmentPersistHelper.BatchAssignLicensesToAgentAsync(
+                _dbContext, licenseIds, request.AgentId, CurrentUserId.ToString());
+
+            _dbContext.ChangeTracker.Clear();
+
+            if (assignedCount == 0)
             {
-                license.AgentId = request.AgentId;
-                license.UpdatedAt = DateTime.UtcNow;
-                license.UpdatedBy = CurrentUserId.ToString();
+                return BadRequest(AppResponse<BatchAssignResult>.Fail(
+                    "Không gán được license cho đại lý — vui lòng thử lại"));
             }
 
-            await _dbContext.SaveChangesAsync();
-            _logger.LogInformation("SuperAdmin {UserId} assigned {Count} available licenses to Agent {AgentId}", CurrentUserId, licenses.Count, request.AgentId);
+            _logger.LogInformation("SuperAdmin {UserId} assigned {Count} available licenses to Agent {AgentId}", CurrentUserId, assignedCount, request.AgentId);
 
-            return Ok(AppResponse<BatchAssignResult>.Success(new BatchAssignResult(licenses.Count, new List<Guid>())));
+            return Ok(AppResponse<BatchAssignResult>.Success(new BatchAssignResult(assignedCount, new List<Guid>())));
         }
         catch (Exception ex)
         {
@@ -2009,21 +2067,38 @@ public class SystemAdminController : AuthenticatedControllerBase
             // Thông báo cho chủ cửa hàng về việc kích hoạt key
             try
             {
+                var packageName = license.ServicePackage?.Name ?? license.LicenseType.ToString();
                 if (store.OwnerId.HasValue)
                 {
-                    var packageName = license.ServicePackage?.Name ?? license.LicenseType.ToString();
                     await _notificationService.CreateAndSendAsync(
                         targetUserId: store.OwnerId.Value,
                         type: NotificationType.Success,
                         title: "Kích hoạt License thành công",
                         message: $"Cửa hàng '{store.Name}' đã được kích hoạt gói {packageName}, hạn sử dụng đến {store.ExpiryDate:dd/MM/yyyy}",
+                        relatedUrl: $"/admin/stores",
                         relatedEntityId: storeId,
                         relatedEntityType: "Store",
                         categoryCode: "license",
                         storeId: storeId);
                 }
+
+                await SuperAdminNotificationHelper.NotifySuperAdminsAsync(
+                    _notificationService,
+                    _userManager,
+                    NotificationType.Success,
+                    "Key license đã kích hoạt",
+                    $"Cửa hàng '{store.Name}' vừa kích hoạt gói {packageName}, hạn đến {store.ExpiryDate:dd/MM/yyyy}",
+                    relatedUrl: SuperAdminNotificationHelper.AdminLicensesUrl,
+                    relatedEntityId: storeId,
+                    relatedEntityType: "Store",
+                    categoryCode: "license",
+                    storeId: storeId,
+                    excludeUserIds: [CurrentUserId]);
             }
-            catch { }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to send license activation notification for store {StoreId}", storeId);
+            }
 
             return Ok(AppResponse<StoreDetailDto>.Success(MapToStoreDetailDto(store)));
         }
@@ -2821,15 +2896,14 @@ public class SystemAdminController : AuthenticatedControllerBase
                         $"Vai trò không hợp lệ. Các vai trò hệ thống: {string.Join(", ", validRoles)}"));
             }
 
-            // Remove old roles
-            var currentRoles = await _userManager.GetRolesAsync(user);
-            if (currentRoles.Any())
-                await _userManager.RemoveFromRolesAsync(user, currentRoles);
-
-            // Set new role
-            user.Role = request.Role;
-            await _userManager.UpdateAsync(user);
-            await _userManager.AddToRoleAsync(user, request.Role);
+            // Remove old roles and set new role (column + Identity)
+            var roleResult = await IdentityRoleSyncHelper.ReplaceUserRoleAsync(
+                _userManager, _roleManager, user, request.Role);
+            if (!roleResult.Ok)
+            {
+                return BadRequest(AppResponse<SystemUserDto>.Fail(
+                    $"Không cập nhật được quyền: {roleResult.Error}"));
+            }
 
             _logger.LogInformation("SuperAdmin {UserId} changed role of User {TargetUserId} to {Role}",
                 CurrentUserId, id, request.Role);
@@ -2878,10 +2952,35 @@ public class SystemAdminController : AuthenticatedControllerBase
                 return NotFound(AppResponse<bool>.Fail("User not found"));
             }
 
+            var identityRoles = await _userManager.GetRolesAsync(user);
+            var isSuperAdmin = identityRoles.Contains(nameof(Roles.SuperAdmin))
+                || user.Role == nameof(Roles.SuperAdmin);
+            if (isSuperAdmin)
+            {
+                var superAdminCount = await _userManager.GetUsersInRoleAsync(nameof(Roles.SuperAdmin));
+                if (superAdminCount.Count <= 1)
+                {
+                    return BadRequest(AppResponse<bool>.Fail("Không thể xóa SuperAdmin cuối cùng của hệ thống"));
+                }
+            }
+
             var isOwner = await _dbContext.Stores.AnyAsync(s => s.OwnerId == id);
             if (isOwner)
             {
                 return BadRequest(AppResponse<bool>.Fail("Không thể xóa tài khoản owner của cửa hàng"));
+            }
+
+            // Gỡ liên kết đại lý trước khi xóa tài khoản đăng nhập
+            var linkedAgent = await _dbContext.Agents
+                .AsTracking()
+                .FirstOrDefaultAsync(a => a.UserId == id);
+            if (linkedAgent != null)
+            {
+                linkedAgent.UserId = null;
+                linkedAgent.IsRegistrationCompleted = false;
+                linkedAgent.LastModified = DateTime.UtcNow;
+                linkedAgent.LastModifiedBy = CurrentUserId.ToString();
+                await _dbContext.SaveChangesAsync();
             }
 
             var result = await _userManager.DeleteAsync(user);
@@ -4317,7 +4416,12 @@ public class SystemAdminController : AuthenticatedControllerBase
             if (store == null)
                 return NotFound(AppResponse<StoreDetailDto>.Fail("Store not found"));
 
-            if (store.RenewalCount >= 3)
+            if (request.Days <= 0)
+            {
+                return BadRequest(AppResponse<StoreDetailDto>.Fail("Số ngày gia hạn phải lớn hơn 0"));
+            }
+
+            if (IsStoreRenewalLimitReached(store.RenewalCount))
             {
                 return BadRequest(AppResponse<StoreDetailDto>.Fail(
                     "Cửa hàng đã gia hạn tối đa 3 lần. Vui lòng kích hoạt key mới."));
@@ -4611,22 +4715,39 @@ public class SystemAdminController : AuthenticatedControllerBase
             // Thông báo cho chủ cửa hàng về việc kích hoạt key
             try
             {
+                var packageName = lastLicense.ServicePackage?.Name ?? lastLicense.LicenseType.ToString();
                 if (store.OwnerId.HasValue)
                 {
-                    var packageName = lastLicense.ServicePackage?.Name ?? lastLicense.LicenseType.ToString();
                     var bonusText = bonusDays > 0 ? $" (+ {bonusDays} ngày KM)" : "";
                     await _notificationService.CreateAndSendAsync(
                         targetUserId: store.OwnerId.Value,
                         type: NotificationType.Success,
                         title: "Kích hoạt License thành công",
                         message: $"Cửa hàng '{store.Name}' đã kích hoạt {keyCount} key gói {packageName}, thêm {totalDays} ngày{bonusText}. Hạn đến {store.ExpiryDate:dd/MM/yyyy}",
+                        relatedUrl: SuperAdminNotificationHelper.AdminLicensesUrl,
                         relatedEntityId: storeId,
                         relatedEntityType: "Store",
                         categoryCode: "license",
                         storeId: storeId);
                 }
+
+                await SuperAdminNotificationHelper.NotifySuperAdminsAsync(
+                    _notificationService,
+                    _userManager,
+                    NotificationType.Success,
+                    "Key license đã kích hoạt (hàng loạt)",
+                    $"Cửa hàng '{store.Name}' vừa kích hoạt {keyCount} key gói {packageName}, hạn đến {store.ExpiryDate:dd/MM/yyyy}",
+                    relatedUrl: SuperAdminNotificationHelper.AdminLicensesUrl,
+                    relatedEntityId: storeId,
+                    relatedEntityType: "Store",
+                    categoryCode: "license",
+                    storeId: storeId,
+                    excludeUserIds: [CurrentUserId]);
             }
-            catch { }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to send bulk license activation notification for store {StoreId}", storeId);
+            }
 
             return Ok(AppResponse<BulkActivationResultDto>.Success(new BulkActivationResultDto(
                 keyCount, totalDays, bonusDays, totalDays + bonusDays,

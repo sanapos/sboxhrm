@@ -273,7 +273,13 @@ class AgentsTabState extends State<AgentsTab> {
     final email = agent['email']?.toString() ?? '';
 
     return InkWell(
-      onTap: () => _showEditAgentDialog(agent),
+      onTap: () {
+        if (adminUseMobileLayout(context)) {
+          _showAgentMobileActions(agent);
+        } else {
+          _showEditAgentDialog(agent);
+        }
+      },
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         child: Row(children: [
@@ -297,6 +303,55 @@ class AgentsTabState extends State<AgentsTab> {
           ),
         ]),
       ),
+    );
+  }
+
+  Future<void> _showAgentMobileActions(Map<String, dynamic> agent) async {
+    final name = agent['name']?.toString() ?? 'Đại lý';
+    final code = agent['code']?.toString() ?? '';
+    final canEdit = context.systemAdminCanEdit;
+
+    final actions = <AdminActionSheetItem>[
+      AdminActionSheetItem(
+        icon: Icons.visibility_outlined,
+        label: 'Xem thông tin',
+        onTap: () => _showEditAgentDialog(agent, readOnly: !canEdit),
+      ),
+      AdminActionSheetItem(
+        icon: Icons.link,
+        label: 'Link đăng ký cửa hàng',
+        onTap: () => _showAgentStoreReferralLink(code.trim().toUpperCase()),
+      ),
+    ];
+
+    if (canEdit) {
+      actions.addAll([
+        AdminActionSheetItem(
+          icon: Icons.edit,
+          label: 'Sửa đại lý',
+          onTap: () => _showEditAgentDialog(agent),
+        ),
+        AdminActionSheetItem(
+          icon: Icons.refresh,
+          label: 'Tạo lại token đăng ký',
+          onTap: () => _regenerateToken(agent),
+        ),
+      ]);
+      if (context.systemAdminCanDelete) {
+        actions.add(AdminActionSheetItem(
+          icon: Icons.delete_outline,
+          label: 'Xóa đại lý',
+          color: AdminHelpers.danger,
+          onTap: () => _deleteAgent(agent),
+        ));
+      }
+    }
+
+    await showAdminActionSheet(
+      context,
+      title: name,
+      subtitle: code.isNotEmpty ? 'Mã: $code' : null,
+      actions: actions,
     );
   }
 
@@ -355,7 +410,8 @@ class AgentsTabState extends State<AgentsTab> {
                 ],
               ]),
             ]),
-        trailing: PopupMenuButton<String>(
+        trailing: context.systemAdminCanEdit
+            ? PopupMenuButton<String>(
           icon: Icon(Icons.more_vert, color: Colors.grey[400]),
           itemBuilder: (_) => [
             const PopupMenuItem(
@@ -379,6 +435,14 @@ class AgentsTabState extends State<AgentsTab> {
                   SizedBox(width: 8),
                   Text('Sửa')
                 ])),
+            if (context.systemAdminCanDelete)
+              const PopupMenuItem(
+                  value: 'delete',
+                  child: Row(children: [
+                    Icon(Icons.delete_outline, size: 16, color: AdminHelpers.danger),
+                    SizedBox(width: 8),
+                    Text('Xóa đại lý', style: TextStyle(color: AdminHelpers.danger))
+                  ])),
           ],
           onSelected: (v) {
             if (v == 'referral') {
@@ -387,10 +451,57 @@ class AgentsTabState extends State<AgentsTab> {
             }
             if (v == 'token') _regenerateToken(agent);
             if (v == 'edit') _showEditAgentDialog(agent);
+            if (v == 'delete') _deleteAgent(agent);
           },
-        ),
+        )
+            : IconButton(
+                icon: Icon(Icons.visibility_outlined, color: Colors.grey[400]),
+                onPressed: () => _showEditAgentDialog(agent, readOnly: true),
+              ),
       ),
     );
+  }
+
+  Future<void> _deleteAgent(Map<String, dynamic> agent) async {
+    final name = agent['name']?.toString() ?? 'Đại lý';
+    final storeCount =
+        (agent['storeCount'] ?? agent['totalStores'] ?? 0) as num;
+    if (storeCount > 0) {
+      AdminHelpers.showError(
+          context, 'Không thể xóa. Đại lý đang quản lý $storeCount cửa hàng');
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => ScrollableAlertDialog(
+        title: const Text('Xác nhận xóa đại lý'),
+        content: Text(
+            'Bạn có chắc muốn xóa đại lý "$name"?\n\nTài khoản đăng nhập cổng đại lý (nếu có) cũng sẽ bị xóa.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AdminHelpers.danger),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Xóa', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final res =
+        await _apiService.deleteAgent(agent['id']?.toString() ?? '');
+    if (!mounted) return;
+    if (res['isSuccess'] == true) {
+      AdminHelpers.showSuccess(context, 'Đã xóa đại lý $name');
+      loadData();
+    } else {
+      AdminHelpers.showError(context, res['message'] ?? 'Không xóa được đại lý');
+    }
   }
 
   Future<void> _regenerateToken(Map<String, dynamic> agent) async {
@@ -465,7 +576,7 @@ class AgentsTabState extends State<AgentsTab> {
               const SizedBox(height: 12),
               AdminHelpers.dialogField(codeCtrl, 'Mã đại lý', Icons.tag),
               const SizedBox(height: 12),
-              AdminHelpers.dialogField(emailCtrl, 'Email đăng nhập', Icons.email),
+              AdminHelpers.dialogField(emailCtrl, 'Email đăng nhập cổng đại lý', Icons.email),
               const SizedBox(height: 12),
               AdminHelpers.dialogField(phoneCtrl, 'SĐT hỗ trợ Zalo', Icons.phone),
               const SizedBox(height: 12),
@@ -476,7 +587,8 @@ class AgentsTabState extends State<AgentsTab> {
                 obscureText: true,
                 decoration: const InputDecoration(
                   labelText: 'Mật khẩu (tuỳ chọn)',
-                  helperText: 'Nhập mật khẩu để tạo ngay tài khoản đăng nhập. Bỏ trống để dùng link tự đăng ký.',
+                  helperText:
+                      'Tạo tài khoản cổng đại lý (Agent), không phải SuperAdmin. Bỏ trống để gửi link tự đăng ký.',
                   helperMaxLines: 3,
                   prefixIcon: Icon(Icons.lock_outline),
                   border: OutlineInputBorder(),
@@ -745,7 +857,7 @@ class AgentsTabState extends State<AgentsTab> {
     );
   }
 
-  void _showEditAgentDialog(Map<String, dynamic> agent) {
+  void _showEditAgentDialog(Map<String, dynamic> agent, {bool readOnly = false}) {
     final nameCtrl =
         TextEditingController(text: agent['name'] ?? '');
     final emailCtrl =
@@ -761,22 +873,22 @@ class AgentsTabState extends State<AgentsTab> {
     showDialog(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Sửa đại lý'),
+        title: Text(readOnly ? 'Thông tin đại lý' : 'Sửa đại lý'),
         content: SizedBox(
           width: MediaQuery.of(context).size.width < 600 ? MediaQuery.of(context).size.width - 32 : 420,
           child: SingleChildScrollView(
             child: Column(mainAxisSize: MainAxisSize.min, children: [
             AdminHelpers.dialogField(
-                nameCtrl, 'Tên đại lý', Icons.person),
+                nameCtrl, 'Tên đại lý', Icons.person, readOnly: readOnly),
             const SizedBox(height: 12),
             AdminHelpers.dialogField(
-                emailCtrl, 'Email liên hệ', Icons.email),
+                emailCtrl, 'Email liên hệ', Icons.email, readOnly: readOnly),
             const SizedBox(height: 12),
             AdminHelpers.dialogField(
-                phoneCtrl, 'SĐT hỗ trợ Zalo', Icons.phone),
+                phoneCtrl, 'SĐT hỗ trợ Zalo', Icons.phone, readOnly: readOnly),
             const SizedBox(height: 12),
             AdminHelpers.dialogField(
-                addressCtrl, 'Địa chỉ', Icons.location_on),
+                addressCtrl, 'Địa chỉ', Icons.location_on, readOnly: readOnly),
             if (agentCode.isNotEmpty) ...[
               const SizedBox(height: 16),
               const Align(
@@ -818,10 +930,11 @@ class AgentsTabState extends State<AgentsTab> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Hủy')),
-          FilledButton(
-            onPressed: () async {
-              await _apiService.updateAgent(
+              child: Text(readOnly ? 'Đóng' : 'Hủy')),
+          if (!readOnly && context.systemAdminCanEdit)
+            FilledButton(
+              onPressed: () async {
+              final res = await _apiService.updateAgent(
                   id: agent['id']?.toString(),
                   name: nameCtrl.text,
                   email: emailCtrl.text,
@@ -829,7 +942,13 @@ class AgentsTabState extends State<AgentsTab> {
                   address: addressCtrl.text);
               if (!ctx.mounted) return;
               Navigator.pop(ctx);
-              loadData();
+              if (!mounted) return;
+              if (res['isSuccess'] == true) {
+                AdminHelpers.showSuccess(context, 'Đã cập nhật đại lý');
+                loadData();
+              } else {
+                AdminHelpers.showApiError(context, res);
+              }
             },
             child: const Text('Lưu'),
           ),

@@ -8435,7 +8435,9 @@ class ApiService {
       bool? isOnline,
       bool? isClaimed,
       String? search,
-      String? storeId}) async {
+      String? storeId,
+      String? agentId,
+      bool? noAgent}) async {
     try {
       final params = <String, String>{};
       if (page != null) {
@@ -8447,6 +8449,8 @@ class ApiService {
       if (isClaimed != null) params['isClaimed'] = isClaimed.toString();
       if (search != null) params['search'] = search;
       if (storeId != null) params['storeId'] = storeId;
+      if (agentId != null && agentId.isNotEmpty) params['agentId'] = agentId;
+      if (noAgent == true) params['noAgent'] = 'true';
       final uri = Uri.parse('$baseUrl/api/system-admin/devices')
           .replace(queryParameters: params.isNotEmpty ? params : null);
       final response = await http.get(uri, headers: _headers);
@@ -8860,6 +8864,18 @@ class ApiService {
           Uri.parse('$baseUrl/api/system-admin/agents/$id/regenerate-token'),
           headers: _headers,
           body: body);
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteAgent(String agentId) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/api/system-admin/agents/$agentId'),
+        headers: _headers,
+      );
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -11185,10 +11201,11 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> getAgentStores() async {
+  Future<Map<String, dynamic>> getAgentStores({int pageSize = 1000}) async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/api/agent/stores'),
-          headers: _headers);
+      final uri = Uri.parse('$baseUrl/api/agent/stores')
+          .replace(queryParameters: {'pageSize': pageSize.toString()});
+      final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -11200,6 +11217,45 @@ class ApiService {
       final response = await http.get(
           Uri.parse('$baseUrl/api/agent/referral-link'),
           headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getAgentDashboard(
+      {String? fromDate, String? toDate}) async {
+    try {
+      final params = <String, String>{};
+      if (fromDate != null) params['fromDate'] = fromDate;
+      if (toDate != null) params['toDate'] = toDate;
+      final uri = Uri.parse('$baseUrl/api/agent/dashboard')
+          .replace(queryParameters: params.isNotEmpty ? params : null);
+      final response = await http.get(uri, headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getAgentDevices({
+    String? storeId,
+    bool? isOnline,
+    String? search,
+    int page = 1,
+    int pageSize = 50,
+  }) async {
+    try {
+      final params = <String, String>{
+        'page': page.toString(),
+        'pageSize': pageSize.toString(),
+      };
+      if (storeId != null && storeId.isNotEmpty) params['storeId'] = storeId;
+      if (isOnline != null) params['isOnline'] = isOnline.toString();
+      if (search != null && search.isNotEmpty) params['search'] = search;
+      final uri = Uri.parse('$baseUrl/api/agent/devices')
+          .replace(queryParameters: params);
+      final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -11223,6 +11279,190 @@ class ApiService {
       final uri = Uri.parse('$baseUrl/api/agent/my-licenses')
           .replace(queryParameters: params.isNotEmpty ? params : null);
       final response = await http.get(uri, headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getAgentAdminUsers({
+    String? search,
+    String? storeId,
+    String? role,
+    int pageNumber = 1,
+    int pageSize = 500,
+  }) async {
+    try {
+      final params = <String, String>{
+        'pageNumber': pageNumber.toString(),
+        'pageSize': pageSize.toString(),
+      };
+      if (search != null && search.isNotEmpty) params['search'] = search;
+      if (storeId != null && storeId.isNotEmpty) params['storeId'] = storeId;
+      if (role != null && role.isNotEmpty) params['role'] = role;
+      final uri = Uri.parse('$baseUrl/api/agent/users')
+          .replace(queryParameters: params);
+      final response = await http.get(uri, headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getAgentAdminDevices({
+    String? storeId,
+    bool? isOnline,
+    bool? isClaimed,
+    String? search,
+    int pageNumber = 1,
+    int pageSize = 500,
+  }) async {
+    try {
+      final params = <String, String>{
+        'pageNumber': pageNumber.toString(),
+        'pageSize': pageSize.toString(),
+      };
+      if (storeId != null && storeId.isNotEmpty) params['storeId'] = storeId;
+      if (isOnline != null) params['isOnline'] = isOnline.toString();
+      if (isClaimed != null) params['isClaimed'] = isClaimed.toString();
+      if (search != null && search.isNotEmpty) params['search'] = search;
+      final uri = Uri.parse('$baseUrl/api/agent/devices/manage')
+          .replace(queryParameters: params);
+      final response = await http.get(uri, headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getAgentStoreFullDetail(String id) async {
+    try {
+      final response = await http.get(
+          Uri.parse('$baseUrl/api/agent/stores/$id/full'),
+          headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> agentUpdateStore(String id,
+      {String? name, String? description, String? address, String? phone}) async {
+    try {
+      final body = <String, dynamic>{
+        if (name != null) 'name': name,
+        if (description != null) 'description': description,
+        if (address != null) 'address': address,
+        if (phone != null) 'phone': phone,
+      };
+      final response = await http.put(
+          Uri.parse('$baseUrl/api/agent/stores/$id'),
+          headers: _headers,
+          body: json.encode(body));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> agentToggleStoreStatus(String id) async {
+    try {
+      final response = await http.post(
+          Uri.parse('$baseUrl/api/agent/stores/$id/toggle-status'),
+          headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> agentLockStore(String id, [String? reason]) async {
+    try {
+      final response = await http.post(
+          Uri.parse('$baseUrl/api/agent/stores/$id/lock'),
+          headers: _headers,
+          body: json.encode({'reason': reason ?? ''}));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> agentUnlockStore(String id) async {
+    try {
+      final response = await http.post(
+          Uri.parse('$baseUrl/api/agent/stores/$id/unlock'),
+          headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> agentExtendStoreDays(String storeId, int days) async {
+    try {
+      final response = await http.post(
+          Uri.parse('$baseUrl/api/agent/stores/$storeId/extend'),
+          headers: _headers,
+          body: json.encode({'daysToAdd': days}));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> agentActivateLicenseForStore(
+      String storeId, dynamic licenseData) async {
+    try {
+      final data = licenseData is Map<String, dynamic>
+          ? licenseData
+          : {'licenseKey': licenseData};
+      final response = await http.post(
+          Uri.parse('$baseUrl/api/agent/stores/$storeId/activate-license'),
+          headers: _headers,
+          body: json.encode(data));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> agentUnassignDevice(String deviceId) async {
+    try {
+      final response = await http.put(
+          Uri.parse('$baseUrl/api/agent/devices/$deviceId/unassign-store'),
+          headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> agentAssignDeviceToStore(
+      String deviceId, String storeId) async {
+    try {
+      final response = await http.put(
+          Uri.parse(
+              '$baseUrl/api/agent/devices/$deviceId/assign-store/$storeId'),
+          headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> agentUpdateUserCredentials(String userId,
+      {String? newEmail, String? newPassword, String? fullName}) async {
+    try {
+      final body = <String, dynamic>{
+        if (newEmail != null) 'newEmail': newEmail,
+        if (newPassword != null) 'newPassword': newPassword,
+        if (fullName != null) 'fullName': fullName,
+      };
+      final response = await http.put(
+          Uri.parse('$baseUrl/api/agent/users/$userId/credentials'),
+          headers: _headers,
+          body: json.encode(body));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -13843,10 +14083,12 @@ class ApiService {
     String? search,
     String? categoryId,
     bool categoryIncludeChildren = true,
+    int page = 1,
     int pageSize = 500,
   }) async {
     try {
       final params = <String, String>{
+        'page': page.clamp(1, 9999).toString(),
         'pageSize': pageSize.clamp(1, 500).toString(),
       };
       if (categoryIncludeChildren) {

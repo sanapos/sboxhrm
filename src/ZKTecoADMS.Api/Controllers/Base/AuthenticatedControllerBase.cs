@@ -39,7 +39,23 @@ public abstract class AuthenticatedControllerBase : ControllerBase
     protected bool IsEmployee => CurrentUserRole.Equals(nameof(Roles.Employee), StringComparison.OrdinalIgnoreCase);
     
     protected string? CurrentUserEmail => User.FindFirst(ClaimTypes.Email)?.Value;
-    
+
+    /// <summary>SuperAdmin được phép gia hạn vượt giới hạn 3 lần/shop.</summary>
+    protected const string StoreRenewalBypassEmail = "sanapos.vn@gmail.com";
+
+    protected const int MaxStoreRenewals = 3;
+
+    protected bool CanBypassStoreRenewalLimit =>
+        CurrentUserRole.Equals(nameof(Roles.SuperAdmin), StringComparison.OrdinalIgnoreCase)
+        && string.Equals(CurrentUserEmail, StoreRenewalBypassEmail, StringComparison.OrdinalIgnoreCase);
+
+    protected bool IsStoreRenewalLimitReached(int renewalCount) =>
+        renewalCount >= MaxStoreRenewals && !CanBypassStoreRenewalLimit;
+
+    protected bool IsCrossStoreNotificationUser =>
+        CurrentUserRole.Equals(nameof(Roles.SuperAdmin), StringComparison.OrdinalIgnoreCase)
+        || CurrentUserRole.Equals(nameof(Roles.Agent), StringComparison.OrdinalIgnoreCase);
+
     private Guid GetCurrentUserId()
     {
         var userIdClaim = User.FindFirst("id")?.Value ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;

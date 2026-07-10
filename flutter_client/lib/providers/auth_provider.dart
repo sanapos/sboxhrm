@@ -307,7 +307,10 @@ class AuthProvider extends ChangeNotifier {
           Future.delayed(const Duration(seconds: 35), () {
             FcmService.instance.registerForCurrentUser();
           });
-          PendingNotificationLaunch.scheduleConsume();
+          PendingNotificationLaunch.scheduleConsume(
+            adminPortalMode: storeCode.trim().isEmpty,
+            agentMode: _user?.role == 'Agent',
+          );
 
           _isLoading = false;
           notifyListeners();

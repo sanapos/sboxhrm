@@ -1032,6 +1032,14 @@ BEGIN
     END IF;
 END $$;
 
+-- POS performance: stock return history + sale line lookups
+CREATE INDEX IF NOT EXISTS "IX_PosStockTransactions_StoreId_SaleOrderId_TransactionType"
+    ON "PosStockTransactions" ("StoreId", "SaleOrderId", "TransactionType");
+CREATE INDEX IF NOT EXISTS "IX_PosStockTransactions_StoreId_TransactionType_ReferenceNo"
+    ON "PosStockTransactions" ("StoreId", "TransactionType", "ReferenceNo");
+CREATE INDEX IF NOT EXISTS "IX_PosSaleOrderLines_SaleOrderId"
+    ON "PosSaleOrderLines" ("SaleOrderId");
+
 COMMIT;
 
 SELECT 'Migration script completed successfully' AS status;

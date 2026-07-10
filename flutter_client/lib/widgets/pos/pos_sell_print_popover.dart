@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../utils/pos_print_template_loader.dart';
 import '../../models/pos_print_template.dart';
 import '../../services/api_service.dart';
 import '../../utils/navigation_notifier.dart';
@@ -7,35 +8,8 @@ import '../../screens/settings_hub_screen.dart';
 import '../../utils/pos_sell_print_settings.dart';
 import 'pos_theme.dart';
 
-const _blue = Color(0xFF2563EB);
-
-Future<List<PosPrintTemplate>> _loadPrintTemplates(
-  ApiService api,
-  String documentType,
-) async {
-  List<PosPrintTemplate> parse(Map<String, dynamic> res) {
-    if (res['isSuccess'] == true && res['data'] is List) {
-      return (res['data'] as List)
-          .map((e) => PosPrintTemplate.fromJson(e as Map<String, dynamic>))
-          .toList();
-    }
-    return [];
-  }
-
-  var res = await api.getPosPrintTemplates(documentType: documentType);
-  var templates = parse(res);
-
-  if (templates.isEmpty) {
-    await api.seedPosPrintTemplates(documentType: documentType);
-    res = await api.getPosPrintTemplates(documentType: documentType);
-    templates = parse(res);
-  }
-
-  return templates;
-}
-
 Future<List<PosPrintTemplate>> _loadSaleInvoiceTemplates(ApiService api) =>
-    _loadPrintTemplates(api, PosPrintDocumentTypes.saleInvoice);
+    loadPosPrintTemplates(api, PosPrintDocumentTypes.saleInvoice);
 
 bool _templateIdMatches(PosPrintTemplate t, String? id) =>
     id != null && id.isNotEmpty && t.id.toLowerCase() == id.toLowerCase();
@@ -61,7 +35,7 @@ Future<PosSellPrintSettings?> showPosSellPrintPopover(
 }) async {
   final api = ApiService();
   final templates = await _loadSaleInvoiceTemplates(api);
-  final warehouseTemplates = await _loadPrintTemplates(
+  final warehouseTemplates = await loadPosPrintTemplates(
     api,
     PosPrintDocumentTypes.stockIssue,
   );
@@ -270,8 +244,8 @@ Future<PosSellPrintSettings?> showPosSellPrintPopover(
                               NavigationNotifier.goToModule('SettingsHub');
                             },
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: _blue,
-                              side: const BorderSide(color: _blue),
+                              foregroundColor: PosTheme.kiotBlue,
+                              side: BorderSide(color: PosTheme.kiotBlue),
                               padding: const EdgeInsets.symmetric(vertical: 10),
                             ),
                             child: const Text('Thiết lập mẫu in…',
@@ -289,7 +263,7 @@ Future<PosSellPrintSettings?> showPosSellPrintPopover(
                               const SizedBox(width: 8),
                               Expanded(
                                 child: FilledButton(
-                                  style: FilledButton.styleFrom(backgroundColor: _blue),
+                                  style: FilledButton.styleFrom(backgroundColor: PosTheme.kiotBlue),
                                   onPressed: () async {
                                     await settings.save();
                                     if (ctx.mounted) Navigator.pop(ctx, settings);
@@ -319,7 +293,7 @@ Widget _toggleRow(String label, bool value, ValueChanged<bool> onChanged) {
       Expanded(child: Text(label, style: const TextStyle(fontSize: 13))),
       Switch(
         value: value,
-        activeThumbColor: _blue,
+        activeThumbColor: PosTheme.kiotBlue,
         onChanged: onChanged,
       ),
     ],

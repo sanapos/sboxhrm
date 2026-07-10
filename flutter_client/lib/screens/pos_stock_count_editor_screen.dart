@@ -7,6 +7,8 @@ import '../models/pos_stock_count.dart';
 import '../providers/permission_provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
+import '../utils/pos_doc_status.dart';
+import '../utils/pos_mutation_result.dart';
 import '../utils/pos_stock_count_print.dart';
 import '../utils/pos_purchase_product_lookup.dart';
 import '../widgets/hrm_page_chrome.dart';
@@ -341,13 +343,23 @@ class _PosStockCountEditorScreenState extends State<PosStockCountEditorScreen> {
     final res = await _api.completePosStockCount(_countId!);
     if (!mounted) return;
     setState(() => _saving = false);
-    if (res['isSuccess'] == true) {
+    final result = PosDocMutationResult.parse(
+      Map<String, dynamic>.from(res),
+      expectedStatus: 'Completed',
+      statusFallback: 'InProgress',
+      completedLabel: 'Đã cân bằng kho',
+    );
+    if (result.ok) {
       NotificationOverlayManager().showSuccess(
-          title: 'Đã cân bằng kho', message: _countNo);
+        title: 'Đã cân bằng kho',
+        message: result.successMessage(_countNo, completedLabel: 'Đã cân bằng kho'),
+      );
       if (mounted) Navigator.pop(context, true);
     } else {
       NotificationOverlayManager().showError(
-          title: 'Lỗi', message: res['message']?.toString() ?? 'Không hoàn thành được');
+        title: 'Lỗi',
+        message: result.errorMessage ?? res['message']?.toString() ?? 'Không hoàn thành được',
+      );
     }
   }
 
@@ -394,12 +406,17 @@ class _PosStockCountEditorScreenState extends State<PosStockCountEditorScreen> {
     if (ok != true || !mounted) return;
     final res = await _api.deletePosStockCount(_countId!);
     if (!mounted) return;
-    if (res['isSuccess'] == true) {
+    final deleteResult = PosDocMutationResult.parseDelete(
+      Map<String, dynamic>.from(res),
+    );
+    if (deleteResult.ok) {
       NotificationOverlayManager().showSuccess(title: 'Đã xóa', message: _countNo);
       if (mounted) Navigator.pop(context, true);
     } else {
       NotificationOverlayManager().showError(
-          title: 'Lỗi', message: res['message']?.toString() ?? 'Không xóa được');
+        title: 'Lỗi',
+        message: deleteResult.errorMessage ?? res['message']?.toString() ?? 'Không xóa được',
+      );
     }
   }
 
@@ -425,13 +442,25 @@ class _PosStockCountEditorScreenState extends State<PosStockCountEditorScreen> {
     final res = await _api.cancelPosStockCount(_countId!);
     if (!mounted) return;
     setState(() => _saving = false);
-    if (res['isSuccess'] == true) {
+    final result = PosDocMutationResult.parse(
+      Map<String, dynamic>.from(res),
+      expectedStatus: 'Cancelled',
+      statusFallback: 'InProgress',
+      completedLabel: 'Đã cân bằng kho',
+    );
+    if (result.ok) {
+      setState(() => _status = result.status);
       NotificationOverlayManager().showSuccess(
-          title: 'Đã hủy', message: 'Đã hoàn tồn kho · $_countNo');
+        title: 'Đã hủy',
+        message: result.successMessage(_countNo,
+            stockNote: 'Đã hoàn tồn kho', completedLabel: 'Đã cân bằng kho'),
+      );
       await _loadCount(_countId!);
     } else {
       NotificationOverlayManager().showError(
-          title: 'Lỗi', message: res['message']?.toString() ?? 'Không hủy được');
+        title: 'Lỗi',
+        message: result.errorMessage ?? res['message']?.toString() ?? 'Không hủy được',
+      );
     }
   }
 

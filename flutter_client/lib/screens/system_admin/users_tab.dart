@@ -6,7 +6,9 @@ import '../../widgets/admin/admin_mobile_widgets.dart';
 import 'system_admin_helpers.dart';
 
 class UsersTab extends StatefulWidget {
-  const UsersTab({super.key});
+  final bool agentMode;
+
+  const UsersTab({super.key, this.agentMode = false});
 
   @override
   State<UsersTab> createState() => UsersTabState();
@@ -39,7 +41,7 @@ class UsersTabState extends State<UsersTab> {
   void initState() {
     super.initState();
     loadData();
-    _loadAgents();
+    if (!widget.agentMode) _loadAgents();
   }
 
   Future<void> _loadAgents() async {
@@ -73,7 +75,9 @@ class UsersTabState extends State<UsersTab> {
   Future<void> loadData() async {
     setState(() => _isLoading = true);
     try {
-      final res = await _apiService.getSystemUsers();
+      final res = widget.agentMode
+          ? await _apiService.getAgentAdminUsers()
+          : await _apiService.getSystemUsers();
       if (!mounted) return;
       if (res['isSuccess'] == true) {
         _users = AdminHelpers.extractList(res['data']);
@@ -738,10 +742,15 @@ class UsersTabState extends State<UsersTab> {
     );
     if (newPass == null || newPass.isEmpty) return;
 
-    final res = await _apiService.updateUserCredentials(
-      userId,
-      newPassword: newPass,
-    );
+    final res = widget.agentMode
+        ? await _apiService.agentUpdateUserCredentials(
+            userId,
+            newPassword: newPass,
+          )
+        : await _apiService.updateUserCredentials(
+            userId,
+            newPassword: newPass,
+          );
 
     if (!mounted) return;
     if (res['isSuccess'] == true) {
@@ -980,14 +989,21 @@ class UsersTabState extends State<UsersTab> {
               child: const Text('Hủy')),
           FilledButton(
             onPressed: () async {
-              final res = await _apiService.updateUserCredentials(
-                user['id']?.toString() ?? '',
-                newEmail: emailCtrl.text.trim(),
-                newPassword: passwordCtrl.text.trim().isEmpty
-                    ? null
-                    : passwordCtrl.text,
-                fullName: fullNameCtrl.text.trim(),
-              );
+              final res = widget.agentMode
+                  ? await _apiService.agentUpdateUserCredentials(
+                      user['id']?.toString() ?? '',
+                      newPassword: passwordCtrl.text.trim().isEmpty
+                          ? null
+                          : passwordCtrl.text,
+                    )
+                  : await _apiService.updateUserCredentials(
+                      user['id']?.toString() ?? '',
+                      newEmail: emailCtrl.text.trim(),
+                      newPassword: passwordCtrl.text.trim().isEmpty
+                          ? null
+                          : passwordCtrl.text,
+                      fullName: fullNameCtrl.text.trim(),
+                    );
               if (!ctx.mounted) return;
               Navigator.pop(ctx);
               if (res['isSuccess'] == true) {

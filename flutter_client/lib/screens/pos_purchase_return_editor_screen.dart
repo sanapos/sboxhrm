@@ -8,6 +8,8 @@ import '../models/pos_purchase.dart';
 import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
+import '../utils/pos_doc_status.dart';
+import '../utils/pos_mutation_result.dart';
 import '../utils/pos_purchase_product_lookup.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/loading_widget.dart';
@@ -398,10 +400,27 @@ class _PosPurchaseReturnEditorScreenState
     if (!mounted) return;
     setState(() => _saving = false);
     if (res['isSuccess'] == true) {
+      PosDocMutationResult? completeCheck;
+      if (complete) {
+        completeCheck = PosDocMutationResult.parse(
+          Map<String, dynamic>.from(res),
+          expectedStatus: 'Completed',
+          completedLabel: 'Đã trả hàng',
+        );
+        if (!completeCheck.ok) {
+          NotificationOverlayManager().showError(
+            title: 'Lỗi',
+            message: completeCheck.errorMessage ?? 'Không xác nhận được trạng thái phiếu',
+          );
+          return;
+        }
+      }
       final r = PosPurchaseReturn.fromJson(res['data'] as Map<String, dynamic>);
       NotificationOverlayManager().showSuccess(
         title: complete ? 'Đã trả hàng' : 'Đã lưu phiếu tạm',
-        message: r.returnNo,
+        message: complete
+            ? completeCheck!.successMessage(r.returnNo, completedLabel: 'Đã trả hàng')
+            : r.returnNo,
       );
       if (complete && mounted) {
         Navigator.pop(context, true);
@@ -420,12 +439,22 @@ class _PosPurchaseReturnEditorScreenState
     final res = await _api.completePosPurchaseReturn(_returnId!);
     if (!mounted) return;
     setState(() => _saving = false);
-    if (res['isSuccess'] == true) {
-      NotificationOverlayManager().showSuccess(title: 'Hoàn tất', message: 'Phiếu đã trả hàng');
+    final result = PosDocMutationResult.parse(
+      Map<String, dynamic>.from(res),
+      expectedStatus: 'Completed',
+      completedLabel: 'Đã trả hàng',
+    );
+    if (result.ok) {
+      NotificationOverlayManager().showSuccess(
+        title: 'Hoàn tất',
+        message: result.successMessage(_returnNo, completedLabel: 'Đã trả hàng'),
+      );
       if (mounted) Navigator.pop(context, true);
     } else {
-      NotificationOverlayManager()
-          .showError(title: 'Lỗi', message: res['message']?.toString() ?? '');
+      NotificationOverlayManager().showError(
+        title: 'Lỗi',
+        message: result.errorMessage ?? res['message']?.toString() ?? '',
+      );
     }
   }
 
@@ -452,12 +481,17 @@ class _PosPurchaseReturnEditorScreenState
     if (ok != true || !mounted) return;
     final res = await _api.deletePosPurchaseReturn(_returnId!);
     if (!mounted) return;
-    if (res['isSuccess'] == true) {
+    final deleteResult = PosDocMutationResult.parseDelete(
+      Map<String, dynamic>.from(res),
+    );
+    if (deleteResult.ok) {
       NotificationOverlayManager().showSuccess(title: 'Đã xóa', message: _returnNo);
       if (mounted) Navigator.pop(context, true);
     } else {
-      NotificationOverlayManager()
-          .showError(title: 'Lỗi', message: res['message']?.toString() ?? 'Không xóa được');
+      NotificationOverlayManager().showError(
+        title: 'Lỗi',
+        message: deleteResult.errorMessage ?? res['message']?.toString() ?? 'Không xóa được',
+      );
     }
   }
 
@@ -483,13 +517,24 @@ class _PosPurchaseReturnEditorScreenState
     final res = await _api.cancelPosPurchaseReturn(_returnId!);
     if (!mounted) return;
     setState(() => _saving = false);
-    if (res['isSuccess'] == true) {
+    final result = PosDocMutationResult.parse(
+      Map<String, dynamic>.from(res),
+      expectedStatus: 'Cancelled',
+      completedLabel: 'Đã trả hàng',
+    );
+    if (result.ok) {
+      setState(() => _status = result.status);
       NotificationOverlayManager().showSuccess(
-          title: 'Đã hủy', message: 'Đã hoàn kho · $_returnNo');
+        title: 'Đã hủy',
+        message: result.successMessage(_returnNo,
+            stockNote: 'Đã hoàn kho', completedLabel: 'Đã trả hàng'),
+      );
       await _loadReturn(_returnId!);
     } else {
-      NotificationOverlayManager()
-          .showError(title: 'Lỗi', message: res['message']?.toString() ?? 'Không hủy được');
+      NotificationOverlayManager().showError(
+        title: 'Lỗi',
+        message: result.errorMessage ?? res['message']?.toString() ?? 'Không hủy được',
+      );
     }
   }
 

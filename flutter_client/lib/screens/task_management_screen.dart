@@ -1,9 +1,7 @@
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:intl/intl.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
 import '../widgets/auth_cached_image.dart';
@@ -18,6 +16,7 @@ import '../providers/permission_provider.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/hrm_fab_clearance.dart';
+import '../utils/image_source_picker.dart';
 import '../utils/navigation_notifier.dart';
 import '../utils/store_role_helper.dart';
 import '../utils/permission_navigation.dart';
@@ -5047,8 +5046,7 @@ class _ProgressUpdatePageState extends State<_ProgressUpdatePage> {
   late double _sliderVal;
   final _notesCtrl = TextEditingController();
   final _linkUrlsCtrl = TextEditingController();
-  final List<XFile> _pickedImages = [];
-  final List<Uint8List> _imageBytes = [];
+  final List<PickedImageResult> _pickedImages = [];
   bool _saving = false;
   String _statusText = '';
 
@@ -5067,24 +5065,9 @@ class _ProgressUpdatePageState extends State<_ProgressUpdatePage> {
 
   Future<void> _pickImages() async {
     try {
-      final picker = ImagePicker();
-      // Try pickMultiImage first, fall back to single pick if it fails
-      List<XFile> images = [];
-      try {
-        images = await picker.pickMultiImage(imageQuality: 80, maxWidth: 1920);
-      } catch (_) {
-        // Fallback: pick single image from gallery
-        final single = await picker.pickImage(
-            source: ImageSource.gallery, imageQuality: 80, maxWidth: 1920);
-        if (single != null) images = [single];
-      }
-      for (final img in images) {
-        final bytes = await img.readAsBytes();
-        setState(() {
-          _pickedImages.add(img);
-          _imageBytes.add(bytes);
-        });
-      }
+      final images = await pickImagesWithCamera(context, allowMultiple: true);
+      if (images == null || images.isEmpty) return;
+      setState(() => _pickedImages.addAll(images));
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -5095,32 +5078,9 @@ class _ProgressUpdatePageState extends State<_ProgressUpdatePage> {
     }
   }
 
-  Future<void> _takePhoto() async {
-    try {
-      final picker = ImagePicker();
-      final photo = await picker.pickImage(
-          source: ImageSource.camera, imageQuality: 80, maxWidth: 1920);
-      if (photo != null) {
-        final bytes = await photo.readAsBytes();
-        setState(() {
-          _pickedImages.add(photo);
-          _imageBytes.add(bytes);
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text('Lỗi chụp ảnh: $e'), backgroundColor: Colors.red),
-        );
-      }
-    }
-  }
-
   void _removeImage(int index) {
     setState(() {
       _pickedImages.removeAt(index);
-      _imageBytes.removeAt(index);
     });
   }
 
@@ -5138,7 +5098,7 @@ class _ProgressUpdatePageState extends State<_ProgressUpdatePage> {
             _statusText = 'Đang tải ảnh ${i + 1}/${_pickedImages.length}...');
         try {
           final r = await widget.api.uploadFile(
-              _imageBytes[i], _pickedImages[i].name,
+              _pickedImages[i].bytes, _pickedImages[i].name,
               folder: 'tasks');
           if (r['isSuccess'] == true && r['data'] != null) {
             final d = r['data'];
@@ -5307,8 +5267,8 @@ class _ProgressUpdatePageState extends State<_ProgressUpdatePage> {
                     const Spacer(),
                     OutlinedButton.icon(
                       onPressed: _saving ? null : _pickImages,
-                      icon: const Icon(Icons.photo_library, size: 16),
-                      label: const Text('Thư viện',
+                      icon: const Icon(Icons.add_photo_alternate, size: 16),
+                      label: const Text('Thêm ảnh',
                           style: TextStyle(fontSize: 12)),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(
@@ -5319,33 +5279,19 @@ class _ProgressUpdatePageState extends State<_ProgressUpdatePage> {
                             color: HrmPageChrome.primaryNavy, width: 0.5),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    OutlinedButton.icon(
-                      onPressed: _saving ? null : _takePhoto,
-                      icon: const Icon(Icons.camera_alt, size: 16),
-                      label: const Text('Chụp', style: TextStyle(fontSize: 12)),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
-                        minimumSize: const Size(0, 34),
-                        foregroundColor: HrmPageChrome.primaryNavy,
-                        side: const BorderSide(
-                            color: HrmPageChrome.primaryNavy, width: 0.5),
-                      ),
-                    ),
                   ]),
-                  if (_imageBytes.isNotEmpty) ...[
+                  if (_pickedImages.isNotEmpty) ...[
                     const SizedBox(height: 12),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
-                      children: _imageBytes.asMap().entries.map((entry) {
+                      children: _pickedImages.asMap().entries.map((entry) {
                         return Stack(
                           clipBehavior: Clip.none,
                           children: [
                             ClipRRect(
                               borderRadius: BorderRadius.circular(8),
-                              child: Image.memory(entry.value,
+                              child: Image.memory(entry.value.bytes,
                                   width: 80, height: 80, fit: BoxFit.cover),
                             ),
                             Positioned(

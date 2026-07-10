@@ -1,4 +1,5 @@
 using ZKTecoADMS.Application.DTOs.Notifications;
+using ZKTecoADMS.Application.Notifications;
 using ZKTecoADMS.Domain.Enums;
 
 namespace ZKTecoADMS.Application.Commands.Notifications;
@@ -80,7 +81,6 @@ public class BulkCreateNotificationsHandler(
                 RelatedUrl = request.RelatedUrl
             }).ToList();
 
-            // Batch insert all notifications in one DB roundtrip
             await notificationRepository.AddRangeAsync(notifications, cancellationToken);
             
             return AppResponse<List<NotificationDto>>.Success(notifications.Adapt<List<NotificationDto>>());
@@ -94,9 +94,10 @@ public class BulkCreateNotificationsHandler(
 
 // Mark Notification as Read Command
 public record MarkNotificationReadCommand(
-    Guid StoreId,
     Guid NotificationId,
-    Guid UserId) : ICommand<AppResponse<NotificationDto>>;
+    Guid UserId,
+    Guid? StoreId,
+    bool IsCrossStoreUser) : ICommand<AppResponse<NotificationDto>>;
 
 public class MarkNotificationReadHandler(
     IRepository<Notification> notificationRepository
@@ -106,18 +107,15 @@ public class MarkNotificationReadHandler(
     {
         try
         {
+            var filter = NotificationUserScope.FilterById(
+                request.NotificationId, request.UserId, request.StoreId, request.IsCrossStoreUser);
+
             var notification = await notificationRepository.GetSingleAsync(
-                filter: n => n.Id == request.NotificationId && n.StoreId == request.StoreId,
+                filter: filter,
                 cancellationToken: cancellationToken);
             if (notification == null)
             {
                 return AppResponse<NotificationDto>.Error("Notification not found");
-            }
-
-            // Only allow marking own per-user notifications as read
-            if (notification.TargetUserId != request.UserId)
-            {
-                return AppResponse<NotificationDto>.Error("Not authorized");
             }
 
             notification.IsRead = true;
@@ -135,7 +133,10 @@ public class MarkNotificationReadHandler(
 }
 
 // Mark All Notifications as Read Command
-public record MarkAllNotificationsReadCommand(Guid StoreId, Guid UserId) : ICommand<AppResponse<int>>;
+public record MarkAllNotificationsReadCommand(
+    Guid UserId,
+    Guid? StoreId,
+    bool IsCrossStoreUser) : ICommand<AppResponse<int>>;
 
 public class MarkAllNotificationsReadHandler(
     IRepository<Notification> notificationRepository
@@ -146,9 +147,8 @@ public class MarkAllNotificationsReadHandler(
         try
         {
             var unreadNotifications = await notificationRepository.GetAllAsync(
-                n => n.StoreId == request.StoreId &&
-                     n.TargetUserId == request.UserId &&
-                     !n.IsRead,
+                NotificationUserScope.FilterForUser(
+                    request.UserId, request.StoreId, request.IsCrossStoreUser, isRead: false),
                 cancellationToken: cancellationToken);
 
             if (unreadNotifications.Count == 0)
@@ -161,7 +161,6 @@ public class MarkAllNotificationsReadHandler(
                 notification.ReadAt = now;
             }
 
-            // Batch update: single SaveChanges via UpdateRangeAsync
             await notificationRepository.UpdateRangeAsync(unreadNotifications, cancellationToken);
             
             return AppResponse<int>.Success(unreadNotifications.Count);
@@ -175,9 +174,10 @@ public class MarkAllNotificationsReadHandler(
 
 // Delete Notification Command
 public record DeleteNotificationCommand(
-    Guid StoreId,
     Guid NotificationId,
-    Guid UserId) : ICommand<AppResponse<bool>>;
+    Guid UserId,
+    Guid? StoreId,
+    bool IsCrossStoreUser) : ICommand<AppResponse<bool>>;
 
 public class DeleteNotificationHandler(
     IRepository<Notification> notificationRepository
@@ -187,18 +187,15 @@ public class DeleteNotificationHandler(
     {
         try
         {
+            var filter = NotificationUserScope.FilterById(
+                request.NotificationId, request.UserId, request.StoreId, request.IsCrossStoreUser);
+
             var notification = await notificationRepository.GetSingleAsync(
-                filter: n => n.Id == request.NotificationId && n.StoreId == request.StoreId,
+                filter: filter,
                 cancellationToken: cancellationToken);
             if (notification == null)
             {
                 return AppResponse<bool>.Error("Notification not found");
-            }
-
-            // Only allow deleting own per-user notifications
-            if (notification.TargetUserId != request.UserId)
-            {
-                return AppResponse<bool>.Error("Not authorized");
             }
 
             await notificationRepository.DeleteAsync(notification, cancellationToken);
@@ -214,8 +211,9 @@ public class DeleteNotificationHandler(
 
 // Delete All Notifications Command
 public record DeleteAllNotificationsCommand(
-    Guid StoreId,
     Guid UserId,
+    Guid? StoreId,
+    bool IsCrossStoreUser,
     bool? IsRead = null) : ICommand<AppResponse<int>>;
 
 public class DeleteAllNotificationsHandler(
@@ -226,21 +224,19 @@ public class DeleteAllNotificationsHandler(
     {
         try
         {
-            // Count first for response, then bulk delete with filter (single SQL roundtrip)
             var isRead = request.IsRead;
-            var count = await notificationRepository.CountAsync(
-                n => n.StoreId == request.StoreId
-                    && n.TargetUserId == request.UserId
-                    && (isRead == null || n.IsRead == isRead),
-                cancellationToken);
+            var toDelete = await notificationRepository.GetAllAsync(
+                NotificationUserScope.FilterForUser(
+                    request.UserId, request.StoreId, request.IsCrossStoreUser, isRead: isRead),
+                cancellationToken: cancellationToken);
 
-            if (count == 0)
+            if (toDelete.Count == 0)
                 return AppResponse<int>.Success(0);
 
+            var count = toDelete.Count;
             await notificationRepository.DeleteAsync(
-                n => n.StoreId == request.StoreId
-                    && n.TargetUserId == request.UserId
-                    && (isRead == null || n.IsRead == isRead),
+                NotificationUserScope.FilterForUser(
+                    request.UserId, request.StoreId, request.IsCrossStoreUser, isRead: isRead),
                 cancellationToken);
 
             return AppResponse<int>.Success(count);

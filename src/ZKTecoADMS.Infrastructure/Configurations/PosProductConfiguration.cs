@@ -193,6 +193,8 @@ public class PosStockTransactionConfiguration : IEntityTypeConfiguration<PosStoc
         builder.Property(x => x.ReferenceNo).HasMaxLength(50);
         builder.Property(x => x.Note).HasMaxLength(500);
         builder.HasIndex(x => new { x.StoreId, x.ProductId, x.CreatedAt });
+        builder.HasIndex(x => new { x.StoreId, x.SaleOrderId, x.TransactionType });
+        builder.HasIndex(x => new { x.StoreId, x.TransactionType, x.ReferenceNo });
         builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne(x => x.Product).WithMany(x => x.StockTransactions).HasForeignKey(x => x.ProductId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne(x => x.Variant).WithMany().HasForeignKey(x => x.VariantId).OnDelete(DeleteBehavior.SetNull);
@@ -253,6 +255,7 @@ public class PosSaleOrderLineConfiguration : IEntityTypeConfiguration<PosSaleOrd
         builder.Property(x => x.Qty).HasPrecision(18, 4);
         builder.Property(x => x.UnitPrice).HasPrecision(18, 2);
         builder.Property(x => x.LineTotal).HasPrecision(18, 2);
+        builder.HasIndex(x => x.SaleOrderId);
         builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne(x => x.SaleOrder).WithMany(x => x.Lines).HasForeignKey(x => x.SaleOrderId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne(x => x.Product).WithMany().HasForeignKey(x => x.ProductId).OnDelete(DeleteBehavior.Restrict);

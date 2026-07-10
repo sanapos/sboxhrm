@@ -13,6 +13,7 @@ namespace ZKTecoADMS.Application.Commands.Auth.AdminLogin;
 /// </summary>
 public class AdminLoginCommandHandler(
     UserManager<ApplicationUser> userManager,
+    RoleManager<IdentityRole<Guid>> roleManager,
     IAuthenticateService authenticateService
     ) : ICommandHandler<AdminLoginCommand, AppResponse<AuthenticateResponse>>
 {
@@ -27,6 +28,9 @@ public class AdminLoginCommandHandler(
         {
             return AppResponse<AuthenticateResponse>.Error("Email không tồn tại.");
         }
+
+        // Self-heal: user.Role = SuperAdmin/Agent nhưng thiếu AspNetUserRoles (tạo tài khoản đại lý lỗi cũ).
+        await IdentityRoleSyncHelper.TryHealAdminPortalRoleAsync(userManager, roleManager, user);
         
         // Check if user has admin role (SuperAdmin or Agent)
         var roles = await userManager.GetRolesAsync(user);

@@ -28,6 +28,7 @@ import '../widgets/pos/pos_theme.dart';
 import '../widgets/pos/pos_product_expansion_panel.dart';
 import '../widgets/pos/pos_product_unit_view.dart';
 import '../widgets/pos/pos_unit_chip_selector.dart';
+import '../utils/pos_product_type_picker.dart';
 import '../widgets/pos/pos_hub_scope.dart';
 import '../widgets/pos/pos_product_image.dart';
 import '../utils/navigation_notifier.dart';
@@ -899,7 +900,16 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF0F2F5),
       floatingActionButton: mobile && perm.canCreate('PosProducts')
-          ? PosMobileFab(onPressed: () => _onCreateType('goods'))
+          ? PosMobileFab(
+              onPressed: () => showPosProductCreateSheet(
+                context,
+                onPick: (t) => _onCreateType(switch (t) {
+                  PosProductType.service => 'service',
+                  PosProductType.combo => 'combo',
+                  _ => 'goods',
+                }),
+              ),
+            )
           : null,
       body: posMobileSafeBody(
         context,
@@ -1449,15 +1459,32 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
               ),
               const Divider(height: 1),
             ],
-            if (perm.canCreate('PosProducts'))
+            if (perm.canCreate('PosProducts')) ...[
               ListTile(
-                leading: const Icon(Icons.add),
+                leading: const Icon(Icons.inventory_2_outlined),
                 title: const Text('Tạo hàng hoá'),
                 onTap: () {
                   Navigator.pop(ctx);
                   _onCreateType('goods');
                 },
               ),
+              ListTile(
+                leading: const Icon(Icons.handyman_outlined),
+                title: const Text('Tạo dịch vụ'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _onCreateType('service');
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.layers_outlined),
+                title: const Text('Tạo combo / đóng gói'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _onCreateType('combo');
+                },
+              ),
+            ],
             ListTile(
               leading: const Icon(Icons.qr_code_scanner),
               title: const Text('Quét mã vạch'),

@@ -6,6 +6,8 @@ import '../models/pos_stock_count.dart';
 import '../providers/permission_provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
+import '../utils/pos_doc_status.dart';
+import '../utils/pos_mutation_result.dart';
 import '../utils/pos_stock_count_print.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/loading_widget.dart';
@@ -198,14 +200,25 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
     if (ok != true || !mounted) return;
     final res = await _api.completePosStockCount(c.id);
     if (!mounted) return;
-    if (res['isSuccess'] == true) {
+    final result = PosDocMutationResult.parse(
+      Map<String, dynamic>.from(res),
+      expectedStatus: 'Completed',
+      statusFallback: 'InProgress',
+      completedLabel: 'Đã cân bằng kho',
+    );
+    if (result.ok) {
       NotificationOverlayManager().showSuccess(
-          title: 'Thành công', message: 'Đã cân bằng kho');
+        title: 'Thành công',
+        message: result.successMessage(c.countNo, completedLabel: 'Đã cân bằng kho'),
+      );
       await _load(page: _page);
       await _refreshExpandedDetail(c.id);
     } else {
       NotificationOverlayManager().showError(
-          title: 'Lỗi', message: res['message']?.toString() ?? 'Không thể hoàn thành');
+        title: 'Lỗi',
+        message: result.errorMessage ?? res['message']?.toString() ?? 'Không thể hoàn thành',
+      );
+      await _load(page: _page);
     }
   }
 
@@ -244,13 +257,23 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
     if (ok != true || !mounted) return;
     final res = await _api.deletePosStockCount(c.id);
     if (!mounted) return;
-    if (res['isSuccess'] == true) {
+    final deleteResult = PosDocMutationResult.parseDelete(
+      Map<String, dynamic>.from(res),
+    );
+    if (deleteResult.ok) {
       NotificationOverlayManager().showSuccess(title: 'Đã xóa', message: c.countNo);
       _collapseExpanded();
+      setState(() {
+        _items = _items.where((x) => x.id != c.id).toList();
+        if (_total > 0) _total -= 1;
+      });
       await _load(page: _page);
     } else {
       NotificationOverlayManager().showError(
-          title: 'Lỗi', message: res['message']?.toString() ?? 'Không xóa được');
+        title: 'Lỗi',
+        message: deleteResult.errorMessage ?? res['message']?.toString() ?? 'Không xóa được',
+      );
+      await _load(page: _page);
     }
   }
 
@@ -274,14 +297,26 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
     if (ok != true || !mounted) return;
     final res = await _api.cancelPosStockCount(c.id);
     if (!mounted) return;
-    if (res['isSuccess'] == true) {
+    final result = PosDocMutationResult.parse(
+      Map<String, dynamic>.from(res),
+      expectedStatus: 'Cancelled',
+      statusFallback: 'InProgress',
+      completedLabel: 'Đã cân bằng kho',
+    );
+    if (result.ok) {
       NotificationOverlayManager().showSuccess(
-          title: 'Đã hủy', message: 'Đã hoàn tồn kho · ${c.countNo}');
+        title: 'Đã hủy',
+        message: result.successMessage(c.countNo,
+            stockNote: 'Đã hoàn tồn kho', completedLabel: 'Đã cân bằng kho'),
+      );
       await _load(page: _page);
       await _refreshExpandedDetail(c.id);
     } else {
       NotificationOverlayManager().showError(
-          title: 'Lỗi', message: res['message']?.toString() ?? 'Không hủy được');
+        title: 'Lỗi',
+        message: result.errorMessage ?? res['message']?.toString() ?? 'Không hủy được',
+      );
+      await _load(page: _page);
     }
   }
 
@@ -563,8 +598,12 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
         children: [
           InkWell(
             onTap: () => _toggleExpand(c),
-            hoverColor: const Color(0xFFF1F5F9),
+            hoverColor: c.status == 'Cancelled'
+                ? Colors.red.shade50
+                : const Color(0xFFF1F5F9),
             child: Container(
+              color: posDocRowBackground(
+                  c.status == 'InProgress' ? 'InProgress' : c.status),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
                 border: Border(
@@ -583,8 +622,10 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
                   Expanded(
                     flex: 2,
                     child: Text(c.countNo,
-                        style: const TextStyle(
-                            color: _blue, fontWeight: FontWeight.w600, fontSize: 13)),
+                        style: posDocNoTextStyle(
+                          c.status == 'InProgress' ? 'InProgress' : c.status,
+                          activeColor: _blue,
+                        )),
                   ),
                   Expanded(
                     flex: 2,

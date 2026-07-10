@@ -12,6 +12,7 @@ import '../models/pos_sale_order.dart';
 import '../models/pos_store_printer.dart';
 import '../services/api_service.dart';
 import 'pos_html_print.dart';
+import 'pos_print_template_loader.dart';
 import 'pos_pdf_fonts.dart';
 import 'pos_print_orchestrator.dart';
 import 'pos_print_template_renderer.dart';
@@ -224,16 +225,11 @@ Future<PosPrintTemplate?> _resolveSalePrintTemplate(String? templateId) async {
       return PosPrintTemplate.fromJson(res['data'] as Map<String, dynamic>);
     }
   }
-  final listRes = await ApiService().getPosPrintTemplates(
-    documentType: PosPrintDocumentTypes.saleInvoice,
+  final list = await loadPosPrintTemplates(
+    ApiService(),
+    PosPrintDocumentTypes.saleInvoice,
   );
-  if (listRes['isSuccess'] == true && listRes['data'] is List) {
-    final list = (listRes['data'] as List)
-        .map((e) => PosPrintTemplate.fromJson(e as Map<String, dynamic>))
-        .toList();
-    return list.where((t) => t.isDefault).firstOrNull ?? list.firstOrNull;
-  }
-  return null;
+  return list.where((t) => t.isDefault).firstOrNull ?? list.firstOrNull;
 }
 
 PosThermalPrinterSettings _thermalSettingsForTemplate(

@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../screens/main_layout.dart' show ScreenRefreshNotifier;
 import 'navigation_notifier.dart';
 import 'notification_navigation.dart';
+import 'admin_navigation.dart';
 
 /// Hàng đợi điều hướng từ FCM khi cold start — chỉ áp dụng sau khi [MainLayout] sẵn sàng.
 class PendingNotificationLaunch {
@@ -51,9 +52,12 @@ class PendingNotificationLaunch {
       (_title != null && _title!.isNotEmpty);
 
   /// Trả về true nếu đã điều hướng.
-  static bool tryConsume() {
+  static bool tryConsume({bool adminPortalMode = false, bool agentMode = false}) {
     if (!hasPending) return false;
-    if (!NavigationNotifier.mainLayoutReady.value) {
+    if (!adminPortalMode && !NavigationNotifier.mainLayoutReady.value) {
+      return false;
+    }
+    if (adminPortalMode && !AdminNavigationNotifier.systemAdminReady.value) {
       return false;
     }
     final type = _entityType;
@@ -64,7 +68,8 @@ class PendingNotificationLaunch {
     final actionUrl = _actionUrl;
     clear();
     // ignore: discarded_futures
-    _consumeAsync(type, rowId, highlightId, title, category, actionUrl);
+    _consumeAsync(type, rowId, highlightId, title, category, actionUrl,
+        adminPortalMode: adminPortalMode, agentMode: agentMode);
     return true;
   }
 
@@ -74,8 +79,10 @@ class PendingNotificationLaunch {
     String? highlightId,
     String? title,
     String? categoryCode,
-    String? actionUrl,
-  ) async {
+    String? actionUrl, {
+    bool adminPortalMode = false,
+    bool agentMode = false,
+  }) async {
     if (rowId != null && rowId.isNotEmpty) {
       try {
         final api = ApiService();
@@ -92,13 +99,21 @@ class PendingNotificationLaunch {
       title: title,
       categoryCode: categoryCode,
       actionUrl: actionUrl,
+      adminPortalMode: adminPortalMode,
+      agentMode: agentMode,
     );
   }
 
-  /// Thử lại cho đến khi MainLayout mount (và sau đăng nhập).
-  static void scheduleConsume({int maxAttempts = 80}) {
+  /// Thử lại cho đến khi MainLayout hoặc SystemAdminScreen mount.
+  static void scheduleConsume({
+    int maxAttempts = 80,
+    bool adminPortalMode = false,
+    bool agentMode = false,
+  }) {
     void attempt(int n) {
-      if (tryConsume()) return;
+      if (tryConsume(adminPortalMode: adminPortalMode, agentMode: agentMode)) {
+        return;
+      }
       if (n >= maxAttempts) {
         if (kDebugMode && hasPending) {
           debugPrint(

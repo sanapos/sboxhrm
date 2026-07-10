@@ -194,6 +194,15 @@ class PosSaleOrder {
 
   bool get isPartiallyReturned => returnStatus == 'Partial';
 
+  /// Ẩn khỏi danh sách: đơn nháp, đã hủy, hoặc đã trả hết 100%.
+  bool get canDeleteFromList =>
+      status == 'Cancelled' ||
+      status == 'Draft' ||
+      (status == 'Completed' && isFullyReturned);
+
+  /// Hủy đơn (hoàn kho) — chỉ khi chưa có trả hàng khách.
+  bool get canCancelWithStock => status == 'Completed' && !hasReturns;
+
   factory PosSaleOrder.fromJson(Map<String, dynamic> json) {
     double n(dynamic v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
     final linesRaw = json['lines'] ?? json['Lines'];

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import 'navigation_notifier.dart';
+import 'admin_navigation.dart';
 import '../screens/settings_hub_screen.dart';
 
 /// Đích điều hướng khi user bấm thông báo (in-app, system tray, FCM).
@@ -60,6 +61,23 @@ String? entityTypeFromActionUrl(String? url) {
   final segs = url.split('/').where((s) => s.isNotEmpty).toList();
   if (segs.isEmpty) return null;
   final first = segs.first.toLowerCase();
+  if (first == 'admin') {
+    if (segs.length >= 2) {
+      switch (segs[1].toLowerCase()) {
+        case 'stores':
+          return 'Store';
+        case 'devices':
+          return 'Device';
+        case 'licenses':
+          return 'LicenseKey';
+        case 'agents':
+          return 'Agent';
+        case 'users':
+          return 'User';
+      }
+    }
+    return 'SystemAdmin';
+  }
   if (first == 'adms-devices' || first == 'admsdevices') return 'Device';
   if (first == 'overtimes' || first == 'overtime') return 'Overtime';
   if (first == 'leaves' || first == 'leave') return 'Leave';
@@ -480,6 +498,12 @@ NotificationNavigationTarget? resolveNotificationNavigation(
         settingsHubSubIndex: 7,
       );
     case 'store':
+    case 'renewal':
+      return const NotificationNavigationTarget(moduleCode: 'SystemAdmin');
+    case 'licensekey':
+    case 'license':
+      return const NotificationNavigationTarget(moduleCode: 'SystemAdmin');
+    case 'agent':
       return const NotificationNavigationTarget(moduleCode: 'SystemAdmin');
     case 'systemannouncement':
       return const NotificationNavigationTarget(moduleCode: 'Notification');
@@ -496,7 +520,22 @@ void navigateFromNotification({
   String? title,
   String? categoryCode,
   String? actionUrl,
+  bool adminPortalMode = false,
+  bool agentMode = false,
 }) {
+  if (adminPortalMode ||
+      (actionUrl ?? '').startsWith('/admin') ||
+      AdminNavigationNotifier.systemAdminReady.value) {
+    AdminNavigationNotifier.navigate(
+      agentMode: agentMode,
+      actionUrl: actionUrl,
+      relatedEntityType: relatedEntityType,
+      categoryCode: categoryCode,
+      relatedEntityId: relatedEntityId,
+    );
+    return;
+  }
+
   final entity = resolveEntityTypeForNotification(
     relatedEntityType: relatedEntityType,
     categoryCode: categoryCode,

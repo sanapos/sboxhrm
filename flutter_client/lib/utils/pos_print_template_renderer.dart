@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../models/pos_print_template.dart';
 import '../models/pos_sale_order.dart';
 import '../services/api_service.dart';
+import 'pos_print_template_loader.dart';
 import 'pos_vietnamese_money_words.dart';
 
 const _itemBegin = '<!--BEGIN_ITEMS-->';
@@ -276,16 +277,11 @@ Future<PosPrintTemplate?> resolvePosPrintTemplate({
     }
   }
   var listRes = await api.getPosPrintTemplates(documentType: documentType);
-  if (listRes['isSuccess'] == true &&
-      listRes['data'] is List &&
-      (listRes['data'] as List).isEmpty) {
-    await api.seedPosPrintTemplates(documentType: documentType);
-    listRes = await api.getPosPrintTemplates(documentType: documentType);
+  var list = parsePosPrintTemplatesResponse(listRes);
+  if (list.isEmpty) {
+    list = await loadPosPrintTemplates(api, documentType);
   }
-  if (listRes['isSuccess'] == true && listRes['data'] is List) {
-    final list = (listRes['data'] as List)
-        .map((e) => PosPrintTemplate.fromJson(e as Map<String, dynamic>))
-        .toList();
+  if (list.isNotEmpty) {
     return list.where((t) => t.isDefault).firstOrNull ?? list.firstOrNull;
   }
   return null;

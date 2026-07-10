@@ -660,23 +660,47 @@ public class PosStockIssueKiotController(ZKTecoDbContext dbContext) : Authentica
 
 
 
-        issue.Status = PosStockIssueStatus.Completed;
-
-        issue.CompletedAt = DateTime.UtcNow;
-
         issue.IssuedAt ??= DateTime.UtcNow;
 
         issue.IssuedBy ??= CurrentUserEmail;
-
-        issue.UpdatedAt = DateTime.UtcNow;
-
-        issue.UpdatedBy = CurrentUserEmail;
 
         await dbContext.SaveChangesAsync();
 
 
 
-        return Ok(AppResponse<StockIssueKiotDto>.Success(MapIssue(issue, issue.Lines.ToList())));
+        var completedAt = DateTime.UtcNow;
+
+        var (statusOk, statusErr) = await PosDocStatusPersistHelper.SetStockIssueStatusAsync(
+
+            dbContext, id, storeId, issueKind,
+
+            PosStockIssueStatus.Draft, PosStockIssueStatus.Completed,
+
+            CurrentUserEmail, completedAt);
+
+        if (!statusOk)
+
+            return BadRequest(AppResponse<StockIssueKiotDto>.Fail(statusErr!));
+
+
+
+        dbContext.ChangeTracker.Clear();
+
+        var fresh = await dbContext.PosStockIssues.AsNoTracking()
+
+            .Include(i => i.Lines)
+
+            .FirstOrDefaultAsync(i => i.Id == id && i.StoreId == storeId &&
+
+                                      i.Kind == issueKind && i.Deleted == null);
+
+        if (fresh == null)
+
+            return NotFound(AppResponse<StockIssueKiotDto>.Fail("Không tìm thấy phiếu xuất"));
+
+
+
+        return Ok(AppResponse<StockIssueKiotDto>.Success(MapIssue(fresh, fresh.Lines.ToList())));
 
     }
 
@@ -716,6 +740,8 @@ public class PosStockIssueKiotController(ZKTecoDbContext dbContext) : Authentica
 
 
 
+        await using var tx = await dbContext.Database.BeginTransactionAsync();
+
         try
 
         {
@@ -724,29 +750,73 @@ public class PosStockIssueKiotController(ZKTecoDbContext dbContext) : Authentica
 
                 dbContext, storeId, issue, issue.Lines.ToList(), CurrentUserEmail, noteFallback);
 
+            await dbContext.SaveChangesAsync();
+
+
+
+            var (statusOk, statusErr) = await PosDocStatusPersistHelper.SetStockIssueStatusAsync(
+
+                dbContext, id, storeId, issueKind,
+
+                PosStockIssueStatus.Completed, PosStockIssueStatus.Cancelled,
+
+                CurrentUserEmail);
+
+            if (!statusOk)
+
+            {
+
+                await tx.RollbackAsync();
+
+                return BadRequest(AppResponse<StockIssueKiotDto>.Fail(statusErr!));
+
+            }
+
+
+
+            await tx.CommitAsync();
+
         }
 
         catch (InvalidOperationException ex)
 
         {
 
+            await tx.RollbackAsync();
+
             return BadRequest(AppResponse<StockIssueKiotDto>.Fail(ex.Message));
+
+        }
+
+        catch
+
+        {
+
+            await tx.RollbackAsync();
+
+            throw;
 
         }
 
 
 
-        issue.Status = PosStockIssueStatus.Cancelled;
+        dbContext.ChangeTracker.Clear();
 
-        issue.UpdatedAt = DateTime.UtcNow;
+        var fresh = await dbContext.PosStockIssues.AsNoTracking()
 
-        issue.UpdatedBy = CurrentUserEmail;
+            .Include(i => i.Lines)
 
-        await dbContext.SaveChangesAsync();
+            .FirstOrDefaultAsync(i => i.Id == id && i.StoreId == storeId &&
+
+                                      i.Kind == issueKind && i.Deleted == null);
+
+        if (fresh == null)
+
+            return NotFound(AppResponse<StockIssueKiotDto>.Fail("Không tìm thấy phiếu xuất"));
 
 
 
-        return Ok(AppResponse<StockIssueKiotDto>.Success(MapIssue(issue, issue.Lines.ToList())));
+        return Ok(AppResponse<StockIssueKiotDto>.Success(MapIssue(fresh, fresh.Lines.ToList())));
 
     }
 
@@ -784,13 +854,17 @@ public class PosStockIssueKiotController(ZKTecoDbContext dbContext) : Authentica
 
 
 
-        issue.Deleted = DateTime.UtcNow;
+        var (deleteOk, deleteErr) = await PosDocStatusPersistHelper.SoftDeleteStockIssueAsync(
 
-        issue.UpdatedAt = DateTime.UtcNow;
+            dbContext, id, storeId, issueKind, CurrentUserEmail);
 
-        issue.UpdatedBy = CurrentUserEmail;
+        if (!deleteOk)
 
-        await dbContext.SaveChangesAsync();
+            return BadRequest(AppResponse<object>.Fail(deleteErr!));
+
+
+
+        dbContext.ChangeTracker.Clear();
 
         return Ok(AppResponse<object>.Success(new { deleted = true }));
 

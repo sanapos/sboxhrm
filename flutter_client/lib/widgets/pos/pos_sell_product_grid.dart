@@ -126,6 +126,15 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
 
   void reload({bool forceNetwork = true}) => _loadProducts(forceNetwork: forceNetwork);
 
+  List<PosProduct> get catalogProducts => _allProducts;
+
+  PosProduct? findCatalogProduct(String id) {
+    for (final p in _allProducts) {
+      if (p.id == id) return p;
+    }
+    return null;
+  }
+
   /// Cập nhật tồn cục bộ theo dòng bán/trả — không reload lưới/ảnh.
   void applyStockLinePatches(List<PosSellStockLineDelta> lines) {
     if (lines.isEmpty) return;
@@ -204,14 +213,17 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
   }
 
   Future<void> _fetchCatalogFromNetwork(String storeId, {bool silent = false}) async {
-    final res = await widget.api.getPosSellProducts(pageSize: 500);
-    if (!mounted) return;
-
     final products = <PosProduct>[];
     DateTime? catalogVersion;
-    if (res['isSuccess'] == true && res['data'] is Map) {
+    const pageSize = 500;
+    for (var page = 1; page <= 40; page++) {
+      final res =
+          await widget.api.getPosSellProducts(page: page, pageSize: pageSize);
+      if (!mounted) return;
+      if (res['isSuccess'] != true || res['data'] is! Map) break;
       final data = res['data'] as Map<String, dynamic>;
       final raw = data['items'] as List? ?? [];
+      if (raw.isEmpty) break;
       products.addAll(
         raw.map(
           (e) => applyComboSellableToProduct(
@@ -223,7 +235,10 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
       if (verRaw != null) {
         catalogVersion = DateTime.tryParse(verRaw.toString());
       }
+      final total = (data['total'] as num?)?.toInt() ?? products.length;
+      if (products.length >= total || raw.length < pageSize) break;
     }
+    if (!mounted) return;
 
     if (storeId.isNotEmpty && products.isNotEmpty) {
       await PosSellCatalogCache.instance.write(
@@ -359,6 +374,19 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
       return a.name.compareTo(b.name);
     });
     return list;
+  }
+
+  int get _sellListPageCount => _sortedSellListProducts.isEmpty
+      ? 1
+      : ((_sortedSellListProducts.length - 1) ~/ widget.pageSize) + 1;
+
+  List<PosProduct> get _sortedSellListPageItems {
+    final sorted = _sortedSellListProducts;
+    if (sorted.isEmpty) return const [];
+    final start = _page * widget.pageSize;
+    if (start >= sorted.length) return const [];
+    final end = (start + widget.pageSize).clamp(0, sorted.length);
+    return sorted.sublist(start, end);
   }
 
   int _columnsForWidth(double w) {
@@ -723,18 +751,65 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
       );
     }
 
-    return Scrollbar(
-      controller: _gridScroll,
-      thumbVisibility: true,
-      child: ListView.separated(
-        controller: _gridScroll,
-        padding: const EdgeInsets.only(bottom: 8),
-        itemCount: _sortedSellListProducts.length,
-        separatorBuilder: (_, __) =>
-            const Divider(height: 1, indent: 70, color: PosTheme.border),
-        itemBuilder: (_, i) => _sellListRow(_sortedSellListProducts[i]),
-      ),
+    final pageItems = _sortedSellListPageItems;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(
+          child: Scrollbar(
+            controller: _gridScroll,
+            thumbVisibility: true,
+            child: ListView.separated(
+              controller: _gridScroll,
+              padding: const EdgeInsets.only(bottom: 8),
+              itemCount: pageItems.length,
+              separatorBuilder: (_, __) =>
+                  const Divider(height: 1, indent: 70, color: PosTheme.border),
+              itemBuilder: (_, i) => _sellListRow(pageItems[i]),
+            ),
+          ),
+        ),
+        if (_sellListPageCount > 1)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.chevron_left, size: 22),
+                  onPressed: _page > 0
+                      ? () => setState(() {
+                            _page--;
+                            _prefetchSellListPageUnitViews();
+                          })
+                      : null,
+                ),
+                Text(
+                  '${_page + 1}/$_sellListPageCount · ${_sortedSellListProducts.length} SP',
+                  style: const TextStyle(fontSize: 11),
+                ),
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.chevron_right, size: 22),
+                  onPressed: _page < _sellListPageCount - 1
+                      ? () => setState(() {
+                            _page++;
+                            _prefetchSellListPageUnitViews();
+                          })
+                      : null,
+                ),
+              ],
+            ),
+          ),
+      ],
     );
+  }
+
+  void _prefetchSellListPageUnitViews() {
+    for (final p in _sortedSellListPageItems) {
+      _viewsFor(p);
+    }
   }
 
   Widget _sellListRow(PosProduct p) {

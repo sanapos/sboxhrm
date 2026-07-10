@@ -225,12 +225,16 @@ public class RegisterCommandHandler(
                     type: NotificationType.Info,
                     title: "Cửa hàng mới đăng ký",
                     message: $"Cửa hàng '{request.StoreName}' (Mã: {storeCode}) vừa đăng ký. Email: {request.Email}",
+                    relatedUrl: "/admin/stores",
                     relatedEntityId: storeId,
                     relatedEntityType: "Store",
                     categoryCode: "store");
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to notify SuperAdmins about new store registration {StoreCode}", storeCode);
+        }
 
         return AppResponse<string>.Success($"Đăng ký cửa hàng thành công! Mã cửa hàng của bạn là: {storeCode}. Hãy ghi nhớ mã này để đăng nhập.");
     }

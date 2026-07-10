@@ -6,6 +6,8 @@ import '../../widgets/admin/admin_mobile_widgets.dart';
 import 'system_admin_helpers.dart';
 
 class DashboardTab extends StatefulWidget {
+  final bool agentMode;
+  final VoidCallback? onLoaded;
   final VoidCallback? onNavigateToStores;
   final VoidCallback? onNavigateToUsers;
   final VoidCallback? onNavigateToDevices;
@@ -14,6 +16,8 @@ class DashboardTab extends StatefulWidget {
 
   const DashboardTab({
     super.key,
+    this.agentMode = false,
+    this.onLoaded,
     this.onNavigateToStores,
     this.onNavigateToUsers,
     this.onNavigateToDevices,
@@ -48,35 +52,84 @@ class DashboardTabState extends State<DashboardTab> {
   String _formatDateParam(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
+  Map<String, dynamic>? get dashboardData => _dashboard;
+
   Future<void> loadData() async {
     setState(() => _isLoading = true);
     try {
-      final results = await Future.wait([
-        _apiService.getSystemAdminDashboard(
-          fromDate: _formatDateParam(_fromDate),
-          toDate: _formatDateParam(_toDate),
-        ),
-        _apiService.getSystemHealth(),
-        _apiService.getSystemStores(pageSize: 5),
-      ]);
-      if (!mounted) return;
-      if (results[0]['isSuccess'] == true) {
-        final data = results[0]['data'] as Map<String, dynamic>? ?? {};
-        if (results[2]['isSuccess'] == true) {
-          data['recentStores'] =
-              AdminHelpers.extractList(results[2]['data']);
+      if (widget.agentMode) {
+        final results = await Future.wait([
+          _apiService.getAgentDashboard(
+            fromDate: _formatDateParam(_fromDate),
+            toDate: _formatDateParam(_toDate),
+          ),
+          _apiService.getAgentStores(pageSize: 5),
+        ]);
+        if (!mounted) return;
+        if (results[0]['isSuccess'] == true) {
+          final d = Map<String, dynamic>.from(results[0]['data'] as Map);
+          setState(() => _dashboard = {
+                'totalStores': d['storeCount'] ?? 0,
+                'activeStores': d['activeStores'] ?? 0,
+                'inactiveStores': d['inactiveStores'] ?? 0,
+                'lockedStores': d['lockedStores'] ?? 0,
+                'totalUsers': d['totalUsers'] ?? 0,
+                'totalDevices': d['totalDevices'] ?? 0,
+                'onlineDevices': d['onlineDevices'] ?? 0,
+                'offlineDevices': d['offlineDevices'] ?? 0,
+                'totalLicenseKeys': d['totalKeys'] ?? 0,
+                'usedLicenseKeys': d['usedKeys'] ?? 0,
+                'availableLicenseKeys': d['availableKeys'] ?? 0,
+                'totalAgents': 1,
+                'agentName': d['agentName'],
+                'agentCode': d['agentCode'],
+                'storesExpiringSoon': d['storesExpiringSoon'] ?? 0,
+                'todayAttendances': d['todayAttendances'] ?? 0,
+                'totalAttendanceToday': d['todayAttendances'] ?? 0,
+                'storesCreatedInPeriod': d['storesCreatedInPeriod'] ?? 0,
+                'keysActivatedInPeriod': d['keysActivatedInPeriod'] ?? 0,
+                'keysCreatedInPeriod': d['keysCreatedInPeriod'] ?? 0,
+                'usersCreatedInPeriod': d['usersCreatedInPeriod'] ?? 0,
+                'storeAttendances': d['storeAttendances'] ?? const [],
+                'recentActivities': d['recentActivities'] ?? const [],
+                'recentStores':
+                    AdminHelpers.extractList(results[1]['data']),
+              });
+        } else {
+          AdminHelpers.showApiError(context, results[0]);
         }
-        setState(() => _dashboard = data);
+        setState(() => _health = null);
       } else {
-        AdminHelpers.showApiError(context, results[0]);
-      }
-      if (results[1]['isSuccess'] == true) {
-        setState(() => _health = results[1]['data']);
+        final results = await Future.wait([
+          _apiService.getSystemAdminDashboard(
+            fromDate: _formatDateParam(_fromDate),
+            toDate: _formatDateParam(_toDate),
+          ),
+          _apiService.getSystemHealth(),
+          _apiService.getSystemStores(pageSize: 5),
+        ]);
+        if (!mounted) return;
+        if (results[0]['isSuccess'] == true) {
+          final data = results[0]['data'] as Map<String, dynamic>? ?? {};
+          if (results[2]['isSuccess'] == true) {
+            data['recentStores'] =
+                AdminHelpers.extractList(results[2]['data']);
+          }
+          setState(() => _dashboard = data);
+        } else {
+          AdminHelpers.showApiError(context, results[0]);
+        }
+        if (results[1]['isSuccess'] == true) {
+          setState(() => _health = results[1]['data']);
+        }
       }
     } catch (e) {
       debugPrint('DashboardTab error: $e');
     }
-    if (mounted) setState(() => _isLoading = false);
+    if (mounted) {
+      setState(() => _isLoading = false);
+      widget.onLoaded?.call();
+    }
   }
 
   void _setPeriod(String period) {
@@ -484,13 +537,14 @@ class DashboardTabState extends State<DashboardTab> {
           sub: '${_dashboard?['onlineDevices'] ?? 0} online',
           onTap: widget.onNavigateToDevices,
         ),
-        _buildStatCard(
-          'Đại lý',
-          '${_dashboard?['totalAgents'] ?? 0}',
-          Icons.support_agent,
-          AdminHelpers.warning,
-          onTap: widget.onNavigateToAgents,
-        ),
+        if (!widget.agentMode)
+          _buildStatCard(
+            'Đại lý',
+            '${_dashboard?['totalAgents'] ?? 0}',
+            Icons.support_agent,
+            AdminHelpers.warning,
+            onTap: widget.onNavigateToAgents,
+          ),
         _buildStatCard(
           'Chấm công hôm nay',
           '${_dashboard?['totalAttendanceToday'] ?? _dashboard?['todayAttendances'] ?? 0}',

@@ -35,7 +35,9 @@ public class NotificationsController(
         [FromQuery] bool? isRead = null,
         [FromQuery] NotificationType? type = null)
     {
-        var query = new GetUserNotificationsQuery(RequiredStoreId, CurrentUserId, page, pageSize, isRead, type);
+        var crossStore = IsCrossStoreNotificationUser;
+        var storeId = CurrentStoreId;
+        var query = new GetUserNotificationsQuery(CurrentUserId, storeId, crossStore, page, pageSize, isRead, type);
         var result = await mediator.Send(query);
         return Ok(result);
     }
@@ -45,13 +47,9 @@ public class NotificationsController(
     [RequireModulePermission("Notification", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<NotificationSummaryDto>>> GetNotificationSummary()
     {
+        var crossStore = IsCrossStoreNotificationUser;
         var storeId = CurrentStoreId;
-        if (storeId == null)
-        {
-            // SuperAdmin/Agent has no store - return empty summary
-            return Ok(AppResponse<NotificationSummaryDto>.Success(new NotificationSummaryDto()));
-        }
-        var query = new GetNotificationSummaryQuery(storeId.Value, CurrentUserId);
+        var query = new GetNotificationSummaryQuery(CurrentUserId, storeId, crossStore);
         var result = await mediator.Send(query);
         return Ok(result);
     }
@@ -61,7 +59,7 @@ public class NotificationsController(
     [RequireModulePermission("Notification", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<int>>> GetUnreadCount()
     {
-        var query = new GetUnreadCountQuery(RequiredStoreId, CurrentUserId);
+        var query = new GetUnreadCountQuery(CurrentUserId, CurrentStoreId, IsCrossStoreNotificationUser);
         var result = await mediator.Send(query);
         return Ok(result);
     }
@@ -71,7 +69,7 @@ public class NotificationsController(
     [RequireModulePermission("Notification", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<NotificationDto>>> GetNotificationById(Guid id)
     {
-        var query = new GetNotificationByIdQuery(RequiredStoreId, id);
+        var query = new GetNotificationByIdQuery(id, CurrentUserId, CurrentStoreId, IsCrossStoreNotificationUser);
         var result = await mediator.Send(query);
         return Ok(result);
     }
@@ -119,7 +117,7 @@ public class NotificationsController(
     [RequireModulePermission("Notification", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<NotificationDto>>> MarkNotificationAsRead(Guid id)
     {
-        var command = new MarkNotificationReadCommand(RequiredStoreId, id, CurrentUserId);
+        var command = new MarkNotificationReadCommand(id, CurrentUserId, CurrentStoreId, IsCrossStoreNotificationUser);
         var result = await mediator.Send(command);
         if (result.IsSuccess)
         {
@@ -135,7 +133,7 @@ public class NotificationsController(
     [RequireModulePermission("Notification", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<int>>> MarkAllNotificationsAsRead()
     {
-        var command = new MarkAllNotificationsReadCommand(RequiredStoreId, CurrentUserId);
+        var command = new MarkAllNotificationsReadCommand(CurrentUserId, CurrentStoreId, IsCrossStoreNotificationUser);
         var result = await mediator.Send(command);
         if (result.IsSuccess)
         {
@@ -149,7 +147,7 @@ public class NotificationsController(
     [RequireModulePermission("Notification", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> DeleteNotification(Guid id)
     {
-        var command = new DeleteNotificationCommand(RequiredStoreId, id, CurrentUserId);
+        var command = new DeleteNotificationCommand(id, CurrentUserId, CurrentStoreId, IsCrossStoreNotificationUser);
         var result = await mediator.Send(command);
         if (result.IsSuccess)
         {
@@ -163,7 +161,7 @@ public class NotificationsController(
     [RequireModulePermission("Notification", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<int>>> DeleteAllNotifications([FromQuery] bool? isRead = null)
     {
-        var command = new DeleteAllNotificationsCommand(RequiredStoreId, CurrentUserId, isRead);
+        var command = new DeleteAllNotificationsCommand(CurrentUserId, CurrentStoreId, IsCrossStoreNotificationUser, isRead);
         var result = await mediator.Send(command);
         if (result.IsSuccess)
         {

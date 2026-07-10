@@ -186,7 +186,6 @@ public class PosPurchaseReceiptsController(
 
         if (dto.Complete)
         {
-            receipt.Status = PosPurchaseReceiptStatus.Completed;
             await PosPurchaseStockHelper.ApplyReceiptStockAsync(dbContext, storeId, receipt, lines!, CurrentUserEmail);
             await PosPurchaseStockHelper.UpdateSupplierOnReceiptCompleteAsync(dbContext, receipt);
         }
@@ -196,10 +195,23 @@ public class PosPurchaseReceiptsController(
         if (dto.Complete)
             await PosFinanceSyncHelper.SyncPurchaseReceiptPaymentAsync(dbContext, receipt, CurrentUserId);
         await dbContext.SaveChangesAsync();
-        receipt.Supplier = receipt.SupplierId.HasValue
-            ? await dbContext.PosSuppliers.AsNoTracking().FirstOrDefaultAsync(s => s.Id == receipt.SupplierId)
-            : null;
-        return Ok(AppResponse<ReceiptDto>.Success(await MapReceiptAsync(receipt, lines!)));
+
+        if (dto.Complete)
+        {
+            var (statusOk, statusErr) = await PosDocStatusPersistHelper.SetPurchaseReceiptStatusAsync(
+                dbContext, id, storeId,
+                PosPurchaseReceiptStatus.Draft, PosPurchaseReceiptStatus.Completed, CurrentUserEmail);
+            if (!statusOk)
+                return BadRequest(AppResponse<ReceiptDto>.Fail(statusErr!));
+        }
+
+        dbContext.ChangeTracker.Clear();
+        var freshUpdated = await dbContext.PosStockReceipts.AsNoTracking()
+            .Include(r => r.Lines).Include(r => r.Supplier)
+            .FirstOrDefaultAsync(r => r.Id == id && r.StoreId == storeId && r.Deleted == null);
+        if (freshUpdated == null)
+            return NotFound(AppResponse<ReceiptDto>.Fail("Không tìm thấy phiếu"));
+        return Ok(AppResponse<ReceiptDto>.Success(await MapReceiptAsync(freshUpdated, freshUpdated.Lines.ToList())));
     }
 
     [HttpPost("{id:guid}/complete")]
@@ -217,7 +229,6 @@ public class PosPurchaseReceiptsController(
         if (receipt.Lines.Count == 0)
             return BadRequest(AppResponse<ReceiptDto>.Fail("Phiếu trống"));
 
-        receipt.Status = PosPurchaseReceiptStatus.Completed;
         receipt.ImportDate ??= DateTime.UtcNow;
         receipt.ImportedBy ??= CurrentUserEmail;
         await PosPurchaseStockHelper.ApplyReceiptStockAsync(dbContext, storeId, receipt, receipt.Lines.ToList(), CurrentUserEmail);
@@ -225,11 +236,24 @@ public class PosPurchaseReceiptsController(
         await PosFinanceSyncHelper.SyncPurchaseReceiptPaymentAsync(dbContext, receipt, CurrentUserId);
         await dbContext.SaveChangesAsync();
 
-        await PosNotificationHelper.NotifyPurchaseReceiptCompletedAsync(
-            notificationService, dbContext, storeId, receipt.Id, receipt.ReceiptNo,
-            receipt.GrandTotal, receipt.Supplier?.Name, CurrentUserId);
+        var (statusOk, statusErr) = await PosDocStatusPersistHelper.SetPurchaseReceiptStatusAsync(
+            dbContext, id, storeId,
+            PosPurchaseReceiptStatus.Draft, PosPurchaseReceiptStatus.Completed, CurrentUserEmail);
+        if (!statusOk)
+            return BadRequest(AppResponse<ReceiptDto>.Fail(statusErr!));
 
-        return Ok(AppResponse<ReceiptDto>.Success(await MapReceiptAsync(receipt)));
+        dbContext.ChangeTracker.Clear();
+        var fresh = await dbContext.PosStockReceipts.AsNoTracking()
+            .Include(r => r.Lines).Include(r => r.Supplier)
+            .FirstOrDefaultAsync(r => r.Id == id && r.StoreId == storeId && r.Deleted == null);
+        if (fresh == null)
+            return NotFound(AppResponse<ReceiptDto>.Fail("Không tìm thấy phiếu"));
+
+        await PosNotificationHelper.NotifyPurchaseReceiptCompletedAsync(
+            notificationService, dbContext, storeId, fresh.Id, fresh.ReceiptNo,
+            fresh.GrandTotal, fresh.Supplier?.Name, CurrentUserId);
+
+        return Ok(AppResponse<ReceiptDto>.Success(await MapReceiptAsync(fresh)));
     }
 
     [HttpPost("{id:guid}/cancel")]
@@ -248,22 +272,43 @@ public class PosPurchaseReceiptsController(
         if (hasPayments || receipt.PaidAmount > 0)
             return BadRequest(AppResponse<ReceiptDto>.Fail("Phiếu đã có thanh toán — không thể hủy"));
 
+        await using var tx = await dbContext.Database.BeginTransactionAsync();
         try
         {
             await PosPurchaseStockHelper.ReverseReceiptStockAsync(
                 dbContext, storeId, receipt, receipt.Lines.ToList(), CurrentUserEmail);
             await PosPurchaseStockHelper.ReverseSupplierOnReceiptCancelAsync(dbContext, receipt);
+            await dbContext.SaveChangesAsync();
+
+            var (statusOk, statusErr) = await PosDocStatusPersistHelper.SetPurchaseReceiptStatusAsync(
+                dbContext, id, storeId,
+                PosPurchaseReceiptStatus.Completed, PosPurchaseReceiptStatus.Cancelled, CurrentUserEmail);
+            if (!statusOk)
+            {
+                await tx.RollbackAsync();
+                return BadRequest(AppResponse<ReceiptDto>.Fail(statusErr!));
+            }
+
+            await tx.CommitAsync();
         }
         catch (InvalidOperationException ex)
         {
+            await tx.RollbackAsync();
             return BadRequest(AppResponse<ReceiptDto>.Fail(ex.Message));
         }
+        catch
+        {
+            await tx.RollbackAsync();
+            throw;
+        }
 
-        receipt.Status = PosPurchaseReceiptStatus.Cancelled;
-        receipt.UpdatedAt = DateTime.UtcNow;
-        receipt.UpdatedBy = CurrentUserEmail;
-        await dbContext.SaveChangesAsync();
-        return Ok(AppResponse<ReceiptDto>.Success(await MapReceiptAsync(receipt)));
+        dbContext.ChangeTracker.Clear();
+        var fresh = await dbContext.PosStockReceipts.AsNoTracking()
+            .Include(r => r.Lines).Include(r => r.Supplier)
+            .FirstOrDefaultAsync(r => r.Id == id && r.StoreId == storeId && r.Deleted == null);
+        if (fresh == null)
+            return NotFound(AppResponse<ReceiptDto>.Fail("Không tìm thấy phiếu"));
+        return Ok(AppResponse<ReceiptDto>.Success(await MapReceiptAsync(fresh)));
     }
 
     [HttpDelete("{id:guid}")]
@@ -277,10 +322,12 @@ public class PosPurchaseReceiptsController(
         if (receipt.Status == PosPurchaseReceiptStatus.Completed)
             return BadRequest(AppResponse<object>.Fail("Phiếu đã nhập kho — hãy Hủy trước khi xóa"));
 
-        receipt.Deleted = DateTime.UtcNow;
-        receipt.UpdatedAt = DateTime.UtcNow;
-        receipt.UpdatedBy = CurrentUserEmail;
-        await dbContext.SaveChangesAsync();
+        var (deleteOk, deleteErr) = await PosDocStatusPersistHelper.SoftDeletePurchaseReceiptAsync(
+            dbContext, id, storeId, CurrentUserEmail);
+        if (!deleteOk)
+            return BadRequest(AppResponse<object>.Fail(deleteErr!));
+
+        dbContext.ChangeTracker.Clear();
         return Ok(AppResponse<object>.Success(new { deleted = true }));
     }
 

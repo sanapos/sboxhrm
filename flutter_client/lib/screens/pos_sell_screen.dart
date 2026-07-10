@@ -15,6 +15,7 @@ import '../providers/auth_provider.dart';
 import '../utils/responsive_helper.dart';
 import '../utils/store_role_helper.dart';
 import '../services/api_service.dart';
+import '../services/pos_sell_catalog_cache.dart';
 import '../utils/pos_purchase_product_lookup.dart';
 import '../utils/pos_combo_stock.dart';
 import '../utils/pos_kitchen_print.dart';
@@ -25,11 +26,12 @@ import '../utils/pos_sell_print_settings.dart';
 import '../utils/pos_sell_stock_patch.dart';
 import '../utils/pos_sell_store_settings.dart';
 import '../utils/pos_sell_tax.dart';
+import '../utils/pos_sell_unit_views.dart';
 import '../utils/pos_vietqr_helper.dart';
 import '../widgets/pos/pos_vietqr_payment_panel.dart';
 import '../utils/pos_thermal_printer_settings.dart';
 import '../utils/pos_price_list_resolver.dart';
-import '../utils/pos_sell_unit_views.dart';
+import '../utils/pos_product_type_picker.dart';
 import '../widgets/pos/pos_sell_mobile_print_settings_screen.dart';
 import '../widgets/pos/pos_barcode_keyboard_scope.dart';
 import '../widgets/pos_barcode_scanner.dart';
@@ -265,6 +267,8 @@ class _SellInvoiceTab {
   String? voucherName;
   double pointsToRedeem = 0;
   double pointsDiscount = 0;
+  String? draftOrderId;
+  String? draftOrderNo;
   bool _voucherValidating = false;
   final _voucherCtrl = TextEditingController();
   final _pointsCtrl = TextEditingController();
@@ -330,6 +334,8 @@ class _SellInvoiceTab {
     voucherName = null;
     pointsToRedeem = 0;
     pointsDiscount = 0;
+    draftOrderId = null;
+    draftOrderNo = null;
     _voucherCtrl.clear();
     _pointsCtrl.clear();
     _noteCtrl.clear();
@@ -1084,6 +1090,226 @@ class _PosSellScreenState extends State<PosSellScreen> {
     await _maybeWarnProductExpiry(p, variantId: view.variantId);
   }
 
+  Future<void> _resumeDraftFromList() async {
+    final picked = await showPosPickSaleOrderDialog(
+      context,
+      purpose: PosPickSaleOrderPurpose.resumeDraft,
+    );
+    if (!mounted || picked == null) return;
+    await _loadDraftIntoActiveTab(picked.id);
+  }
+
+  Future<Map<String, PosProduct>> _resolveDraftProducts(
+      Iterable<PosSaleOrderLine> lines) async {
+    final ids = lines
+        .map((l) => l.productId)
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    final resolved = <String, PosProduct>{};
+
+    for (final id in ids) {
+      final fromGrid = _productGridKey.currentState?.findCatalogProduct(id);
+      if (fromGrid != null) resolved[id] = fromGrid;
+    }
+
+    final storeId = _storeId?.trim() ?? '';
+    if (storeId.isNotEmpty) {
+      final cached = await PosSellCatalogCache.instance.read(storeId);
+      if (cached != null) {
+        for (final p in cached.items) {
+          if (ids.contains(p.id) && !resolved.containsKey(p.id)) {
+            resolved[p.id] = p;
+          }
+        }
+      }
+    }
+
+    final missing = ids.where((id) => !resolved.containsKey(id)).toList();
+    if (missing.isNotEmpty) {
+      final responses =
+          await Future.wait(missing.map((id) => _api.getPosProduct(id)));
+      for (var i = 0; i < missing.length; i++) {
+        final res = responses[i];
+        if (res['isSuccess'] == true && res['data'] is Map<String, dynamic>) {
+          resolved[missing[i]] =
+              PosProduct.fromJson(res['data'] as Map<String, dynamic>);
+        }
+      }
+    }
+    return resolved;
+  }
+
+  Future<Map<String, PosProductVariant>> _resolveDraftVariants(
+    Map<String, PosProduct> products,
+    Iterable<PosSaleOrderLine> lines,
+  ) async {
+    final byProduct = <String, String>{};
+    for (final line in lines) {
+      final vid = line.variantId;
+      if (vid != null && vid.isNotEmpty) {
+        byProduct[line.productId] = vid;
+      }
+    }
+    final resolved = <String, PosProductVariant>{};
+    final fetchProductIds = <String>[];
+
+    for (final entry in byProduct.entries) {
+      final p = products[entry.key];
+      if (p == null) continue;
+      final embedded = p.variants
+          ?.where((v) => v.id == entry.value)
+          .firstOrNull;
+      if (embedded != null) {
+        resolved[entry.value] = embedded;
+      } else {
+        fetchProductIds.add(entry.key);
+      }
+    }
+
+    final uniqueFetch = fetchProductIds.toSet().toList();
+    if (uniqueFetch.isNotEmpty) {
+      final responses = await Future.wait(
+        uniqueFetch.map((pid) => _api.getPosProductVariants(pid)),
+      );
+      for (var i = 0; i < uniqueFetch.length; i++) {
+        final res = responses[i];
+        if (res['isSuccess'] != true || res['data'] is! List) continue;
+        final variants = (res['data'] as List)
+            .map((e) => PosProductVariant.fromJson(e as Map<String, dynamic>));
+        final wanted = byProduct[uniqueFetch[i]];
+        if (wanted == null) continue;
+        final match = variants.where((v) => v.id == wanted).firstOrNull;
+        if (match != null) resolved[wanted] = match;
+      }
+    }
+    return resolved;
+  }
+
+  Future<void> _loadDraftIntoActiveTab(String orderId) async {
+    final res = await _api.getPosSale(orderId);
+    if (!mounted) return;
+    if (res['isSuccess'] != true || res['data'] is! Map<String, dynamic>) {
+      NotificationOverlayManager().showError(
+        title: 'Lỗi',
+        message: res['message']?.toString() ?? 'Không tải được đơn tạm',
+      );
+      return;
+    }
+    final order = PosSaleOrder.fromJson(res['data'] as Map<String, dynamic>);
+    if (order.status != 'Draft') {
+      NotificationOverlayManager().showError(
+        title: 'Không phải đơn tạm',
+        message: 'Chỉ tiếp tục được đơn ở trạng thái tạm',
+      );
+      return;
+    }
+
+    setState(() {
+      _tab.reset(defaultVatRate: _storeSettings.defaultVatRate);
+      _tab.draftOrderId = order.id;
+      _tab.draftOrderNo = order.orderNo;
+      _tab.sellerEmployeeId = _defaultSellerEmployeeId;
+    });
+
+    final products = await _resolveDraftProducts(order.lines);
+    if (!mounted) return;
+    final variants = await _resolveDraftVariants(products, order.lines);
+    if (!mounted) return;
+
+    final cartLines = <_SellCartLine>[];
+    for (final line in order.lines) {
+      if (line.productId.isEmpty) continue;
+      final p = products[line.productId];
+      if (p == null) continue;
+
+      var views = posProductHasEmbeddedSellViews(p)
+          ? buildPosSellUnitViewsFromProduct(p)
+          : await loadPosSellUnitViews(_api, p);
+      views = applyPosPriceListToViews(views, p, _currentPriceOverrides);
+      final view = pickUnitView(
+            views,
+            variantId: line.variantId,
+            unitLabel: line.unitName,
+          ) ??
+          views.first;
+      PosProductVariant? variant;
+      if (line.variantId != null && line.variantId!.isNotEmpty) {
+        variant = variants[line.variantId!];
+      }
+      final cartLine = _SellCartLine(
+        rowId: _nextCartRowId++,
+        product: p,
+        variantId: line.variantId,
+        unitId: view.unitId,
+        variant: variant,
+        activeViewKey: view.viewKey,
+        unitLabel: line.unitName ?? view.label,
+        displayCode: view.displayCode,
+        unitPrice: line.unitPrice,
+        unitViews: views,
+        qty: line.qty,
+        lineNote: line.lineNote,
+        discountInput: line.discountAmount,
+        vatRate: p.vatExempt ? 0 : p.vatRate,
+        vatExempt: p.vatExempt,
+      );
+      if (line.lineNote != null && line.lineNote!.isNotEmpty) {
+        cartLine.noteCtrl.text = line.lineNote!;
+      }
+      cartLines.add(cartLine);
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _tab.cart.addAll(cartLines);
+      _tab.discount = order.discount;
+      _tab.discountInput = order.discount;
+      _tab.discountIsPercent = false;
+      _tab._discountCtrl.text = order.discount == order.discount.roundToDouble()
+          ? order.discount.toStringAsFixed(0)
+          : order.discount.toStringAsFixed(2);
+      _tab.note = order.note;
+      _tab._noteCtrl.text = order.note ?? '';
+      _tab.paidAmount = order.paidAmount;
+      _tab.paidManuallyEdited = order.paidAmount > 0;
+      _tab.priceListLabel = order.priceListName ?? _tab.priceListLabel;
+      _tab.voucherCode = order.voucherCode;
+      _tab.voucherDiscount = order.voucherDiscount;
+      if (order.voucherCode != null) {
+        _tab._voucherCtrl.text = order.voucherCode!;
+      }
+      _tab.pointsToRedeem = order.pointsRedeemed;
+      _tab.pointsDiscount = order.pointsDiscount;
+      if (order.pointsRedeemed > 0) {
+        _tab._pointsCtrl.text = order.pointsRedeemed.toStringAsFixed(0);
+      }
+      if (order.customerId != null && order.customerId!.isNotEmpty) {
+        _tab.customer = PosCustomer(
+          id: order.customerId!,
+          customerCode: order.customerCode ?? '',
+          name: order.customerName ?? 'Khách hàng',
+          phone: order.customerPhone,
+        );
+        _tab._customerSearchCtrl.text = order.customerName ?? '';
+      }
+      if (order.isDelivery) {
+        _sellMode = _SellMode.delivery;
+        _tab.deliveryAddress = order.deliveryAddress;
+        _tab.deliveryPhone = order.deliveryPhone;
+        _tab.deliveryPartner = order.deliveryPartner;
+        _tab._deliveryAddressCtrl.text = order.deliveryAddress ?? '';
+        _tab._deliveryPhoneCtrl.text = order.deliveryPhone ?? '';
+        _tab._deliveryPartnerCtrl.text = order.deliveryPartner ?? '';
+      }
+      _syncPaidAmount();
+    });
+
+    NotificationOverlayManager().showSuccess(
+      title: 'Đã tải đơn tạm',
+      message: order.orderNo,
+    );
+  }
+
   Future<void> _onBarcodeScanned(String code, {bool mergeIfSame = true}) async {
     final trimmed = code.trim();
     if (trimmed.isEmpty) return;
@@ -1100,9 +1326,11 @@ class _PosSellScreenState extends State<PosSellScreen> {
   }
 
   Future<void> _openNewProduct() async {
+    final type = await showPosProductTypePicker(context);
+    if (type == null || !mounted) return;
     final saved = await PosProductEditorPage.open(
       context,
-      productType: PosProductType.goods,
+      productType: type,
     );
     if (saved == true && mounted) {
       ScreenRefreshNotifier.refreshPosProducts();
@@ -1573,7 +1801,9 @@ class _PosSellScreenState extends State<PosSellScreen> {
         if (_tab.pointsToRedeem > 0) 'pointsToRedeem': _tab.pointsToRedeem,
       };
 
-      final res = await _api.createPosSale(body);
+      final res = _tab.draftOrderId != null
+          ? await _api.updatePosSale(_tab.draftOrderId!, body)
+          : await _api.createPosSale(body);
       if (!mounted) return;
 
       if (res['isSuccess'] != true) {
@@ -2076,6 +2306,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
         (perm.isLoaded && perm.canView('CashTransaction'));
     final canReturn = perm.canEdit('PosProducts') || perm.canCreate('PosSell');
     final canReport = perm.canView('PosSalesReport') || perm.canView('PosProducts');
+    final canSell = perm.canView('PosSell') || perm.canView('PosProducts');
 
     final box = context.findRenderObject() as RenderBox?;
     final overlay = Overlay.of(context).context.findRenderObject() as RenderBox?;
@@ -2121,6 +2352,16 @@ class _PosSellScreenState extends State<PosSellScreen> {
               dense: true,
               leading: Icon(Icons.analytics_outlined, size: 20),
               title: Text('Báo cáo doanh thu / tồn kho'),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+        if (canSell)
+          const PopupMenuItem(
+            value: 'resume_draft',
+            child: ListTile(
+              dense: true,
+              leading: Icon(Icons.playlist_add_check_outlined, size: 20),
+              title: Text('Tiếp tục đơn tạm'),
               contentPadding: EdgeInsets.zero,
             ),
           ),
@@ -2191,6 +2432,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
         await Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => const PosReportsScreen()),
         );
+      case 'resume_draft':
+        await _resumeDraftFromList();
       case 'return_list':
         await Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => const PosSaleReturnListScreen()),

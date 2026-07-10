@@ -17,6 +17,7 @@ import '../pos_purchase_return_list_screen.dart';
 import '../pos_reports_screen.dart';
 import 'pos_warranty_lookup_screen.dart';
 import '../pos_sale_order_list_screen.dart';
+import '../pos_sale_return_list_screen.dart';
 import '../pos_sell_screen.dart';
 import '../pos_stock_count_list_screen.dart';
 import 'pos_business_analysis_screen.dart';
@@ -61,6 +62,8 @@ class PosMoreScreen extends StatelessWidget {
                   const PosSellScreen()),
               _Item('Hoá đơn', Icons.receipt_long_outlined, 'PosSaleOrders',
                   const PosSaleOrderListScreen()),
+              _Item('Trả hàng bán', Icons.assignment_return_outlined, 'PosSaleReturns',
+                  const PosSaleReturnListScreen()),
               _Item('Nhập hàng', Icons.move_to_inbox_outlined,
                   'PosPurchaseReceipts', const PosPurchaseReceiptListScreen()),
               _Item('Trả hàng nhập', Icons.undo_outlined, 'PosPurchaseReturns',
@@ -78,9 +81,11 @@ class PosMoreScreen extends StatelessWidget {
               _Item('Hàng hoá', Icons.inventory_2_outlined, 'PosProducts',
                   const PosProductsScreen()),
               _Item('Bảng giá', Icons.price_change_outlined, 'PosProducts',
-                  const PosPriceListsScreen()),
+                  const PosPriceListsScreen(),
+                  altModules: const ['PosSell']),
               _Item('Tra cứu BH', Icons.verified_outlined, 'PosSell',
-                  const PosWarrantyLookupScreen()),
+                  const PosWarrantyLookupScreen(),
+                  altModules: const ['PosProducts']),
               _Item('Kiểm kho', Icons.fact_check_outlined, 'PosStockCounts',
                   const PosStockCountListScreen()),
               _Item('Xuất hủy', Icons.delete_forever_outlined,
@@ -100,7 +105,8 @@ class PosMoreScreen extends StatelessWidget {
               _Item('Công nợ KH', Icons.account_balance_wallet_outlined,
                   'PosSalesReport', const PosCustomerDebtReportScreen()),
               _Item('Voucher', Icons.confirmation_number_outlined, 'PosProducts',
-                  const PosVouchersScreen()),
+                  const PosVouchersScreen(),
+                  altModules: const ['PosSell']),
             ],
           ),
           const SizedBox(height: 12),
@@ -112,7 +118,7 @@ class PosMoreScreen extends StatelessWidget {
               _Item('Báo cáo bán hàng', Icons.bar_chart_outlined,
                   'PosSalesReport', const PosSalesReportScreen()),
               _Item('Báo cáo hàng hóa', Icons.inventory_outlined,
-                  'PosProducts', const PosGoodsReportScreen()),
+                  'PosSalesReport', const PosGoodsReportScreen()),
               _Item('Phân tích kinh doanh', Icons.insights_outlined,
                   'PosSalesReport', const PosBusinessAnalysisScreen()),
               _Item('Báo cáo chi tiết', Icons.table_chart_outlined,
@@ -183,7 +189,7 @@ class PosMoreScreen extends StatelessWidget {
     required List<_Item> items,
   }) {
     final visible = items
-        .where((i) => PermissionNavigation.canNavigate(perm, i.moduleCode))
+        .where((i) => _canSeeItem(perm, i))
         .toList();
     if (visible.isEmpty) return const SizedBox.shrink();
 
@@ -250,12 +256,21 @@ class PosMoreScreen extends StatelessWidget {
       ),
     );
   }
+  static bool _canSeeItem(PermissionProvider perm, _Item item) {
+    if (PermissionNavigation.canNavigate(perm, item.moduleCode)) return true;
+    for (final alt in item.altModules) {
+      if (PermissionNavigation.canNavigate(perm, alt)) return true;
+    }
+    return false;
+  }
 }
 
 class _Item {
-  const _Item(this.label, this.icon, this.moduleCode, this.screen);
+  const _Item(this.label, this.icon, this.moduleCode, this.screen,
+      {this.altModules = const []});
   final String label;
   final IconData icon;
   final String moduleCode;
   final Widget screen;
+  final List<String> altModules;
 }

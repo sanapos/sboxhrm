@@ -89,6 +89,43 @@ public partial class PosProductsController
         }
 
         ws.Columns(1, headers.Length).AdjustToContents();
+
+        var comboProductIds = products
+            .Where(p => p.ProductType == PosProductType.Combo)
+            .Select(p => p.Id)
+            .ToList();
+        if (comboProductIds.Count > 0)
+        {
+            var comboLines = await dbContext.PosProductComboLines
+                .AsNoTracking()
+                .Include(x => x.ComboProduct)
+                .Include(x => x.ComponentProduct)
+                .Where(x => x.StoreId == storeId && x.Deleted == null &&
+                            comboProductIds.Contains(x.ComboProductId))
+                .OrderBy(x => x.ComboProduct!.ProductCode)
+                .ThenBy(x => x.CreatedAt)
+                .ToListAsync();
+
+            if (comboLines.Count > 0)
+            {
+                var comboWs = workbook.Worksheets.Add("Combo");
+                var comboHeaders = new[] { "Mã combo", "Mã thành phần", "Số lượng" };
+                comboWs.Cell(1, 1).Value = "THÀNH PHẦN COMBO";
+                comboWs.Cell(1, 1).Style.Font.Bold = true;
+                ReportExcelLayout.ApplyHeaderRow(comboWs, 2, comboHeaders);
+
+                var comboRow = 3;
+                foreach (var line in comboLines)
+                {
+                    comboWs.Cell(comboRow, 1).Value = line.ComboProduct?.ProductCode ?? "";
+                    comboWs.Cell(comboRow, 2).Value = line.ComponentProduct?.ProductCode ?? "";
+                    comboWs.Cell(comboRow, 3).Value = line.Qty;
+                    comboRow++;
+                }
+                comboWs.Columns(1, comboHeaders.Length).AdjustToContents();
+            }
+        }
+
         using var stream = new MemoryStream();
         workbook.SaveAs(stream);
         var fileName = $"HangHoa_POS_{DateTime.Now:yyyyMMdd_HHmm}.xlsx";
@@ -105,11 +142,11 @@ public partial class PosProductsController
             return BadRequest(AppResponse<object>.Fail("File không hợp lệ"));
 
         var storeId = RequiredStoreId;
-        List<PosProductExcelImportParser.ImportRow> rows;
+        PosProductExcelImportParser.ParseResult parsed;
         try
         {
             await using var stream = file.OpenReadStream();
-            rows = PosProductExcelImportParser.Parse(stream);
+            parsed = PosProductExcelImportParser.ParseAll(stream);
         }
         catch (Exception ex)
         {
@@ -117,7 +154,10 @@ public partial class PosProductsController
             return BadRequest(AppResponse<object>.Fail("Không đọc được file Excel"));
         }
 
-        if (rows.Count == 0)
+        var rows = parsed.Products;
+        var comboImportRows = parsed.ComboLines;
+
+        if (rows.Count == 0 && comboImportRows.Count == 0)
             return BadRequest(AppResponse<object>.Fail("Không có dòng dữ liệu hợp lệ"));
 
         var categories = await dbContext.PosProductCategories
@@ -242,13 +282,125 @@ public partial class PosProductsController
         }
 
         await dbContext.SaveChangesAsync();
+
+        var comboApplied = 0;
+        var comboErrors = new List<string>();
+        if (comboImportRows.Count > 0)
+        {
+            (comboApplied, comboErrors) = await ApplyImportedComboLinesAsync(
+                storeId, comboImportRows);
+        }
+
         return Ok(AppResponse<object>.Success(new
         {
             created,
             updated,
             total = rows.Count,
             errors,
+            comboLinesApplied = comboApplied,
+            comboErrors,
         }));
+    }
+
+    private async Task<(int Applied, List<string> Errors)> ApplyImportedComboLinesAsync(
+        Guid storeId,
+        List<PosProductExcelImportParser.ComboLineImportRow> comboImportRows)
+    {
+        var errors = new List<string>();
+        var applied = 0;
+
+        var productsByCode = await dbContext.PosProducts
+            .Where(p => p.StoreId == storeId && p.Deleted == null)
+            .ToDictionaryAsync(p => p.ProductCode.ToLower(), p => p);
+
+        var grouped = comboImportRows
+            .GroupBy(r => r.ComboProductCode.Trim().ToLower())
+            .ToList();
+
+        foreach (var group in grouped)
+        {
+            if (!productsByCode.TryGetValue(group.Key, out var comboProduct))
+            {
+                errors.Add($"Combo «{group.First().ComboProductCode}»: không tìm thấy mã combo");
+                continue;
+            }
+
+            var lineInputs = new List<(Guid ComponentId, decimal Qty)>();
+            foreach (var row in group)
+            {
+                var compKey = row.ComponentProductCode.Trim().ToLower();
+                if (!productsByCode.TryGetValue(compKey, out var component))
+                {
+                    errors.Add(
+                        $"Combo «{comboProduct.ProductCode}»: không tìm thấy thành phần «{row.ComponentProductCode}»");
+                    continue;
+                }
+                if (component.Id == comboProduct.Id)
+                {
+                    errors.Add($"Combo «{comboProduct.ProductCode}»: không thể chứa chính nó");
+                    continue;
+                }
+                if (component.ProductType == PosProductType.Combo)
+                {
+                    errors.Add(
+                        $"Combo «{comboProduct.ProductCode}»: «{component.ProductCode}» là combo — không hợp lệ");
+                    continue;
+                }
+                if (component.ProductType == PosProductType.Service)
+                {
+                    errors.Add(
+                        $"Combo «{comboProduct.ProductCode}»: «{component.Name}» là dịch vụ — không hợp lệ");
+                    continue;
+                }
+                if (row.Qty <= 0)
+                {
+                    errors.Add(
+                        $"Combo «{comboProduct.ProductCode}» / «{component.ProductCode}»: số lượng phải > 0");
+                    continue;
+                }
+                lineInputs.Add((component.Id, row.Qty));
+            }
+
+            if (lineInputs.Count == 0)
+            {
+                errors.Add($"Combo «{comboProduct.ProductCode}»: không có thành phần hợp lệ");
+                continue;
+            }
+
+            var existing = await dbContext.PosProductComboLines
+                .Where(x => x.ComboProductId == comboProduct.Id && x.Deleted == null)
+                .ToListAsync();
+            foreach (var e in existing)
+            {
+                e.IsActive = false;
+                e.Deleted = DateTime.UtcNow;
+                e.DeletedBy = CurrentUserEmail;
+            }
+
+            foreach (var (componentId, qty) in lineInputs)
+            {
+                dbContext.PosProductComboLines.Add(new PosProductComboLine
+                {
+                    Id = Guid.NewGuid(),
+                    StoreId = storeId,
+                    ComboProductId = comboProduct.Id,
+                    ComponentProductId = componentId,
+                    Qty = qty,
+                    IsActive = true,
+                    CreatedBy = CurrentUserEmail,
+                });
+            }
+
+            comboProduct.ProductType = PosProductType.Combo;
+            comboProduct.UpdatedAt = DateTime.UtcNow;
+            comboProduct.UpdatedBy = CurrentUserEmail;
+            applied++;
+        }
+
+        if (applied > 0)
+            await dbContext.SaveChangesAsync();
+
+        return (applied, errors);
     }
 
     private static async Task<Guid?> EnsureMasterAsync(

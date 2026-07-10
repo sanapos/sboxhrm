@@ -8,6 +8,8 @@ import 'package:provider/provider.dart';
 import '../models/pos_stock_issue_doc.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
+import '../utils/pos_doc_status.dart';
+import '../utils/pos_mutation_result.dart';
 import '../utils/pos_purchase_product_lookup.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/loading_widget.dart';
@@ -300,10 +302,13 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
     if (action == 'delete') {
       final res = await _api.deletePosStockIssueDoc(_config.kind, _issueId!);
       if (!mounted) return false;
-      if (res['isSuccess'] != true) {
+      final deleteResult = PosDocMutationResult.parseDelete(
+        Map<String, dynamic>.from(res),
+      );
+      if (!deleteResult.ok) {
         NotificationOverlayManager().showError(
           title: 'Lỗi',
-          message: res['message']?.toString() ?? 'Không xóa được phiếu',
+          message: deleteResult.errorMessage ?? res['message']?.toString() ?? 'Không xóa được phiếu',
         );
         return false;
       }
@@ -514,14 +519,21 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
     final res = await _api.completePosStockIssueDoc(_config.kind, _issueId!);
     if (!mounted) return;
     setState(() => _saving = false);
-    if (res['isSuccess'] == true) {
+    final result = PosDocMutationResult.parse(
+      Map<String, dynamic>.from(res),
+      expectedStatus: 'Completed',
+    );
+    if (result.ok) {
       NotificationOverlayManager().showSuccess(
-          title: 'Hoàn thành', message: _issueNo);
+        title: 'Hoàn thành',
+        message: result.successMessage(_issueNo),
+      );
       if (mounted) Navigator.pop(context, true);
     } else {
       NotificationOverlayManager().showError(
-          title: 'Lỗi',
-          message: res['message']?.toString() ?? 'Không hoàn thành được');
+        title: 'Lỗi',
+        message: result.errorMessage ?? res['message']?.toString() ?? 'Không hoàn thành được',
+      );
     }
   }
 
@@ -549,12 +561,17 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
     _cancelLineAutoSave();
     final res = await _api.deletePosStockIssueDoc(_config.kind, _issueId!);
     if (!mounted) return;
-    if (res['isSuccess'] == true) {
+    final deleteResult = PosDocMutationResult.parseDelete(
+      Map<String, dynamic>.from(res),
+    );
+    if (deleteResult.ok) {
       NotificationOverlayManager().showSuccess(title: 'Đã xóa', message: _issueNo);
       if (mounted) Navigator.pop(context, true);
     } else {
       NotificationOverlayManager().showError(
-          title: 'Lỗi', message: res['message']?.toString() ?? 'Không xóa được');
+        title: 'Lỗi',
+        message: deleteResult.errorMessage ?? res['message']?.toString() ?? 'Không xóa được',
+      );
     }
   }
 
@@ -580,13 +597,22 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
     final res = await _api.cancelPosStockIssueDoc(_config.kind, _issueId!);
     if (!mounted) return;
     setState(() => _saving = false);
-    if (res['isSuccess'] == true) {
+    final result = PosDocMutationResult.parse(
+      Map<String, dynamic>.from(res),
+      expectedStatus: 'Cancelled',
+    );
+    if (result.ok) {
+      setState(() => _status = result.status);
       NotificationOverlayManager().showSuccess(
-          title: 'Đã hủy', message: 'Đã hoàn tồn kho · $_issueNo');
+        title: 'Đã hủy',
+        message: result.successMessage(_issueNo, stockNote: 'Đã hoàn tồn kho'),
+      );
       await _loadIssue(_issueId!);
     } else {
       NotificationOverlayManager().showError(
-          title: 'Lỗi', message: res['message']?.toString() ?? 'Không hủy được');
+        title: 'Lỗi',
+        message: result.errorMessage ?? res['message']?.toString() ?? 'Không hủy được',
+      );
     }
   }
 

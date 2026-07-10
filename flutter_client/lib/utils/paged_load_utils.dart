@@ -20,7 +20,9 @@ List<Map<String, dynamic>> mapsFromPagedApiData(dynamic data) {
 
 int totalCountFromPagedApiData(dynamic data, {int fallback = 0}) {
   if (data is Map) {
-    return (data['totalCount'] as num?)?.toInt() ?? fallback;
+    return (data['totalCount'] as num?)?.toInt() ??
+        (data['total'] as num?)?.toInt() ??
+        fallback;
   }
   return fallback;
 }

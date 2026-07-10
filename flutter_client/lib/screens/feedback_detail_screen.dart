@@ -1,10 +1,13 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
+import '../utils/image_source_picker.dart';
 import '../widgets/auth_cached_image.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/hrm_page_chrome.dart';
@@ -27,7 +30,6 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
   final ApiService _apiService = ApiService();
   final TextEditingController _replyCtl = TextEditingController();
   final ScrollController _scrollCtl = ScrollController();
-  final ImagePicker _picker = ImagePicker();
 
   Map<String, dynamic>? _feedback;
   List<Map<String, dynamic>> _replies = [];
@@ -160,15 +162,9 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
   }
 
   Future<void> _pickAndUploadImage() async {
-    final picked = await _picker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 1280,
-      maxHeight: 1280,
-      imageQuality: 85,
-    );
+    final picked = await pickSingleImageWithCamera(context);
     if (picked == null) return;
 
-    // First create a reply with image placeholder text
     setState(() => _isSending = true);
     try {
       final replyRes = await _apiService.createFeedbackReply(
@@ -179,9 +175,16 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
         final replyData = replyRes['data'];
         final replyId = replyData['id']?.toString();
         if (replyId != null) {
-          // Upload image to the reply
+          var name = picked.name.trim();
+          if (name.isEmpty) name = 'feedback.jpg';
+          if (!name.contains('.')) name = '$name.jpg';
+          final tempDir = await getTemporaryDirectory();
+          final tempFile = File('${tempDir.path}/$name');
+          await tempFile.writeAsBytes(picked.bytes);
           await _apiService.uploadFeedbackReplyImage(
-            widget.feedbackId, replyId, picked.path,
+            widget.feedbackId,
+            replyId,
+            tempFile.path,
           );
         }
         await _loadData();

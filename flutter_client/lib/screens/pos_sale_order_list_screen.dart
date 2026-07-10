@@ -14,6 +14,7 @@ import '../utils/pos_kiot_time_range.dart';
 import '../utils/pos_sale_order_print.dart';
 import '../utils/pos_sell_print_settings.dart';
 import '../utils/pos_sell_stock_patch.dart';
+import '../utils/pos_mutation_result.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/loading_widget.dart';
 import '../screens/main_layout.dart' show ScreenRefreshNotifier;
@@ -30,8 +31,6 @@ import '../widgets/pos/pos_theme.dart';
 import 'pos_sale_order_editor_screen.dart';
 import 'pos_sale_return_screen.dart';
 import 'pos_sale_return_list_screen.dart';
-
-const _blue = Color(0xFF2563EB);
 
 enum _ListColumn {
   orderNo('Mã đơn'),
@@ -105,11 +104,17 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
   @override
   void initState() {
     super.initState();
+    ScreenRefreshNotifier.posSaleOrders.addListener(_onExternalRefresh);
     _load();
+  }
+
+  void _onExternalRefresh() {
+    if (mounted) _load(page: _page);
   }
 
   @override
   void dispose() {
+    ScreenRefreshNotifier.posSaleOrders.removeListener(_onExternalRefresh);
     _searchCtrl.dispose();
     super.dispose();
   }
@@ -262,13 +267,30 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     });
   }
 
+  /// Giữ trạng thái từ API mutation (hủy/hoàn thành) nếu reload danh sách trả dữ liệu cũ.
+  void _reconcileOrderAfterLoad(PosSaleOrder authoritative) {
+    if (!mounted) return;
+    final idx = _items.indexWhere((x) => x.id == authoritative.id);
+    if (idx < 0) return;
+    if (_items[idx].status != authoritative.status ||
+        _items[idx].returnStatus != authoritative.returnStatus) {
+      _patchOrderInList(authoritative);
+    } else if (_expandedId == authoritative.id) {
+      setState(() => _expandedDetail = authoritative);
+    }
+  }
+
   Future<void> _cancelOrder(PosSaleOrder o) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Hủy đơn (hoàn kho)'),
         content: Text(
-            'Hủy đơn ${o.orderNo}, hoàn kho hàng đã bán và chuyển trạng thái «Đã hủy»?'),
+            'Hủy đơn ${o.orderNo}?\n\n'
+            '• Hoàn kho hàng đã bán\n'
+            '• Hoàn công nợ / điểm / voucher (nếu có)\n'
+            '• Đơn chuyển sang «Đã hủy» (vẫn thấy trong danh sách)\n\n'
+            'Chỉ dùng khi đơn đã hoàn thành và chưa trả hàng.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Không')),
           FilledButton(
@@ -318,7 +340,8 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
           title: 'Đã hủy đơn',
           message: '${o.orderNo} · trạng thái: Đã hủy');
       await _load(page: _page);
-      await _refreshExpandedDetail(o.id);
+      _reconcileOrderAfterLoad(updated);
+      if (mounted) setState(() {});
     } else {
       NotificationOverlayManager().showError(
           title: 'Lỗi', message: res['message']?.toString() ?? 'Không hủy được');
@@ -331,7 +354,10 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text('Xóa khỏi danh sách'),
         content: Text(
-            'Xóa hẳn đơn ${o.orderNo} khỏi danh sách? (Không hoàn kho thêm — chỉ ẩn phiếu)'),
+            'Ẩn đơn ${o.orderNo} khỏi danh sách?\n\n'
+            '• Không hoàn kho thêm (kho đã xử lý trước đó)\n'
+            '• Chỉ xóa khỏi màn hình — dữ liệu vẫn lưu trên server\n\n'
+            'Dùng cho đơn đã hủy, đơn tạm, hoặc đơn đã trả hết 100%.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Không')),
           FilledButton(
@@ -345,15 +371,23 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     if (ok != true || !mounted) return;
     final res = await _api.deletePosSale(o.id);
     if (!mounted) return;
-    if (res['isSuccess'] == true) {
+    final deleteResult = PosDocMutationResult.parseDelete(
+      Map<String, dynamic>.from(res),
+    );
+    if (deleteResult.ok) {
       NotificationOverlayManager().showSuccess(title: 'Đã xóa', message: o.orderNo);
       _collapseExpanded();
-      setState(() => _items = _items.where((x) => x.id != o.id).toList());
+      setState(() {
+        _items = _items.where((x) => x.id != o.id).toList();
+        if (_total > 0) _total -= 1;
+      });
       ScreenRefreshNotifier.refreshPosAfterStockChange();
-      await _load(page: _page);
+      await _loadPeriodSummary();
     } else {
       NotificationOverlayManager().showError(
-          title: 'Lỗi', message: res['message']?.toString() ?? 'Không xóa được');
+        title: 'Lỗi',
+        message: deleteResult.errorMessage ?? res['message']?.toString() ?? 'Không xóa được',
+      );
     }
   }
 
@@ -377,7 +411,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Không')),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: _blue),
+            style: FilledButton.styleFrom(backgroundColor: PosTheme.kiotBlue),
             child: const Text('Hoàn thành'),
           ),
         ],
@@ -387,9 +421,28 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     final res = await _api.completePosSale(o.id);
     if (!mounted) return;
     if (res['isSuccess'] == true) {
+      PosSaleOrder? updated;
+      if (res['data'] is Map<String, dynamic>) {
+        updated = PosSaleOrder.fromJson(res['data'] as Map<String, dynamic>);
+        _patchOrderInList(updated);
+      }
+      final stockLines = (updated?.lines ?? o.lines)
+          .where((line) => line.productId.isNotEmpty && line.qty > 0)
+          .map(
+            (line) => PosSellStockLineDelta(
+              productId: line.productId,
+              variantId: line.variantId,
+              qty: line.qty,
+              addBack: false,
+            ),
+          )
+          .toList();
+      ScreenRefreshNotifier.refreshPosAfterStockChange(sellStockLines: stockLines);
       NotificationOverlayManager().showSuccess(title: 'Hoàn thành', message: o.orderNo);
       await _load(page: _page);
+      if (updated != null) _reconcileOrderAfterLoad(updated);
       await _refreshExpandedDetail(o.id);
+      if (mounted) setState(() {});
     } else {
       NotificationOverlayManager()
           .showError(title: 'Lỗi', message: res['message']?.toString() ?? '');
@@ -410,7 +463,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                 children: _ListColumn.values.map((c) {
                   return CheckboxListTile(
                     dense: true,
-                    activeColor: _blue,
+                    activeColor: PosTheme.kiotBlue,
                     title: Text(c.label, style: const TextStyle(fontSize: 13)),
                     value: _visibleColumns.contains(c),
                     onChanged: (v) {
@@ -437,7 +490,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                 setState(() {});
                 Navigator.pop(ctx);
               },
-              style: FilledButton.styleFrom(backgroundColor: _blue),
+              style: FilledButton.styleFrom(backgroundColor: PosTheme.kiotBlue),
               child: const Text('Áp dụng'),
             ),
           ],
@@ -447,7 +500,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
   }
 
   Future<void> _exportExcel(PermissionProvider perm) async {
-    if (!perm.canExport('PosProducts')) return;
+    if (!perm.canExport('PosSaleOrders') && !perm.canExport('PosProducts')) return;
     setState(() => _exporting = true);
     try {
       final res = await _api.exportPosSalesExcel(
@@ -514,7 +567,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                 contentPadding: EdgeInsets.zero,
                 title: const Text('Đang xử lý', style: TextStyle(fontSize: 13)),
                 value: _statusFilter.contains('Draft'),
-                activeColor: _blue,
+                activeColor: PosTheme.kiotBlue,
                 onChanged: (v) => _toggleStatus('Draft', v),
               ),
               CheckboxListTile(
@@ -522,7 +575,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                 contentPadding: EdgeInsets.zero,
                 title: const Text('Hoàn thành', style: TextStyle(fontSize: 13)),
                 value: _statusFilter.contains('Completed'),
-                activeColor: _blue,
+                activeColor: PosTheme.kiotBlue,
                 onChanged: (v) => _toggleStatus('Completed', v),
               ),
               CheckboxListTile(
@@ -530,7 +583,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                 contentPadding: EdgeInsets.zero,
                 title: const Text('Đã hủy', style: TextStyle(fontSize: 13)),
                 value: _statusFilter.contains('Cancelled'),
-                activeColor: _blue,
+                activeColor: PosTheme.kiotBlue,
                 onChanged: (v) => _toggleStatus('Cancelled', v),
               ),
             ],
@@ -550,7 +603,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                 title: const Text('Tất cả', style: TextStyle(fontSize: 13)),
                 value: null,
                 groupValue: _isDeliveryFilter,
-                activeColor: _blue,
+                activeColor: PosTheme.kiotBlue,
                 onChanged: (v) {
                   setState(() => _isDeliveryFilter = v);
                   _load();
@@ -562,7 +615,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                 title: const Text('Không giao hàng', style: TextStyle(fontSize: 13)),
                 value: false,
                 groupValue: _isDeliveryFilter,
-                activeColor: _blue,
+                activeColor: PosTheme.kiotBlue,
                 onChanged: (v) {
                   setState(() => _isDeliveryFilter = v);
                   _load();
@@ -574,7 +627,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                 title: const Text('Giao hàng', style: TextStyle(fontSize: 13)),
                 value: true,
                 groupValue: _isDeliveryFilter,
-                activeColor: _blue,
+                activeColor: PosTheme.kiotBlue,
                 onChanged: (v) {
                   setState(() => _isDeliveryFilter = v);
                   _load();
@@ -610,7 +663,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
         ),
         FilledButton(
           onPressed: () => _load(),
-          style: FilledButton.styleFrom(backgroundColor: _blue),
+          style: FilledButton.styleFrom(backgroundColor: PosTheme.kiotBlue),
           child: const Text('Áp dụng lọc', style: TextStyle(fontSize: 12)),
         ),
       ],
@@ -691,7 +744,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
               onOpenFilters: null,
               activeFilterCount: _activeFilterCount,
               trailing: [
-                if (perm.canExport('PosProducts'))
+                if (perm.canExport('PosSaleOrders') || perm.canExport('PosProducts'))
                   OutlinedButton.icon(
                     onPressed: _exporting ? null : () => _exportExcel(perm),
                     icon: _exporting
@@ -893,12 +946,19 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       .fold<double>(0, (sum, o) => sum + o.returnedAmount);
 
   Widget _buildOrderTotalColumn(PosSaleOrder o) {
+    final cancelled = o.status == 'Cancelled';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Text(
-          _moneyFmt.format(o.total),
-          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+          '${_moneyFmt.format(o.total)} đ',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+            color: cancelled ? Colors.red.shade800 : null,
+            decoration: cancelled ? TextDecoration.lineThrough : null,
+            decorationColor: cancelled ? Colors.red.shade400 : null,
+          ),
         ),
         if (o.hasReturns)
           Container(
@@ -979,7 +1039,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
-                  color: _blue,
+                  color: PosTheme.kiotBlue,
                 ),
               ),
             ],
@@ -1003,12 +1063,10 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
 
   Future<void> _showMobileOrderDetail(PosSaleOrder summary, bool canEdit) async {
     PosSaleOrder order = summary;
-    if (order.lines.isEmpty) {
-      final res = await _api.getPosSale(summary.id);
-      if (!mounted) return;
-      if (res['isSuccess'] == true && res['data'] is Map<String, dynamic>) {
-        order = PosSaleOrder.fromJson(res['data'] as Map<String, dynamic>);
-      }
+    final res = await _api.getPosSale(summary.id);
+    if (mounted && res['isSuccess'] == true && res['data'] is Map<String, dynamic>) {
+      order = PosSaleOrder.fromJson(res['data'] as Map<String, dynamic>);
+      _patchOrderInList(order);
     }
     if (!mounted) return;
 
@@ -1071,7 +1129,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                         },
                         icon: const Icon(Icons.print, size: 16),
                         label: Text(order.printCount > 0 ? 'In lại' : 'In'),
-                        style: FilledButton.styleFrom(backgroundColor: _blue),
+                        style: FilledButton.styleFrom(backgroundColor: PosTheme.kiotBlue),
                       ),
                     if (canEdit && order.status == 'Draft')
                       FilledButton.icon(
@@ -1082,7 +1140,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                         icon: const Icon(Icons.edit, size: 16),
                         label: const Text('Chỉnh sửa'),
                       ),
-                    if (canEdit && order.status == 'Completed')
+                    if (canEdit && order.canCancelWithStock)
                       OutlinedButton.icon(
                         onPressed: () {
                           Navigator.pop(ctx);
@@ -1092,7 +1150,22 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                         label: const Text('Hủy đơn (hoàn kho)'),
                       ),
                     if (canEdit &&
-                        (order.status == 'Cancelled' || order.status == 'Draft'))
+                        order.status == 'Completed' &&
+                        !order.isFullyReturned)
+                      OutlinedButton.icon(
+                        onPressed: () async {
+                          Navigator.pop(ctx);
+                          final ok = await Navigator.of(context).push<bool>(
+                            MaterialPageRoute(
+                              builder: (_) => PosSaleReturnScreen(orderId: order.id),
+                            ),
+                          );
+                          if (ok == true && mounted) _load();
+                        },
+                        icon: const Icon(Icons.assignment_return_outlined, size: 16),
+                        label: const Text('Trả hàng'),
+                      ),
+                    if (canEdit && order.canDeleteFromList && order.status != 'Draft')
                       OutlinedButton.icon(
                         onPressed: () {
                           Navigator.pop(ctx);
@@ -1117,9 +1190,10 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     final timeStr =
         dt != null ? DateFormat('dd/MM/yyyy HH:mm', 'vi_VN').format(dt.toLocal()) : '—';
     final firstLine = o.lines.isNotEmpty ? o.lines.first : null;
+    final isCancelled = o.status == 'Cancelled';
 
     return Material(
-      color: Colors.white,
+      color: posSaleOrderRowBackground(o.status),
       child: InkWell(
         onTap: () => _showMobileOrderDetail(o, canEdit),
         child: Padding(
@@ -1129,15 +1203,26 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
             children: [
               Row(
                 children: [
+                  if (isCancelled) ...[
+                    Icon(Icons.cancel, size: 18, color: Colors.red.shade700),
+                    const SizedBox(width: 6),
+                  ],
                   Expanded(
                     child: Text(
                       o.customerName ?? 'Khách lẻ',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
+                        color: isCancelled ? Colors.red.shade800 : null,
+                        decoration:
+                            isCancelled ? TextDecoration.lineThrough : null,
+                        decorationColor:
+                            isCancelled ? Colors.red.shade400 : null,
                       ),
                     ),
                   ),
+                  posSaleOrderStatusChip(o.status, returnStatus: o.returnStatus),
+                  const SizedBox(width: 8),
                   _buildOrderTotalColumn(o),
                 ],
               ),
@@ -1191,7 +1276,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
         onTap: () => _toggleExpand(o),
         code: o.orderNo,
         status: posSaleOrderStatusChip(o.status, returnStatus: o.returnStatus),
-        accentColor: _blue,
+        accentColor: posSaleOrderAccentColor(o.status, fallback: PosTheme.kiotBlue),
         fields: [
           PosMobileField(
             'Thời gian',
@@ -1207,14 +1292,16 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       );
     }
     return Material(
-      color: Colors.white,
+      color: posSaleOrderRowBackground(o.status),
       clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           InkWell(
             onTap: () => _toggleExpand(o),
-            hoverColor: const Color(0xFFF1F5F9),
+            hoverColor: o.status == 'Cancelled'
+                ? Colors.red.shade100.withValues(alpha: 0.35)
+                : const Color(0xFFF1F5F9),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
@@ -1228,15 +1315,25 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                   Icon(
                     expanded ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_right,
                     size: 20,
-                    color: PosTheme.textSecondary,
+                    color: o.status == 'Cancelled'
+                        ? Colors.red.shade700
+                        : PosTheme.textSecondary,
                   ),
                   const SizedBox(width: 4),
                   if (_visibleColumns.contains(_ListColumn.orderNo))
                     Expanded(
                       flex: 2,
-                      child: Text(o.orderNo,
-                          style: const TextStyle(
-                              color: _blue, fontWeight: FontWeight.w600, fontSize: 12)),
+                      child: Text(
+                        o.orderNo,
+                        style: TextStyle(
+                          color: posSaleOrderAccentColor(o.status, fallback: PosTheme.kiotBlue),
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                          decoration: o.status == 'Cancelled'
+                              ? TextDecoration.lineThrough
+                              : null,
+                        ),
+                      ),
                     ),
                   if (_visibleColumns.contains(_ListColumn.time))
                     Expanded(
@@ -1249,9 +1346,15 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                   if (_visibleColumns.contains(_ListColumn.customer))
                     Expanded(
                       flex: 2,
-                      child: Text(o.customerName ?? 'Khách lẻ',
-                          style: const TextStyle(fontSize: 12),
-                          overflow: TextOverflow.ellipsis),
+                      child: Text(
+                        o.customerName ?? 'Khách lẻ',
+                        style: posSaleOrderCancelledTextStyle(
+                              o.status,
+                              base: const TextStyle(fontSize: 12),
+                            ) ??
+                            const TextStyle(fontSize: 12),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   if (_visibleColumns.contains(_ListColumn.subTotal))
                     Expanded(
@@ -1273,10 +1376,23 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          Text('${_moneyFmt.format(o.total)} đ',
-                              style: const TextStyle(
-                                  fontSize: 12, fontWeight: FontWeight.w600),
-                              textAlign: TextAlign.right),
+                          Text(
+                            '${_moneyFmt.format(o.total)} đ',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: o.status == 'Cancelled'
+                                  ? Colors.red.shade800
+                                  : null,
+                              decoration: o.status == 'Cancelled'
+                                  ? TextDecoration.lineThrough
+                                  : null,
+                              decorationColor: o.status == 'Cancelled'
+                                  ? Colors.red.shade400
+                                  : null,
+                            ),
+                            textAlign: TextAlign.right,
+                          ),
                           if (o.hasReturns)
                             Text(
                               'Đã trả ${_moneyFmt.format(o.returnedAmount)}',
@@ -1369,7 +1485,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                   onPressed: () => _openEditor(orderId: o.id),
                   icon: const Icon(Icons.edit, size: 16),
                   label: const Text('Chỉnh sửa'),
-                  style: FilledButton.styleFrom(backgroundColor: _blue),
+                  style: FilledButton.styleFrom(backgroundColor: PosTheme.kiotBlue),
                 ),
                 OutlinedButton.icon(
                   onPressed: () => _completeOrder(o),
@@ -1383,39 +1499,41 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                 ),
               ],
               if (canEdit && o.status == 'Completed') ...[
-                OutlinedButton.icon(
-                  onPressed: () => _cancelOrder(o),
-                  icon: const Icon(Icons.cancel_outlined, size: 16),
-                  label: const Text('Hủy đơn (hoàn kho)'),
-                ),
-                OutlinedButton.icon(
-                  onPressed: () async {
-                    final ok = await Navigator.of(context).push<bool>(
-                      MaterialPageRoute(
-                        builder: (_) => PosSaleReturnScreen(orderId: o.id),
-                      ),
-                    );
-                    if (ok == true && mounted) _load();
-                  },
-                  icon: const Icon(Icons.assignment_return_outlined, size: 16),
-                  label: const Text('Trả hàng'),
-                ),
+                if (o.canCancelWithStock)
+                  OutlinedButton.icon(
+                    onPressed: () => _cancelOrder(o),
+                    icon: const Icon(Icons.cancel_outlined, size: 16),
+                    label: const Text('Hủy đơn (hoàn kho)'),
+                  ),
+                if (!o.isFullyReturned)
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      final ok = await Navigator.of(context).push<bool>(
+                        MaterialPageRoute(
+                          builder: (_) => PosSaleReturnScreen(orderId: o.id),
+                        ),
+                      );
+                      if (ok == true && mounted) _load();
+                    },
+                    icon: const Icon(Icons.assignment_return_outlined, size: 16),
+                    label: const Text('Trả hàng'),
+                  ),
                 OutlinedButton.icon(
                   onPressed: () => _printOrder(o),
                   icon: const Icon(Icons.print, size: 16),
                   label: Text(o.printCount > 0 ? 'In lại' : 'In'),
                 ),
-              ],
-              if (canEdit && o.status == 'Completed')
                 OutlinedButton.icon(
                   onPressed: () => _copyOrder(o),
                   icon: const Icon(Icons.copy, size: 16),
                   label: const Text('Sao chép'),
                 ),
-              if (canEdit && (o.status == 'Cancelled' || o.status == 'Draft'))
+              ],
+              if (canEdit && o.canDeleteFromList && o.status != 'Draft')
                 OutlinedButton.icon(
                   onPressed: () => _deleteOrder(o),
                   icon: const Icon(Icons.delete_outline, size: 16),
+                  style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
                   label: const Text('Xóa khỏi DS'),
                 ),
             ],
@@ -1433,7 +1551,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
         if (idx == 1 && _expandedId != null) _loadPayments(_expandedId!);
       },
       style: TextButton.styleFrom(
-        foregroundColor: active ? _blue : PosTheme.textSecondary,
+        foregroundColor: active ? PosTheme.kiotBlue : PosTheme.textSecondary,
         textStyle: TextStyle(
             fontWeight: active ? FontWeight.w600 : FontWeight.normal,
             fontSize: 13),

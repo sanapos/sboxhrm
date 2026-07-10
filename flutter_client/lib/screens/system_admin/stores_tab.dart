@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:flutter/services.dart';
 import '../../services/api_service.dart';
+import '../../utils/agent_mutation_result.dart';
 import '../../utils/responsive_helper.dart';
 import '../../widgets/admin/admin_mobile_widgets.dart';
 import '../../widgets/notification_overlay.dart';
@@ -9,7 +10,9 @@ import 'system_admin_helpers.dart';
 import '../../widgets/hrm_page_chrome.dart';
 
 class StoresTab extends StatefulWidget {
-  const StoresTab({super.key});
+  final bool agentMode;
+
+  const StoresTab({super.key, this.agentMode = false});
 
   @override
   State<StoresTab> createState() => StoresTabState();
@@ -36,7 +39,7 @@ class StoresTabState extends State<StoresTab> {
   void initState() {
     super.initState();
     loadData();
-    _loadAgents();
+    if (!widget.agentMode) _loadAgents();
   }
 
   Future<void> _loadAgents() async {
@@ -62,7 +65,9 @@ class StoresTabState extends State<StoresTab> {
   Future<void> loadData() async {
     setState(() => _isLoading = true);
     try {
-      final res = await _apiService.getSystemStores();
+      final res = widget.agentMode
+          ? await _apiService.getAgentStores()
+          : await _apiService.getSystemStores();
       if (!mounted) return;
       if (res['isSuccess'] == true) {
         _stores = AdminHelpers.extractList(res['data']);
@@ -539,9 +544,21 @@ class StoresTabState extends State<StoresTab> {
     final phone = store['phone']?.toString() ?? '';
     final licenseType = store['licenseType']?.toString() ?? '';
     final trialChip = _getTrialStatus(store);
+    final agentName = store['agentName']?.toString() ?? '';
+    final hasAgent = store['agentId'] != null &&
+        store['agentId'].toString().isNotEmpty;
 
     return InkWell(
-      onTap: () => _showStoreDetail(store),
+      onTap: () {
+        if (adminUseMobileLayout(context)) {
+          _showStoreMobileActions(store);
+        } else {
+          _showStoreDetail(store);
+        }
+      },
+      onLongPress: adminUseMobileLayout(context)
+          ? () => _showStoreDetail(store)
+          : null,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         child: Row(children: [
@@ -557,6 +574,15 @@ class StoresTabState extends State<StoresTab> {
               const SizedBox(height: 2),
               Text([if (phone.isNotEmpty) phone, AdminHelpers.licenseTypeLabel(licenseType)].join(' \u00b7 '),
                 style: const TextStyle(color: Color(0xFF71717A), fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+              Text(
+                hasAgent ? 'Đại lý: $agentName' : 'Đại lý: Chưa gán',
+                style: TextStyle(
+                  color: hasAgent ? const Color(0xFFEA580C) : const Color(0xFFA1A1AA),
+                  fontSize: 11,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
               if (trialChip != null) ...[
                 const SizedBox(height: 4),
                 trialChip,
@@ -711,7 +737,7 @@ class StoresTabState extends State<StoresTab> {
                     Icons.access_time, 'Chưa có giao dịch');
               }(),
               AdminHelpers.infoRow(Icons.autorenew,
-                  'Gia hạn: ${store['renewalCount'] ?? 0}/3 lần'),
+                  AdminHelpers.storeRenewalLabel(context, store['renewalCount'] as int? ?? 0)),
               if (isLocked && store['lockReason'] != null)
                 AdminHelpers.infoRow(
                     Icons.info_outline, 'Lý do khóa: ${store['lockReason']}'),
@@ -729,21 +755,23 @@ class StoresTabState extends State<StoresTab> {
                       color: AdminHelpers.primary,
                       onTap: () => _editStoreName(store),
                     ),
-                    _actionButton(
-                      icon: Icons.inventory_2_outlined,
-                      label: 'Đổi gói',
-                      color: const Color(0xFF0891B2),
-                      onTap: () => _showAssignPackage(store),
-                    ),
-                    _actionButton(
-                      icon: Icons.handshake_outlined,
-                      label: (store['agentId'] != null &&
-                              store['agentId'].toString().isNotEmpty)
-                          ? 'Đổi đại lý'
-                          : 'Gán đại lý',
-                      color: const Color(0xFFEA580C),
-                      onTap: () => _showAssignAgent(store),
-                    ),
+                    if (!widget.agentMode) ...[
+                      _actionButton(
+                        icon: Icons.inventory_2_outlined,
+                        label: 'Đổi gói',
+                        color: const Color(0xFF0891B2),
+                        onTap: () => _showAssignPackage(store),
+                      ),
+                      _actionButton(
+                        icon: Icons.handshake_outlined,
+                        label: (store['agentId'] != null &&
+                                store['agentId'].toString().isNotEmpty)
+                            ? 'Đổi đại lý'
+                            : 'Gán đại lý',
+                        color: const Color(0xFFEA580C),
+                        onTap: () => _showAssignAgent(store),
+                      ),
+                    ],
                     _actionButton(
                       icon: isActive ? Icons.pause : Icons.play_arrow,
                       label: isActive ? 'Tắt' : 'Bật',
@@ -789,16 +817,17 @@ class StoresTabState extends State<StoresTab> {
                     ),
                     _actionButton(
                       icon: Icons.calendar_month,
-                      label: 'Gia hạn (${store['renewalCount'] ?? 0}/3)',
+                      label: _extendButtonLabel(context, store),
                       color: const Color(0xFF7C3AED),
                       onTap: () => _showExtendDays(store),
                     ),
-                    _actionButton(
-                      icon: Icons.restart_alt,
-                      label: 'Khôi phục gốc',
-                      color: AdminHelpers.warning,
-                      onTap: () => _resetStoreData(store),
-                    ),
+                    if (!widget.agentMode)
+                      _actionButton(
+                        icon: Icons.restart_alt,
+                        label: 'Khôi phục gốc',
+                        color: AdminHelpers.warning,
+                        onTap: () => _resetStoreData(store),
+                      ),
                   ],
                   if (context.systemAdminCanDelete)
                     _actionButton(
@@ -831,6 +860,88 @@ class StoresTabState extends State<StoresTab> {
       onPressed: onTap,
       icon: Icon(icon, size: 16),
       label: Text(label, style: const TextStyle(fontSize: 12)),
+    );
+  }
+
+  Future<void> _showStoreMobileActions(Map<String, dynamic> store) async {
+    final name = store['name'] ?? store['storeName'] ?? 'Cửa hàng';
+    final isActive = store['isActive'] as bool? ?? true;
+    final isLocked = store['isLocked'] as bool? ?? false;
+    final hasAgent = store['agentId'] != null &&
+        store['agentId'].toString().isNotEmpty;
+    final canEdit = context.systemAdminCanEdit;
+    final canDelete = context.systemAdminCanDelete;
+
+    final actions = <AdminActionSheetItem>[
+      AdminActionSheetItem(
+        icon: Icons.info_outline,
+        label: 'Xem chi tiết',
+        onTap: () => _showStoreDetail(store),
+      ),
+      AdminActionSheetItem(
+        icon: Icons.people,
+        label: 'Tài khoản cửa hàng',
+        onTap: () => _showStoreUsers(store),
+      ),
+    ];
+
+    if (canEdit) {
+      if (!widget.agentMode) {
+        actions.addAll([
+          AdminActionSheetItem(
+            icon: Icons.handshake_outlined,
+            label: hasAgent ? 'Đổi đại lý' : 'Gán đại lý',
+            color: const Color(0xFFEA580C),
+            onTap: () => _showAssignAgent(store),
+          ),
+          AdminActionSheetItem(
+            icon: Icons.inventory_2_outlined,
+            label: 'Đổi gói dịch vụ',
+            onTap: () => _showAssignPackage(store),
+          ),
+        ]);
+      }
+      actions.addAll([
+        AdminActionSheetItem(
+          icon: Icons.edit,
+          label: 'Đổi tên',
+          onTap: () => _editStoreName(store),
+        ),
+        AdminActionSheetItem(
+          icon: isActive ? Icons.pause : Icons.play_arrow,
+          label: isActive ? 'Tắt cửa hàng' : 'Bật cửa hàng',
+          onTap: () => _toggleStoreStatus(store),
+        ),
+        AdminActionSheetItem(
+          icon: isLocked ? Icons.lock_open : Icons.lock,
+          label: isLocked ? 'Mở khóa' : 'Khóa cửa hàng',
+          color: isLocked ? AdminHelpers.success : AdminHelpers.danger,
+          onTap: () => isLocked ? _unlockStore(store) : _lockStore(store),
+        ),
+        AdminActionSheetItem(
+          icon: Icons.vpn_key,
+          label: 'Kích hoạt License Key',
+          onTap: () => _showActivateKey(store),
+        ),
+      ]);
+    }
+
+    if (canDelete) {
+      actions.add(AdminActionSheetItem(
+        icon: Icons.delete_forever,
+        label: 'Xóa cửa hàng',
+        destructive: true,
+        onTap: () => _deleteStore(store),
+      ));
+    }
+
+    await showAdminActionSheet(
+      context,
+      title: name.toString(),
+      subtitle: hasAgent
+          ? 'Đại lý: ${store['agentName']}'
+          : 'Chưa gán đại lý',
+      actions: actions,
     );
   }
 
@@ -919,11 +1030,19 @@ class StoresTabState extends State<StoresTab> {
     }
 
     if (!mounted) return;
-    if (res['isSuccess'] == true) {
+    final assignResult = AgentMutationResult.parseStoreAssignment(
+      Map<String, dynamic>.from(res),
+      expectedAgentId: newAgentId,
+    );
+    if (assignResult.ok) {
       AdminHelpers.showSuccess(context, 'Đã cập nhật đại lý cho cửa hàng');
       await loadData();
     } else {
-      AdminHelpers.showApiError(context, res);
+      AdminHelpers.showError(
+        context,
+        assignResult.errorMessage ?? res['message']?.toString() ?? 'Không cập nhật được',
+      );
+      await loadData();
     }
   }
 
@@ -982,7 +1101,15 @@ class StoresTabState extends State<StoresTab> {
 
     if (result != true || !mounted) return;
 
-    final res = await _apiService.updateStore(
+    final res = widget.agentMode
+        ? await _apiService.agentUpdateStore(
+            storeId,
+            name: nameCtrl.text.trim(),
+            description: descCtrl.text.trim(),
+            address: addressCtrl.text.trim(),
+            phone: phoneCtrl.text.trim(),
+          )
+        : await _apiService.updateStore(
       storeId,
       name: nameCtrl.text.trim(),
       description: descCtrl.text.trim(),
@@ -1002,7 +1129,9 @@ class StoresTabState extends State<StoresTab> {
   // ═══════════════════════ STORE DETAIL ═══════════════════════
   Future<void> _showStoreDetail(Map<String, dynamic> store) async {
     final storeId = store['id']?.toString() ?? '';
-    final res = await _apiService.getStoreFullDetail(storeId);
+    final res = widget.agentMode
+        ? await _apiService.getAgentStoreFullDetail(storeId)
+        : await _apiService.getStoreFullDetail(storeId);
 
     if (!mounted) return;
     if (res['isSuccess'] != true) {
@@ -1034,6 +1163,18 @@ class StoresTabState extends State<StoresTab> {
           _detailRow('Điện thoại', d['phone']),
           _detailRow('Email chủ sở hữu', d['ownerEmail']),
           _detailRow('Chủ sở hữu', d['ownerName']),
+        ]),
+        _detailSection('Đại lý', [
+          _detailRow(
+            'Quản lý bởi',
+            (store['agentName'] != null &&
+                    store['agentName'].toString().isNotEmpty)
+                ? store['agentName']
+                : 'Chưa gán',
+          ),
+          if (store['agentEmail'] != null &&
+              store['agentEmail'].toString().isNotEmpty)
+            _detailRow('Email đại lý', store['agentEmail']),
         ]),
         _detailSection('Trạng thái', [
           _detailRow(
@@ -1104,6 +1245,30 @@ class StoresTabState extends State<StoresTab> {
                   ],
                 ),
               ),
+              bottomNavigationBar: context.systemAdminCanEdit
+                  ? SafeArea(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                        child: FilledButton.icon(
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            _showAssignAgent(store);
+                          },
+                          icon: const Icon(Icons.handshake_outlined, size: 18),
+                          label: Text(
+                            (store['agentId'] != null &&
+                                    store['agentId'].toString().isNotEmpty)
+                                ? 'Đổi đại lý'
+                                : 'Gán đại lý',
+                          ),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: const Color(0xFFEA580C),
+                            minimumSize: const Size.fromHeight(44),
+                          ),
+                        ),
+                      ),
+                    )
+                  : null,
             ),
           ),
         ),
@@ -1176,7 +1341,9 @@ class StoresTabState extends State<StoresTab> {
       builder: (_) => const Center(child: CircularProgressIndicator()),
     );
 
-    final res = await _apiService.getSystemUsers(storeId: storeId);
+    final res = widget.agentMode
+        ? await _apiService.getAgentAdminUsers(storeId: storeId)
+        : await _apiService.getSystemUsers(storeId: storeId);
     if (!mounted) return;
     Navigator.pop(context); // dismiss loading
 
@@ -1363,7 +1530,11 @@ class StoresTabState extends State<StoresTab> {
 
   // ═══════════════════════ STATUS ACTIONS ═══════════════════════
   Future<void> _toggleStoreStatus(Map<String, dynamic> store) async {
-    await _apiService.toggleStoreStatus(store['id']?.toString() ?? '');
+    if (widget.agentMode) {
+      await _apiService.agentToggleStoreStatus(store['id']?.toString() ?? '');
+    } else {
+      await _apiService.toggleStoreStatus(store['id']?.toString() ?? '');
+    }
     loadData();
   }
 
@@ -1371,13 +1542,22 @@ class StoresTabState extends State<StoresTab> {
     final reason = await AdminHelpers.showInputDialog(
         context, 'Khóa cửa hàng', 'Lý do khóa (tùy chọn)');
     if (reason == null) return;
-    await _apiService.lockStore(
-        store['id']?.toString() ?? '', reason.isNotEmpty ? reason : null);
+    if (widget.agentMode) {
+      await _apiService.agentLockStore(
+          store['id']?.toString() ?? '', reason.isNotEmpty ? reason : null);
+    } else {
+      await _apiService.lockStore(
+          store['id']?.toString() ?? '', reason.isNotEmpty ? reason : null);
+    }
     loadData();
   }
 
   Future<void> _unlockStore(Map<String, dynamic> store) async {
-    await _apiService.unlockStore(store['id']?.toString() ?? '');
+    if (widget.agentMode) {
+      await _apiService.agentUnlockStore(store['id']?.toString() ?? '');
+    } else {
+      await _apiService.unlockStore(store['id']?.toString() ?? '');
+    }
     loadData();
   }
 
@@ -1403,66 +1583,119 @@ class StoresTabState extends State<StoresTab> {
   }
 
   // ═══════════════════════ EXTEND DAYS ═══════════════════════
+  String _extendButtonLabel(BuildContext context, Map<String, dynamic> store) {
+    final renewalCount = store['renewalCount'] as int? ?? 0;
+    if (context.canBypassStoreRenewalLimit &&
+        renewalCount >= AdminHelpers.maxStoreRenewals) {
+      return 'Gia hạn ($renewalCount)';
+    }
+    return 'Gia hạn ($renewalCount/${AdminHelpers.maxStoreRenewals})';
+  }
+
   Future<void> _showExtendDays(Map<String, dynamic> store) async {
     final storeId = store['id']?.toString() ?? '';
     final name = store['name'] ?? 'N/A';
     final renewalCount = store['renewalCount'] as int? ?? 0;
+    final canBypass = context.canBypassStoreRenewalLimit;
 
-    if (renewalCount >= 3) {
+    if (renewalCount >= AdminHelpers.maxStoreRenewals && !canBypass) {
       AdminHelpers.showError(context,
-          'Cửa hàng "$name" đã gia hạn tối đa 3 lần. Vui lòng kích hoạt key mới.');
+          'Cửa hàng "$name" đã gia hạn tối đa ${AdminHelpers.maxStoreRenewals} lần. Vui lòng kích hoạt key mới.');
       return;
     }
 
     final daysCtrl = TextEditingController(text: '30');
+    var selectedPreset = 30;
 
     final result = await showDialog<bool>(
       context: context,
-      builder: (ctx) => ScrollableAlertDialog(
-        title: Row(children: [
-          const Icon(Icons.calendar_month,
-              color: Color(0xFF7C3AED), size: 22),
-          const SizedBox(width: 8),
-          Expanded(
-              child: Text('Gia hạn — $name',
-                  style: const TextStyle(fontSize: 17))),
-        ]),
-        content: SizedBox(
-          width: MediaQuery.of(context).size.width < 600 ? MediaQuery.of(context).size.width - 32 : 350,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Nhập số ngày muốn gia hạn thêm:'),
-              const SizedBox(height: 12),
-              AdminHelpers.dialogField(
-                  daysCtrl, 'Số ngày', Icons.timer),
-            ],
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => ScrollableAlertDialog(
+          title: Row(children: [
+            const Icon(Icons.calendar_month,
+                color: Color(0xFF7C3AED), size: 22),
+            const SizedBox(width: 8),
+            Expanded(
+                child: Text('Gia hạn — $name',
+                    style: const TextStyle(fontSize: 17))),
+          ]),
+          content: SizedBox(
+            width: MediaQuery.of(context).size.width < 600
+                ? MediaQuery.of(context).size.width - 32
+                : 380,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  canBypass && renewalCount >= AdminHelpers.maxStoreRenewals
+                      ? 'Đã gia hạn $renewalCount lần — Super Admin có thể gia hạn thêm.'
+                      : 'Đã gia hạn $renewalCount/${AdminHelpers.maxStoreRenewals} lần. Chọn hoặc nhập số ngày:',
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: kStoreExtendDayPresets.map((days) {
+                    final selected = selectedPreset == days;
+                    return ChoiceChip(
+                      label: Text('$days ngày'),
+                      selected: selected,
+                      onSelected: (_) {
+                        setDialogState(() {
+                          selectedPreset = days;
+                          daysCtrl.text = days.toString();
+                        });
+                      },
+                      selectedColor: const Color(0xFF7C3AED).withValues(alpha: 0.2),
+                      labelStyle: TextStyle(
+                        color: selected
+                            ? const Color(0xFF7C3AED)
+                            : Colors.black87,
+                        fontWeight:
+                            selected ? FontWeight.w600 : FontWeight.normal,
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 12),
+                AdminHelpers.dialogField(
+                    daysCtrl, 'Số ngày (tùy chỉnh)', Icons.timer),
+              ],
+            ),
           ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Hủy')),
+            FilledButton.icon(
+              onPressed: () => Navigator.pop(ctx, true),
+              icon: const Icon(Icons.check, size: 16),
+              label: const Text('Gia hạn'),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF7C3AED)),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Hủy')),
-          FilledButton.icon(
-            onPressed: () => Navigator.pop(ctx, true),
-            icon: const Icon(Icons.check, size: 16),
-            label: const Text('Gia hạn'),
-            style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF7C3AED)),
-          ),
-        ],
       ),
     );
 
-    if (result != true || !mounted) return;
+    if (result != true || !mounted) {
+      daysCtrl.dispose();
+      return;
+    }
 
     final days = int.tryParse(daysCtrl.text.trim());
+    daysCtrl.dispose();
+
     if (days == null || days <= 0) {
       AdminHelpers.showError(context, 'Số ngày không hợp lệ');
       return;
     }
 
-    final res = await _apiService.extendStoreDays(storeId, days);
+    final res = widget.agentMode
+        ? await _apiService.agentExtendStoreDays(storeId, days)
+        : await _apiService.extendStoreDays(storeId, days);
     if (!mounted) return;
     if (res['isSuccess'] == true) {
       AdminHelpers.showSuccess(context, 'Đã gia hạn thêm $days ngày cho "$name"');
@@ -1673,38 +1906,40 @@ class StoresTabState extends State<StoresTab> {
                       label: Text('Thêm key (${keyControllers.length}/4)'),
                     ),
                   const SizedBox(height: 8),
-                  // Preview button
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: isPreviewing ? null : () async {
-                        final keys = keyControllers
-                            .map((c) => c.text.trim())
-                            .where((k) => k.isNotEmpty)
-                            .toList();
-                        if (keys.isEmpty) return;
-                        setDlgState(() => isPreviewing = true);
-                        final res = await _apiService.previewBulkActivation(storeId, keys);
-                        if (ctx.mounted) {
-                          setDlgState(() {
-                            isPreviewing = false;
-                            if (res['isSuccess'] == true) {
-                              previewData = res['data'] is Map<String, dynamic>
-                                  ? res['data'] as Map<String, dynamic>
-                                  : null;
-                            } else {
-                              previewData = null;
-                              NotificationOverlayManager().showError(title: 'Lỗi', message: res['message'] ?? 'Lỗi');
-                            }
-                          });
-                        }
-                      },
-                      icon: isPreviewing
-                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                          : const Icon(Icons.preview, size: 16),
-                      label: const Text('Xem trước'),
+                  if (!widget.agentMode) ...[
+                    // Preview button (SuperAdmin bulk promotion preview)
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: isPreviewing ? null : () async {
+                          final keys = keyControllers
+                              .map((c) => c.text.trim())
+                              .where((k) => k.isNotEmpty)
+                              .toList();
+                          if (keys.isEmpty) return;
+                          setDlgState(() => isPreviewing = true);
+                          final res = await _apiService.previewBulkActivation(storeId, keys);
+                          if (ctx.mounted) {
+                            setDlgState(() {
+                              isPreviewing = false;
+                              if (res['isSuccess'] == true) {
+                                previewData = res['data'] is Map<String, dynamic>
+                                    ? res['data'] as Map<String, dynamic>
+                                    : null;
+                              } else {
+                                previewData = null;
+                                NotificationOverlayManager().showError(title: 'Lỗi', message: res['message'] ?? 'Lỗi');
+                              }
+                            });
+                          }
+                        },
+                        icon: isPreviewing
+                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                            : const Icon(Icons.preview, size: 16),
+                        label: const Text('Xem trước'),
+                      ),
                     ),
-                  ),
+                  ],
                   // Preview result
                   if (previewData != null) ...[
                     const SizedBox(height: 12),
@@ -1758,18 +1993,42 @@ class StoresTabState extends State<StoresTab> {
                   return;
                 }
                 Navigator.pop(ctx);
-                final res = await _apiService.bulkActivateLicenses(storeId, keys);
-                if (!mounted) return;
-                if (res['isSuccess'] == true) {
-                  final data = res['data'];
-                  final bonus = data is Map ? (data['bonusDays'] ?? 0) : 0;
-                  final total = data is Map ? (data['grandTotalDays'] ?? 0) : 0;
-                  AdminHelpers.showSuccess(context,
-                      'Đã kích hoạt ${keys.length} key cho "$name".\n'
-                      'Tổng: $total ngày (bonus: $bonus ngày)');
-                  loadData();
+                if (widget.agentMode) {
+                  var ok = 0;
+                  String? lastError;
+                  for (final key in keys) {
+                    final res = await _apiService.agentActivateLicenseForStore(
+                        storeId, {'licenseKey': key});
+                    if (res['isSuccess'] == true) {
+                      ok++;
+                    } else {
+                      lastError = res['message']?.toString();
+                      break;
+                    }
+                  }
+                  if (!mounted) return;
+                  if (ok == keys.length) {
+                    AdminHelpers.showSuccess(context,
+                        'Đã kích hoạt $ok key cho "$name".');
+                    loadData();
+                  } else {
+                    AdminHelpers.showError(context,
+                        lastError ?? 'Không kích hoạt được key');
+                  }
                 } else {
-                  AdminHelpers.showApiError(context, res);
+                  final res = await _apiService.bulkActivateLicenses(storeId, keys);
+                  if (!mounted) return;
+                  if (res['isSuccess'] == true) {
+                    final data = res['data'];
+                    final bonus = data is Map ? (data['bonusDays'] ?? 0) : 0;
+                    final total = data is Map ? (data['grandTotalDays'] ?? 0) : 0;
+                    AdminHelpers.showSuccess(context,
+                        'Đã kích hoạt ${keys.length} key cho "$name".\n'
+                        'Tổng: $total ngày (bonus: $bonus ngày)');
+                    loadData();
+                  } else {
+                    AdminHelpers.showApiError(context, res);
+                  }
                 }
               },
               icon: const Icon(Icons.check, size: 16),
