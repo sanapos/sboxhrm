@@ -199,18 +199,48 @@ workflows:
             exit 1
           fi
           export APP_STORE_CONNECT_MAX_BUILD_PROCESSING_WAIT=90
-          export APP_STORE_CONNECT_MAX_FIND_BUILD_WAIT=30
-          WHATS_NEW='Cập nhật 1.0.39: sửa lỗi font Nghỉ phép, splash SBOX HRM, giao diện Công việc và điều hướng mobile.'
-          app-store-connect publish \
+          BUILDS_JSON=$(app-store-connect builds list \
             --issuer-id "$APP_STORE_CONNECT_ISSUER_ID" \
             --key-id "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
             --private-key "@env:APP_STORE_CONNECT_PRIVATE_KEY" \
-            --skip-package-upload \
-            --app-store \
-            --apple-id "$APP_STORE_APP_ID" \
+            --app-id "$APP_STORE_APP_ID" \
+            --pre-release-version "$APP_VERSION" \
+            --processing-state VALID \
+            --not-expired \
+            --platform IOS \
+            --json)
+          BUILD_ID=$(BUILDS_JSON="$BUILDS_JSON" APP_VERSION="$APP_VERSION" python3 - <<'PY'
+          import json, os, sys
+          data = json.loads(os.environ["BUILDS_JSON"])
+          version = os.environ["APP_VERSION"]
+          items = data if isinstance(data, list) else data.get("data") or data.get("builds") or []
+          if not items:
+              sys.stderr.write(f"No VALID TestFlight builds found for version {version}\n")
+              sys.exit(1)
+
+          def build_version(item):
+              attrs = item.get("attributes") or {}
+              try:
+                  return int(attrs.get("version") or 0)
+              except (TypeError, ValueError):
+                  return 0
+
+          items = sorted(items, key=build_version, reverse=True)
+          build_id = items[0].get("id") or items[0].get("Id")
+          if not build_id:
+              sys.stderr.write("Could not resolve build id from App Store Connect response\n")
+              sys.exit(1)
+          print(build_id)
+          PY
+          )
+          echo "Submitting build $BUILD_ID ($APP_VERSION) to App Store review"
+          app-store-connect builds submit-to-app-store "$BUILD_ID" \
+            --issuer-id "$APP_STORE_CONNECT_ISSUER_ID" \
+            --key-id "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
+            --private-key "@env:APP_STORE_CONNECT_PRIVATE_KEY" \
             --version-string "$APP_VERSION" \
             --locale vi \
-            --whats-new "$WHATS_NEW" \
+            --whats-new "Cập nhật 1.0.39: sửa lỗi font Nghỉ phép, splash SBOX HRM, giao diện Công việc và điều hướng mobile." \
             --cancel-previous-submissions \
             --release-type MANUAL
           echo "=== Submitted $APP_VERSION to App Store review ==="
