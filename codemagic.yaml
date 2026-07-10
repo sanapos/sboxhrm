@@ -45,11 +45,70 @@ workflows:
             echo "ERROR: App Store Connect API failed."
             exit 1
           fi
+
+          revoke_distribution_certs() {
+            python3 <<'PY'
+          import json, subprocess, sys
+
+          def collect_ids(payload):
+              if isinstance(payload, list):
+                  items = payload
+              elif isinstance(payload, dict):
+                  items = (
+                      payload.get("certificates")
+                      or payload.get("data")
+                      or []
+                  )
+              else:
+                  items = []
+              ids = []
+              for item in items:
+                  if not isinstance(item, dict):
+                      continue
+                  cid = item.get("id") or item.get("Id")
+                  if cid:
+                      ids.append(cid)
+              return ids
+
+          seen = set()
+          for cert_type in ("DISTRIBUTION", "IOS_DISTRIBUTION"):
+              proc = subprocess.run(
+                  ["app-store-connect", "certificates", "list", "--type", cert_type, "--json"],
+                  capture_output=True,
+                  text=True,
+              )
+              if proc.returncode != 0:
+                  print(f"WARN: cannot list {cert_type}: {proc.stderr.strip()}", file=sys.stderr)
+                  continue
+              try:
+                  ids = collect_ids(json.loads(proc.stdout or "[]"))
+              except json.JSONDecodeError:
+                  print(f"WARN: invalid JSON for {cert_type}", file=sys.stderr)
+                  continue
+              for cid in ids:
+                  if cid in seen:
+                      continue
+                  seen.add(cid)
+                  print(f"Deleting certificate {cid} ({cert_type})")
+                  del_proc = subprocess.run(
+                      ["app-store-connect", "certificates", "delete", cid],
+                      capture_output=True,
+                      text=True,
+                  )
+                  if del_proc.returncode != 0:
+                      print(del_proc.stderr.strip(), file=sys.stderr)
+                      sys.exit(1)
+          print(f"Revoked {len(seen)} distribution certificate(s)")
+          PY
+          }
+
+          echo "=== Revoke stale Distribution certificates ==="
+          revoke_distribution_certs
+          sleep 5
+
           echo "=== Fetch signing files (App Store) ==="
           CERT_KEY=$(mktemp)
           openssl genrsa -out "$CERT_KEY" 2048
-          # Apple allows only one active Distribution cert; revoke stale certs before --create
-          app-store-connect certificates list --type IOS_DISTRIBUTION --json 2>/dev/null | python3 -c "import json,sys,subprocess; data=json.load(sys.stdin); items=data if isinstance(data,list) else data.get('certificates', data.get('data', [])); [subprocess.run(['app-store-connect','certificates','delete',c.get('id') or c.get('Id')], check=False) for c in items if c.get('id') or c.get('Id')]" || true
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --platform IOS \
@@ -144,9 +203,59 @@ workflows:
 
       - name: Fetch signing files and set up code signing
         script: |
+          revoke_distribution_certs() {
+            python3 <<'PY'
+          import json, subprocess, sys
+
+          def collect_ids(payload):
+              if isinstance(payload, list):
+                  items = payload
+              elif isinstance(payload, dict):
+                  items = payload.get("certificates") or payload.get("data") or []
+              else:
+                  items = []
+              ids = []
+              for item in items:
+                  if not isinstance(item, dict):
+                      continue
+                  cid = item.get("id") or item.get("Id")
+                  if cid:
+                      ids.append(cid)
+              return ids
+
+          seen = set()
+          for cert_type in ("DISTRIBUTION", "IOS_DISTRIBUTION"):
+              proc = subprocess.run(
+                  ["app-store-connect", "certificates", "list", "--type", cert_type, "--json"],
+                  capture_output=True,
+                  text=True,
+              )
+              if proc.returncode != 0:
+                  continue
+              try:
+                  ids = collect_ids(json.loads(proc.stdout or "[]"))
+              except json.JSONDecodeError:
+                  continue
+              for cid in ids:
+                  if cid in seen:
+                      continue
+                  seen.add(cid)
+                  print(f"Deleting certificate {cid} ({cert_type})")
+                  del_proc = subprocess.run(
+                      ["app-store-connect", "certificates", "delete", cid],
+                      capture_output=True,
+                      text=True,
+                  )
+                  if del_proc.returncode != 0:
+                      print(del_proc.stderr.strip(), file=sys.stderr)
+                      sys.exit(1)
+          PY
+          }
+
+          revoke_distribution_certs
+          sleep 5
           CERT_KEY=$(mktemp)
           openssl genrsa -out "$CERT_KEY" 2048
-          app-store-connect certificates list --type IOS_DISTRIBUTION --json 2>/dev/null | python3 -c "import json,sys,subprocess; data=json.load(sys.stdin); items=data if isinstance(data,list) else data.get('certificates', data.get('data', [])); [subprocess.run(['app-store-connect','certificates','delete',c.get('id') or c.get('Id')], check=False) for c in items if c.get('id') or c.get('Id')]" || true
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_ADHOC \
             --platform IOS \
