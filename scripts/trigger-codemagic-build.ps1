@@ -6,7 +6,7 @@
 #   .\scripts\trigger-codemagic-build.ps1 -Workflow ios-release
 
 param(
-    [ValidateSet('android-release', 'ios-release', 'ios-debug')]
+    [ValidateSet('android-release', 'ios-release', 'ios-debug', 'ios-app-store-submit')]
     [string]$Workflow = 'android-release',
     [string]$Branch = 'main',
     [string]$AppId = $env:CODEMAGIC_APP_ID,

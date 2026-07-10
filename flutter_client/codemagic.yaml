@@ -153,7 +153,9 @@ workflows:
       app_store_connect:
         auth: integration
         submit_to_testflight: true
-        submit_to_app_store: false
+        submit_to_app_store: true
+        cancel_previous_submissions: true
+        release_type: MANUAL
 
   android-release:
     name: Android Release (AAB)

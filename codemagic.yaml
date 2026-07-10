@@ -173,7 +173,47 @@ workflows:
         key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
         issuer_id: $APP_STORE_CONNECT_ISSUER_ID
         submit_to_testflight: true
-        submit_to_app_store: false
+        submit_to_app_store: true
+        cancel_previous_submissions: true
+        release_type: MANUAL
+
+  ios-app-store-submit:
+    name: iOS Submit App Store Review
+    max_build_duration: 30
+    instance_type: mac_mini_m2
+    working_directory: flutter_client
+
+    environment:
+      groups:
+        - appstore_credentials
+      vars:
+        APP_STORE_APP_ID: "6762365741"
+        APP_VERSION: "1.0.39"
+
+    scripts:
+      - name: Submit processed TestFlight build to App Store review
+        script: |
+          set -e
+          if [ -z "$APP_STORE_CONNECT_ISSUER_ID" ] || [ -z "$APP_STORE_CONNECT_KEY_IDENTIFIER" ] || [ -z "$APP_STORE_CONNECT_PRIVATE_KEY" ]; then
+            echo "ERROR: Missing APP_STORE_CONNECT_* env vars (group appstore_credentials)."
+            exit 1
+          fi
+          export APP_STORE_CONNECT_MAX_BUILD_PROCESSING_WAIT=90
+          export APP_STORE_CONNECT_MAX_FIND_BUILD_WAIT=30
+          WHATS_NEW='Cập nhật 1.0.39: sửa lỗi font Nghỉ phép, splash SBOX HRM, giao diện Công việc và điều hướng mobile.'
+          app-store-connect publish \
+            --issuer-id "$APP_STORE_CONNECT_ISSUER_ID" \
+            --key-id "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
+            --private-key "@env:APP_STORE_CONNECT_PRIVATE_KEY" \
+            --skip-package-upload \
+            --app-store \
+            --apple-id "$APP_STORE_APP_ID" \
+            --version-string "$APP_VERSION" \
+            --locale vi \
+            --whats-new "$WHATS_NEW" \
+            --cancel-previous-submissions \
+            --release-type MANUAL
+          echo "=== Submitted $APP_VERSION to App Store review ==="
 
   ios-debug:
     name: iOS Debug (Ad Hoc)
