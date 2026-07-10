@@ -2,6 +2,7 @@ using ZKTecoADMS.Domain.Exceptions;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
 using ZKTecoADMS.Application.Constants;
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Domain.Enums;
 
 namespace ZKTecoADMS.Api.Controllers.Base;
@@ -51,6 +52,27 @@ public abstract class AuthenticatedControllerBase : ControllerBase
 
     protected bool IsStoreRenewalLimitReached(int renewalCount) =>
         renewalCount >= MaxStoreRenewals && !CanBypassStoreRenewalLimit;
+
+    /// <summary>Chỉ sanapos.vn@gmail.com — nhập số ngày gia hạn tùy ý.</summary>
+    protected bool CanUseCustomStoreRenewalDays => CanBypassStoreRenewalLimit;
+
+    protected bool TryValidateRenewalDays(int days, out string errorMessage)
+    {
+        if (days <= 0)
+        {
+            errorMessage = "Số ngày gia hạn phải lớn hơn 0";
+            return false;
+        }
+
+        if (!StoreRenewalHelper.IsAllowedRenewalDays(days, CanUseCustomStoreRenewalDays))
+        {
+            errorMessage = StoreRenewalHelper.PresetOnlyMessage;
+            return false;
+        }
+
+        errorMessage = string.Empty;
+        return true;
+    }
 
     protected bool IsCrossStoreNotificationUser =>
         CurrentUserRole.Equals(nameof(Roles.SuperAdmin), StringComparison.OrdinalIgnoreCase)

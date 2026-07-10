@@ -27,6 +27,9 @@ public class StoreConfiguration : IEntityTypeConfiguration<Store>
             
         builder.Property(e => e.Address)
             .HasMaxLength(255);
+
+        builder.Property(e => e.Province)
+            .HasMaxLength(120);
             
         builder.Property(e => e.Phone)
             .HasMaxLength(20);

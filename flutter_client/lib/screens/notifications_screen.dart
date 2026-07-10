@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
+import '../providers/auth_provider.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:intl/intl.dart';
 import 'package:timeago/timeago.dart' as timeago;
@@ -56,6 +57,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   void initState() {
     super.initState();
     timeago.setLocaleMessages('vi', timeago.ViMessages());
+    if (widget.adminPortalMode) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final auth = Provider.of<AuthProvider>(context, listen: false);
+        Provider.of<PermissionProvider>(context, listen: false)
+            .loadPermissions(role: auth.userRole);
+      });
+    }
     _loadData();
     _connectSignalR();
     _scrollController.addListener(_onScroll);
@@ -368,6 +377,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       if (_entityFilter == 'device') {
         return et == 'device' || et == 'devicestatus' || et == 'admsdevice';
       }
+      if (_entityFilter == 'store') {
+        return et == 'store' || et == 'renewal';
+      }
+      if (_entityFilter == 'license') {
+        return et == 'license' || et == 'licensekey';
+      }
       return et != 'attendance' &&
           et != 'newattendance' &&
           et != 'device' &&
@@ -484,6 +499,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 
+  bool get _canDeleteNotifications {
+    if (widget.adminPortalMode) return true;
+    return Provider.of<PermissionProvider>(context, listen: false)
+        .canDelete('Notification');
+  }
+
   // == Build ==
 
   @override
@@ -499,12 +520,41 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
     if (_hasMore) flatItems.add(null);
 
-    return Container(
+    final content = Container(
       color: const Color(0xFFF4F4F5),
       child: HrmResponsiveListLayout(
         headerSections: [_buildFilterBar()],
         desktopBody: _buildNotificationsBody(filtered, flatItems),
         mobileSlivers: (_) => _notificationsMobileSlivers(filtered, flatItems),
+      ),
+    );
+
+    if (!widget.adminPortalMode) return content;
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF4F4F5),
+      appBar: AppBar(
+        title: const Text('Thông báo'),
+        centerTitle: false,
+        actions: [
+          if (_unreadCount > 0)
+            IconButton(
+              tooltip: 'Đánh dấu đã đọc',
+              icon: const Icon(Icons.done_all),
+              onPressed: _markAllAsRead,
+            ),
+          if (_notifications.isNotEmpty && _canDeleteNotifications)
+            IconButton(
+              tooltip: 'Xóa tất cả',
+              icon: Icon(Icons.delete_sweep_outlined,
+                  color: Colors.red.shade400),
+              onPressed: _deleteAllNotifications,
+            ),
+        ],
+      ),
+      body: SafeArea(
+        top: false,
+        child: content,
       ),
     );
   }
@@ -641,6 +691,24 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   () => setState(() => _entityFilter =
                       _entityFilter == 'other' ? null : 'other'),
                   activeColor: const Color(0xFF6366F1)),
+              if (widget.adminPortalMode) ...[
+                const SizedBox(width: 6),
+                _iconChip(
+                    Icons.store,
+                    'Cửa hàng',
+                    _entityFilter == 'store',
+                    () => setState(() => _entityFilter =
+                        _entityFilter == 'store' ? null : 'store'),
+                    activeColor: const Color(0xFF2563EB)),
+                const SizedBox(width: 6),
+                _iconChip(
+                    Icons.vpn_key,
+                    'License',
+                    _entityFilter == 'license',
+                    () => setState(() => _entityFilter =
+                        _entityFilter == 'license' ? null : 'license'),
+                    activeColor: const Color(0xFFE65100)),
+              ],
               if (_unreadCount > 0 || _notifications.isNotEmpty) ...[
                 Container(
                     width: 1,
@@ -650,9 +718,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 if (_unreadCount > 0)
                   _actionIcon(
                       Icons.done_all, 'Đánh dấu đã đọc', _markAllAsRead),
-                if (_notifications.isNotEmpty &&
-                    Provider.of<PermissionProvider>(context, listen: false)
-                        .canDelete('Notification')) ...[
+                if (_notifications.isNotEmpty && _canDeleteNotifications) ...[
                   const SizedBox(width: 4),
                   _actionIcon(Icons.delete_sweep_outlined, 'Xóa tất cả',
                       _deleteAllNotifications,
@@ -778,8 +844,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   Widget _buildNotificationCard(AppNotification n) {
     final color = _getColor(n);
     final icon = _getIcon(n);
-    final canDelete = Provider.of<PermissionProvider>(context, listen: false)
-        .canDelete('Notification');
+    final canDelete = _canDeleteNotifications;
     final hasNav = canNavigateFromNotification(
       relatedEntityType: n.relatedEntityType,
       categoryCode: n.categoryCode,

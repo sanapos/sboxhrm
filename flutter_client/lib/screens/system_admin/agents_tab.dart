@@ -105,10 +105,7 @@ class AgentsTabState extends State<AgentsTab> {
     final activeCount =
         _agents.where((a) => a['isActive'] == true).length;
     final totalStores = _agents.fold<int>(
-        0,
-        (sum, a) =>
-            sum +
-            ((a['storeCount'] ?? a['totalStores'] ?? 0) as num).toInt());
+        0, (sum, a) => sum + AdminHelpers.agentTotalStores(a));
 
     final statsRow = AdminMobileStatRow(children: [
       AdminHelpers.countBadge('Tổng', _agents.length, AdminHelpers.warning),
@@ -116,7 +113,7 @@ class AgentsTabState extends State<AgentsTab> {
       AdminHelpers.countBadge('Hoạt động', activeCount, AdminHelpers.success),
       const SizedBox(width: 8),
       AdminHelpers.countBadge(
-          'Cửa hàng quản lý', totalStores, AdminHelpers.primary),
+          'Cửa hàng đăng ký', totalStores, AdminHelpers.primary),
     ]);
 
     if (adminUseMobileLayout(context)) {
@@ -294,6 +291,19 @@ class AgentsTabState extends State<AgentsTab> {
               Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
               const SizedBox(height: 2),
               Text([code, email].where((s) => s.isNotEmpty).join(' \u00b7 '), style: const TextStyle(color: Color(0xFF71717A), fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+              Text(
+                'ĐK: ${AdminHelpers.agentTotalStores(agent)} · '
+                'Kích hoạt: ${AdminHelpers.agentActivatedStores(agent)} · '
+                'D.thử: ${AdminHelpers.agentTrialStores(agent)} · '
+                'Key còn: ${AdminHelpers.agentAvailableKeys(agent)} · '
+                'Quỹ GH: ${AdminHelpers.agentRenewalBalance(agent)}d',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: AdminHelpers.agentRenewalBalance(agent) <= 0
+                      ? AdminHelpers.warning
+                      : const Color(0xFF7C3AED),
+                ),
+              ),
             ]),
           ),
           Container(
@@ -330,6 +340,12 @@ class AgentsTabState extends State<AgentsTab> {
           icon: Icons.edit,
           label: 'Sửa đại lý',
           onTap: () => _showEditAgentDialog(agent),
+        ),
+        AdminActionSheetItem(
+          icon: Icons.calendar_month,
+          label: 'Cấp quỹ gia hạn',
+          color: const Color(0xFF7C3AED),
+          onTap: () => _showAdjustRenewalBalanceDialog(agent),
         ),
         AdminActionSheetItem(
           icon: Icons.refresh,
@@ -396,19 +412,7 @@ class AgentsTabState extends State<AgentsTab> {
                     style:
                         TextStyle(fontSize: 12, color: Colors.grey[500])),
               const SizedBox(height: 4),
-              Row(children: [
-                AdminHelpers.statusChip(isActive ? 'Hoạt động' : 'Tắt',
-                    isActive ? AdminHelpers.success : Colors.grey),
-                const SizedBox(width: 6),
-                AdminHelpers.statusChip(
-                    '${agent['storeCount'] ?? agent['totalStores'] ?? 0} stores',
-                    AdminHelpers.primary),
-                if (agent['maxStores'] != null) ...[
-                  const SizedBox(width: 6),
-                  AdminHelpers.statusChip(
-                      'Max: ${agent['maxStores']}', AdminHelpers.info),
-                ],
-              ]),
+              _buildAgentStatChips(agent),
             ]),
         trailing: context.systemAdminCanEdit
             ? PopupMenuButton<String>(
@@ -420,6 +424,13 @@ class AgentsTabState extends State<AgentsTab> {
                   Icon(Icons.link, size: 16),
                   SizedBox(width: 8),
                   Text('Link đăng ký cửa hàng')
+                ])),
+            const PopupMenuItem(
+                value: 'renewal',
+                child: Row(children: [
+                  Icon(Icons.calendar_month, size: 16, color: Color(0xFF7C3AED)),
+                  SizedBox(width: 8),
+                  Text('Cấp quỹ gia hạn')
                 ])),
             const PopupMenuItem(
                 value: 'token',
@@ -450,6 +461,7 @@ class AgentsTabState extends State<AgentsTab> {
                   agent['code']?.toString().trim().toUpperCase() ?? '');
             }
             if (v == 'token') _regenerateToken(agent);
+            if (v == 'renewal') _showAdjustRenewalBalanceDialog(agent);
             if (v == 'edit') _showEditAgentDialog(agent);
             if (v == 'delete') _deleteAgent(agent);
           },
@@ -462,10 +474,100 @@ class AgentsTabState extends State<AgentsTab> {
     );
   }
 
+  Widget _buildAgentStatsSummary(Map<String, dynamic> agent) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Thống kê',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+          const SizedBox(height: 8),
+          Text(
+            'Cửa hàng đăng ký: ${AdminHelpers.agentTotalStores(agent)} · '
+            'Đã kích hoạt: ${AdminHelpers.agentActivatedStores(agent)} · '
+            'Dùng thử: ${AdminHelpers.agentTrialStores(agent)}',
+            style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+          ),
+          if (AdminHelpers.agentLockedStores(agent) > 0) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Khóa: ${AdminHelpers.agentLockedStores(agent)} cửa hàng',
+              style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+            ),
+          ],
+          const SizedBox(height: 4),
+          Text(
+            'License key: còn ${AdminHelpers.agentAvailableKeys(agent)} · '
+            'đã dùng ${AdminHelpers.agentUsedKeys(agent)} · '
+            'tổng ${AdminHelpers.agentTotalKeys(agent)}',
+            style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAgentStatChips(Map<String, dynamic> agent) {
+    final isActive = agent['isActive'] as bool? ?? true;
+    final registered = AdminHelpers.agentTotalStores(agent);
+    final activated = AdminHelpers.agentActivatedStores(agent);
+    final trial = AdminHelpers.agentTrialStores(agent);
+    final lockedStores = AdminHelpers.agentLockedStores(agent);
+    final availableKeys = AdminHelpers.agentAvailableKeys(agent);
+    final usedKeys = AdminHelpers.agentUsedKeys(agent);
+    final totalKeys = AdminHelpers.agentTotalKeys(agent);
+    final renewalBalance = AdminHelpers.agentRenewalBalance(agent);
+
+    return Wrap(
+      spacing: 6,
+      runSpacing: 4,
+      children: [
+        AdminHelpers.statusChip(
+          isActive ? 'Hoạt động' : 'Tắt',
+          isActive ? AdminHelpers.success : Colors.grey,
+        ),
+        AdminHelpers.statusChip(
+          'ĐK: $registered',
+          AdminHelpers.primary,
+        ),
+        AdminHelpers.statusChip(
+          'Kích hoạt: $activated',
+          AdminHelpers.success,
+        ),
+        AdminHelpers.statusChip(
+          'D.thử: $trial',
+          const Color(0xFF7C3AED),
+        ),
+        if (lockedStores > 0)
+          AdminHelpers.statusChip(
+            '$lockedStores khóa',
+            AdminHelpers.warning,
+          ),
+        if (totalKeys > 0)
+          AdminHelpers.statusChip(
+            'Key: $availableKeys còn · $usedKeys đã dùng',
+            AdminHelpers.info,
+          ),
+        AdminHelpers.statusChip(
+          'Quỹ GH: ${renewalBalance}d',
+          renewalBalance > 0
+              ? const Color(0xFF7C3AED)
+              : AdminHelpers.warning,
+        ),
+      ],
+    );
+  }
+
   Future<void> _deleteAgent(Map<String, dynamic> agent) async {
     final name = agent['name']?.toString() ?? 'Đại lý';
-    final storeCount =
-        (agent['storeCount'] ?? agent['totalStores'] ?? 0) as num;
+    final storeCount = AdminHelpers.agentTotalStores(agent);
     if (storeCount > 0) {
       AdminHelpers.showError(
           context, 'Không thể xóa. Đại lý đang quản lý $storeCount cửa hàng');
@@ -857,6 +959,112 @@ class AgentsTabState extends State<AgentsTab> {
     );
   }
 
+  void _showAdjustRenewalBalanceDialog(Map<String, dynamic> agent) {
+    final name = agent['name']?.toString() ?? 'Đại lý';
+    final current = (agent['renewalDayBalance'] as num?)?.toInt() ?? 0;
+    final addCtrl = TextEditingController(text: '500');
+    final setCtrl = TextEditingController(text: current.toString());
+    var modeAdd = true;
+    var saving = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSt) => ScrollableAlertDialog(
+          title: Text('Quỹ gia hạn — $name'),
+          content: SizedBox(
+            width: MediaQuery.of(context).size.width < 600
+                ? MediaQuery.of(context).size.width - 32
+                : 400,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Hiện còn: $current ngày',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w600, fontSize: 15)),
+                const SizedBox(height: 12),
+                SegmentedButton<bool>(
+                  segments: const [
+                    ButtonSegment(
+                        value: true, label: Text('Cộng thêm')),
+                    ButtonSegment(
+                        value: false, label: Text('Đặt lại')),
+                  ],
+                  selected: {modeAdd},
+                  onSelectionChanged: (s) =>
+                      setSt(() => modeAdd = s.first),
+                ),
+                const SizedBox(height: 12),
+                if (modeAdd)
+                  AdminHelpers.dialogField(
+                      addCtrl, 'Số ngày cộng thêm', Icons.add)
+                else
+                  AdminHelpers.dialogField(
+                      setCtrl, 'Số dư mới (ngày)', Icons.edit),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+                onPressed: saving ? null : () => Navigator.pop(ctx),
+                child: const Text('Hủy')),
+            FilledButton(
+              onPressed: saving
+                  ? null
+                  : () async {
+                      final addDays = int.tryParse(addCtrl.text.trim());
+                      final setBalance = int.tryParse(setCtrl.text.trim());
+                      if (modeAdd) {
+                        if (addDays == null || addDays <= 0) {
+                          AdminHelpers.showError(
+                              context, 'Số ngày cộng thêm không hợp lệ');
+                          return;
+                        }
+                      } else {
+                        if (setBalance == null || setBalance < 0) {
+                          AdminHelpers.showError(
+                              context, 'Số dư mới không hợp lệ');
+                          return;
+                        }
+                      }
+                      setSt(() => saving = true);
+                      final res =
+                          await _apiService.adjustAgentRenewalBalance(
+                        agentId: agent['id']?.toString() ?? '',
+                        addDays: modeAdd ? addDays : null,
+                        setBalance: modeAdd ? null : setBalance,
+                      );
+                      if (!ctx.mounted) return;
+                      Navigator.pop(ctx);
+                      if (!mounted) return;
+                      if (res['isSuccess'] == true) {
+                        AdminHelpers.showSuccess(
+                            context, 'Đã cập nhật quỹ gia hạn');
+                        loadData();
+                      } else {
+                        AdminHelpers.showApiError(context, res);
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF7C3AED)),
+              child: saving
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white))
+                  : const Text('Lưu'),
+            ),
+          ],
+        ),
+      ),
+    ).then((_) {
+      addCtrl.dispose();
+      setCtrl.dispose();
+    });
+  }
+
   void _showEditAgentDialog(Map<String, dynamic> agent, {bool readOnly = false}) {
     final nameCtrl =
         TextEditingController(text: agent['name'] ?? '');
@@ -889,6 +1097,39 @@ class AgentsTabState extends State<AgentsTab> {
             const SizedBox(height: 12),
             AdminHelpers.dialogField(
                 addressCtrl, 'Địa chỉ', Icons.location_on, readOnly: readOnly),
+            const SizedBox(height: 12),
+            _buildAgentStatsSummary(agent),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF7C3AED).withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.calendar_month,
+                      color: Color(0xFF7C3AED), size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Quỹ gia hạn còn: ${agent['renewalDayBalance'] ?? 0} ngày',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w600, fontSize: 14),
+                    ),
+                  ),
+                  if (context.systemAdminCanEdit)
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _showAdjustRenewalBalanceDialog(agent);
+                      },
+                      child: const Text('Cấp thêm'),
+                    ),
+                ],
+              ),
+            ),
             if (agentCode.isNotEmpty) ...[
               const SizedBox(height: 16),
               const Align(

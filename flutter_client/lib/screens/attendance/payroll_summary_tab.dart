@@ -27,6 +27,7 @@ import '../../widgets/synced_scroll_list_view.dart'
 import '../../utils/shift_records_calculator.dart';
 import '../../utils/allowance_calculator.dart';
 import '../../utils/travel_hours_calculator.dart';
+import '../../utils/travel_hours_load_utils.dart';
 import '../../models/mobile_attendance.dart';
 import '../../utils/mobile_attendance_vertical_layout.dart';
 import '../main_layout.dart' show NavigationNotifier;
@@ -425,32 +426,20 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
   Future<void> _loadTravelMobileRecords() async {
     _travelHoursByEmpKey = {};
     try {
-      final toEnd = DateTime(
-        _toDate.year,
-        _toDate.month,
-        _toDate.day,
-        23,
-        59,
-        59,
+      final maps = await loadTravelHoursMaps(
+        api: _apiService,
+        fromDate: _fromDate,
+        toDate: _toDate,
+        employeesList: _employees
+            .map((e) => {
+                  'id': e.id,
+                  'employeeCode': e.employeeCode,
+                  'applicationUserId': e.applicationUserId,
+                  'pin': e.pin,
+                })
+            .toList(),
       );
-      final res = await _loadWithTimeout(
-        _apiService.getMobileAttendanceHistory(
-          fromDate: DateTime(_fromDate.year, _fromDate.month, _fromDate.day),
-          toDate: toEnd,
-        ),
-        <String, dynamic>{'isSuccess': false},
-      );
-      if (res['isSuccess'] != true) return;
-      final raw = res['data'];
-      final dynamic list =
-          raw is List ? raw : (raw is Map ? (raw['items'] ?? raw['records']) : null);
-      if (list is! List) return;
-      final records = list
-          .whereType<Map>()
-          .map((e) =>
-              MobileAttendanceRecord.fromJson(Map<String, dynamic>.from(e)))
-          .toList();
-      _travelHoursByEmpKey = travelHoursByEmployeeKey(records);
+      _travelHoursByEmpKey = maps.byEmployeeKey;
     } catch (e) {
       debugPrint('Error loading travel mobile records: $e');
     }

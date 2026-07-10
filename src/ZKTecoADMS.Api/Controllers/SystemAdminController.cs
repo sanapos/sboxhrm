@@ -271,6 +271,7 @@ public class SystemAdminController : AuthenticatedControllerBase
                     EF.Functions.ILike(s.Name, searchPattern) || 
                     EF.Functions.ILike(s.Code, searchPattern) ||
                     (s.Address != null && EF.Functions.ILike(s.Address, searchPattern)) ||
+                    (s.Province != null && EF.Functions.ILike(s.Province, searchPattern)) ||
                     (s.Owner != null && s.Owner.Email != null && EF.Functions.ILike(s.Owner.Email, searchPattern)));
             }
 
@@ -331,6 +332,7 @@ public class SystemAdminController : AuthenticatedControllerBase
                     s.Code,
                     s.Description,
                     s.Address,
+                    s.Province,
                     s.Phone,
                     s.IsActive,
                     s.IsLocked,
@@ -468,6 +470,7 @@ public class SystemAdminController : AuthenticatedControllerBase
             store.Name = request.Name;
             store.Description = request.Description;
             store.Address = request.Address;
+            store.Province = request.Province;
             store.Phone = request.Phone;
             store.UpdatedAt = DateTime.UtcNow;
             store.UpdatedBy = CurrentUserId.ToString();
@@ -984,6 +987,9 @@ public class SystemAdminController : AuthenticatedControllerBase
             // Store Stats
             a.Stores?.Count(s => s.IsActive && !s.IsLocked) ?? 0,
             a.Stores?.Count(s => s.IsLocked) ?? 0,
+            AgentStoreStatsHelper.CountActivated(a.Stores),
+            AgentStoreStatsHelper.CountTrial(a.Stores),
+            a.RenewalDayBalance,
             // Registration Info
             a.RegistrationToken,
             a.RegistrationTokenExpiry,
@@ -1118,6 +1124,7 @@ public class SystemAdminController : AuthenticatedControllerBase
                 Email = request.Email,
                 IsActive = true,
                 MaxStores = request.MaxStores,
+                RenewalDayBalance = Math.Max(0, request.InitialRenewalDayBalance),
                 RegistrationToken = registrationToken,
                 RegistrationTokenExpiry = tokenExpiry,
                 IsRegistrationCompleted = hasPassword,
@@ -1188,6 +1195,54 @@ public class SystemAdminController : AuthenticatedControllerBase
         {
             _logger.LogError(ex, "Error regenerating token for agent {AgentId}", id);
             return StatusCode(500, AppResponse<AgentDto>.Fail("Error regenerating token"));
+        }
+    }
+
+    /// <summary>
+    /// Cấp / điều chỉnh quỹ ngày gia hạn cho đại lý
+    /// </summary>
+    [HttpPost("agents/{id:guid}/renewal-balance")]
+    public async Task<ActionResult<AppResponse<AgentDto>>> AdjustAgentRenewalBalance(
+        Guid id,
+        [FromBody] AdjustAgentRenewalBalanceRequest request)
+    {
+        try
+        {
+            if (request.SetBalance == null && request.AddDays == null)
+            {
+                return BadRequest(AppResponse<AgentDto>.Fail(
+                    "Cần truyền setBalance hoặc addDays"));
+            }
+
+            var agent = await _dbContext.Agents
+                .AsTracking()
+                .Include(a => a.User)
+                .Include(a => a.Stores)
+                .Include(a => a.LicenseKeys)
+                .FirstOrDefaultAsync(a => a.Id == id);
+
+            if (agent == null)
+                return NotFound(AppResponse<AgentDto>.Fail("Agent không tồn tại"));
+
+            if (request.SetBalance != null)
+                agent.RenewalDayBalance = Math.Max(0, request.SetBalance.Value);
+            else if (request.AddDays != null)
+                agent.RenewalDayBalance = Math.Max(0, agent.RenewalDayBalance + request.AddDays.Value);
+
+            agent.LastModified = DateTime.UtcNow;
+            agent.LastModifiedBy = CurrentUserId.ToString();
+            await _dbContext.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "SuperAdmin {UserId} adjusted renewal balance for Agent {AgentId} to {Balance}",
+                CurrentUserId, id, agent.RenewalDayBalance);
+
+            return Ok(AppResponse<AgentDto>.Success(MapToAgentDto(agent)));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error adjusting renewal balance for agent {AgentId}", id);
+            return StatusCode(500, AppResponse<AgentDto>.Fail("Error adjusting renewal balance"));
         }
     }
 
@@ -1332,6 +1387,8 @@ public class SystemAdminController : AuthenticatedControllerBase
                         $"Agent đã đạt giới hạn {agent.MaxStores} cửa hàng"));
                 }
             }
+
+            // MaxStores = 0 → không giới hạn số cửa hàng
 
             var (assignOk, assignErr) = await AgentAssignmentPersistHelper.AssignStoreToAgentAsync(
                 _dbContext, storeId, agentId, CurrentUserEmail);
@@ -1986,6 +2043,42 @@ public class SystemAdminController : AuthenticatedControllerBase
     }
 
     /// <summary>
+    /// License key có thể kích hoạt cho cửa hàng (key chưa dùng + đúng phạm vi đại lý).
+    /// </summary>
+    [HttpGet("stores/{storeId:guid}/activatable-licenses")]
+    public async Task<ActionResult<AppResponse<List<LicenseKeyDto>>>> GetActivatableLicensesForStore(
+        Guid storeId)
+    {
+        try
+        {
+            var store = await _dbContext.Stores.AsNoTracking()
+                .FirstOrDefaultAsync(s => s.Id == storeId);
+            if (store == null)
+                return NotFound(AppResponse<List<LicenseKeyDto>>.Fail("Store not found"));
+
+            var items = await LicenseKeyActivationHelper
+                .FilterActivatableForStore(
+                    _dbContext.LicenseKeys
+                        .Include(l => l.Store)
+                        .Include(l => l.Agent)
+                        .Include(l => l.ServicePackage),
+                    store)
+                .OrderByDescending(l => l.CreatedAt)
+                .Take(500)
+                .ToListAsync();
+
+            var dtos = items.Select(MapToLicenseKeyDto).ToList();
+            return Ok(AppResponse<List<LicenseKeyDto>>.Success(dtos));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting activatable licenses for store {StoreId}", storeId);
+            return StatusCode(500,
+                AppResponse<List<LicenseKeyDto>>.Fail("Error getting activatable licenses"));
+        }
+    }
+
+    /// <summary>
     /// Kích hoạt License Key cho Store — cộng thêm ngày sử dụng, gán gói dịch vụ từ key
     /// Mỗi cửa hàng tối đa 3 lần gia hạn (lần đầu kích hoạt không tính)
     /// </summary>
@@ -2018,6 +2111,12 @@ public class SystemAdminController : AuthenticatedControllerBase
                 return BadRequest(AppResponse<StoreDetailDto>.Fail("License key không hợp lệ hoặc đã được sử dụng"));
             }
 
+            if (!LicenseKeyActivationHelper.CanActivateForStore(license, store))
+            {
+                return BadRequest(AppResponse<StoreDetailDto>.Fail(
+                    LicenseKeyActivationHelper.InvalidScopeMessage));
+            }
+
             // Kiểm tra giới hạn gia hạn: lần đầu kích hoạt (chưa có LicenseKey) không tính
             var isFirstActivation = string.IsNullOrEmpty(store.LicenseKey);
             if (!isFirstActivation && store.RenewalCount >= 3)
@@ -2032,9 +2131,7 @@ public class SystemAdminController : AuthenticatedControllerBase
             license.ActivatedAt = DateTime.UtcNow;
 
             // Cộng thêm ngày sử dụng (không reset)
-            var baseDate = store.ExpiryDate ?? DateTime.UtcNow;
-            if (baseDate < DateTime.UtcNow) baseDate = DateTime.UtcNow;
-            store.ExpiryDate = baseDate.AddDays(license.DurationDays);
+            store.ExpiryDate = StoreLicenseHelper.ComputeExtendedExpiryDate(store, license.DurationDays);
 
             // Cập nhật thông tin license & gói dịch vụ từ key
             store.LicenseKey = license.Key;
@@ -2212,14 +2309,7 @@ public class SystemAdminController : AuthenticatedControllerBase
                 return NotFound(AppResponse<StoreDetailDto>.Fail("Store not found"));
             }
 
-            // Calculate new expiry date
-            var baseDate = store.ExpiryDate ?? DateTime.UtcNow;
-            if (baseDate < DateTime.UtcNow)
-            {
-                baseDate = DateTime.UtcNow;
-            }
-
-            store.ExpiryDate = baseDate.AddDays(request.DaysToAdd);
+            store.ExpiryDate = StoreLicenseHelper.ComputeExtendedExpiryDate(store, request.DaysToAdd);
             
             if (request.MaxUsers.HasValue)
             {
@@ -3104,6 +3194,7 @@ public class SystemAdminController : AuthenticatedControllerBase
             store.Code,
             store.Description,
             store.Address,
+            store.Province,
             store.Phone,
             store.IsActive,
             store.IsLocked,
@@ -4421,16 +4512,18 @@ public class SystemAdminController : AuthenticatedControllerBase
                 return BadRequest(AppResponse<StoreDetailDto>.Fail("Số ngày gia hạn phải lớn hơn 0"));
             }
 
+            if (!TryValidateRenewalDays(request.Days, out var daysError))
+            {
+                return BadRequest(AppResponse<StoreDetailDto>.Fail(daysError));
+            }
+
             if (IsStoreRenewalLimitReached(store.RenewalCount))
             {
                 return BadRequest(AppResponse<StoreDetailDto>.Fail(
                     "Cửa hàng đã gia hạn tối đa 3 lần. Vui lòng kích hoạt key mới."));
             }
 
-            var baseDate = store.ExpiryDate ?? DateTime.UtcNow;
-            if (baseDate < DateTime.UtcNow) baseDate = DateTime.UtcNow;
-
-            store.ExpiryDate = baseDate.AddDays(request.Days);
+            store.ExpiryDate = StoreLicenseHelper.ComputeExtendedExpiryDate(store, request.Days);
             store.RenewalCount++;
             store.IsLocked = false;
             store.LockReason = null;
@@ -4633,6 +4726,15 @@ public class SystemAdminController : AuthenticatedControllerBase
             if (licenses.Count == 0)
                 return BadRequest(AppResponse<BulkActivationResultDto>.Fail("Không có key hợp lệ hoặc đã được sử dụng"));
 
+            foreach (var license in licenses)
+            {
+                if (!LicenseKeyActivationHelper.CanActivateForStore(license, store))
+                {
+                    return BadRequest(AppResponse<BulkActivationResultDto>.Fail(
+                        $"{LicenseKeyActivationHelper.InvalidScopeMessage} (Key: {license.Key})"));
+                }
+            }
+
             // Kiểm tra tất cả key cùng 1 gói
             var packageIds = licenses.Select(l => l.ServicePackageId).Where(id => id != null).Distinct().ToList();
             if (packageIds.Count > 1)
@@ -4684,9 +4786,7 @@ public class SystemAdminController : AuthenticatedControllerBase
             }
 
             // Cộng ngày: tổng ngày key + bonus khuyến mãi
-            var baseDate = store.ExpiryDate ?? DateTime.UtcNow;
-            if (baseDate < DateTime.UtcNow) baseDate = DateTime.UtcNow;
-            store.ExpiryDate = baseDate.AddDays(totalDays + bonusDays);
+            store.ExpiryDate = StoreLicenseHelper.ComputeExtendedExpiryDate(store, totalDays + bonusDays);
 
             // Cập nhật store từ key cuối cùng
             var lastLicense = licenses.Last();
@@ -4788,6 +4888,20 @@ public class SystemAdminController : AuthenticatedControllerBase
             if (licenses.Count == 0)
                 return BadRequest(AppResponse<BulkActivationResultDto>.Fail("Không có key hợp lệ"));
 
+            var storeForScope = await _dbContext.Stores.AsNoTracking()
+                .FirstOrDefaultAsync(s => s.Id == storeId);
+            if (storeForScope == null)
+                return NotFound(AppResponse<BulkActivationResultDto>.Fail("Store not found"));
+
+            foreach (var license in licenses)
+            {
+                if (!LicenseKeyActivationHelper.CanActivateForStore(license, storeForScope))
+                {
+                    return BadRequest(AppResponse<BulkActivationResultDto>.Fail(
+                        $"{LicenseKeyActivationHelper.InvalidScopeMessage} (Key: {license.Key})"));
+                }
+            }
+
             var packageIds = licenses.Select(l => l.ServicePackageId).Where(id => id != null).Distinct().ToList();
             if (packageIds.Count > 1)
                 return BadRequest(AppResponse<BulkActivationResultDto>.Fail(
@@ -4844,6 +4958,8 @@ public class SystemAdminController : AuthenticatedControllerBase
 internal record UserFkRef(string TableName, string ColumnName, string IsNullable);
 
 public record ExtendDaysRequest(int Days);
+
+public record AdjustAgentRenewalBalanceRequest(int? SetBalance, int? AddDays);
 
 /// <summary>
 /// Request tạo SuperAdmin mới

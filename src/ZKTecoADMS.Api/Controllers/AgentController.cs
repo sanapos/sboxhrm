@@ -46,31 +46,15 @@ public partial class AgentController : AuthenticatedControllerBase
     /// Lấy thông tin Agent hiện tại
     /// </summary>
     [HttpGet("profile")]
-    public async Task<ActionResult<AppResponse<AgentProfileDto>>> GetMyProfile()
+    public async Task<ActionResult<AppResponse<AgentProfileDto>>> GetMyProfile(
+        [FromServices] IConfiguration configuration)
     {
         try
         {
             var (agent, err) = await RequireCurrentAgentAsync();
             if (err != null) return err;
 
-            var agentFull = await _dbContext.Agents
-                .Include(a => a.Stores)
-                .Include(a => a.LicenseKeys)
-                .FirstAsync(a => a.Id == agent.Id);
-
-            var dto = new AgentProfileDto(
-                agentFull.Id,
-                agentFull.Name,
-                agentFull.Code,
-                agentFull.Email,
-                agentFull.Phone,
-                agentFull.Stores.Count,
-                agentFull.MaxStores,
-                agentFull.LicenseKeys.Count,
-                agentFull.LicenseKeys.Count(l => l.IsUsed),
-                agentFull.LicenseKeys.Count(l => !l.IsUsed && l.IsActive)
-            );
-
+            var dto = await BuildAgentProfileDtoAsync(agent.Id, configuration);
             return Ok(AppResponse<AgentProfileDto>.Success(dto));
         }
         catch (Exception ex)
@@ -78,6 +62,82 @@ public partial class AgentController : AuthenticatedControllerBase
             _logger.LogError(ex, "Error getting agent profile");
             return StatusCode(500, AppResponse<AgentProfileDto>.Fail("Lỗi khi lấy thông tin đại lý"));
         }
+    }
+
+    /// <summary>
+    /// Đại lý tự cập nhật thông tin liên hệ / giới thiệu (không đổi mã, tên doanh nghiệp).
+    /// </summary>
+    [HttpPut("profile")]
+    public async Task<ActionResult<AppResponse<AgentProfileDto>>> UpdateMyProfile(
+        [FromBody] UpdateAgentProfileRequest request,
+        [FromServices] IConfiguration configuration)
+    {
+        try
+        {
+            var (agent, err) = await RequireCurrentAgentAsync();
+            if (err != null) return err;
+
+            var tracked = await _dbContext.Agents.FirstOrDefaultAsync(a => a.Id == agent.Id);
+            if (tracked == null)
+                return NotFound(AppResponse<AgentProfileDto>.Fail("Không tìm thấy đại lý"));
+
+            if (request.Description != null)
+                tracked.Description = string.IsNullOrWhiteSpace(request.Description)
+                    ? null
+                    : request.Description.Trim();
+            if (request.Address != null)
+                tracked.Address = string.IsNullOrWhiteSpace(request.Address)
+                    ? null
+                    : request.Address.Trim();
+            if (request.Phone != null)
+                tracked.Phone = string.IsNullOrWhiteSpace(request.Phone)
+                    ? null
+                    : request.Phone.Trim();
+
+            tracked.UpdatedAt = DateTime.UtcNow;
+            tracked.UpdatedBy = CurrentUserId.ToString();
+            await _dbContext.SaveChangesAsync();
+
+            var dto = await BuildAgentProfileDtoAsync(tracked.Id, configuration);
+            return Ok(AppResponse<AgentProfileDto>.Success(dto));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating agent profile");
+            return StatusCode(500, AppResponse<AgentProfileDto>.Fail("Lỗi khi cập nhật thông tin đại lý"));
+        }
+    }
+
+    private async Task<AgentProfileDto> BuildAgentProfileDtoAsync(
+        Guid agentId,
+        IConfiguration configuration)
+    {
+        var agentFull = await _dbContext.Agents
+            .Include(a => a.Stores)
+            .Include(a => a.LicenseKeys)
+            .Include(a => a.User)
+            .FirstAsync(a => a.Id == agentId);
+
+        var baseUrl = configuration["AppSettings:FlutterClientUrl"] ?? "https://sbox.sana.vn";
+        var referralLink = $"{baseUrl}/#/register?agentCode={agentFull.Code}";
+
+        return new AgentProfileDto(
+            agentFull.Id,
+            agentFull.Name,
+            agentFull.Code,
+            agentFull.Email ?? agentFull.User?.Email,
+            agentFull.Phone,
+            agentFull.Description,
+            agentFull.Address,
+            agentFull.Stores.Count,
+            AgentStoreStatsHelper.CountActivated(agentFull.Stores),
+            AgentStoreStatsHelper.CountTrial(agentFull.Stores),
+            agentFull.MaxStores,
+            agentFull.LicenseKeys.Count,
+            agentFull.LicenseKeys.Count(l => l.IsUsed),
+            agentFull.LicenseKeys.Count(l => !l.IsUsed && l.IsActive),
+            agentFull.RenewalDayBalance,
+            referralLink);
     }
 
     /// <summary>
@@ -503,11 +563,23 @@ public record AgentProfileDto(
     string Code,
     string? Email,
     string? Phone,
+    string? Description,
+    string? Address,
     int StoreCount,
+    int ActivatedStoresCount,
+    int TrialStoresCount,
     int MaxStores,
     int TotalKeys,
     int UsedKeys,
-    int AvailableKeys
+    int AvailableKeys,
+    int RenewalDayBalance,
+    string? ReferralLink
+);
+
+public record UpdateAgentProfileRequest(
+    string? Description,
+    string? Address,
+    string? Phone
 );
 
 public record AgentStoreSummaryDto(

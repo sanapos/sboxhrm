@@ -26,6 +26,10 @@ public record AgentDto(
     // Store Stats
     int ActiveStoresCount,
     int LockedStoresCount,
+    int ActivatedStoresCount,
+    int TrialStoresCount,
+    /// <summary>Quỹ ngày gia hạn còn lại (đại lý dùng khi gia hạn cửa hàng).</summary>
+    int RenewalDayBalance,
     // Registration Info
     string? RegistrationToken,
     DateTime? RegistrationTokenExpiry,
@@ -44,8 +48,9 @@ public record CreateAgentRequest(
     string? Address,
     string? Phone,
     string? Email, // Email liên hệ / dùng để đăng nhập nếu kèm Password
-    int MaxStores = 10,
+    int MaxStores = 0,
     int TokenValidDays = 30, // Token có hiệu lực bao nhiêu ngày
+    int InitialRenewalDayBalance = 0,
     string? Password = null  // Nếu có → tạo ngay tài khoản Agent với mật khẩu này
 );
 

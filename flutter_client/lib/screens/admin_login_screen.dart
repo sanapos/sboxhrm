@@ -125,6 +125,9 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
             _errorMessage =
                 'Tài khoản không có quyền truy cập quản trị hệ thống';
           });
+        } else if (role == 'SuperAdmin' || role == 'Agent') {
+          if (!mounted) return;
+          Navigator.of(context).pushNamedAndRemoveUntil('/admin', (_) => false);
         }
       } else if (!success && mounted) {
         setState(() {

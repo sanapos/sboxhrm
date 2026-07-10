@@ -9,6 +9,8 @@ public class Store : Entity<Guid>
     public string Code { get; set; } = string.Empty; // Mã cửa hàng duy nhất (ví dụ: sanapos)
     public string? Description { get; set; }
     public string? Address { get; set; }
+    /// <summary>Tỉnh / thành phố (điền khi đăng ký cửa hàng).</summary>
+    public string? Province { get; set; }
     public string? Phone { get; set; }
     public bool IsActive { get; set; } = true;
 

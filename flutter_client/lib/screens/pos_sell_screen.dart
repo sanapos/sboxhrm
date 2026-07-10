@@ -3228,6 +3228,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
               height: compact ? 44 : 48,
               radius: 6,
               completeLabel: 'THANH TOÁN',
+              completeFontSize: 12,
             ),
           ),
         ],
@@ -3929,6 +3930,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
     double height = 50,
     double radius = 10,
     String completeLabel = 'HOÀN TẤT',
+    double completeFontSize = 12,
   }) {
     final showWarehouse =
         _printSettings.showWarehouseManualButton && _tab.cart.isNotEmpty;
@@ -3955,9 +3957,19 @@ class _PosSellScreenState extends State<PosSellScreen> {
                   color: Colors.white,
                 ),
               )
-            : Text(
-                completeLabel,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+            : FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Text(
+                    completeLabel,
+                    maxLines: 1,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: completeFontSize,
+                    ),
+                  ),
+                ),
               ),
       );
     }
@@ -4006,7 +4018,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
                   ),
             label: Text(
               warehouseLabel,
-              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 11),
             ),
           ),
         ),
@@ -4029,6 +4041,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
       height: compact ? 44 : 48,
       radius: 6,
       completeLabel: 'THANH TOÁN',
+      completeFontSize: 12,
     );
 
     return Container(
@@ -4461,10 +4474,12 @@ class _PosSellScreenState extends State<PosSellScreen> {
                     Text(
                       '${_moneyFmt.format(_grandTotal)} đ',
                       style: const TextStyle(
-                        fontSize: 22,
+                        fontSize: 18,
                         fontWeight: FontWeight.bold,
                         color: _kiotBlue,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
@@ -4483,23 +4498,32 @@ class _PosSellScreenState extends State<PosSellScreen> {
                 ),
                 const SizedBox(width: 4),
               ],
-              const SizedBox(width: 12),
-              SizedBox(
-                width: 148,
-                height: 48,
-                child: FilledButton(
-                  onPressed: _tab.cart.isEmpty || _checkingOut || !canPay
-                      ? null
-                      : () => _openMobilePaymentScreen(perm),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: _kiotBlue,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+              Flexible(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minWidth: 88, maxWidth: 132),
+                  child: FilledButton(
+                    onPressed: _tab.cart.isEmpty || _checkingOut || !canPay
+                        ? null
+                        : () => _openMobilePaymentScreen(perm),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: _kiotBlue,
+                      minimumSize: const Size(0, 44),
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
-                  ),
-                  child: const Text(
-                    'THANH TOÁN',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    child: const FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        'Thanh toán',
+                        maxLines: 1,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -4945,7 +4969,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
                         canPay: canPay,
                         busy: busy,
                         completeLabel:
-                            'HOÀN TẤT · ${_moneyFmt.format(_grandTotal)} đ',
+                            'TT · ${_moneyFmt.format(_grandTotal)}đ',
+                        completeFontSize: 11,
                         onComplete: () async {
                           setPay(() => paying = true);
                           try {

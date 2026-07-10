@@ -200,7 +200,7 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
                       child: Row(
                         children: [
                           _statChip('Cửa hàng',
-                              '${_intVal(dash['storeCount'])}/${_intVal(dash['maxStores'])}'),
+                              '${_intVal(dash['storeCount'])}'),
                           const SizedBox(width: 8),
                           _statChip('Thiết bị',
                               '${_intVal(dash['onlineDevices'])}/${_intVal(dash['totalDevices'])} online'),

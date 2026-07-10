@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:flutter/services.dart';
+import '../../data/vietnam_provinces.dart';
 import '../../services/api_service.dart';
 import '../../utils/agent_mutation_result.dart';
 import '../../utils/responsive_helper.dart';
@@ -89,10 +90,12 @@ class StoresTabState extends State<StoresTab> {
         final code = (s['code'] ?? '').toString().toLowerCase();
         final phone = (s['phone'] ?? '').toString().toLowerCase();
         final email = (s['ownerEmail'] ?? '').toString().toLowerCase();
+        final province = (s['province'] ?? '').toString().toLowerCase();
         final matchSearch = query.isEmpty ||
             name.contains(query) ||
             code.contains(query) ||
             phone.contains(query) ||
+            province.contains(query) ||
             email.contains(query);
 
         final isActive = s['isActive'] as bool? ?? true;
@@ -142,29 +145,8 @@ class StoresTabState extends State<StoresTab> {
   }
 
   /// Get remaining days from expiryDate (primary) or trialStartDate+trialDays (fallback)
-  int? _getRemainingDays(Map<String, dynamic> store) {
-    // Primary: use expiryDate if available
-    final expiry = store['expiryDate'];
-    if (expiry != null) {
-      final expiryDate = DateTime.tryParse(expiry.toString());
-      if (expiryDate != null) {
-        return expiryDate.difference(DateTime.now()).inDays;
-      }
-    }
-    // Fallback: trialStartDate (or createdAt if trial start not set) + trialDays
-    final trialDays = store['trialDays'] as int?;
-    if (trialDays != null) {
-      final startRaw = store['trialStartDate'] ?? store['createdAt'];
-      if (startRaw != null) {
-        final startDate = DateTime.tryParse(startRaw.toString());
-        if (startDate != null) {
-          final endDate = startDate.add(Duration(days: trialDays));
-          return endDate.difference(DateTime.now()).inDays;
-        }
-      }
-    }
-    return null;
-  }
+  int? _getRemainingDays(Map<String, dynamic> store) =>
+      AdminHelpers.getStoreRemainingDays(store);
 
   /// Get number of inactive days (days since last attendance)
   int? _getInactiveDays(Map<String, dynamic> store) {
@@ -587,6 +569,18 @@ class StoresTabState extends State<StoresTab> {
                 const SizedBox(height: 4),
                 trialChip,
               ],
+              const SizedBox(height: 2),
+              Text(
+                AdminHelpers.storeRenewalLabel(
+                    context, store['renewalCount'] as int? ?? 0),
+                style: TextStyle(
+                  fontSize: 11,
+                  color: (store['renewalCount'] as int? ?? 0) >=
+                          AdminHelpers.maxStoreRenewals
+                      ? AdminHelpers.warning
+                      : const Color(0xFF71717A),
+                ),
+              ),
             ]),
           ),
           Container(
@@ -872,7 +866,26 @@ class StoresTabState extends State<StoresTab> {
     final canEdit = context.systemAdminCanEdit;
     final canDelete = context.systemAdminCanDelete;
 
-    final actions = <AdminActionSheetItem>[
+    final actions = <AdminActionSheetItem>[];
+
+    if (canEdit) {
+      actions.addAll([
+        AdminActionSheetItem(
+          icon: Icons.calendar_month,
+          label: _extendButtonLabel(context, store),
+          color: const Color(0xFF7C3AED),
+          onTap: () => _showExtendDays(store),
+        ),
+        AdminActionSheetItem(
+          icon: Icons.vpn_key,
+          label: 'Kích hoạt License Key',
+          color: AdminHelpers.success,
+          onTap: () => _showActivateKey(store),
+        ),
+      ]);
+    }
+
+    actions.addAll([
       AdminActionSheetItem(
         icon: Icons.info_outline,
         label: 'Xem chi tiết',
@@ -883,7 +896,7 @@ class StoresTabState extends State<StoresTab> {
         label: 'Tài khoản cửa hàng',
         onTap: () => _showStoreUsers(store),
       ),
-    ];
+    ]);
 
     if (canEdit) {
       if (!widget.agentMode) {
@@ -918,12 +931,15 @@ class StoresTabState extends State<StoresTab> {
           color: isLocked ? AdminHelpers.success : AdminHelpers.danger,
           onTap: () => isLocked ? _unlockStore(store) : _lockStore(store),
         ),
-        AdminActionSheetItem(
-          icon: Icons.vpn_key,
-          label: 'Kích hoạt License Key',
-          onTap: () => _showActivateKey(store),
-        ),
       ]);
+      if (!widget.agentMode) {
+        actions.add(AdminActionSheetItem(
+          icon: Icons.restart_alt,
+          label: 'Khôi phục gốc',
+          color: AdminHelpers.warning,
+          onTap: () => _resetStoreData(store),
+        ));
+      }
     }
 
     if (canDelete) {
@@ -1056,10 +1072,12 @@ class StoresTabState extends State<StoresTab> {
         TextEditingController(text: store['address']?.toString() ?? '');
     final phoneCtrl =
         TextEditingController(text: store['phone']?.toString() ?? '');
+    var selectedProvince = store['province']?.toString();
 
     final result = await showDialog<bool>(
       context: context,
-      builder: (ctx) => ScrollableAlertDialog(
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => ScrollableAlertDialog(
         title: const Row(children: [
           Icon(Icons.edit, color: AdminHelpers.primary, size: 22),
           SizedBox(width: 8),
@@ -1076,8 +1094,26 @@ class StoresTabState extends State<StoresTab> {
               AdminHelpers.dialogField(
                   descCtrl, 'Mô tả', Icons.description),
               const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                initialValue: selectedProvince != null &&
+                        kVietnamProvinces.contains(selectedProvince)
+                    ? selectedProvince
+                    : null,
+                isExpanded: true,
+                decoration: InputDecoration(
+                  labelText: 'Tỉnh / thành phố',
+                  prefixIcon: const Icon(Icons.location_city_outlined),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                ),
+                items: kVietnamProvinces
+                    .map((p) => DropdownMenuItem(value: p, child: Text(p)))
+                    .toList(),
+                onChanged: (v) => setDialogState(() => selectedProvince = v),
+              ),
+              const SizedBox(height: 12),
               AdminHelpers.dialogField(
-                  addressCtrl, 'Địa chỉ', Icons.location_on),
+                  addressCtrl, 'Địa chỉ chi tiết', Icons.location_on),
               const SizedBox(height: 12),
               AdminHelpers.dialogField(
                   phoneCtrl, 'Số điện thoại', Icons.phone),
@@ -1097,6 +1133,7 @@ class StoresTabState extends State<StoresTab> {
           ),
         ],
       ),
+      ),
     );
 
     if (result != true || !mounted) return;
@@ -1107,6 +1144,7 @@ class StoresTabState extends State<StoresTab> {
             name: nameCtrl.text.trim(),
             description: descCtrl.text.trim(),
             address: addressCtrl.text.trim(),
+            province: selectedProvince?.trim(),
             phone: phoneCtrl.text.trim(),
           )
         : await _apiService.updateStore(
@@ -1114,6 +1152,7 @@ class StoresTabState extends State<StoresTab> {
       name: nameCtrl.text.trim(),
       description: descCtrl.text.trim(),
       address: addressCtrl.text.trim(),
+      province: selectedProvince?.trim(),
       phone: phoneCtrl.text.trim(),
     );
 
@@ -1159,6 +1198,7 @@ class StoresTabState extends State<StoresTab> {
           _detailRow('Mô tả', d['description']),
         ]),
         _detailSection('Liên hệ', [
+          _detailRow('Tỉnh / thành', d['province']),
           _detailRow('Địa chỉ', d['address']),
           _detailRow('Điện thoại', d['phone']),
           _detailRow('Email chủ sở hữu', d['ownerEmail']),
@@ -1194,6 +1234,10 @@ class StoresTabState extends State<StoresTab> {
           _detailRow('License key', d['licenseKey']),
           _detailRow('Hết hạn',
               AdminHelpers.formatDate(d['expiryDate'])),
+          _detailRow(
+              'Số lần gia hạn',
+              AdminHelpers.storeRenewalLabel(
+                  context, d['renewalCount'] as int? ?? store['renewalCount'] as int? ?? 0)),
           _detailRow('Ngày bắt đầu dùng thử',
               AdminHelpers.formatDate(d['trialStartDate'])),
           _detailRow('Số ngày dùng thử',
@@ -1249,22 +1293,52 @@ class StoresTabState extends State<StoresTab> {
                   ? SafeArea(
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                        child: FilledButton.icon(
-                          onPressed: () {
-                            Navigator.pop(ctx);
-                            _showAssignAgent(store);
-                          },
-                          icon: const Icon(Icons.handshake_outlined, size: 18),
-                          label: Text(
-                            (store['agentId'] != null &&
-                                    store['agentId'].toString().isNotEmpty)
-                                ? 'Đổi đại lý'
-                                : 'Gán đại lý',
-                          ),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: const Color(0xFFEA580C),
-                            minimumSize: const Size.fromHeight(44),
-                          ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () {
+                                  Navigator.pop(ctx);
+                                  _showExtendDays(store);
+                                },
+                                icon: const Icon(Icons.calendar_month, size: 18),
+                                label: Text(
+                                  _extendButtonLabel(context, store),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: const Color(0xFF7C3AED),
+                                  minimumSize: const Size.fromHeight(44),
+                                ),
+                              ),
+                            ),
+                            if (!widget.agentMode) ...[
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: FilledButton.icon(
+                                  onPressed: () {
+                                    Navigator.pop(ctx);
+                                    _showAssignAgent(store);
+                                  },
+                                  icon: const Icon(Icons.handshake_outlined,
+                                      size: 18),
+                                  label: Text(
+                                    (store['agentId'] != null &&
+                                            store['agentId']
+                                                .toString()
+                                                .isNotEmpty)
+                                        ? 'Đổi đại lý'
+                                        : 'Gán đại lý',
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: const Color(0xFFEA580C),
+                                    minimumSize: const Size.fromHeight(44),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                     )
@@ -1597,6 +1671,26 @@ class StoresTabState extends State<StoresTab> {
     final name = store['name'] ?? 'N/A';
     final renewalCount = store['renewalCount'] as int? ?? 0;
     final canBypass = context.canBypassStoreRenewalLimit;
+    final allowCustomDays = canBypass && !widget.agentMode;
+
+    int agentRenewalBalance = 0;
+    if (widget.agentMode) {
+      try {
+        final prof = await _apiService.getAgentProfile();
+        if (prof['isSuccess'] == true && prof['data'] is Map) {
+          agentRenewalBalance =
+              (prof['data']['renewalDayBalance'] as num?)?.toInt() ?? 0;
+        }
+      } catch (e) {
+        debugPrint('Load agent renewal balance: $e');
+      }
+      if (!mounted) return;
+      if (agentRenewalBalance <= 0) {
+        AdminHelpers.showError(context,
+            'Quỹ gia hạn đã hết. Vui lòng liên hệ Super Admin để được cấp thêm ngày.');
+        return;
+      }
+    }
 
     if (renewalCount >= AdminHelpers.maxStoreRenewals && !canBypass) {
       AdminHelpers.showError(context,
@@ -1606,6 +1700,15 @@ class StoresTabState extends State<StoresTab> {
 
     final daysCtrl = TextEditingController(text: '30');
     var selectedPreset = 30;
+    if (widget.agentMode && agentRenewalBalance > 0) {
+      final affordable = kStoreExtendDayPresets
+          .where((d) => d <= agentRenewalBalance)
+          .toList();
+      if (affordable.isNotEmpty) {
+        selectedPreset = affordable.last;
+        daysCtrl.text = selectedPreset.toString();
+      }
+    }
 
     final result = await showDialog<bool>(
       context: context,
@@ -1627,10 +1730,35 @@ class StoresTabState extends State<StoresTab> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (widget.agentMode) ...[
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    margin: const EdgeInsets.only(bottom: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF7C3AED).withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(children: [
+                      const Icon(Icons.account_balance_wallet_outlined,
+                          color: Color(0xFF7C3AED), size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Quỹ gia hạn còn: $agentRenewalBalance ngày',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ]),
+                  ),
+                ],
                 Text(
                   canBypass && renewalCount >= AdminHelpers.maxStoreRenewals
-                      ? 'Đã gia hạn $renewalCount lần — Super Admin có thể gia hạn thêm.'
-                      : 'Đã gia hạn $renewalCount/${AdminHelpers.maxStoreRenewals} lần. Chọn hoặc nhập số ngày:',
+                      ? 'Đã gia hạn $renewalCount lần — Super Admin toàn quyền có thể gia hạn thêm.'
+                      : allowCustomDays
+                          ? 'Đã gia hạn $renewalCount/${AdminHelpers.maxStoreRenewals} lần. Chọn hoặc nhập số ngày:'
+                          : widget.agentMode
+                              ? 'Đã gia hạn $renewalCount/${AdminHelpers.maxStoreRenewals} lần. Đại lý chỉ chọn 7, 14, 21 hoặc 30 ngày:'
+                              : 'Đã gia hạn $renewalCount/${AdminHelpers.maxStoreRenewals} lần. Chọn 7, 14, 21 hoặc 30 ngày:',
                 ),
                 const SizedBox(height: 12),
                 Wrap(
@@ -1638,10 +1766,15 @@ class StoresTabState extends State<StoresTab> {
                   runSpacing: 8,
                   children: kStoreExtendDayPresets.map((days) {
                     final selected = selectedPreset == days;
+                    final disabled = widget.agentMode &&
+                        agentRenewalBalance > 0 &&
+                        days > agentRenewalBalance;
                     return ChoiceChip(
                       label: Text('$days ngày'),
                       selected: selected,
-                      onSelected: (_) {
+                      onSelected: disabled
+                          ? null
+                          : (_) {
                         setDialogState(() {
                           selectedPreset = days;
                           daysCtrl.text = days.toString();
@@ -1658,9 +1791,11 @@ class StoresTabState extends State<StoresTab> {
                     );
                   }).toList(),
                 ),
-                const SizedBox(height: 12),
-                AdminHelpers.dialogField(
-                    daysCtrl, 'Số ngày (tùy chỉnh)', Icons.timer),
+                if (allowCustomDays) ...[
+                  const SizedBox(height: 12),
+                  AdminHelpers.dialogField(
+                      daysCtrl, 'Số ngày (tùy chỉnh)', Icons.timer),
+                ],
               ],
             ),
           ),
@@ -1685,11 +1820,25 @@ class StoresTabState extends State<StoresTab> {
       return;
     }
 
-    final days = int.tryParse(daysCtrl.text.trim());
+    final days = allowCustomDays
+        ? int.tryParse(daysCtrl.text.trim())
+        : selectedPreset;
     daysCtrl.dispose();
 
     if (days == null || days <= 0) {
       AdminHelpers.showError(context, 'Số ngày không hợp lệ');
+      return;
+    }
+
+    if (!allowCustomDays && !kStoreExtendDayPresets.contains(days)) {
+      AdminHelpers.showError(context,
+          'Chỉ được gia hạn 7, 14, 21 hoặc 30 ngày. Super Admin toàn quyền mới nhập tùy chỉnh.');
+      return;
+    }
+
+    if (widget.agentMode && days > agentRenewalBalance) {
+      AdminHelpers.showError(context,
+          'Quỹ gia hạn không đủ. Còn $agentRenewalBalance ngày, cần $days ngày.');
       return;
     }
 
@@ -1822,11 +1971,54 @@ class StoresTabState extends State<StoresTab> {
   }
 
   // ═══════════════════════ KÍCH HOẠT KEY (NHIỀU KEY) ═══════════════════════
+  Future<List<Map<String, dynamic>>> _loadActivatableLicenseKeys(
+      String storeId) async {
+    try {
+      final res = widget.agentMode
+          ? await _apiService.getAgentActivatableLicensesForStore(storeId)
+          : await _apiService.getActivatableLicensesForStore(storeId);
+      if (res['isSuccess'] == true && res['data'] is List) {
+        return (res['data'] as List)
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+      }
+    } catch (e) {
+      debugPrint('Load activatable license keys failed: $e');
+    }
+    return [];
+  }
+
+  String _licenseKeyQuickSubtitle(Map<String, dynamic> key) {
+    final pkg = key['servicePackageName']?.toString();
+    final type = AdminHelpers.licenseTypeLabel(key['licenseType']?.toString());
+    final days = key['durationDays'];
+    final agentName = key['agentName']?.toString();
+    final parts = <String>[
+      if (pkg != null && pkg.isNotEmpty) pkg else type,
+      if (days != null) '$days ngày',
+      if (agentName == null || agentName.isEmpty) 'Key chung' else agentName,
+    ];
+    return parts.join(' · ');
+  }
+
+  String _activatableKeysHint(Map<String, dynamic> store) {
+    final agentName = store['agentName']?.toString();
+    if (agentName != null && agentName.isNotEmpty) {
+      return 'Chỉ key của đại lý "$agentName" hoặc key chung (chưa gán đại lý).';
+    }
+    return 'Cửa hàng chưa gán đại lý — chỉ dùng key chung (chưa cấp cho đại lý nào).';
+  }
+
   Future<void> _showActivateKey(Map<String, dynamic> store) async {
     final storeId = store['id']?.toString() ?? '';
     final name = store['name'] ?? 'N/A';
 
+    final availableKeys = await _loadActivatableLicenseKeys(storeId);
+    if (!mounted) return;
+
     final keyControllers = <TextEditingController>[TextEditingController()];
+    final selectedKeys = <String>{};
     Map<String, dynamic>? previewData;
     bool isPreviewing = false;
 
@@ -1855,19 +2047,117 @@ class StoresTabState extends State<StoresTab> {
                       color: AdminHelpers.info.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Row(children: [
-                      Icon(Icons.info_outline,
+                    child: Row(children: [
+                      const Icon(Icons.info_outline,
                           color: AdminHelpers.info, size: 18),
-                      SizedBox(width: 8),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Nhập 1 hoặc nhiều license key (cùng gói dịch vụ).\n'
-                          'Kích nhiều key sẽ được tặng thêm ngày nếu có chương trình khuyến mãi.',
-                          style: TextStyle(fontSize: 13),
+                          '${_activatableKeysHint(store)}\n'
+                          'Chọn tối đa 4 key cùng gói dịch vụ.',
+                          style: const TextStyle(fontSize: 13),
                         ),
                       ),
                     ]),
                   ),
+                  if (availableKeys.isNotEmpty) ...[
+                    Text(
+                      'Key khả dụng (${availableKeys.length})',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w600, fontSize: 14),
+                    ),
+                    const SizedBox(height: 6),
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight: availableKeys.length > 4 ? 220 : 280,
+                      ),
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: availableKeys.length,
+                        separatorBuilder: (_, __) => const Divider(height: 1),
+                        itemBuilder: (_, i) {
+                          final item = availableKeys[i];
+                          final code = item['key']?.toString() ?? '';
+                          if (code.isEmpty) return const SizedBox.shrink();
+                          final checked = selectedKeys.contains(code);
+                          return CheckboxListTile(
+                            value: checked,
+                            onChanged: (v) {
+                              setDlgState(() {
+                                previewData = null;
+                                if (v == true) {
+                                  if (selectedKeys.length >= 4 &&
+                                      !selectedKeys.contains(code)) {
+                                    NotificationOverlayManager().showWarning(
+                                      title: 'Giới hạn',
+                                      message: 'Chỉ chọn tối đa 4 key',
+                                    );
+                                    return;
+                                  }
+                                  selectedKeys.add(code);
+                                } else {
+                                  selectedKeys.remove(code);
+                                }
+                              });
+                            },
+                            title: Text(
+                              code,
+                              style: const TextStyle(
+                                fontFamily: 'monospace',
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            subtitle: Text(
+                              _licenseKeyQuickSubtitle(item),
+                              style: const TextStyle(fontSize: 11),
+                            ),
+                            dense: true,
+                            controlAffinity: ListTileControlAffinity.leading,
+                            contentPadding: EdgeInsets.zero,
+                          );
+                        },
+                      ),
+                    ),
+                    if (selectedKeys.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: selectedKeys
+                            .map((k) => InputChip(
+                                  label: Text(k,
+                                      style: const TextStyle(
+                                          fontFamily: 'monospace',
+                                          fontSize: 11)),
+                                  onDeleted: () => setDlgState(() {
+                                    selectedKeys.remove(k);
+                                    previewData = null;
+                                  }),
+                                ))
+                            .toList(),
+                      ),
+                    ],
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 10),
+                      child: Row(children: [
+                        Expanded(child: Divider()),
+                        Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 8),
+                          child: Text('hoặc nhập key',
+                              style: TextStyle(
+                                  fontSize: 12, color: Color(0xFF71717A))),
+                        ),
+                        Expanded(child: Divider()),
+                      ]),
+                    ),
+                  ] else ...[
+                    Text(
+                      'Không có key sẵn trong kho — nhập key thủ công.',
+                      style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
                   ...List.generate(keyControllers.length, (i) => Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: Row(children: [
@@ -1912,10 +2202,13 @@ class StoresTabState extends State<StoresTab> {
                       width: double.infinity,
                       child: OutlinedButton.icon(
                         onPressed: isPreviewing ? null : () async {
-                          final keys = keyControllers
+                          final manualKeys = keyControllers
                               .map((c) => c.text.trim())
-                              .where((k) => k.isNotEmpty)
-                              .toList();
+                              .where((k) => k.isNotEmpty);
+                          final keys = {
+                            ...selectedKeys,
+                            ...manualKeys,
+                          }.toList();
                           if (keys.isEmpty) return;
                           setDlgState(() => isPreviewing = true);
                           final res = await _apiService.previewBulkActivation(storeId, keys);
@@ -1984,12 +2277,20 @@ class StoresTabState extends State<StoresTab> {
                 child: const Text('Hủy')),
             FilledButton.icon(
               onPressed: () async {
-                final keys = keyControllers
+                final manualKeys = keyControllers
                     .map((c) => c.text.trim())
-                    .where((k) => k.isNotEmpty)
-                    .toList();
+                    .where((k) => k.isNotEmpty);
+                final keys = {
+                  ...selectedKeys,
+                  ...manualKeys,
+                }.toList();
                 if (keys.isEmpty) {
-                  NotificationOverlayManager().showWarning(title: 'Thiếu thông tin', message: 'Vui lòng nhập ít nhất 1 key');
+                  NotificationOverlayManager().showWarning(title: 'Thiếu thông tin', message: 'Vui lòng chọn hoặc nhập ít nhất 1 key');
+                  return;
+                }
+                if (keys.length > 4) {
+                  NotificationOverlayManager().showWarning(
+                      title: 'Giới hạn', message: 'Chỉ kích hoạt tối đa 4 key');
                   return;
                 }
                 Navigator.pop(ctx);

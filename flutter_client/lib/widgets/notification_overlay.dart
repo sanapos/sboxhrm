@@ -132,8 +132,13 @@ class NotificationOverlayItem {
 /// Widget hiển thị thông báo overlay ở góc phải trên
 class NotificationOverlay extends StatefulWidget {
   final Widget child;
+  final double extraTopInset;
 
-  const NotificationOverlay({super.key, required this.child});
+  const NotificationOverlay({
+    super.key,
+    required this.child,
+    this.extraTopInset = 0,
+  });
 
   @override
   State<NotificationOverlay> createState() => _NotificationOverlayState();
@@ -167,7 +172,9 @@ class _NotificationOverlayState extends State<NotificationOverlay> {
           final screenWidth = MediaQuery.of(context).size.width;
           final isMobile = screenWidth < 600;
           return Positioned(
-            top: MediaQuery.of(context).padding.top + (isMobile ? 8 : 16),
+            top: MediaQuery.of(context).padding.top +
+                widget.extraTopInset +
+                (isMobile ? 8 : 16),
             left: isMobile ? 8 : null,
             right: isMobile ? 8 : 16,
             child: Material(

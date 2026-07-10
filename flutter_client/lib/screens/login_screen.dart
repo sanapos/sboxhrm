@@ -38,6 +38,7 @@ class _LoginScreenState extends State<LoginScreen>
   static const String _prefRememberMe = 'remember_me';
   static const String _prefStoreCode = 'saved_store_code';
   static const String _prefEmail = 'saved_email';
+  static const String _prefAdminEmail = 'admin_saved_email';
 
   // Footer link URLs (loaded from /api/publicsettings, with safe defaults)
   String? _learnMoreUrl;
@@ -179,13 +180,18 @@ class _LoginScreenState extends State<LoginScreen>
       // so users don't need to re-enter them after logout.
       final savedStore = prefs.getString(_prefStoreCode) ?? '';
       final savedEmail = prefs.getString(_prefEmail) ?? '';
+      final adminEmail = prefs.getString(_prefAdminEmail) ?? '';
+      final isAdminPortalEmail = adminEmail.isNotEmpty &&
+          savedEmail.isNotEmpty &&
+          savedEmail.toLowerCase() == adminEmail.toLowerCase();
       if (savedStore.isNotEmpty || savedEmail.isNotEmpty || rememberMe) {
         setState(() {
           _rememberMe = rememberMe;
-          _storeCodeController.text = savedStore;
+          // Tránh đăng nhập SuperAdmin nhầm qua mã cửa hàng đã lưu trước đó.
+          _storeCodeController.text = isAdminPortalEmail ? '' : savedStore;
           _emailController.text = savedEmail;
         });
-        if (savedStore.isNotEmpty) {
+        if (!isAdminPortalEmail && savedStore.isNotEmpty) {
           _loadStoreAgentContact(savedStore);
         }
       }
@@ -237,9 +243,17 @@ class _LoginScreenState extends State<LoginScreen>
 
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final email = _emailController.text.trim();
+      final prefs = await SharedPreferences.getInstance();
+      final adminEmail = prefs.getString(_prefAdminEmail) ?? '';
+      var storeCode = _storeCodeController.text.trim();
+      if (adminEmail.isNotEmpty &&
+          email.toLowerCase() == adminEmail.toLowerCase()) {
+        storeCode = '';
+      }
       final success = await authProvider.login(
-        _storeCodeController.text.trim(),
-        _emailController.text.trim(),
+        storeCode,
+        email,
         _passwordController.text,
       );
 

@@ -5,9 +5,10 @@ public record RegisterRequest(
     string StoreName,      // Tên cửa hàng
     string Email,          // Email đăng nhập
     string Password,       // Mật khẩu
-    string? PhoneNumber,   // Số điện thoại (tùy chọn)
-    string? StoreCode,     // Mã cửa hàng tùy chỉnh (tùy chọn, auto-generate nếu không có)
-    string? AgentCode = null, // Mã đại lý (tùy chọn). Nếu hợp lệ → cửa hàng sẽ thuộc đại lý này
+    string PhoneNumber,    // Số điện thoại (bắt buộc)
+    string Province,       // Tỉnh / thành phố (bắt buộc)
+    string? StoreCode = null,     // Mã cửa hàng tùy chỉnh (tùy chọn, auto-generate nếu không có)
+    string? AgentCode = null,     // Mã đại lý (tùy chọn). Nếu hợp lệ → cửa hàng sẽ thuộc đại lý này
     Guid? ServicePackageId = null // Gói dịch vụ dùng thử được chọn khi đăng ký
 );
 

@@ -32,9 +32,16 @@ public class RegisterValidator : AbstractValidator<RegisterCommand>
             .WithMessage("Mật khẩu phải có ít nhất 6 ký tự.");
 
         RuleFor(x => x.RegisterRequest.PhoneNumber)
+            .NotEmpty()
+            .WithMessage("Số điện thoại không được để trống.")
             .Matches(@"^\+?[0-9]{9,15}$")
-            .When(x => !string.IsNullOrEmpty(x.RegisterRequest.PhoneNumber))
             .WithMessage("Số điện thoại không hợp lệ.");
+
+        RuleFor(x => x.RegisterRequest.Province)
+            .NotEmpty()
+            .WithMessage("Vui lòng chọn tỉnh / thành phố.")
+            .MaximumLength(120)
+            .WithMessage("Tỉnh / thành phố không hợp lệ.");
 
         RuleFor(x => x.RegisterRequest.StoreCode)
             .Matches(@"^[a-z0-9]+$")

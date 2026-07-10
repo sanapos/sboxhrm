@@ -1040,6 +1040,16 @@ CREATE INDEX IF NOT EXISTS "IX_PosStockTransactions_StoreId_TransactionType_Refe
 CREATE INDEX IF NOT EXISTS "IX_PosSaleOrderLines_SaleOrderId"
     ON "PosSaleOrderLines" ("SaleOrderId");
 
+-- =========================================================
+-- 20260710100000_AddAgentRenewalDayBalance
+-- =========================================================
+ALTER TABLE "Agents" ADD COLUMN IF NOT EXISTS "RenewalDayBalance" integer NOT NULL DEFAULT 0;
+
+-- =========================================================
+-- 20260710120000_AddStoreProvince
+-- =========================================================
+ALTER TABLE "Stores" ADD COLUMN IF NOT EXISTS "Province" character varying(120);
+
 COMMIT;
 
 SELECT 'Migration script completed successfully' AS status;

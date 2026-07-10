@@ -210,7 +210,7 @@ class AdminHelpers {
   /// Parse chuỗi thời gian từ API. Các field CreatedAt/UpdatedAt/ExpiryDate...
   /// lưu bằng DateTime.UtcNow nhưng Npgsql trả về không kèm hậu tố 'Z',
   /// nên phải coi là UTC trước khi đổi sang giờ máy (tránh lệch múi giờ).
-  static DateTime? _parseServerDate(dynamic date) {
+  static DateTime? parseServerDate(dynamic date) {
     if (date == null) return null;
     final raw = date.toString();
     if (raw.isEmpty) return null;
@@ -232,6 +232,34 @@ class AdminHelpers {
     return parsed.toLocal();
   }
 
+  static int _calendarDaysUntil(DateTime target) {
+    final today = DateTime.now();
+    final todayDate = DateTime(today.year, today.month, today.day);
+    final targetDate = DateTime(target.year, target.month, target.day);
+    return targetDate.difference(todayDate).inDays;
+  }
+
+  /// Số ngày còn lại của cửa hàng — khớp backend (ExpiryDate hoặc trial).
+  static int? getStoreRemainingDays(Map<String, dynamic> store) {
+    final expiry = parseServerDate(store['expiryDate']);
+    if (expiry != null) {
+      return _calendarDaysUntil(expiry);
+    }
+
+    final trialDays = parseInt(store['trialDays'], 0);
+    if (trialDays > 0) {
+      final start = parseServerDate(store['trialStartDate'] ?? store['createdAt']);
+      if (start != null) {
+        final endDate = DateTime(start.year, start.month, start.day)
+            .add(Duration(days: trialDays));
+        return _calendarDaysUntil(endDate);
+      }
+    }
+    return null;
+  }
+
+  static DateTime? _parseServerDate(dynamic date) => parseServerDate(date);
+
   static String formatDate(dynamic date) {
     final d = _parseServerDate(date);
     if (d == null) return date?.toString() ?? '';
@@ -246,6 +274,45 @@ class AdminHelpers {
     if (v is String) return int.tryParse(v) ?? defaultValue;
     return defaultValue;
   }
+
+  /// Tổng cửa hàng thuộc đại lý (AgentDto: currentStoresCount).
+  static int agentTotalStores(Map<String, dynamic> agent) => parseInt(
+        agent['currentStoresCount'] ??
+            agent['storeCount'] ??
+            agent['totalStores'],
+      );
+
+  static int agentActiveStores(Map<String, dynamic> agent) =>
+      parseInt(agent['activeStoresCount']);
+
+  static int agentLockedStores(Map<String, dynamic> agent) =>
+      parseInt(agent['lockedStoresCount']);
+
+  static int agentMaxStores(Map<String, dynamic> agent) =>
+      parseInt(agent['maxStores']);
+
+  static int agentActivatedStores(Map<String, dynamic> agent) => parseInt(
+        agent['activatedStoresCount'],
+      );
+
+  static int agentTrialStores(Map<String, dynamic> agent) => parseInt(
+        agent['trialStoresCount'],
+      );
+
+  static int agentTotalKeys(Map<String, dynamic> agent) => parseInt(
+        agent['totalLicenseKeys'] ?? agent['totalKeys'],
+      );
+
+  static int agentUsedKeys(Map<String, dynamic> agent) => parseInt(
+        agent['usedLicenseKeys'] ?? agent['usedKeys'],
+      );
+
+  static int agentAvailableKeys(Map<String, dynamic> agent) => parseInt(
+        agent['availableLicenseKeys'] ?? agent['availableKeys'],
+      );
+
+  static int agentRenewalBalance(Map<String, dynamic> agent) =>
+      parseInt(agent['renewalDayBalance']);
 
   static String formatDateTime(dynamic date) {
     final d = _parseServerDate(date);

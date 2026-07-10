@@ -307,34 +307,14 @@ class DashboardTabState extends State<DashboardTab> {
 
   Widget _buildDateFilter() {
     final mobile = adminUseMobileLayout(context);
-    final chips = [
-      _periodChip('Hôm nay', 'today'),
-      _periodChip('7 ngày', '7days'),
-      _periodChip('30 ngày', '30days'),
-      ActionChip(
-        avatar: Icon(Icons.calendar_month,
-            size: 16,
-            color: _selectedPeriod == 'custom'
-                ? Colors.white
-                : AdminHelpers.primary),
-        label: Text(
-          _selectedPeriod == 'custom' ? _periodLabel : 'Tùy chọn',
-          style: TextStyle(
-            fontSize: 12,
-            color: _selectedPeriod == 'custom'
-                ? Colors.white
-                : Colors.grey[700],
-          ),
-        ),
-        backgroundColor: _selectedPeriod == 'custom'
-            ? AdminHelpers.primary
-            : Colors.grey[100],
-        side: BorderSide(
-          color: _selectedPeriod == 'custom'
-              ? AdminHelpers.primary
-              : Colors.grey.shade300,
-        ),
-        onPressed: _pickCustomRange,
+    final chipData = <({String label, String? period, bool custom})>[
+      (label: 'Hôm nay', period: 'today', custom: false),
+      (label: '7 ngày qua', period: '7days', custom: false),
+      (label: '30 ngày qua', period: '30days', custom: false),
+      (
+        label: _selectedPeriod == 'custom' ? _periodLabel : 'Tùy chọn ngày',
+        period: null,
+        custom: true,
       ),
     ];
 
@@ -356,14 +336,111 @@ class DashboardTabState extends State<DashboardTab> {
           ]),
           const SizedBox(height: 10),
           if (mobile)
-            Wrap(spacing: 6, runSpacing: 6, children: chips)
+            Column(
+              children: [
+                for (final item in chipData) ...[
+                  _buildFullWidthPeriodChip(
+                    label: item.label,
+                    period: item.period,
+                    isCustom: item.custom,
+                  ),
+                  if (item != chipData.last) const SizedBox(height: 8),
+                ],
+              ],
+            )
           else
             Row(children: [
               const SizedBox(width: 30),
-              ...chips.expand((c) => [c, const SizedBox(width: 6)]).toList()
-                ..removeLast(),
+              for (var i = 0; i < chipData.length; i++) ...[
+                if (i > 0) const SizedBox(width: 6),
+                chipData[i].custom
+                    ? ActionChip(
+                        avatar: Icon(Icons.calendar_month,
+                            size: 16,
+                            color: _selectedPeriod == 'custom'
+                                ? Colors.white
+                                : AdminHelpers.primary),
+                        label: Text(
+                          chipData[i].label,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: _selectedPeriod == 'custom'
+                                ? Colors.white
+                                : Colors.grey[700],
+                          ),
+                        ),
+                        backgroundColor: _selectedPeriod == 'custom'
+                            ? AdminHelpers.primary
+                            : Colors.grey[100],
+                        side: BorderSide(
+                          color: _selectedPeriod == 'custom'
+                              ? AdminHelpers.primary
+                              : Colors.grey.shade300,
+                        ),
+                        onPressed: _pickCustomRange,
+                      )
+                    : _periodChip(
+                        chipData[i].label,
+                        chipData[i].period!,
+                      ),
+              ],
             ]),
         ],
+      ),
+    );
+  }
+
+  Widget _buildFullWidthPeriodChip({
+    required String label,
+    required String? period,
+    required bool isCustom,
+  }) {
+    final selected = isCustom
+        ? _selectedPeriod == 'custom'
+        : _selectedPeriod == period;
+    return SizedBox(
+      width: double.infinity,
+      child: Material(
+        color: selected ? AdminHelpers.primary : Colors.grey[100],
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: isCustom ? _pickCustomRange : () => _setPeriod(period!),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: selected ? AdminHelpers.primary : Colors.grey.shade300,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  isCustom ? Icons.calendar_month : Icons.event,
+                  size: 18,
+                  color: selected ? Colors.white : AdminHelpers.primary,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight:
+                          selected ? FontWeight.w600 : FontWeight.w500,
+                      color: selected ? Colors.white : Colors.grey[800],
+                    ),
+                  ),
+                ),
+                if (selected)
+                  const Icon(Icons.check_circle,
+                      size: 18, color: Colors.white),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -414,42 +491,58 @@ class DashboardTabState extends State<DashboardTab> {
             ),
           ]),
           const SizedBox(height: 16),
-          Wrap(
-            spacing: 14,
-            runSpacing: 14,
-            children: [
-              _buildReportCard(
-                'CH tạo mới',
-                _dashboard?['storesCreatedInPeriod'] ?? 0,
-                Icons.add_business,
-                AdminHelpers.success,
-                onTap: widget.onNavigateToStores,
-              ),
-              _buildReportCard(
-                'Key kích hoạt',
-                _dashboard?['keysActivatedInPeriod'] ?? 0,
-                Icons.key,
-                const Color(0xFFE65100),
-                onTap: widget.onNavigateToLicenses,
-              ),
-              _buildReportCard(
-                'Key tạo mới',
-                _dashboard?['keysCreatedInPeriod'] ?? 0,
-                Icons.vpn_key_outlined,
-                AdminHelpers.info,
-                onTap: widget.onNavigateToLicenses,
-              ),
-              _buildReportCard(
-                'User tạo mới',
-                _dashboard?['usersCreatedInPeriod'] ?? 0,
-                Icons.person_add,
-                AdminHelpers.primaryDark,
-                onTap: widget.onNavigateToUsers,
-              ),
-            ],
-          ),
+          _buildPeriodReportCardsContent(),
         ],
       ),
+    );
+  }
+
+  Widget _buildPeriodReportCardsContent() {
+    final mobile = adminUseMobileLayout(context);
+    final cards = [
+      _buildReportCard(
+        'CH tạo mới',
+        _dashboard?['storesCreatedInPeriod'] ?? 0,
+        Icons.add_business,
+        AdminHelpers.success,
+        onTap: widget.onNavigateToStores,
+      ),
+      _buildReportCard(
+        'Key kích hoạt',
+        _dashboard?['keysActivatedInPeriod'] ?? 0,
+        Icons.key,
+        const Color(0xFFE65100),
+        onTap: widget.onNavigateToLicenses,
+      ),
+      _buildReportCard(
+        'Key tạo mới',
+        _dashboard?['keysCreatedInPeriod'] ?? 0,
+        Icons.vpn_key_outlined,
+        AdminHelpers.info,
+        onTap: widget.onNavigateToLicenses,
+      ),
+      _buildReportCard(
+        'User tạo mới',
+        _dashboard?['usersCreatedInPeriod'] ?? 0,
+        Icons.person_add,
+        AdminHelpers.primaryDark,
+        onTap: widget.onNavigateToUsers,
+      ),
+    ];
+    if (mobile) {
+      return Column(
+        children: [
+          for (var i = 0; i < cards.length; i++) ...[
+            cards[i],
+            if (i < cards.length - 1) const SizedBox(height: 10),
+          ],
+        ],
+      );
+    }
+    return Wrap(
+      spacing: 14,
+      runSpacing: 14,
+      children: cards,
     );
   }
 
@@ -457,14 +550,10 @@ class DashboardTabState extends State<DashboardTab> {
       String label, dynamic value, IconData icon, Color color,
       {VoidCallback? onTap}) {
     final count = value is int ? value : 0;
-    return LayoutBuilder(builder: (context, constraints) {
-      final mobile = adminUseMobileLayout(context);
-      final cardWidth = mobile
-          ? (MediaQuery.sizeOf(context).width - 40) / 2 - 7
-          : 200.0;
-      return SizedBox(
-        width: mobile ? cardWidth.clamp(140.0, 220.0) : 200,
-        child: Material(
+    final mobile = adminUseMobileLayout(context);
+    return SizedBox(
+      width: mobile ? double.infinity : 200,
+      child: Material(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
@@ -506,14 +595,11 @@ class DashboardTabState extends State<DashboardTab> {
         ),
       ),
     );
-    });
   }
 
   Widget _buildStatRow() {
-    return Wrap(
-      spacing: 14,
-      runSpacing: 14,
-      children: [
+    final mobile = adminUseMobileLayout(context);
+    final cards = [
         _buildStatCard(
           'Cửa hàng',
           '${_dashboard?['totalStores'] ?? 0}',
@@ -561,21 +647,31 @@ class DashboardTabState extends State<DashboardTab> {
               '${_dashboard?['usedLicenseKeys'] ?? _dashboard?['activeLicenses'] ?? 0} đã dùng',
           onTap: widget.onNavigateToLicenses,
         ),
-      ],
+    ];
+    if (mobile) {
+      return Column(
+        children: [
+          for (var i = 0; i < cards.length; i++) ...[
+            cards[i],
+            if (i < cards.length - 1) const SizedBox(height: 10),
+          ],
+        ],
+      );
+    }
+    return Wrap(
+      spacing: 14,
+      runSpacing: 14,
+      children: cards,
     );
   }
 
   Widget _buildStatCard(
       String label, String value, IconData icon, Color color,
       {String? sub, VoidCallback? onTap}) {
-    return LayoutBuilder(builder: (context, constraints) {
-      final mobile = adminUseMobileLayout(context);
-      final w = mobile
-          ? (MediaQuery.sizeOf(context).width - 36) / 2 - 7
-          : 220.0;
-      return SizedBox(
-        width: mobile ? w.clamp(150.0, 240.0) : 220,
-        child: Material(
+    final mobile = adminUseMobileLayout(context);
+    return SizedBox(
+      width: mobile ? double.infinity : 220,
+      child: Material(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
         child: InkWell(
@@ -626,7 +722,6 @@ class DashboardTabState extends State<DashboardTab> {
         ),
       ),
     );
-    });
   }
 
   Widget _buildHealthCard() {

@@ -5,6 +5,7 @@ import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:provider/provider.dart';
 import '../models/hrm.dart';
 import '../providers/auth_provider.dart';
+import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import '../services/signalr_service.dart';
 import '../utils/admin_navigation.dart';
@@ -17,6 +18,7 @@ import 'main_layout.dart' show ScreenRefreshNotifier;
 import '../widgets/admin/admin_mobile_widgets.dart';
 import '../widgets/hrm_page_chrome.dart';
 import 'system_admin/system_admin_helpers.dart';
+import 'system_admin/agent_profile_tab.dart';
 import 'system_admin/dashboard_tab.dart';
 import 'system_admin/stores_tab.dart';
 import 'system_admin/users_tab.dart';
@@ -55,6 +57,7 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
   final _devicesKey = GlobalKey<DevicesTabState>();
   final _agentsKey = GlobalKey<AgentsTabState>();
   final _licensesKey = GlobalKey<LicensesTabState>();
+  final _agentProfileKey = GlobalKey<AgentProfileTabState>();
   final _settingsKey = GlobalKey<SettingsTabState>();
   final _databaseKey = GlobalKey<DatabaseTabState>();
   final _auditKey = GlobalKey<AuditTabState>();
@@ -73,6 +76,8 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
   bool _isConnectingSignalR = false;
   int _unreadNotificationsCount = 0;
   VoidCallback? _adminTabListener;
+  String? _agentDisplayName;
+  String? _agentCode;
 
   static const _tabLabels = [
     'Tổng quan',
@@ -100,6 +105,7 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
     'Người dùng',
     'Thiết bị',
     'License',
+    'Hồ sơ',
   ];
 
   int get _tabCount => widget.agentMode ? _agentTabLabels.length : _tabLabels.length;
@@ -117,12 +123,23 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
     AdminNavigationNotifier.systemAdminReady.value = true;
     _adminTabListener = _onAdminNavTabRequested;
     AdminNavigationNotifier.systemAdminTab.addListener(_adminTabListener!);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      Provider.of<PermissionProvider>(context, listen: false)
+          .loadPermissions(role: auth.userRole);
+    });
     _loadNotificationCount();
     _connectSignalR();
     PendingNotificationLaunch.scheduleConsume(
       adminPortalMode: true,
       agentMode: widget.agentMode,
     );
+    if (widget.agentMode) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _agentProfileKey.currentState?.loadProfile();
+      });
+    }
   }
 
   @override
@@ -266,6 +283,39 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
     );
   }
 
+  void _onAgentProfileLoaded(Map<String, dynamic> data) {
+    if (!mounted) return;
+    setState(() {
+      _agentDisplayName = data['name']?.toString();
+      _agentCode = data['code']?.toString();
+    });
+  }
+
+  void _onAgentDashboardLoaded() {
+    final dash = _dashboardKey.currentState?.dashboardData;
+    final name = dash?['agentName']?.toString();
+    final code = dash?['agentCode']?.toString();
+    if (!mounted) return;
+    if (name != null && name.isNotEmpty) {
+      setState(() {
+        _agentDisplayName ??= name;
+        if (code != null && code.isNotEmpty) _agentCode = code;
+      });
+    }
+  }
+
+  String _agentRoleLabel() {
+    final name = _agentDisplayName;
+    final code = _agentCode;
+    if (name != null && name.isNotEmpty) {
+      if (code != null && code.isNotEmpty) {
+        return '$name · $code';
+      }
+      return name;
+    }
+    return 'Đại lý';
+  }
+
   void _navigateToTab(int index) {
     _tabController.animateTo(index);
   }
@@ -333,6 +383,11 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
             label: 'License',
             group: 'Quản lý',
             count: _tabLicenseCount()),
+        const AdminNavItem(
+            index: 5,
+            icon: Icons.account_circle,
+            label: 'Hồ sơ',
+            group: 'Tài khoản'),
       ];
     }
 
@@ -434,10 +489,11 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
     final mobile = adminUseMobileLayout(context);
     final role = Provider.of<AuthProvider>(context).userRole;
     final roleLabel = widget.agentMode
-        ? 'Đại lý — ${role.isNotEmpty ? role : 'Agent'}'
+        ? _agentRoleLabel()
         : (role.isNotEmpty ? role : 'SuperAdmin');
 
     return NotificationOverlay(
+      extraTopInset: mobile ? 52 : 0,
       child: Scaffold(
         key: _scaffoldKey,
         backgroundColor: AdminHelpers.bgLight,
@@ -467,7 +523,10 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
       key: _dashboardKey,
       agentMode: widget.agentMode,
       onLoaded: () {
-        if (mounted) setState(() {});
+        if (mounted) {
+          if (widget.agentMode) _onAgentDashboardLoaded();
+          setState(() {});
+        }
       },
       onNavigateToStores: () => _navigateToTab(1),
       onNavigateToUsers: () => _navigateToTab(2),
@@ -485,6 +544,10 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
           UsersTab(key: _usersKey, agentMode: true),
           DevicesTab(key: _devicesKey, stores: _storesList, agentMode: true),
           LicensesTab(key: _licensesKey, agentMode: true),
+          AgentProfileTab(
+            key: _agentProfileKey,
+            onProfileLoaded: _onAgentProfileLoaded,
+          ),
         ],
       );
     }
@@ -619,7 +682,7 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
                             fontWeight: FontWeight.bold)),
                     Text(
                       widget.agentMode
-                          ? 'Đại lý — Quản lý cửa hàng trong phạm vi được gán'
+                          ? '${_agentDisplayName ?? 'Đại lý'} — Quản lý cửa hàng trong phạm vi được gán'
                           : 'SuperAdmin — Quản lý toàn bộ hệ thống',
                       style: const TextStyle(color: Colors.white70, fontSize: 14),
                     ),
@@ -683,6 +746,9 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
                     Tab(
                         icon: const Icon(Icons.vpn_key, size: 18),
                         text: 'License ($licenseCount)'),
+                    const Tab(
+                        icon: Icon(Icons.account_circle, size: 18),
+                        text: 'Hồ sơ'),
                   ]
                 : [
               const Tab(
@@ -790,5 +856,7 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
     if (confirmed != true || !mounted) return;
     final auth = Provider.of<AuthProvider>(context, listen: false);
     await auth.logout();
+    if (!mounted) return;
+    Navigator.of(context).pushNamedAndRemoveUntil('/admin', (_) => false);
   }
 }

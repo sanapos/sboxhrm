@@ -18,7 +18,10 @@ public class Agent : AuditableEntity<Guid>
     // License/Key management
     public string? LicenseKey { get; set; }
     public DateTime? LicenseExpiryDate { get; set; }
-    public int MaxStores { get; set; } = 10; // Số cửa hàng tối đa được quản lý
+    public int MaxStores { get; set; } = 0; // 0 = không giới hạn số cửa hàng
+
+    /// <summary>Quỹ ngày gia hạn cửa hàng còn lại (SuperAdmin cấp, trừ khi đại lý gia hạn).</summary>
+    public int RenewalDayBalance { get; set; } = 0;
     
     // Self-registration token
     public string? RegistrationToken { get; set; } // Token để đại lý tự đăng ký tài khoản

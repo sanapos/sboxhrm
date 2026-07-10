@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../data/vietnam_provinces.dart';
 import '../utils/web_route_parser.dart';
 import '../utils/permission_navigation.dart';
 import '../services/api_service.dart';
@@ -68,6 +69,7 @@ class _RegisterScreenState extends State<RegisterScreen>
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  String? _selectedProvince;
   String? _agentCode; // Mã đại lý nếu vào từ link giới thiệu
   String? _agentName;
   String? _agentPhone;
@@ -257,9 +259,8 @@ class _RegisterScreenState extends State<RegisterScreen>
         _storeNameController.text.trim(),
         _emailController.text.trim(),
         _passwordController.text,
-        phoneNumber: _phoneController.text.trim().isEmpty
-            ? null
-            : _phoneController.text.trim(),
+        phoneNumber: _phoneController.text.trim(),
+        province: _selectedProvince!.trim(),
         storeCode: _loginNameController.text.trim(),
         agentCode: _agentCode,
         servicePackageId: _selectedServicePackageId,
@@ -674,19 +675,71 @@ class _RegisterScreenState extends State<RegisterScreen>
                         ),
                         const SizedBox(height: 16),
 
+                        _buildLabel('TỈNH / THÀNH PHỐ'),
+                        const SizedBox(height: 8),
+                        DropdownButtonFormField<String>(
+                          initialValue: _selectedProvince,
+                          isExpanded: true,
+                          decoration: InputDecoration(
+                            hintText: 'Chọn tỉnh / thành phố',
+                            prefixIcon: const Icon(Icons.location_city_outlined,
+                                color: Color(0xFF586064), size: 20),
+                            filled: true,
+                            fillColor: Colors.white,
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 18),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide:
+                                  const BorderSide(color: Color(0xFFD9E0E3)),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide:
+                                  const BorderSide(color: Color(0xFFD9E0E3)),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(
+                                  color: Color(0xFF0C56D0), width: 1.4),
+                            ),
+                          ),
+                          items: kVietnamProvinces
+                              .map(
+                                (p) => DropdownMenuItem<String>(
+                                  value: p,
+                                  child: Text(
+                                    p,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (value) =>
+                              setState(() => _selectedProvince = value),
+                          validator: (v) {
+                            if (v == null || v.trim().isEmpty) {
+                              return 'Vui lòng chọn tỉnh / thành phố';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+
                         // phone
-                        _buildLabel('SỐ ĐIỆN THOẠI (TÙY CHỌN)'),
+                        _buildLabel('SỐ ĐIỆN THOẠI'),
                         const SizedBox(height: 8),
                         _buildField(
                           controller: _phoneController,
-                          hint: 'Nhập số điện thoại',
+                          hint: 'Nhập số điện thoại liên hệ',
                           icon: Icons.phone_rounded,
                           keyboardType: TextInputType.phone,
                           validator: (v) {
-                            if (v != null && v.isNotEmpty) {
-                              if (!RegExp(r'^\+?[0-9]{9,15}$').hasMatch(v)) {
-                                return 'Số điện thoại không hợp lệ';
-                              }
+                            if (v == null || v.trim().isEmpty) {
+                              return 'Vui lòng nhập số điện thoại';
+                            }
+                            if (!RegExp(r'^\+?[0-9]{9,15}$').hasMatch(v.trim())) {
+                              return 'Số điện thoại không hợp lệ';
                             }
                             return null;
                           },

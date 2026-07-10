@@ -388,7 +388,8 @@ class ApiService {
   // Đăng ký cửa hàng mới
   Future<Map<String, dynamic>> register(
       String storeName, String email, String password,
-      {String? phoneNumber,
+      {required String phoneNumber,
+      required String province,
       String? storeCode,
       String? agentCode,
       String? servicePackageId}) async {
@@ -398,10 +399,9 @@ class ApiService {
         'storeName': storeName,
         'email': email,
         'password': password,
+        'phoneNumber': phoneNumber,
+        'province': province,
       };
-      if (phoneNumber != null && phoneNumber.isNotEmpty) {
-        body['phoneNumber'] = phoneNumber;
-      }
       if (storeCode != null && storeCode.isNotEmpty) {
         body['storeCode'] = storeCode;
       }
@@ -8045,12 +8045,14 @@ class ApiService {
       {String? name,
       String? description,
       String? address,
+      String? province,
       String? phone}) async {
     try {
       final data = <String, dynamic>{
         if (name != null) 'name': name,
         if (description != null) 'description': description,
         if (address != null) 'address': address,
+        if (province != null) 'province': province,
         if (phone != null) 'phone': phone,
       };
       final response = await http.put(
@@ -8092,6 +8094,19 @@ class ApiService {
               '$baseUrl/api/system-admin/stores/$storeId/activate-license'),
           headers: _headers,
           body: json.encode(data));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getActivatableLicensesForStore(
+      String storeId) async {
+    try {
+      final response = await http.get(
+          Uri.parse(
+              '$baseUrl/api/system-admin/stores/$storeId/activatable-licenses'),
+          headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -8846,6 +8861,27 @@ class ApiService {
       final agentId = id ?? '';
       final response = await http.put(
           Uri.parse('$baseUrl/api/system-admin/agents/$agentId'),
+          headers: _headers,
+          body: json.encode(data));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> adjustAgentRenewalBalance({
+    required String agentId,
+    int? setBalance,
+    int? addDays,
+  }) async {
+    try {
+      final data = <String, dynamic>{
+        if (setBalance != null) 'setBalance': setBalance,
+        if (addDays != null) 'addDays': addDays,
+      };
+      final response = await http.post(
+          Uri.parse(
+              '$baseUrl/api/system-admin/agents/$agentId/renewal-balance'),
           headers: _headers,
           body: json.encode(data));
       return _handleResponse(response);
@@ -11201,6 +11237,29 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> updateAgentProfile({
+    String? phone,
+    String? address,
+    String? description,
+  }) async {
+    try {
+      final response = await _retryOnUnauthorized(() => http
+          .put(
+            Uri.parse('$baseUrl/api/agent/profile'),
+            headers: _headers,
+            body: json.encode({
+              'phone': phone,
+              'address': address,
+              'description': description,
+            }),
+          )
+          .timeout(const Duration(seconds: 15)));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> getAgentStores({int pageSize = 1000}) async {
     try {
       final uri = Uri.parse('$baseUrl/api/agent/stores')
@@ -11347,12 +11406,13 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> agentUpdateStore(String id,
-      {String? name, String? description, String? address, String? phone}) async {
+      {String? name, String? description, String? address, String? province, String? phone}) async {
     try {
       final body = <String, dynamic>{
         if (name != null) 'name': name,
         if (description != null) 'description': description,
         if (address != null) 'address': address,
+        if (province != null) 'province': province,
         if (phone != null) 'phone': phone,
       };
       final response = await http.put(
@@ -11421,6 +11481,19 @@ class ApiService {
           Uri.parse('$baseUrl/api/agent/stores/$storeId/activate-license'),
           headers: _headers,
           body: json.encode(data));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getAgentActivatableLicensesForStore(
+      String storeId) async {
+    try {
+      final response = await http.get(
+          Uri.parse(
+              '$baseUrl/api/agent/stores/$storeId/activatable-licenses'),
+          headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);

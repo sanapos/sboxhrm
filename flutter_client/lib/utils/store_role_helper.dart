@@ -4,8 +4,8 @@ class StoreRoleHelper {
 
   static String _norm(String? role) => (role ?? '').trim().toLowerCase();
 
-  /// Chỉ SuperAdmin / Agent bỏ qua giới hạn gói dịch vụ trên UI.
-  static bool bypassesPackageFilter(String? role) {
+  /// SuperAdmin / Agent — cổng quản trị hệ thống (không dùng MainLayout cửa hàng).
+  static bool isSystemPortalRole(String? role) {
     switch (_norm(role)) {
       case 'superadmin':
       case 'agent':
@@ -14,6 +14,9 @@ class StoreRoleHelper {
         return false;
     }
   }
+
+  /// Chỉ SuperAdmin / Agent bỏ qua giới hạn gói dịch vụ trên UI.
+  static bool bypassesPackageFilter(String? role) => isSystemPortalRole(role);
 
   /// Admin cửa hàng / giám đốc — toàn quyền module (khớp backend IsSuperRole mở rộng).
   static bool isFullAccess(String? role) {

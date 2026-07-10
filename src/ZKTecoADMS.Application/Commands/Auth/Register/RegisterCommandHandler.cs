@@ -102,6 +102,8 @@ public class RegisterCommandHandler(
             Id = storeId,
             Name = request.StoreName,
             Code = storeCode,
+            Province = request.Province.Trim(),
+            Phone = request.PhoneNumber.Trim(),
             IsActive = true,
             CreatedAt = DateTime.UtcNow,
             OwnerId = null, // Chưa có owner, sẽ cập nhật sau
@@ -125,14 +127,20 @@ public class RegisterCommandHandler(
         }
         
         // Kiểm tra số điện thoại đã tồn tại chưa
-        if (!string.IsNullOrEmpty(request.PhoneNumber))
+        var normalizedPhone = request.PhoneNumber.Trim();
+        var existingPhone = await userManager.Users
+            .AnyAsync(u => u.PhoneNumber == normalizedPhone, cancellationToken);
+        if (existingPhone)
         {
-            var existingPhone = await userManager.Users
-                .AnyAsync(u => u.PhoneNumber == request.PhoneNumber, cancellationToken);
-            if (existingPhone)
-            {
-                return AppResponse<string>.Error("Số điện thoại này đã được sử dụng.");
-            }
+            return AppResponse<string>.Error("Số điện thoại này đã được sử dụng.");
+        }
+
+        var existingStorePhone = await storeRepository.ExistsAsync(
+            s => s.Phone == normalizedPhone,
+            cancellationToken);
+        if (existingStorePhone)
+        {
+            return AppResponse<string>.Error("Số điện thoại này đã được sử dụng cho cửa hàng khác.");
         }
 
         // 2. Tạo User với StoreId đã tồn tại

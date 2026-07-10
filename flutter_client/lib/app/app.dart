@@ -18,6 +18,7 @@ import '../screens/admin_login_screen.dart';
 import '../screens/landing_screen.dart';
 import '../screens/landing_guide_screen.dart';
 import '../utils/web_route_parser.dart';
+import '../utils/store_role_helper.dart';
 import '../widgets/app_boot_screen.dart';
 
 class ZKTecoApp extends StatelessWidget {
@@ -104,9 +105,12 @@ class ZKTecoApp extends StatelessWidget {
             }
             return null;
           },
-          home: Selector<AuthProvider, ({bool isInit, bool isAuth})>(
-            selector: (_, auth) =>
-                (isInit: auth.isInitializing, isAuth: auth.isAuthenticated),
+          home: Selector<AuthProvider, ({bool isInit, bool isAuth, String role})>(
+            selector: (_, auth) => (
+              isInit: auth.isInitializing,
+              isAuth: auth.isAuthenticated,
+              role: auth.userRole,
+            ),
             builder: (context, state, child) {
               if (state.isInit) {
                 return const AppBootScreen();
@@ -120,6 +124,11 @@ class ZKTecoApp extends StatelessWidget {
                   return const RegisterScreen();
                 }
                 return kIsWeb ? const LandingScreen() : const LoginScreen();
+              }
+              if (StoreRoleHelper.isSystemPortalRole(state.role)) {
+                return SystemAdminScreen(
+                  agentMode: state.role.toLowerCase() == 'agent',
+                );
               }
               return const MainLayout();
             },
@@ -145,12 +154,10 @@ class _AdminRouteGuard extends StatelessWidget {
           return const AdminLoginScreen();
         }
 
-        if (state.role == 'SuperAdmin') {
-          return const SystemAdminScreen();
-        }
-
-        if (state.role == 'Agent') {
-          return const SystemAdminScreen(agentMode: true);
+        if (StoreRoleHelper.isSystemPortalRole(state.role)) {
+          return SystemAdminScreen(
+            agentMode: state.role!.toLowerCase() == 'agent',
+          );
         }
 
         return const AdminLoginScreen();

@@ -12,6 +12,7 @@ internal static class AgentStoreMapper
         store.Code,
         store.Description,
         store.Address,
+        store.Province,
         store.Phone,
         store.IsActive,
         store.IsLocked,

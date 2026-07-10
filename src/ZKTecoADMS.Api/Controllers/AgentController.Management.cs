@@ -153,6 +153,7 @@ public partial class AgentController
         store.Name = request.Name;
         store.Description = request.Description;
         store.Address = request.Address;
+        store.Province = request.Province;
         store.Phone = request.Phone;
         store.UpdatedAt = DateTime.UtcNow;
         store.UpdatedBy = CurrentUserId.ToString();
@@ -250,33 +251,79 @@ public partial class AgentController
         if (request.DaysToAdd <= 0)
             return BadRequest(AppResponse<StoreDetailDto>.Fail("Số ngày gia hạn phải lớn hơn 0"));
 
+        if (!StoreRenewalHelper.IsPresetDay(request.DaysToAdd))
+        {
+            return BadRequest(AppResponse<StoreDetailDto>.Fail(
+                StoreRenewalHelper.PresetOnlyMessage));
+        }
+
         if (IsStoreRenewalLimitReached(store.RenewalCount))
         {
             return BadRequest(AppResponse<StoreDetailDto>.Fail(
                 "Cửa hàng đã gia hạn tối đa 3 lần. Vui lòng kích hoạt key mới."));
         }
 
-        var baseDate = store.ExpiryDate ?? DateTime.UtcNow;
-        if (baseDate < DateTime.UtcNow) baseDate = DateTime.UtcNow;
-        store.ExpiryDate = baseDate.AddDays(request.DaysToAdd);
+        var trackedAgent = await _dbContext.Agents
+            .AsTracking()
+            .FirstOrDefaultAsync(a => a.Id == agent.Id);
+        if (trackedAgent == null)
+            return NotFound(AppResponse<StoreDetailDto>.Fail("Không tìm thấy đại lý"));
+
+        if (trackedAgent.RenewalDayBalance < request.DaysToAdd)
+        {
+            return BadRequest(AppResponse<StoreDetailDto>.Fail(
+                StoreRenewalHelper.InsufficientAgentBalanceMessage(
+                    trackedAgent.RenewalDayBalance, request.DaysToAdd)));
+        }
+
+        store.ExpiryDate = StoreLicenseHelper.ComputeExtendedExpiryDate(store, request.DaysToAdd);
         store.RenewalCount++;
         store.IsLocked = false;
         store.LockReason = null;
         store.IsActive = true;
-
-        if (request.MaxUsers.HasValue)
-            store.MaxUsers = request.MaxUsers.Value;
-
-        if (request.MaxDevices.HasValue)
-            store.MaxDevices = request.MaxDevices.Value;
-
-        if (request.LicenseType.HasValue)
-            store.LicenseType = request.LicenseType.Value;
+        trackedAgent.RenewalDayBalance -= request.DaysToAdd;
         store.UpdatedAt = DateTime.UtcNow;
         store.UpdatedBy = CurrentUserId.ToString();
         await _dbContext.SaveChangesAsync();
 
         return Ok(AppResponse<StoreDetailDto>.Success(AgentStoreMapper.ToStoreDetailDto(store)));
+    }
+
+    [HttpGet("stores/{storeId:guid}/activatable-licenses")]
+    public async Task<ActionResult<AppResponse<List<LicenseKeyDto>>>> GetActivatableLicensesForMyStore(
+        Guid storeId)
+    {
+        var (agent, err) = await RequireCurrentAgentAsync();
+        if (err != null) return err;
+
+        if (!await AgentScopeHelper.StoreBelongsToAgentAsync(_dbContext, agent.Id, storeId))
+            return NotFound(AppResponse<List<LicenseKeyDto>>.Fail("Cửa hàng không thuộc đại lý này"));
+
+        var store = await _dbContext.Stores.AsNoTracking()
+            .FirstOrDefaultAsync(s => s.Id == storeId);
+        if (store == null)
+            return NotFound(AppResponse<List<LicenseKeyDto>>.Fail("Không tìm thấy cửa hàng"));
+
+        var items = await LicenseKeyActivationHelper
+            .FilterActivatableForStore(
+                _dbContext.LicenseKeys
+                    .Include(l => l.Store)
+                    .Include(l => l.Agent)
+                    .Include(l => l.ServicePackage),
+                store)
+            .OrderByDescending(l => l.CreatedAt)
+            .Take(500)
+            .ToListAsync();
+
+        var dtos = items.Select(l => new LicenseKeyDto(
+            l.Id, l.Key, l.LicenseType.ToString(), l.DurationDays,
+            l.MaxUsers, l.MaxDevices, l.IsUsed, l.ActivatedAt,
+            l.StoreId, l.Store?.Name, l.AgentId, l.Agent?.Name,
+            l.ServicePackageId, l.ServicePackage?.Name,
+            l.Notes, l.IsActive, l.CreatedAt
+        )).ToList();
+
+        return Ok(AppResponse<List<LicenseKeyDto>>.Success(dtos));
     }
 
     [HttpPost("stores/{storeId:guid}/activate-license")]
@@ -308,13 +355,24 @@ public partial class AgentController
             .FirstOrDefaultAsync(l =>
                 l.Key == request.LicenseKey &&
                 l.IsActive &&
-                !l.IsUsed &&
-                l.AgentId == agent.Id);
+                !l.IsUsed);
 
         if (license == null)
         {
             return BadRequest(AppResponse<StoreDetailDto>.Fail(
-                "License key không hợp lệ, đã dùng hoặc không thuộc đại lý này"));
+                "License key không hợp lệ hoặc đã được sử dụng"));
+        }
+
+        if (!LicenseKeyActivationHelper.CanActivateForStore(license, store))
+        {
+            return BadRequest(AppResponse<StoreDetailDto>.Fail(
+                LicenseKeyActivationHelper.InvalidScopeMessage));
+        }
+
+        if (license.AgentId.HasValue && license.AgentId != agent.Id)
+        {
+            return BadRequest(AppResponse<StoreDetailDto>.Fail(
+                "License key không thuộc đại lý này"));
         }
 
         var isFirstActivation = string.IsNullOrEmpty(store.LicenseKey);
@@ -328,9 +386,7 @@ public partial class AgentController
         license.StoreId = storeId;
         license.ActivatedAt = DateTime.UtcNow;
 
-        var baseDate = store.ExpiryDate ?? DateTime.UtcNow;
-        if (baseDate < DateTime.UtcNow) baseDate = DateTime.UtcNow;
-        store.ExpiryDate = baseDate.AddDays(license.DurationDays);
+        store.ExpiryDate = StoreLicenseHelper.ComputeExtendedExpiryDate(store, license.DurationDays);
         store.LicenseKey = license.Key;
         store.LicenseType = license.LicenseType;
         store.MaxUsers = license.MaxUsers;

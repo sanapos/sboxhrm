@@ -70,6 +70,7 @@ public record StoreDetailDto(
     string Code,
     string? Description,
     string? Address,
+    string? Province,
     string? Phone,
     bool IsActive,
     bool IsLocked,
@@ -181,6 +182,7 @@ public record UpdateStoreRequest(
     string Name,
     string? Description,
     string? Address,
+    string? Province,
     string? Phone
 );
 
