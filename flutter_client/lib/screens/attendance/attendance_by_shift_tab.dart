@@ -31,6 +31,7 @@ import '../../utils/attendance_correction_dates.dart';
 import '../../utils/attendance_viewport_preserve.dart';
 import '../../utils/shift_records_calculator.dart';
 import '../../utils/travel_hours_load_utils.dart';
+import '../../utils/travel_eligibility_utils.dart';
 import '../../utils/mobile_attendance_vertical_layout.dart';
 import '../../widgets/synced_scroll_list_view.dart'
     show SyncedScrollListView, linkHorizontalScrollControllers;
@@ -46,6 +47,9 @@ class AttendanceByShiftTab extends StatefulWidget {
   final List<dynamic> holidays;
   final int dayEndHour;
   final int dayEndMinute;
+  final double minHoursForWorkDay;
+  final bool decimalWorkDayEnabled;
+  final double standardWorkHours;
   final List<dynamic> approvedLeaves;
   final List<Map<String, dynamic>>? employeesList;
   final VoidCallback? onDataChanged;
@@ -63,6 +67,7 @@ class AttendanceByShiftTab extends StatefulWidget {
 
   final Map<String, double> travelHoursByEmployeeKey;
   final Map<String, double> travelHoursByEmployeeDateKey;
+  final Set<String> travelEligibleEmployeeKeys;
 
   const AttendanceByShiftTab({
     super.key,
@@ -76,6 +81,9 @@ class AttendanceByShiftTab extends StatefulWidget {
     this.holidays = const [],
     this.dayEndHour = 0,
     this.dayEndMinute = 0,
+    this.minHoursForWorkDay = 0,
+    this.decimalWorkDayEnabled = false,
+    this.standardWorkHours = 8,
     this.approvedLeaves = const [],
     this.employeesList,
     this.onDataChanged,
@@ -86,6 +94,7 @@ class AttendanceByShiftTab extends StatefulWidget {
     this.directApplyCorrections = false,
     this.travelHoursByEmployeeKey = const {},
     this.travelHoursByEmployeeDateKey = const {},
+    this.travelEligibleEmployeeKeys = const {},
   });
 
   @override
@@ -734,6 +743,9 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       holidays: widget.holidays,
       dayEndHour: widget.dayEndHour,
       dayEndMinute: widget.dayEndMinute,
+      minHoursForWorkDay: widget.minHoursForWorkDay,
+      decimalWorkDayEnabled: widget.decimalWorkDayEnabled,
+      standardWorkHours: widget.standardWorkHours,
     );
     final records = computed
         .map(
@@ -1636,23 +1648,39 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     return '${h}h${m > 0 ? '${m}p' : ''}';
   }
 
-  double _travelHoursForShiftRecord(_DailyShiftRecord r) =>
-      lookupTravelHoursForDay(
-        widget.travelHoursByEmployeeDateKey,
-        date: r.date,
-        employeeId: r.employeeId,
-        employeeCode: r.employeeCode,
-      );
+  double _travelHoursForShiftRecord(_DailyShiftRecord r) {
+    if (!isEmployeeTravelEligible(
+      eligibleKeys: widget.travelEligibleEmployeeKeys,
+      employeeId: r.employeeId,
+      employeeCode: r.employeeCode,
+    )) {
+      return 0;
+    }
+    return lookupTravelHoursForDay(
+      widget.travelHoursByEmployeeDateKey,
+      date: r.date,
+      employeeId: r.employeeId,
+      employeeCode: r.employeeCode,
+    );
+  }
 
   double _travelHoursTotalForShiftEmployee({
     required String employeeId,
     required String employeeCode,
-  }) =>
-      lookupTravelHoursTotal(
-        widget.travelHoursByEmployeeKey,
-        employeeId: employeeId,
-        employeeCode: employeeCode,
-      );
+  }) {
+    if (!isEmployeeTravelEligible(
+      eligibleKeys: widget.travelEligibleEmployeeKeys,
+      employeeId: employeeId,
+      employeeCode: employeeCode,
+    )) {
+      return 0;
+    }
+    return lookupTravelHoursTotal(
+      widget.travelHoursByEmployeeKey,
+      employeeId: employeeId,
+      employeeCode: employeeCode,
+    );
+  }
 
   Widget _buildTravelHoursCell(double hours, {bool bold = false}) {
     if (hours <= 0) {
@@ -4522,6 +4550,11 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         totalHours: record != null && record.workHours > 0
             ? _formatHoursMinutes(record.workHours)
             : '—',
+        travelHours: record != null
+            ? (_travelHoursForShiftRecord(record) > 0
+                ? _formatHoursMinutes(_travelHoursForShiftRecord(record))
+                : '—')
+            : '—',
         late: record != null
             ? _verticalShiftMinutesLabel(record.lateMinutes)
             : '—',
@@ -4538,6 +4571,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
 
     var totalWork = 0.0;
     var totalHours = 0.0;
+    var totalTravel = 0.0;
     var lateMinutes = 0;
     var earlyMinutes = 0;
     var overtimeMinutes = 0;
@@ -4546,6 +4580,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       if (r.employeeId != empId) continue;
       totalWork += r.workCount;
       totalHours += r.workHours;
+      totalTravel += _travelHoursForShiftRecord(r);
       lateMinutes += r.lateMinutes;
       earlyMinutes += r.earlyMinutes;
       overtimeMinutes += r.overtimeMinutes;
@@ -4571,6 +4606,9 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                 totalWork > 0 ? _verticalShiftWorkCountLabel(totalWork) : '—',
             totalHours: totalHours > 0
                 ? _formatHoursMinutes(totalHours)
+                : '—',
+            travelHours: totalTravel > 0
+                ? _formatHoursMinutes(totalTravel)
                 : '—',
             late: _verticalShiftMinutesLabel(lateMinutes),
             early: _verticalShiftMinutesLabel(earlyMinutes),
@@ -4727,6 +4765,10 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     double totalWorkFor(String empId) => _shiftRecordsForEmployee(records, empId)
         .fold<double>(0.0, (sum, r) => sum + r.workCount);
 
+    double totalTravelFor(String empId) =>
+        _shiftRecordsForEmployee(records, empId).fold<double>(
+            0.0, (sum, r) => sum + _travelHoursForShiftRecord(r));
+
     int presentDaysFor(String empId) => _shiftRecordsForEmployee(records, empId)
         .where((r) => r.displayPunchTimes.isNotEmpty)
         .length;
@@ -4780,6 +4822,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       final empName = employees[index].value;
       final empCode = empCodeMap[empId] ?? empId;
       final hours = totalHoursFor(empId);
+      final travel = totalTravelFor(empId);
       final work = totalWorkFor(empId);
       final present = presentDaysFor(empId);
       final lateMin = lateMinutesFor(empId);
@@ -4923,23 +4966,30 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                       ),
                       const SizedBox(width: 6),
                       _mobileShiftMetricChip(
+                        icon: Icons.directions_car_rounded,
+                        label: 'Đi đường',
+                        value: travel > 0 ? _formatHoursMinutes(travel) : '—',
+                        color: const Color(0xFFEA580C),
+                      ),
+                      const SizedBox(width: 6),
+                      _mobileShiftMetricChip(
                         icon: Icons.calendar_today_rounded,
                         label: 'Công ca',
                         value: formatWork(work),
                         color: workColor,
-                      ),
-                      const SizedBox(width: 6),
-                      _mobileShiftMetricChip(
-                        icon: Icons.fingerprint_rounded,
-                        label: 'Có chấm',
-                        value: present > 0 ? '$present ngày' : '—',
-                        color: const Color(0xFF16A34A),
                       ),
                     ],
                   ),
                   const SizedBox(height: 6),
                   Row(
                     children: [
+                      _mobileShiftMetricChip(
+                        icon: Icons.fingerprint_rounded,
+                        label: 'Có chấm',
+                        value: present > 0 ? '$present ngày' : '—',
+                        color: const Color(0xFF16A34A),
+                      ),
+                      const SizedBox(width: 6),
                       _mobileShiftMetricChip(
                         icon: Icons.more_time_rounded,
                         label: 'Đi trễ',
@@ -4953,7 +5003,11 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                         value: earlyMin > 0 ? '${earlyMin}p' : '—',
                         color: const Color(0xFFEF4444),
                       ),
-                      const SizedBox(width: 6),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
                       _mobileShiftMetricChip(
                         icon: Icons.bolt_rounded,
                         label: 'Tăng ca',

@@ -482,6 +482,8 @@ class _MobileAttendanceApprovalScreenState
         record.status == 'pending' &&
         onApprove != null &&
         onReject != null;
+    final canManage = canEditMobileAttendanceRecord(perm) ||
+        canDeleteMobileAttendanceRecord(perm);
 
     showMobileAttendanceRecordDetailSheet(
       context,
@@ -489,6 +491,10 @@ class _MobileAttendanceApprovalScreenState
       apiService: _apiService,
       onApprove: canApprove ? () => onApprove(record) : null,
       onReject: canApprove ? () => onReject(record) : null,
+      canManageRecord: canManage,
+      canEditRecord: canEditMobileAttendanceRecord(perm),
+      canDeleteRecord: canDeleteMobileAttendanceRecord(perm),
+      onRecordChanged: _loadData,
     );
   }
 

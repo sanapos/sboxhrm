@@ -188,7 +188,7 @@ workflows:
         - appstore_credentials
       vars:
         APP_STORE_APP_ID: "6762365741"
-        APP_VERSION: "1.0.39"
+        APP_VERSION: "1.0.40"
 
     scripts:
       - name: Submit processed TestFlight build to App Store review

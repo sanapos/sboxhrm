@@ -20,6 +20,7 @@ import '../../utils/attendance_record_resolver.dart';
 import '../../utils/attendance_viewport_preserve.dart';
 import '../../utils/shift_records_calculator.dart';
 import '../../utils/travel_hours_load_utils.dart';
+import '../../utils/travel_eligibility_utils.dart';
 import '../../services/api_service.dart';
 import '../../widgets/attendance_frozen_employee_name_cell.dart';
 import '../../widgets/hrm_page_chrome.dart';
@@ -83,6 +84,9 @@ class AttendanceSummaryTab extends StatefulWidget {
       onCorrectionRequest;
   final int dayEndHour;
   final int dayEndMinute;
+  final double minHoursForWorkDay;
+  final bool decimalWorkDayEnabled;
+  final double standardWorkHours;
   final List<dynamic> holidays;
   final List<dynamic> salaryProfiles;
   final List<Map<String, dynamic>> shiftTemplates;
@@ -116,6 +120,8 @@ class AttendanceSummaryTab extends StatefulWidget {
   /// Giờ đi đường (mobile) theo nhân viên / theo ngày — từ màn cha.
   final Map<String, double> travelHoursByEmployeeKey;
   final Map<String, double> travelHoursByEmployeeDateKey;
+  /// NV được bật chấm đi đường trên thiết bị mobile.
+  final Set<String> travelEligibleEmployeeKeys;
 
   const AttendanceSummaryTab({
     super.key,
@@ -126,6 +132,9 @@ class AttendanceSummaryTab extends StatefulWidget {
     this.onCorrectionRequest,
     this.dayEndHour = 0,
     this.dayEndMinute = 0,
+    this.minHoursForWorkDay = 0,
+    this.decimalWorkDayEnabled = false,
+    this.standardWorkHours = 8,
     this.holidays = const [],
     this.salaryProfiles = const [],
     this.shiftTemplates = const [],
@@ -141,6 +150,7 @@ class AttendanceSummaryTab extends StatefulWidget {
     this.onDataChanged,
     this.travelHoursByEmployeeKey = const {},
     this.travelHoursByEmployeeDateKey = const {},
+    this.travelEligibleEmployeeKeys = const {},
   });
 
   @override
@@ -528,6 +538,9 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       holidays: widget.holidays,
       dayEndHour: widget.dayEndHour,
       dayEndMinute: widget.dayEndMinute,
+      minHoursForWorkDay: widget.minHoursForWorkDay,
+      decimalWorkDayEnabled: widget.decimalWorkDayEnabled,
+      standardWorkHours: widget.standardWorkHours,
     );
     _shiftRecordByKey = dailyShiftRecordByAttendanceKey(records);
     _shiftRecordsFp = fp;
@@ -1020,16 +1033,27 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     return hours.toStringAsFixed(2);
   }
 
-  double _travelHoursForSummary(_DailySummary s) =>
-      lookupTravelHoursForDay(
-        widget.travelHoursByEmployeeDateKey,
-        date: s.date,
-        employeeId: s.employeeId,
-        employeeCode: s.employeeCode,
-        applicationUserId: s.applicationUserId,
-        employeeGuid: s.employeeGuid,
-        pin: s.pin,
-      );
+  double _travelHoursForSummary(_DailySummary s) {
+    if (!isEmployeeTravelEligible(
+      eligibleKeys: widget.travelEligibleEmployeeKeys,
+      employeeId: s.employeeId,
+      employeeCode: s.employeeCode,
+      applicationUserId: s.applicationUserId,
+      employeeGuid: s.employeeGuid,
+      pin: s.pin,
+    )) {
+      return 0;
+    }
+    return lookupTravelHoursForDay(
+      widget.travelHoursByEmployeeDateKey,
+      date: s.date,
+      employeeId: s.employeeId,
+      employeeCode: s.employeeCode,
+      applicationUserId: s.applicationUserId,
+      employeeGuid: s.employeeGuid,
+      pin: s.pin,
+    );
+  }
 
   double _travelHoursTotalForEmployee({
     String? employeeId,
@@ -1037,15 +1061,26 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     String? applicationUserId,
     String? employeeGuid,
     String? pin,
-  }) =>
-      lookupTravelHoursTotal(
-        widget.travelHoursByEmployeeKey,
-        employeeId: employeeId,
-        employeeCode: employeeCode,
-        applicationUserId: applicationUserId,
-        employeeGuid: employeeGuid,
-        pin: pin,
-      );
+  }) {
+    if (!isEmployeeTravelEligible(
+      eligibleKeys: widget.travelEligibleEmployeeKeys,
+      employeeId: employeeId,
+      employeeCode: employeeCode,
+      applicationUserId: applicationUserId,
+      employeeGuid: employeeGuid,
+      pin: pin,
+    )) {
+      return 0;
+    }
+    return lookupTravelHoursTotal(
+      widget.travelHoursByEmployeeKey,
+      employeeId: employeeId,
+      employeeCode: employeeCode,
+      applicationUserId: applicationUserId,
+      employeeGuid: employeeGuid,
+      pin: pin,
+    );
+  }
 
   Widget _buildTravelHoursCell(double hours, {bool bold = false}) {
     if (hours <= 0) {
@@ -3667,6 +3702,11 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
         totalHours: summary != null && summary.totalHours > 0
             ? _formatHours(summary.totalHours)
             : '—',
+        travelHours: summary != null
+            ? (_travelHoursForSummary(summary) > 0
+                ? _formatHours(_travelHoursForSummary(summary))
+                : '—')
+            : '—',
         totalWork: summary != null
             ? _verticalWorkCountLabel(summary.workCount)
             : '—',
@@ -3678,11 +3718,13 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     }).toList();
 
     var totalHours = 0.0;
+    var totalTravel = 0.0;
     var totalWork = 0.0;
     var presentDays = 0;
     for (final s in summaries) {
       if (s.employeeId != empId) continue;
       totalHours += s.totalHours;
+      totalTravel += _travelHoursForSummary(s);
       totalWork += s.workCount;
       if (s.totalPunches > 0) presentDays++;
     }
@@ -3704,6 +3746,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
             ),
             totalHours:
                 totalHours > 0 ? _formatHours(totalHours) : '—',
+            travelHours:
+                totalTravel > 0 ? _formatHours(totalTravel) : '—',
             totalWork:
                 totalWork > 0 ? _verticalWorkCountLabel(totalWork) : '—',
           );
@@ -3869,6 +3913,11 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     double totalWorkFor(String empId) => dates.fold<double>(
         0.0, (sum, d) => sum + (getSummary(empId, d)?.workCount ?? 0.0));
 
+    double totalTravelFor(String empId) => dates.fold<double>(0.0, (sum, d) {
+          final s = getSummary(empId, d);
+          return sum + (s != null ? _travelHoursForSummary(s) : 0.0);
+        });
+
     int presentDaysFor(String empId) => dates
         .where((d) => (getSummary(empId, d)?.totalPunches ?? 0) > 0)
         .length;
@@ -3892,6 +3941,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       final empName = employees[index].value;
       final empCode = empCodeMap[empId] ?? empId;
       final hours = totalHoursFor(empId);
+      final travel = totalTravelFor(empId);
       final work = totalWorkFor(empId);
       final present = presentDaysFor(empId);
       final expected = expectedDaysFor(empId);
@@ -3990,12 +4040,23 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                       ),
                       const SizedBox(width: 8),
                       _mobileEmployeeMetricChip(
+                        icon: Icons.directions_car_rounded,
+                        label: 'Đi đường',
+                        value: travel > 0 ? _formatHours(travel) : '—',
+                        color: const Color(0xFFEA580C),
+                      ),
+                      const SizedBox(width: 8),
+                      _mobileEmployeeMetricChip(
                         icon: Icons.calendar_today_rounded,
                         label: 'Ngày công',
                         value: formatWork(work),
                         color: workColor,
                       ),
-                      const SizedBox(width: 8),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
                       _mobileEmployeeMetricChip(
                         icon: Icons.fingerprint_rounded,
                         label: 'Có chấm',
@@ -4308,6 +4369,14 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
             iconColor: Colors.green,
             isBold: true,
           ),
+          if (_travelHoursForSummary(s) > 0)
+            _buildDetailRow(
+              'Giờ đi đường',
+              _formatHours(_travelHoursForSummary(s)),
+              icon: Icons.directions_car,
+              iconColor: Colors.orange.shade700,
+              isBold: true,
+            ),
           _buildDetailRow(
             'Giờ thập phân',
             _formatDecimalHours(s.totalHours),

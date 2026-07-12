@@ -152,37 +152,42 @@ class ReportScreenShell extends StatelessWidget {
 }
 
 /// Tab Chi tiết / Theo nhân viên (chỉ team view).
+/// [tabs] tùy chọn: mỗi phần tử là (label, icon). Mặc định 2 tab.
 class ReportViewModeTabs extends StatelessWidget {
   final int index;
   final ValueChanged<int> onChanged;
+  final List<({String label, IconData icon})>? tabs;
 
   const ReportViewModeTabs({
     super.key,
     required this.index,
     required this.onChanged,
+    this.tabs,
   });
 
   @override
   Widget build(BuildContext context) {
+    final items = tabs ??
+        const [
+          (label: 'Chi tiết', icon: Icons.list_alt),
+          (label: 'Theo NV', icon: Icons.people_outline),
+        ];
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
       child: SegmentedButton<int>(
         segments: [
-          ButtonSegment(
-              value: 0,
-              label: Text('Chi tiết',
+          for (var i = 0; i < items.length; i++)
+            ButtonSegment(
+              value: i,
+              label: Text(items[i].label,
                   style: vietnameseTextStyle(const TextStyle(fontSize: 12))),
-              icon: const Icon(Icons.list_alt, size: 16)),
-          ButtonSegment(
-              value: 1,
-              label: Text('Theo NV',
-                  style: vietnameseTextStyle(const TextStyle(fontSize: 12))),
-              icon: const Icon(Icons.people_outline, size: 16)),
+              icon: Icon(items[i].icon, size: 16),
+            ),
         ],
         selected: {index},
         onSelectionChanged: (s) => onChanged(s.first),
-        style: ButtonStyle(
+        style: const ButtonStyle(
           visualDensity: VisualDensity.compact,
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),

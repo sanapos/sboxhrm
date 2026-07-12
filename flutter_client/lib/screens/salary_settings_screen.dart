@@ -15,6 +15,8 @@ import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import 'allowance_settings_screen.dart';
 import '../utils/allowance_calculator.dart';
+import '../utils/travel_salary_utils.dart';
+import '../utils/shift_records_calculator.dart';
 
 class SalarySettingsScreen extends StatefulWidget {
   const SalarySettingsScreen({super.key});
@@ -43,6 +45,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
   String? _filterBranchId;
   final ScrollController _salaryTableHScroll = ScrollController();
   final ScrollController _salaryTableVScroll = ScrollController();
+  Map<String, dynamic> _storeSalarySettings = {};
+  double _standardWorkHours = 8;
 
   @override
   void initState() {
@@ -58,6 +62,13 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
     super.dispose();
   }
 
+  double _storeStandardWorkDays() {
+    final v = _storeSalarySettings['standardWorkDays'];
+    if (v is num && v > 0) return v.toDouble();
+    final parsed = double.tryParse(v?.toString() ?? '');
+    return (parsed != null && parsed > 0) ? parsed : 26;
+  }
+
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
@@ -69,6 +80,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
         _apiService.getAllowanceSettings(),
         _apiService.getInsuranceSettings(),
         _apiService.getBranchesForSelect(),
+        _apiService.getSalarySettings(),
       ]);
       final employees = results[0] as List;
       final profiles = results[1] as List;
@@ -76,6 +88,9 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
       final allowances = results[3] as List;
       final insuranceSettings = results[4] as Map<String, dynamic>?;
       final brResult = results[5] as Map<String, dynamic>;
+      final storeSalary = results[6] is Map<String, dynamic>
+          ? Map<String, dynamic>.from(results[6] as Map)
+          : <String, dynamic>{};
       List<Map<String, dynamic>> branches = [];
       if (brResult['isSuccess'] != false) {
         final brData = brResult['data'];
@@ -142,6 +157,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
             allowances.map((a) => Map<String, dynamic>.from(a)).toList();
         _insuranceSettings = insuranceSettings ?? {};
         _branches = branches;
+        _storeSalarySettings = storeSalary;
+        _standardWorkHours = parseStandardWorkHours(salarySettings: storeSalary);
       });
     } catch (e) {
       debugPrint('Error loading data: $e');
@@ -2786,6 +2803,25 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
         (benefit['shiftsPerDay'] ?? employee['shiftsPerDay'] ?? 1).toString();
     if (!['1', '2', '3', '4'].contains(shiftsPerDay)) shiftsPerDay = '1';
 
+    TravelSalaryMode employeeTravelMode = parseTravelSalaryModeForEmployee(
+      benefit: benefit,
+    );
+    final employeeTravelFixedRate = parseTravelFixedHourlyRateForEmployee(
+      benefit: benefit,
+    );
+    final employeeTravelFixedRateController = TextEditingController(
+      text: employeeTravelFixedRate > 0
+          ? _formatNumber(employeeTravelFixedRate)
+          : '',
+    );
+    final stdDaysLabel = _storeStandardWorkDays() ==
+            _storeStandardWorkDays().roundToDouble()
+        ? _storeStandardWorkDays().toInt().toString()
+        : _storeStandardWorkDays().toStringAsFixed(1);
+    final stdHoursLabel = _standardWorkHours == _standardWorkHours.roundToDouble()
+        ? _standardWorkHours.toInt().toString()
+        : _standardWorkHours.toStringAsFixed(1);
+
     final isMobileEdit = Responsive.isMobile(context);
     showDialog(
       context: context,
@@ -3350,6 +3386,68 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                 ),
                 const SizedBox(height: 16),
 
+                const Divider(color: Color(0xFFE4E4E7)),
+                const SizedBox(height: 8),
+                const Text(
+                  'Lương đi đường (nhân viên)',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                    color: Color(0xFF18181B),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Mặc định: LCB ÷ công chuẩn tháng ÷ 8h. Chỉ NV bật chấm đi đường trên thiết bị mobile mới có giờ đi đường trên bảng công/lương.',
+                  style: TextStyle(fontSize: 11, color: Color(0xFF71717A)),
+                ),
+                const SizedBox(height: 8),
+                RadioListTile<TravelSalaryMode>(
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  title: Text('Lương cơ bản ÷ $stdDaysLabel công ÷ $stdHoursLabel giờ'),
+                  subtitle: Text(
+                    'VD: LCB 8.000.000, $stdDaysLabel công, $stdHoursLabel h → ${NumberFormat('#,###', 'vi_VN').format((8000000 / (_storeStandardWorkDays() * _standardWorkHours)).round())}đ/giờ',
+                    style: const TextStyle(fontSize: 11),
+                  ),
+                  value: TravelSalaryMode.basePer8h,
+                  groupValue: employeeTravelMode,
+                  onChanged: (v) => setDialogState(
+                      () => employeeTravelMode = TravelSalaryMode.basePer8h),
+                ),
+                RadioListTile<TravelSalaryMode>(
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  title: Text(
+                      'Lương hoàn thành ÷ $stdDaysLabel công ÷ $stdHoursLabel giờ'),
+                  subtitle: const Text(
+                    'Dùng mức lương hoàn thành trên hồ sơ lương NV',
+                    style: TextStyle(fontSize: 11),
+                  ),
+                  value: TravelSalaryMode.completionPer8h,
+                  groupValue: employeeTravelMode,
+                  onChanged: (v) => setDialogState(() =>
+                      employeeTravelMode = TravelSalaryMode.completionPer8h),
+                ),
+                RadioListTile<TravelSalaryMode>(
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  title: const Text('Giờ cố định (VNĐ/giờ)'),
+                  value: TravelSalaryMode.fixed,
+                  groupValue: employeeTravelMode,
+                  onChanged: (v) => setDialogState(
+                      () => employeeTravelMode = TravelSalaryMode.fixed),
+                ),
+                if (employeeTravelMode == TravelSalaryMode.fixed) ...[
+                  const SizedBox(height: 8),
+                  _buildTextField(
+                    label: 'Đơn giá giờ đi đường:',
+                    controller: employeeTravelFixedRateController,
+                    keyboardType: TextInputType.number,
+                  ),
+                ],
+                const SizedBox(height: 16),
+
                 // Ngày nghỉ có lương & Chấm công
                 Row(
                   children: [
@@ -3498,7 +3596,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
               descParts.add('shiftsPerDay:$shiftsPerDay');
               final description = descParts.join('|');
 
-              final benefitData = {
+              final benefitData = <String, dynamic>{
                 'name': 'Lương ${employee['fullName']}',
                 'description': description,
                 'rateType': rateType,
@@ -3544,6 +3642,22 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                 'paidLeaveType': paidLeaveType,
                 'isActive': true,
               };
+
+              final travelMode = switch (employeeTravelMode) {
+                TravelSalaryMode.fixed => travelSalaryModeFixed,
+                TravelSalaryMode.completionPer8h =>
+                  travelSalaryModeCompletionPer8h,
+                TravelSalaryMode.basePer8h => travelSalaryModeBasePer8h,
+              };
+              benefitData['travelSalaryMode'] = travelMode;
+              if (employeeTravelMode == TravelSalaryMode.fixed) {
+                benefitData['travelFixedHourlyRate'] = double.tryParse(
+                        employeeTravelFixedRateController.text
+                            .replaceAll('.', '')) ??
+                    0;
+              } else {
+                benefitData['travelFixedHourlyRate'] = null;
+              }
 
               if (rateType == 1) {
                 benefitData['paidLeaveDays'] =

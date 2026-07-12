@@ -2,6 +2,7 @@ import '../models/attendance.dart';
 import '../models/device.dart';
 import '../services/api_service.dart';
 import '../utils/work_hours_utils.dart';
+import 'shift_records_calculator.dart';
 import 'attendance_load_utils.dart';
 import 'salary_profile_load_utils.dart';
 
@@ -11,6 +12,9 @@ class AttendanceBootstrapData {
   final List<Attendance> attendances;
   final int dayEndHour;
   final int dayEndMinute;
+  final double minHoursForWorkDay;
+  final bool decimalWorkDayEnabled;
+  final double standardWorkHours;
   final String roundingRule;
   final int lunchBreakMinutes;
   final bool allowManualCorrection;
@@ -25,6 +29,9 @@ class AttendanceBootstrapData {
     required this.attendances,
     this.dayEndHour = 0,
     this.dayEndMinute = 0,
+    this.minHoursForWorkDay = 0,
+    this.decimalWorkDayEnabled = false,
+    this.standardWorkHours = 8,
     this.roundingRule = WorkHoursUtils.roundingNone,
     this.lunchBreakMinutes = 60,
     this.allowManualCorrection = true,
@@ -107,6 +114,9 @@ Future<AttendanceBootstrapData> loadAttendanceBootstrap(
 
   final salary = await salaryFuture;
   final lunchBreakMinutes = (salary['lunchBreakMinutes'] as num?)?.toInt() ?? 60;
+  final minHoursForWorkDay = parseMinHoursForWorkDay(salarySettings: salary);
+  final decimalWorkDayEnabled = parseDecimalWorkDayEnabled(salarySettings: salary);
+  final standardWorkHours = parseStandardWorkHours(salarySettings: salary);
 
   onProgress?.call('Đang tải log chấm công...');
   final attendances = await loadAttendancesForPeriod(
@@ -146,6 +156,9 @@ Future<AttendanceBootstrapData> loadAttendanceBootstrap(
     attendances: attendances,
     dayEndHour: dayEnd.hour,
     dayEndMinute: dayEnd.minute,
+    minHoursForWorkDay: minHoursForWorkDay,
+    decimalWorkDayEnabled: decimalWorkDayEnabled,
+    standardWorkHours: standardWorkHours,
     roundingRule: roundingRule,
     lunchBreakMinutes: lunchBreakMinutes,
     allowManualCorrection: allowManual,

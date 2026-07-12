@@ -46,6 +46,7 @@ class PermissionModuleLabels {
     'BonusPenalty': 'Phiếu thưởng',
     'PenaltyTickets': 'Phiếu phạt',
     'AdvanceRequests': 'Ứng lương',
+    'BusinessTripExpense': 'Công tác phí',
     'CashTransaction': 'Thu chi',
     'BankAccount': 'Tài khoản ngân hàng',
     // Vận hành
@@ -61,6 +62,7 @@ class PermissionModuleLabels {
     'CashReport': 'Báo cáo thu chi',
     'PenaltyReport': 'Báo cáo phạt',
     'AdvanceReport': 'Báo cáo ứng lương',
+    'BusinessTripReport': 'Báo cáo công tác phí',
     'AssetReport': 'Báo cáo tài sản',
     // Thiết lập HRM
     'SettingsHub': 'Thiết lập HRM',

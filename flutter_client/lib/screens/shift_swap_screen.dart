@@ -19,6 +19,17 @@ class _ShiftSwapScreenState extends State<ShiftSwapScreen> {
   final GlobalKey<ShiftSwapPanelState> _panelKey = GlobalKey();
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (NavigationNotifier.takePendingAiOpenCreate('shift_swap')) {
+        _panelKey.currentState?.showCreateDialog();
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final canCreateSwap =
         Provider.of<PermissionProvider>(context, listen: false)

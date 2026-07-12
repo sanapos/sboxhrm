@@ -225,7 +225,7 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
       case 2:
         return const Color(0xFFDC2626);
       case 3:
-        return Colors.grey;
+        return const Color(0xFFDC2626);
       default:
         return Colors.blueGrey;
     }

@@ -56,11 +56,20 @@ NotificationDisplay resolveNotificationDisplay(Map<String, dynamic> data) {
   }
 
   if (senderName != null) {
+    final title = _isGenericTitle(rawTitle)
+        ? '$category · $senderName'
+        : rawTitle;
+    final stripped = _stripSenderPrefix(rawMessage, senderName);
+    var body = stripped.isNotEmpty ? stripped : rawMessage;
+    if (body.isEmpty) body = rawTitle;
+    if (!_isGenericTitle(rawTitle) &&
+        body.isNotEmpty &&
+        !body.toLowerCase().contains(senderName.toLowerCase())) {
+      body = '$senderName: $body';
+    }
     return NotificationDisplay(
-      title: '$category · $senderName',
-      body: _stripSenderPrefix(rawMessage, senderName).isNotEmpty
-          ? _stripSenderPrefix(rawMessage, senderName)
-          : rawMessage,
+      title: title,
+      body: body,
       senderName: senderName,
       categoryLabel: category,
     );
@@ -163,13 +172,8 @@ bool _isGenericTitle(String title) {
   const generic = {
     'thông báo',
     'thông báo mới',
+    'thông báo hệ thống',
     'chấm công',
-    'đơn nghỉ phép mới',
-    'đơn tăng ca mới',
-    'yêu cầu chỉnh công mới',
-    'yêu cầu ứng lương mới',
-    'công việc mới',
-    'công việc mới được giao',
   };
   return generic.contains(title.toLowerCase());
 }
@@ -178,6 +182,7 @@ String? _categoryFromCode(String? code) {
   if (code == null) return null;
   const map = {
     'attendance': 'Chấm công',
+    'travel_attendance': 'Chấm đi đường',
     'leave': 'Nghỉ phép',
     'overtime': 'Tăng ca',
     'payroll': 'Lương',
@@ -186,9 +191,16 @@ String? _categoryFromCode(String? code) {
     'device': 'Thiết bị',
     'hr': 'Nhân sự',
     'employee': 'Nhân sự',
+    'system': 'Hệ thống',
     'transaction': 'Thu chi',
+    'penalty': 'Phiếu phạt',
+    'meal': 'Suất ăn',
+    'business_trip': 'Công tác',
+    'pos': 'POS',
+    'shift': 'Ca làm việc',
     'feedback': 'Phản hồi',
     'production': 'Sản lượng',
+    'kpi': 'KPI',
     'internal_comm': 'Truyền thông',
   };
   return map[code.toLowerCase()];
@@ -206,6 +218,9 @@ String? _categoryFromEntity(String? entityType) {
     'device': 'Thiết bị',
     'feedback': 'Phản hồi',
     'cashtransaction': 'Thu chi',
+    'businesstripcase': 'Công tác',
+    'businesstripexpense': 'Công tác',
+    'penaltyticket': 'Phiếu phạt',
   };
   return map[entityType.toLowerCase()];
 }

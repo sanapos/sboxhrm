@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
+import '../utils/shift_records_calculator.dart';
 
 /// Màn hình Thiết lập hệ thống
 /// - Giờ kết thúc ngày (day_end_time): mặc định 00:00:00
@@ -45,6 +46,11 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
   // Ngày chốt công hàng tháng
   int _payrollCutoffDay = 25;
 
+  /// Số giờ làm tối thiểu (mỗi cặp vào/ra) để tính 1 công. 0 = tắt.
+  double _minHoursForWorkDay = 0;
+  final _minHoursController = TextEditingController();
+  bool _decimalWorkDayEnabled = false;
+
   // Số cấp phê duyệt đơn nghỉ phép (1, 2, 3)
   int _leaveApprovalLevels = 1;
 
@@ -56,6 +62,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
 
   @override
   void dispose() {
+    _minHoursController.dispose();
     super.dispose();
   }
 
@@ -70,6 +77,8 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
         _apiService.getAppSetting('allow_manual_correction'),
         _apiService.getAppSetting('payroll_cutoff_day'),
         _apiService.getAppSetting('leave_approval_levels'),
+        _apiService.getAppSetting('min_hours_for_work_day'),
+        _apiService.getAppSetting('decimal_work_day_enabled'),
       ]);
 
       if (!mounted) return;
@@ -106,6 +115,22 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
         _leaveApprovalLevels =
             int.tryParse(data5['value']?.toString() ?? '1') ?? 1;
       }
+      if (results[6]['isSuccess'] == true && results[6]['data'] is Map) {
+        final raw = (results[6]['data'] as Map)['value']?.toString() ?? '0';
+        _minHoursForWorkDay =
+            double.tryParse(raw.replaceAll(',', '.')) ?? 0;
+        _minHoursController.text = _minHoursForWorkDay > 0
+            ? (_minHoursForWorkDay == _minHoursForWorkDay.roundToDouble()
+                ? _minHoursForWorkDay.toInt().toString()
+                : _minHoursForWorkDay.toString())
+            : '';
+      }
+      if (results[7]['isSuccess'] == true && results[7]['data'] is Map) {
+        _decimalWorkDayEnabled = parseDecimalWorkDayEnabled(
+          appSettingValue:
+              (results[7]['data'] as Map)['value']?.toString(),
+        );
+      }
     } catch (e) {
       debugPrint('Error loading system settings: $e');
       if (mounted) {
@@ -129,6 +154,26 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
       '${_dayEndHour.toString().padLeft(2, '0')}:${_dayEndMinute.toString().padLeft(2, '0')}:${_dayEndSecond.toString().padLeft(2, '0')}';
 
   Future<void> _saveSettings() async {
+    final minHoursText = _minHoursController.text.trim().replaceAll(',', '.');
+    final parsedMinHours = minHoursText.isEmpty
+        ? 0.0
+        : (double.tryParse(minHoursText) ?? -1);
+    if (parsedMinHours < 0) {
+      appNotification.showError(
+        title: 'Lỗi',
+        message: 'Số giờ tối thiểu không hợp lệ',
+      );
+      return;
+    }
+    if (parsedMinHours > 24) {
+      appNotification.showError(
+        title: 'Lỗi',
+        message: 'Số giờ tối thiểu không được lớn hơn 24',
+      );
+      return;
+    }
+    _minHoursForWorkDay = parsedMinHours;
+
     setState(() => _isSaving = true);
     try {
       final results = await Future.wait([
@@ -161,6 +206,16 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
           key: 'leave_approval_levels',
           value: _leaveApprovalLevels.toString(),
           description: 'Số cấp phê duyệt đơn nghỉ phép',
+        ),
+        _apiService.upsertAppSetting(
+          key: 'min_hours_for_work_day',
+          value: _minHoursForWorkDay.toString(),
+          description: 'Số giờ tối thiểu để tính 1 công',
+        ),
+        _apiService.upsertAppSetting(
+          key: 'decimal_work_day_enabled',
+          value: _decimalWorkDayEnabled.toString(),
+          description: 'Tính công theo thập phân (0.1–1.0)',
         ),
       ]);
 
@@ -285,6 +340,8 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                   // Row 1.5: Phê duyệt nghỉ phép
                   _buildLeaveApprovalCard(),
                   const SizedBox(height: 20),
+                  _buildMinHoursForWorkDayCard(),
+                  const SizedBox(height: 20),
                   // Row 2: Quy tắc làm tròn + Chấm công bù + Ngày chốt công
                   LayoutBuilder(
                     builder: (context, constraints) {
@@ -399,11 +456,100 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
           const SizedBox(height: 14),
           // Info
           _buildInfoBox(
-            'Giờ kết thúc ngày xác định thời điểm "ngày chấm công" kết thúc.\n'
-            '• Mặc định 00:00 - Ngày chấm công = ngày lịch\n'
-            '• Đặt 06:00 → chấm công lúc 2h sáng tính cho ngày hôm trước (phù hợp ca đêm)',
+            'Nguồn duy nhất cho ranh giới ngày chấm công / báo cáo / phạt.\n'
+            '• Mặc định 00:00 — ngày chấm công = ngày lịch\n'
+            '• Đặt 06:00 → chấm công lúc 2h sáng tính cho ngày hôm trước (phù hợp ca đêm)\n'
+            '• Ca đêm chỉ cần chọn loại ca + hệ số lương; không cấu hình giờ cắt riêng trên ca',
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMinHoursForWorkDayCard() {
+    return _buildSettingCard(
+      icon: Icons.hourglass_bottom,
+      iconColor: const Color(0xFF059669),
+      title: 'Quy tắc tính công',
+      subtitle: 'Giờ tối thiểu và công thập phân theo thời gian làm việc',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text(
+              'Tính công theo thập phân',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+            ),
+            subtitle: const Text(
+              'Bậc 0.1, 0.2, 0.3 … 1.0 theo % giờ làm so với ca chuẩn',
+              style: TextStyle(fontSize: 12),
+            ),
+            value: _decimalWorkDayEnabled,
+            activeColor: HrmPageChrome.primaryNavy,
+            onChanged: _perm.canEdit('SystemSettings')
+                ? (v) => setState(() => _decimalWorkDayEnabled = v)
+                : null,
+          ),
+          const Divider(height: 24),
+          TextField(
+            controller: _minHoursController,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(
+              labelText: 'Số giờ tối thiểu',
+              hintText: 'VD: 4 (để trống hoặc 0 = tắt)',
+              suffixText: 'giờ',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            ),
+            onChanged: (_) => setState(() {}),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              _buildMinHoursChip('Tắt', ''),
+              _buildMinHoursChip('2 giờ', '2'),
+              _buildMinHoursChip('4 giờ', '4'),
+              _buildMinHoursChip('6 giờ', '6'),
+              _buildMinHoursChip('8 giờ', '8'),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _buildInfoBox(
+            'Áp dụng cho tổng hợp chấm công, tổng hợp theo ca và bảng lương.\n'
+            '• Công thập phân: làm 40% ca chuẩn → 0.4 công; 90% → 0.9 công; đủ ca → 1.0\n'
+            '• Giờ tối thiểu: đặt 4 → dưới 4 giờ không được cộng công\n'
+            '• Tắt công thập phân → đủ điều kiện được cộng trọn 1 ca (hoặc 1/n ca)',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMinHoursChip(String label, String value) {
+    final selected = _minHoursController.text.trim() == value;
+    return ChoiceChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: _perm.canEdit('SystemSettings')
+          ? (_) {
+              setState(() {
+                _minHoursController.text = value;
+                _minHoursForWorkDay =
+                    value.isEmpty ? 0 : (double.tryParse(value) ?? 0);
+              });
+            }
+          : null,
+      selectedColor: HrmPageChrome.primaryNavy.withValues(alpha: 0.15),
+      labelStyle: TextStyle(
+        color: selected ? HrmPageChrome.primaryNavy : const Color(0xFF52525B),
+        fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+        fontSize: 12,
       ),
     );
   }

@@ -246,6 +246,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
       _maybeOpenHighlight();
+      _maybeOpenAiCreate();
     }
   }
 
@@ -268,6 +269,17 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _showDetailDialog(match!);
+    });
+  }
+
+  bool _aiCreateOpened = false;
+  void _maybeOpenAiCreate() {
+    if (_aiCreateOpened) return;
+    if (!NavigationNotifier.takePendingAiOpenCreate('advance')) return;
+    _aiCreateOpened = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _showCreateDialog();
     });
   }
 
@@ -1185,7 +1197,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
       case AdvanceRequestStatus.rejected:
         return const Color(0xFFEF4444);
       case AdvanceRequestStatus.cancelled:
-        return const Color(0xFF6B7280);
+        return const Color(0xFFDC2626);
     }
   }
 

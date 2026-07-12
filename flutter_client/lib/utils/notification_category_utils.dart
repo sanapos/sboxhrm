@@ -2,7 +2,7 @@
 class NotificationCategoryUtils {
   NotificationCategoryUtils._();
 
-  static const attendanceGroupCodes = {'attendance', 'device'};
+  static const attendanceGroupCodes = {'attendance', 'device', 'travel_attendance'};
 
   static const entityTypeToCategory = {
     'attendance': 'attendance',
@@ -13,24 +13,30 @@ class NotificationCategoryUtils {
     'admsdevice': 'device',
     'newattendance': 'attendance',
     'mobileattendance': 'attendance',
+    'travelattendance': 'travel_attendance',
     'authorizedmobiledevice': 'attendance',
     'devicechangerequest': 'attendance',
     'mobiledeviceregistration': 'attendance',
     'communication': 'internal_comm',
     'workschedule': 'attendance',
     'scheduleregistration': 'approval',
-    'shiftswap': 'approval',
-    'shift': 'attendance',
-    'leave': 'approval',
-    'leaverequest': 'approval',
-    'advancerequest': 'approval',
-    'penaltyticket': 'approval',
+    'shiftswap': 'shift',
+    'shift': 'shift',
+    'leave': 'leave',
+    'leaverequest': 'leave',
+    'advancerequest': 'payroll',
+    'businesstripcase': 'business_trip',
+    'businesstripexpense': 'business_trip',
+    'penaltyticket': 'penalty',
     'worktask': 'task',
-    'paymenttransaction': 'payroll',
-    'cashtransaction': 'payroll',
+    'paymenttransaction': 'transaction',
+    'cashtransaction': 'transaction',
     'possaleorder': 'pos',
     'posproduct': 'pos',
     'pospurchasereceipt': 'pos',
+    'mealsession': 'meal',
+    'mealmenu': 'meal',
+    'mealrecord': 'meal',
   };
 
   /// Maps legacy sender codes to seeded category codes.
@@ -42,32 +48,38 @@ class NotificationCategoryUtils {
       case 'salary':
         return 'payroll';
       case 'employee':
+      case 'department':
+      case 'account':
         return 'hr';
       case 'transaction':
-        return 'payroll';
+      case 'cashtransaction':
+        return 'transaction';
       case 'mobile_attendance':
         return 'attendance';
+      case 'travel_attendance':
+        return 'travel_attendance';
       case 'penalty':
-        return 'approval';
+      case 'penaltyticket':
+        return 'penalty';
       case 'allowance':
         return 'payroll';
       case 'meal':
-        return 'system';
-      case 'department':
-        return 'hr';
-      case 'account':
-        return 'hr';
+        return 'meal';
       case 'store':
-        return 'system';
       case 'license':
         return 'system';
       case 'shift':
-        return 'attendance';
+        return 'shift';
       case 'pos':
       case 'possaleorder':
       case 'posproduct':
       case 'pospurchasereceipt':
         return 'pos';
+      case 'business_trip':
+      case 'businesstrip':
+      case 'businesstripcase':
+      case 'businesstripexpense':
+        return 'business_trip';
       case 'task':
       case 'worktask':
         return 'task';

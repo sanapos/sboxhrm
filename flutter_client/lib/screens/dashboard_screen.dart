@@ -4,6 +4,7 @@ import 'dart:collection';
 import 'dart:math' as math;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
@@ -132,6 +133,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<dynamic> _holidaysSettings = [];
   int _dayEndHour = 0;
   int _dayEndMinute = 0;
+  double _minHoursForWorkDay = 0;
+  bool _decimalWorkDayEnabled = false;
+  double _standardWorkHours = 8;
   List<DailyShiftRecord> _shiftRecords = const [];
   // Per-shift late/early entries — KHÔNG gộp theo ngày, mỗi ca riêng 1 dòng.
   List<DailyShiftLateEntry> _lateShiftEntries = const [];
@@ -142,6 +146,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // Rolling banner
   int _bannerIndex = 0;
   Timer? _bannerTimer;
+  Timer? _scrollResumeBannerTimer;
+  late final ScrollController _scrollController;
   List<dynamic> _kpiResults = [];
   Map<String, dynamic> _kpiDashboard = {};
   List<dynamic> _todaySchedules = [];
@@ -204,6 +210,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
+    _scrollController = ScrollController();
     _clockTimer = Timer.periodic(const Duration(minutes: 5), (_) {
       if (mounted) setState(() => _now = DateTime.now());
     });
@@ -227,8 +234,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
     ScreenRefreshNotifier.dashboard.removeListener(_onExternalDashboardRefresh);
     _clockTimer?.cancel();
     _bannerTimer?.cancel();
+    _scrollResumeBannerTimer?.cancel();
+    _scrollController.dispose();
     super.dispose();
   }
+
+  bool _handleDashboardScrollNotification(ScrollNotification notification) {
+    if (_bannerItems.length <= 1) return false;
+    if (notification is UserScrollNotification &&
+        notification.direction != ScrollDirection.idle) {
+      _bannerTimer?.cancel();
+    } else if (notification is ScrollEndNotification) {
+      _scrollResumeBannerTimer?.cancel();
+      _scrollResumeBannerTimer =
+          Timer(const Duration(milliseconds: 700), () {
+        if (mounted) _startBannerTimer();
+      });
+    }
+    return false;
+  }
+
+  Widget _wrapDashboardScroll(Widget scrollable) {
+    return NotificationListener<ScrollNotification>(
+      onNotification: _handleDashboardScrollNotification,
+      child: scrollable,
+    );
+  }
+
+  Widget _dashboardSection(Widget child) => RepaintBoundary(child: child);
 
   void _startBannerTimer() {
     _bannerTimer?.cancel();
@@ -277,6 +310,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
             () => _api.getAppSetting('day_end_time'),
             <String, dynamic>{},
             'employee-day-end'),
+        _safe(
+            () => _api.getAppSetting('min_hours_for_work_day'),
+            <String, dynamic>{},
+            'employee-min-hours'),
+        _safe(
+            () => _api.getAppSetting('decimal_work_day_enabled'),
+            <String, dynamic>{},
+            'employee-decimal-work-day'),
+        _safe(() => _api.getSalarySettings(), <String, dynamic>{}, 'employee-salary'),
         _safe(() => _api.getShifts(), <dynamic>[], 'employee-shifts'),
         _safe(
             () => _api.getShiftSalaryLevels(),
@@ -298,6 +340,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
           dayEndMinute = int.tryParse(parts[1]) ?? 0;
         }
       }
+      var minHoursForWorkDay = 0.0;
+      final minHoursResp = results[5] as Map<String, dynamic>;
+      if (minHoursResp['isSuccess'] == true && minHoursResp['data'] is Map) {
+        minHoursForWorkDay = parseMinHoursForWorkDay(
+          appSettingValue:
+              (minHoursResp['data'] as Map)['value']?.toString(),
+        );
+      }
+      var decimalWorkDayEnabled = false;
+      final decimalResp = results[6] as Map<String, dynamic>;
+      if (decimalResp['isSuccess'] == true && decimalResp['data'] is Map) {
+        decimalWorkDayEnabled = parseDecimalWorkDayEnabled(
+          appSettingValue:
+              (decimalResp['data'] as Map)['value']?.toString(),
+        );
+      }
+      final salarySettings = results[7] as Map<String, dynamic>;
+      if (minHoursForWorkDay == 0) {
+        minHoursForWorkDay = parseMinHoursForWorkDay(salarySettings: salarySettings);
+      }
+      if (!decimalWorkDayEnabled) {
+        decimalWorkDayEnabled =
+            parseDecimalWorkDayEnabled(salarySettings: salarySettings);
+      }
+      final standardWorkHours = parseStandardWorkHours(salarySettings: salarySettings);
 
       final attLoad = await loadAttendancesForPeriodResult(
         _api,
@@ -310,13 +377,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
         maxPagesHardCap: 8,
       );
 
-      final shiftsRaw = results[5] as List<dynamic>;
+      final shiftsRaw = results[8] as List<dynamic>;
       final shiftTemplates = shiftsRaw
           .whereType<Map>()
           .map((s) => Map<String, dynamic>.from(s))
           .toList();
 
-      final sslResp = results[6] as Map<String, dynamic>;
+      final sslResp = results[9] as Map<String, dynamic>;
       final sslData = sslResp['data'];
       final shiftSalaryLevels = (sslData is Map
               ? (sslData['items'] as List? ?? const [])
@@ -325,8 +392,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           .map((s) => Map<String, dynamic>.from(s))
           .toList();
 
-      final salaryProfiles = results[7] as List<Map<String, dynamic>>;
-      final holidays = results[8] as List<dynamic>;
+      final salaryProfiles = results[10] as List<Map<String, dynamic>>;
+      final holidays = results[11] as List<dynamic>;
 
       final empResp = results[2] as Map<String, dynamic>;
       final employeesList = <Map<String, dynamic>>[];
@@ -349,6 +416,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         holidays: holidays,
         dayEndHour: dayEndHour,
         dayEndMinute: dayEndMinute,
+        minHoursForWorkDay: minHoursForWorkDay,
+        decimalWorkDayEnabled: decimalWorkDayEnabled,
+        standardWorkHours: standardWorkHours,
         employeesList: employeesList,
       )..sort((a, b) => b.date.compareTo(a.date));
 
@@ -425,23 +495,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     DateTime target = _selectedDate ?? now;
 
-    // Overnight shift adjustment: if current time is before the overnight cutoff,
-    // the "working day" started yesterday — use yesterday as the report date.
+    // Overnight adjustment: before day_end_time, "today" still belongs to previous work day.
     if (_selectedDate == null && (_dayEndHour != 0 || _dayEndMinute != 0)) {
       final cutoffMinutes = _dayEndHour * 60 + _dayEndMinute;
       final nowMinutes = now.hour * 60 + now.minute;
       if (nowMinutes < cutoffMinutes) {
-        // We haven't crossed the cutoff yet → today's punches belong to yesterday's shift
         target = now.subtract(const Duration(days: 1));
-      }
-    } else if (_selectedDate == null && _shiftTemplates.isNotEmpty) {
-      final cutoff = _activeOvernightCutoff;
-      if (cutoff != null) {
-        final cutoffMinutes = cutoff.hour * 60 + cutoff.minute;
-        final nowMinutes = now.hour * 60 + now.minute;
-        if (nowMinutes < cutoffMinutes) {
-          target = now.subtract(const Duration(days: 1));
-        }
       }
     }
     // Lưu target đã điều chỉnh overnight để _recomputeMemoized() dùng
@@ -473,11 +532,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         '${now.year}-${now.month.toString().padLeft(2, '0')}-${lastDay.toString().padLeft(2, '0')}';
 
     // Phase 1 — minimum data to paint the dashboard. Only 3 calls.
-    // Truyền day_end_time làm overnightCutoff để backend dùng đúng window
-    // [D H:M, D+1 H:M) thay vì window lịch [D 00:00, D+1 00:00).
-    final dayCutoffStr = hasDayEnd
-        ? '${_dayEndHour.toString().padLeft(2, '0')}:${_dayEndMinute.toString().padLeft(2, '0')}:00'
-        : null;
+    // Backend applies AppSettings day_end_time for the daily report window.
     final emptyMap = <String, dynamic>{};
     final emptyList = <dynamic>[];
 
@@ -493,8 +548,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final criticalFutures = <Future<dynamic>>[];
     if (c.loadDailyReport) {
       criticalFutures.add(_safe(
-          () => _api.getDailyAttendanceReport(
-              date: todayStr, overnightCutoff: dayCutoffStr),
+          () => _api.getDailyAttendanceReport(date: todayStr),
           emptyMap,
           'daily'));
     }
@@ -630,6 +684,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
           _safe(() => _api.getHolidaySettings(0), emptyList, 'holidays'));
       queue('day-end',
           _safe(() => _api.getAppSetting('day_end_time'), emptyMap, 'day-end'));
+      queue('min-hours-work-day', _safe(
+          () => _api.getAppSetting('min_hours_for_work_day'),
+          emptyMap,
+          'min-hours-work-day'));
+      queue('decimal-work-day', _safe(
+          () => _api.getAppSetting('decimal_work_day_enabled'),
+          emptyMap,
+          'decimal-work-day'));
+      queue('salary-settings',
+          _safe(() => _api.getSalarySettings(), emptyMap, 'salary-settings'));
     }
 
     final batchResults = batchJobs.isEmpty
@@ -773,6 +837,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
             _dayEndMinute = int.tryParse(parts[1]) ?? 0;
           }
         }
+        final minHoursResp = mapOf('min-hours-work-day');
+        if (minHoursResp['isSuccess'] == true && minHoursResp['data'] is Map) {
+          _minHoursForWorkDay = parseMinHoursForWorkDay(
+            appSettingValue:
+                (minHoursResp['data'] as Map)['value']?.toString(),
+          );
+        }
+        final decimalResp = mapOf('decimal-work-day');
+        if (decimalResp['isSuccess'] == true && decimalResp['data'] is Map) {
+          _decimalWorkDayEnabled = parseDecimalWorkDayEnabled(
+            appSettingValue:
+                (decimalResp['data'] as Map)['value']?.toString(),
+          );
+        }
+        final salaryMap = mapOf('salary-settings');
+        if (_minHoursForWorkDay == 0) {
+          _minHoursForWorkDay = parseMinHoursForWorkDay(salarySettings: salaryMap);
+        }
+        if (!_decimalWorkDayEnabled) {
+          _decimalWorkDayEnabled =
+              parseDecimalWorkDayEnabled(salarySettings: salaryMap);
+        }
+        _standardWorkHours = parseStandardWorkHours(salarySettings: salaryMap);
       } else {
         _rawAttendances = const [];
         _shiftPairs = const [];
@@ -782,33 +869,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _recomputeMemoized();
     });
 
-    // After Phase 2 loads (shifts + day_end_time), re-fetch daily report with
-    // the correct overnightCutoff so backend uses the exact same window as
-    // _rawAttendances: [D+cutoff, D+1+cutoff).
+    // After Phase 2 loads day_end_time, re-fetch daily report for the corrected work day.
     if (c.loadDailyReport &&
         c.loadRawAttendances &&
         _selectedDate == null) {
-      final shiftCutoff = _activeOvernightCutoff;
       final hasDayEndNow = _dayEndHour != 0 || _dayEndMinute != 0;
-      final effectiveCutoffH = hasDayEndNow ? _dayEndHour : shiftCutoff?.hour;
-      final effectiveCutoffM =
-          hasDayEndNow ? _dayEndMinute : shiftCutoff?.minute;
-      if (effectiveCutoffH != null && effectiveCutoffM != null) {
+      if (hasDayEndNow) {
         final nowNow = DateTime.now();
-        final cutoffMinutes = effectiveCutoffH * 60 + effectiveCutoffM;
+        final cutoffMinutes = _dayEndHour * 60 + _dayEndMinute;
         final nowMinutes = nowNow.hour * 60 + nowNow.minute;
         final correctedDate = nowMinutes < cutoffMinutes
             ? nowNow.subtract(const Duration(days: 1))
             : nowNow;
         final cStr =
             '${correctedDate.year}-${correctedDate.month.toString().padLeft(2, '0')}-${correctedDate.day.toString().padLeft(2, '0')}';
-        final cutoffStr =
-            '${effectiveCutoffH.toString().padLeft(2, '0')}:${effectiveCutoffM.toString().padLeft(2, '0')}:00';
         final corrected = await _safe(
-            () => _api.getDailyAttendanceReport(
-                date: cStr, overnightCutoff: cutoffStr),
+            () => _api.getDailyAttendanceReport(date: cStr),
             <String, dynamic>{},
-            'daily-overnight');
+            'daily-dayend');
         if (mounted) {
           final cData = (corrected['data'] as Map<String, dynamic>?) ?? {};
           setState(() {
@@ -873,6 +951,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         holidays: _holidaysSettings,
         dayEndHour: _dayEndHour,
         dayEndMinute: _dayEndMinute,
+        minHoursForWorkDay: _minHoursForWorkDay,
+        decimalWorkDayEnabled: _decimalWorkDayEnabled,
+        standardWorkHours: _standardWorkHours,
       );
       _shiftRecords = shiftRecords;
       _lateShiftEntries = computeDailyShiftLateEntries(
@@ -1285,27 +1366,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return items;
   }
 
-  /// Returns the overnight cutoff time (as TimeOfDay) if any active overnight shift exists.
-  /// Used to determine the report boundary for "today": from startTime to overnightCutoff the next day.
-  TimeOfDay? get _activeOvernightCutoff {
-    for (final s in _shiftTemplates) {
-      if (s is! Map) continue;
-      final type = (s['shiftType'] ?? '').toString();
-      final active = s['isActive'];
-      final cutoffStr = (s['overnightCutoffTime'] ?? '').toString();
-      if (type == 'Qua đêm' && active == true && cutoffStr.isNotEmpty) {
-        final parts = cutoffStr.split(':');
-        if (parts.length >= 2) {
-          final h = int.tryParse(parts[0]);
-          final m = int.tryParse(parts[1]);
-          if (h != null && m != null) return TimeOfDay(hour: h, minute: m);
-        }
-      }
-    }
-    return null;
-  }
-
-  /// Cửa sổ ngày làm việc: [D+giờ qua đêm, D+1+giờ qua đêm).
+  /// Cửa sổ ngày làm việc: [D+day_end_time, D+1+day_end_time).
   ({DateTime target, DateTime windowStart, DateTime windowEnd})
       _attendanceDayWindow() {
     final target = _effectiveDate ?? _selectedDate ?? DateTime.now();
@@ -1451,58 +1512,61 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ? _buildEmployeeDashboard(caps, isMobile: isMobile)
             : isMobile
                 ? _buildMobileManagerDashboard(caps)
-                : RefreshIndicator(
+                : _wrapDashboardScroll(RefreshIndicator(
                     onRefresh: () => _loadAllData(caps),
                     child: SingleChildScrollView(
+                      controller: _scrollController,
                       physics: const AlwaysScrollableScrollPhysics(),
                       padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildHeader(),
+                          _dashboardSection(_buildHeader()),
                           const SizedBox(height: 14),
                           if (_bannerItems.isNotEmpty) ...[
-                            _buildRollingBanner(),
+                            _dashboardSection(_buildRollingBanner()),
                             const SizedBox(height: 10),
                           ],
                           if (caps.isOverviewOnly) ...[
-                            _buildOverviewOnlyCard(),
+                            _dashboardSection(_buildOverviewOnlyCard()),
                             const SizedBox(height: 16),
                           ],
                           if (caps.showQuickActions) ...[
-                            _buildQuickActions(caps),
+                            _dashboardSection(_buildQuickActions(caps)),
                             const SizedBox(height: 16),
                           ],
                           if (caps.showAttendanceHero) ...[
-                            _buildHeroOverview(caps),
+                            _dashboardSection(_buildHeroOverview(caps)),
                             const SizedBox(height: 14),
                           ],
                           if (caps.showShiftSchedule) ...[
-                            _buildTodayShiftSchedule(),
+                            _dashboardSection(_buildTodayShiftSchedule()),
                             const SizedBox(height: 20),
                           ],
                           if (caps.loadPendingApprovals &&
                               caps.insightPending) ...[
-                            _buildPendingApprovalsCard(),
+                            _dashboardSection(_buildPendingApprovalsCard()),
                             const SizedBox(height: 16),
                           ],
                           if (caps.showInsightSection &&
                               !caps.showAttendanceHero) ...[
                             _buildInsightSectionTitle(),
                             const SizedBox(height: 10),
-                            _buildInsightChipsRow(caps),
+                            _dashboardSection(_buildInsightChipsRow(caps)),
                             const SizedBox(height: 20),
                           ],
-                          if (caps.showMainGrid) _buildMainGrid(caps),
+                          if (caps.showMainGrid)
+                            _dashboardSection(_buildMainGrid(caps)),
                         ],
                       ),
                     ),
-                  );
+                  ));
 
         return Scaffold(
           backgroundColor:
               isMobile ? PosTheme.background : const Color(0xFFFAFAFA),
           body: Scrollbar(
+            controller: _scrollController,
             thumbVisibility: true,
             child: body,
           ),
@@ -1588,50 +1652,52 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final fullName = auth.user?.fullName ?? 'User';
 
-    return RefreshIndicator(
+    return _wrapDashboardScroll(RefreshIndicator(
       color: PosTheme.kiotBlue,
       onRefresh: () => _loadAllData(caps),
       child: ListView(
+        controller: _scrollController,
+        cacheExtent: 800,
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 100),
         children: [
-          PosMobileProfileCard(
+          _dashboardSection(PosMobileProfileCard(
             name: fullName,
             subtitle: _dashboardProfileSubtitle(),
-          ),
+          )),
           const SizedBox(height: 12),
           if (_bannerItems.isNotEmpty) ...[
-            _buildRollingBanner(),
+            _dashboardSection(_buildRollingBanner()),
             const SizedBox(height: 12),
           ],
           if (caps.isOverviewOnly) ...[
-            _buildOverviewOnlyCard(),
+            _dashboardSection(_buildOverviewOnlyCard()),
             const SizedBox(height: 12),
           ],
           if (caps.showQuickActions) ...[
-            _buildQuickActions(caps, mobileGrid: true),
+            _dashboardSection(_buildQuickActions(caps, mobileGrid: true)),
             const SizedBox(height: 12),
           ],
           if (caps.showInsightSection) ...[
-            _buildInsightChipsRow(caps, mobileGrid: true),
+            _dashboardSection(_buildInsightChipsRow(caps, mobileGrid: true)),
             const SizedBox(height: 12),
           ],
           if (caps.showAttendanceHero) ...[
-            _buildHeroOverview(caps, mobileGrid: true),
+            _dashboardSection(_buildHeroOverview(caps, mobileGrid: true)),
             const SizedBox(height: 12),
           ],
           if (caps.showShiftSchedule) ...[
-            _buildTodayShiftSchedule(),
+            _dashboardSection(_buildTodayShiftSchedule()),
             const SizedBox(height: 12),
           ],
           if (caps.loadPendingApprovals && caps.insightPending) ...[
-            _buildPendingApprovalsCard(),
+            _dashboardSection(_buildPendingApprovalsCard()),
             const SizedBox(height: 12),
           ],
-          if (caps.showMainGrid) _buildMainGrid(caps),
+          if (caps.showMainGrid) _dashboardSection(_buildMainGrid(caps)),
         ],
       ),
-    );
+    ));
   }
 
   Widget _buildInsightSectionTitle() {
@@ -1878,13 +1944,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final color = Color(item['color'] as int);
 
     return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 450),
-      transitionBuilder: (child, anim) => SlideTransition(
-        position: Tween<Offset>(begin: const Offset(0, 0.5), end: Offset.zero)
-            .animate(
-          CurvedAnimation(parent: anim, curve: Curves.easeOut),
-        ),
-        child: FadeTransition(opacity: anim, child: child),
+      duration: const Duration(milliseconds: 280),
+      switchInCurve: Curves.easeOut,
+      switchOutCurve: Curves.easeIn,
+      transitionBuilder: (child, anim) => FadeTransition(
+        opacity: anim,
+        child: child,
       ),
       child: GestureDetector(
         onTap: () => _onBannerTap(item),
@@ -7989,7 +8054,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       const visibleRows = 5;
       final punches = _punchesInDayWindow(descending: true);
       const rowHeight = 52.0;
-      final controller = ScrollController();
 
       return _DashCard(
         icon: Icons.monitor_heart_outlined,
@@ -8001,24 +8065,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
             : ConstrainedBox(
                 constraints:
                     const BoxConstraints(maxHeight: visibleRows * rowHeight),
-                child: Scrollbar(
-                  thumbVisibility: punches.length > visibleRows,
-                  controller: controller,
-                  child: ListView.builder(
-                    controller: controller,
-                    shrinkWrap: true,
-                    padding: EdgeInsets.zero,
-                    itemCount: punches.length,
-                    itemBuilder: (_, i) {
-                      final a = punches[i];
-                      if (a.isTravelPunch) {
-                        return _attendancePunchRow(a, isTravel: true);
-                      }
-                      final idx = punchIndex[a.id] ?? 0;
-                      final isCheckIn = idx.isEven;
-                      return _attendancePunchRow(a, isCheckIn: isCheckIn);
-                    },
-                  ),
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  padding: EdgeInsets.zero,
+                  itemCount: punches.length,
+                  itemBuilder: (_, i) {
+                    final a = punches[i];
+                    if (a.isTravelPunch) {
+                      return _attendancePunchRow(a, isTravel: true);
+                    }
+                    final idx = punchIndex[a.id] ?? 0;
+                    final isCheckIn = idx.isEven;
+                    return _attendancePunchRow(a, isCheckIn: isCheckIn);
+                  },
                 ),
               ),
       );
@@ -10470,10 +10529,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final displayName =
         empName.isNotEmpty ? empName : (auth.user?.fullName ?? 'User');
 
-    return RefreshIndicator(
+    return _wrapDashboardScroll(RefreshIndicator(
       color: isMobile ? PosTheme.kiotBlue : null,
       onRefresh: _loadEmployeeData,
       child: SingleChildScrollView(
+        controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         padding: EdgeInsets.fromLTRB(
           isMobile ? 12 : (isWide ? 20 : 12),
@@ -10485,54 +10545,57 @@ class _DashboardScreenState extends State<DashboardScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (isMobile)
-              PosMobileProfileCard(
+              _dashboardSection(PosMobileProfileCard(
                 name: displayName,
                 subtitle: deptName?.trim().isNotEmpty == true
                     ? deptName!.trim()
                     : _dashboardProfileSubtitle(),
-              )
+              ))
             else
-              _buildEmployeeGreetingHeader(empName, deptName: deptName),
+              _dashboardSection(
+                  _buildEmployeeGreetingHeader(empName, deptName: deptName)),
             SizedBox(height: isMobile ? 12 : 14),
             if (caps.showQuickActions) ...[
-              _buildQuickActions(caps, mobileGrid: isMobile),
+              _dashboardSection(
+                  _buildQuickActions(caps, mobileGrid: isMobile)),
               SizedBox(height: isMobile ? 12 : 14),
             ],
-            _buildEmployeeAttendanceCard(attendance, todayShift),
+            _dashboardSection(_buildEmployeeAttendanceCard(attendance, todayShift)),
             _buildEmployeePunchCta(),
             const SizedBox(height: 16),
-            const EmployeeModuleGrid(),
+            _dashboardSection(const EmployeeModuleGrid()),
             const SizedBox(height: 16),
             if (stats != null) ...[
-              _buildEmployeeStatsCard(stats),
+              _dashboardSection(_buildEmployeeStatsCard(stats)),
               const SizedBox(height: 16),
             ],
-            _buildEmployeeShiftSummaryCard(),
+            _dashboardSection(_buildEmployeeShiftSummaryCard()),
             const SizedBox(height: 16),
-            _buildEmployeeRawAttendanceCard(),
+            _dashboardSection(_buildEmployeeRawAttendanceCard()),
             const SizedBox(height: 16),
             if (isWide)
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(child: _buildInternalNewsCard()),
+                  Expanded(child: _dashboardSection(_buildInternalNewsCard())),
                   const SizedBox(width: 14),
                   Expanded(
-                    child: _buildEmployeeShiftCard(todayShift, nextShift),
+                    child: _dashboardSection(
+                        _buildEmployeeShiftCard(todayShift, nextShift)),
                   ),
                 ],
               )
             else ...[
-              _buildInternalNewsCard(),
+              _dashboardSection(_buildInternalNewsCard()),
               const SizedBox(height: 16),
-              _buildEmployeeShiftCard(todayShift, nextShift),
+              _dashboardSection(_buildEmployeeShiftCard(todayShift, nextShift)),
             ],
             const SizedBox(height: 16),
-            _buildEmployeeLeavesCard(),
+            _dashboardSection(_buildEmployeeLeavesCard()),
           ],
         ),
       ),
-    );
+    ));
   }
 
   Widget _buildEmployeePunchCta() {

@@ -706,6 +706,11 @@ class _PayslipScreenState extends State<PayslipScreen> {
                       _detailRow('Phụ cấp', p['allowances']),
                       _detailRow('Thưởng', p['bonus']),
                       _detailRow('Tăng ca', p['overtimePay']),
+                      if (_payslipTravelHours(p) > 0)
+                        _detailRow(
+                          'Lương đi đường (${_payslipTravelHours(p).toStringAsFixed(1)}h)',
+                          p['travelSalary'],
+                        ),
                       _detailRow('Tổng thu nhập (Gross)', p['grossSalary']),
                     ],
                   ),
@@ -818,6 +823,12 @@ class _PayslipScreenState extends State<PayslipScreen> {
         ],
       ),
     );
+  }
+
+  double _payslipTravelHours(Map<String, dynamic> p) {
+    final v = p['travelHours'];
+    if (v is num) return v.toDouble();
+    return double.tryParse(v?.toString() ?? '') ?? 0;
   }
 
   Widget _detailRow(String label, dynamic value) {
@@ -935,6 +946,12 @@ class _PayslipScreenState extends State<PayslipScreen> {
     );
   }
 
+  double _snapshotTravelHours(Map<String, dynamic> summary) {
+    final v = summary['travelHours'];
+    if (v is num) return v.toDouble();
+    return double.tryParse(v?.toString() ?? '') ?? 0;
+  }
+
   Widget _buildAttendanceSnapshotBody(Map<String, dynamic> data) {
     final summary = data['summary'] is Map
         ? Map<String, dynamic>.from(data['summary'] as Map)
@@ -966,6 +983,11 @@ class _PayslipScreenState extends State<PayslipScreen> {
                 _snapChip('Đi trễ',
                     '${summary['lateCount'] ?? 0} lần (${summary['lateMinutes'] ?? 0}p)'),
                 _snapChip('Vắng', '${summary['absentDays'] ?? 0} ngày'),
+                if (_snapshotTravelHours(summary) > 0)
+                  _snapChip(
+                    'Đi đường',
+                    '${_snapshotTravelHours(summary).toStringAsFixed(1)}h',
+                  ),
               ],
             ),
           ),

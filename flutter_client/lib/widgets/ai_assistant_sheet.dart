@@ -3,12 +3,18 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:permission_handler/permission_handler.dart';
 
+import '../providers/permission_provider.dart';
+import '../screens/landing_guide_screen.dart';
 import '../services/api_service.dart';
-import '../screens/main_layout.dart';
+import '../utils/ai_assistant_permissions.dart';
+import '../utils/landing_guide_url.dart';
+import '../utils/landing_usage_guide.dart';
+import '../utils/navigation_notifier.dart';
 import 'notification_overlay.dart';
 
 class _ChatMsg {
@@ -16,8 +22,11 @@ class _ChatMsg {
   final String content;
   final List<String> actions;
   final List<String> creates;
+  final List<String> guides;
   _ChatMsg(this.role, this.content,
-      {this.actions = const [], this.creates = const []});
+      {this.actions = const [],
+      this.creates = const [],
+      this.guides = const []});
 }
 
 class AiAssistantSheet extends StatefulWidget {
@@ -253,9 +262,12 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
         final creates = ((data?['creates'] as List?) ?? [])
             .map((e) => e.toString())
             .toList();
+        final guides = ((data?['guides'] as List?) ?? [])
+            .map((e) => e.toString())
+            .toList();
         setState(() {
-          _messages.add(
-              _ChatMsg('assistant', reply, actions: actions, creates: creates));
+          _messages.add(_ChatMsg('assistant', reply,
+              actions: actions, creates: creates, guides: guides));
         });
         _scrollToBottom();
         if (_ttsEnabled && reply.isNotEmpty) {
@@ -292,52 +304,85 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
   }
 
   void _handleAction(String action) {
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    if (!AiAssistantPermissions.canAction(action, perm)) {
+      NotificationOverlayManager().showError(
+        title: 'Không có quyền',
+        message: AiAssistantPermissions.deniedMessageForAction(action),
+      );
+      return;
+    }
+
     // Close sheet first so navigation target becomes visible
     Navigator.of(context).pop();
     switch (action) {
       case 'nav_leave':
-      case 'nav_leave_create':
         NavigationNotifier.goToLeaves();
         break;
+      case 'nav_leave_create':
+        NavigationNotifier.goToLeaveCreate();
+        break;
       case 'nav_work_schedule':
-      case 'nav_shift_change':
         NavigationNotifier.goToWorkSchedule();
         break;
+      case 'nav_shift_change':
+        NavigationNotifier.goToShiftSwapCreate();
+        break;
       case 'nav_attendance_correction':
-      case 'nav_attendance_correction_create':
         NavigationNotifier.goToAttendanceCorrections();
+        break;
+      case 'nav_attendance_correction_create':
+        NavigationNotifier.goToAttendanceCorrectionCreate();
         break;
       case 'nav_attendance_history':
       case 'nav_attendance':
         NavigationNotifier.goToAttendance();
         break;
       case 'nav_payroll':
+        NavigationNotifier.goToPayModule(preferPayslip: false);
+        break;
       case 'nav_payslip':
-        NavigationNotifier.goToPayroll();
+        NavigationNotifier.goToPayslip();
         break;
       case 'nav_feedback':
-      case 'nav_feedback_create':
         NavigationNotifier.goTo(NavigationNotifier.feedback);
+        break;
+      case 'nav_feedback_create':
+        NavigationNotifier.goToFeedbackCreate();
         break;
       case 'nav_communication':
         NavigationNotifier.goToCommunication();
         break;
       case 'nav_advance':
-      case 'nav_advance_create':
         NavigationNotifier.goToAdvanceRequests();
         break;
+      case 'nav_advance_create':
+        NavigationNotifier.goToAdvanceCreate();
+        break;
       case 'nav_overtime':
+        NavigationNotifier.goToOvertime();
+        break;
       case 'nav_overtime_create':
-        // Overtime is a tab inside attendance approval flow; route to attendance for now
-        NavigationNotifier.goTo(NavigationNotifier.attendanceApproval);
+        NavigationNotifier.goToOvertime(openCreate: true);
         break;
       case 'nav_field_checkin':
       case 'nav_field_checkin_create':
         NavigationNotifier.goTo(NavigationNotifier.fieldCheckIn);
         break;
       case 'nav_meal':
-      case 'nav_meal_register':
         NavigationNotifier.goTo(NavigationNotifier.meals);
+        break;
+      case 'nav_meal_register':
+        NavigationNotifier.goToMealRegister();
+        break;
+      case 'nav_business_trip':
+        NavigationNotifier.goToModule('BusinessTripExpense');
+        break;
+      case 'nav_business_trip_create':
+        NavigationNotifier.goToBusinessTripCreate();
+        break;
+      case 'nav_penalty':
+        NavigationNotifier.goToPenaltyTicketsNav();
         break;
       case 'nav_kpi':
         NavigationNotifier.goToKpi();
@@ -363,17 +408,70 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
       case 'nav_dashboard':
         NavigationNotifier.goTo(NavigationNotifier.dashboard);
         break;
+      case 'nav_production':
+        NavigationNotifier.goToModule('Production');
+        break;
+      case 'nav_mobile_attendance':
+        NavigationNotifier.goToMobileAttendance();
+        break;
+      case 'nav_schedule_approval':
+        NavigationNotifier.goToScheduleApproval();
+        break;
+      case 'nav_leave_report':
+        NavigationNotifier.goToModule('LeaveReport');
+        break;
+      case 'nav_cash_report':
+        NavigationNotifier.goToModule('CashReport');
+        break;
+      case 'nav_advance_report':
+        NavigationNotifier.goToModule('AdvanceReport');
+        break;
+      case 'nav_business_trip_report':
+        NavigationNotifier.goToModule('BusinessTripReport');
+        break;
       default:
         NotificationOverlayManager()
             .showInfo(title: 'Thao tác', message: action);
     }
   }
 
-  /// Handle [[CREATE:...]] — parse params and call API directly
+  void _handleGuide(String guideTag) {
+    final parts = guideTag.split('/');
+    if (parts.length != 2) {
+      NotificationOverlayManager()
+          .showInfo(title: 'Hướng dẫn', message: guideTag);
+      return;
+    }
+    final mode = parts[0].trim().toLowerCase();
+    final stepId = parts[1].trim();
+    if ((mode != 'basic' && mode != 'advanced') || stepId.isEmpty) {
+      NotificationOverlayManager()
+          .showInfo(title: 'Hướng dẫn', message: guideTag);
+      return;
+    }
+    Navigator.of(context).pop();
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => LandingGuideScreen(
+          initialLink: GuideDeepLink(section: mode, stepId: stepId),
+        ),
+      ),
+    );
+  }
+
+  /// Handle [[CREATE:...]] — API trực tiếp hoặc mở form tạo tương ứng.
   Future<void> _handleCreate(String createTag) async {
     if (_isSending) return;
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    if (!AiAssistantPermissions.canCreate(createTag, perm)) {
+      NotificationOverlayManager().showError(
+        title: 'Không có quyền',
+        message: AiAssistantPermissions.deniedMessageForCreate(createTag),
+      );
+      return;
+    }
+
     try {
-      // Parse: "attendance_correction,date=2026-05-07,time=13:00,action=add,reason=quên chấm công"
       final parts = createTag.split(',');
       final type = parts[0].trim();
       final params = <String, String>{};
@@ -389,7 +487,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
             params[key] = val;
           }
         } else if (reasonAccum != null) {
-          reasonAccum = '$reasonAccum,$p'; // comma was in reason text
+          reasonAccum = '$reasonAccum,$p';
         }
       }
       if (reasonAccum != null) params['reason'] = reasonAccum;
@@ -399,7 +497,6 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
         final time = params['time'];
         final reason = params['reason'] ?? 'Quên chấm công';
         final actionStr = params['action'] ?? 'add';
-        // CorrectionAction: edit=0, add=1, delete=2
         final actionInt = actionStr == 'edit'
             ? 0
             : actionStr == 'delete'
@@ -447,11 +544,41 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
                 .add(_ChatMsg('assistant', '❌ Không tạo được phiếu: $msg'));
           });
         }
-      } else {
-        setState(() {
-          _messages.add(_ChatMsg('assistant',
-              '⚠️ Loại phiếu "$type" chưa được hỗ trợ tạo trực tiếp.'));
-        });
+        return;
+      }
+
+      // Các loại khác: mở form tạo đúng màn hình (prefill nếu có).
+      Navigator.of(context).pop();
+      switch (type) {
+        case 'leave':
+          NavigationNotifier.goToLeaveCreate();
+          break;
+        case 'advance':
+          NavigationNotifier.goToAdvanceCreate();
+          break;
+        case 'feedback':
+          NavigationNotifier.goToFeedbackCreate();
+          break;
+        case 'meal':
+          NavigationNotifier.goToMealRegister();
+          break;
+        case 'overtime':
+          NavigationNotifier.goToOvertime(openCreate: true);
+          break;
+        case 'shift_swap':
+          NavigationNotifier.goToShiftSwapCreate();
+          break;
+        case 'field_assignment':
+          NavigationNotifier.goTo(NavigationNotifier.fieldCheckIn);
+          break;
+        case 'business_trip':
+          NavigationNotifier.goToBusinessTripCreate();
+          break;
+        default:
+          NotificationOverlayManager().showInfo(
+            title: 'Thông báo',
+            message: 'Loại phiếu "$type" chưa hỗ trợ tạo từ trợ lý.',
+          );
       }
     } catch (e) {
       if (mounted) {
@@ -476,7 +603,6 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
 
   String _createLabel(String tag) {
     if (tag.startsWith('attendance_correction')) {
-      // Extract time and date from tag for clearer label
       final params = <String, String>{};
       for (final p in tag.split(',').skip(1)) {
         final idx = p.indexOf('=');
@@ -488,7 +614,18 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
       final date = params['date'] != null ? _formatDate(params['date']!) : '';
       return '✅ Xác nhận tạo phiếu sửa giờ${date.isNotEmpty ? " $date" : ""}${time.isNotEmpty ? " lúc $time" : ""}';
     }
-    return '✅ Xác nhận tạo';
+    final type = tag.split(',').first.trim();
+    return switch (type) {
+      'leave' => '✅ Mở form xin nghỉ phép',
+      'advance' => '✅ Mở form ứng lương',
+      'feedback' => '✅ Mở form phản ánh',
+      'meal' => '✅ Mở đăng ký ăn',
+      'overtime' => '✅ Mở form tăng ca',
+      'shift_swap' => '✅ Mở form đổi ca',
+      'business_trip' => '✅ Mở hồ sơ công tác mới',
+      'field_assignment' => '✅ Mở bản đồ / công tác',
+      _ => '✅ Xác nhận tạo',
+    };
   }
 
   (String, IconData) _actionLabelIcon(String action) {
@@ -548,9 +685,43 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
         return ('Phòng ban', Icons.account_tree_rounded);
       case 'nav_dashboard':
         return ('Tổng quan', Icons.dashboard_rounded);
+      case 'nav_business_trip':
+        return ('Công tác phí', Icons.flight_takeoff_rounded);
+      case 'nav_business_trip_create':
+        return ('+ Hồ sơ công tác', Icons.flight_takeoff_rounded);
+      case 'nav_penalty':
+        return ('Phiếu phạt', Icons.gavel_rounded);
+      case 'nav_production':
+        return ('Sản lượng', Icons.precision_manufacturing_rounded);
+      case 'nav_mobile_attendance':
+        return ('Chấm công Mobile', Icons.phone_android_rounded);
+      case 'nav_schedule_approval':
+        return ('Duyệt lịch làm việc', Icons.fact_check_rounded);
+      case 'nav_leave_report':
+        return ('BC nghỉ phép', Icons.bar_chart_rounded);
+      case 'nav_cash_report':
+        return ('BC thu chi', Icons.bar_chart_rounded);
+      case 'nav_advance_report':
+        return ('BC ứng lương', Icons.bar_chart_rounded);
+      case 'nav_business_trip_report':
+        return ('BC công tác phí', Icons.bar_chart_rounded);
       default:
         return (action, Icons.open_in_new);
     }
+  }
+
+  String _guideLabel(String tag) {
+    final parts = tag.split('/');
+    if (parts.length != 2) return 'Xem hướng dẫn';
+    final mode = parts[0].trim().toLowerCase();
+    final stepId = parts[1].trim();
+    final steps = mode == 'advanced'
+        ? LandingGuideData.defaults.advanced
+        : LandingGuideData.defaults.basic;
+    for (final s in steps) {
+      if (s.id == stepId) return '📖 ${s.title}';
+    }
+    return '📖 Hướng dẫn: $stepId';
   }
 
   @override
@@ -679,43 +850,81 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
           ),
           if (m.actions.isNotEmpty) ...[
             const SizedBox(height: 8),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: m.actions.map((a) {
-                final li = _actionLabelIcon(a);
-                return ActionChip(
-                  avatar: Icon(li.$2, size: 16, color: const Color(0xFF8B5CF6)),
-                  label: Text(li.$1,
-                      style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF8B5CF6),
-                          fontWeight: FontWeight.w600)),
-                  backgroundColor: const Color(0xFFF3E8FF),
-                  side: const BorderSide(color: Color(0xFFDDD6FE)),
-                  onPressed: () => _handleAction(a),
-                );
-              }).toList(),
-            ),
+            Builder(builder: (ctx) {
+              final perm =
+                  Provider.of<PermissionProvider>(ctx, listen: false);
+              final allowed = m.actions
+                  .where((a) => AiAssistantPermissions.canAction(a, perm))
+                  .toList();
+              if (allowed.isEmpty) return const SizedBox.shrink();
+              return Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: allowed.map((a) {
+                  final li = _actionLabelIcon(a);
+                  return ActionChip(
+                    avatar:
+                        Icon(li.$2, size: 16, color: const Color(0xFF8B5CF6)),
+                    label: Text(li.$1,
+                        style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF8B5CF6),
+                            fontWeight: FontWeight.w600)),
+                    backgroundColor: const Color(0xFFF3E8FF),
+                    side: const BorderSide(color: Color(0xFFDDD6FE)),
+                    onPressed: () => _handleAction(a),
+                  );
+                }).toList(),
+              );
+            }),
           ],
           if (m.creates.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Builder(builder: (ctx) {
+              final perm =
+                  Provider.of<PermissionProvider>(ctx, listen: false);
+              final allowed = m.creates
+                  .where((c) => AiAssistantPermissions.canCreate(c, perm))
+                  .toList();
+              if (allowed.isEmpty) return const SizedBox.shrink();
+              return Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: allowed.map((c) {
+                  final label = _createLabel(c);
+                  return ActionChip(
+                    avatar: const Icon(Icons.check_circle_outline_rounded,
+                        size: 16, color: Color(0xFF059669)),
+                    label: Text(label,
+                        style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF059669),
+                            fontWeight: FontWeight.w600)),
+                    backgroundColor: const Color(0xFFECFDF5),
+                    side: const BorderSide(color: Color(0xFF6EE7B7)),
+                    onPressed: _isSending ? null : () => _handleCreate(c),
+                  );
+                }).toList(),
+              );
+            }),
+          ],
+          if (m.guides.isNotEmpty) ...[
             const SizedBox(height: 8),
             Wrap(
               spacing: 6,
               runSpacing: 6,
-              children: m.creates.map((c) {
-                final label = _createLabel(c);
+              children: m.guides.map((g) {
                 return ActionChip(
-                  avatar: const Icon(Icons.check_circle_outline_rounded,
-                      size: 16, color: Color(0xFF059669)),
-                  label: Text(label,
+                  avatar: const Icon(Icons.menu_book_rounded,
+                      size: 16, color: Color(0xFF0369A1)),
+                  label: Text(_guideLabel(g),
                       style: const TextStyle(
                           fontSize: 12,
-                          color: Color(0xFF059669),
+                          color: Color(0xFF0369A1),
                           fontWeight: FontWeight.w600)),
-                  backgroundColor: const Color(0xFFECFDF5),
-                  side: const BorderSide(color: Color(0xFF6EE7B7)),
-                  onPressed: _isSending ? null : () => _handleCreate(c),
+                  backgroundColor: const Color(0xFFE0F2FE),
+                  side: const BorderSide(color: Color(0xFF7DD3FC)),
+                  onPressed: () => _handleGuide(g),
                 );
               }).toList(),
             ),

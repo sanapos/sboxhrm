@@ -15,6 +15,7 @@ import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../widgets/notification_overlay.dart';
 import '../utils/responsive_helper.dart';
+import '../utils/navigation_notifier.dart';
 import '../widgets/app_button.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
 import '../widgets/app_scroll_safe.dart';
@@ -151,8 +152,46 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
         _loadFundTransfers(),
         _loadFundBalances(),
       ]);
+      await _applyIncomingCashHighlight();
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _applyIncomingCashHighlight() async {
+    final id = NavigationNotifier.notificationHighlightId.value;
+    if (id == null || id.isEmpty) return;
+    NavigationNotifier.notificationHighlightId.value = null;
+
+    CashTransaction? match;
+    for (final t in _transactions) {
+      if (t.id == id) {
+        match = t;
+        break;
+      }
+    }
+    if (match == null) {
+      setState(() {
+        _statusFilter = CashTransactionStatus.waitingPayment;
+        _datePreset = 'thisMonth';
+        _currentPage = 1;
+      });
+      await _loadTransactions();
+      for (final t in _transactions) {
+        if (t.id == id) {
+          match = t;
+          break;
+        }
+      }
+    }
+    if (!mounted) return;
+    if (match != null) {
+      _showTransactionForm(match);
+    } else {
+      appNotification.showSuccess(
+        title: 'Thu chi',
+        message: 'Đã mở màn Thu chi — lọc phiếu chờ để tìm chứng từ công tác',
+      );
     }
   }
 

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import '../utils/api_datetime.dart';
+import '../utils/navigation_notifier.dart';
 import '../utils/paged_load_utils.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/app_button.dart';
@@ -45,6 +46,12 @@ class _OvertimeScreenState extends State<OvertimeScreen>
       if (!_tabController.indexIsChanging) setState(() => _currentPage = 1);
     });
     _loadData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (NavigationNotifier.takePendingAiOpenCreate('overtime')) {
+        _showCreateDialog();
+      }
+    });
   }
 
   @override
@@ -717,6 +724,8 @@ class _OvertimeScreenState extends State<OvertimeScreen>
         return HrmPageChrome.primaryNavy;
       case 'rejected':
         return const Color(0xFFEF4444);
+      case 'cancelled':
+        return const Color(0xFFDC2626);
       case 'completed':
         return HrmPageChrome.primaryNavy;
       default:
@@ -730,6 +739,8 @@ class _OvertimeScreenState extends State<OvertimeScreen>
         return 'Đã duyệt';
       case 'rejected':
         return 'Từ chối';
+      case 'cancelled':
+        return 'Đã hủy';
       case 'completed':
         return 'Hoàn thành';
       case 'pending':

@@ -24,6 +24,7 @@ class PermissionModules {
     'BankAccount',
     'CashReport',
     'AdvanceRequests',
+    'BusinessTripExpense',
     'PenaltyTickets',
     'Production',
     'PosProducts',
@@ -33,6 +34,7 @@ class PermissionModules {
     'LeaveReport',
     'PenaltyReport',
     'AdvanceReport',
+    'BusinessTripReport',
     'AssetReport',
   };
 
@@ -95,6 +97,7 @@ class PermissionModules {
     'CashReport',
     'PenaltyReport',
     'AdvanceReport',
+    'BusinessTripReport',
     'AssetReport',
     'Report',
   ];

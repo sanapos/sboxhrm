@@ -35,6 +35,16 @@ class AiAssistantPermissions {
     'nav_feedback_create': _Rule('Feedback', create: true),
     'nav_employees': _Rule('Employee', create: false),
     'nav_departments': _Rule('Department', create: false),
+    'nav_business_trip': _Rule('BusinessTripExpense', create: false),
+    'nav_business_trip_create': _Rule('BusinessTripExpense', create: true),
+    'nav_penalty': _Rule('PenaltyTickets', create: false),
+    'nav_production': _Rule('Production', create: false),
+    'nav_mobile_attendance': _Rule('MobileAttendance', create: false),
+    'nav_schedule_approval': _Rule('ScheduleApproval', create: false),
+    'nav_leave_report': _Rule('LeaveReport', create: false),
+    'nav_cash_report': _Rule('CashReport', create: false),
+    'nav_advance_report': _Rule('AdvanceReport', create: false),
+    'nav_business_trip_report': _Rule('BusinessTripReport', create: false),
   };
 
   static const _createRules = <String, _Rule>{
@@ -46,6 +56,7 @@ class AiAssistantPermissions {
     'field_assignment': _Rule('FieldCheckIn', create: true),
     'shift_swap': _Rule('ShiftSwap', create: true),
     'overtime': _Rule('Overtime', create: true),
+    'business_trip': _Rule('BusinessTripExpense', create: true),
   };
 
   static bool canAction(String action, PermissionProvider perm) {
@@ -101,6 +112,15 @@ class AiAssistantPermissions {
       'Feedback',
       'Employee',
       'Department',
+      'BusinessTripExpense',
+      'PenaltyTickets',
+      'Production',
+      'MobileAttendance',
+      'ScheduleApproval',
+      'LeaveReport',
+      'CashReport',
+      'AdvanceReport',
+      'BusinessTripReport',
     ];
     return modules.where((m) => perm.canView(m)).toList();
   }

@@ -2,12 +2,14 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'package:http_parser/http_parser.dart' show MediaType;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api_config.dart';
 import '../utils/api_datetime.dart';
 import '../utils/app_error_utils.dart';
 import '../utils/attendance_correction_dates.dart';
+import '../utils/excel_bytes_utils.dart';
 import '../models/pos_product.dart';
 
 /// Query phân trang cho API dùng [PaginationRequest] (pageNumber + alias page).
@@ -52,6 +54,62 @@ class ApiService {
       headers['Authorization'] = 'Bearer $_token';
     }
     return headers;
+  }
+
+  /// Headers for binary downloads (Excel/PDF) — avoid `Accept: application/json`.
+  Map<String, String> get _binaryDownloadHeaders {
+    final headers = <String, String>{'Accept': '*/*'};
+    if (_token != null) {
+      headers['Authorization'] = 'Bearer $_token';
+    }
+    return headers;
+  }
+
+  Map<String, dynamic> _parseExcelExportResponse(http.Response response) {
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      final bytes = response.bodyBytes;
+      if (!isValidXlsxBytes(bytes)) {
+        return {
+          'isSuccess': false,
+          'message': parseNonExcelExportError(bytes) ??
+              'File tải về không phải Excel hợp lệ.',
+        };
+      }
+      return {'isSuccess': true, 'data': bytes.toList()};
+    }
+
+    final body = utf8.decode(response.bodyBytes, allowMalformed: true);
+    try {
+      final data = json.decode(body);
+      if (data is Map<String, dynamic>) {
+        final normalized = _normalizeResponseMap(data);
+        return {
+          'isSuccess': false,
+          'message': normalized['message']?.toString() ??
+              'Export thất bại: ${response.statusCode}',
+        };
+      }
+    } catch (_) {}
+    return {
+      'isSuccess': false,
+      'message': body.trim().isNotEmpty
+          ? body.trim()
+          : 'Export thất bại: ${response.statusCode}',
+    };
+  }
+
+  Future<Map<String, dynamic>> _getExcelExport(
+    Uri uri, {
+    Duration timeout = const Duration(seconds: 60),
+  }) async {
+    try {
+      final response = await _retryOnUnauthorized(
+        () => http.get(uri, headers: _binaryDownloadHeaders).timeout(timeout),
+      );
+      return _parseExcelExportResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
   }
 
   /// Header cho CachedNetworkImage (ảnh stores/uploads qua /api/upload/serve).
@@ -966,20 +1024,22 @@ class ApiService {
     }
   }
 
-  Future<bool> createEmployee(Map<String, dynamic> employeeData) async {
+  Future<Map<String, dynamic>> createEmployee(
+      Map<String, dynamic> employeeData) async {
     try {
-      final response = await http
-          .post(
-            Uri.parse('$baseUrl/api/employees'),
-            headers: _headers,
-            body: json.encode(employeeData),
-          )
-          .timeout(const Duration(seconds: 10));
-      final data = _handleResponse(response);
-      return data['isSuccess'] == true;
+      final response = await _retryOnUnauthorized(
+        () => http
+            .post(
+              Uri.parse('$baseUrl/api/employees'),
+              headers: _headers,
+              body: json.encode(employeeData),
+            )
+            .timeout(const Duration(seconds: 15)),
+      );
+      return _handleResponse(response);
     } catch (e) {
       debugPrint('Error creating employee: $e');
-      return false;
+      return _connectionFailure(e);
     }
   }
 
@@ -1042,23 +1102,10 @@ class ApiService {
 
   /// Export employees as Excel — returns raw bytes
   Future<Map<String, dynamic>> exportEmployeesExcel() async {
-    try {
-      final response = await http
-          .get(
-            Uri.parse('$baseUrl/api/employees/export/excel'),
-            headers: _headers,
-          )
-          .timeout(const Duration(seconds: 30));
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        return {'isSuccess': true, 'data': response.bodyBytes.toList()};
-      }
-      return {
-        'isSuccess': false,
-        'message': 'Export thất bại: ${response.statusCode}'
-      };
-    } catch (e) {
-      return _connectionFailure(e);
-    }
+    return _getExcelExport(
+      Uri.parse('$baseUrl/api/employees/export/excel'),
+      timeout: const Duration(seconds: 30),
+    );
   }
 
   /// Upload .xlsx file — server parses with ClosedXML (matches SBOX export format).
@@ -1066,22 +1113,38 @@ class ApiService {
       List<int> fileBytes, String fileName) async {
     try {
       debugPrint('📤 Uploading employee Excel: $fileName (${fileBytes.length} bytes)');
-      final uri = Uri.parse('$baseUrl/api/employees/import/excel/file');
-      final request = http.MultipartRequest('POST', uri);
-      final authHeaders = _headers;
-      if (authHeaders.containsKey('Authorization')) {
-        request.headers['Authorization'] = authHeaders['Authorization']!;
+      if (!isValidXlsxBytes(fileBytes)) {
+        return {
+          'success': false,
+          'message': 'File không phải Excel (.xlsx) hợp lệ.',
+        };
       }
-      request.files.add(http.MultipartFile.fromBytes(
-        'file',
-        fileBytes,
-        filename: fileName.endsWith('.xlsx') || fileName.endsWith('.xls')
-            ? fileName
-            : '$fileName.xlsx',
-      ));
-      final streamedResponse =
-          await request.send().timeout(const Duration(seconds: 120));
-      final response = await http.Response.fromStream(streamedResponse);
+      final uri = Uri.parse('$baseUrl/api/employees/import/excel/file');
+      final safeName = fileName.endsWith('.xlsx') || fileName.endsWith('.xls')
+          ? fileName
+          : '$fileName.xlsx';
+
+      Future<http.Response> sendRequest() async {
+        final request = http.MultipartRequest('POST', uri);
+        final authHeaders = _headers;
+        if (authHeaders.containsKey('Authorization')) {
+          request.headers['Authorization'] = authHeaders['Authorization']!;
+        }
+        request.files.add(http.MultipartFile.fromBytes(
+          'file',
+          fileBytes,
+          filename: safeName,
+          contentType: MediaType(
+            'application',
+            'vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          ),
+        ));
+        final streamedResponse =
+            await request.send().timeout(const Duration(seconds: 120));
+        return http.Response.fromStream(streamedResponse);
+      }
+
+      final response = await _retryOnUnauthorized(sendRequest);
       debugPrint('📥 Import employees file response: ${response.statusCode}');
       final data = _handleResponse(response);
       if (data['isSuccess'] == true) {
@@ -2688,7 +2751,7 @@ class ApiService {
       Map<String, dynamic> settings) async {
     try {
       final response = await http
-          .post(
+          .put(
             Uri.parse('$baseUrl/api/settings/salary'),
             headers: _headers,
             body: json.encode(settings),
@@ -2697,6 +2760,45 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error saving salary settings: $e');
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> updateMobileAttendanceRecord({
+    required String recordId,
+    required DateTime punchTime,
+    String? note,
+  }) async {
+    try {
+      final response = await http
+          .put(
+            Uri.parse('$baseUrl/api/mobile-attendance/records/$recordId'),
+            headers: _headers,
+            body: json.encode({
+              'punchTime': punchTime.toIso8601String(),
+              if (note != null) 'note': note,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+      return _handleResponse(response);
+    } catch (e) {
+      debugPrint('Error updating mobile attendance record: $e');
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteMobileAttendanceRecord(
+      String recordId) async {
+    try {
+      final response = await http
+          .delete(
+            Uri.parse('$baseUrl/api/mobile-attendance/records/$recordId'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 15));
+      return _handleResponse(response);
+    } catch (e) {
+      debugPrint('Error deleting mobile attendance record: $e');
       return _connectionFailure(e);
     }
   }
@@ -4584,6 +4686,265 @@ class ApiService {
     }
   }
 
+  // ==================== BUSINESS TRIP EXPENSE / CÔNG TÁC PHÍ ====================
+
+  Future<Map<String, dynamic>> getBusinessTripCases({
+    int page = 1,
+    int pageSize = 20,
+    String? employeeUserId,
+    int? status,
+    DateTime? fromDate,
+    DateTime? toDate,
+    String? categoryId,
+  }) async {
+    try {
+      final params = <String, String>{
+        'page': page.toString(),
+        'pageSize': pageSize.toString(),
+      };
+      if (employeeUserId != null) params['employeeUserId'] = employeeUserId;
+      if (status != null) params['status'] = status.toString();
+      if (fromDate != null) {
+        params['fromDate'] = fromDate.toIso8601String().split('T').first;
+      }
+      if (toDate != null) {
+        params['toDate'] = toDate.toIso8601String().split('T').first;
+      }
+      if (categoryId != null && categoryId.isNotEmpty) {
+        params['categoryId'] = categoryId;
+      }
+      final uri = Uri.parse('$baseUrl/api/BusinessTripCases')
+          .replace(queryParameters: params);
+      final response = await http
+          .get(uri, headers: _headers)
+          .timeout(const Duration(seconds: 15));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getBusinessTripCase(String id) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/BusinessTripCases/$id'),
+        headers: _headers,
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> createBusinessTripCase(
+      Map<String, dynamic> body) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/BusinessTripCases'),
+        headers: _headers,
+        body: jsonEncode(body),
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> updateBusinessTripCase(
+      String id, Map<String, dynamic> body) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/api/BusinessTripCases/$id'),
+        headers: _headers,
+        body: jsonEncode(body),
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteBusinessTripCase(String id) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/api/BusinessTripCases/$id'),
+        headers: _headers,
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> createBusinessTripAdvance(
+      String caseId, Map<String, dynamic> body) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/BusinessTripCases/$caseId/advance'),
+        headers: _headers,
+        body: jsonEncode(body),
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> approveBusinessTripAdvance(
+      String caseId, bool isApproved,
+      {String? rejectionReason}) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/BusinessTripCases/$caseId/advance/approve'),
+        headers: _headers,
+        body: jsonEncode({
+          'isApproved': isApproved,
+          if (rejectionReason != null) 'rejectionReason': rejectionReason,
+        }),
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> payBusinessTripAdvance(String caseId,
+      {String? paymentMethod}) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/BusinessTripCases/$caseId/advance/pay'),
+        headers: _headers,
+        body: jsonEncode(
+            paymentMethod != null ? {'paymentMethod': paymentMethod} : {}),
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> saveBusinessTripSettlement(
+      String caseId, Map<String, dynamic> body) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/BusinessTripCases/$caseId/settlement'),
+        headers: _headers,
+        body: jsonEncode(body),
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> approveBusinessTripSettlement(
+      String caseId, bool isApproved,
+      {String? rejectionReason, bool surplusAsCashRefund = false}) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/BusinessTripCases/$caseId/settlement/approve'),
+        headers: _headers,
+        body: jsonEncode({
+          'isApproved': isApproved,
+          if (rejectionReason != null) 'rejectionReason': rejectionReason,
+          'surplusAsCashRefund': surplusAsCashRefund,
+        }),
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> confirmBusinessTripSurplus(String caseId,
+      {bool asAdvanceDebt = true, String? paymentMethod}) async {
+    try {
+      final response = await http.post(
+        Uri.parse(
+            '$baseUrl/api/BusinessTripCases/$caseId/settlement/confirm-surplus'),
+        headers: _headers,
+        body: jsonEncode({
+          'asAdvanceDebt': asAdvanceDebt,
+          if (paymentMethod != null) 'paymentMethod': paymentMethod,
+        }),
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> payBusinessTripSettlementExtra(String caseId,
+      {String? paymentMethod}) async {
+    try {
+      final response = await http.post(
+        Uri.parse(
+            '$baseUrl/api/BusinessTripCases/$caseId/settlement/pay-extra'),
+        headers: _headers,
+        body: jsonEncode(
+            paymentMethod != null ? {'paymentMethod': paymentMethod} : {}),
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getBusinessTripExpenseCategories() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/BusinessTripCases/categories'),
+        headers: _headers,
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> upsertBusinessTripExpenseCategory(
+    Map<String, dynamic> body, {
+    String? id,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/BusinessTripCases/categories')
+          .replace(queryParameters: id != null ? {'id': id} : null);
+      final response = await http.post(
+        uri,
+        headers: _headers,
+        body: jsonEncode(body),
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteBusinessTripExpenseCategory(
+      String id) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/api/BusinessTripCases/categories/$id'),
+        headers: _headers,
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> seedBusinessTripExpenseCategories() async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/BusinessTripCases/categories/seed-defaults'),
+        headers: _headers,
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   // ==================== ASSETS ====================
 
   Future<Map<String, dynamic>> getAssets({
@@ -5091,6 +5452,29 @@ class ApiService {
       }
       if (status != null) params['status'] = status.toString();
       final uri = Uri.parse('$baseUrl/api/reports/finance/advance-debt')
+          .replace(queryParameters: params.isNotEmpty ? params : null);
+      final response = await http.get(uri, headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getBusinessTripReport({
+    DateTime? from,
+    DateTime? to,
+    String? department,
+    int? status,
+  }) async {
+    try {
+      final params = <String, String>{};
+      if (from != null) params['from'] = from.toIso8601String();
+      if (to != null) params['to'] = to.toIso8601String();
+      if (department != null && department.isNotEmpty) {
+        params['department'] = department;
+      }
+      if (status != null) params['status'] = status.toString();
+      final uri = Uri.parse('$baseUrl/api/reports/finance/business-trip')
           .replace(queryParameters: params.isNotEmpty ? params : null);
       final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
@@ -7418,51 +7802,9 @@ class ApiService {
   }
 
   // ==================== REPORTS ====================
-  // Cache active overnight cutoff (HH:mm:ss) so the daily report
-  // automatically uses the configured boundary even when callers don't pass it.
-  static String? _cachedOvernightCutoff;
-  static DateTime? _cachedOvernightCutoffAt;
-
-  /// Resolve the active overnight cutoff from shift templates.
-  /// Returns "HH:mm:ss" of the first active "Qua đêm" shift, or null.
-  /// Cached for 5 minutes to avoid hitting the shifts endpoint on every report load.
-  Future<String?> resolveActiveOvernightCutoff(
-      {bool forceRefresh = false}) async {
-    if (!forceRefresh &&
-        _cachedOvernightCutoffAt != null &&
-        DateTime.now().difference(_cachedOvernightCutoffAt!).inMinutes < 5) {
-      return _cachedOvernightCutoff;
-    }
-    try {
-      final shifts = await getShifts();
-      String? found;
-      for (final s in shifts) {
-        if (s is! Map) continue;
-        final type = (s['shiftType'] ?? '').toString();
-        final active = s['isActive'];
-        final cutoffStr = (s['overnightCutoffTime'] ?? '').toString();
-        if (type == 'Qua đêm' && active == true && cutoffStr.isNotEmpty) {
-          // Normalize to HH:mm:ss
-          final parts = cutoffStr.split(':');
-          if (parts.length >= 2) {
-            final h = parts[0].padLeft(2, '0');
-            final m = parts[1].padLeft(2, '0');
-            final sec = parts.length >= 3 ? parts[2].padLeft(2, '0') : '00';
-            found = '$h:$m:$sec';
-            break;
-          }
-        }
-      }
-      _cachedOvernightCutoff = found;
-      _cachedOvernightCutoffAt = DateTime.now();
-      return found;
-    } catch (_) {
-      return _cachedOvernightCutoff;
-    }
-  }
 
   Future<Map<String, dynamic>> getDailyAttendanceReport(
-      {dynamic date, String? departmentId, String? overnightCutoff}) async {
+      {dynamic date, String? departmentId}) async {
     try {
       final params = <String, String>{};
       if (date != null) {
@@ -7471,13 +7813,7 @@ class ApiService {
             : date.toString();
       }
       if (departmentId != null) params['departmentId'] = departmentId;
-      // Auto-resolve overnight cutoff when caller did not pass one.
-      // This ensures every daily-report consumer (Dashboard, Báo cáo, etc.)
-      // hơnors the configured "Giờ qua đêm" without manual plumbing.
-      overnightCutoff ??= await resolveActiveOvernightCutoff();
-      if (overnightCutoff != null && overnightCutoff.isNotEmpty) {
-        params['overnightCutoff'] = overnightCutoff;
-      }
+      // Work-day window comes solely from AppSettings day_end_time on the server.
       final uri = Uri.parse('$baseUrl/api/Reports/attendance/daily')
           .replace(queryParameters: params.isNotEmpty ? params : null);
       final response = await http.get(uri, headers: _headers);
@@ -7638,49 +7974,29 @@ class ApiService {
 
   Future<Map<String, dynamic>> exportDailyReportExcel(
       {dynamic date, String? departmentId}) async {
-    try {
-      final params = <String, String>{};
-      if (date != null) {
-        params['date'] = date is DateTime
-            ? date.toIso8601String().split('T').first
-            : date.toString();
-      }
-      if (departmentId != null) params['departmentId'] = departmentId;
-      final uri = Uri.parse('$baseUrl/api/Reports/export/excel/daily')
-          .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        return {'isSuccess': true, 'data': response.bodyBytes.toList()};
-      }
-      return {
-        'isSuccess': false,
-        'message': 'Export failed: ${response.statusCode}'
-      };
-    } catch (e) {
-      return _connectionFailure(e);
+    final params = <String, String>{};
+    if (date != null) {
+      params['date'] = date is DateTime
+          ? date.toIso8601String().split('T').first
+          : date.toString();
     }
+    if (departmentId != null) params['departmentId'] = departmentId;
+    return _getExcelExport(
+      Uri.parse('$baseUrl/api/Reports/export/excel/daily')
+          .replace(queryParameters: params.isNotEmpty ? params : null),
+    );
   }
 
   Future<Map<String, dynamic>> exportMonthlyReportExcel(
       {int? month, int? year, String? departmentId}) async {
-    try {
-      final params = <String, String>{};
-      if (month != null) params['month'] = month.toString();
-      if (year != null) params['year'] = year.toString();
-      if (departmentId != null) params['departmentId'] = departmentId;
-      final uri = Uri.parse('$baseUrl/api/Reports/export/excel/monthly')
-          .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        return {'isSuccess': true, 'data': response.bodyBytes.toList()};
-      }
-      return {
-        'isSuccess': false,
-        'message': 'Export failed: ${response.statusCode}'
-      };
-    } catch (e) {
-      return _connectionFailure(e);
-    }
+    final params = <String, String>{};
+    if (month != null) params['month'] = month.toString();
+    if (year != null) params['year'] = year.toString();
+    if (departmentId != null) params['departmentId'] = departmentId;
+    return _getExcelExport(
+      Uri.parse('$baseUrl/api/Reports/export/excel/monthly')
+          .replace(queryParameters: params.isNotEmpty ? params : null),
+    );
   }
 
   Future<Map<String, dynamic>> exportLateEarlyReportExcel(
@@ -7689,53 +8005,33 @@ class ApiService {
       String? departmentId,
       dynamic startDate,
       dynamic endDate}) async {
-    try {
-      final params = <String, String>{};
-      final fd = fromDate ?? startDate;
-      final td = toDate ?? endDate;
-      if (fd != null) {
-        params['startDate'] =
-            fd is DateTime ? fd.toIso8601String() : fd.toString();
-      }
-      if (td != null) {
-        params['endDate'] =
-            td is DateTime ? td.toIso8601String() : td.toString();
-      }
-      if (departmentId != null) params['departmentId'] = departmentId;
-      final uri = Uri.parse('$baseUrl/api/Reports/export/excel/late-early')
-          .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        return {'isSuccess': true, 'data': response.bodyBytes.toList()};
-      }
-      return {
-        'isSuccess': false,
-        'message': 'Export failed: ${response.statusCode}'
-      };
-    } catch (e) {
-      return _connectionFailure(e);
+    final params = <String, String>{};
+    final fd = fromDate ?? startDate;
+    final td = toDate ?? endDate;
+    if (fd != null) {
+      params['startDate'] =
+          fd is DateTime ? fd.toIso8601String() : fd.toString();
     }
+    if (td != null) {
+      params['endDate'] =
+          td is DateTime ? td.toIso8601String() : td.toString();
+    }
+    if (departmentId != null) params['departmentId'] = departmentId;
+    return _getExcelExport(
+      Uri.parse('$baseUrl/api/Reports/export/excel/late-early')
+          .replace(queryParameters: params.isNotEmpty ? params : null),
+    );
   }
 
   Future<Map<String, dynamic>> exportDepartmentSummaryExcel(
       {int? year, int? month}) async {
-    try {
-      final params = <String, String>{};
-      if (year != null) params['year'] = year.toString();
-      if (month != null) params['month'] = month.toString();
-      final uri = Uri.parse('$baseUrl/api/Reports/export/excel/department')
-          .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        return {'isSuccess': true, 'data': response.bodyBytes.toList()};
-      }
-      return {
-        'isSuccess': false,
-        'message': 'Export failed: ${response.statusCode}'
-      };
-    } catch (e) {
-      return _connectionFailure(e);
-    }
+    final params = <String, String>{};
+    if (year != null) params['year'] = year.toString();
+    if (month != null) params['month'] = month.toString();
+    return _getExcelExport(
+      Uri.parse('$baseUrl/api/Reports/export/excel/department')
+          .replace(queryParameters: params.isNotEmpty ? params : null),
+    );
   }
 
   Future<Map<String, dynamic>> getOvertimeReport(
@@ -7770,31 +8066,21 @@ class ApiService {
 
   Future<Map<String, dynamic>> exportOvertimeReportExcel(
       {dynamic startDate, dynamic endDate}) async {
-    try {
-      final params = <String, String>{};
-      if (startDate != null) {
-        params['startDate'] = startDate is DateTime
-            ? startDate.toIso8601String()
-            : startDate.toString();
-      }
-      if (endDate != null) {
-        params['endDate'] = endDate is DateTime
-            ? endDate.toIso8601String()
-            : endDate.toString();
-      }
-      final uri = Uri.parse('$baseUrl/api/Reports/export/excel/overtime')
-          .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        return {'isSuccess': true, 'data': response.bodyBytes.toList()};
-      }
-      return {
-        'isSuccess': false,
-        'message': 'Export failed: ${response.statusCode}'
-      };
-    } catch (e) {
-      return _connectionFailure(e);
+    final params = <String, String>{};
+    if (startDate != null) {
+      params['startDate'] = startDate is DateTime
+          ? startDate.toIso8601String()
+          : startDate.toString();
     }
+    if (endDate != null) {
+      params['endDate'] = endDate is DateTime
+          ? endDate.toIso8601String()
+          : endDate.toString();
+    }
+    return _getExcelExport(
+      Uri.parse('$baseUrl/api/Reports/export/excel/overtime')
+          .replace(queryParameters: params.isNotEmpty ? params : null),
+    );
   }
 
   Future<Map<String, dynamic>> getLeaveReport(
@@ -7823,31 +8109,21 @@ class ApiService {
 
   Future<Map<String, dynamic>> exportLeaveReportExcel(
       {dynamic startDate, dynamic endDate}) async {
-    try {
-      final params = <String, String>{};
-      if (startDate != null) {
-        params['startDate'] = startDate is DateTime
-            ? startDate.toIso8601String()
-            : startDate.toString();
-      }
-      if (endDate != null) {
-        params['endDate'] = endDate is DateTime
-            ? endDate.toIso8601String()
-            : endDate.toString();
-      }
-      final uri = Uri.parse('$baseUrl/api/Reports/export/excel/leave-summary')
-          .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        return {'isSuccess': true, 'data': response.bodyBytes.toList()};
-      }
-      return {
-        'isSuccess': false,
-        'message': 'Export failed: ${response.statusCode}'
-      };
-    } catch (e) {
-      return _connectionFailure(e);
+    final params = <String, String>{};
+    if (startDate != null) {
+      params['startDate'] = startDate is DateTime
+          ? startDate.toIso8601String()
+          : startDate.toString();
     }
+    if (endDate != null) {
+      params['endDate'] = endDate is DateTime
+          ? endDate.toIso8601String()
+          : endDate.toString();
+    }
+    return _getExcelExport(
+      Uri.parse('$baseUrl/api/Reports/export/excel/leave-summary')
+          .replace(queryParameters: params.isNotEmpty ? params : null),
+    );
   }
 
   // ==================== DASHBOARD (EXTENDED) ====================
@@ -13882,22 +14158,14 @@ class ApiService {
     String? categoryId,
     String? supplierId,
   }) async {
-    try {
-      final q = <String, String>{};
-      if (search != null && search.trim().isNotEmpty) q['search'] = search.trim();
-      if (categoryId != null && categoryId.isNotEmpty) q['categoryId'] = categoryId;
-      if (supplierId != null && supplierId.isNotEmpty) q['supplierId'] = supplierId;
-      final uri = Uri.parse('$baseUrl/api/pos/products/export/excel')
-          .replace(queryParameters: q.isEmpty ? null : q);
-      final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 60));
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        return {'isSuccess': true, 'data': response.bodyBytes.toList()};
-      }
-      return {'isSuccess': false, 'message': 'Export thất bại: ${response.statusCode}'};
-    } catch (e) {
-      return _connectionFailure(e);
-    }
+    final q = <String, String>{};
+    if (search != null && search.trim().isNotEmpty) q['search'] = search.trim();
+    if (categoryId != null && categoryId.isNotEmpty) q['categoryId'] = categoryId;
+    if (supplierId != null && supplierId.isNotEmpty) q['supplierId'] = supplierId;
+    return _getExcelExport(
+      Uri.parse('$baseUrl/api/pos/products/export/excel')
+          .replace(queryParameters: q.isEmpty ? null : q),
+    );
   }
 
   Future<Map<String, dynamic>> importPosProductsExcelFile(
@@ -14085,23 +14353,15 @@ class ApiService {
     DateTime? from,
     DateTime? to,
   }) async {
-    try {
-      final q = <String, String>{};
-      if (productId != null && productId.isNotEmpty) q['productId'] = productId;
-      if (variantId != null && variantId.isNotEmpty) q['variantId'] = variantId;
-      if (from != null) q['from'] = from.toIso8601String();
-      if (to != null) q['to'] = to.toIso8601String();
-      final uri = Uri.parse('$baseUrl/api/pos/stock/export/excel')
-          .replace(queryParameters: q.isEmpty ? null : q);
-      final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 60));
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        return {'isSuccess': true, 'data': response.bodyBytes.toList()};
-      }
-      return {'isSuccess': false, 'message': 'Export thất bại: ${response.statusCode}'};
-    } catch (e) {
-      return _connectionFailure(e);
-    }
+    final q = <String, String>{};
+    if (productId != null && productId.isNotEmpty) q['productId'] = productId;
+    if (variantId != null && variantId.isNotEmpty) q['variantId'] = variantId;
+    if (from != null) q['from'] = from.toIso8601String();
+    if (to != null) q['to'] = to.toIso8601String();
+    return _getExcelExport(
+      Uri.parse('$baseUrl/api/pos/stock/export/excel')
+          .replace(queryParameters: q.isEmpty ? null : q),
+    );
   }
 
   Future<Map<String, dynamic>> getPosStockReceipts({
@@ -14499,21 +14759,13 @@ class ApiService {
     DateTime? from,
     DateTime? to,
   }) async {
-    try {
-      final q = <String, String>{};
-      if (from != null) q['from'] = from.toIso8601String();
-      if (to != null) q['to'] = to.toIso8601String();
-      final uri = Uri.parse('$baseUrl/api/pos/reports/sales/export/excel')
-          .replace(queryParameters: q.isEmpty ? null : q);
-      final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 60));
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        return {'isSuccess': true, 'data': response.bodyBytes.toList()};
-      }
-      return {'isSuccess': false, 'message': 'Export thất bại: ${response.statusCode}'};
-    } catch (e) {
-      return _connectionFailure(e);
-    }
+    final q = <String, String>{};
+    if (from != null) q['from'] = from.toIso8601String();
+    if (to != null) q['to'] = to.toIso8601String();
+    return _getExcelExport(
+      Uri.parse('$baseUrl/api/pos/reports/sales/export/excel')
+          .replace(queryParameters: q.isEmpty ? null : q),
+    );
   }
 
   Future<Map<String, dynamic>> createPosStockIssue(
@@ -15002,20 +15254,12 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> exportPosStockReportExcel({String? search}) async {
-    try {
-      final q = <String, String>{};
-      if (search != null && search.trim().isNotEmpty) q['search'] = search.trim();
-      final uri = Uri.parse('$baseUrl/api/pos/reports/stock/export/excel')
-          .replace(queryParameters: q.isEmpty ? null : q);
-      final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 60));
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        return {'isSuccess': true, 'data': response.bodyBytes.toList()};
-      }
-      return {'isSuccess': false, 'message': 'Export thất bại: ${response.statusCode}'};
-    } catch (e) {
-      return _connectionFailure(e);
-    }
+    final q = <String, String>{};
+    if (search != null && search.trim().isNotEmpty) q['search'] = search.trim();
+    return _getExcelExport(
+      Uri.parse('$baseUrl/api/pos/reports/stock/export/excel')
+          .replace(queryParameters: q.isEmpty ? null : q),
+    );
   }
 
   // ── POS Purchase (KiotViet Mua hàng) ──
@@ -15641,27 +15885,20 @@ class ApiService {
     DateTime? from,
     DateTime? to,
   }) async {
-    try {
-      final q = <String, String>{};
-      if (search != null && search.trim().isNotEmpty) q['search'] = search.trim();
-      if (statuses != null && statuses.isNotEmpty) q['statuses'] = statuses.join(',');
-      if (paymentMethod != null && paymentMethod.isNotEmpty) {
-        q['paymentMethod'] = paymentMethod;
-      }
-      if (isDelivery != null) q['isDelivery'] = isDelivery.toString();
-      if (from != null) q['from'] = from.toIso8601String();
-      if (to != null) q['to'] = to.toIso8601String();
-      final uri = Uri.parse('$baseUrl/api/pos/sales/export/excel')
-          .replace(queryParameters: q.isEmpty ? null : q);
-      final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 90));
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        return {'isSuccess': true, 'data': response.bodyBytes.toList()};
-      }
-      return {'isSuccess': false, 'message': 'Export thất bại: ${response.statusCode}'};
-    } catch (e) {
-      return _connectionFailure(e);
+    final q = <String, String>{};
+    if (search != null && search.trim().isNotEmpty) q['search'] = search.trim();
+    if (statuses != null && statuses.isNotEmpty) q['statuses'] = statuses.join(',');
+    if (paymentMethod != null && paymentMethod.isNotEmpty) {
+      q['paymentMethod'] = paymentMethod;
     }
+    if (isDelivery != null) q['isDelivery'] = isDelivery.toString();
+    if (from != null) q['from'] = from.toIso8601String();
+    if (to != null) q['to'] = to.toIso8601String();
+    return _getExcelExport(
+      Uri.parse('$baseUrl/api/pos/sales/export/excel')
+          .replace(queryParameters: q.isEmpty ? null : q),
+      timeout: const Duration(seconds: 90),
+    );
   }
 
   Future<Map<String, dynamic>> getPosCustomers({
@@ -16288,14 +16525,16 @@ class ApiService {
       '$baseUrl/api/pos/product-printers/export/excel',
     ]) {
       try {
-        final response = await http
-            .get(Uri.parse(url), headers: _headers)
-            .timeout(const Duration(seconds: 90));
+        final response = await _retryOnUnauthorized(
+          () => http
+              .get(Uri.parse(url), headers: _binaryDownloadHeaders)
+              .timeout(const Duration(seconds: 90)),
+        );
         if (response.statusCode == 404) continue;
-        if (response.statusCode >= 200 && response.statusCode < 300) {
-          return {'isSuccess': true, 'data': response.bodyBytes.toList()};
+        final parsed = _parseExcelExportResponse(response);
+        if (parsed['isSuccess'] == true || response.statusCode != 404) {
+          return parsed;
         }
-        return {'isSuccess': false, 'message': 'Export thất bại: ${response.statusCode}'};
       } catch (e) {
         if (url.contains('product-printers')) return _connectionFailure(e);
       }

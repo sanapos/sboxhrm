@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../models/mobile_attendance.dart';
 import '../services/api_service.dart';
+import 'notification_overlay.dart';
 import 'map_location_picker.dart';
 import 'punch_location_preview.dart';
 import 'punch_photo_preview.dart';
@@ -18,6 +19,10 @@ Future<void> showMobileAttendanceRecordDetailSheet(
   String? employeeAvatarUrl,
   VoidCallback? onApprove,
   VoidCallback? onReject,
+  bool canManageRecord = false,
+  bool canEditRecord = false,
+  bool canDeleteRecord = false,
+  VoidCallback? onRecordChanged,
 }) {
   return showAppSheet<void>(
     context: context,
@@ -35,6 +40,10 @@ Future<void> showMobileAttendanceRecordDetailSheet(
         employeeAvatarUrl: employeeAvatarUrl,
         onApprove: onApprove,
         onReject: onReject,
+        canManageRecord: canManageRecord,
+        canEditRecord: canEditRecord,
+        canDeleteRecord: canDeleteRecord,
+        onRecordChanged: onRecordChanged,
       ),
     ),
   );
@@ -48,6 +57,10 @@ class _MobileAttendanceRecordDetailBody extends StatefulWidget {
     this.employeeAvatarUrl,
     this.onApprove,
     this.onReject,
+    this.canManageRecord = false,
+    this.canEditRecord = false,
+    this.canDeleteRecord = false,
+    this.onRecordChanged,
   });
 
   final MobileAttendanceRecord record;
@@ -56,6 +69,10 @@ class _MobileAttendanceRecordDetailBody extends StatefulWidget {
   final String? employeeAvatarUrl;
   final VoidCallback? onApprove;
   final VoidCallback? onReject;
+  final bool canManageRecord;
+  final bool canEditRecord;
+  final bool canDeleteRecord;
+  final VoidCallback? onRecordChanged;
 
   @override
   State<_MobileAttendanceRecordDetailBody> createState() =>
@@ -66,8 +83,13 @@ class _MobileAttendanceRecordDetailBodyState
     extends State<_MobileAttendanceRecordDetailBody> {
   late MobileAttendanceRecord _record;
   bool _loadingDetail = false;
+  bool _saving = false;
 
   bool get _isPending => _record.status == 'pending';
+  bool get _canManage =>
+      widget.canManageRecord && _record.status != 'rejected';
+  bool get _canEdit => _canManage && widget.canEditRecord;
+  bool get _canDelete => _canManage && widget.canDeleteRecord;
 
   @override
   void initState() {
@@ -152,6 +174,116 @@ class _MobileAttendanceRecordDetailBodyState
         readOnly: true,
       ),
     );
+  }
+
+  Future<void> _editPunchTime() async {
+    if (!_canEdit || _saving) return;
+    final initial = _record.punchTime.toLocal();
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(initial.year - 2),
+      lastDate: DateTime(initial.year + 1),
+      locale: const Locale('vi', 'VN'),
+    );
+    if (pickedDate == null || !mounted) return;
+
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(initial),
+    );
+    if (pickedTime == null || !mounted) return;
+
+    final newPunchTime = DateTime(
+      pickedDate.year,
+      pickedDate.month,
+      pickedDate.day,
+      pickedTime.hour,
+      pickedTime.minute,
+    );
+
+    setState(() => _saving = true);
+    try {
+      final res = await widget.apiService.updateMobileAttendanceRecord(
+        recordId: _record.id,
+        punchTime: newPunchTime,
+      );
+      if (!mounted) return;
+      if (res['isSuccess'] == true) {
+        appNotification.showSuccess(
+          title: 'Đã cập nhật',
+          message: 'Giờ chấm công đã được sửa',
+        );
+        await _loadRecordDetail();
+        widget.onRecordChanged?.call();
+      } else {
+        appNotification.showError(
+          title: 'Lỗi',
+          message: res['message']?.toString() ?? 'Không thể sửa giờ chấm',
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        appNotification.showError(title: 'Lỗi', message: '$e');
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _deleteRecord() async {
+    if (!_canDelete || _saving) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Xóa bản ghi chấm công'),
+        content: Text(
+          'Xóa bản ghi ${ _record.punchTypeLabel} của ${_record.employeeName} '
+          'lúc ${DateFormat('HH:mm dd/MM/yyyy').format(_record.punchTime)}?\n\n'
+          'Bản ghi chấm công liên kết (nếu có) cũng sẽ bị xóa.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFEF4444),
+            ),
+            child: const Text('Xóa'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _saving = true);
+    try {
+      final res =
+          await widget.apiService.deleteMobileAttendanceRecord(_record.id);
+      if (!mounted) return;
+      if (res['isSuccess'] == true) {
+        appNotification.showSuccess(
+          title: 'Đã xóa',
+          message: 'Bản ghi chấm công đã được xóa',
+        );
+        widget.onRecordChanged?.call();
+        if (mounted) Navigator.pop(context);
+      } else {
+        appNotification.showError(
+          title: 'Lỗi',
+          message: res['message']?.toString() ?? 'Không thể xóa bản ghi',
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        appNotification.showError(title: 'Lỗi', message: '$e');
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   @override
@@ -368,6 +500,50 @@ class _MobileAttendanceRecordDetailBodyState
               ],
             ),
           ),
+          if (_canEdit || _canDelete)
+            SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: Row(
+                  children: [
+                    if (_canEdit)
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _saving ? null : _editPunchTime,
+                          icon: _saving
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.edit_calendar_outlined, size: 18),
+                          label: const Text('Sửa giờ'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF1E3A5F),
+                            side: const BorderSide(color: Color(0xFF1E3A5F)),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+                    if (_canEdit && _canDelete) const SizedBox(width: 12),
+                    if (_canDelete)
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _saving ? null : _deleteRecord,
+                          icon: const Icon(Icons.delete_outline, size: 18),
+                          label: const Text('Xóa'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFFEF4444),
+                            side: const BorderSide(color: Color(0xFFEF4444)),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
           if (widget.onApprove != null || widget.onReject != null)
             SafeArea(
               top: false,

@@ -171,7 +171,7 @@ class _NotificationSettingsScreenState
                   // Nhóm 1: Thông báo chấm công
                   _buildGroupCard(
                     title: 'Thông báo chấm công',
-                    subtitle: 'Chấm công, thiết bị kết nối/ngắt kết nối',
+                    subtitle: 'Chấm công, đi đường, thiết bị kết nối/ngắt kết nối',
                     icon: Icons.fingerprint,
                     color: HrmPageChrome.primaryNavy,
                     isEnabled: _attendanceEnabled,

@@ -178,6 +178,18 @@ String? _inferEntityTypeFromTitle(String? title) {
   if (t.contains('nghỉ phép') || t.contains('đơn phép')) return 'Leave';
   if (t.contains('tăng ca')) return 'Overtime';
   if (t.contains('ứng lương')) return 'AdvanceRequest';
+  if (t.contains('ứng công tác') ||
+      t.contains('công tác phí') ||
+      t.contains('hoạch toán công tác') ||
+      t.contains('bổ sung giấy tờ công tác') ||
+      (t.contains('công tác') &&
+          (t.contains('duyệt') ||
+              t.contains('từ chối') ||
+              t.contains('chi ứng') ||
+              t.contains('yêu cầu') ||
+              t.contains('bổ sung')))) {
+    return 'BusinessTripCase';
+  }
   if (t.contains('phiếu phạt')) return 'PenaltyTicket';
   if (t.contains('sản lượng') || t.contains('import sản lượng')) {
     return 'ProductionEntry';
@@ -203,6 +215,9 @@ String? _inferEntityTypeFromTitle(String? title) {
       t.contains('đổi thiết bị') ||
       t.contains('thiết bị chấm công')) {
     return 'AuthorizedMobileDevice';
+  }
+  if (t.contains('chấm đi đường') || t.contains('đi đường chờ duyệt')) {
+    return 'MobileAttendance';
   }
   if (t.contains('chấm công mobile') ||
       (t.contains('chấm công') &&
@@ -251,6 +266,8 @@ String? _inferEntityTypeFromCategory(String? categoryCode, {String? title}) {
       return 'Leave';
     case 'mobile_attendance':
       return _inferEntityTypeFromTitle(title) ?? 'MobileAttendance';
+    case 'travel_attendance':
+      return 'MobileAttendance';
     case 'attendance':
       return _inferEntityTypeFromTitle(title) ?? 'Attendance';
     case 'approval':
@@ -274,6 +291,13 @@ String? _inferEntityTypeFromCategory(String? categoryCode, {String? title}) {
       return 'Kpi';
     case 'meal':
       return 'MealMenu';
+    case 'business_trip':
+    case 'businesstrip':
+      return 'BusinessTripCase';
+    case 'transaction':
+      return 'CashTransaction';
+    case 'pos':
+      return 'PosSaleOrder';
     case 'internal_comm':
       return 'Communication';
     case 'device':
@@ -406,6 +430,9 @@ NotificationNavigationTarget? resolveNotificationNavigation(
     case 'advancerequest':
     case 'advance':
       return const NotificationNavigationTarget(moduleCode: 'AdvanceRequests');
+    case 'businesstripcase':
+    case 'businesstripexpense':
+      return const NotificationNavigationTarget(moduleCode: 'BusinessTripExpense');
     case 'salarysettings':
       return const NotificationNavigationTarget(moduleCode: 'SalarySettings');
     case 'payroll':
@@ -576,6 +603,13 @@ void navigateFromNotification({
 
   if (normalizeNotificationEntityType(entity) == 'overtime') {
     NavigationNotifier.pendingOpenOvertime.value = true;
+  }
+
+  if (normalizeNotificationEntityType(entity) == 'businesstripcase' ||
+      normalizeNotificationEntityType(entity) == 'businesstripexpense') {
+    if (relatedEntityId != null && relatedEntityId.isNotEmpty) {
+      NavigationNotifier.notificationHighlightId.value = relatedEntityId;
+    }
   }
 
   if (kDebugMode) {

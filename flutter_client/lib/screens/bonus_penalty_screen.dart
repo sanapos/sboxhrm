@@ -1241,7 +1241,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
             }
             break;
           case 'Cancelled':
-            statusColor = Colors.grey;
+            statusColor = const Color(0xFFDC2626);
             statusLabel = _l10n.cancelled;
             break;
           default:
@@ -1483,7 +1483,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
         statusLabel = _l10n.approved;
         break;
       case 'Cancelled':
-        statusColor = Colors.grey;
+        statusColor = const Color(0xFFDC2626);
         statusLabel = _l10n.cancelled;
         break;
       default:

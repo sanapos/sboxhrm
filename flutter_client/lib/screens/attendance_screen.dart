@@ -37,6 +37,7 @@ import '../widgets/map_location_picker.dart';
 import '../widgets/mobile_attendance_record_detail_sheet.dart';
 import '../widgets/punch_location_preview.dart';
 import '../widgets/punch_photo_preview.dart';
+import '../widgets/device_sync_progress_overlay.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class AttendanceScreen extends StatefulWidget {
@@ -794,68 +795,23 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       return;
     }
 
-    setState(() => _isLoading = true);
-
-    try {
-      int successCount = 0;
-      int failCount = 0;
-      final offlineDevices = <String>[];
-
-      for (final deviceId in _selectedDevices) {
-        // Kiểm tra online trước
-        final isOnline = await _apiService.isDeviceOnline(deviceId);
-        if (!isOnline) {
-          failCount++;
-          final dev = _devices.where((d) => d.id == deviceId).firstOrNull;
-          offlineDevices.add(dev?.deviceName ?? deviceId);
-          continue;
-        }
-        final success = await _apiService.sendSyncAttendancesCommand(deviceId);
-        if (success) {
-          successCount++;
-        } else {
-          failCount++;
-        }
-      }
-
-      if (mounted) {
-        if (offlineDevices.isNotEmpty) {
-          appNotification.showError(
-            title: 'Thiết bị offline',
-            message:
-                'Các thiết bị đang offline: ${offlineDevices.join(", ")}. Vui lòng kiểm tra kết nối mạng của máy chấm công.',
-          );
-        } else if (successCount > 0) {
-          appNotification.showSuccess(
-            title: _l10n.syncData,
-            message:
-                'Đã gửi lệnh đồng bộ: $successCount thành công, $failCount thất bại. Chờ thiết bị phản hồi...',
-          );
-        } else {
-          appNotification.showError(
-            title: _l10n.syncData,
-            message:
-                'Đã gửi lệnh đồng bộ: $successCount thành công, $failCount thất bại',
-          );
-        }
-
-        // Chờ 15 giây để thiết bị gửi dữ liệu rồi load lại
-        await Future.delayed(const Duration(seconds: 15));
-        await _loadAttendances();
-      }
-    } catch (e) {
-      debugPrint('Error syncing attendances: $e');
-      if (mounted) {
-        appNotification.showError(
-          title: _l10n.syncError,
-          message: '$e',
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+    final targets = <DeviceSyncTarget>[];
+    for (final deviceId in _selectedDevices) {
+      final dev = _devices.where((d) => d.id == deviceId).firstOrNull;
+      targets.add(DeviceSyncTarget(
+        deviceId: deviceId,
+        deviceName: dev?.deviceName ?? deviceId,
+      ));
     }
+
+    unawaited(DeviceSyncProgressDialog.show(
+      apiService: _apiService,
+      kind: DeviceSyncKind.attendances,
+      devices: targets,
+      onDataReady: () {
+        if (mounted) _loadAttendances(showLoading: false);
+      },
+    ));
   }
 
   /// Show manual attendance dialog
@@ -2522,6 +2478,28 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         _buildAttFilterChipRow([chipVerify, chipBranch]),
         const SizedBox(height: 8),
         _buildAttFilterChipRow([chipEmployee, chipClear]),
+        if (!Responsive.isMobile(context) &&
+            canSyncAttendanceFromDevice(
+              role: Provider.of<AuthProvider>(context, listen: false)
+                  .user
+                  ?.role,
+              permissions: Provider.of<PermissionProvider>(context,
+                  listen: false),
+            )) ...[
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerRight,
+            child: OutlinedButton.icon(
+              onPressed: _syncAttendancesFromDevice,
+              icon: const Icon(Icons.sync, size: 18),
+              label: Text(_l10n.syncData),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: HrmPageChrome.primaryNavy,
+                side: const BorderSide(color: HrmPageChrome.primaryNavy),
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }

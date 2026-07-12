@@ -102,6 +102,11 @@ class _FeedbackScreenState extends State<FeedbackScreen>
         NavigationNotifier.feedbackPreferInbox.value = false;
       }
       _consumeNotificationHighlight();
+      if (NavigationNotifier.takePendingAiOpenCreate('feedback')) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _showCreateDialog();
+        });
+      }
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _consumeNotificationHighlight();

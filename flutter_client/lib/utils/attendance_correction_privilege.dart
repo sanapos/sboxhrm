@@ -135,6 +135,18 @@ bool canViewMobileAttendanceApprovalTab(PermissionProvider permissions) {
   return canApproveMobileAttendance(permissions);
 }
 
+/// Sửa giờ bản ghi chấm mobile (khớp API Edit).
+bool canEditMobileAttendanceRecord(PermissionProvider permissions) {
+  return permissions.canEdit('MobileAttendance') ||
+      permissions.canEdit('MobileAttendanceApproval');
+}
+
+/// Xóa bản ghi chấm mobile (khớp API Delete).
+bool canDeleteMobileAttendanceRecord(PermissionProvider permissions) {
+  return permissions.canDelete('MobileAttendance') ||
+      permissions.canDelete('MobileAttendanceApproval');
+}
+
 String attendanceCorrectionSuccessMessage(
   Map<String, dynamic> apiResult, {
   required bool expectedDirect,

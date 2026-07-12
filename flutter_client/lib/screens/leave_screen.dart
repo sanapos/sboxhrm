@@ -137,6 +137,12 @@ class _LeaveScreenState extends State<LeaveScreen>
         }
       });
     }
+
+    if (NavigationNotifier.takePendingAiOpenCreate('leave')) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _showLeaveFormDialog();
+      });
+    }
   }
 
   Future<void> _loadData() async {
@@ -3054,7 +3060,8 @@ class _LeaveScreenState extends State<LeaveScreen>
       case 2:
         return const _StatusInfo('Từ chối', Colors.red, Icons.cancel_rounded);
       case 3:
-        return const _StatusInfo('Đã hủy', Colors.grey, Icons.block_rounded);
+        return const _StatusInfo(
+            'Đã hủy', Color(0xFFDC2626), Icons.block_rounded);
       default:
         return const _StatusInfo(
             'N/A', Colors.grey, Icons.help_outline_rounded);

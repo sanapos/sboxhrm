@@ -71,6 +71,7 @@ class PermissionModuleCatalog {
     'Feedback': '11111111-1111-1111-1111-111111111069',
     'PenaltyReport': '11111111-1111-1111-1111-111111111070',
     'AdvanceReport': '11111111-1111-1111-1111-111111111071',
+    'BusinessTripReport': '11111111-1111-1111-1111-111111111086',
     'LeaveReport': '11111111-1111-1111-1111-111111111072',
     'CashReport': '11111111-1111-1111-1111-111111111073',
     'AssetReport': '11111111-1111-1111-1111-111111111074',
@@ -84,6 +85,7 @@ class PermissionModuleCatalog {
     'DashboardInternalNews': '11111111-1111-1111-1111-111111111082',
     'PosProducts': '11111111-1111-1111-1111-111111111083',
     'PosSalesReport': '11111111-1111-1111-1111-111111111084',
+    'BusinessTripExpense': '11111111-1111-1111-1111-111111111085',
   };
 
   static Map<String, String> buildLookup([

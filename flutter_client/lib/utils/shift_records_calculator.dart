@@ -6,6 +6,87 @@ import '../models/attendance.dart';
 import 'attendance_load_utils.dart';
 import 'leave_salary_shifts.dart';
 
+/// Số phút làm việc tối thiểu (mỗi cặp vào/ra) để được cộng công.
+/// [minHoursForWorkDay] > 0: dùng cài đặt cửa hàng (giờ).
+/// = 0: ca có lịch → 2/3 thời lượng ca; không có ca → 0 (chỉ cần có vào+ra).
+int resolveMinWorkMinutesForCredit({
+  required double minHoursForWorkDay,
+  required int shiftDurationMin,
+}) {
+  if (minHoursForWorkDay > 0) {
+    return (minHoursForWorkDay * 60).round();
+  }
+  if (shiftDurationMin > 0) {
+    return (shiftDurationMin * 2.0 / 3.0).round();
+  }
+  return 0;
+}
+
+/// Đọc cài đặt số giờ tối thiểu từ API salary hoặc AppSettings.
+double parseMinHoursForWorkDay({
+  Map<String, dynamic>? salarySettings,
+  String? appSettingValue,
+}) {
+  if (appSettingValue != null && appSettingValue.trim().isNotEmpty) {
+    final parsed = double.tryParse(appSettingValue.replaceAll(',', '.'));
+    if (parsed != null && parsed >= 0) return parsed;
+  }
+  final fromSalary =
+      (salarySettings?['minHoursForWorkDay'] as num?)?.toDouble();
+  if (fromSalary != null && fromSalary >= 0) return fromSalary;
+  return 0;
+}
+
+/// Bậc công thập phân 0.1 … 1.0 theo tỷ lệ giờ làm / ca chuẩn.
+double computeWorkCredit({
+  required int actualWorkedMinutes,
+  required int referenceMinutes,
+  required int minMinutesForCredit,
+  required int shiftsPerDay,
+  required bool decimalWorkDayEnabled,
+  double standardWorkHours = 8,
+}) {
+  if (actualWorkedMinutes < minMinutesForCredit) return 0;
+
+  final fullShiftCredit = shiftsPerDay > 0 ? 1.0 / shiftsPerDay : 1.0;
+  if (!decimalWorkDayEnabled) return fullShiftCredit;
+
+  var ref = referenceMinutes;
+  if (ref <= 0) ref = (standardWorkHours * 60).round();
+  if (ref <= 0) return 0;
+
+  var ratio = actualWorkedMinutes / ref;
+  if (ratio > 1) ratio = 1;
+
+  final steps = (ratio * 10).floor();
+  if (steps <= 0) return 0;
+
+  return (steps / 10.0) * fullShiftCredit;
+}
+
+bool parseDecimalWorkDayEnabled({
+  Map<String, dynamic>? salarySettings,
+  String? appSettingValue,
+}) {
+  if (appSettingValue != null && appSettingValue.trim().isNotEmpty) {
+    final v = appSettingValue.trim().toLowerCase();
+    return v == 'true' || v == '1' || v == 'yes';
+  }
+  final fromSalary = salarySettings?['decimalWorkDayEnabled'];
+  if (fromSalary is bool) return fromSalary;
+  if (fromSalary != null) {
+    final v = fromSalary.toString().toLowerCase();
+    return v == 'true' || v == '1';
+  }
+  return false;
+}
+
+double parseStandardWorkHours({Map<String, dynamic>? salarySettings}) {
+  final v = (salarySettings?['standardWorkHours'] as num?)?.toDouble();
+  if (v != null && v > 0) return v;
+  return 8;
+}
+
 /// Một dòng tổng hợp ca trong ngày cho một nhân viên.
 /// Đây là single source of truth dùng chung cho:
 ///  • Tab "Tổng hợp theo ca" (attendance_by_shift_tab.dart)
@@ -736,6 +817,9 @@ List<DailyShiftRecord> computeDailyShiftRecords({
   List<dynamic> holidays = const [],
   int dayEndHour = 0,
   int dayEndMinute = 0,
+  double minHoursForWorkDay = 0,
+  bool decimalWorkDayEnabled = false,
+  double standardWorkHours = 8,
 }) {
   final lookups = _ShiftLookups.build(
     shiftTemplates: shiftTemplates,
@@ -959,16 +1043,33 @@ List<DailyShiftRecord> computeDailyShiftRecords({
             totalWorkHours += actualWorkedMinutes / 60.0;
           }
           totalDecimalHours += actualWorkedMinutes / 60.0;
-          // Chỉ tính 1 ca khi NV làm đủ ít nhất 2/3 số giờ ca quy định
-          final minMinutesForShift =
-              shiftDurationMin > 0 ? (shiftDurationMin * 2.0 / 3.0).round() : 0;
-          if (actualWorkedMinutes >= minMinutesForShift) {
-            totalWorkCount += shiftsPerDay > 0 ? 1.0 / shiftsPerDay : 1.0;
-          }
+          final minMinutesForShift = resolveMinWorkMinutesForCredit(
+            minHoursForWorkDay: minHoursForWorkDay,
+            shiftDurationMin: shiftDurationMin,
+          );
+          totalWorkCount += computeWorkCredit(
+            actualWorkedMinutes: actualWorkedMinutes,
+            referenceMinutes: shiftDurationMin,
+            minMinutesForCredit: minMinutesForShift,
+            shiftsPerDay: shiftsPerDay,
+            decimalWorkDayEnabled: decimalWorkDayEnabled,
+            standardWorkHours: standardWorkHours,
+          );
         } else {
           totalWorkHours += actualWorkedMinutes / 60.0;
           totalDecimalHours += actualWorkedMinutes / 60.0;
-          totalWorkCount += shiftsPerDay > 0 ? 1.0 / shiftsPerDay : 1.0;
+          final minMinutesForShift = resolveMinWorkMinutesForCredit(
+            minHoursForWorkDay: minHoursForWorkDay,
+            shiftDurationMin: 0,
+          );
+          totalWorkCount += computeWorkCredit(
+            actualWorkedMinutes: actualWorkedMinutes,
+            referenceMinutes: 0,
+            minMinutesForCredit: minMinutesForShift,
+            shiftsPerDay: shiftsPerDay,
+            decimalWorkDayEnabled: decimalWorkDayEnabled,
+            standardWorkHours: standardWorkHours,
+          );
         }
       }
 

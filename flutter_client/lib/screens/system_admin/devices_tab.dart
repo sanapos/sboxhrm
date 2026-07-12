@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import '../../services/api_service.dart';
 import '../../widgets/admin/admin_mobile_widgets.dart';
+import '../../widgets/device_sync_progress_overlay.dart';
 import 'system_admin_helpers.dart';
 
 class DevicesTab extends StatefulWidget {
@@ -1124,15 +1126,12 @@ class DevicesTabState extends State<DevicesTab> {
   Future<void> _syncAttendance(Map<String, dynamic> device) async {
     final name = device['deviceName'] ?? device['serialNumber'] ?? 'N/A';
     final deviceId = device['id']?.toString() ?? '';
-    // CommandType.SyncAttendances = 7
-    final res = await _apiService.sendDeviceCommand(deviceId, 7);
-    if (!mounted) return;
-    if (res['isSuccess'] == true) {
-      AdminHelpers.showSuccess(
-          context, 'Đã gửi lệnh đồng bộ chấm công cho "$name"');
-    } else {
-      AdminHelpers.showApiError(context, res);
-    }
+    if (deviceId.isEmpty) return;
+    unawaited(DeviceSyncProgressDialog.show(
+      apiService: _apiService,
+      kind: DeviceSyncKind.attendances,
+      devices: [DeviceSyncTarget(deviceId: deviceId, deviceName: name.toString())],
+    ));
   }
 
   // ═══════════════════════ DELETE DEVICE ═══════════════════════

@@ -9,6 +9,8 @@ import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
 import 'vietnamese_font.dart';
 import 'excel_report_builder.dart';
+import 'excel_bytes_utils.dart';
+import 'excel_download_helper.dart';
 import 'file_saver.dart' as file_saver;
 
 /// Khoảng ngày theo preset (dùng chung cho màn báo cáo).
@@ -349,6 +351,12 @@ class ClientExcelExport {
       return false;
     }
     try {
+      final fn = normalizeExportFileName(
+        '${filePrefix}_${DateFormat('yyyyMMdd_HHmm').format(DateTime.now())}.xlsx',
+      );
+      final download = ExcelDownloadHelper();
+      await download.prepareSave(fn);
+
       final wb = ExcelReportBuilder.createWorkbook(sheetName: sheetName);
       final sh = wb[sheetName];
       final auth = context.read<AuthProvider>();
@@ -379,15 +387,16 @@ class ClientExcelExport {
       }
       final bytes = wb.encode();
       if (bytes == null) return false;
-      final fn =
-          '${filePrefix}_${DateFormat('yyyyMMdd_HHmm').format(DateTime.now())}.xlsx';
-      await file_saver.saveFileBytes(
-        bytes,
-        fn,
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        category: 'Báo cáo',
-        sourceModule: filePrefix,
-      );
+      if (!isValidXlsxBytes(bytes)) {
+        if (context.mounted) {
+          NotificationOverlayManager().showError(
+            title: 'Lỗi',
+            message: 'Không tạo được file Excel hợp lệ.',
+          );
+        }
+        return false;
+      }
+      await download.saveBytes(bytes, fn);
       if (context.mounted) {
         NotificationOverlayManager()
             .showSuccess(title: 'Xuất Excel', message: 'Đã lưu vào Tải về/SBOX HRM: $fn');

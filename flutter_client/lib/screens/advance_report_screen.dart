@@ -226,7 +226,7 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
       case AdvanceRequestStatus.rejected:
         return const Color(0xFFDC2626);
       case AdvanceRequestStatus.cancelled:
-        return Colors.grey;
+        return const Color(0xFFDC2626);
     }
   }
 

@@ -25,12 +25,14 @@ import '../utils/mobile_quick_actions_catalog.dart';
 import '../widgets/mobile_bottom_nav_config_sheet.dart';
 import '../widgets/mobile_quick_actions_config_sheet.dart';
 import '../widgets/announcement_banner.dart';
+import '../widgets/ai_assistant_sheet.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/hrm_pushed_screen_shell.dart';
 import '../models/hrm.dart';
 import '../models/user.dart';
 import '../models/attendance.dart';
 import '../widgets/notification_overlay.dart';
+import '../widgets/device_sync_progress_overlay.dart';
 import '../utils/navigation_notifier.dart';
 import 'notification_settings_screen.dart';
 import 'employees_screen.dart';
@@ -40,6 +42,7 @@ import 'settings_screen.dart';
 import 'system_admin_screen.dart';
 import 'settings_hub_screen.dart';
 import 'advance_requests_screen.dart';
+import 'business_trip_expense_screen.dart';
 import 'attendance_approval_screen.dart';
 import 'notifications_screen.dart';
 import 'work_schedule_screen.dart';
@@ -64,6 +67,7 @@ import 'overtime_screen.dart';
 import 'penalty_report_screen.dart';
 import 'cash_report_screen.dart';
 import 'advance_report_screen.dart';
+import 'business_trip_report_screen.dart';
 import 'leave_report_screen.dart';
 import 'asset_report_screen.dart';
 import 'downloaded_documents_screen.dart';
@@ -285,6 +289,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   List<String>? _homeAllowedModulesCached;
   bool? _homeBypassPackageFilterCached;
   final Map<int, Widget> _mobileBottomScreenCache = {};
+  /// Last visible bottom-nav stack index — used while Home stays Offstage under drawer/POS.
+  int? _lastMobileBottomStackIdx;
 
   // Tracks when SignalR connected so we can suppress stale notifications
   // that were already shown by FCM while the app was in the background.
@@ -620,6 +626,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   }
 
   void _onMobileNavPrefsChanged() {
+    // Slot set may change — drop stale bottom-tab widgets so indices remount cleanly.
+    _mobileBottomScreenCache.clear();
+    _lastMobileBottomStackIdx = null;
     if (mounted) setState(() {});
   }
 
@@ -760,9 +769,23 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         ));
   }
 
+  /// Toast góc trên + panel tiến trình đồng bộ máy góc dưới phải.
+  Widget _wrapAppShell(Widget child) {
+    return NotificationOverlay(
+      child: DeviceSyncProgressOverlay(child: child),
+    );
+  }
+
   /// Handle new attendance from ADMS device - show popup globally
   void _handleNewAttendance(Attendance attendance) {
     if (!mounted) return;
+
+    if (DeviceSyncProgressManager.shouldSuppressAttendancePopup(
+        attendance.attendanceTime)) {
+      ScreenRefreshNotifier.scheduleAttendanceDataRefresh();
+      ScreenRefreshNotifier.scheduleNotificationCountRefresh();
+      return;
+    }
 
     // Kiểm tra thiết lập category attendance
     _shouldShowNotification(
@@ -879,6 +902,11 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             entityTypeLower == 'mobileattendance' ||
             entityTypeLower == 'authorizedmobiledevice' ||
             entityTypeLower == 'devicechangerequest';
+
+        if (isAttendanceOrDevice &&
+            DeviceSyncProgressManager.shouldSuppressAttendanceNotifications) {
+          return;
+        }
 
         if (entityTypeLower == 'authorizedmobiledevice' ||
             entityTypeLower == 'devicechangerequest') {
@@ -1295,6 +1323,17 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       moduleCode: 'AdvanceRequests',
     ),
     NavItem(
+      icon: Icons.flight_takeoff_outlined,
+      activeIcon: Icons.flight_takeoff,
+      label: 'Công tác phí',
+      subtitle: 'Ứng công tác, hoạch toán chi phí',
+      screen: const BusinessTripExpenseScreen(),
+      group: 'Tài chính',
+      showInSidebar: true,
+      themeColor: const Color(0xFF0EA5E9),
+      moduleCode: 'BusinessTripExpense',
+    ),
+    NavItem(
       icon: Icons.account_balance_wallet_outlined,
       activeIcon: Icons.account_balance_wallet,
       label: 'Thu chi',
@@ -1522,6 +1561,16 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       moduleCode: 'AdvanceReport',
     ),
     NavItem(
+      icon: Icons.flight_takeoff_outlined,
+      activeIcon: Icons.flight_takeoff,
+      label: 'Báo cáo công tác phí',
+      subtitle: 'Tổng hợp ứng công tác, hoạch toán chi phí',
+      screen: const BusinessTripReportScreen(),
+      group: 'Báo cáo',
+      themeColor: const Color(0xFF0EA5E9),
+      moduleCode: 'BusinessTripReport',
+    ),
+    NavItem(
       icon: Icons.event_busy_outlined,
       activeIcon: Icons.event_busy,
       label: 'Báo cáo nghỉ phép',
@@ -1712,8 +1761,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
   // Desktop Layout với Navigation Rail mở rộng
   Widget _buildDesktopLayout() {
-    return NotificationOverlay(
-      child: Scaffold(
+    return _wrapAppShell(
+      Scaffold(
         body: Row(
           children: [
             // Sidebar
@@ -1742,8 +1791,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
   // Tablet Layout với Navigation Rail thu gọn
   Widget _buildTabletLayout() {
-    return NotificationOverlay(
-      child: Scaffold(
+    return _wrapAppShell(
+      Scaffold(
         body: Row(
           children: [
             SingleChildScrollView(
@@ -1904,8 +1953,68 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final posHubFullscreen =
         Responsive.isMobile(context) && PosHubModules.isPrimary(moduleCode);
 
+    final bottomNavIndex = _bottomNavSlotIndexForModule(moduleCode);
+    final isBottomNav = bottomNavIndex >= 0;
+    NavigationNotifier.mobileDrawerModuleActive.value =
+        !posHubFullscreen && !isBottomNav;
+    final safeBottomIndex = isBottomNav ? bottomNavIndex : -1;
+
+    final scaffold = Scaffold(
+      key: _mobileScaffoldKey,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      appBar: AppBar(
+        toolbarHeight: 44,
+        leading: _canGoBack
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back, size: 22),
+                onPressed: _goBack,
+                tooltip: l.goBack,
+                visualDensity: VisualDensity.compact,
+              )
+            : null,
+        titleTextStyle: Theme.of(context)
+            .textTheme
+            .headlineLarge
+            ?.copyWith(fontSize: 17),
+        title: Text(_settingsHubTitle(l)),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.auto_awesome, color: Color(0xFF8B5CF6)),
+            onPressed: () => showAiAssistant(context),
+            tooltip: 'Trợ lý ảo AI',
+          ),
+          IconButton(
+            icon: Badge(
+              isLabelVisible: _unreadNotificationsCount > 0,
+              label: Text(_unreadNotificationsCount > 99
+                  ? '99+'
+                  : '$_unreadNotificationsCount'),
+              child: const Icon(Icons.notifications_outlined),
+            ),
+            onPressed: () {
+              _tryNavigateToIndex(_notificationsIndex);
+              _loadNotificationCount();
+            },
+            tooltip: l.notifications,
+          ),
+          _buildUserMenu(),
+        ],
+      ),
+      body: Column(
+        children: [
+          const AnnouncementBanner(),
+          Expanded(
+            child: _buildMobileBody(bottomStackOnly: posHubFullscreen),
+          ),
+        ],
+      ),
+      bottomNavigationBar: _buildModernBottomNav(safeBottomIndex, l),
+      drawer: _buildDrawer(),
+    );
+
+    // POS fullscreen: keep MainLayout shell (Home IndexedStack) mounted Offstage
+    // so returning home does not remount and flicker.
     if (posHubFullscreen) {
-      NavigationNotifier.mobileDrawerModuleActive.value = false;
       return PopScope(
         canPop: false,
         onPopInvokedWithResult: (didPop, _) {
@@ -1916,19 +2025,26 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             _tryNavigateToIndex(0);
           }
         },
-        child: NotificationOverlay(
-          child: PosMobileHubScreen(
-            key: ValueKey('pos_hub_$moduleCode'),
-            initialTab: PosHubModules.tabIndexForModule(moduleCode),
+        child: _wrapAppShell(
+          Stack(
+            fit: StackFit.expand,
+            children: [
+              Offstage(
+                offstage: true,
+                child: TickerMode(
+                  enabled: false,
+                  child: scaffold,
+                ),
+              ),
+              PosMobileHubScreen(
+                key: const ValueKey('pos_mobile_hub'),
+                initialTab: PosHubModules.tabIndexForModule(moduleCode),
+              ),
+            ],
           ),
         ),
       );
     }
-
-    final bottomNavIndex = _bottomNavSlotIndexForModule(moduleCode);
-    final isBottomNav = bottomNavIndex >= 0;
-    NavigationNotifier.mobileDrawerModuleActive.value = !isBottomNav;
-    final safeBottomIndex = isBottomNav ? bottomNavIndex : -1;
 
     return PopScope(
       canPop: false,
@@ -1941,58 +2057,16 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           SystemNavigator.pop();
         }
       },
-      child: NotificationOverlay(
-        child: Scaffold(
-          key: _mobileScaffoldKey,
-          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-          appBar: AppBar(
-            toolbarHeight: 44,
-            leading: _canGoBack
-                ? IconButton(
-                    icon: const Icon(Icons.arrow_back, size: 22),
-                    onPressed: _goBack,
-                    tooltip: l.goBack,
-                    visualDensity: VisualDensity.compact,
-                  )
-                : null,
-            titleTextStyle: Theme.of(context)
-                .textTheme
-                .headlineLarge
-                ?.copyWith(fontSize: 17),
-            title: Text(_settingsHubTitle(l)),
-            actions: [
-              IconButton(
-                icon: Badge(
-                  isLabelVisible: _unreadNotificationsCount > 0,
-                  label: Text(_unreadNotificationsCount > 99
-                      ? '99+'
-                      : '$_unreadNotificationsCount'),
-                  child: const Icon(Icons.notifications_outlined),
-                ),
-                onPressed: () {
-                  _tryNavigateToIndex(_notificationsIndex);
-                  _loadNotificationCount();
-                },
-                tooltip: l.notifications,
-              ),
-              _buildUserMenu(),
-            ],
-          ),
-          body: Column(
-            children: [
-              const AnnouncementBanner(),
-              Expanded(child: _buildMobileBody()),
-            ],
-          ),
-          bottomNavigationBar: _buildModernBottomNav(safeBottomIndex, l),
-          drawer: _buildDrawer(),
-        ),
-      ),
+      child: _wrapAppShell(scaffold),
     );
   }
 
-  /// Mobile body: chỉ mount màn bottom-nav khi user mở lần đầu (tránh gọi API module ngoài gói).
-  Widget _buildMobileBody() {
+  /// Mobile body: keep bottom-nav screens (esp. Home) mounted via Offstage when
+  /// opening drawer modules — mirrors desktop [_buildPersistentMainContent].
+  ///
+  /// [bottomStackOnly]: used under POS hub Offstage — keep Home alive without
+  /// also mounting the POS module screen (hub already hosts it).
+  Widget _buildMobileBody({bool bottomStackOnly = false}) {
     final layout = _resolvedMainNavLayout();
     final bottomNavIndices = <int>[];
     for (final slotId in layout.slots) {
@@ -2006,24 +2080,65 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       final idx = _navIndexForModule(def!.moduleCode!);
       if (idx != null) bottomNavIndices.add(idx);
     }
-    final isBottomNav = bottomNavIndices.contains(_selectedIndex);
-    if (!isBottomNav) {
-      return _getScreenForIndex(_selectedIndex);
+
+    void cacheIndex(int i) {
+      _mobileBottomScreenCache.putIfAbsent(
+        i,
+        () => _getScreenForIndex(i),
+      );
     }
 
-    final stackIdx = bottomNavIndices.indexOf(_selectedIndex);
-    _mobileBottomScreenCache.putIfAbsent(
-      _selectedIndex,
-      () => _getScreenForIndex(_selectedIndex),
+    // Always keep Home in the stack once bottom-nav includes it.
+    if (bottomNavIndices.contains(0)) {
+      cacheIndex(0);
+    }
+
+    if (bottomNavIndices.isEmpty) {
+      return bottomStackOnly
+          ? const SizedBox.shrink()
+          : _getScreenForIndex(_selectedIndex);
+    }
+
+    final isBottomNav = bottomNavIndices.contains(_selectedIndex);
+    if (isBottomNav) {
+      cacheIndex(_selectedIndex);
+      _lastMobileBottomStackIdx = bottomNavIndices.indexOf(_selectedIndex);
+    }
+
+    final homeStackIdx = bottomNavIndices.indexOf(0);
+    final fallbackIdx = homeStackIdx >= 0 ? homeStackIdx : 0;
+    final rawStackIdx = isBottomNav
+        ? bottomNavIndices.indexOf(_selectedIndex)
+        : (_lastMobileBottomStackIdx ?? fallbackIdx);
+    final stackIdx = rawStackIdx.clamp(0, bottomNavIndices.length - 1);
+    cacheIndex(bottomNavIndices[stackIdx]);
+
+    final stack = IndexedStack(
+      index: stackIdx,
+      sizing: StackFit.expand,
+      children: [
+        for (final i in bottomNavIndices)
+          KeyedSubtree(
+            key: ValueKey('mobile_bottom_$i'),
+            child: _mobileBottomScreenCache[i] ?? const SizedBox.shrink(),
+          ),
+      ],
     );
 
-    return IndexedStack(
-      index: stackIdx,
-      children: bottomNavIndices.map((i) {
-        final cached = _mobileBottomScreenCache[i];
-        if (cached != null) return cached;
-        return const SizedBox.shrink();
-      }).toList(),
+    if (bottomStackOnly || isBottomNav) return stack;
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Offstage(
+          offstage: true,
+          child: TickerMode(
+            enabled: false,
+            child: stack,
+          ),
+        ),
+        _getScreenForIndex(_selectedIndex),
+      ],
     );
   }
 
@@ -2803,6 +2918,12 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             ),
           ),
           const SizedBox(width: 16),
+          IconButton(
+            icon: const Icon(Icons.auto_awesome, color: Color(0xFF8B5CF6)),
+            onPressed: () => showAiAssistant(context),
+            tooltip: 'Trợ lý ảo AI',
+          ),
+          const SizedBox(width: 4),
           // Notifications
           IconButton(
             icon: Badge(
@@ -3188,6 +3309,7 @@ class NavItem {
     'Payroll': (l) => l.payrollSummary,
     'BonusPenalty': (l) => l.bonusPenalty,
     'AdvanceRequests': (l) => l.salaryAdvance,
+    'BusinessTripExpense': (l) => 'Công tác phí',
     'CashTransaction': (l) => l.incomeExpense,
     'PenaltyTickets': (l) => 'Phiếu phạt',
     'Asset': (l) => l.assets,
@@ -3208,6 +3330,7 @@ class NavItem {
     'PenaltyReport': (l) => 'Báo cáo phạt',
     'CashReport': (l) => 'Báo cáo thu chi',
     'AdvanceReport': (l) => 'Báo cáo ứng lương',
+    'BusinessTripReport': (l) => 'Báo cáo công tác phí',
     'LeaveReport': (l) => 'Báo cáo nghỉ phép',
     'AssetReport': (l) => 'Báo cáo tài sản',
     'SettingsHub': (l) => l.hrmSetup,
@@ -3222,6 +3345,7 @@ class NavItem {
     'Attendance': (l) => l.attendanceData,
     'Payroll': (l) => l.employeePayroll,
     'AdvanceRequests': (l) => l.advanceManagement,
+    'BusinessTripExpense': (l) => 'Công tác phí — ứng & hoạch toán',
     'AssetReport': (l) => 'Danh mục, kho, kiểm kê, bảo hành',
   };
 
@@ -3405,41 +3529,55 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
     Map<String, List<MapEntry<int, NavItem>>> groupedItems,
   ) {
     final l = AppLocalizations.of(context);
+    final groupNames = _HomeMenuScreen._groupOrder
+        .where((g) => groupedItems.containsKey(g))
+        .toList(growable: false);
+
     return ColoredBox(
       color: PosTheme.background,
-      child: ListView(
+      child: CustomScrollView(
         controller: _scrollController,
         key: const PageStorageKey<String>('home_menu_scroll'),
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
-        children: [
-          PosMobileProfileCard(
-            name: user?.fullName ?? 'User',
-            subtitle: _profileSubtitle(user),
+        cacheExtent: 800,
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                RepaintBoundary(
+                  child: PosMobileProfileCard(
+                    name: user?.fullName ?? 'User',
+                    subtitle: _profileSubtitle(user),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                RepaintBoundary(child: _buildMobileQuickActionsGrid(context)),
+              ]),
+            ),
           ),
-          const SizedBox(height: 12),
-          _buildMobileQuickActionsGrid(context),
-          const SizedBox(height: 12),
-          ..._HomeMenuScreen._groupOrder
-              .where((g) => groupedItems.containsKey(g))
-              .map((groupName) {
-            final items = groupedItems[groupName]!;
-            final title = NavItem._groupMap[groupName]?.call(l) ?? groupName;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: PosMobileHubSectionGrid(
-                title: title,
-                items: items
-                    .map(
-                      (entry) => PosMobileHubGridItem(
-                        label: entry.value.localizedLabel(l),
-                        icon: entry.value.activeIcon,
-                        onTap: () => widget.onItemTap(entry.key),
-                      ),
-                    )
-                    .toList(),
+          for (final groupName in groupNames) ...[
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+              sliver: SliverToBoxAdapter(
+                child: RepaintBoundary(
+                  child: PosMobileHubSectionGrid(
+                    title:
+                        NavItem._groupMap[groupName]?.call(l) ?? groupName,
+                    items: groupedItems[groupName]!
+                        .map(
+                          (entry) => PosMobileHubGridItem(
+                            label: entry.value.localizedLabel(l),
+                            icon: entry.value.activeIcon,
+                            onTap: () => widget.onItemTap(entry.key),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ),
               ),
-            );
-          }),
+            ),
+          ],
+          const SliverPadding(padding: EdgeInsets.only(bottom: 24)),
         ],
       ),
     );
@@ -3483,6 +3621,7 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
       child: ListView(
         controller: _scrollController,
         key: const PageStorageKey<String>('home_menu_scroll'),
+        cacheExtent: 800,
         padding: EdgeInsets.all(padding),
         children: [
           // ═══════════════ QUICK NAV STRIP (trước lưới chức năng) ═══════════════
@@ -3680,7 +3819,8 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
             final groupDesc =
                 _HomeMenuScreen._groupDescriptions[groupName] ?? '';
 
-            return Padding(
+            return RepaintBoundary(
+              child: Padding(
               padding: const EdgeInsets.only(bottom: 28),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -3809,6 +3949,7 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
                   ),
                 ],
               ),
+            ),
             );
           }),
         ],

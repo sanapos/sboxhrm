@@ -28,6 +28,8 @@ import '../../utils/shift_records_calculator.dart';
 import '../../utils/allowance_calculator.dart';
 import '../../utils/travel_hours_calculator.dart';
 import '../../utils/travel_hours_load_utils.dart';
+import '../../utils/travel_salary_utils.dart';
+import '../../utils/travel_eligibility_utils.dart';
 import '../../models/mobile_attendance.dart';
 import '../../utils/mobile_attendance_vertical_layout.dart';
 import '../main_layout.dart' show NavigationNotifier;
@@ -105,9 +107,15 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
 
   int _dayEndHour = 0;
   int _dayEndMinute = 0;
+  double _minHoursForWorkDay = 0;
+  bool _decimalWorkDayEnabled = false;
+  double _standardWorkHours = 8;
   List<DailyShiftRecord>? _cachedShiftRecords;
   Map<String, List<DailyShiftRecord>>? _shiftRecordsByEmpKey;
   Map<String, double> _travelHoursByEmpKey = {};
+  Set<String> _travelEligibleKeys = {};
+  TravelSalaryMode _travelSalaryMode = TravelSalaryMode.basePer8h;
+  double _travelFixedHourlyRate = 0;
 
   // ═══ State ═══
   bool _isLoading = true;
@@ -447,6 +455,15 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
 
   double _travelHoursForEmployee(Employee? emp) {
     if (emp == null) return 0;
+    if (!isEmployeeTravelEligible(
+      eligibleKeys: _travelEligibleKeys,
+      employeeId: emp.id,
+      employeeCode: emp.employeeCode,
+      applicationUserId: emp.applicationUserId,
+      pin: emp.pin,
+    )) {
+      return 0;
+    }
     final id = emp.id.trim();
     if (id.isNotEmpty) {
       final byId = _travelHoursByEmpKey[id];
@@ -533,6 +550,18 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       _salarySettings = results[1] is Map<String, dynamic>
           ? results[1] as Map<String, dynamic>
           : {};
+      _minHoursForWorkDay = parseMinHoursForWorkDay(
+        salarySettings: _salarySettings,
+      );
+      _decimalWorkDayEnabled = parseDecimalWorkDayEnabled(
+        salarySettings: _salarySettings,
+      );
+      _standardWorkHours = parseStandardWorkHours(
+        salarySettings: _salarySettings,
+      );
+      _travelSalaryMode = parseTravelSalaryMode(salarySettings: _salarySettings);
+      _travelFixedHourlyRate =
+          parseTravelFixedHourlyRate(salarySettings: _salarySettings);
       // getPenaltySettings returns raw response with isSuccess/data
       final penaltyResult = results[2] as Map<String, dynamic>;
       _penaltySettings = penaltyResult['data'] is Map<String, dynamic>
@@ -628,6 +657,17 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       }
 
       await _loadPeriodAttendances();
+      _travelEligibleKeys = await loadTravelEligibleEmployeeKeys(
+        _apiService,
+        employeesList: _employees
+            .map((e) => {
+                  'id': e.id,
+                  'employeeCode': e.employeeCode,
+                  'applicationUserId': e.applicationUserId,
+                  'pin': e.pin,
+                })
+            .toList(),
+      );
       await _loadTravelMobileRecords();
     } catch (e) {
       debugPrint('Error loading payroll data: $e');
@@ -696,6 +736,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       holidays: _holidays,
       dayEndHour: _dayEndHour,
       dayEndMinute: _dayEndMinute,
+      minHoursForWorkDay: _minHoursForWorkDay,
+      decimalWorkDayEnabled: _decimalWorkDayEnabled,
+      standardWorkHours: _standardWorkHours,
     );
     _shiftRecordsByEmpKey = {};
     for (final r in _cachedShiftRecords!) {
@@ -761,6 +804,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         'lateMinutes': row['lateMinutes'],
         'earlyCount': row['earlyCount'],
         'earlyMinutes': row['earlyMinutes'],
+        'travelHours': row['travelHours'],
+        'travelSalary': row['travelSalary'],
       },
       'dailyRecords': shiftRecords.map((r) {
         final punches = r.punchTimes;
@@ -1394,7 +1439,22 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     otSalary += holidayDaySalary;
 
     final double travelHours = _travelHoursForEmployee(emp);
-    final double travelSalary = hourlyRate * travelHours;
+    final travelMode = parseTravelSalaryModeForEmployee(
+      benefit: benefit,
+    );
+    final travelFixedRate = parseTravelFixedHourlyRateForEmployee(
+      benefit: benefit,
+    );
+    final double travelSalary = computeTravelSalary(
+      travelHours: travelHours,
+      mode: travelMode,
+      travelFixedHourlyRate: travelFixedRate,
+      baseSalary: baseSalary,
+      completionSalary: completionSalary,
+      standardWorkDays: standardWorkDays,
+      standardDayHours: standardDayHours,
+      workHourlyFallback: hourlyRate,
+    );
 
     // ═══ Allowances ═══
     final allowanceBreakdown = _calcEmployeeAllowances(
@@ -2014,6 +2074,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           'tax': _toDouble(row['pit']),
           'grossSalary': _toDouble(row['totalSalary']),
           'netSalary': _toDouble(row['netSalary']),
+          'travelHours': _toDouble(row['travelHours']),
+          'travelSalary': _toDouble(row['travelSalary']),
         };
         if (userId.isNotEmpty) item['employeeUserId'] = userId;
         item['attendanceSnapshot'] = _buildAttendanceSnapshot(code, row);
@@ -5292,15 +5354,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       );
     }
 
-    final detailCols = _visiblePayrollColumns()
-        .where((c) => !{
-              'stt',
-              'name',
-              'code',
-              'department',
-              _employeeSignColumnKey,
-            }.contains(c.key))
-        .toList();
+    final detailCols = _mobilePayrollDetailColumns();
 
     final totalPages = math.max(1, (data.length / _rowsPerPage).ceil());
     if (_currentPage > totalPages) _currentPage = totalPages;
@@ -5432,13 +5486,28 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           subtitle: subtitle.isEmpty
               ? null
               : Text(subtitle, style: const TextStyle(fontSize: 12)),
-          trailing: Text(
-            _fmtCurrency(row['netSalary']),
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
-              color: Color(0xFF1D4ED8),
-            ),
+          trailing: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                _fmtCurrency(row['netSalary']),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: Color(0xFF1D4ED8),
+                ),
+              ),
+              if ((_toDouble(row['travelHours'])) > 0)
+                Text(
+                  'Đi đường: ${(_toDouble(row['travelHours'])).toStringAsFixed(1)}h',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.orange.shade700,
+                  ),
+                ),
+            ],
           ),
           children: [buildExpandedDetail(row, globalIndex)],
         ),
@@ -5624,17 +5693,28 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
   }
 
   // ──────── Vertical payroll layout (mobile) ────────
-  List<PayrollColumn> _mobileVerticalPayrollColumns() {
-    return _visiblePayrollColumns()
+  List<PayrollColumn> _mobilePayrollDetailColumns() {
+    const alwaysOnMobile = {'travelHours', 'travelSalary'};
+    final visible = _visiblePayrollColumns()
         .where((c) => !{
               'stt',
               'name',
               'code',
               'department',
-              'position',
-              'salaryType',
               _employeeSignColumnKey,
             }.contains(c.key))
+        .toList();
+    for (final key in alwaysOnMobile) {
+      if (visible.any((c) => c.key == key)) continue;
+      final col = _columns.where((c) => c.key == key).firstOrNull;
+      if (col != null) visible.add(col);
+    }
+    return visible;
+  }
+
+  List<PayrollColumn> _mobileVerticalPayrollColumns() {
+    return _mobilePayrollDetailColumns()
+        .where((c) => !{'salaryType', 'position'}.contains(c.key))
         .toList();
   }
 

@@ -338,6 +338,14 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
       'canExport',
       'canDelete',
     },
+    'BusinessTripExpense': {
+      'canView',
+      'canCreate',
+      'canEdit',
+      'canApprove',
+      'canExport',
+      'canDelete',
+    },
     'CashTransaction': {
       'canView',
       'canCreate',
@@ -370,6 +378,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
     'CashReport': {'canView', 'canExport'},
     'PenaltyReport': {'canView', 'canExport'},
     'AdvanceReport': {'canView', 'canExport'},
+    'BusinessTripReport': {'canView', 'canExport'},
     'AssetReport': {'canView', 'canExport'},
     // ── CÀI ĐẶT ──
     'SettingsHub': {'canView'},
@@ -589,6 +598,16 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
         };
 
       case 'accountant':
+        if (module == 'BusinessTripExpense') {
+          return {
+            'canView': true,
+            'canCreate': true,
+            'canEdit': true,
+            'canDelete': true,
+            'canExport': true,
+            'canApprove': true,
+          };
+        }
         if ([
           'Salary',
           'Payslip',
@@ -599,7 +618,8 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
           'Transaction',
           'CashTransaction',
           'BankAccount',
-          'Benefit'
+          'Benefit',
+          'BusinessTripExpense',
         ].contains(module)) {
           return {
             'canView': true,
@@ -776,7 +796,8 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
             'canApprove': false
           };
         }
-        if (['Leave', 'ShiftSwap', 'AttendanceCorrection', 'Overtime']
+        if (['Leave', 'ShiftSwap', 'AttendanceCorrection', 'Overtime',
+                'AdvanceRequests', 'BusinessTripExpense']
             .contains(module)) {
           return {
             'canView': true,

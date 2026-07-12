@@ -9,6 +9,7 @@ import '../models/device.dart';
 import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
 import '../utils/travel_hours_load_utils.dart';
+import '../utils/travel_eligibility_utils.dart';
 import 'attendance/attendance_by_shift_tab.dart';
 import 'attendance/attendance_summary_tab.dart'
     show AttendanceCorrectionRequest;
@@ -17,6 +18,7 @@ import '../widgets/notification_overlay.dart';
 import '../utils/attendance_load_utils.dart';
 import '../utils/attendance_date_range_presets.dart';
 import '../utils/report_screen_helpers.dart';
+import '../utils/shift_records_calculator.dart';
 import '../utils/attendance_correction_privilege.dart';
 import '../utils/vietnamese_font.dart';
 import '../utils/salary_profile_load_utils.dart';
@@ -45,6 +47,9 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
   List<dynamic> _approvedLeaves = [];
   int _dayEndHour = 0;
   int _dayEndMinute = 0;
+  double _minHoursForWorkDay = 0;
+  bool _decimalWorkDayEnabled = false;
+  double _standardWorkHours = 8;
   bool _isLoading = true;
   // ignore: unused_field
   bool _allowManualCorrection = true;
@@ -54,6 +59,7 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
   late DateTime _toDate;
   Map<String, double> _travelHoursByEmployeeKey = {};
   Map<String, double> _travelHoursByEmployeeDateKey = {};
+  Set<String> _travelEligibleEmployeeKeys = {};
 
   _AttendanceByShiftScreenState() {
     final range = AttendanceDateRangePresets.resolve('month');
@@ -129,6 +135,14 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
       final dayEndResult = await _apiService
           .getAppSetting('day_end_time')
           .catchError((_) => <String, dynamic>{});
+      final minHoursResult = await _apiService
+          .getAppSetting('min_hours_for_work_day')
+          .catchError((_) => <String, dynamic>{});
+      final decimalResult = await _apiService
+          .getAppSetting('decimal_work_day_enabled')
+          .catchError((_) => <String, dynamic>{});
+      final salarySettings =
+          await _apiService.getSalarySettings().catchError((_) => <String, dynamic>{});
       int deh = 0, dem = 0;
       if (dayEndResult['isSuccess'] == true && dayEndResult['data'] is Map) {
         final data = dayEndResult['data'] as Map;
@@ -139,6 +153,30 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
           dem = int.tryParse(parts[1]) ?? 0;
         }
       }
+
+      var minHoursForWorkDay = 0.0;
+      if (minHoursResult['isSuccess'] == true && minHoursResult['data'] is Map) {
+        minHoursForWorkDay = parseMinHoursForWorkDay(
+          appSettingValue:
+              (minHoursResult['data'] as Map)['value']?.toString(),
+        );
+      }
+      if (minHoursForWorkDay == 0) {
+        minHoursForWorkDay = parseMinHoursForWorkDay(salarySettings: salarySettings);
+      }
+
+      var decimalWorkDayEnabled = false;
+      if (decimalResult['isSuccess'] == true && decimalResult['data'] is Map) {
+        decimalWorkDayEnabled = parseDecimalWorkDayEnabled(
+          appSettingValue:
+              (decimalResult['data'] as Map)['value']?.toString(),
+        );
+      }
+      if (!decimalWorkDayEnabled) {
+        decimalWorkDayEnabled =
+            parseDecimalWorkDayEnabled(salarySettings: salarySettings);
+      }
+      final standardWorkHours = parseStandardWorkHours(salarySettings: salarySettings);
 
       final range = AttendanceDateRangePresets.resolve(_loadPreset);
       _fromDate = range.start;
@@ -193,6 +231,10 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
           toDate: _toDate,
           employeesList: _branchFilter.employees,
         ),
+        loadTravelEligibleEmployeeKeys(
+          _apiService,
+          employeesList: _branchFilter.employees,
+        ),
       ]);
 
       final shiftsRaw = p2[0] as List;
@@ -223,6 +265,7 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
         ...(p2[6] as List<dynamic>),
       ];
       final travelMaps = p2[7] as TravelHoursMaps;
+      final travelEligibleKeys = p2[8] as Set<String>;
 
       if (mounted) {
         setState(() {
@@ -235,9 +278,13 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
           _approvedLeaves = approvedLeaves;
           _dayEndHour = deh;
           _dayEndMinute = dem;
+          _minHoursForWorkDay = minHoursForWorkDay;
+          _decimalWorkDayEnabled = decimalWorkDayEnabled;
+          _standardWorkHours = standardWorkHours;
           _allowManualCorrection = allowManual;
           _travelHoursByEmployeeKey = travelMaps.byEmployeeKey;
           _travelHoursByEmployeeDateKey = travelMaps.byEmployeeDateKey;
+          _travelEligibleEmployeeKeys = travelEligibleKeys;
           if (!silent) _isLoading = false;
         });
         if (attLoad?.truncated == true && mounted) {
@@ -484,12 +531,16 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
                     employeesList: _branchFilter.employees,
                     dayEndHour: _dayEndHour,
                     dayEndMinute: _dayEndMinute,
+                    minHoursForWorkDay: _minHoursForWorkDay,
+                    decimalWorkDayEnabled: _decimalWorkDayEnabled,
+                    standardWorkHours: _standardWorkHours,
                     allowCorrection: canShowButtons,
                     directApplyCorrections: canDirectCorrection,
                     onDataChanged: () => _loadData(silent: true),
                     onDateRangeChanged: _onDatePresetChanged,
                     travelHoursByEmployeeKey: _travelHoursByEmployeeKey,
                     travelHoursByEmployeeDateKey: _travelHoursByEmployeeDateKey,
+                    travelEligibleEmployeeKeys: _travelEligibleEmployeeKeys,
                   ),
                 ),
                 if (_isLoading)

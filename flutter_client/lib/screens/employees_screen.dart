@@ -1,5 +1,6 @@
 // ignore: avoid_web_libraries_in_flutter, deprecated_member_use
-import '../utils/file_saver.dart' as file_saver;
+import '../utils/excel_bytes_utils.dart';
+import '../utils/excel_download_helper.dart';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
@@ -573,16 +574,34 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
   }
 
   // ─── Export Excel ─────────────────────────────────────────────────────────
+  Future<void> _downloadEmployeeImportTemplate() async {
+    try {
+      final bytes = buildEmployeeImportTemplateBytes();
+      if (!isValidXlsxBytes(bytes)) {
+        _showError('Không tạo được file mẫu Excel hợp lệ');
+        return;
+      }
+      await ExcelDownloadHelper.saveExcelBytes(
+        bytes,
+        'mau_import_nhan_vien.xlsx',
+      );
+      _showSuccess('Đã tải file mẫu import nhân viên');
+    } catch (e) {
+      _showError('Không tải được file mẫu: $e');
+    }
+  }
+
   Future<void> _exportEmployeesExcel() async {
     setState(() => _isExporting = true);
     try {
-      final result = await _apiService.exportEmployeesExcel();
+      final filename =
+          'nhan_vien_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.xlsx';
+      final helper = ExcelDownloadHelper();
+      final result = await helper.runServerExport(
+        fetch: _apiService.exportEmployeesExcel,
+        filename: filename,
+      );
       if (result['isSuccess'] == true) {
-        final bytes = Uint8List.fromList(List<int>.from(result['data']));
-        await file_saver.saveFileBytes(
-            bytes,
-            'nhan_vien_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.xlsx',
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         _showSuccess(_l10n.exportExcelSuccess);
       } else {
         _showError(result['message'] ?? _l10n.exportExcelFailed);
@@ -633,6 +652,12 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
           ),
         ),
         actions: [
+          TextButton(
+            onPressed: () async {
+              await _downloadEmployeeImportTemplate();
+            },
+            child: const Text('Tải file mẫu'),
+          ),
           AppDialogActions(
             onConfirm: () => Navigator.pop(ctx, true),
             confirmLabel: 'Chọn file Excel',
@@ -653,8 +678,14 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
 
     final bytes = fileResult.files.first.bytes;
     final fileName = fileResult.files.first.name;
-    if (bytes == null) {
-      _showError('Không thể đọc file');
+    if (bytes == null || bytes.isEmpty) {
+      _showError(
+          'Không thể đọc file trên trình duyệt. Thử lại hoặc dùng Chrome/Edge.');
+      return;
+    }
+    if (!isValidXlsxBytes(bytes)) {
+      _showError(
+          'File không phải Excel (.xlsx) hợp lệ. Hãy dùng file Export từ SBOX hoặc file mẫu.');
       return;
     }
 
@@ -701,6 +732,9 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
               ],
             ),
           );
+          if (imported > 0 || updated > 0) {
+            await _loadEmployees(showLoading: false);
+          }
         } else {
           _showSuccess(
             summary?.isNotEmpty == true
@@ -1728,8 +1762,10 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
         description: _searchQuery.isNotEmpty
             ? 'No matching employees found'
             : _l10n.addFirstEmployee,
-        actionLabel: _l10n.addEmployee,
-        onAction: () => _showEmployeeForm(null),
+        actionLabel: _perm.canCreate(_module) ? _l10n.addEmployee : null,
+        onAction: _perm.canCreate(_module)
+            ? () => _showEmployeeForm(null)
+            : null,
       );
     }
     return _buildEmployeesList();
@@ -1751,8 +1787,10 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
             description: _searchQuery.isNotEmpty
                 ? 'No matching employees found'
                 : _l10n.addFirstEmployee,
-            actionLabel: _l10n.addEmployee,
-            onAction: () => _showEmployeeForm(null),
+            actionLabel: _perm.canCreate(_module) ? _l10n.addEmployee : null,
+            onAction: _perm.canCreate(_module)
+                ? () => _showEmployeeForm(null)
+                : null,
           ),
         ),
       ];
@@ -2528,6 +2566,11 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
 
   void _showEmployeeForm(Employee? employee) {
     final isEditing = employee != null;
+    if (!isEditing && !_perm.canCreate(_module)) {
+      _showError(
+          'Tài khoản không có quyền thêm nhân viên. Liên hệ quản trị để được cấp quyền.');
+      return;
+    }
 
     final employeeCodeController =
         TextEditingController(text: employee?.employeeCode ?? '');
@@ -2577,6 +2620,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     String? photoUrl = employee?.avatarUrl;
     String? cccdFrontUrl = employee?.idCardFrontUrl;
     String? cccdBackUrl = employee?.idCardBackUrl;
+    var isSaving = false;
 
     // Auto-fill bank account name from fullName
     // ignore: unused_local_variable (selectedHometown tracked separately)
@@ -3691,24 +3735,29 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
               ],
             ),
           );
-          Future<Null> onSave() async {
+          Future<void> onSave() async {
+            if (isSaving) return;
             if (employeeCodeController.text.isEmpty ||
                 fullNameController.text.isEmpty) {
-              _showError('Vui lòng điền đầy đủ thông tin bắt buộc');
+              _showError('Vui lòng điền đầy đủ thông tin bắt buộc (Mã NV, Họ tên)');
               return;
             }
 
-            Navigator.pop(context);
+            setDialogState(() => isSaving = true);
 
-            // Map work status to server enum (Active=0, Resigned=1, OnLeave=2, Probation=3)
             final workStatusInt =
                 EmployeeWorkStatusUtil.toApiValue(selectedWorkStatus);
 
+            String? optionalGuid(String? value) {
+              if (value == null || value.trim().isEmpty) return null;
+              return value.trim();
+            }
+
             final data = {
-              'employeeCode': employeeCodeController.text,
+              'employeeCode': employeeCodeController.text.trim(),
               'firstName': fullNameController.text.split(' ').length > 1
                   ? fullNameController.text.split(' ').last
-                  : fullNameController.text,
+                  : fullNameController.text.trim(),
               'lastName': fullNameController.text.split(' ').length > 1
                   ? fullNameController.text
                       .split(' ')
@@ -3716,30 +3765,30 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                       .join(' ')
                   : '',
               'phoneNumber':
-                  phoneController.text.isNotEmpty ? phoneController.text : null,
+                  phoneController.text.isNotEmpty ? phoneController.text.trim() : null,
               'personalEmail':
-                  emailController.text.isNotEmpty ? emailController.text : null,
+                  emailController.text.isNotEmpty ? emailController.text.trim() : null,
               'companyEmail': companyEmailController.text.isNotEmpty
-                  ? companyEmailController.text
-                  : '${employeeCodeController.text}@company.com',
+                  ? companyEmailController.text.trim()
+                  : '${employeeCodeController.text.trim()}@company.com',
               'gender': selectedGender,
               'dateOfBirth': selectedDateOfBirth?.toIso8601String(),
               'nationalIdNumber': nationalIdController.text.isNotEmpty
-                  ? nationalIdController.text
+                  ? nationalIdController.text.trim()
                   : null,
               'permanentAddress': permanentAddressController.text.isNotEmpty
-                  ? permanentAddressController.text
+                  ? permanentAddressController.text.trim()
                   : null,
               'temporaryAddress': temporaryAddressController.text.isNotEmpty
-                  ? temporaryAddressController.text
+                  ? temporaryAddressController.text.trim()
                   : null,
-              'emergencyContactphone':
+              'emergencyContactPhone':
                   emergencyContactController.text.isNotEmpty
-                      ? emergencyContactController.text
+                      ? emergencyContactController.text.trim()
                       : null,
               'emergencyContactName':
                   emergencyContactNameController.text.isNotEmpty
-                      ? emergencyContactNameController.text
+                      ? emergencyContactNameController.text.trim()
                       : null,
               'maritalStatus': selectedMaritalStatus,
               'hometown': (selectedHometown?.isNotEmpty == true)
@@ -3747,49 +3796,61 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                   : null,
               'educationLevel': selectedEducationLevel,
               'department': departmentController.text.isNotEmpty
-                  ? departmentController.text
+                  ? departmentController.text.trim()
                   : null,
               'position': positionController.text.isNotEmpty
-                  ? positionController.text
+                  ? positionController.text.trim()
                   : null,
               'joinDate': selectedJoinDate?.toIso8601String(),
               'contractEndDate': selectedContractEndDate?.toIso8601String(),
               'workStatus': workStatusInt,
+              'employmentType': 1,
               'bankName':
                   selectedBank?.isNotEmpty == true ? selectedBank : null,
               'bankAccountName': bankAccountNameController.text.isNotEmpty
-                  ? bankAccountNameController.text
+                  ? bankAccountNameController.text.trim()
                   : null,
               'bankAccountNumber': bankAccountNumberController.text.isNotEmpty
-                  ? bankAccountNumberController.text
+                  ? bankAccountNumberController.text.trim()
                   : null,
               'photoUrl': photoUrl,
               'idCardFrontUrl': cccdFrontUrl,
               'idCardBackUrl': cccdBackUrl,
-              'directManagerEmployeeId': selectedManagerId,
-              'branchId': selectedBranchId,
+              'directManagerEmployeeId': optionalGuid(selectedManagerId),
+              'branchId': optionalGuid(selectedBranchId),
             };
 
             try {
-              bool success;
               if (isEditing) {
-                success = await _apiService.updateEmployee(employee.id, data);
+                final ok =
+                    await _apiService.updateEmployee(employee.id, data);
+                if (!mounted) return;
+                if (ok) {
+                  Navigator.pop(context);
+                  _showSuccess('Đã cập nhật nhân viên');
+                  await _loadEmployees(showLoading: false);
+                } else {
+                  setDialogState(() => isSaving = false);
+                  _showError('Không thể cập nhật nhân viên');
+                }
               } else {
-                success = await _apiService.createEmployee(data);
-              }
-
-              if (success) {
-                _showSuccess(isEditing
-                    ? 'Đã cập nhật nhân viên'
-                    : 'Đã thêm nhân viên mới');
-                await _loadEmployees(showLoading: false);
-              } else {
-                _showError(isEditing
-                    ? 'Không thể cập nhật nhân viên'
-                    : 'Không thể thêm nhân viên');
+                final result = await _apiService.createEmployee(data);
+                if (!mounted) return;
+                if (result['isSuccess'] == true) {
+                  Navigator.pop(context);
+                  _showSuccess('Đã thêm nhân viên mới');
+                  await _loadEmployees(showLoading: false);
+                } else {
+                  setDialogState(() => isSaving = false);
+                  _showError(result['message']?.toString() ??
+                      'Không thể thêm nhân viên');
+                }
               }
             } catch (e) {
-              _showError('Lỗi: $e');
+              if (mounted) {
+                setDialogState(() => isSaving = false);
+                _showError('Lỗi: $e');
+              }
             }
           }
 
@@ -3818,9 +3879,17 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                               child: Text(_l10n.cancel)),
                           const SizedBox(width: 12),
                           FilledButton(
-                              onPressed: onSave,
-                              child: Text(
-                                  isEditing ? _l10n.save : _l10n.addEmployee)),
+                              onPressed: isSaving ? null : onSave,
+                              child: isSaving
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2, color: Colors.white),
+                                    )
+                                  : Text(isEditing
+                                      ? _l10n.save
+                                      : _l10n.addEmployee)),
                         ]),
                   ),
                 ),
@@ -3840,8 +3909,9 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
             ),
             actions: [
               AppDialogActions(
-                onConfirm: onSave,
+                onConfirm: isSaving ? null : onSave,
                 confirmLabel: isEditing ? _l10n.save : _l10n.addEmployee,
+                isLoading: isSaving,
               ),
             ],
           );

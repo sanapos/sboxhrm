@@ -250,7 +250,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
       case 'AutoApproved':
         return Colors.blue;
       case 'Cancelled':
-        return Colors.grey;
+        return const Color(0xFFDC2626);
       default:
         return Colors.black;
     }
@@ -1616,7 +1616,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
           const SizedBox(width: 8),
           Expanded(
               child: _buildStatCard(
-                  'Đã hủy', _stats['totalCancelled'] ?? 0, Colors.grey)),
+                  'Đã hủy', _stats['totalCancelled'] ?? 0, const Color(0xFFDC2626))),
         ],
       ),
     );

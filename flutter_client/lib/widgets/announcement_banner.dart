@@ -30,7 +30,7 @@ class _AnnouncementBannerState extends State<AnnouncementBanner> {
   void initState() {
     super.initState();
     _load();
-    _timer = Timer.periodic(const Duration(minutes: 5), (_) => _load());
+    _timer = Timer.periodic(const Duration(minutes: 2), (_) => _load());
   }
 
   @override
@@ -104,8 +104,17 @@ class _AnnouncementBannerState extends State<AnnouncementBanner> {
     caseSensitive: false,
   );
 
-  /// Ngày hết hạn license (lịch VN), ưu tiên parse từ nội dung thông báo.
+  /// Ngày hết hạn license — ưu tiên live từ server, fallback parse content.
   DateTime? _licenseExpiryDate(Map<String, dynamic> a) {
+    final liveStr = a['liveExpiryDate']?.toString();
+    if (liveStr != null && liveStr.isNotEmpty) {
+      final live = DateTime.tryParse(liveStr);
+      if (live != null) {
+        final local = live.toLocal();
+        return DateTime(local.year, local.month, local.day);
+      }
+    }
+
     final content = a['content']?.toString() ?? '';
     final m = _licenseExpiryInContentRe.firstMatch(_clean(content));
     if (m != null) {
@@ -127,6 +136,10 @@ class _AnnouncementBannerState extends State<AnnouncementBanner> {
   }
 
   int? _daysLeftForRenewal(Map<String, dynamic> a) {
+    final live = a['liveDaysLeft'];
+    if (live is int) return live;
+    if (live is num) return live.round();
+
     final exp = _licenseExpiryDate(a);
     if (exp == null) return null;
     final now = DateTime.now();

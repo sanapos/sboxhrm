@@ -585,18 +585,20 @@ class DeviceSyncProgressOverlay extends StatefulWidget {
 class _DeviceSyncProgressOverlayState extends State<DeviceSyncProgressOverlay> {
   final _manager = DeviceSyncProgressManager.instance;
   StreamSubscription<List<DeviceSyncJob>>? _sub;
+  OverlayEntry? _overlayEntry;
 
   @override
   void initState() {
     super.initState();
-    _sub = _manager.stream.listen((_) {
-      if (mounted) setState(() {});
-    });
+    _sub = _manager.stream.listen((_) => _updateOverlay());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateOverlay());
   }
 
   @override
   void dispose() {
     _sub?.cancel();
+    _overlayEntry?.remove();
+    _overlayEntry = null;
     super.dispose();
   }
 
@@ -608,29 +610,49 @@ class _DeviceSyncProgressOverlayState extends State<DeviceSyncProgressOverlay> {
     return padding + nav + 12;
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final jobs = _manager.jobs;
-    final isMobile = MediaQuery.sizeOf(context).width < 600;
+  void _updateOverlay() {
+    if (!mounted) return;
 
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        widget.child,
-        if (jobs.isNotEmpty)
-          Positioned(
-            left: isMobile ? 8 : null,
-            right: 8,
-            bottom: _bottomInset(context),
+    final jobs = _manager.jobs;
+    if (jobs.isEmpty) {
+      _overlayEntry?.remove();
+      _overlayEntry = null;
+      return;
+    }
+
+    if (_overlayEntry != null) {
+      _overlayEntry!.markNeedsBuild();
+      return;
+    }
+
+    _overlayEntry = OverlayEntry(
+      builder: (overlayContext) {
+        final isMobile = MediaQuery.sizeOf(overlayContext).width < 600;
+        final activeJobs = _manager.jobs;
+        if (activeJobs.isEmpty) return const SizedBox.shrink();
+
+        return Positioned(
+          left: isMobile ? 8 : null,
+          right: 8,
+          bottom: _bottomInset(overlayContext),
+          child: Material(
+            color: Colors.transparent,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               mainAxisSize: MainAxisSize.min,
-              children: jobs.map((j) => _SyncJobCard(job: j)).toList(),
+              children:
+                  activeJobs.map((j) => _SyncJobCard(job: j)).toList(),
             ),
           ),
-      ],
+        );
+      },
     );
+
+    Overlay.of(context, rootOverlay: true).insert(_overlayEntry!);
   }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 class _SyncJobCard extends StatelessWidget {

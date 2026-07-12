@@ -45,6 +45,22 @@ class PosMobileHubScreenState extends State<PosMobileHubScreen> {
   }
 
   @override
+  void didUpdateWidget(PosMobileHubScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Stable hub key: sync tab when MainLayout navigates between POS modules.
+    if (oldWidget.initialTab != widget.initialTab) {
+      final t = widget.initialTab.clamp(0, 4);
+      if (_tab != t) {
+        setState(() => _tab = t);
+        NavigationNotifier.reportScreen(
+          _labelForTab(t),
+          moduleCode: _moduleForTab(t),
+        );
+      }
+    }
+  }
+
+  @override
   void dispose() {
     MobileBottomNavPrefs.revision.removeListener(_onNavPrefsChanged);
     NavigationNotifier.posHubTab.removeListener(_onExternalTab);

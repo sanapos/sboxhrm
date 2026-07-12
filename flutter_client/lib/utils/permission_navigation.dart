@@ -95,6 +95,8 @@ class PermissionNavigation {
         return 'Phiếu thưởng';
       case 'AdvanceRequests':
         return 'Ứng lương';
+      case 'BusinessTripExpense':
+        return 'Công tác phí';
       case 'CashTransaction':
         return 'Thu chi';
       case 'Production':
@@ -127,6 +129,8 @@ class PermissionNavigation {
         return 'Báo cáo thu chi';
       case 'AdvanceReport':
         return 'Báo cáo ứng lương';
+      case 'BusinessTripReport':
+        return 'Báo cáo công tác phí';
       case 'LeaveReport':
         return 'Báo cáo nghỉ phép';
       case 'AssetReport':

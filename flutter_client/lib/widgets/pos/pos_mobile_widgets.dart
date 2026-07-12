@@ -177,16 +177,37 @@ class PosMobileHubSectionGrid extends StatelessWidget {
     if (items.isEmpty) return const SizedBox.shrink();
     return PosMobileHubSection(
       title: title,
-      child: GridView.count(
-        crossAxisCount: 3,
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        mainAxisSpacing: 4,
-        crossAxisSpacing: 4,
-        childAspectRatio: 0.92,
-        children: items
-            .map((item) => _PosMobileHubGridTile(item: item))
-            .toList(),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          const crossAxisCount = 3;
+          const mainAxisSpacing = 4.0;
+          const crossAxisSpacing = 4.0;
+          const childAspectRatio = 0.92;
+          final cellWidth = (constraints.maxWidth -
+                  crossAxisSpacing * (crossAxisCount - 1)) /
+              crossAxisCount;
+          final cellHeight = cellWidth / childAspectRatio;
+          final rows =
+              (items.length + crossAxisCount - 1) ~/ crossAxisCount;
+          final gridHeight =
+              rows * cellHeight + (rows - 1) * mainAxisSpacing;
+
+          return SizedBox(
+            height: gridHeight,
+            child: GridView.builder(
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: crossAxisCount,
+                mainAxisSpacing: mainAxisSpacing,
+                crossAxisSpacing: crossAxisSpacing,
+                childAspectRatio: childAspectRatio,
+              ),
+              itemCount: items.length,
+              itemBuilder: (context, index) =>
+                  _PosMobileHubGridTile(item: items[index]),
+            ),
+          );
+        },
       ),
     );
   }

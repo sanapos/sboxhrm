@@ -8,6 +8,7 @@ import '../models/attendance.dart';
 import '../models/device.dart';
 import '../services/api_service.dart';
 import '../utils/travel_hours_load_utils.dart';
+import '../utils/travel_eligibility_utils.dart';
 import 'attendance/attendance_summary_tab.dart';
 import 'package:intl/intl.dart';
 import 'main_layout.dart' show ScreenRefreshNotifier;
@@ -21,6 +22,7 @@ import '../utils/attendance_record_resolver.dart';
 import '../utils/attendance_correction_dates.dart';
 import '../utils/report_screen_helpers.dart';
 import '../utils/salary_profile_load_utils.dart';
+import '../utils/shift_records_calculator.dart';
 
 /// Màn hình tổng hợp chấm công - standalone wrapper cho AttendanceSummaryTab
 /// Tự load dữ liệu (attendances + devices) và nhúng AttendanceSummaryTab
@@ -47,6 +49,9 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
   final _branchFilter = ReportBranchFilter();
   int _dayEndHour = 0;
   int _dayEndMinute = 0;
+  double _minHoursForWorkDay = 0;
+  bool _decimalWorkDayEnabled = false;
+  double _standardWorkHours = 8;
   bool _isLoading = true;
   String _loadMessage = 'Đang tải dữ liệu...';
   bool _allowManualCorrection = true;
@@ -58,6 +63,7 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
   int? _attendanceExpectedCount;
   Map<String, double> _travelHoursByEmployeeKey = {};
   Map<String, double> _travelHoursByEmployeeDateKey = {};
+  Set<String> _travelEligibleEmployeeKeys = {};
 
   _AttendanceSummaryScreenState() {
     final range = AttendanceDateRangePresets.resolve('month');
@@ -139,6 +145,13 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
         _apiService
             .getAppSetting('allow_manual_correction')
             .catchError((_) => <String, dynamic>{}),
+        _apiService
+            .getAppSetting('min_hours_for_work_day')
+            .catchError((_) => <String, dynamic>{}),
+        _apiService
+            .getAppSetting('decimal_work_day_enabled')
+            .catchError((_) => <String, dynamic>{}),
+        _apiService.getSalarySettings().catchError((_) => <String, dynamic>{}),
       ]);
 
       final devicesRaw = phase1[0] as List;
@@ -165,6 +178,34 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
         allowManual =
             (amcResult['data'] as Map)['value']?.toString() != 'false';
       }
+
+      double minHoursForWorkDay = 0;
+      final minHoursResult = phase1[3] as Map<String, dynamic>;
+      if (minHoursResult['isSuccess'] == true && minHoursResult['data'] is Map) {
+        minHoursForWorkDay = parseMinHoursForWorkDay(
+          appSettingValue:
+              (minHoursResult['data'] as Map)['value']?.toString(),
+        );
+      }
+
+      var decimalWorkDayEnabled = false;
+      final decimalResult = phase1[4] as Map<String, dynamic>;
+      if (decimalResult['isSuccess'] == true && decimalResult['data'] is Map) {
+        decimalWorkDayEnabled = parseDecimalWorkDayEnabled(
+          appSettingValue:
+              (decimalResult['data'] as Map)['value']?.toString(),
+        );
+      }
+
+      final salarySettings = phase1[5] as Map<String, dynamic>;
+      if (minHoursForWorkDay == 0) {
+        minHoursForWorkDay = parseMinHoursForWorkDay(salarySettings: salarySettings);
+      }
+      if (!decimalWorkDayEnabled) {
+        decimalWorkDayEnabled =
+            parseDecimalWorkDayEnabled(salarySettings: salarySettings);
+      }
+      final standardWorkHours = parseStandardWorkHours(salarySettings: salarySettings);
 
       final fetchFrom = AttendanceDateRangePresets.fetchFromDate(
         _fromDate,
@@ -227,11 +268,16 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
           toDate: _toDate,
           employeesList: _branchFilter.employees,
         ),
+        loadTravelEligibleEmployeeKeys(
+          _apiService,
+          employeesList: _branchFilter.employees,
+        ),
       ]);
       final attLoad = phase2[0] as AttendanceLoadResult;
       final attendances = attLoad.items;
       final results = phase2[1] as List;
       final travelMaps = phase2[2] as TravelHoursMaps;
+      final travelEligibleKeys = phase2[3] as Set<String>;
 
       final shiftsRaw = results[0] as List;
       final shiftTemplates = shiftsRaw
@@ -258,6 +304,9 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
           _attendances = attendances;
           _dayEndHour = deh;
           _dayEndMinute = dem;
+          _minHoursForWorkDay = minHoursForWorkDay;
+          _decimalWorkDayEnabled = decimalWorkDayEnabled;
+          _standardWorkHours = standardWorkHours;
           _holidays = holidays;
           _salaryProfiles = salaryProfiles;
           _shiftTemplates = shiftTemplates;
@@ -268,6 +317,7 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
           _attendanceExpectedCount = attLoad.totalCount;
           _travelHoursByEmployeeKey = travelMaps.byEmployeeKey;
           _travelHoursByEmployeeDateKey = travelMaps.byEmployeeDateKey;
+          _travelEligibleEmployeeKeys = travelEligibleKeys;
           if (!silent) _isLoading = false;
         });
         if (attLoad.isIncomplete && mounted) {
@@ -573,6 +623,9 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
                     onCorrectionRequest: _handleCorrectionRequest,
                     dayEndHour: _dayEndHour,
                     dayEndMinute: _dayEndMinute,
+                    minHoursForWorkDay: _minHoursForWorkDay,
+                    decimalWorkDayEnabled: _decimalWorkDayEnabled,
+                    standardWorkHours: _standardWorkHours,
                     holidays: _holidays,
                     salaryProfiles: _salaryProfiles,
                     shiftTemplates: _shiftTemplates,
@@ -585,6 +638,7 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
                     onDataChanged: () => _loadData(),
                     travelHoursByEmployeeKey: _travelHoursByEmployeeKey,
                     travelHoursByEmployeeDateKey: _travelHoursByEmployeeDateKey,
+                    travelEligibleEmployeeKeys: _travelEligibleEmployeeKeys,
                   ),
           ),
         ],

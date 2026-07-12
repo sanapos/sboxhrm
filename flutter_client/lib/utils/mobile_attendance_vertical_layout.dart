@@ -38,12 +38,13 @@ String attendanceVerticalDayTitle(DateTime d) {
   return '${attendanceVerticalWeekdayShort(d)}, $dd/$mm/${d.year}';
 }
 
-/// Một dòng bảng dọc: Ngày | Thứ | Chấm công | Tổng giờ | Tổng công
+/// Một dòng bảng dọc: Ngày | Thứ | Chấm công | Tổng giờ | Đi đường | Tổng công
 class MobileAttendanceVerticalRow {
   final String day;
   final String weekday;
   final Widget attendance;
   final String totalHours;
+  final String travelHours;
   final String totalWork;
   final bool isToday;
   final VoidCallback? onTap;
@@ -53,6 +54,7 @@ class MobileAttendanceVerticalRow {
     required this.weekday,
     required this.attendance,
     required this.totalHours,
+    this.travelHours = '—',
     required this.totalWork,
     this.isToday = false,
     this.onTap,
@@ -66,6 +68,7 @@ class MobileAttendanceVerticalTable extends StatelessWidget {
     'Thứ',
     'Chấm công',
     'Tổng giờ',
+    'Đi đường',
     'Tổng công',
   ];
 
@@ -86,7 +89,7 @@ class MobileAttendanceVerticalTable extends StatelessWidget {
   static const _totalBg = Color(0xFFEFF6FF);
   static const _totalBorder = Color(0xFF93C5FD);
 
-  static const _colFlex = [2, 2, 5, 2, 2];
+  static const _colFlex = [2, 2, 4, 2, 2, 2];
 
   @override
   Widget build(BuildContext context) {
@@ -184,6 +187,7 @@ class MobileAttendanceVerticalTable extends StatelessWidget {
       row.weekday,
       null,
       row.totalHours,
+      row.travelHours,
       row.totalWork,
     ];
 
@@ -219,8 +223,10 @@ class MobileAttendanceVerticalTable extends StatelessWidget {
                         color: i == 3 && cells[i] != '—'
                             ? const Color(0xFF16A34A)
                             : i == 4 && cells[i] != '—'
-                                ? const Color(0xFF2563EB)
-                                : const Color(0xFF18181B),
+                                ? const Color(0xFFEA580C)
+                                : i == 5 && cells[i] != '—'
+                                    ? const Color(0xFF2563EB)
+                                    : const Color(0xFF18181B),
                         height: 1.2,
                       ),
                     ),
@@ -245,6 +251,7 @@ class MobileAttendanceVerticalTable extends StatelessWidget {
       row.weekday,
       null,
       row.totalHours,
+      row.travelHours,
       row.totalWork,
     ];
 
@@ -277,8 +284,10 @@ class MobileAttendanceVerticalTable extends StatelessWidget {
                         color: i == 3 && cells[i] != '—'
                             ? const Color(0xFF15803D)
                             : i == 4 && cells[i] != '—'
-                                ? const Color(0xFF1D4ED8)
-                                : const Color(0xFF1E40AF),
+                                ? const Color(0xFFEA580C)
+                                : i == 5 && cells[i] != '—'
+                                    ? const Color(0xFF1D4ED8)
+                                    : const Color(0xFF1E40AF),
                         height: 1.2,
                       ),
                     ),
@@ -315,6 +324,7 @@ class MobileAttendanceShiftVerticalRow {
   final Widget attendance;
   final String totalWork;
   final String totalHours;
+  final String travelHours;
   final String late;
   final String early;
   final String overtime;
@@ -327,6 +337,7 @@ class MobileAttendanceShiftVerticalRow {
     required this.attendance,
     required this.totalWork,
     required this.totalHours,
+    this.travelHours = '—',
     required this.late,
     required this.early,
     required this.overtime,
@@ -343,6 +354,7 @@ class MobileAttendanceShiftVerticalTable extends StatelessWidget {
     'Chấm công',
     'Tổng công',
     'Tổng giờ',
+    'Đi đường',
     'Đi trễ',
     'Về sớm',
     'Tăng ca',
@@ -354,6 +366,7 @@ class MobileAttendanceShiftVerticalTable extends StatelessWidget {
     96.0,
     58.0,
     58.0,
+    54.0,
     54.0,
     54.0,
     54.0,
@@ -504,6 +517,7 @@ class MobileAttendanceShiftVerticalTable extends StatelessWidget {
       row.weekday,
       row.totalWork,
       row.totalHours,
+      row.travelHours,
       row.late,
       row.early,
       row.overtime,
@@ -535,7 +549,7 @@ class MobileAttendanceShiftVerticalTable extends StatelessWidget {
             width: _colWidths[2],
             child: row.attendance,
           ),
-          for (var i = 3; i < 8; i++)
+          for (var i = 3; i < 9; i++)
             SizedBox(
               width: _colWidths[i],
               child: _textCell(
@@ -563,6 +577,7 @@ class MobileAttendanceShiftVerticalTable extends StatelessWidget {
       row.weekday,
       row.totalWork,
       row.totalHours,
+      row.travelHours,
       row.late,
       row.early,
       row.overtime,
@@ -592,7 +607,7 @@ class MobileAttendanceShiftVerticalTable extends StatelessWidget {
             width: _colWidths[2],
             child: row.attendance,
           ),
-          for (var i = 3; i < 8; i++)
+          for (var i = 3; i < 9; i++)
             SizedBox(
               width: _colWidths[i],
               child: _textCell(
@@ -635,10 +650,12 @@ class MobileAttendanceShiftVerticalTable extends StatelessWidget {
       case 3:
         return const Color(0xFF16A34A);
       case 4:
-        return const Color(0xFFF59E0B);
+        return const Color(0xFFEA580C);
       case 5:
-        return const Color(0xFFEF4444);
+        return const Color(0xFFF59E0B);
       case 6:
+        return const Color(0xFFEF4444);
+      case 7:
         return const Color(0xFF8B5CF6);
       default:
         return null;

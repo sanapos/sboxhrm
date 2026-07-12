@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
@@ -10,6 +11,7 @@ import '../utils/responsive_helper.dart';
 import '../widgets/hrm_mini_stat_chip.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
+import '../widgets/device_sync_progress_overlay.dart';
 class DeviceManagementSettingsScreen extends StatefulWidget {
   const DeviceManagementSettingsScreen({super.key});
 
@@ -106,7 +108,8 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
   // 12=EnrollFace, 13=DeleteFace, 14=SyncFaces
   // 15=OpenDoor, 16=CloseDoor, 17=GetDeviceInfo
 
-  Future<void> _sendCommand(Map<String, dynamic> device, int commandType, String label) async {
+  Future<_DeviceCommandOutcome> _sendCommand(
+      Map<String, dynamic> device, int commandType, String label) async {
     final deviceId = device['id'].toString();
 
     // Lệnh nguy hiểm (ClearData=5, ClearAttendances=3, ClearDeviceUsers=4): yêu cầu xác nhận kép
@@ -130,16 +133,117 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
         ],
       ),
     );
-    if (confirmed != true || !mounted) return;
+    if (confirmed != true || !mounted) {
+      return const _DeviceCommandOutcome(
+        success: false,
+        message: 'Đã hủy thao tác',
+        cancelled: true,
+      );
+    }
+
+    final deviceName = device['deviceName']?.toString() ?? deviceId;
+    if (commandType == 7 || commandType == 8) {
+      final kind = commandType == 7
+          ? DeviceSyncKind.attendances
+          : DeviceSyncKind.deviceUsers;
+      unawaited(DeviceSyncProgressDialog.show(
+        apiService: _apiService,
+        kind: kind,
+        devices: [
+          DeviceSyncTarget(deviceId: deviceId, deviceName: deviceName),
+        ],
+      ));
+      return _DeviceCommandOutcome(
+        success: true,
+        message: commandType == 7
+            ? 'Đã bắt đầu đồng bộ chấm công — xem tiến trình ở cạnh dưới màn hình.'
+            : 'Đã bắt đầu đồng bộ user — xem tiến trình ở cạnh dưới màn hình.',
+        isSync: true,
+      );
+    }
 
     final result = await _apiService.sendDeviceCommand(deviceId, commandType);
-    if (!mounted) return;
-    final success = result['isSuccess'] == true;
-    if (success) {
-      NotificationOverlayManager().showSuccess(title: 'Thành công', message: 'Đã gửi lệnh "$label" thành công');
-    } else {
-      NotificationOverlayManager().showError(title: 'Lỗi', message: 'Gửi lệnh "$label" thất bại');
+    if (!mounted) {
+      return const _DeviceCommandOutcome(
+        success: false,
+        message: 'Không thể gửi lệnh',
+      );
     }
+
+    final success = result['isSuccess'] == true;
+    final apiMsg = result['message']?.toString().trim();
+    if (!success) {
+      return _DeviceCommandOutcome(
+        success: false,
+        message: apiMsg?.isNotEmpty == true
+            ? apiMsg!
+            : 'Gửi lệnh "$label" thất bại',
+      );
+    }
+
+    Map<String, dynamic>? refreshedInfo;
+    if (commandType == 17) {
+      await Future.delayed(const Duration(seconds: 2));
+      if (mounted) {
+        try {
+          refreshedInfo = await _apiService.getDeviceInfo(deviceId);
+        } catch (_) {}
+      }
+    }
+
+    final commandId = _extractDeviceCommandId(result);
+    final pollMessage = commandId != null
+        ? await _pollDeviceCommandResult(commandId)
+        : null;
+
+    var message = pollMessage ??
+        (apiMsg?.isNotEmpty == true
+            ? apiMsg!
+            : 'Đã gửi lệnh "$label" thành công');
+    if (pollMessage == null && commandId != null) {
+      message =
+          'Đã gửi lệnh "$label". Máy đang xử lý — có thể mất vài giây để hoàn tất.';
+    }
+    if (refreshedInfo != null) {
+      message = 'Đã cập nhật thông tin kỹ thuật từ máy.';
+    }
+
+    return _DeviceCommandOutcome(
+      success: true,
+      message: message,
+      refreshedDeviceInfo: refreshedInfo,
+    );
+  }
+
+  String? _extractDeviceCommandId(Map<String, dynamic> cmdRes) {
+    final data = cmdRes['data'];
+    if (data is Map) {
+      return data['id']?.toString();
+    }
+    return cmdRes['commandId']?.toString();
+  }
+
+  Future<String?> _pollDeviceCommandResult(String commandId) async {
+    final started = DateTime.now();
+    while (DateTime.now().difference(started) < const Duration(seconds: 25)) {
+      await Future.delayed(const Duration(seconds: 2));
+      if (!mounted) return null;
+      final status = await _apiService.getCommandStatus(commandId);
+      if (status == null) continue;
+
+      final s = status['status']?.toString().toLowerCase() ?? '';
+      final ret = status['return']?.toString();
+      if (ret == '-1' || s == '3' || s.contains('failed')) {
+        final err = status['errorMessage']?.toString();
+        return err?.isNotEmpty == true
+            ? err!
+            : 'Máy báo lỗi khi thực hiện lệnh';
+      }
+      if (s == '2' || s == 'success' || s.contains('success')) {
+        return 'Máy đã thực hiện lệnh thành công';
+      }
+    }
+    return null;
   }
 
   Future<void> _showRenameDialog(Map<String, dynamic> device) async {
@@ -1427,11 +1531,42 @@ class _BarcodeScannerDialogState extends State<_BarcodeScannerDialog> {
 }
 
 // ==================== DEVICE DETAIL DIALOG ====================
-class _DeviceDetailDialog extends StatelessWidget {
+class _DeviceCommandOutcome {
+  final bool success;
+  final String message;
+  final Map<String, dynamic>? refreshedDeviceInfo;
+  final bool isSync;
+  final bool cancelled;
+
+  const _DeviceCommandOutcome({
+    required this.success,
+    required this.message,
+    this.refreshedDeviceInfo,
+    this.isSync = false,
+    this.cancelled = false,
+  });
+}
+
+class _DeviceControlAction {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final int commandType;
+
+  const _DeviceControlAction({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.commandType,
+  });
+}
+
+class _DeviceDetailDialog extends StatefulWidget {
   final Map<String, dynamic> device;
   final Map<String, dynamic>? deviceInfo;
   final bool isOnline;
-  final Future<void> Function(int cmdType, String label) onCommand;
+  final Future<_DeviceCommandOutcome> Function(int cmdType, String label)
+      onCommand;
   final VoidCallback onRename;
   final VoidCallback onDelete;
 
@@ -1445,12 +1580,207 @@ class _DeviceDetailDialog extends StatelessWidget {
   });
 
   @override
+  State<_DeviceDetailDialog> createState() => _DeviceDetailDialogState();
+}
+
+class _DeviceDetailDialogState extends State<_DeviceDetailDialog> {
+  Map<String, dynamic>? _deviceInfo;
+  int? _busyCommandType;
+  _DeviceCommandOutcome? _feedback;
+
+  @override
+  void initState() {
+    super.initState();
+    _deviceInfo = widget.deviceInfo;
+  }
+
+  Future<void> _runCommand(int commandType, String label) async {
+    if (_busyCommandType != null) return;
+    setState(() {
+      _busyCommandType = commandType;
+      _feedback = null;
+    });
+
+    final outcome = await widget.onCommand(commandType, label);
+    if (!mounted) return;
+
+    setState(() {
+      _busyCommandType = null;
+      if (!outcome.cancelled) {
+        _feedback = outcome;
+        if (outcome.refreshedDeviceInfo != null) {
+          _deviceInfo = outcome.refreshedDeviceInfo;
+        }
+      }
+    });
+
+    if (outcome.cancelled) return;
+
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    messenger?.clearSnackBars();
+    messenger?.showSnackBar(
+      SnackBar(
+        content: Text(outcome.message),
+        backgroundColor: outcome.success
+            ? (outcome.isSync ? const Color(0xFF0284C7) : const Color(0xFF16A34A))
+            : const Color(0xFFDC2626),
+        behavior: SnackBarBehavior.floating,
+        duration: Duration(seconds: outcome.isSync ? 4 : 3),
+      ),
+    );
+  }
+
+  List<_DeviceControlAction> _controlActions(bool canEdit, bool canDelete) {
+    final actions = <_DeviceControlAction>[
+      if (canEdit)
+        const _DeviceControlAction(
+          icon: Icons.restart_alt,
+          label: 'Khởi động lại',
+          color: Color(0xFFF59E0B),
+          commandType: 6,
+        ),
+      if (canDelete)
+        const _DeviceControlAction(
+          icon: Icons.delete_forever,
+          label: 'Xóa toàn bộ dữ liệu',
+          color: Color(0xFFEF4444),
+          commandType: 5,
+        ),
+      if (canEdit) ...[
+        const _DeviceControlAction(
+          icon: Icons.lock_open,
+          label: 'Mở cửa',
+          color: HrmPageChrome.primaryNavy,
+          commandType: 15,
+        ),
+        const _DeviceControlAction(
+          icon: Icons.lock,
+          label: 'Đóng cửa',
+          color: Color(0xFFEF4444),
+          commandType: 16,
+        ),
+        const _DeviceControlAction(
+          icon: Icons.sync,
+          label: 'Đồng bộ user',
+          color: HrmPageChrome.primaryNavy,
+          commandType: 8,
+        ),
+        const _DeviceControlAction(
+          icon: Icons.sync_alt,
+          label: 'Đồng bộ chấm công',
+          color: HrmPageChrome.primaryNavy,
+          commandType: 7,
+        ),
+        const _DeviceControlAction(
+          icon: Icons.info_outline,
+          label: 'Lấy thông tin',
+          color: Color(0xFF71717A),
+          commandType: 17,
+        ),
+      ],
+    ];
+    return actions;
+  }
+
+  Widget _buildFeedbackBanner() {
+    final feedback = _feedback;
+    if (feedback == null) return const SizedBox.shrink();
+
+    final Color bg;
+    final Color fg;
+    final IconData icon;
+    if (feedback.isSync) {
+      bg = const Color(0xFFE0F2FE);
+      fg = const Color(0xFF0369A1);
+      icon = Icons.cloud_download_outlined;
+    } else if (feedback.success) {
+      bg = const Color(0xFFDCFCE7);
+      fg = const Color(0xFF166534);
+      icon = Icons.check_circle_outline;
+    } else {
+      bg = const Color(0xFFFEE2E2);
+      fg = const Color(0xFFB91C1C);
+      icon = Icons.error_outline;
+    }
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: fg.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 20, color: fg),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              feedback.message,
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.35,
+                fontWeight: FontWeight.w500,
+                color: fg,
+              ),
+            ),
+          ),
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+            icon: Icon(Icons.close, size: 18, color: fg.withValues(alpha: 0.7)),
+            onPressed: () => setState(() => _feedback = null),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildControlGrid(List<_DeviceControlAction> actions, bool isMobile) {
+    if (actions.isEmpty) return const SizedBox.shrink();
+
+    final crossAxisCount = isMobile ? 2 : 3;
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: actions.length,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: crossAxisCount,
+        mainAxisSpacing: 10,
+        crossAxisSpacing: 10,
+        childAspectRatio: isMobile ? 1.15 : 1.25,
+      ),
+      itemBuilder: (context, index) {
+        final action = actions[index];
+        final isBusy = _busyCommandType == action.commandType;
+        final isDisabled = _busyCommandType != null && !isBusy;
+        return _buildCommandGridTile(
+          icon: action.icon,
+          label: action.label,
+          color: action.color,
+          isBusy: isBusy,
+          isDisabled: isDisabled,
+          onTap: () => _runCommand(action.commandType, action.label),
+        );
+      },
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     final perm = Provider.of<PermissionProvider>(context, listen: false);
     final canEdit = perm.canEdit('Device');
     final canDelete = perm.canDelete('Device');
-    final statusColor = isOnline ? HrmPageChrome.primaryNavy : const Color(0xFFEF4444);
+    final statusColor =
+        widget.isOnline ? HrmPageChrome.primaryNavy : const Color(0xFFEF4444);
     final isMobile = Responsive.isMobile(context);
+    final device = widget.device;
+    final deviceInfo = _deviceInfo;
+    final controlActions = _controlActions(canEdit, canDelete);
 
     Widget buildContent() {
       return Column(
@@ -1458,35 +1788,56 @@ class _DeviceDetailDialog extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (!isMobile) ...[
-            // Header (desktop only - mobile uses AppBar)
             Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(colors: [statusColor, statusColor.withValues(alpha: 0.7)]),
+                    gradient: LinearGradient(
+                        colors: [
+                          statusColor,
+                          statusColor.withValues(alpha: 0.7)
+                        ]),
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  child: const Icon(Icons.fingerprint, color: Colors.white, size: 28),
+                  child: const Icon(Icons.fingerprint,
+                      color: Colors.white, size: 28),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(device['deviceName'] ?? '', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Color(0xFF0F172A))),
+                      Text(device['deviceName'] ?? '',
+                          style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF0F172A))),
                       const SizedBox(height: 4),
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                                color: statusColor.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(20)),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Container(width: 7, height: 7, decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle)),
+                                Container(
+                                    width: 7,
+                                    height: 7,
+                                    decoration: BoxDecoration(
+                                        color: statusColor,
+                                        shape: BoxShape.circle)),
                                 const SizedBox(width: 5),
-                                Text(isOnline ? 'Online' : 'Offline', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: statusColor)),
+                                Text(
+                                    widget.isOnline ? 'Online' : 'Offline',
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: statusColor)),
                               ],
                             ),
                           ),
@@ -1504,131 +1855,118 @@ class _DeviceDetailDialog extends StatelessWidget {
             const SizedBox(height: 20),
           ],
           if (isMobile) ...[
-            // Status badge on mobile
             Row(children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(20)),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Container(width: 7, height: 7, decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle)),
+                    Container(
+                        width: 7,
+                        height: 7,
+                        decoration: BoxDecoration(
+                            color: statusColor, shape: BoxShape.circle)),
                     const SizedBox(width: 5),
-                    Text(isOnline ? 'Online' : 'Offline', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: statusColor)),
+                    Text(widget.isOnline ? 'Online' : 'Offline',
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: statusColor)),
                   ],
                 ),
               ),
             ]),
             const SizedBox(height: 16),
           ],
-          // Device Info Section
-          _buildSection('Thông tin thiết bị', Icons.info_outline, HrmPageChrome.primaryNavy, [
+          _buildSection('Thông tin thiết bị', Icons.info_outline,
+              HrmPageChrome.primaryNavy, [
             _buildDetailRow('Serial Number', device['serialNumber'] ?? '—'),
             _buildDetailRow('Tên thiết bị', device['deviceName'] ?? '—'),
-            _buildDetailRow('Vị trí lắp đặt', device['location'] ?? 'Chưa thiết lập'),
+            _buildDetailRow(
+                'Vị trí lắp đặt', device['location'] ?? 'Chưa thiết lập'),
             _buildDetailRow('Địa chỉ IP', device['ipAddress'] ?? '—'),
             _buildDetailRow('Mô tả', device['description'] ?? '—'),
-            _buildDetailRow('Trạng thái', device['isActive'] == true ? 'Hoạt động' : 'Tạm dừng'),
+            _buildDetailRow('Trạng thái',
+                device['isActive'] == true ? 'Hoạt động' : 'Tạm dừng'),
           ]),
           if (deviceInfo != null) ...[
             const SizedBox(height: 16),
-            _buildSection('Thông tin kỹ thuật', Icons.memory, HrmPageChrome.primaryNavy, [
-              _buildDetailRow('Firmware', deviceInfo!['firmwareVersion'] ?? '—'),
-              _buildDetailRow('Số user đã đăng ký', '${deviceInfo!['enrolledUserCount'] ?? 0}'),
-              _buildDetailRow('Số vân tay', '${deviceInfo!['fingerprintCount'] ?? 0}'),
-              _buildDetailRow('Số bản chấm công', '${deviceInfo!['attendanceCount'] ?? 0}'),
-              _buildDetailRow('IP thiết bị', deviceInfo!['deviceIp'] ?? '—'),
-              if (deviceInfo!['faceTemplateCount'] != null)
-                _buildDetailRow('Số khuôn mặt', '${deviceInfo!['faceTemplateCount']}'),
+            _buildSection('Thông tin kỹ thuật', Icons.memory,
+                HrmPageChrome.primaryNavy, [
+              _buildDetailRow(
+                  'Firmware', deviceInfo['firmwareVersion'] ?? '—'),
+              _buildDetailRow('Số user đã đăng ký',
+                  '${deviceInfo['enrolledUserCount'] ?? 0}'),
+              _buildDetailRow(
+                  'Số vân tay', '${deviceInfo['fingerprintCount'] ?? 0}'),
+              _buildDetailRow('Số bản chấm công',
+                  '${deviceInfo['attendanceCount'] ?? 0}'),
+              _buildDetailRow('IP thiết bị', deviceInfo['deviceIp'] ?? '—'),
+              if (deviceInfo['faceTemplateCount'] != null)
+                _buildDetailRow(
+                    'Số khuôn mặt', '${deviceInfo['faceTemplateCount']}'),
             ]),
           ],
           const SizedBox(height: 20),
-          // Control buttons
-          _buildSection('Điều khiển thiết bị', Icons.settings_remote, const Color(0xFFF59E0B), []),
+          _buildSection('Điều khiển thiết bị', Icons.settings_remote,
+              const Color(0xFFF59E0B), []),
           const SizedBox(height: 8),
-          if (canEdit)
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              alignment: WrapAlignment.spaceBetween,
+          if (canEdit) _buildControlGrid(controlActions, isMobile),
+          _buildFeedbackBanner(),
+          if (canEdit || canDelete) const SizedBox(height: 20),
+          if (canEdit || canDelete)
+            Row(
               children: [
-                _buildCommandButton(context, Icons.restart_alt, 'Khởi động lại',
-                    const Color(0xFFF59E0B), () => onCommand(6, 'Khởi động lại')),
+                if (canEdit)
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: widget.onRename,
+                      icon: const Icon(Icons.edit, size: 16),
+                      label: const Text('Đổi tên / Sửa'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: HrmPageChrome.primaryNavy,
+                        side: const BorderSide(
+                            color: HrmPageChrome.primaryNavy),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                if (canEdit && canDelete) const SizedBox(width: 12),
                 if (canDelete)
-                  _buildCommandButton(
-                      context,
-                      Icons.delete_forever,
-                      'Xóa toàn bộ dữ liệu',
-                      const Color(0xFFEF4444),
-                      () => onCommand(5, 'Xóa toàn bộ dữ liệu')),
-                _buildCommandButton(context, Icons.lock_open, 'Mở cửa',
-                    HrmPageChrome.primaryNavy, () => onCommand(15, 'Mở cửa')),
-                _buildCommandButton(context, Icons.lock, 'Đóng cửa',
-                    const Color(0xFFEF4444), () => onCommand(16, 'Đóng cửa')),
-                _buildCommandButton(context, Icons.sync, 'Đồng bộ user',
-                    HrmPageChrome.primaryNavy, () => onCommand(8, 'Đồng bộ user')),
-                _buildCommandButton(
-                    context,
-                    Icons.sync_alt,
-                    'Đồng bộ chấm công',
-                    HrmPageChrome.primaryNavy,
-                    () => onCommand(7, 'Đồng bộ chấm công')),
-                _buildCommandButton(
-                    context,
-                    Icons.info,
-                    'Lấy thông tin',
-                    const Color(0xFF71717A),
-                    () => onCommand(17, 'Lấy thông tin thiết bị')),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: widget.onDelete,
+                      icon: const Icon(Icons.delete, size: 16),
+                      label: const Text('Xóa thiết bị'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red,
+                        side: const BorderSide(color: Colors.red),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
               ],
             ),
-          if (canEdit || canDelete) const SizedBox(height: 20),
-              if (canEdit || canDelete)
-                Row(
-                  children: [
-                    if (canEdit)
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: onRename,
-                          icon: const Icon(Icons.edit, size: 16),
-                          label: const Text('Đổi tên / Sửa'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: HrmPageChrome.primaryNavy,
-                            side: const BorderSide(
-                                color: HrmPageChrome.primaryNavy),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10)),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                        ),
-                      ),
-                    if (canEdit && canDelete) const SizedBox(width: 12),
-                    if (canDelete)
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: onDelete,
-                          icon: const Icon(Icons.delete, size: 16),
-                          label: const Text('Xóa thiết bị'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.red,
-                            side: const BorderSide(color: Colors.red),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10)),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-            ],
-          );
-        }
+        ],
+      );
+    }
 
     if (isMobile) {
       return Dialog.fullscreen(
         child: Scaffold(
           appBar: AppBar(
             title: Text(device['deviceName'] ?? 'Chi tiết thiết bị'),
-            leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+            leading: IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.pop(context)),
           ),
           body: SingleChildScrollView(
             padding: const EdgeInsets.all(16),
@@ -1652,7 +1990,8 @@ class _DeviceDetailDialog extends StatelessWidget {
     );
   }
 
-  Widget _buildSection(String title, IconData icon, Color color, List<Widget> children) {
+  Widget _buildSection(
+      String title, IconData icon, Color color, List<Widget> children) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1660,11 +1999,17 @@ class _DeviceDetailDialog extends StatelessWidget {
           children: [
             Container(
               padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+              decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8)),
               child: Icon(icon, size: 16, color: color),
             ),
             const SizedBox(width: 8),
-            Text(title, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: color)),
+            Text(title,
+                style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: color)),
           ],
         ),
         if (children.isNotEmpty) ...[
@@ -1691,34 +2036,68 @@ class _DeviceDetailDialog extends StatelessWidget {
         children: [
           SizedBox(
             width: 160,
-            child: Text(label, style: const TextStyle(fontSize: 13, color: Color(0xFF71717A))),
+            child: Text(label,
+                style: const TextStyle(
+                    fontSize: 13, color: Color(0xFF71717A))),
           ),
           Expanded(
-            child: Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Color(0xFF0F172A))),
+            child: Text(value,
+                style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF0F172A))),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildCommandButton(BuildContext context, IconData icon, String label, Color color, VoidCallback onTap) {
-    return SizedBox(
-      width: 160,
-      child: Material(
-        color: color.withValues(alpha: 0.08),
+  Widget _buildCommandGridTile({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required bool isBusy,
+    required bool isDisabled,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: isDisabled
+          ? color.withValues(alpha: 0.04)
+          : color.withValues(alpha: 0.08),
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: isDisabled ? null : onTap,
         borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            child: Row(
-              children: [
-                Icon(icon, size: 18, color: color),
-                const SizedBox(width: 8),
-                Expanded(child: Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color))),
-              ],
-            ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (isBusy)
+                SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.2,
+                    color: color,
+                  ),
+                )
+              else
+                Icon(icon, size: 24, color: isDisabled ? color.withValues(alpha: 0.45) : color),
+              const SizedBox(height: 8),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                  height: 1.2,
+                  color: isDisabled ? color.withValues(alpha: 0.45) : color,
+                ),
+              ),
+            ],
           ),
         ),
       ),

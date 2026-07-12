@@ -59,6 +59,14 @@ class NavigationNotifier {
   /// Highlight bản ghi (id) sau khi mở từ thông báo
   static final ValueNotifier<String?> notificationHighlightId =
       ValueNotifier<String?>(null);
+
+  /// Mở chi tiết hồ sơ công tác từ FCM / danh sách thông báo
+  static void goToBusinessTripCase(String? caseId) {
+    if (caseId != null && caseId.isNotEmpty) {
+      notificationHighlightId.value = caseId;
+    }
+    goToModule('BusinessTripExpense');
+  }
   /// Mở chi tiết công việc và cuộn tới bình luận/báo cáo tiến độ
   static final ValueNotifier<bool> taskOpenComments = ValueNotifier<bool>(false);
   /// Mở tab Hòm thư (thay vì Của tôi) khi vào Phản ánh từ thông báo gửi tới người nhận
@@ -117,6 +125,17 @@ class NavigationNotifier {
   static final ValueNotifier<bool> pendingOpenOvertime =
       ValueNotifier<bool>(false);
 
+  /// Intent mở form tạo từ Trợ lý AI (leave / advance / feedback / overtime / …).
+  static final ValueNotifier<String?> pendingAiOpenCreate =
+      ValueNotifier<String?>(null);
+
+  /// Trả true nếu đúng intent đang chờ và đồng thời xóa cờ.
+  static bool takePendingAiOpenCreate(String intent) {
+    if (pendingAiOpenCreate.value != intent) return false;
+    pendingAiOpenCreate.value = null;
+    return true;
+  }
+
   static void goTo(int screenIndex) {
     navigateTo.value = screenIndex;
     debugPrint('📍 Navigation requested to screen index: $screenIndex');
@@ -170,6 +189,11 @@ class NavigationNotifier {
     goToModule('Leave');
   }
 
+  static void goToLeaveCreate() {
+    pendingAiOpenCreate.value = 'leave';
+    goToLeaves();
+  }
+
   static void goToAdvanceRequestsNav({
     String? highlightId,
     bool pendingOnly = false,
@@ -178,6 +202,42 @@ class NavigationNotifier {
     notificationHighlightId.value =
         (highlightId != null && highlightId.isNotEmpty) ? highlightId : null;
     goToModule('AdvanceRequests');
+  }
+
+  static void goToAdvanceCreate() {
+    pendingAiOpenCreate.value = 'advance';
+    goToAdvanceRequestsNav();
+  }
+
+  static void goToFeedbackCreate() {
+    pendingAiOpenCreate.value = 'feedback';
+    goTo(feedback);
+  }
+
+  static void goToShiftSwapCreate() {
+    pendingAiOpenCreate.value = 'shift_swap';
+    goToShiftSwap();
+  }
+
+  static void goToOvertime({bool openCreate = false}) {
+    if (openCreate) pendingAiOpenCreate.value = 'overtime';
+    pendingOpenOvertime.value = true;
+    goToModule('Dashboard');
+  }
+
+  static void goToBusinessTripCreate() {
+    pendingAiOpenCreate.value = 'business_trip';
+    goToModule('BusinessTripExpense');
+  }
+
+  static void goToMealRegister() {
+    pendingAiOpenCreate.value = 'meal';
+    goTo(meals);
+  }
+
+  static void goToAttendanceCorrectionCreate() {
+    pendingAiOpenCreate.value = 'attendance_correction';
+    goToAttendanceCorrections();
   }
 
   static void goToPenaltyTicketsNav({
@@ -223,7 +283,11 @@ class NavigationNotifier {
   static void goToDepartments() => goTo(departments);
   static void goToTaskManagement() => goToModule('Task');
   static void goToAssetManagement() => goTo(assetManagement);
-  static void goToCashTransaction() => goTo(cashTransaction);
+  static void goToCashTransaction({String? highlightId}) {
+    notificationHighlightId.value =
+        (highlightId != null && highlightId.isNotEmpty) ? highlightId : null;
+    goTo(cashTransaction);
+  }
   static void goToCommunication() => goTo(communication);
   static void goToPayroll() => goTo(payroll);
   static void goToPayslip() => goToModule('Payslip');
