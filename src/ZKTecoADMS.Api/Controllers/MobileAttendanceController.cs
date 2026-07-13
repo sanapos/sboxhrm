@@ -4362,6 +4362,15 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
                 WifiBssid = changeReq.NewWifiBssid,
 
 
+                AllowOutsideCheckIn = oldDevice?.AllowOutsideCheckIn ?? false,
+
+
+                AllowTravelCheckIn = oldDevice?.AllowTravelCheckIn ?? false,
+
+
+                RequirePhotoProof = oldDevice?.RequirePhotoProof ?? false,
+
+
                 SelectedLocationIdsJson = !string.IsNullOrWhiteSpace(changeReq.SelectedLocationIdsJson)
 
 
@@ -4957,13 +4966,17 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
+        // Tra theo DeviceId đang chấm — sau khi duyệt đổi máy, bản ghi cũ đã soft-delete nên máy cũ không còn khớp.
         var registeredDevice = await _dbContext.AuthorizedMobileDevices
 
 
             .AsNoTracking()
 
 
-            .FirstOrDefaultAsync(d => d.EmployeeId == request.EmployeeId && d.StoreId == storeId && d.Deleted == null);
+            .FirstOrDefaultAsync(d =>
+                d.DeviceId == request.DeviceId
+                && d.StoreId == storeId
+                && d.Deleted == null);
 
 
 
@@ -4975,34 +4988,46 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
         {
 
 
-            _logger.LogWarning("❌ PUNCH REJECT: no registered device for employee {EmpId}", request.EmployeeId);
-
-
-            return BadRequest(AppResponse<object>.Fail("Tài khoản chưa đăng ký thiết bị chấm công. Vui lòng đăng ký thiết bị trước."));
-
-
-        }
-
-
-
-
-
-        if (!string.Equals(request.DeviceId, registeredDevice.DeviceId, StringComparison.OrdinalIgnoreCase))
-
-
-        {
-
-
-            _logger.LogWarning("❌ PUNCH REJECT: punch DeviceId={PunchDev} != registered DeviceId={RegDev} for employee {EmpId}",
-
-
-                request.DeviceId, registeredDevice.DeviceId, request.EmployeeId);
+            _logger.LogWarning("❌ PUNCH REJECT: device {DeviceId} not registered/active for store {StoreId}", request.DeviceId, storeId);
 
 
             return BadRequest(AppResponse<object>.Fail(
 
 
-                "Thiết bị này chưa được đăng ký cho tài khoản. Chỉ được chấm công trên thiết bị đã đăng ký hoặc yêu cầu đổi thiết bị."));
+                "Thiết bị này chưa được đăng ký hoặc đã bị thay thế. Chỉ chấm công trên thiết bị đã duyệt hoặc gửi yêu cầu đổi thiết bị."));
+
+
+        }
+
+
+        var (punchCanonicalEmpId, _) = await ResolveCanonicalEmployeeIdAsync(storeId, request.EmployeeId);
+
+
+        var punchEmpKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+
+        if (!string.IsNullOrWhiteSpace(request.EmployeeId)) punchEmpKeys.Add(request.EmployeeId);
+
+
+        if (!string.IsNullOrWhiteSpace(punchCanonicalEmpId)) punchEmpKeys.Add(punchCanonicalEmpId);
+
+
+        if (!punchEmpKeys.Contains(registeredDevice.EmployeeId))
+
+
+        {
+
+
+            _logger.LogWarning("❌ PUNCH REJECT: device {DeviceId} belongs to {OwnerEmp}, punch from {EmpId}",
+
+
+                request.DeviceId, registeredDevice.EmployeeId, request.EmployeeId);
+
+
+            return BadRequest(AppResponse<object>.Fail(
+
+
+                "Thiết bị này đã được đăng ký cho nhân viên khác."));
 
 
         }

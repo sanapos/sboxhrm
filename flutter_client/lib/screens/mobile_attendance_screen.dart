@@ -246,6 +246,10 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
             _registeredOnOtherDevice =
                 _parseApiBool(data['registeredOnOtherDevice']);
             _otherDeviceName = data['deviceName'] as String?;
+            if (_registeredOnOtherDevice) {
+              _cachedFacePaths = [];
+              FaceEmbeddingService.clearCache();
+            }
             _allowOutsideCheckIn = _parseApiBool(data['allowOutsideCheckIn']) &&
                 _isDeviceRegistered &&
                 _isDeviceApproved;
