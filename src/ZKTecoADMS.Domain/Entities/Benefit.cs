@@ -112,6 +112,13 @@ public class Benefit : AuditableEntity<Guid>
     [MaxLength(30)]
     public string? PaidLeaveType { get; set; }
 
+    /// <summary>Cách tính lương đi đường NV: base_per_8h, completion_per_8h, fixed. Null = dùng mặc định cửa hàng.</summary>
+    [MaxLength(30)]
+    public string? TravelSalaryMode { get; set; }
+
+    /// <summary>Đơn giá giờ cố định (VNĐ/giờ) khi TravelSalaryMode = fixed.</summary>
+    public decimal? TravelFixedHourlyRate { get; set; }
+
     /// <summary>
     /// Cửa hàng sở hữu profile lương này
     /// </summary>

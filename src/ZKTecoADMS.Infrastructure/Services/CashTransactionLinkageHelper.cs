@@ -28,6 +28,9 @@ public static class CashTransactionLinkageHelper
             return;
 
         await TrySyncAdvanceOnPaidAsync(context, notificationService, cash, performedByUserId, storeId, cancellationToken);
+        await TrySyncBusinessTripAdvanceOnPaidAsync(context, notificationService, cash, performedByUserId, storeId, cancellationToken);
+        await TrySyncBusinessTripSettlementExtraOnPaidAsync(context, notificationService, cash, performedByUserId, storeId, cancellationToken);
+        await TrySyncBusinessTripSurplusRefundOnPaidAsync(context, notificationService, cash, performedByUserId, storeId, cancellationToken);
         await TrySyncPaymentTransactionOnPaidAsync(context, notificationService, cash, performedByUserId, storeId, cancellationToken);
         await TrySyncPenaltyTicketOnPaidAsync(context, notificationService, cash, performedByUserId, storeId, cancellationToken);
         await TrySyncPayslipOnPaidAsync(context, notificationService, cash, performedByUserId, storeId, cancellationToken);
@@ -245,6 +248,151 @@ public static class CashTransactionLinkageHelper
                     storeId: storeId);
             }
             catch { /* best-effort */ }
+        }
+    }
+
+    private static async Task TrySyncBusinessTripAdvanceOnPaidAsync(
+        ZKTecoDbContext context,
+        ISystemNotificationService notificationService,
+        CashTransaction cash,
+        Guid performedByUserId,
+        Guid storeId,
+        CancellationToken cancellationToken)
+    {
+        if (!TryExtractTrailingGuid(cash.InternalNote, "ứng công tác #", out var advanceClaimId))
+            return;
+
+        var advance = await context.BusinessTripAdvanceClaims
+            .Include(a => a.Case)
+            .FirstOrDefaultAsync(a => a.Id == advanceClaimId && a.StoreId == storeId, cancellationToken);
+
+        if (advance == null || advance.Status != AdvanceRequestStatus.Approved || advance.Case == null)
+            return;
+
+        var methodLabel = GetPaymentMethodLabel(cash.PaymentMethod);
+        var wasPaid = advance.IsPaid;
+
+        if (!advance.IsPaid)
+        {
+            advance.IsPaid = true;
+            advance.PaymentMethod = methodLabel;
+            advance.PaidDate = cash.PaidDate ?? DateTime.UtcNow;
+            advance.CashTransactionId = cash.Id;
+            advance.Case.Status = BusinessTripCaseStatus.AdvancePaid;
+            advance.Case.AdvanceAmount = advance.Amount;
+            advance.Case.UpdatedAt = DateTime.UtcNow;
+            await context.SaveChangesAsync(cancellationToken);
+        }
+
+        if (!wasPaid && advance.Case.EmployeeUserId.HasValue)
+        {
+            try
+            {
+                await notificationService.CreateAndSendAsync(
+                    advance.Case.EmployeeUserId.Value,
+                    NotificationType.Success,
+                    "Đã chi ứng công tác",
+                    $"{advance.Amount:N0}đ ({methodLabel})",
+                    relatedEntityId: advance.Case.Id,
+                    relatedEntityType: "BusinessTripCase",
+                    fromUserId: performedByUserId,
+                    categoryCode: "business_trip",
+                    storeId: storeId);
+            }
+            catch { }
+        }
+    }
+
+    private static async Task TrySyncBusinessTripSettlementExtraOnPaidAsync(
+        ZKTecoDbContext context,
+        ISystemNotificationService notificationService,
+        CashTransaction cash,
+        Guid performedByUserId,
+        Guid storeId,
+        CancellationToken cancellationToken)
+    {
+        if (!TryExtractTrailingGuid(cash.InternalNote, "quyết toán công tác phí #", out var settlementId))
+            return;
+
+        var settlement = await context.BusinessTripSettlementClaims
+            .Include(s => s.Case)
+            .FirstOrDefaultAsync(s => s.Id == settlementId && s.StoreId == storeId, cancellationToken);
+
+        if (settlement == null || settlement.Case == null || settlement.IsExtraPaid)
+            return;
+
+        var methodLabel = GetPaymentMethodLabel(cash.PaymentMethod);
+        settlement.IsExtraPaid = true;
+        settlement.ExtraPaymentMethod = methodLabel;
+        settlement.ExtraPaidDate = cash.PaidDate ?? DateTime.UtcNow;
+        settlement.ExtraCashTransactionId = cash.Id;
+        settlement.Case.Status = BusinessTripCaseStatus.Closed;
+        settlement.Case.UpdatedAt = DateTime.UtcNow;
+        await context.SaveChangesAsync(cancellationToken);
+
+        if (settlement.Case.EmployeeUserId.HasValue)
+        {
+            try
+            {
+                await notificationService.CreateAndSendAsync(
+                    settlement.Case.EmployeeUserId.Value,
+                    NotificationType.Success,
+                    "Đã chi bù công tác phí",
+                    $"{settlement.BalanceAmount:N0}đ ({methodLabel})",
+                    relatedEntityId: settlement.Case.Id,
+                    relatedEntityType: "BusinessTripCase",
+                    fromUserId: performedByUserId,
+                    categoryCode: "business_trip",
+                    storeId: storeId);
+            }
+            catch { }
+        }
+    }
+
+    private static async Task TrySyncBusinessTripSurplusRefundOnPaidAsync(
+        ZKTecoDbContext context,
+        ISystemNotificationService notificationService,
+        CashTransaction cash,
+        Guid performedByUserId,
+        Guid storeId,
+        CancellationToken cancellationToken)
+    {
+        if (!TryExtractTrailingGuid(cash.InternalNote, "thu hoàn ứng công tác #", out var settlementId))
+            return;
+
+        var settlement = await context.BusinessTripSettlementClaims
+            .Include(s => s.Case)
+            .FirstOrDefaultAsync(s => s.Id == settlementId && s.StoreId == storeId, cancellationToken);
+
+        if (settlement == null || settlement.Case == null || settlement.IsExtraPaid)
+            return;
+
+        var methodLabel = GetPaymentMethodLabel(cash.PaymentMethod);
+        settlement.SettlementType = BusinessTripSettlementType.SurplusRefunded;
+        settlement.IsExtraPaid = true;
+        settlement.ExtraPaymentMethod = methodLabel;
+        settlement.ExtraPaidDate = cash.PaidDate ?? DateTime.UtcNow;
+        settlement.ExtraCashTransactionId = cash.Id;
+        settlement.Case.Status = BusinessTripCaseStatus.Closed;
+        settlement.Case.UpdatedAt = DateTime.UtcNow;
+        await context.SaveChangesAsync(cancellationToken);
+
+        if (settlement.Case.EmployeeUserId.HasValue)
+        {
+            try
+            {
+                await notificationService.CreateAndSendAsync(
+                    settlement.Case.EmployeeUserId.Value,
+                    NotificationType.Success,
+                    "Đã thu hoàn dư ứng công tác",
+                    $"{Math.Abs(settlement.BalanceAmount):N0}đ ({methodLabel})",
+                    relatedEntityId: settlement.Case.Id,
+                    relatedEntityType: "BusinessTripCase",
+                    fromUserId: performedByUserId,
+                    categoryCode: "business_trip",
+                    storeId: storeId);
+            }
+            catch { }
         }
     }
 

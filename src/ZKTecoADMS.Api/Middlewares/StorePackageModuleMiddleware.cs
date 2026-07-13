@@ -44,6 +44,7 @@ public class StorePackageModuleMiddleware
         ("/api/bonuspenalties", "BonusPenalty"),
         ("/api/penaltytickets", "PenaltyTickets"),
         ("/api/advancerequests", "AdvanceRequests"),
+        ("/api/businesstripcases", "BusinessTripExpense"),
         ("/api/cashtransactions", "CashTransaction"),
         ("/api/assets", "Asset"),
         ("/api/tasks", "Task"),

@@ -34,15 +34,10 @@ namespace ZKTecoADMS.Domain.Entities
         public int OvertimeMinutesThreshold { get; set; } = 30;
         
         /// <summary>
-        /// Loại ca: HanhChinh, TangCa, QuaDem
+        /// Loại ca: HanhChinh, TangCa, QuaDem.
+        /// Ranh giới ngày làm việc lấy từ AppSettings day_end_time (không cấu hình trên ca).
         /// </summary>
         public string? ShiftType { get; set; }
-
-        /// <summary>
-        /// Giờ qua đêm: mốc thời gian kết thúc ca đêm (phải > EndTime)
-        /// Ví dụ: Ca đêm 22:00-06:00, OvernightCutoffTime = 07:30
-        /// </summary>
-        public TimeSpan? OvernightCutoffTime { get; set; }
         
         public string? Description { get; set; }
         

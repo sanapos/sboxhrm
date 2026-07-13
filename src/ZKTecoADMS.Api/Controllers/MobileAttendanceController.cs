@@ -6640,7 +6640,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
                     .Where(u => u.StoreId == storeId && u.IsActive
 
 
-                        && (u.Role == "Manager" || u.Role == "Admin"))
+                        && (u.Role == "Manager" || u.Role == "Admin" || u.Role == "StoreOwner"))
 
 
                     .Select(u => u.Id)
@@ -6661,6 +6661,14 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
                     _ => "chấm",
                 };
 
+                var pendingTitle = isTravelPunch
+                    ? "Chấm đi đường chờ duyệt"
+                    : "Chấm công Mobile chờ duyệt";
+                var pendingBody = isTravelPunch
+                    ? $"{employeeName ?? record.OdooEmployeeId} {punchLabel} lúc {record.PunchTime:HH:mm dd/MM/yyyy} - cần duyệt giờ đi đường"
+                    : $"{employeeName ?? record.OdooEmployeeId} chấm công {punchLabel} lúc {record.PunchTime:HH:mm dd/MM/yyyy} - cần duyệt";
+                var pendingCategory = isTravelPunch ? "travel_attendance" : "mobile_attendance";
+
 
                 foreach (var managerId in managerIds)
 
@@ -6677,10 +6685,10 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
                         NotificationType.ApprovalRequired,
 
 
-                        "Chấm công Mobile chờ duyệt",
+                        pendingTitle,
 
 
-                        $"{employeeName ?? record.OdooEmployeeId} chấm công {punchLabel} lúc {record.PunchTime:HH:mm dd/MM/yyyy} - cần duyệt",
+                        pendingBody,
 
 
                         relatedEntityType: "MobileAttendance",
@@ -6692,7 +6700,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
                         fromUserId: CurrentUserId,
 
 
-                        categoryCode: "mobile_attendance",
+                        categoryCode: pendingCategory,
 
 
                         storeId: storeId);
@@ -6754,7 +6762,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
                         relatedEntityType: "MobileAttendance",
                         relatedEntityId: record.Id,
                         fromUserId: CurrentUserId,
-                        categoryCode: "mobile_attendance",
+                        categoryCode: "travel_attendance",
                         storeId: storeId);
                 }
             }
@@ -6763,10 +6771,6 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
                 _logger.LogWarning(ex, "Failed to send travel punch notification to employee {RecordId}", record.Id);
             }
         }
-
-
-
-
 
         return Ok(AppResponse<object>.Success(new
 
@@ -6902,6 +6906,123 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
             r.wifiSsid,
             r.wifiIpAddress,
         }));
+    }
+
+    /// <summary>Sửa giờ chấm (ưu tiên đi đường) — quản lý điều chỉnh giờ đi đường đã duyệt.</summary>
+    [HttpPut("records/{recordId}")]
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireAnyModulePermission(ModulePermissionAction.Edit, "MobileAttendance", "MobileAttendanceApproval")]
+    public async Task<ActionResult> UpdateRecord(Guid recordId, [FromBody] UpdateMobileAttendanceRecordRequest request)
+    {
+        if (request.PunchTime == null)
+            return BadRequest(AppResponse<object>.Fail("Thiếu thời gian chấm"));
+
+        var storeId = RequiredStoreId;
+        var record = await _dbContext.MobileAttendanceRecords
+            .AsTracking()
+            .FirstOrDefaultAsync(r => r.Id == recordId && r.StoreId == storeId && r.Deleted == null);
+
+        if (record == null)
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy bản ghi"));
+
+        if (record.Status == "rejected")
+            return BadRequest(AppResponse<object>.Fail("Không thể sửa bản ghi đã từ chối"));
+
+        var wasApproved = record.Status is "approved" or "auto_approved";
+        var oldPunchTime = record.PunchTime;
+        var newPunchTime = request.PunchTime.Value;
+
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync();
+        try
+        {
+            if (wasApproved)
+                await RemoveSyncedAttendanceForMobileRecordAsync(record.Id);
+
+            record.PunchTime = newPunchTime;
+            if (request.Note != null)
+                record.Note = request.Note.Trim();
+            else if (oldPunchTime != newPunchTime)
+            {
+                var auditSuffix =
+                    $"[Sửa giờ: {oldPunchTime:HH:mm dd/MM/yyyy} → {newPunchTime:HH:mm dd/MM/yyyy} bởi {CurrentUserEmail}]";
+                record.Note = string.IsNullOrWhiteSpace(record.Note)
+                    ? auditSuffix
+                    : $"{record.Note}\n{auditSuffix}";
+            }
+            record.UpdatedAt = DateTime.UtcNow;
+            record.UpdatedBy = CurrentUserEmail;
+            await _dbContext.SaveChangesAsync();
+
+            if (wasApproved)
+            {
+                var synced = await SyncMobileRecordToAttendanceLog(record);
+                if (!synced)
+                {
+                    await transaction.RollbackAsync();
+                    return BadRequest(AppResponse<object>.Fail(
+                        "Không thể đồng bộ dữ liệu chấm công sau khi sửa giờ. Thử lại hoặc liên hệ quản trị."));
+                }
+            }
+
+            await transaction.CommitAsync();
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
+
+        return Ok(AppResponse<object>.Success(new
+        {
+            id = record.Id.ToString(),
+            punchTime = record.PunchTime,
+            status = record.Status,
+        }));
+    }
+
+    /// <summary>Xóa (soft) bản ghi chấm mobile — dùng để hủy giờ đi đường đã ghi nhầm.</summary>
+    [HttpDelete("records/{recordId}")]
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireAnyModulePermission(ModulePermissionAction.Delete, "MobileAttendance", "MobileAttendanceApproval")]
+    public async Task<ActionResult> DeleteRecord(Guid recordId)
+    {
+        var storeId = RequiredStoreId;
+        var record = await _dbContext.MobileAttendanceRecords
+            .AsTracking()
+            .FirstOrDefaultAsync(r => r.Id == recordId && r.StoreId == storeId && r.Deleted == null);
+
+        if (record == null)
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy bản ghi"));
+
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync();
+        try
+        {
+            await RemoveSyncedAttendanceForMobileRecordAsync(record.Id);
+
+            record.Deleted = DateTime.UtcNow;
+            record.DeletedBy = CurrentUserEmail;
+            record.UpdatedAt = DateTime.UtcNow;
+            record.UpdatedBy = CurrentUserEmail;
+            await _dbContext.SaveChangesAsync();
+            await transaction.CommitAsync();
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
+
+        return Ok(AppResponse<object>.Success(new { id = record.Id.ToString(), deleted = true }));
+    }
+
+    private async Task RemoveSyncedAttendanceForMobileRecordAsync(Guid mobileRecordId)
+    {
+        var logs = await _dbContext.AttendanceLogs
+            .Where(a => a.MobileAttendanceRecordId == mobileRecordId)
+            .ToListAsync();
+        if (logs.Count == 0) return;
+        _dbContext.AttendanceLogs.RemoveRange(logs);
+        await _dbContext.SaveChangesAsync();
     }
 
     /// <summary>Upload ảnh hiện trường (route trong body — tương thích proxy cũ).</summary>
@@ -8823,9 +8944,14 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
                     : null;
 
 
+            // Travel punches already notify the employee + managers via travel-specific
+            // messages above; skip generic "Chấm công" fan-out to avoid duplicate FCM.
+            if (!isTravel)
+            {
                 await _attendanceNotificationService.NotifyNewAttendanceAsync(
                     attendance, mobileDevice, deviceUser, record.EmployeeName,
                     branchLabel: record.LocationName);
+            }
 
 
             }
@@ -9279,6 +9405,12 @@ internal class FaceRegistrationInfo
     public DateTime? RegisteredAt { get; set; }
 
 
+}
+
+public class UpdateMobileAttendanceRecordRequest
+{
+    public DateTime? PunchTime { get; set; }
+    public string? Note { get; set; }
 }
 
 

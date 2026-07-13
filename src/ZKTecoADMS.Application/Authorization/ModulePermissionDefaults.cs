@@ -66,8 +66,10 @@ public static class ModulePermissionDefaults
             or "transaction" or "cashtransaction" or "bonuspenalty" or "bankaccount"
             or "advancerequests" or "penaltysetup" or "productsalary" or "shiftsalarylevel"
             => (true, true, true, true, true, false),
+        "businesstripexpense"
+            => (true, true, true, true, true, true),
         "hrreport" or "attendancereport" or "payrollreport" or "leavereport" or "cashreport"
-            or "penaltyreport" or "advancereport"
+            or "penaltyreport" or "advancereport" or "businesstripreport"
             => (true, false, false, false, true, false),
         "employee" or "attendance" or "attendancesummary" or "attendancebyshift"
             => (true, false, false, false, true, false),
@@ -87,6 +89,8 @@ public static class ModulePermissionDefaults
         "notification" or "communication" => (true, true, false, true, false, false),
         "hrreport" or "attendancereport" or "payrollreport" or "salarysettings" or "payslip" or "payroll"
             => (true, false, false, false, true, false),
+        "businesstripexpense"
+            => (true, true, true, false, false, true),
         _ when IsDashboardFamily(m) || m is "allowance" or "holiday" or "insurance"
             or "advance" or "advancerequests"
             or "shifttemplate" or "shiftsalarylevel" or "bonuspenalty" or "asset" or "orgchart"
@@ -123,12 +127,12 @@ public static class ModulePermissionDefaults
             => (true, false, false, false, false, false),
         "employee" or "department" or "communication" or "kpi" or "attendancereport"
             or "penaltytickets" or "production" or "mobiledeviceregistration"
-            or "penaltyreport" or "advancereport" or "leavereport" or "shift"
+            or "penaltyreport" or "advancereport" or "businesstripreport" or "leavereport" or "shift"
             or "orgchart" or "bonuspenalty" or "payslip" or "attendance"
             => (true, false, false, false, false, false),
         "attendancesummary" or "attendancebyshift" or "payroll"
             => (true, false, false, false, true, false),
-        "leave" or "overtime" or "shiftswap" or "advancerequests"
+        "leave" or "overtime" or "shiftswap" or "advancerequests" or "businesstripexpense"
             or "attendanceapproval" or "feedback" or "mobileattendance"
             => (true, true, false, false, false, false),
         "workschedule" => (true, true, true, true, false, false),

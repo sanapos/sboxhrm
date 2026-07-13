@@ -72,5 +72,7 @@ public static class VietnameseEncodingFix
             ("Phạt nhân viên", CashTransactionType.Income, "gavel", "#DC2626", 10),
             ("Thưởng nhân viên", CashTransactionType.Expense, "emoji_events", "#F59E0B", 10),
             ("Ứng lương", CashTransactionType.Expense, "account_balance_wallet", "#F97316", 11),
+            ("Ứng công tác", CashTransactionType.Expense, "flight_takeoff", "#0EA5E9", 12),
+            ("Công tác phí", CashTransactionType.Expense, "receipt_long", "#6366F1", 13),
         };
 }

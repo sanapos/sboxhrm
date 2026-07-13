@@ -30,6 +30,8 @@ public class FinalizePayrollItemDto
     public decimal? Tax { get; set; }
     public decimal GrossSalary { get; set; }
     public decimal NetSalary { get; set; }
+    public decimal? TravelHours { get; set; }
+    public decimal? TravelSalary { get; set; }
     public string? Notes { get; set; }
     /// <summary>Bản chụp chấm công kỳ lương (JSON) — lưu độc lập khi chốt.</summary>
     public JsonElement? AttendanceSnapshot { get; set; }

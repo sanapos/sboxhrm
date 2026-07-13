@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Authorization;
@@ -42,11 +43,15 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
             standardWorkHours = ParseDouble(map, "standard_work_hours", 8),
             standardWorkDays = ParseInt(map, "standard_work_days", 26),
             lunchBreakMinutes = ParseInt(map, "lunch_break_minutes", 60),
+            minHoursForWorkDay = ParseDouble(map, "min_hours_for_work_day", 0),
+            decimalWorkDayEnabled = ParseBool(map, "decimal_work_day_enabled", false),
             workStartTime = map.GetValueOrDefault("work_start_time") ?? "08:30",
             workEndTime = map.GetValueOrDefault("work_end_time") ?? "18:00",
             overtimeRate = ParseDouble(map, "overtime_rate", 1.5),
             weekendRate = ParseDouble(map, "weekend_rate", 2.0),
             holidayRate = ParseDouble(map, "holiday_rate", 3.0),
+            travelSalaryMode = map.GetValueOrDefault("travel_salary_mode") ?? "base_per_8h",
+            travelFixedHourlyRate = ParseDouble(map, "travel_fixed_hourly_rate", 0),
         }));
     }
 
@@ -65,6 +70,18 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
             request.StandardWorkDays?.ToString() ?? "26", "Số ngày công chuẩn/tháng");
         await UpsertStoreSettingAsync(storeId.Value, "lunch_break_minutes",
             request.LunchBreakMinutes?.ToString() ?? "60", "Nghỉ trưa (phút)");
+        if (request.MinHoursForWorkDay.HasValue)
+        {
+            await UpsertStoreSettingAsync(storeId.Value, "min_hours_for_work_day",
+                request.MinHoursForWorkDay.Value.ToString(CultureInfo.InvariantCulture),
+                "Số giờ tối thiểu để tính 1 công");
+        }
+        if (request.DecimalWorkDayEnabled.HasValue)
+        {
+            await UpsertStoreSettingAsync(storeId.Value, "decimal_work_day_enabled",
+                request.DecimalWorkDayEnabled.Value ? "true" : "false",
+                "Tính công theo thập phân (0.1–1.0)");
+        }
         await UpsertStoreSettingAsync(storeId.Value, "work_start_time",
             request.WorkStartTime ?? "08:30", "Giờ vào ca mặc định");
         await UpsertStoreSettingAsync(storeId.Value, "work_end_time",
@@ -75,6 +92,18 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
             request.WeekendRate?.ToString() ?? "2.0", "Hệ số tăng ca cuối tuần");
         await UpsertStoreSettingAsync(storeId.Value, "holiday_rate",
             request.HolidayRate?.ToString() ?? "3.0", "Hệ số tăng ca ngày lễ");
+        if (!string.IsNullOrWhiteSpace(request.TravelSalaryMode))
+        {
+            await UpsertStoreSettingAsync(storeId.Value, "travel_salary_mode",
+                request.TravelSalaryMode.Trim().ToLowerInvariant(),
+                "Cách tính lương giờ đi đường (fixed|base_per_8h|completion_per_8h)");
+        }
+        if (request.TravelFixedHourlyRate.HasValue)
+        {
+            await UpsertStoreSettingAsync(storeId.Value, "travel_fixed_hourly_rate",
+                request.TravelFixedHourlyRate.Value.ToString(CultureInfo.InvariantCulture),
+                "Lương giờ đi đường cố định (VNĐ/giờ)");
+        }
 
         await dbContext.SaveChangesAsync();
         return await GetSalarySettings();
@@ -83,8 +112,10 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
     private static readonly string[] SalarySettingKeys =
     [
         "standard_work_hours", "standard_work_days", "lunch_break_minutes",
+        "min_hours_for_work_day", "decimal_work_day_enabled",
         "work_start_time", "work_end_time",
-        "overtime_rate", "weekend_rate", "holiday_rate"
+        "overtime_rate", "weekend_rate", "holiday_rate",
+        "travel_salary_mode", "travel_fixed_hourly_rate"
     ];
 
     private static object DefaultSalarySettingsDto() => new
@@ -92,11 +123,15 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
         standardWorkHours = 8,
         standardWorkDays = 26,
         lunchBreakMinutes = 60,
+        minHoursForWorkDay = 0,
+        decimalWorkDayEnabled = false,
         workStartTime = "08:30",
         workEndTime = "18:00",
         overtimeRate = 1.5,
         weekendRate = 2.0,
         holidayRate = 3.0,
+        travelSalaryMode = "base_per_8h",
+        travelFixedHourlyRate = 0,
     };
 
     private static double ParseDouble(IReadOnlyDictionary<string, string?> map, string key, double fallback) =>
@@ -104,6 +139,9 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
 
     private static int ParseInt(IReadOnlyDictionary<string, string?> map, string key, int fallback) =>
         map.TryGetValue(key, out var v) && int.TryParse(v, out var i) ? i : fallback;
+
+    private static bool ParseBool(IReadOnlyDictionary<string, string?> map, string key, bool fallback) =>
+        map.TryGetValue(key, out var v) && bool.TryParse(v, out var b) ? b : fallback;
 
     private async Task UpsertStoreSettingAsync(Guid storeId, string key, string value, string description)
     {
@@ -139,11 +177,18 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
         public double? StandardWorkHours { get; set; }
         public int? StandardWorkDays { get; set; }
         public int? LunchBreakMinutes { get; set; }
+        /// <summary>Số giờ làm tối thiểu (mỗi cặp vào/ra) để được tính 1 công. 0 = tắt (giữ quy tắc 2/3 ca nếu có ca).</summary>
+        public double? MinHoursForWorkDay { get; set; }
+        /// <summary>Tính công theo bậc thập phân 0.1–1.0 theo tỷ lệ giờ làm.</summary>
+        public bool? DecimalWorkDayEnabled { get; set; }
         public string? WorkStartTime { get; set; }
         public string? WorkEndTime { get; set; }
         public double? OvertimeRate { get; set; }
         public double? WeekendRate { get; set; }
         public double? HolidayRate { get; set; }
+        /// <summary>fixed | base_per_8h | completion_per_8h</summary>
+        public string? TravelSalaryMode { get; set; }
+        public double? TravelFixedHourlyRate { get; set; }
     }
 
     // Penalty Settings

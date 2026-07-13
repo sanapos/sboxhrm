@@ -46,12 +46,23 @@ public class NotificationCategoryConfiguration : IEntityTypeConfiguration<Notifi
             },
             new NotificationCategory
             {
+                Id = Guid.Parse("a0000001-0000-0000-0000-000000000012"),
+                Code = "travel_attendance",
+                DisplayName = "Chấm đi đường",
+                Description = "Chấm đi đường, duyệt giờ đi đường",
+                Icon = "directions_car",
+                DisplayOrder = 2,
+                IsSystem = true,
+                DefaultEnabled = true
+            },
+            new NotificationCategory
+            {
                 Id = Guid.Parse("a0000001-0000-0000-0000-000000000002"),
                 Code = "leave",
                 DisplayName = "Nghỉ phép",
                 Description = "Đơn nghỉ phép, duyệt/từ chối phép",
                 Icon = "event_busy",
-                DisplayOrder = 2,
+                DisplayOrder = 3,
                 IsSystem = true,
                 DefaultEnabled = true
             },
@@ -62,7 +73,7 @@ public class NotificationCategoryConfiguration : IEntityTypeConfiguration<Notifi
                 DisplayName = "Tăng ca",
                 Description = "Đăng ký tăng ca, duyệt/từ chối tăng ca",
                 Icon = "more_time",
-                DisplayOrder = 3,
+                DisplayOrder = 4,
                 IsSystem = true,
                 DefaultEnabled = true
             },
@@ -73,7 +84,7 @@ public class NotificationCategoryConfiguration : IEntityTypeConfiguration<Notifi
                 DisplayName = "Lương & Phiếu lương",
                 Description = "Phiếu lương, thay đổi lương, thanh toán",
                 Icon = "payments",
-                DisplayOrder = 4,
+                DisplayOrder = 5,
                 IsSystem = true,
                 DefaultEnabled = true
             },
@@ -84,7 +95,7 @@ public class NotificationCategoryConfiguration : IEntityTypeConfiguration<Notifi
                 DisplayName = "Công việc",
                 Description = "Giao việc, cập nhật tiến độ, deadline",
                 Icon = "task_alt",
-                DisplayOrder = 5,
+                DisplayOrder = 6,
                 IsSystem = true,
                 DefaultEnabled = true
             },
@@ -95,7 +106,7 @@ public class NotificationCategoryConfiguration : IEntityTypeConfiguration<Notifi
                 DisplayName = "Phê duyệt",
                 Description = "Yêu cầu phê duyệt, kết quả phê duyệt",
                 Icon = "approval",
-                DisplayOrder = 6,
+                DisplayOrder = 7,
                 IsSystem = true,
                 DefaultEnabled = true
             },
@@ -106,7 +117,7 @@ public class NotificationCategoryConfiguration : IEntityTypeConfiguration<Notifi
                 DisplayName = "Thiết bị",
                 Description = "Trạng thái máy chấm công online/offline",
                 Icon = "router",
-                DisplayOrder = 7,
+                DisplayOrder = 8,
                 IsSystem = true,
                 DefaultEnabled = true
             },
@@ -117,7 +128,7 @@ public class NotificationCategoryConfiguration : IEntityTypeConfiguration<Notifi
                 DisplayName = "Nhân sự",
                 Description = "Hợp đồng, bổ nhiệm, thuyên chuyển",
                 Icon = "people",
-                DisplayOrder = 8,
+                DisplayOrder = 9,
                 IsSystem = true,
                 DefaultEnabled = true
             },
@@ -128,7 +139,7 @@ public class NotificationCategoryConfiguration : IEntityTypeConfiguration<Notifi
                 DisplayName = "Hệ thống",
                 Description = "Cập nhật hệ thống, bảo trì, thông báo chung",
                 Icon = "settings",
-                DisplayOrder = 9,
+                DisplayOrder = 10,
                 IsSystem = true,
                 DefaultEnabled = true
             },
@@ -139,7 +150,7 @@ public class NotificationCategoryConfiguration : IEntityTypeConfiguration<Notifi
                 DisplayName = "KPI",
                 Description = "Đánh giá KPI, lương KPI, mục tiêu",
                 Icon = "trending_up",
-                DisplayOrder = 10,
+                DisplayOrder = 11,
                 IsSystem = true,
                 DefaultEnabled = true
             },
@@ -150,7 +161,73 @@ public class NotificationCategoryConfiguration : IEntityTypeConfiguration<Notifi
                 DisplayName = "Truyền thông nội bộ",
                 Description = "Thông báo nội bộ, tin tức công ty",
                 Icon = "campaign",
-                DisplayOrder = 11,
+                DisplayOrder = 12,
+                IsSystem = true,
+                DefaultEnabled = true
+            },
+            new NotificationCategory
+            {
+                Id = Guid.Parse("a0000001-0000-0000-0000-000000000013"),
+                Code = "transaction",
+                DisplayName = "Thu chi",
+                Description = "Phiếu thu, phiếu chi, thanh toán",
+                Icon = "account_balance_wallet",
+                DisplayOrder = 13,
+                IsSystem = true,
+                DefaultEnabled = true
+            },
+            new NotificationCategory
+            {
+                Id = Guid.Parse("a0000001-0000-0000-0000-000000000014"),
+                Code = "penalty",
+                DisplayName = "Phiếu phạt",
+                Description = "Phiếu phạt chấm công, duyệt/thu phạt",
+                Icon = "gavel",
+                DisplayOrder = 14,
+                IsSystem = true,
+                DefaultEnabled = true
+            },
+            new NotificationCategory
+            {
+                Id = Guid.Parse("a0000001-0000-0000-0000-000000000015"),
+                Code = "meal",
+                DisplayName = "Suất ăn",
+                Description = "Buổi ăn, thực đơn, chấm cơm",
+                Icon = "restaurant",
+                DisplayOrder = 15,
+                IsSystem = true,
+                DefaultEnabled = true
+            },
+            new NotificationCategory
+            {
+                Id = Guid.Parse("a0000001-0000-0000-0000-000000000016"),
+                Code = "business_trip",
+                DisplayName = "Công tác",
+                Description = "Ứng công tác, hoạch toán, chi bù",
+                Icon = "flight_takeoff",
+                DisplayOrder = 16,
+                IsSystem = true,
+                DefaultEnabled = true
+            },
+            new NotificationCategory
+            {
+                Id = Guid.Parse("a0000001-0000-0000-0000-000000000017"),
+                Code = "pos",
+                DisplayName = "POS",
+                Description = "Bán hàng, nhập hàng, tồn kho",
+                Icon = "point_of_sale",
+                DisplayOrder = 17,
+                IsSystem = true,
+                DefaultEnabled = true
+            },
+            new NotificationCategory
+            {
+                Id = Guid.Parse("a0000001-0000-0000-0000-000000000018"),
+                Code = "shift",
+                DisplayName = "Ca làm việc",
+                Description = "Ca làm việc, đổi ca",
+                Icon = "schedule",
+                DisplayOrder = 18,
                 IsSystem = true,
                 DefaultEnabled = true
             }

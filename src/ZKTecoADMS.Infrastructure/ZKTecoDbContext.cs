@@ -64,6 +64,16 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     public DbSet<AdvanceApprovalRecord> AdvanceApprovalRecords => Set<AdvanceApprovalRecord>();
     public DbSet<PaymentTransaction> PaymentTransactions => Set<PaymentTransaction>();
     
+    // Business trip expense / Công tác phí
+    public DbSet<BusinessTripCase> BusinessTripCases => Set<BusinessTripCase>();
+    public DbSet<BusinessTripAdvanceClaim> BusinessTripAdvanceClaims => Set<BusinessTripAdvanceClaim>();
+    public DbSet<BusinessTripAdvanceApprovalRecord> BusinessTripAdvanceApprovalRecords => Set<BusinessTripAdvanceApprovalRecord>();
+    public DbSet<BusinessTripSettlementClaim> BusinessTripSettlementClaims => Set<BusinessTripSettlementClaim>();
+    public DbSet<BusinessTripSettlementApprovalRecord> BusinessTripSettlementApprovalRecords => Set<BusinessTripSettlementApprovalRecord>();
+    public DbSet<BusinessTripExpenseCategory> BusinessTripExpenseCategories => Set<BusinessTripExpenseCategory>();
+    public DbSet<BusinessTripExpenseLine> BusinessTripExpenseLines => Set<BusinessTripExpenseLine>();
+    public DbSet<BusinessTripExpenseAttachment> BusinessTripExpenseAttachments => Set<BusinessTripExpenseAttachment>();
+    
     // Settings & Configuration
     public DbSet<SystemConfiguration> SystemConfigurations => Set<SystemConfiguration>();
     public DbSet<Holiday> Holidays => Set<Holiday>();

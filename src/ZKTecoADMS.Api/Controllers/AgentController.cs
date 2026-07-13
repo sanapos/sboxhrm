@@ -25,17 +25,20 @@ public partial class AgentController : AuthenticatedControllerBase
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly ILogger<AgentController> _logger;
     private readonly ISystemNotificationService _notificationService;
+    private readonly IRenewalNotificationService _renewalNotificationService;
 
     public AgentController(
         ZKTecoDbContext dbContext,
         UserManager<ApplicationUser> userManager,
         ILogger<AgentController> logger,
-        ISystemNotificationService notificationService)
+        ISystemNotificationService notificationService,
+        IRenewalNotificationService renewalNotificationService)
     {
         _dbContext = dbContext;
         _userManager = userManager;
         _logger = logger;
         _notificationService = notificationService;
+        _renewalNotificationService = renewalNotificationService;
     }
 
     private Task<(Agent Agent, ActionResult? Error)> RequireCurrentAgentAsync() =>

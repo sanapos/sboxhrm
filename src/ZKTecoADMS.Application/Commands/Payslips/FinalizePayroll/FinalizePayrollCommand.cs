@@ -214,6 +214,8 @@ public class FinalizePayrollHandler(
         payslip.Tax = item.Tax;
         payslip.GrossSalary = item.GrossSalary;
         payslip.NetSalary = item.NetSalary;
+        payslip.TravelHours = item.TravelHours;
+        payslip.TravelSalary = item.TravelSalary;
         payslip.Notes = notes;
         payslip.Currency = "VND";
         if (payslip.Status != PayslipStatus.Paid)

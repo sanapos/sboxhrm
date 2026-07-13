@@ -21,13 +21,20 @@ internal static class EmployeeExcelImportParser
         public int NationalIdCol;
         public int HometownCol;
         public int EducationCol;
+        public int MaritalCol;
         public int PhoneCol;
         public int CompanyEmailCol;
+        public int PersonalEmailCol;
+        public int AddressCol;
         public int DepartmentCol;
         public int PositionCol;
+        public int LevelCol;
+        public int EmploymentTypeCol;
         public int JoinDateCol;
+        public int WorkStatusCol;
         public int BankNameCol;
         public int BankAccountCol;
+        public int BankAccountNameCol;
     }
 
     public static List<CreateEmployeeRequest> Parse(Stream stream)
@@ -119,6 +126,10 @@ internal static class EmployeeExcelImportParser
                      (h.Contains("trinhdo", StringComparison.Ordinal) ||
                       h.Contains("hocvan", StringComparison.Ordinal)))
                 map.EducationCol = c;
+            else if (map.MaritalCol == 0 &&
+                     (h.Contains("honnhan", StringComparison.Ordinal) ||
+                      h.Contains("tinhtranghn", StringComparison.Ordinal)))
+                map.MaritalCol = c;
             else if (map.PhoneCol == 0 &&
                      (h.Contains("sdt", StringComparison.Ordinal) ||
                       h.Contains("dienthoai", StringComparison.Ordinal) ||
@@ -129,6 +140,12 @@ internal static class EmployeeExcelImportParser
                       h.Contains("emailct", StringComparison.Ordinal) ||
                       h == "email"))
                 map.CompanyEmailCol = c;
+            else if (map.PersonalEmailCol == 0 && h.Contains("emailcanhan", StringComparison.Ordinal))
+                map.PersonalEmailCol = c;
+            else if (map.AddressCol == 0 &&
+                     (h.Contains("diachi", StringComparison.Ordinal) ||
+                      h.Contains("thuongtru", StringComparison.Ordinal)))
+                map.AddressCol = c;
             else if (map.DepartmentCol == 0 &&
                      (h.Contains("phongban", StringComparison.Ordinal) ||
                       h.Contains("bophan", StringComparison.Ordinal) ||
@@ -138,11 +155,23 @@ internal static class EmployeeExcelImportParser
                      (h.Contains("chucvu", StringComparison.Ordinal) ||
                       h.Contains("vitri", StringComparison.Ordinal)))
                 map.PositionCol = c;
+            else if (map.LevelCol == 0 &&
+                     (h.Contains("capbac", StringComparison.Ordinal) ||
+                      h == "bac" || h == "cap"))
+                map.LevelCol = c;
+            else if (map.EmploymentTypeCol == 0 &&
+                     (h.Contains("loaihd", StringComparison.Ordinal) ||
+                      h.Contains("loaihopdong", StringComparison.Ordinal)))
+                map.EmploymentTypeCol = c;
             else if (map.JoinDateCol == 0 &&
                      (h.Contains("ngayvaolam", StringComparison.Ordinal) ||
                       h.Contains("ngaybatdau", StringComparison.Ordinal) ||
                       h.Contains("ngayvao", StringComparison.Ordinal)))
                 map.JoinDateCol = c;
+            else if (map.WorkStatusCol == 0 &&
+                     (h.Contains("trangthai", StringComparison.Ordinal) ||
+                      h.Contains("tinhtrang", StringComparison.Ordinal)))
+                map.WorkStatusCol = c;
             else if (map.BankNameCol == 0 && h.Contains("nganhang", StringComparison.Ordinal))
                 map.BankNameCol = c;
             else if (map.BankAccountCol == 0 &&
@@ -150,6 +179,8 @@ internal static class EmployeeExcelImportParser
                       h.Contains("sotk", StringComparison.Ordinal) ||
                       h == "stk"))
                 map.BankAccountCol = c;
+            else if (map.BankAccountNameCol == 0 && h.Contains("tentaikhoan", StringComparison.Ordinal))
+                map.BankAccountNameCol = c;
         }
 
         // Fallback: file Export SBOX (STT + 17 cột)
@@ -166,18 +197,34 @@ internal static class EmployeeExcelImportParser
             map.CompanyEmailCol = map.CompanyEmailCol == 0 ? 10 : map.CompanyEmailCol;
             map.DepartmentCol = map.DepartmentCol == 0 ? 11 : map.DepartmentCol;
             map.PositionCol = map.PositionCol == 0 ? 12 : map.PositionCol;
+            map.EmploymentTypeCol = map.EmploymentTypeCol == 0 ? 13 : map.EmploymentTypeCol;
             map.JoinDateCol = map.JoinDateCol == 0 ? 14 : map.JoinDateCol;
+            map.WorkStatusCol = map.WorkStatusCol == 0 ? 15 : map.WorkStatusCol;
             map.BankNameCol = map.BankNameCol == 0 ? 16 : map.BankNameCol;
             map.BankAccountCol = map.BankAccountCol == 0 ? 17 : map.BankAccountCol;
         }
         else
         {
+            // File mẫu Import (A–S, không STT)
             map.CodeCol = map.CodeCol == 0 ? 1 : map.CodeCol;
             map.FullNameCol = map.FullNameCol == 0 ? 2 : map.FullNameCol;
             map.CompanyEmailCol = map.CompanyEmailCol == 0 ? 3 : map.CompanyEmailCol;
+            map.GenderCol = map.GenderCol == 0 ? 4 : map.GenderCol;
+            map.DobCol = map.DobCol == 0 ? 5 : map.DobCol;
+            map.NationalIdCol = map.NationalIdCol == 0 ? 6 : map.NationalIdCol;
+            map.HometownCol = map.HometownCol == 0 ? 7 : map.HometownCol;
+            map.EducationCol = map.EducationCol == 0 ? 8 : map.EducationCol;
+            map.MaritalCol = map.MaritalCol == 0 ? 9 : map.MaritalCol;
+            map.PhoneCol = map.PhoneCol == 0 ? 10 : map.PhoneCol;
+            map.PersonalEmailCol = map.PersonalEmailCol == 0 ? 11 : map.PersonalEmailCol;
+            map.AddressCol = map.AddressCol == 0 ? 12 : map.AddressCol;
             map.DepartmentCol = map.DepartmentCol == 0 ? 13 : map.DepartmentCol;
             map.PositionCol = map.PositionCol == 0 ? 14 : map.PositionCol;
+            map.LevelCol = map.LevelCol == 0 ? 15 : map.LevelCol;
             map.JoinDateCol = map.JoinDateCol == 0 ? 16 : map.JoinDateCol;
+            map.BankNameCol = map.BankNameCol == 0 ? 17 : map.BankNameCol;
+            map.BankAccountCol = map.BankAccountCol == 0 ? 18 : map.BankAccountCol;
+            map.BankAccountNameCol = map.BankAccountNameCol == 0 ? 19 : map.BankAccountNameCol;
         }
 
         return map;
@@ -186,7 +233,7 @@ internal static class EmployeeExcelImportParser
     static CreateEmployeeRequest? ParseRow(IXLWorksheet ws, int row, ColumnMap cols)
     {
         var code = NormalizeVnNumericId(CellText(ws.Cell(row, cols.CodeCol)));
-        var fullName = CellText(ws.Cell(row, cols.FullNameCol));
+        var fullName = cols.FullNameCol > 0 ? CellText(ws.Cell(row, cols.FullNameCol)) : "";
         var phone = cols.PhoneCol > 0 ? NormalizeVnNumericId(CellText(ws.Cell(row, cols.PhoneCol))) : "";
         var nationalId = cols.NationalIdCol > 0
             ? CellText(ws.Cell(row, cols.NationalIdCol)).Replace(" ", "")
@@ -200,6 +247,9 @@ internal static class EmployeeExcelImportParser
 
         if (string.IsNullOrWhiteSpace(code) && !string.IsNullOrWhiteSpace(fullName))
             code = SlugFromName(fullName);
+
+        if (LooksLikeMetaRow(code, fullName))
+            return null;
 
         if (string.IsNullOrWhiteSpace(code) ||
             LooksLikeHeaderToken(Norm(code)) ||
@@ -217,6 +267,22 @@ internal static class EmployeeExcelImportParser
         var department = cols.DepartmentCol > 0 ? CellText(ws.Cell(row, cols.DepartmentCol)).Trim() : "";
         var position = cols.PositionCol > 0 ? CellText(ws.Cell(row, cols.PositionCol)).Trim() : "";
 
+        EmployeeWorkStatus? importWorkStatus = null;
+        if (cols.WorkStatusCol > 0)
+        {
+            var statusText = CellText(ws.Cell(row, cols.WorkStatusCol));
+            if (!string.IsNullOrWhiteSpace(statusText))
+                importWorkStatus = ParseWorkStatus(statusText);
+        }
+
+        EmploymentType employmentType = EmploymentType.Monthly;
+        if (cols.EmploymentTypeCol > 0)
+        {
+            var typeText = CellText(ws.Cell(row, cols.EmploymentTypeCol));
+            if (!string.IsNullOrWhiteSpace(typeText))
+                employmentType = ParseEmploymentType(typeText);
+        }
+
         return new CreateEmployeeRequest
         {
             EmployeeCode = code,
@@ -228,17 +294,66 @@ internal static class EmployeeExcelImportParser
             NationalIdNumber = NullIfEmpty(nationalId),
             Hometown = cols.HometownCol > 0 ? NullIfEmpty(CellText(ws.Cell(row, cols.HometownCol))) : null,
             EducationLevel = cols.EducationCol > 0 ? NullIfEmpty(CellText(ws.Cell(row, cols.EducationCol))) : null,
+            MaritalStatus = cols.MaritalCol > 0 ? NullIfEmpty(CellText(ws.Cell(row, cols.MaritalCol))) : null,
             PhoneNumber = NullIfEmpty(phone),
+            PersonalEmail = cols.PersonalEmailCol > 0
+                ? NullIfEmpty(CellText(ws.Cell(row, cols.PersonalEmailCol)))
+                : null,
+            PermanentAddress = cols.AddressCol > 0
+                ? NullIfEmpty(CellText(ws.Cell(row, cols.AddressCol)))
+                : null,
             Department = NullIfEmpty(department),
             Position = NullIfEmpty(position),
+            Level = cols.LevelCol > 0 ? NullIfEmpty(CellText(ws.Cell(row, cols.LevelCol))) : null,
             JoinDate = cols.JoinDateCol > 0 ? ParseDateCell(ws.Cell(row, cols.JoinDateCol)) : null,
             BankName = cols.BankNameCol > 0 ? NullIfEmpty(CellText(ws.Cell(row, cols.BankNameCol))) : null,
             BankAccountNumber = cols.BankAccountCol > 0
                 ? NullIfEmpty(CellText(ws.Cell(row, cols.BankAccountCol)))
                 : null,
-            EmploymentType = EmploymentType.Monthly,
-            WorkStatus = EmployeeWorkStatus.Active,
+            BankAccountName = cols.BankAccountNameCol > 0
+                ? NullIfEmpty(CellText(ws.Cell(row, cols.BankAccountNameCol)))
+                : null,
+            EmploymentType = employmentType,
+            WorkStatus = importWorkStatus ?? EmployeeWorkStatus.Active,
+            ImportWorkStatus = importWorkStatus,
         };
+    }
+
+    static bool LooksLikeMetaRow(string code, string fullName)
+    {
+        var nCode = Norm(code);
+        var nName = Norm(fullName);
+        if (nName.Contains("tongnhanvien", StringComparison.Ordinal) ||
+            nName.Contains("xuatngay", StringComparison.Ordinal) ||
+            nName.Contains("xuatluc", StringComparison.Ordinal) ||
+            nName.Contains("danhsachnhanvien", StringComparison.Ordinal))
+            return true;
+        if (nCode.Contains("tongnhanvien", StringComparison.Ordinal) ||
+            nCode.Contains("xuatluc", StringComparison.Ordinal))
+            return true;
+        if (Regex.IsMatch(code.Trim(), @"^\d{1,4}$") && string.IsNullOrWhiteSpace(fullName))
+            return true;
+        return false;
+    }
+
+    static EmployeeWorkStatus ParseWorkStatus(string raw)
+    {
+        var n = Norm(raw);
+        if (n.Contains("nghiviec") || n == "resigned" || n == "1")
+            return EmployeeWorkStatus.Resigned;
+        if (n.Contains("nghiphep") || n == "onleave" || n == "2")
+            return EmployeeWorkStatus.OnLeave;
+        if (n.Contains("thuviec") || n == "probation" || n == "3")
+            return EmployeeWorkStatus.Probation;
+        return EmployeeWorkStatus.Active;
+    }
+
+    static EmploymentType ParseEmploymentType(string raw)
+    {
+        var n = Norm(raw);
+        if (n.Contains("gio") || n == "hourly" || n == "0")
+            return EmploymentType.Hourly;
+        return EmploymentType.Monthly;
     }
 
     static string CellText(IXLCell cell)
@@ -265,6 +380,16 @@ internal static class EmployeeExcelImportParser
     {
         if (cell.IsEmpty()) return null;
         if (cell.DataType == XLDataType.DateTime) return cell.GetDateTime().Date;
+
+        if (cell.DataType == XLDataType.Number)
+        {
+            var serial = cell.GetDouble();
+            if (serial >= 1 && serial <= 120000)
+            {
+                var epoch = new DateTime(1899, 12, 30);
+                return epoch.AddDays(Math.Floor(serial));
+            }
+        }
 
         var text = cell.GetFormattedString().Trim();
         if (string.IsNullOrEmpty(text)) return null;
@@ -327,6 +452,7 @@ internal static class EmployeeExcelImportParser
             .Replace(" ", "")
             .Replace("/", "")
             .Replace("-", "")
-            .Replace(".", "");
+            .Replace(".", "")
+            .Replace(":", "");
     }
 }

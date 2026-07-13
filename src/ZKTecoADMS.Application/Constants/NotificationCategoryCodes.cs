@@ -8,11 +8,12 @@ public static class NotificationCategoryCodes
 {
     public static readonly HashSet<string> AttendanceGroup = new(StringComparer.OrdinalIgnoreCase)
     {
-        "attendance", "device"
+        "attendance", "device", "travel_attendance"
     };
 
     /// <summary>
     /// Maps legacy or module-specific codes to a seeded <see cref="Domain.Entities.NotificationCategory"/> code.
+    /// Không remap transaction/penalty/meal sang payroll/approval/system — làm sai tiêu đề FCM.
     /// </summary>
     public static string? Normalize(string? code)
     {
@@ -23,20 +24,28 @@ public static class NotificationCategoryCodes
             "communication" => "internal_comm",
             "salary" => "payroll",
             "employee" => "hr",
-            "transaction" => "payroll",
-            "mobile_attendance" => "attendance",
-            "penalty" => "approval",
-            "allowance" => "payroll",
-            "meal" => "system",
             "department" => "hr",
             "account" => "hr",
+            "mobile_attendance" => "attendance",
+            "travel_attendance" => "travel_attendance",
+            // Thu chi / phạt / suất ăn / POS / công tác: giữ mã riêng
+            "transaction" => "transaction",
+            "cashtransaction" => "transaction",
+            "penalty" => "penalty",
+            "penaltyticket" => "penalty",
+            "meal" => "meal",
+            "allowance" => "payroll",
             "store" => "system",
             "license" => "system",
-            "shift" => "attendance",
+            "shift" => "shift",
             "pos" => "pos",
             "possaleorder" => "pos",
             "posproduct" => "pos",
             "pospurchasereceipt" => "pos",
+            "business_trip" => "business_trip",
+            "businesstrip" => "business_trip",
+            "businesstripcase" => "business_trip",
+            "businesstripexpense" => "business_trip",
             _ => code.Trim().ToLowerInvariant()
         };
     }

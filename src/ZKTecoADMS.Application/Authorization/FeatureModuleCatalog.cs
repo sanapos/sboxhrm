@@ -72,12 +72,14 @@ public static class FeatureModuleCatalog
         new("CashReport", "Báo cáo thu chi", "Thống kê thu chi tiền mặt", "Báo cáo", 35),
         new("PenaltyReport", "Báo cáo phạt", "Thống kê phiếu phạt, kỷ luật", "Báo cáo", 36),
         new("AdvanceReport", "Báo cáo ứng lương", "Thống kê ứng lương, tạm ứng", "Báo cáo", 37),
-        new("AssetReport", "Báo cáo tài sản", "Danh mục, cấp phát, lịch sử chuyển giao", "Báo cáo", 38),
+        new("BusinessTripReport", "Báo cáo công tác phí", "Tổng hợp ứng công tác, hoạch toán chi phí", "Báo cáo", 38),
+        new("AssetReport", "Báo cáo tài sản", "Danh mục, cấp phát, lịch sử chuyển giao", "Báo cáo", 39),
 
         // ══════════ TÀI CHÍNH ══════════
         new("BonusPenalty", "Phiếu thưởng", "Quản lý phiếu thưởng nhân viên", "Tài chính", 39),
         new("PenaltyTickets", "Phiếu phạt", "Phiếu phạt tự động từ chấm công", "Tài chính", 40),
         new("AdvanceRequests", "Ứng lương", "Quản lý ứng lương", "Tài chính", 41),
+        new("BusinessTripExpense", "Công tác phí", "Ứng công tác, hoạch toán chi phí", "Tài chính", 41),
         new("CashTransaction", "Thu chi", "Quản lý thu chi", "Tài chính", 42),
         new("BankAccount", "Tài khoản ngân hàng", "Tài khoản ngân hàng thu chi", "Tài chính", 43),
 

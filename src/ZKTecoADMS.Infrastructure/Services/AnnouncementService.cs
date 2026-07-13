@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using ZKTecoADMS.Application.DTOs.SystemAdmin;
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
@@ -235,7 +236,76 @@ public class AnnouncementService : IAnnouncementService
                 IsDismissed = d.DismissedAt != null
             }).Take(20).ToListAsync(ct);
 
-        return rows.Where(r => !r.IsAcked).ToList();
+        var active = rows.Where(r => !r.IsAcked).ToList();
+        return await EnrichAndFilterRenewalAsync(active, ct);
+    }
+
+    /// <summary>
+    /// Gắn expiry live từ Store, ẩn renewal đã gia hạn xa, giữ tối đa 1 renewal/store.
+    /// </summary>
+    private async Task<List<ActiveAnnouncementDto>> EnrichAndFilterRenewalAsync(
+        List<ActiveAnnouncementDto> items,
+        CancellationToken ct)
+    {
+        if (items.Count == 0) return items;
+
+        var renewalStoreIds = items
+            .Where(i => i.Kind == AnnouncementKind.Renewal)
+            .Select(i => RenewalNotificationHelper.TryParseStoreId(i.Content, out var sid) ? sid : Guid.Empty)
+            .Where(id => id != Guid.Empty)
+            .Distinct()
+            .ToList();
+
+        var expiryByStore = renewalStoreIds.Count == 0
+            ? new Dictionary<Guid, DateTime?>()
+            : await _db.Stores.AsNoTracking()
+                .IgnoreQueryFilters()
+                .Where(s => renewalStoreIds.Contains(s.Id))
+                .ToDictionaryAsync(s => s.Id, s => s.ExpiryDate, ct);
+
+        var now = DateTime.UtcNow;
+        var enriched = new List<ActiveAnnouncementDto>();
+
+        foreach (var item in items)
+        {
+            if (item.Kind != AnnouncementKind.Renewal)
+            {
+                enriched.Add(item);
+                continue;
+            }
+
+            if (!RenewalNotificationHelper.TryParseStoreId(item.Content, out var storeId))
+            {
+                enriched.Add(item);
+                continue;
+            }
+
+            expiryByStore.TryGetValue(storeId, out var liveExpiry);
+            var daysLeft = RenewalNotificationHelper.ComputeDaysLeft(liveExpiry, now);
+
+            if (RenewalNotificationHelper.ShouldSuppressRenewalAlert(liveExpiry, now))
+                continue;
+
+            item.RelatedStoreId = storeId;
+            item.LiveExpiryDate = liveExpiry;
+            item.LiveDaysLeft = daysLeft;
+            enriched.Add(item);
+        }
+
+        var nonRenewal = enriched.Where(i => i.Kind != AnnouncementKind.Renewal).ToList();
+        var renewals = enriched
+            .Where(i => i.Kind == AnnouncementKind.Renewal)
+            .GroupBy(i => i.RelatedStoreId)
+            .Select(g => g.OrderBy(i => i.LiveDaysLeft ?? int.MaxValue)
+                .ThenByDescending(i => (int)i.Severity)
+                .First())
+            .ToList();
+
+        return nonRenewal.Concat(renewals)
+            .OrderByDescending(i => (int)i.Severity)
+            .ThenByDescending(i => i.ExpiresAt)
+            .Take(20)
+            .ToList();
     }
 
     public async Task MarkSeenAsync(Guid announcementId, Guid userId, CancellationToken ct = default)

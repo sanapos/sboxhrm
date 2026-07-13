@@ -54,15 +54,14 @@ public class UpdateMealSessionHandler(
 
             try
             {
-                await notificationService.CreateAndSendAsync(
-                    targetUserId: null,
-                    type: NotificationType.Info,
+                await notificationService.CreateAndSendToStoreEmployeesAsync(
+                    request.StoreId,
+                    NotificationType.Info,
                     title: "Cập nhật buổi ăn",
                     message: $"Buổi ăn \"{session.Name}\" đã được cập nhật ({session.StartTime:hh\\:mm} - {session.EndTime:hh\\:mm})",
                     relatedEntityId: session.Id,
                     relatedEntityType: "MealSession",
-                    categoryCode: "meal",
-                    storeId: request.StoreId);
+                    categoryCode: "meal");
             }
             catch { /* notification failure should not block main flow */ }
 

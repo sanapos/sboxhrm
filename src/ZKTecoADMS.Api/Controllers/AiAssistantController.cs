@@ -41,6 +41,8 @@ public class AiAssistantController(
         public List<string> Actions { get; set; } = new();
         /// <summary>Structured create intents: "type,key=val,key=val" — Flutter parses and calls API directly.</summary>
         public List<string> Creates { get; set; } = new();
+        /// <summary>Guide deep links: "basic/leave", "advanced/kpi".</summary>
+        public List<string> Guides { get; set; } = new();
     }
 
     /// <summary>
@@ -68,11 +70,35 @@ public class AiAssistantController(
             var allowedCreates = AiAssistantPermissionRules.AllowedCreateExamples(permMap, isSuperUser);
 
             var contextText = await AiAssistantContextBuilder.BuildAsync(
-                db, CurrentUserId, RequiredStoreId, role, logger, ct);
+                db, CurrentUserId, RequiredStoreId, role, logger, ct, permMap, isSuperUser);
             contextText += "\n\n=== QUYỀN TÀI KHOẢN ===\n";
             contextText += AiAssistantPermissionRules.BuildPermissionsSummary(permMap, isSuperUser, role);
 
-            var systemPrompt = AiAssistantPromptBuilder.Build(contextText, allowedActions, allowedCreates);
+            var extra = await AiAssistantQueryTools.BuildExtraContextAsync(
+                db, CurrentUserId, RequiredStoreId, role, lastUserMessage.Content,
+                permMap, isSuperUser, logger, ct);
+            if (!string.IsNullOrWhiteSpace(extra))
+                contextText += "\n\n" + extra;
+
+            // Gợi ý GUIDE từ kết quả search (kể cả khi model quên tag)
+            var helpHits = AiAssistantHelpCorpus.Search(lastUserMessage.Content, topK: 4);
+            var suggestedGuides = helpHits
+                .Select(h => $"{h.Mode}/{h.StepId}")
+                .Distinct()
+                .ToList();
+            // Bổ sung ACTION từ help nếu user hỏi hướng dẫn
+            foreach (var hit in helpHits)
+            {
+                foreach (var tag in hit.ActionTags)
+                {
+                    if (AiAssistantPermissionRules.CanAction(tag, permMap, isSuperUser)
+                        && !allowedActions.Contains(tag))
+                        allowedActions.Add(tag);
+                }
+            }
+
+            var systemPrompt = AiAssistantPromptBuilder.Build(
+                contextText, allowedActions, allowedCreates, suggestedGuides);
             logger.LogInformation(
                 "AI assistant context for {UserId}: {Length} chars, digest: {Digest}",
                 CurrentUserId,
@@ -154,18 +180,46 @@ public class AiAssistantController(
                 cStart = ci;
             }
 
+            // Extract [[GUIDE:mode/stepId]]
+            var guides = new List<string>();
+            var gStart = 0;
+            while (true)
+            {
+                var gi = cleaned.IndexOf("[[GUIDE:", gStart, StringComparison.Ordinal);
+                if (gi < 0) break;
+                var gj = cleaned.IndexOf("]]", gi, StringComparison.Ordinal);
+                if (gj < 0) break;
+                var gtag = cleaned.Substring(gi + 8, gj - (gi + 8)).Trim();
+                if (AiAssistantHelpCorpus.TryParseGuideTag(gtag, out var mode, out var stepId))
+                    guides.Add($"{mode}/{stepId}");
+                cleaned = cleaned.Remove(gi, gj - gi + 2);
+                gStart = gi;
+            }
+
+            // Nếu hỏi hướng dẫn mà model quên GUIDE → gắn gợi ý top hit
+            if (guides.Count == 0 && suggestedGuides.Count > 0
+                && (lastUserMessage.Content.Contains("cách", StringComparison.OrdinalIgnoreCase)
+                    || lastUserMessage.Content.Contains("hướng dẫn", StringComparison.OrdinalIgnoreCase)
+                    || lastUserMessage.Content.Contains("làm sao", StringComparison.OrdinalIgnoreCase)
+                    || lastUserMessage.Content.Contains("ở đâu", StringComparison.OrdinalIgnoreCase)))
+            {
+                guides.Add(suggestedGuides[0]);
+            }
+
             actions = actions
                 .Where(a => AiAssistantPermissionRules.CanAction(a, permMap, isSuperUser))
                 .Distinct()
                 .ToList();
             creates = creates.Distinct().ToList();
+            guides = guides.Distinct().Take(2).ToList();
 
             return Ok(AppResponse<ChatResponse>.Success(new ChatResponse
             {
                 Reply = cleaned.Trim(),
                 Provider = usedProvider,
                 Actions = actions,
-                Creates = creates
+                Creates = creates,
+                Guides = guides
             }));
         }
         catch (Exception ex)

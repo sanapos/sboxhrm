@@ -50,15 +50,14 @@ public class UpdateMealMenuHandler(
 
             try
             {
-                await notificationService.CreateAndSendAsync(
-                    targetUserId: null,
-                    type: NotificationType.Info,
+                await notificationService.CreateAndSendToStoreEmployeesAsync(
+                    request.StoreId,
+                    NotificationType.Info,
                     title: "Cập nhật thực đơn",
                     message: $"Thực đơn ngày {menu.Date:dd/MM} đã cập nhật: {dishNames}",
                     relatedEntityId: menu.Id,
                     relatedEntityType: "MealMenu",
-                    categoryCode: "meal",
-                    storeId: request.StoreId);
+                    categoryCode: "meal");
             }
             catch { /* notification failure should not block main flow */ }
 

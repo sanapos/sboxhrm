@@ -25,7 +25,9 @@ public static class AiAssistantContextBuilder
         Guid storeId,
         string role,
         ILogger logger,
-        CancellationToken ct)
+        CancellationToken ct,
+        IReadOnlyDictionary<string, Application.DTOs.Permissions.ModulePermissionDto>? perms = null,
+        bool isSuperUser = false)
     {
         var buf = new StringBuilder();
         var todayVn = AiAssistantVnTime.NowVn().Date;
@@ -279,9 +281,12 @@ public static class AiAssistantContextBuilder
                     buf.AppendLine($"- {p.Month:D2}/{p.Year}: {p.NetSalary:N0}đ ({p.Status})");
             }
 
-            // Manager store summary
-            var roleLower = role.ToLowerInvariant();
-            if (roleLower is "owner" or "admin" or "director" or "manager" or "departmenthead")
+            // Manager store summary — theo quyền module, không chỉ theo chuỗi role
+            var allowTeam = AiAssistantQueryTools.CanTeamSnapshot(
+                perms ?? new Dictionary<string, Application.DTOs.Permissions.ModulePermissionDto>(),
+                isSuperUser,
+                role);
+            if (allowTeam)
             {
                 await AppendManagerContextAsync(db, storeId, userId, todayVn, todayQueryStart, todayQueryEnd, buf, logger, ct);
             }

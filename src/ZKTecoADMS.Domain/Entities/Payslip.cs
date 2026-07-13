@@ -118,6 +118,12 @@ public class Payslip : AuditableEntity<Guid>
     [Required]
     public decimal NetSalary { get; set; }
 
+    /// <summary>Giờ đi đường trong kỳ lương.</summary>
+    public decimal? TravelHours { get; set; }
+
+    /// <summary>Lương đi đường trong kỳ lương (VNĐ).</summary>
+    public decimal? TravelSalary { get; set; }
+
     [MaxLength(10)]
     public string Currency { get; set; } = "USD";
 

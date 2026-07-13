@@ -136,6 +136,7 @@ public static class DependencyInjectionExtensions
         // SuperAdmin announcements (Phase 1)
         services.AddScoped<IAudienceResolver, AudienceResolver>();
         services.AddScoped<IAnnouncementService, AnnouncementService>();
+        services.AddScoped<IRenewalNotificationService, RenewalNotificationService>();
 
         // SuperAdmin maintenance (Phase 2)
         services.AddScoped<IMaintenanceService, MaintenanceService>();
@@ -167,6 +168,7 @@ public static class DependencyInjectionExtensions
         // Phase 2 jobs
         services.AddHostedService<ScheduledAnnouncementBackgroundService>();
         services.AddHostedService<RenewalReminderBackgroundService>();
+        services.AddHostedService<RenewalStaleCleanupBackgroundService>();
         services.AddHostedService<MaintenanceNotifierBackgroundService>();
         services.AddHostedService<BirthdayNotifierBackgroundService>();
         

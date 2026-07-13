@@ -33,6 +33,8 @@ public class PayslipDto
     public decimal? Tax { get; set; }
     public decimal GrossSalary { get; set; }
     public decimal NetSalary { get; set; }
+    public decimal? TravelHours { get; set; }
+    public decimal? TravelSalary { get; set; }
     public string Currency { get; set; } = "USD";
     public PayslipStatus Status { get; set; }
     public string StatusName { get; set; } = string.Empty;

@@ -41,6 +41,16 @@ public static class AiAssistantPermissionRules
         ["nav_feedback_create"] = new("Feedback", true),
         ["nav_employees"] = new("Employee", false),
         ["nav_departments"] = new("Department", false),
+        ["nav_business_trip"] = new("BusinessTripExpense", false),
+        ["nav_business_trip_create"] = new("BusinessTripExpense", true),
+        ["nav_penalty"] = new("PenaltyTickets", false),
+        ["nav_production"] = new("Production", false),
+        ["nav_mobile_attendance"] = new("MobileAttendance", false),
+        ["nav_schedule_approval"] = new("ScheduleApproval", false),
+        ["nav_leave_report"] = new("LeaveReport", false),
+        ["nav_cash_report"] = new("CashReport", false),
+        ["nav_advance_report"] = new("AdvanceReport", false),
+        ["nav_business_trip_report"] = new("BusinessTripReport", false),
     };
 
     private static readonly Dictionary<string, Rule> CreateRules = new(StringComparer.Ordinal)
@@ -53,6 +63,7 @@ public static class AiAssistantPermissionRules
         ["field_assignment"] = new("FieldCheckIn", true),
         ["shift_swap"] = new("ShiftSwap", true),
         ["overtime"] = new("Overtime", true),
+        ["business_trip"] = new("BusinessTripExpense", true),
     };
 
     public static bool IsSuperRole(string role) => ModulePermissionDefaults.IsSuperRole(role);

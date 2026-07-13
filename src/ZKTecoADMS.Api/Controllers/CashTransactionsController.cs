@@ -511,6 +511,53 @@ public class CashTransactionsController(
             }
         }
 
+        // Ứng công tác → hoàn chi ứng
+        if (CashTransactionLinkageHelper.TryExtractTrailingGuid(
+                transaction.InternalNote, "ứng công tác #", out var tripAdvanceId))
+        {
+            var tripAdvance = await context.BusinessTripAdvanceClaims
+                .Include(a => a.Case)
+                .FirstOrDefaultAsync(a => a.Id == tripAdvanceId && a.StoreId == storeId);
+            if (tripAdvance != null && tripAdvance.IsPaid)
+            {
+                tripAdvance.IsPaid = false;
+                tripAdvance.PaidDate = null;
+                tripAdvance.PaymentMethod = null;
+                tripAdvance.CashTransactionId = null;
+                tripAdvance.UpdatedAt = DateTime.UtcNow;
+                if (tripAdvance.Case != null
+                    && tripAdvance.Case.Status == BusinessTripCaseStatus.AdvancePaid)
+                {
+                    tripAdvance.Case.Status = BusinessTripCaseStatus.AdvanceApproved;
+                    tripAdvance.Case.UpdatedAt = DateTime.UtcNow;
+                }
+            }
+        }
+
+        // Chi bù / thu hoàn công tác → mở lại Settling
+        if (CashTransactionLinkageHelper.TryExtractTrailingGuid(
+                transaction.InternalNote, "quyết toán công tác phí #", out var settlementId)
+            || CashTransactionLinkageHelper.TryExtractTrailingGuid(
+                transaction.InternalNote, "thu hoàn ứng công tác #", out settlementId))
+        {
+            var settlement = await context.BusinessTripSettlementClaims
+                .Include(s => s.Case)
+                .FirstOrDefaultAsync(s => s.Id == settlementId && s.StoreId == storeId);
+            if (settlement != null && settlement.IsExtraPaid)
+            {
+                settlement.IsExtraPaid = false;
+                settlement.ExtraPaidDate = null;
+                settlement.ExtraPaymentMethod = null;
+                settlement.UpdatedAt = DateTime.UtcNow;
+                if (settlement.Case != null
+                    && settlement.Case.Status == BusinessTripCaseStatus.Closed)
+                {
+                    settlement.Case.Status = BusinessTripCaseStatus.Settling;
+                    settlement.Case.UpdatedAt = DateTime.UtcNow;
+                }
+            }
+        }
+
         // Phiếu thu/chi thưởng/phạt → bỏ đánh dấu đã thanh toán trên PaymentTransaction
         if (CashTransactionLinkageHelper.TryExtractTrailingGuid(
                 transaction.InternalNote, "phiếu thưởng/phạt #", out var paymentTxId))

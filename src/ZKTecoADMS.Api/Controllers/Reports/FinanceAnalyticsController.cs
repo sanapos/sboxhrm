@@ -253,6 +253,245 @@ public class FinanceAnalyticsController(
     }
 
     // ═════════════════════════════════════════════════════════════════════
+    // 2b. BUSINESS TRIP — Báo cáo công tác phí
+    // GET /api/reports/finance/business-trip?from=&to=&department=&status=
+    // ═════════════════════════════════════════════════════════════════════
+    [HttpGet("business-trip")]
+    [RequireModulePermission("BusinessTripReport", ModulePermissionAction.View)]
+    public async Task<IActionResult> GetBusinessTripReport(
+        [FromQuery] DateTime? from = null,
+        [FromQuery] DateTime? to = null,
+        [FromQuery] string? department = null,
+        [FromQuery] BusinessTripCaseStatus? status = null,
+        [FromQuery] string? format = null,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var (_, _, fromUtc, toUtc) = ReportHelpers.VnRange(from, to);
+            var storeId = RequiredStoreId;
+
+            Guid? employeeUserFilter = null;
+            if (!IsBusinessTripPrivileged)
+                employeeUserFilter = CurrentUserId;
+
+            var q = db.BusinessTripCases.IgnoreQueryFilters()
+                .Include(c => c.Employee)
+                .Include(c => c.EmployeeUser)
+                .Include(c => c.AdvanceClaim)
+                .Include(c => c.SettlementClaim!)
+                    .ThenInclude(s => s.Lines)
+                        .ThenInclude(l => l.Category)
+                .Where(c => c.StoreId == storeId
+                    && c.Deleted == null
+                    && c.CreatedAt >= fromUtc && c.CreatedAt < toUtc);
+
+            if (status.HasValue)
+                q = q.Where(c => c.Status == status.Value);
+            else
+                q = q.Where(c => c.Status != BusinessTripCaseStatus.Cancelled);
+            if (employeeUserFilter.HasValue)
+                q = q.Where(c => c.EmployeeUserId == employeeUserFilter);
+
+            var cases = await q.OrderByDescending(c => c.CreatedAt).ToListAsync(ct);
+
+            if (!string.IsNullOrWhiteSpace(department))
+            {
+                cases = cases.Where(c =>
+                    (c.Employee?.Department ?? "").Contains(department, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+            }
+
+            // Mặc định đã loại Cancelled ở query; active dùng cho tổng hợp (bỏ hủy nếu lọc riêng status=Cancelled).
+            var active = cases.Where(c => c.Status != BusinessTripCaseStatus.Cancelled).ToList();
+
+            var items = cases.Select(c =>
+            {
+                var emp = c.Employee;
+                var empName = emp != null
+                    ? ReportHelpers.FullName(emp.LastName, emp.FirstName)
+                    : c.EmployeeUser != null
+                        ? ReportHelpers.FullName(c.EmployeeUser.LastName, c.EmployeeUser.FirstName)
+                        : "—";
+                var claim = c.SettlementClaim;
+                var lines = claim?.Lines?.Where(l => l.Deleted == null).ToList() ?? [];
+                return new BusinessTripReportItemDto
+                {
+                    Id = c.Id,
+                    CaseCode = c.CaseCode,
+                    Title = c.Title,
+                    Destination = c.Destination,
+                    EmployeeUserId = c.EmployeeUserId,
+                    EmployeeCode = emp?.EmployeeCode ?? "—",
+                    EmployeeName = empName,
+                    Department = emp?.Department ?? "N/A",
+                    Status = c.Status,
+                    StatusLabel = BusinessTripStatusLabel(c.Status),
+                    AdvanceAmount = c.AdvanceAmount,
+                    SettledAmount = c.SettledAmount,
+                    BalanceAmount = c.BalanceAmount,
+                    TripFromDate = c.TripFromDate,
+                    TripToDate = c.TripToDate,
+                    CreatedAt = c.CreatedAt,
+                    AdvanceIsPaid = c.AdvanceClaim?.IsPaid ?? false,
+                    AdvanceStatus = c.AdvanceClaim?.Status,
+                    SettlementStatus = claim?.Status,
+                    SettlementType = claim?.SettlementType,
+                    ExpenseLineCount = lines.Count,
+                    TotalWithInvoice = claim?.TotalWithInvoice
+                        ?? lines.Where(l => l.HasInvoice).Sum(l => l.Amount),
+                    TotalWithoutInvoice = claim?.TotalWithoutInvoice
+                        ?? lines.Where(l => !l.HasInvoice).Sum(l => l.Amount),
+                    CategoryIds = lines
+                        .Where(l => l.CategoryId.HasValue)
+                        .Select(l => l.CategoryId!.Value)
+                        .Distinct()
+                        .ToList(),
+                    HasUncategorizedExpense = lines.Any(l => l.CategoryId == null)
+                };
+            }).ToList();
+
+            var byEmployee = active
+                .GroupBy(c =>
+                {
+                    var emp = c.Employee;
+                    var code = emp?.EmployeeCode ?? "—";
+                    var name = emp != null
+                        ? ReportHelpers.FullName(emp.LastName, emp.FirstName)
+                        : c.EmployeeUser != null
+                            ? ReportHelpers.FullName(c.EmployeeUser.LastName, c.EmployeeUser.FirstName)
+                            : "—";
+                    return new { code, name, dept = emp?.Department ?? "N/A" };
+                })
+                .Select(g => new BusinessTripReportEmployeeDto
+                {
+                    EmployeeCode = g.Key.code,
+                    EmployeeName = g.Key.name,
+                    Department = g.Key.dept,
+                    TotalCases = g.Count(),
+                    TotalAdvance = g.Sum(x => x.AdvanceAmount),
+                    TotalSettled = g.Sum(x => x.SettledAmount),
+                    TotalBalance = g.Sum(x => x.BalanceAmount),
+                    PendingAdvance = g.Count(x => x.Status == BusinessTripCaseStatus.AdvancePending),
+                    PendingSettlement = g.Count(x => x.Status == BusinessTripCaseStatus.SettlementPending),
+                    ClosedCases = g.Count(x => x.Status == BusinessTripCaseStatus.Closed)
+                })
+                .OrderByDescending(i => i.TotalSettled)
+                .ThenByDescending(i => i.TotalAdvance)
+                .ToList();
+
+            // Tổng hợp theo hạng mục chi phí từ dòng hoạch toán của hồ sơ active.
+            var expenseLines = active
+                .SelectMany(c => (c.SettlementClaim?.Lines ?? Enumerable.Empty<BusinessTripExpenseLine>())
+                    .Where(l => l.Deleted == null)
+                    .Select(l => new { CaseId = c.Id, Line = l }))
+                .ToList();
+            var expenseTotal = expenseLines.Sum(x => x.Line.Amount);
+            var byCategory = expenseLines
+                .GroupBy(x => new
+                {
+                    CategoryId = x.Line.CategoryId,
+                    Name = string.IsNullOrWhiteSpace(x.Line.Category?.Name)
+                        ? "Không phân loại"
+                        : x.Line.Category!.Name!,
+                    Code = x.Line.Category?.Code
+                })
+                .Select(g =>
+                {
+                    var total = g.Sum(x => x.Line.Amount);
+                    return new BusinessTripReportCategoryDto
+                    {
+                        CategoryId = g.Key.CategoryId,
+                        CategoryCode = g.Key.Code,
+                        CategoryName = g.Key.Name,
+                        LineCount = g.Count(),
+                        CaseCount = g.Select(x => x.CaseId).Distinct().Count(),
+                        TotalAmount = total,
+                        WithInvoiceAmount = g.Where(x => x.Line.HasInvoice).Sum(x => x.Line.Amount),
+                        WithoutInvoiceAmount = g.Where(x => !x.Line.HasInvoice).Sum(x => x.Line.Amount),
+                        Percentage = expenseTotal > 0
+                            ? Math.Round(total * 100m / expenseTotal, 1)
+                            : 0
+                    };
+                })
+                .OrderByDescending(i => i.TotalAmount)
+                .ThenBy(i => i.CategoryName)
+                .ToList();
+
+            var report = new BusinessTripReportDto
+            {
+                From = ReportHelpers.ToVn(fromUtc),
+                To = ReportHelpers.ToVn(toUtc.AddTicks(-1)),
+                TotalCases = active.Count,
+                PendingAdvanceCases = active.Count(c => c.Status == BusinessTripCaseStatus.AdvancePending),
+                PendingSettlementCases = active.Count(c => c.Status == BusinessTripCaseStatus.SettlementPending),
+                ClosedCases = active.Count(c => c.Status == BusinessTripCaseStatus.Closed),
+                TotalAdvanceAmount = active.Sum(c => c.AdvanceAmount),
+                TotalSettledAmount = active.Sum(c => c.SettledAmount),
+                TotalBalanceAmount = active.Sum(c => c.BalanceAmount),
+                TotalWithInvoice = active.Sum(c =>
+                    c.SettlementClaim?.TotalWithInvoice
+                    ?? (c.SettlementClaim?.Lines?.Where(l => l.Deleted == null && l.HasInvoice).Sum(l => l.Amount) ?? 0)),
+                TotalWithoutInvoice = active.Sum(c =>
+                    c.SettlementClaim?.TotalWithoutInvoice
+                    ?? (c.SettlementClaim?.Lines?.Where(l => l.Deleted == null && !l.HasInvoice).Sum(l => l.Amount) ?? 0)),
+                ExpenseLineCount = expenseLines.Count,
+                Items = items,
+                ByEmployee = byEmployee,
+                ByCategory = byCategory
+            };
+
+            if (string.Equals(format, "excel", StringComparison.OrdinalIgnoreCase))
+            {
+                return ReportHelpers.ExcelFile("Công tác phí",
+                    new[] { "Mã HS", "Tiêu đề", "Mã NV", "Họ tên", "Phòng ban", "Điểm đến", "Trạng thái", "Đã ứng", "Hoạch toán", "Chênh lệch", "Ngày tạo" },
+                    (ws, dataStartRow) =>
+                    {
+                        int row = dataStartRow;
+                        foreach (var i in items)
+                        {
+                            ws.Cell(row, 1).Value = i.CaseCode;
+                            ws.Cell(row, 2).Value = i.Title;
+                            ws.Cell(row, 3).Value = i.EmployeeCode;
+                            ws.Cell(row, 4).Value = i.EmployeeName;
+                            ws.Cell(row, 5).Value = i.Department;
+                            ws.Cell(row, 6).Value = i.Destination ?? "";
+                            ws.Cell(row, 7).Value = i.StatusLabel;
+                            ReportHelpers.MoneyCell(ws.Cell(row, 8), i.AdvanceAmount);
+                            ReportHelpers.MoneyCell(ws.Cell(row, 9), i.SettledAmount);
+                            ReportHelpers.MoneyCell(ws.Cell(row, 10), i.BalanceAmount);
+                            ws.Cell(row, 11).Value = i.CreatedAt.ToString("dd/MM/yyyy");
+                            row++;
+                        }
+                    },
+                    $"business-trip-{report.From:yyyyMMdd}-{report.To:yyyyMMdd}.xlsx", user: User);
+            }
+
+            return Ok(AppResponse<BusinessTripReportDto>.Success(report));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Business trip report failed");
+            return StatusCode(500, AppResponse<BusinessTripReportDto>.Fail(ex.Message));
+        }
+    }
+
+    private static string BusinessTripStatusLabel(BusinessTripCaseStatus status) => status switch
+    {
+        BusinessTripCaseStatus.Draft => "Nháp",
+        BusinessTripCaseStatus.AdvancePending => "Chờ duyệt ứng",
+        BusinessTripCaseStatus.AdvanceApproved => "Ứng đã duyệt",
+        BusinessTripCaseStatus.AdvancePaid => "Đã chi ứng",
+        BusinessTripCaseStatus.SettlementDraft => "Nháp HT",
+        BusinessTripCaseStatus.SettlementPending => "Chờ duyệt HT",
+        BusinessTripCaseStatus.SettlementApproved => "HT đã duyệt",
+        BusinessTripCaseStatus.Settling => "Quyết toán",
+        BusinessTripCaseStatus.Closed => "Đóng",
+        BusinessTripCaseStatus.Cancelled => "Hủy",
+        _ => status.ToString()
+    };
+
+    // ═════════════════════════════════════════════════════════════════════
     // 3. MEAL DEBT — Công nợ suất ăn
     // GET /api/reports/finance/meal-debt?period=yyyy-MM or from/to
     // ═════════════════════════════════════════════════════════════════════
@@ -537,6 +776,81 @@ public class AdvanceDebtEmployeeDto
     public decimal TotalApproved { get; set; }
     public decimal TotalPaid { get; set; }
     public decimal OutstandingDebt { get; set; }
+}
+
+public class BusinessTripReportDto
+{
+    public DateTime From { get; set; }
+    public DateTime To { get; set; }
+    public int TotalCases { get; set; }
+    public int PendingAdvanceCases { get; set; }
+    public int PendingSettlementCases { get; set; }
+    public int ClosedCases { get; set; }
+    public decimal TotalAdvanceAmount { get; set; }
+    public decimal TotalSettledAmount { get; set; }
+    public decimal TotalBalanceAmount { get; set; }
+    public decimal TotalWithInvoice { get; set; }
+    public decimal TotalWithoutInvoice { get; set; }
+    public int ExpenseLineCount { get; set; }
+    public List<BusinessTripReportItemDto> Items { get; set; } = new();
+    public List<BusinessTripReportEmployeeDto> ByEmployee { get; set; } = new();
+    public List<BusinessTripReportCategoryDto> ByCategory { get; set; } = new();
+}
+
+public class BusinessTripReportItemDto
+{
+    public Guid Id { get; set; }
+    public string CaseCode { get; set; } = string.Empty;
+    public string Title { get; set; } = string.Empty;
+    public string? Destination { get; set; }
+    public Guid? EmployeeUserId { get; set; }
+    public string EmployeeCode { get; set; } = string.Empty;
+    public string EmployeeName { get; set; } = string.Empty;
+    public string Department { get; set; } = string.Empty;
+    public BusinessTripCaseStatus Status { get; set; }
+    public string StatusLabel { get; set; } = string.Empty;
+    public decimal AdvanceAmount { get; set; }
+    public decimal SettledAmount { get; set; }
+    public decimal BalanceAmount { get; set; }
+    public DateTime? TripFromDate { get; set; }
+    public DateTime? TripToDate { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public bool AdvanceIsPaid { get; set; }
+    public AdvanceRequestStatus? AdvanceStatus { get; set; }
+    public AdvanceRequestStatus? SettlementStatus { get; set; }
+    public BusinessTripSettlementType? SettlementType { get; set; }
+    public int ExpenseLineCount { get; set; }
+    public decimal TotalWithInvoice { get; set; }
+    public decimal TotalWithoutInvoice { get; set; }
+    public List<Guid> CategoryIds { get; set; } = new();
+    public bool HasUncategorizedExpense { get; set; }
+}
+
+public class BusinessTripReportEmployeeDto
+{
+    public string EmployeeCode { get; set; } = string.Empty;
+    public string EmployeeName { get; set; } = string.Empty;
+    public string Department { get; set; } = string.Empty;
+    public int TotalCases { get; set; }
+    public decimal TotalAdvance { get; set; }
+    public decimal TotalSettled { get; set; }
+    public decimal TotalBalance { get; set; }
+    public int PendingAdvance { get; set; }
+    public int PendingSettlement { get; set; }
+    public int ClosedCases { get; set; }
+}
+
+public class BusinessTripReportCategoryDto
+{
+    public Guid? CategoryId { get; set; }
+    public string? CategoryCode { get; set; }
+    public string CategoryName { get; set; } = string.Empty;
+    public int LineCount { get; set; }
+    public int CaseCount { get; set; }
+    public decimal TotalAmount { get; set; }
+    public decimal WithInvoiceAmount { get; set; }
+    public decimal WithoutInvoiceAmount { get; set; }
+    public decimal Percentage { get; set; }
 }
 
 public class MealDebtReportDto

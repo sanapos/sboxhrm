@@ -300,9 +300,9 @@ public class EmployeesController(
                 ws.Cell(row, 10).Value = e.CompanyEmail ?? "";
                 ws.Cell(row, 11).Value = e.Department ?? "";
                 ws.Cell(row, 12).Value = e.Position ?? "";
-                ws.Cell(row, 13).Value = e.EmploymentType.ToString();
+                ws.Cell(row, 13).Value = FormatEmploymentType(e.EmploymentType);
                 ws.Cell(row, 14).Value = e.JoinDate?.ToString("dd/MM/yyyy") ?? "";
-                ws.Cell(row, 15).Value = e.WorkStatus.ToString();
+                ws.Cell(row, 15).Value = FormatWorkStatus(e.WorkStatus);
                 ws.Cell(row, 16).Value = e.BankName ?? "";
                 ws.Cell(row, 17).Value = e.BankAccountNumber ?? "";
 
@@ -316,16 +316,31 @@ public class EmployeesController(
 
             using var stream = new MemoryStream();
             workbook.SaveAs(stream);
+            var bytes = stream.ToArray();
 
-            return File(stream.ToArray(),
+            return File(bytes,
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 $"nhan_vien_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx");
         }
         catch (Exception ex)
         {
-            return BadRequest($"Export thất bại: {ex.Message}");
+            return BadRequest(new { isSuccess = false, message = $"Export thất bại: {ex.Message}" });
         }
     }
+
+    static string FormatWorkStatus(EmployeeWorkStatus status) => status switch
+    {
+        EmployeeWorkStatus.Resigned => "Đã nghỉ việc",
+        EmployeeWorkStatus.OnLeave => "Nghỉ phép",
+        EmployeeWorkStatus.Probation => "Đang thử việc",
+        _ => "Đang làm việc",
+    };
+
+    static string FormatEmploymentType(EmploymentType type) => type switch
+    {
+        EmploymentType.Hourly => "Theo giờ",
+        _ => "Theo tháng",
+    };
 
     // ─── Import Excel ────────────────────────────────────────────────────────
     [HttpPost("import/excel")]
@@ -389,15 +404,7 @@ public class EmployeesController(
                     updateCmd.Id = existing.Id;
                     updateCmd.StoreId = storeId;
                     updateCmd.ManagerId = CurrentUserId;
-                    if (!Enum.IsDefined(typeof(EmployeeWorkStatus), updateCmd.WorkStatus))
-                        updateCmd.WorkStatus = existing.WorkStatus;
-                    if (IsPlaceholderImportEmail(req.EmployeeCode, req.CompanyEmail))
-                        updateCmd.CompanyEmail = existing.CompanyEmail;
-                    // Giữ phòng ban/chức vụ cũ nếu ô Excel trống (import bổ sung, không xóa dữ liệu)
-                    if (string.IsNullOrWhiteSpace(req.Department))
-                        updateCmd.Department = existing.Department;
-                    if (string.IsNullOrWhiteSpace(req.Position))
-                        updateCmd.Position = existing.Position;
+                    ApplyImportMergeForUpdate(existing, updateCmd, req);
                     var updateResult = await mediator.Send(updateCmd);
                     if (updateResult.IsSuccess) updated++;
                     else
@@ -411,6 +418,7 @@ public class EmployeesController(
                     var command = req.Adapt<CreateEmployeeCommand>();
                     command.StoreId = storeId;
                     command.ManagerId = CurrentUserId;
+                    command.WorkStatus = req.ImportWorkStatus ?? EmployeeWorkStatus.Active;
                     var result = await mediator.Send(command);
                     if (result.IsSuccess) imported++;
                     else { failed++; errors.Add($"Hàng {idx} ({req.EmployeeCode}): {result.Message}"); }
@@ -440,6 +448,54 @@ public class EmployeesController(
             companyEmail.Trim(),
             $"{employeeCode.Trim()}@company.com",
             StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>Import cập nhật — chỉ ghi đè field có dữ liệu trong Excel, tránh xóa hồ sơ cũ.</summary>
+    static void ApplyImportMergeForUpdate(
+        Employee existing,
+        UpdateEmployeeCommand cmd,
+        CreateEmployeeRequest req)
+    {
+        if (!Enum.IsDefined(typeof(EmployeeWorkStatus), cmd.WorkStatus))
+            cmd.WorkStatus = existing.WorkStatus;
+        else
+            cmd.WorkStatus = req.ImportWorkStatus ?? existing.WorkStatus;
+
+        if (IsPlaceholderImportEmail(req.EmployeeCode, req.CompanyEmail))
+            cmd.CompanyEmail = existing.CompanyEmail;
+
+        if (string.IsNullOrWhiteSpace(req.Gender))
+            cmd.Gender = existing.Gender;
+        if (!req.DateOfBirth.HasValue)
+            cmd.DateOfBirth = existing.DateOfBirth;
+        if (string.IsNullOrWhiteSpace(req.NationalIdNumber))
+            cmd.NationalIdNumber = existing.NationalIdNumber;
+        if (string.IsNullOrWhiteSpace(req.Hometown))
+            cmd.Hometown = existing.Hometown;
+        if (string.IsNullOrWhiteSpace(req.EducationLevel))
+            cmd.EducationLevel = existing.EducationLevel;
+        if (string.IsNullOrWhiteSpace(req.MaritalStatus))
+            cmd.MaritalStatus = existing.MaritalStatus;
+        if (string.IsNullOrWhiteSpace(req.PhoneNumber))
+            cmd.PhoneNumber = existing.PhoneNumber;
+        if (string.IsNullOrWhiteSpace(req.PersonalEmail))
+            cmd.PersonalEmail = existing.PersonalEmail;
+        if (string.IsNullOrWhiteSpace(req.PermanentAddress))
+            cmd.PermanentAddress = existing.PermanentAddress;
+        if (string.IsNullOrWhiteSpace(req.Department))
+            cmd.Department = existing.Department;
+        if (string.IsNullOrWhiteSpace(req.Position))
+            cmd.Position = existing.Position;
+        if (string.IsNullOrWhiteSpace(req.Level))
+            cmd.Level = existing.Level;
+        if (!req.JoinDate.HasValue)
+            cmd.JoinDate = existing.JoinDate;
+        if (string.IsNullOrWhiteSpace(req.BankName))
+            cmd.BankName = existing.BankName;
+        if (string.IsNullOrWhiteSpace(req.BankAccountNumber))
+            cmd.BankAccountNumber = existing.BankAccountNumber;
+        if (string.IsNullOrWhiteSpace(req.BankAccountName))
+            cmd.BankAccountName = existing.BankAccountName;
     }
 }
 

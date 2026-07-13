@@ -32,6 +32,7 @@ public class SystemAdminController : AuthenticatedControllerBase
     private readonly IConfiguration _configuration;
     private readonly ICacheService _cache;
     private readonly ISystemNotificationService _notificationService;
+    private readonly IRenewalNotificationService _renewalNotificationService;
 
     public SystemAdminController(
         ZKTecoDbContext dbContext, 
@@ -40,7 +41,8 @@ public class SystemAdminController : AuthenticatedControllerBase
         ILogger<SystemAdminController> logger,
         IConfiguration configuration,
         ICacheService cache,
-        ISystemNotificationService notificationService)
+        ISystemNotificationService notificationService,
+        IRenewalNotificationService renewalNotificationService)
     {
         _dbContext = dbContext;
         _userManager = userManager;
@@ -49,6 +51,7 @@ public class SystemAdminController : AuthenticatedControllerBase
         _configuration = configuration;
         _cache = cache;
         _notificationService = notificationService;
+        _renewalNotificationService = renewalNotificationService;
     }
     
     private string GetRegistrationLink(string token) 
@@ -2158,6 +2161,8 @@ public class SystemAdminController : AuthenticatedControllerBase
 
             await _dbContext.SaveChangesAsync();
 
+            await InvalidateRenewalAlertsAsync(store, sendSuccessNotification: false);
+
             _logger.LogInformation("SuperAdmin {UserId} activated License {Key} for Store {StoreId} (renewal #{Count})", 
                 CurrentUserId, license.Key, storeId, store.RenewalCount);
 
@@ -2330,6 +2335,8 @@ public class SystemAdminController : AuthenticatedControllerBase
             store.UpdatedBy = CurrentUserId.ToString();
 
             await _dbContext.SaveChangesAsync();
+
+            await InvalidateRenewalAlertsAsync(store, sendSuccessNotification: true);
 
             _logger.LogInformation("SuperAdmin {UserId} extended Store {StoreId} subscription by {Days} days", 
                 CurrentUserId, id, request.DaysToAdd);
@@ -3148,6 +3155,22 @@ public class SystemAdminController : AuthenticatedControllerBase
     #endregion
 
     #region Helper Methods
+
+    private async Task InvalidateRenewalAlertsAsync(Store store, bool sendSuccessNotification)
+    {
+        try
+        {
+            await _renewalNotificationService.InvalidateForStoreAsync(
+                store.Id,
+                store.Name,
+                store.ExpiryDate,
+                sendSuccessNotification);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to invalidate renewal alerts for store {StoreId}", store.Id);
+        }
+    }
 
     private static string GenerateLicenseKey(LicenseType type)
     {
@@ -4475,6 +4498,8 @@ public class SystemAdminController : AuthenticatedControllerBase
 
             await _dbContext.SaveChangesAsync();
 
+            await InvalidateRenewalAlertsAsync(store, sendSuccessNotification: true);
+
             _logger.LogInformation("SuperAdmin {UserId} assigned package {PackageId} to store {StoreId}",
                 CurrentUserId, packageId, storeId);
 
@@ -4532,6 +4557,8 @@ public class SystemAdminController : AuthenticatedControllerBase
             store.UpdatedBy = CurrentUserId.ToString();
 
             await _dbContext.SaveChangesAsync();
+
+            await InvalidateRenewalAlertsAsync(store, sendSuccessNotification: true);
 
             _logger.LogInformation("SuperAdmin {UserId} extended store {StoreId} by {Days} days (renewal #{Count})",
                 CurrentUserId, id, request.Days, store.RenewalCount);
@@ -4808,6 +4835,8 @@ public class SystemAdminController : AuthenticatedControllerBase
             store.UpdatedBy = CurrentUserId.ToString();
 
             await _dbContext.SaveChangesAsync();
+
+            await InvalidateRenewalAlertsAsync(store, sendSuccessNotification: false);
 
             _logger.LogInformation("SuperAdmin {UserId} bulk activated {Count} keys for Store {StoreId}. Total days: {TotalDays} + bonus: {BonusDays}",
                 CurrentUserId, keyCount, storeId, totalDays, bonusDays);

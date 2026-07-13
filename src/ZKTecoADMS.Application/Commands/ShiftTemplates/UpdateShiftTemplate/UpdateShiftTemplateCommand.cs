@@ -16,6 +16,5 @@ public record UpdateShiftTemplateCommand(
     int EarlyLeaveGraceMinutes,
     int OvertimeMinutesThreshold,
     string? ShiftType,
-    TimeSpan? OvernightCutoffTime,
     string? Description,
     bool IsActive) : ICommand<AppResponse<ShiftTemplateDto>>;

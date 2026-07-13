@@ -43,7 +43,11 @@ public class CreateEmployeeRequest
     public EmploymentType EmploymentType { get; set; }
     public DateTime? JoinDate { get; set; }
     public DateTime? ProbationEndDate { get; set; }
+    public DateTime? ContractEndDate { get; set; }
     public EmployeeWorkStatus WorkStatus { get; set; }
+
+    /// <summary>Chỉ dùng khi import Excel — có giá trị khi file có cột trạng thái.</summary>
+    public EmployeeWorkStatus? ImportWorkStatus { get; set; }
     public Guid? DirectManagerEmployeeId { get; set; }
     public Guid? BranchId { get; set; }
 }

@@ -51,7 +51,7 @@ public static class ModulePermissionImplicitGrants
     private static readonly string[] ModernReportModules =
     [
         "AttendanceReport", "LeaveReport",
-        "CashReport", "PenaltyReport", "AdvanceReport", "AssetReport"
+        "CashReport", "PenaltyReport", "AdvanceReport", "BusinessTripReport", "AssetReport"
     ];
 
     private static readonly string[] DashboardWidgetModules =

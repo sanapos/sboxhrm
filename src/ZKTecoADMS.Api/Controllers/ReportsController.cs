@@ -37,19 +37,16 @@ public class ReportsController(
     /// <summary>
     /// Build a VN (UTC+7) day range for querying UTC-stored timestamps.
     /// Returns (targetLocal, utcStart, utcEnd) where utcStart..utcEnd represents
-    /// the VN day [00:00, next-00:00). When <paramref name="date"/> is null, uses today (VN).
+    /// the VN working day [dayEnd, next-dayEnd). When <paramref name="date"/> is null, uses today (VN).
+    /// dayEnd comes from AppSettings day_end_time (sole source of truth).
     /// </summary>
-    private static (DateTime targetLocal, DateTime utcStart, DateTime utcEnd) VnDayRange(DateTime? date, TimeSpan? overnightCutoff = null)
+    private static (DateTime targetLocal, DateTime utcStart, DateTime utcEnd) VnDayRange(DateTime? date, TimeSpan? dayEndTime = null)
     {
-        // "Local VN day" â€” zero the time component, treat input as VN calendar date.
         var targetLocal = (date ?? DateTime.UtcNow.AddHours(7)).Date;
-        // When an overnight cutoff is configured (ca qua Ä‘Ãªm), the "working day" boundary
-        // shifts from VN 00:00 to VN cutoff. Working day X = [X cutoff, X+1 cutoff).
-        // This way overnight punches (e.g. checkout 03:00 of next calendar day) attach
-        // to the correct working day instead of leaking into the next day's report.
-        var cutoff = overnightCutoff ?? TimeSpan.Zero;
-        var utcStart = targetLocal.Add(cutoff).AddHours(-7); // UTC instant at VN cutoff of target day
-        var utcEnd = utcStart.AddDays(1);                     // UTC instant at VN cutoff of next day
+        // Working day X = [X + day_end_time, X+1 + day_end_time).
+        var cutoff = dayEndTime ?? TimeSpan.Zero;
+        var utcStart = targetLocal.Add(cutoff).AddHours(-7);
+        var utcEnd = utcStart.AddDays(1);
         return (targetLocal, utcStart, utcEnd);
     }
 
@@ -91,14 +88,14 @@ public class ReportsController(
         [FromQuery] string? employeeCode = null,
         [FromQuery] string? employeeCodes = null,
         [FromQuery] Guid? branchId = null,
-        [FromQuery] bool includeChildBranches = true,
-        [FromQuery] string? overnightCutoff = null)
+        [FromQuery] bool includeChildBranches = true)
     {
         try
         {
             var storeId = RequiredStoreId;
+            // Sole source: AppSettings day_end_time (ignore legacy overnightCutoff query)
             var cutoff = await AppSettingsOperationalHelper.ResolveDayEndTimeAsync(
-                dbContext, storeId, overnightCutoff);
+                dbContext, storeId);
             var (targetDate, vnStart, vnEnd) = VnDayRange(date, cutoff);
 
             var employeesQuery = dbContext.Employees
@@ -1707,7 +1704,7 @@ public class ReportsController(
         [FromQuery] bool includeChildBranches = true)
     {
         var reportResult = await GetDailyAttendanceReport(
-            date, department, null, employeeCodes, branchId, includeChildBranches, null);
+            date, department, null, employeeCodes, branchId, includeChildBranches);
         if (reportResult.Result is not OkObjectResult okResult 
             || okResult.Value is not AppResponse<DailyAttendanceReportDto> response 
             || response.Data == null)
@@ -1862,7 +1859,7 @@ public class ReportsController(
         try
         {
             var reportResult = await GetDailyAttendanceReport(
-                date, department, null, employeeCodes, branchId, includeChildBranches, null);
+                date, department, null, employeeCodes, branchId, includeChildBranches);
             if (reportResult.Result is not OkObjectResult okResult 
                 || okResult.Value is not AppResponse<DailyAttendanceReportDto> response 
                 || response.Data == null)

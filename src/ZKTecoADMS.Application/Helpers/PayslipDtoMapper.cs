@@ -108,6 +108,10 @@ public static class PayslipDtoMapper
 
             NetSalary = payslip.NetSalary,
 
+            TravelHours = payslip.TravelHours,
+
+            TravelSalary = payslip.TravelSalary,
+
             Currency = payslip.Currency,
 
             Status = payslip.Status,

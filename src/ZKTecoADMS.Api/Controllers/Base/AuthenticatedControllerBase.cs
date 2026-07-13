@@ -38,6 +38,12 @@ public abstract class AuthenticatedControllerBase : ControllerBase
         || CurrentUserRole.Equals(nameof(Roles.Agent), StringComparison.OrdinalIgnoreCase);
     
     protected bool IsEmployee => CurrentUserRole.Equals(nameof(Roles.Employee), StringComparison.OrdinalIgnoreCase);
+
+    protected bool IsAccountant =>
+        CurrentUserRole.Equals(nameof(Roles.Accountant), StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>QL / kế toán / admin — xem & thao tác hồ sơ công tác của người khác trong store.</summary>
+    protected bool IsBusinessTripPrivileged => IsManager || IsAdmin || IsAccountant;
     
     protected string? CurrentUserEmail => User.FindFirst(ClaimTypes.Email)?.Value;
 

@@ -45,15 +45,14 @@ public class CreateMealSessionHandler(
 
             try
             {
-                await notificationService.CreateAndSendAsync(
-                    targetUserId: null,
-                    type: NotificationType.Info,
+                await notificationService.CreateAndSendToStoreEmployeesAsync(
+                    request.StoreId,
+                    NotificationType.Info,
                     title: "Buổi ăn mới",
                     message: $"Đã thêm buổi ăn \"{mealSession.Name}\" ({mealSession.StartTime:hh\\:mm} - {mealSession.EndTime:hh\\:mm})",
                     relatedEntityId: mealSession.Id,
                     relatedEntityType: "MealSession",
-                    categoryCode: "meal",
-                    storeId: request.StoreId);
+                    categoryCode: "meal");
             }
             catch { /* notification failure should not block main flow */ }
 

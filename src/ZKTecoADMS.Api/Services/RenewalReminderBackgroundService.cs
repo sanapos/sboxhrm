@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Application.DTOs.SystemAdmin;
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
@@ -42,6 +43,7 @@ public class RenewalReminderBackgroundService : BackgroundService
         using var scope = _sp.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ZKTecoDbContext>();
         var svc = scope.ServiceProvider.GetRequiredService<IAnnouncementService>();
+        var renewalNotify = scope.ServiceProvider.GetRequiredService<IRenewalNotificationService>();
         var notificationService = scope.ServiceProvider.GetRequiredService<ISystemNotificationService>();
         var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
         var today = DateTime.UtcNow.Date;
@@ -59,7 +61,7 @@ public class RenewalReminderBackgroundService : BackgroundService
             foreach (var s in stores)
             {
                 // Marker được nhúng vào Content (cuối) thay vì Title để không lộ ra UI.
-                var marker = $"[RENEWAL-{d}D-{s.Id:N}]";
+                var marker = RenewalNotificationHelper.BuildMarker(d, s.Id);
                 var since = DateTime.UtcNow.AddHours(-23);
                 var dup = await db.SystemAnnouncements.AsNoTracking()
                     .AnyAsync(a => a.CreatedAt >= since && (a.Title.Contains(marker) || a.Content.Contains(marker)), ct);
@@ -67,6 +69,8 @@ public class RenewalReminderBackgroundService : BackgroundService
 
                 try
                 {
+                    await renewalNotify.DismissPendingRenewalAnnouncementsAsync(s.Id, ct);
+
                     // Title: ngắn gọn, không kèm marker. Frontend sẽ tự tính lại số ngày từ ExpiresAt.
                     var title = d == 0
                         ? $"⏰ {s.Name}: license hết hạn hôm nay"

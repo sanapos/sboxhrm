@@ -112,10 +112,23 @@ public class SystemNotificationService : ISystemNotificationService
             var dto = NotificationDtoMapper.ToSignalRPayload(notification, display);
             if (notification.StoreId.HasValue)
             {
-                await _hubContext.Clients.Group($"store_{notification.StoreId.Value}")
-                    .SendAsync("NewNotification", dto);
-                _logger.LogInformation("📢 Broadcast notification to store {StoreId}: {Title}",
-                    notification.StoreId.Value, notification.Title);
+                // Store broadcasts (HR/device/meal admin events) go to oversight roles only —
+                // not every employee in the store group.
+                var oversightIds = await GetStoreOversightUserIdsAsync(notification.StoreId.Value);
+                if (oversightIds.Count > 0)
+                {
+                    var groups = oversightIds.Select(id => $"user_{id}").ToList();
+                    await _hubContext.Clients.Groups(groups).SendAsync("NewNotification", dto);
+                    _logger.LogInformation(
+                        "📢 Broadcast notification to {Count} oversight users in store {StoreId}: {Title}",
+                        oversightIds.Count, notification.StoreId.Value, notification.Title);
+                }
+                else
+                {
+                    _logger.LogWarning(
+                        "Skipped store broadcast — no oversight users for store {StoreId}: {Title}",
+                        notification.StoreId.Value, notification.Title);
+                }
             }
             else
             {
@@ -140,11 +153,7 @@ public class SystemNotificationService : ISystemNotificationService
 
         try
         {
-            var userIds = await _dbContext.Users
-                .AsNoTracking()
-                .Where(u => u.StoreId == notification.StoreId.Value && u.IsActive)
-                .Select(u => u.Id)
-                .ToListAsync();
+            var userIds = await GetStoreOversightUserIdsAsync(notification.StoreId.Value);
             if (userIds.Count == 0) return;
 
             if (!string.IsNullOrEmpty(notification.CategoryCode))
@@ -169,6 +178,59 @@ public class SystemNotificationService : ISystemNotificationService
             _logger.LogError(ex,
                 "FCM broadcast push failed for notification {NotificationId}", notification.Id);
         }
+    }
+
+    /// <summary>Admin, Manager, StoreOwner, Director in store — receive store-wide admin broadcasts.</summary>
+    private async Task<List<Guid>> GetStoreOversightUserIdsAsync(Guid storeId)
+    {
+        var roles = new[] { "Admin", "Manager", "StoreOwner", "Director" };
+        return await _dbContext.Users
+            .AsNoTracking()
+            .Where(u => u.IsActive && u.StoreId == storeId && roles.Contains(u.Role))
+            .Select(u => u.Id)
+            .ToListAsync();
+    }
+
+    private async Task<List<Guid>> GetStoreEmployeeUserIdsAsync(Guid storeId)
+    {
+        return await _dbContext.Users
+            .AsNoTracking()
+            .Where(u => u.IsActive && u.StoreId == storeId)
+            .Select(u => u.Id)
+            .ToListAsync();
+    }
+
+    public async Task CreateAndSendToStoreEmployeesAsync(
+        Guid storeId,
+        NotificationType type,
+        string title,
+        string message,
+        string? relatedUrl = null,
+        Guid? relatedEntityId = null,
+        string? relatedEntityType = null,
+        Guid? fromUserId = null,
+        string? categoryCode = null)
+    {
+        var userIds = await GetStoreEmployeeUserIdsAsync(storeId);
+        if (userIds.Count == 0)
+        {
+            _logger.LogWarning(
+                "Skipped employee broadcast — no active users for store {StoreId}: {Title}",
+                storeId, title);
+            return;
+        }
+
+        await CreateAndSendToUsersAsync(
+            userIds,
+            type,
+            title,
+            message,
+            relatedUrl,
+            relatedEntityId,
+            relatedEntityType,
+            fromUserId,
+            categoryCode,
+            storeId);
     }
 
     public async Task CreateAndSendAsync(

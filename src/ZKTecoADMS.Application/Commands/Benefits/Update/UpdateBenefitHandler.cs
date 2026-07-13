@@ -74,6 +74,8 @@ public class UpdateBenefitHandler(
         salaryProfile.ShiftsPerDay = request.ShiftsPerDay;
         salaryProfile.AttendanceMode = request.AttendanceMode;
         salaryProfile.PaidLeaveType = request.PaidLeaveType;
+        salaryProfile.TravelSalaryMode = request.TravelSalaryMode;
+        salaryProfile.TravelFixedHourlyRate = request.TravelFixedHourlyRate;
         // Deductions
 
         await repository.UpdateAsync(salaryProfile, cancellationToken);

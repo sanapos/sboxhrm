@@ -62,6 +62,10 @@ public class BenefitDto
     public string? AttendanceMode { get; set; }
     public string? PaidLeaveType { get; set; }
     
+    /// <summary>base_per_8h | completion_per_8h | fixed — null = mặc định cửa hàng</summary>
+    public string? TravelSalaryMode { get; set; }
+    public decimal? TravelFixedHourlyRate { get; set; }
+    
     public string? StandardWorkMode { get; set; }
     public bool IsActive { get; set; }
     public DateTime CreatedAt { get; set; }

@@ -11,18 +11,15 @@ public static class AppSettingsOperationalHelper
     public const string RoundingRuleKey = "rounding_rule";
     public const string PayrollCutoffDayKey = "payroll_cutoff_day";
 
+    /// <summary>
+    /// Nguồn duy nhất cho ranh giới ngày làm việc: AppSettings day_end_time.
+    /// Không nhận override từ query/ca đêm để tránh lệch số giữa các màn.
+    /// </summary>
     public static async Task<TimeSpan?> ResolveDayEndTimeAsync(
         ZKTecoDbContext db,
         Guid storeId,
-        string? overnightCutoffFromQuery = null,
         CancellationToken ct = default)
     {
-        if (!string.IsNullOrWhiteSpace(overnightCutoffFromQuery) &&
-            TimeSpan.TryParse(overnightCutoffFromQuery, out var fromQuery))
-        {
-            return fromQuery;
-        }
-
         var setting = await db.AppSettings
             .AsNoTracking()
             .FirstOrDefaultAsync(s => s.StoreId == storeId && s.Key == DayEndTimeKey, ct);

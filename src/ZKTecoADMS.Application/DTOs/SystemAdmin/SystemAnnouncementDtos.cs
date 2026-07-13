@@ -105,4 +105,13 @@ public class ActiveAnnouncementDto
     public bool IsSeen { get; set; }
     public bool IsAcked { get; set; }
     public bool IsDismissed { get; set; }
+
+    /// <summary>Store liên quan (renewal) — dùng cho banner live.</summary>
+    public Guid? RelatedStoreId { get; set; }
+
+    /// <summary>Ngày hết hạn license thực tế từ DB (UTC).</summary>
+    public DateTime? LiveExpiryDate { get; set; }
+
+    /// <summary>Số ngày còn lại tính từ LiveExpiryDate.</summary>
+    public int? LiveDaysLeft { get; set; }
 }

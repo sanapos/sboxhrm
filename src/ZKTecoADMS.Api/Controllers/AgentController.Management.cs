@@ -286,6 +286,19 @@ public partial class AgentController
         store.UpdatedBy = CurrentUserId.ToString();
         await _dbContext.SaveChangesAsync();
 
+        try
+        {
+            await _renewalNotificationService.InvalidateForStoreAsync(
+                store.Id,
+                store.Name,
+                store.ExpiryDate,
+                sendSuccessNotification: true);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to invalidate renewal alerts for store {StoreId}", store.Id);
+        }
+
         return Ok(AppResponse<StoreDetailDto>.Success(AgentStoreMapper.ToStoreDetailDto(store)));
     }
 
@@ -409,6 +422,19 @@ public partial class AgentController
         _logger.LogInformation(
             "Agent {UserId} activated license {Key} for store {StoreId}",
             CurrentUserId, license.Key, storeId);
+
+        try
+        {
+            await _renewalNotificationService.InvalidateForStoreAsync(
+                store.Id,
+                store.Name,
+                store.ExpiryDate,
+                sendSuccessNotification: false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to invalidate renewal alerts for store {StoreId}", storeId);
+        }
 
         try
         {

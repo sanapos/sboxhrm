@@ -33,7 +33,6 @@ public class UpdateShiftTemplateHandler(IRepository<ShiftTemplate> repository)
             template.EarlyLeaveGraceMinutes = request.EarlyLeaveGraceMinutes;
             template.OvertimeMinutesThreshold = request.OvertimeMinutesThreshold;
             template.ShiftType = request.ShiftType;
-            template.OvernightCutoffTime = request.OvernightCutoffTime;
             template.Description = request.Description;
             template.IsActive = request.IsActive;
 
@@ -56,7 +55,6 @@ public class UpdateShiftTemplateHandler(IRepository<ShiftTemplate> repository)
                 EarlyLeaveGraceMinutes = template.EarlyLeaveGraceMinutes,
                 OvertimeMinutesThreshold = template.OvertimeMinutesThreshold,
                 ShiftType = template.ShiftType,
-                OvernightCutoffTime = template.OvernightCutoffTime,
                 Description = template.Description,
                 IsActive = template.IsActive,
                 CreatedAt = template.CreatedAt,

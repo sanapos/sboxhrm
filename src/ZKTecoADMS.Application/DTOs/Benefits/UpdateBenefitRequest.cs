@@ -56,6 +56,8 @@ public class UpdateSalaryProfileRequest
     public int? ShiftsPerDay { get; set; }
     public string? AttendanceMode { get; set; }
     public string? PaidLeaveType { get; set; }
+    public string? TravelSalaryMode { get; set; }
+    public decimal? TravelFixedHourlyRate { get; set; }
 
     public bool IsActive { get; set; }
 }

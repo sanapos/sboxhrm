@@ -26,14 +26,13 @@ public class DeleteMealSessionHandler(
 
             try
             {
-                await notificationService.CreateAndSendAsync(
-                    targetUserId: null,
-                    type: NotificationType.Warning,
+                await notificationService.CreateAndSendToStoreEmployeesAsync(
+                    request.StoreId,
+                    NotificationType.Warning,
                     title: "Xoá buổi ăn",
                     message: $"Buổi ăn \"{sessionName}\" đã bị xoá",
                     relatedEntityType: "MealSession",
-                    categoryCode: "meal",
-                    storeId: request.StoreId);
+                    categoryCode: "meal");
             }
             catch { /* notification failure should not block main flow */ }
 

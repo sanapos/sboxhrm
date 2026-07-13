@@ -234,7 +234,7 @@ public class AttendanceNotificationService : IAttendanceNotificationService
         Guid? storeId)
     {
         if (!storeId.HasValue) return new HashSet<Guid>();
-        var roles = new[] { "Admin", "Manager", "StoreOwner" };
+        var roles = new[] { "Admin", "Manager", "StoreOwner", "Director" };
         var users = await userManager.Users
             .Where(u => u.IsActive && u.StoreId == storeId && roles.Contains(u.Role))
             .Select(u => u.Id)

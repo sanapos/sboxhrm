@@ -19,6 +19,7 @@ public static class NotificationPushFormatter
         new(StringComparer.OrdinalIgnoreCase)
         {
             ["attendance"] = "Chấm công",
+            ["travel_attendance"] = "Chấm đi đường",
             ["leave"] = "Nghỉ phép",
             ["overtime"] = "Tăng ca",
             ["payroll"] = "Lương",
@@ -37,8 +38,15 @@ public static class NotificationPushFormatter
             ["allowance"] = "Phụ cấp",
             ["shift"] = "Ca làm việc",
             ["store"] = "Cửa hàng",
+            ["penalty"] = "Phiếu phạt",
+            ["pos"] = "POS",
+            ["business_trip"] = "Công tác",
         };
 
+    /// <summary>
+    /// Chỉ các title thật sự chung chung — khi có sender mới fallback sang category · tên.
+    /// Không đưa tiêu đề sự kiện cụ thể vào đây (sẽ bị mất trên FCM).
+    /// </summary>
     private static readonly HashSet<string> GenericTitles = new(StringComparer.OrdinalIgnoreCase)
     {
         "",
@@ -46,16 +54,6 @@ public static class NotificationPushFormatter
         "Thông báo mới",
         "Thông báo hệ thống",
         "Chấm công",
-        "Đơn nghỉ phép mới",
-        "Đơn tăng ca mới",
-        "Yêu cầu chỉnh công mới",
-        "Yêu cầu ứng lương mới",
-        "Đăng ký lịch làm việc mới",
-        "Phản hồi mới",
-        "Phản ánh mới",
-        "Phiếu thu/chi mới",
-        "Công việc mới",
-        "Công việc mới được giao",
     };
 
     public static NotificationPushDisplay Format(
@@ -79,20 +77,23 @@ public static class NotificationPushFormatter
             return new($"{category} · {deviceTitle}", rawMessage, "Hệ thống", category);
         }
 
+        // Ưu tiên tiêu đề sự kiện (VD: "Yêu cầu ứng công tác mới").
+        // Chỉ dùng "{category} · {sender}" khi title quá chung chung.
         if (!string.IsNullOrEmpty(sender))
         {
-            var title = $"{category} · {sender}";
-            var body = CleanBody(rawMessage, sender, rawTitle);
+            var title = IsGenericTitle(rawTitle)
+                ? $"{category} · {sender}"
+                : rawTitle;
+            var body = BuildSenderBody(rawMessage, sender, rawTitle);
             return new(title, body, sender, category);
         }
 
         if (notification.Type == NotificationType.ApprovalRequired)
         {
-            return new(
-                $"{category} · Phê duyệt",
-                CleanApprovalBody(rawTitle, rawMessage),
-                null,
-                category);
+            var title = IsGenericTitle(rawTitle)
+                ? $"{category} · Phê duyệt"
+                : rawTitle;
+            return new(title, CleanApprovalBody(rawTitle, rawMessage), null, category);
         }
 
         var displayTitle = IsGenericTitle(rawTitle) ? category : rawTitle;
@@ -125,7 +126,12 @@ public static class NotificationPushFormatter
             "Device" or "DeviceStatus" => "Thiết bị",
             "Feedback" => "Phản hồi",
             "CashTransaction" => "Thu chi",
+            "PaymentTransaction" => "Thưởng/Phạt",
+            "PenaltyTicket" => "Phiếu phạt",
             "Communication" => "Truyền thông",
+            "BusinessTripCase" or "BusinessTripExpense" => "Công tác",
+            "MealSession" or "MealMenu" or "MealRecord" => "Suất ăn",
+            "PosSaleOrder" or "PosProduct" or "PosPurchaseReceipt" => "POS",
             _ => notification.Type switch
             {
                 NotificationType.ApprovalRequired => "Phê duyệt",
@@ -154,6 +160,22 @@ public static class NotificationPushFormatter
     {
         var trimmed = name?.Trim();
         return string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
+    }
+
+    private static string BuildSenderBody(string message, string sender, string rawTitle)
+    {
+        var cleaned = CleanBody(message, sender, rawTitle);
+        if (string.IsNullOrWhiteSpace(cleaned))
+            return sender;
+
+        // Đưa tên người gửi vào body nếu title đã dùng cho sự kiện.
+        if (!cleaned.Contains(sender, StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(cleaned, sender, StringComparison.OrdinalIgnoreCase))
+        {
+            return $"{sender}: {cleaned}";
+        }
+
+        return cleaned;
     }
 
     private static string CleanBody(string message, string sender, string rawTitle)

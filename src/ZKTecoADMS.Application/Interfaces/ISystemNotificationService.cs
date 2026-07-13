@@ -52,4 +52,19 @@ public interface ISystemNotificationService
         Guid? fromUserId = null,
         string? categoryCode = null,
         Guid? storeId = null);
+
+    /// <summary>
+    /// Gửi thông báo tới mọi tài khoản đang hoạt động trong cửa hàng (vd. thực đơn suất ăn).
+    /// Mỗi NV nhận bản ghi riêng (TargetUserId) để hiện trong lịch sử thông báo.
+    /// </summary>
+    Task CreateAndSendToStoreEmployeesAsync(
+        Guid storeId,
+        NotificationType type,
+        string title,
+        string message,
+        string? relatedUrl = null,
+        Guid? relatedEntityId = null,
+        string? relatedEntityType = null,
+        Guid? fromUserId = null,
+        string? categoryCode = null);
 }

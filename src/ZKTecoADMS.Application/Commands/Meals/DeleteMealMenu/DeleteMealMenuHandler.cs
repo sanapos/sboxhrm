@@ -34,14 +34,13 @@ public class DeleteMealMenuHandler(
 
             try
             {
-                await notificationService.CreateAndSendAsync(
-                    targetUserId: null,
-                    type: NotificationType.Warning,
+                await notificationService.CreateAndSendToStoreEmployeesAsync(
+                    request.StoreId,
+                    NotificationType.Warning,
                     title: "Xoá thực đơn",
                     message: $"Thực đơn {sessionName} ngày {menuDate:dd/MM} đã bị xoá",
                     relatedEntityType: "MealMenu",
-                    categoryCode: "meal",
-                    storeId: request.StoreId);
+                    categoryCode: "meal");
             }
             catch { /* notification failure should not block main flow */ }
 
