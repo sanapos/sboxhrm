@@ -21,6 +21,7 @@ import '../widgets/pos/pos_purchase_toolbar.dart';
 import '../widgets/pos/pos_stock_count_helpers.dart';
 import '../widgets/pos/pos_theme.dart';
 import 'pos_stock_count_editor_screen.dart';
+import '../screens/main_layout.dart' show ScreenRefreshNotifier;
 
 const _blue = Color(0xFF2563EB);
 
@@ -211,6 +212,7 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
         title: 'Thành công',
         message: result.successMessage(c.countNo, completedLabel: 'Đã cân bằng kho'),
       );
+      ScreenRefreshNotifier.refreshPosAfterStockChange();
       await _load(page: _page);
       await _refreshExpandedDetail(c.id);
     } else {

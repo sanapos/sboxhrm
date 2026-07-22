@@ -7,24 +7,23 @@ import '../../utils/permission_navigation.dart';
 import '../../widgets/pos/pos_hub_scope.dart';
 import '../../widgets/pos/pos_mobile_widgets.dart';
 import '../../widgets/pos/pos_theme.dart';
-import '../pos_damage_issue_list_screen.dart';
-import '../pos_internal_use_list_screen.dart';
 import '../pos/pos_price_lists_screen.dart';
 import '../pos_products_screen.dart';
-import '../pos_purchase_receipt_list_screen.dart';
-import '../pos_purchase_return_list_screen.dart';
 import '../pos_reports_screen.dart';
-import 'pos_warranty_lookup_screen.dart';
 import '../pos_sale_order_list_screen.dart';
 import '../pos_sale_return_list_screen.dart';
 import '../pos_sell_screen.dart';
-import '../pos_stock_count_list_screen.dart';
+import '../warehouse/wh_mobile_hub_screen.dart';
+import '../warehouse/wh_mobile_nav.dart';
+import 'pos_warranty_lookup_screen.dart';
 import 'pos_business_analysis_screen.dart';
 import 'pos_customer_debt_report_screen.dart';
 import 'pos_customers_screen.dart';
 import 'pos_end_of_day_screen.dart';
 import 'pos_goods_report_screen.dart';
+import 'pos_resource_floor_screen.dart';
 import 'pos_sales_report_screen.dart';
+import 'pos_sell_industry_settings_screen.dart';
 import 'pos_vouchers_screen.dart';
 
 /// Hub «Nhiều hơn» — module POS phụ kiểu KiotViet.
@@ -59,6 +58,16 @@ class PosMoreScreen extends StatelessWidget {
                 _section(
                   context,
                   perm,
+                  title: 'Kho hàng',
+                  items: [
+                    _Item('Trung tâm Kho', Icons.warehouse_outlined, 'PosProducts',
+                        const WhMobileHubScreen()),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _section(
+                  context,
+                  perm,
                   title: 'Giao dịch',
                   items: [
                     _Item('Bán hàng', Icons.shopping_bag_outlined, 'PosSell',
@@ -68,9 +77,9 @@ class PosMoreScreen extends StatelessWidget {
                     _Item('Trả hàng bán', Icons.assignment_return_outlined, 'PosSaleReturns',
                         const PosSaleReturnListScreen()),
                     _Item('Nhập hàng', Icons.move_to_inbox_outlined,
-                        'PosPurchaseReceipts', const PosPurchaseReceiptListScreen()),
+                        'PosPurchaseReceipts', const WhAdaptivePurchaseReceiptList()),
                     _Item('Trả hàng nhập', Icons.undo_outlined, 'PosPurchaseReturns',
-                        const PosPurchaseReturnListScreen()),
+                        const WhAdaptivePurchaseReturnList()),
                     _Item('Cuối ngày', Icons.nightlight_round, 'PosSalesReport',
                         const PosEndOfDayScreen()),
                   ],
@@ -90,11 +99,11 @@ class PosMoreScreen extends StatelessWidget {
                         const PosWarrantyLookupScreen(),
                         altModules: const ['PosProducts']),
                     _Item('Kiểm kho', Icons.fact_check_outlined, 'PosStockCounts',
-                        const PosStockCountListScreen()),
+                        const WhAdaptiveStockCountList()),
                     _Item('Xuất hủy', Icons.delete_forever_outlined,
-                        'PosDamageIssues', const PosDamageIssueListScreen()),
+                        'PosDamageIssues', const WhAdaptiveDamageIssueList()),
                     _Item('Dùng nội bộ', Icons.build_outlined,
-                        'PosInternalUseIssues', const PosInternalUseListScreen()),
+                        'PosInternalUseIssues', const WhAdaptiveInternalUseList()),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -110,6 +119,28 @@ class PosMoreScreen extends StatelessWidget {
                     _Item('Voucher', Icons.confirmation_number_outlined, 'PosProducts',
                         const PosVouchersScreen(),
                         altModules: const ['PosSell']),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _section(
+                  context,
+                  perm,
+                  title: 'Ngành hàng & mặt bằng',
+                  items: [
+                    _Item(
+                      'Hồ sơ ngành',
+                      Icons.storefront_outlined,
+                      'PosSell',
+                      const PosSellIndustrySettingsScreen(),
+                      altModules: const ['PosProducts'],
+                    ),
+                    _Item(
+                      'Quản lý bàn/phòng',
+                      Icons.table_restaurant_outlined,
+                      'PosSell',
+                      const PosResourceFloorScreen(manageMode: true),
+                      altModules: const ['PosProducts'],
+                    ),
                   ],
                 ),
                 const SizedBox(height: 12),

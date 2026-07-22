@@ -97,6 +97,8 @@ class SignalRService {
   final _communicationController = StreamController<Map<String, dynamic>>.broadcast();
   final _notificationReadController = StreamController<Map<String, dynamic>>.broadcast();
   final _printJobNewController = StreamController<Map<String, dynamic>>.broadcast();
+  final _printAgentHeartbeatController =
+      StreamController<Map<String, dynamic>>.broadcast();
   final _printJobStatusController = StreamController<Map<String, dynamic>>.broadcast();
   final _printerStatusController = StreamController<Map<String, dynamic>>.broadcast();
 
@@ -126,6 +128,8 @@ class SignalRService {
 
   /// POS print cloud: job mới trong hàng đợi
   Stream<Map<String, dynamic>> get onPrintJobNew => _printJobNewController.stream;
+  Stream<Map<String, dynamic>> get onPrintAgentHeartbeat =>
+      _printAgentHeartbeatController.stream;
 
   /// POS print cloud: trạng thái job thay đổi
   Stream<Map<String, dynamic>> get onPrintJobStatusChanged =>
@@ -214,6 +218,7 @@ class SignalRService {
       _hubConnection!.on('PrintJobNew', _handlePrintJobNew);
       _hubConnection!.on('PrintJobStatusChanged', _handlePrintJobStatusChanged);
       _hubConnection!.on('PrinterStatusChanged', _handlePrinterStatusChanged);
+      _hubConnection!.on('PrinterAgentHeartbeat', _handlePrintAgentHeartbeat);
 
       // Connection state handlers
       _hubConnection!.onclose(({Exception? error}) {
@@ -408,6 +413,17 @@ class SignalRService {
     }
   }
 
+  void _handlePrintAgentHeartbeat(List<Object?>? args) {
+    try {
+      if (args == null || args.isEmpty) return;
+      final data = Map<String, dynamic>.from(args[0] as Map);
+      debugPrint('📡 PrinterAgentHeartbeat: $data');
+      _printAgentHeartbeatController.add(data);
+    } catch (e) {
+      debugPrint('📡 Error parsing PrinterAgentHeartbeat: $e');
+    }
+  }
+
   /// Join a store group to receive store-scoped notifications
   Future<void> joinStoreGroup(String storeId) async {
     _currentStoreId = storeId;
@@ -547,6 +563,7 @@ class SignalRService {
     _notificationReadController.close();
     _printJobNewController.close();
     _printJobStatusController.close();
+    _printAgentHeartbeatController.close();
     _printerStatusController.close();
     // Fire-and-forget but suppress any errors during teardown
     disconnect().catchError((_) {});

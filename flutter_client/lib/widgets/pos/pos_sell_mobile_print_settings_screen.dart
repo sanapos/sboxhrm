@@ -10,6 +10,7 @@ import '../../utils/pos_label_printer_service.dart';
 import '../../utils/pos_label_printer_settings.dart';
 import '../../utils/pos_print_template_loader.dart';
 import '../../utils/pos_sell_print_settings.dart';
+import '../../utils/pos_printer_transport.dart';
 import '../../utils/pos_thermal_printer_service.dart';
 import '../../utils/pos_thermal_printer_settings.dart';
 import '../../utils/responsive_helper.dart';
@@ -72,8 +73,36 @@ class _PosSellMobilePrintSettingsScreenState
     });
     _loadTemplates();
     _loadBluetoothInBackground();
-    PosThermalPrinterService.isSunmiDevice().then((v) {
-      if (mounted) setState(() => _isSunmi = v);
+    PosThermalPrinterService.isSunmiDevice().then((v) async {
+      if (!mounted) return;
+      setState(() => _isSunmi = v);
+      if (!v) return;
+      // Tự chọn máy in Sunmi tích hợp nếu chưa cấu hình BT/LAN.
+      final hasBt = _thermal.bluetoothAddress?.trim().isNotEmpty == true;
+      final hasLan = _thermal.lanHost?.trim().isNotEmpty == true;
+      final alreadySunmi =
+          _thermal.connectionType == PosThermalConnectionType.sunmi;
+      if (!hasBt && !hasLan && (!alreadySunmi || !_thermal.enabled)) {
+        setState(() {
+          _thermal = _thermal.copyWith(
+            enabled: true,
+            connectionType: PosThermalConnectionType.sunmi,
+            printerBrand: PosThermalPrinterBrand.sunmi,
+            textMode: PosThermalTextMode.utf8,
+            feedBeforeCut: _thermal.feedBeforeCut < 14 ? 14 : _thermal.feedBeforeCut,
+          );
+        });
+      } else if (alreadySunmi) {
+        setState(() {
+          _thermal = _thermal.copyWith(
+            textMode: _thermal.textMode == PosThermalTextMode.image
+                ? PosThermalTextMode.utf8
+                : _thermal.textMode,
+            feedBeforeCut:
+                _thermal.feedBeforeCut < 14 ? 14 : _thermal.feedBeforeCut,
+          );
+        });
+      }
     });
   }
 
@@ -381,6 +410,30 @@ class _PosSellMobilePrintSettingsScreenState
                   ),
                 ]),
                 const SizedBox(height: 16),
+                _sectionTitle('Tem dán ly (trà sữa)'),
+                _card([
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
+                    child: Text(
+                      'In tem: tên món, topping, SL, giờ, bàn — in 1 lần như báo bếp (máy nhiệt/Sunmi).',
+                      style: TextStyle(fontSize: 12, color: Colors.black54),
+                    ),
+                  ),
+                  ...PosCupLabelPrintMode.values.map(
+                    (mode) => RadioListTile<PosCupLabelPrintMode>(
+                      title: Text(mode.label),
+                      value: mode,
+                      groupValue: _print.cupLabelPrintMode,
+                      activeColor: _blue,
+                      onChanged: (v) {
+                        if (v == null) return;
+                        setState(() =>
+                            _print = _print.copyWith(cupLabelPrintMode: v));
+                      },
+                    ),
+                  ),
+                ]),
+                const SizedBox(height: 16),
                 _sectionTitle('Phiếu báo xuất kho'),
                 _card([
                   ...PosWarehousePrintMode.values.map(
@@ -530,7 +583,15 @@ class _PosSellMobilePrintSettingsScreenState
                           selected: selected,
                           selectedColor: PosTheme.kiotBlueLight,
                           onSelected: (_) => setState(
-                            () => _thermal = _thermal.copyWith(connectionType: t),
+                            () => _thermal = _thermal.copyWith(
+                              connectionType: t,
+                              printerBrand: t == PosThermalConnectionType.sunmi
+                                  ? PosThermalPrinterBrand.sunmi
+                                  : _thermal.printerBrand,
+                              enabled: t == PosThermalConnectionType.sunmi
+                                  ? true
+                                  : _thermal.enabled,
+                            ),
                           ),
                         );
                       }).toList(),
@@ -633,10 +694,36 @@ class _PosSellMobilePrintSettingsScreenState
                       ),
                     ),
                   if (_thermal.connectionType == PosThermalConnectionType.sunmi)
-                    const ListTile(
-                      leading: Icon(Icons.print, color: _blue),
-                      title: Text('Máy in tích hợp Sunmi'),
-                      subtitle: Text('Tự nhận máy in nhiệt trên thiết bị Sunmi'),
+                    ListTile(
+                      leading: const Icon(Icons.print, color: _blue),
+                      title: const Text('Máy in tích hợp Sunmi'),
+                      subtitle: Text(
+                        _isSunmi
+                            ? 'Đã nhận thiết bị Sunmi — bấm Lưu rồi In thử'
+                            : 'Không nhận được máy in nội bộ trên thiết bị này',
+                      ),
+                      trailing: TextButton(
+                        onPressed: _testing
+                            ? null
+                            : () async {
+                                final ok =
+                                    await PosPrinterTransport.ensureSunmiBound();
+                                if (!mounted) return;
+                                if (ok) {
+                                  NotificationOverlayManager().showSuccess(
+                                    title: 'Đã kết nối máy in Sunmi',
+                                    message: 'Sẵn sàng in thử',
+                                  );
+                                } else {
+                                  NotificationOverlayManager().showError(
+                                    title: 'Không kết nối được',
+                                    message:
+                                        'Kiểm tra máy in nội bộ Sunmi / giấy in',
+                                  );
+                                }
+                              },
+                        child: const Text('Kết nối lại'),
+                      ),
                     ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
@@ -649,12 +736,12 @@ class _PosSellMobilePrintSettingsScreenState
                           ),
                         ),
                         DropdownButton<int>(
-                          value: _thermal.feedBeforeCut.clamp(3, 15),
+                          value: _thermal.feedBeforeCut.clamp(5, 24),
                           items: List.generate(
-                            13,
+                            20,
                             (i) => DropdownMenuItem(
-                              value: i + 3,
-                              child: Text('${i + 3} dòng'),
+                              value: i + 5,
+                              child: Text('${i + 5} dòng'),
                             ),
                           ),
                           onChanged: (v) {
@@ -666,9 +753,19 @@ class _PosSellMobilePrintSettingsScreenState
                       ],
                     ),
                   ),
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(16, 0, 16, 4),
+                    child: Text(
+                      'Khuyến nghị Sunmi: 14–18 dòng — đẩy hết chữ khỏi đầu in trước khi cắt/xé.',
+                      style: TextStyle(fontSize: 12, color: PosTheme.textSecondary),
+                    ),
+                  ),
                   SwitchListTile(
                     title: const Text('Cắt một phần (partial)'),
-                    subtitle: const Text('Tắt = cắt hết — tránh cắt mất dòng cuối'),
+                    subtitle: const Text(
+                      'Áp dụng máy nhiệt LAN/BT (ESC/POS). Sunmi dùng cutPaper; '
+                      'máy không có dao cắt chỉ đẩy giấy để xé tay.',
+                    ),
                     value: _thermal.partialCut,
                     activeThumbColor: _blue,
                     onChanged: (v) =>

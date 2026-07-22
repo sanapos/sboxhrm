@@ -382,43 +382,27 @@ class _LandingScreenState extends State<LandingScreen> {
               SliverAppBar(
                 pinned: true,
                 expandedHeight: 0,
-                backgroundColor: _isScrolled
-                    ? Colors.white.withValues(alpha: 0.97)
-                    : Colors.transparent,
+                // Luôn nền sáng + chữ đậm — tránh chữ trắng khó thấy khi mới mở trang
+                backgroundColor: Colors.white.withValues(alpha: 0.97),
                 elevation: _isScrolled ? 2 : 0,
+                surfaceTintColor: Colors.transparent,
                 automaticallyImplyLeading: false,
                 title: Row(
                   children: [
                     Image.asset('assets/logo.png',
                         height: 38, filterQuality: FilterQuality.high),
                     const SizedBox(width: 8),
-                    Text('SBOX',
+                    const Text('SBOX',
                         style: TextStyle(
-                            color: _isScrolled ? kBlue : Colors.white,
+                            color: kBlue,
                             fontWeight: FontWeight.w900,
                             fontSize: 18,
-                            letterSpacing: 0.5,
-                            shadows: _isScrolled
-                                ? null
-                                : [
-                                    const Shadow(
-                                        color: Color(0x88000000),
-                                        blurRadius: 4,
-                                        offset: Offset(0, 1))
-                                  ])),
-                    Text(' HRM',
+                            letterSpacing: 0.5)),
+                    const Text(' HRM',
                         style: TextStyle(
-                            color: _isScrolled ? kDark : Colors.white,
+                            color: kDark,
                             fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                            shadows: _isScrolled
-                                ? null
-                                : [
-                                    const Shadow(
-                                        color: Color(0x88000000),
-                                        blurRadius: 4,
-                                        offset: Offset(0, 1))
-                                  ])),
+                            fontSize: 18)),
                   ],
                 ),
                 actions: isMobile
@@ -430,27 +414,43 @@ class _LandingScreenState extends State<LandingScreen> {
                             _mobileMenuOpen
                                 ? Icons.close_rounded
                                 : Icons.menu_rounded,
-                            color: _isScrolled ? kDark : Colors.white,
+                            color: kDark,
                           ),
                         ),
                       ]
                     : [
                         _NavLink('Tính năng',
                             onTap: () => _scrollTo(_featuresKey),
-                            dark: _isScrolled),
+                            dark: true),
                         _NavLink('Bảng giá',
                             onTap: () => _scrollTo(_pricingKey),
-                            dark: _isScrolled),
+                            dark: true),
                         _NavLink('Hướng dẫn sử dụng',
                             onTap: _openGuide,
-                            dark: _isScrolled),
+                            dark: true),
                         _NavLink('Thiết bị',
                             onTap: () => _scrollTo(_devicesKey),
-                            dark: _isScrolled),
+                            dark: true),
                         _NavLink('Liên hệ',
                             onTap: () => _scrollTo(_contactKey),
-                            dark: _isScrolled),
+                            dark: true),
                         const SizedBox(width: 8),
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: OutlinedButton(
+                            onPressed: () => _goToRegister(),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: kBlue,
+                              side: const BorderSide(color: kBlue, width: 1.5),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8)),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 10),
+                            ),
+                            child: const Text('Đăng ký',
+                                style: TextStyle(fontWeight: FontWeight.bold)),
+                          ),
+                        ),
                         Padding(
                           padding: const EdgeInsets.only(right: 16),
                           child: FilledButton(
@@ -655,7 +655,7 @@ class _MobileMenuOverlay extends StatelessWidget {
                               shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8)),
                             ),
-                            child: const Text('Dùng miễn phí',
+                            child: const Text('Đăng ký',
                                 style: TextStyle(fontWeight: FontWeight.bold)),
                           ),
                         ),
@@ -3394,7 +3394,7 @@ class _DownloadSection extends StatelessWidget {
       version: 'v1.0',
       badge: 'APK',
       platform: 'android',
-      url: 'https://sbox.sana.vn/#/register'
+      url: 'https://sboxhrm.com/#/register'
     ),
     (
       title: 'Driver USB ZKTeco',
@@ -3402,7 +3402,7 @@ class _DownloadSection extends StatelessWidget {
       version: 'Windows',
       badge: 'Driver',
       platform: 'windows',
-      url: 'https://sbox.sana.vn/#/contact'
+      url: 'https://sboxhrm.com/#/contact'
     ),
     (
       title: 'Bộ cài công cụ đồng bộ',
@@ -3410,7 +3410,7 @@ class _DownloadSection extends StatelessWidget {
       version: 'v2.1',
       badge: 'Tool',
       platform: 'desktop',
-      url: 'https://sbox.sana.vn/#/contact'
+      url: 'https://sboxhrm.com/#/contact'
     ),
     (
       title: 'Bản phát hành iOS/TestFlight',
@@ -3418,7 +3418,7 @@ class _DownloadSection extends StatelessWidget {
       version: 'iOS',
       badge: 'Beta',
       platform: 'ios',
-      url: 'https://sbox.sana.vn/#/contact'
+      url: 'https://sboxhrm.com/#/contact'
     ),
   ];
 

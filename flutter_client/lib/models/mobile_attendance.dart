@@ -525,6 +525,8 @@ class MobileAttendanceRecord {
 
   bool get isTravelPunch => punchType == 2 || punchType == 3;
 
+  bool get isLunchOtPunch => punchType == 4 || punchType == 5;
+
   String get punchTypeLabel {
     switch (punchType) {
       case 0:
@@ -535,6 +537,10 @@ class MobileAttendanceRecord {
         return 'Bắt đầu đi';
       case 3:
         return 'Đến điểm làm';
+      case 4:
+        return 'Ra tăng ca trưa';
+      case 5:
+        return 'Vào lại sau nghỉ';
       default:
         return 'Chấm công';
     }

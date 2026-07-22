@@ -423,7 +423,7 @@ List<SummaryDayPunchPair> buildSummaryDayPairs(
   int dayEndHour = 0,
   int dayEndMinute = 0,
 }) {
-  final workAtts = Attendance.withoutTravel(dayAtts);
+  final workAtts = Attendance.forMainShiftPairing(dayAtts);
   if (workAtts.isEmpty) return [];
   if (workAtts.length == 1) {
     final a = workAtts.first;

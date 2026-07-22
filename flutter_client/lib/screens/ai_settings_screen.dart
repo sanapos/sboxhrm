@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
+import '../widgets/hrm/hrm_settings_mobile_kit.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
 class AiSettingsScreen extends StatefulWidget {
@@ -169,7 +170,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: HrmPageChrome.background,
+      backgroundColor: HrmPageChrome.scaffoldBackground(context),
       appBar: HrmPageChrome.appBar(title: 'Thiết lập AI'),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -242,7 +243,9 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
   }) {
     final isMobile = Responsive.isMobile(context);
     return SingleChildScrollView(
-      padding: EdgeInsets.all(isMobile ? 14 : 24),
+      padding: HrmSettingsMobileKit.active(context)
+          ? HrmSettingsMobileKit.pagePadding(context)
+          : EdgeInsets.all(isMobile ? 14 : 24),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 700),

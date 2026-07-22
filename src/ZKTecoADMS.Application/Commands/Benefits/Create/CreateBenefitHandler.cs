@@ -21,6 +21,17 @@ public class CreateSalaryProfileHandler(
         var salaryProfile = request.Adapt<Benefit>();
         salaryProfile.StoreId = request.StoreId;
         salaryProfile.IsActive = true;
+        if (!string.IsNullOrWhiteSpace(request.StandardWorkMode) &&
+            Enum.TryParse<StandardWorkMode>(request.StandardWorkMode, ignoreCase: true, out var workMode))
+        {
+            salaryProfile.StandardWorkMode = workMode;
+        }
+        if (request.FixedStandardWorkDays.HasValue)
+            salaryProfile.FixedStandardWorkDays = Math.Clamp(request.FixedStandardWorkDays.Value, 1, 31);
+        if (request.DeductIfBelowFixedStandard.HasValue)
+            salaryProfile.DeductIfBelowFixedStandard = request.DeductIfBelowFixedStandard.Value;
+        if (request.AddIfAboveFixedStandard.HasValue)
+            salaryProfile.AddIfAboveFixedStandard = request.AddIfAboveFixedStandard.Value;
 
         await repository.AddAsync(salaryProfile, cancellationToken);
 

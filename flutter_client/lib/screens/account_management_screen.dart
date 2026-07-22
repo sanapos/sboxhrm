@@ -7,6 +7,7 @@ import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
+import '../widgets/hrm/hrm_settings_mobile_kit.dart';
 import '../widgets/hrm_mini_stat_chip.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/loading_widget.dart';
@@ -32,6 +33,8 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
   String _searchQuery = '';
   String _selectedRole = 'all';
   String _selectedStatus = 'all';
+  /// all | missing_or_resigned
+  String _selectedHrFilter = 'all';
   /// Renders two fields side-by-side on desktop, stacked on mobile.
   List<Widget> _buildFieldPair(
       {required bool isMobile, required Widget first, required Widget second}) {
@@ -147,8 +150,21 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
           (_selectedStatus == 'active' && isActive) ||
           (_selectedStatus == 'inactive' && !isActive);
 
-      return matchesSearch && matchesRole && matchesStatus;
+      final hrIssue = account['isEmployeeMissingOrResigned'] == true;
+      final matchesHr = _selectedHrFilter == 'all' ||
+          (_selectedHrFilter == 'missing_or_resigned' && hrIssue);
+
+      return matchesSearch && matchesRole && matchesStatus && matchesHr;
     }).toList();
+  }
+
+  String? _hrIssueLabel(Map<String, dynamic> account) {
+    if (account['isEmployeeMissing'] == true) return 'Không còn hồ sơ NS';
+    if (account['isEmployeeResigned'] == true) return 'Đã nghỉ việc';
+    if (account['isEmployeeMissingOrResigned'] == true) {
+      return 'Không còn HS / Nghỉ việc';
+    }
+    return null;
   }
 
   int get _totalAccounts => _accounts.length;
@@ -167,6 +183,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
       _searchQuery = '';
       _selectedRole = 'all';
       _selectedStatus = 'all';
+      _selectedHrFilter = 'all';
     });
   }
 
@@ -176,20 +193,46 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
     final isWideScreen = screenWidth >= 900;
 
     return Scaffold(
-      backgroundColor: HrmPageChrome.background,
+      backgroundColor: HrmPageChrome.scaffoldBackground(context),
       appBar: HrmPageChrome.appBar(
         title: 'Quản lý Tài khoản',
       ),
       body: _isLoading
           ? const LoadingWidget()
           : SingleChildScrollView(
-              padding: EdgeInsets.all(Responsive.isMobile(context) ? 12 : 24),
+              padding: HrmSettingsMobileKit.active(context)
+                  ? HrmSettingsMobileKit.pagePadding(context)
+                  : EdgeInsets.all(Responsive.isMobile(context) ? 12 : 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      if (!HrmPageChrome.isEmbedded) ...[
+                  if (HrmSettingsMobileKit.active(context)) ...[
+                    HrmSettingsSearchToolbar(
+                      search: _buildAccountSearchField(),
+                      actions: [
+                        if (_perm.canCreate('UserManagement') &&
+                            _employeesAvailableForAccount.isNotEmpty)
+                          HrmSettingsAddButton(
+                            label: 'Đăng ký hàng loạt',
+                            icon: Icons.group_add,
+                            compact: true,
+                            onPressed: () => _showBulkAccountDialog(),
+                          ),
+                        if (_perm.canCreate('UserManagement'))
+                          HrmSettingsAddButton(
+                            label: 'Thêm tài khoản',
+                            icon: Icons.person_add,
+                            compact: true,
+                            onPressed: () => _showAccountDialog(),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                  if (!HrmSettingsMobileKit.active(context))
+                    Row(
+                      children: [
+                        if (!HrmPageChrome.isEmbedded) ...[
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
@@ -266,7 +309,8 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                       ],
                     ],
                   ),
-                  const SizedBox(height: 24),
+                  if (!HrmSettingsMobileKit.active(context))
+                    const SizedBox(height: 24),
 
                   HrmPageChrome.horizontalStatCards(
                     minCardWidth: 128,
@@ -281,10 +325,52 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                           HrmPageChrome.primaryNavy),
                     ],
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
 
                   // Filter bar
-                  
+                  if (HrmSettingsMobileKit.active(context)) ...[
+                    HrmSettingsFilterChips(
+                      options: const [
+                        HrmSettingsFilterChipOption(
+                            value: 'all', label: 'Tất cả'),
+                        HrmSettingsFilterChipOption(
+                            value: 'Admin', label: 'Quản trị'),
+                        HrmSettingsFilterChipOption(
+                            value: 'Manager', label: 'Quản lý'),
+                        HrmSettingsFilterChipOption(
+                            value: 'Employee', label: 'Nhân viên'),
+                      ],
+                      selected: _selectedRole,
+                      onSelected: (v) => setState(() => _selectedRole = v),
+                    ),
+                    const SizedBox(height: 8),
+                    HrmSettingsFilterChips(
+                      options: const [
+                        HrmSettingsFilterChipOption(
+                            value: 'all', label: 'Tất cả'),
+                        HrmSettingsFilterChipOption(
+                            value: 'active', label: 'Hoạt động'),
+                        HrmSettingsFilterChipOption(
+                            value: 'inactive', label: 'Ngừng hoạt động'),
+                      ],
+                      selected: _selectedStatus,
+                      onSelected: (v) => setState(() => _selectedStatus = v),
+                    ),
+                    const SizedBox(height: 8),
+                    HrmSettingsFilterChips(
+                      options: const [
+                        HrmSettingsFilterChipOption(
+                            value: 'all', label: 'Tất cả HS'),
+                        HrmSettingsFilterChipOption(
+                            value: 'missing_or_resigned',
+                            label: 'Không còn HS / Nghỉ việc'),
+                      ],
+                      selected: _selectedHrFilter,
+                      onSelected: (v) =>
+                          setState(() => _selectedHrFilter = v),
+                      onClear: _clearFilters,
+                    ),
+                  ] else
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -444,10 +530,58 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                                     value: 'active',
                                     child: Text('Đang hoạt động')),
                                 DropdownMenuItem(
-                                    value: 'inactive', child: Text('Đã khóa')),
+                                    value: 'inactive',
+                                    child: Text('Ngừng hoạt động')),
                               ],
                               onChanged: (value) => setState(
                                   () => _selectedStatus = value ?? 'all'),
+                            ),
+                          ),
+                          // HR profile filter
+                          SizedBox(
+                            width: isWideScreen ? 260 : double.infinity,
+                            height: 44,
+                            child: DropdownButtonFormField<String>(
+                              initialValue: _selectedHrFilter,
+                              dropdownColor: Colors.white,
+                              isExpanded: true,
+                              style: const TextStyle(
+                                  color: Color(0xFF18181B), fontSize: 14),
+                              decoration: InputDecoration(
+                                prefixIcon: const Icon(
+                                    Icons.badge_outlined,
+                                    color: Color(0xFF71717A),
+                                    size: 18),
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 10),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: const BorderSide(
+                                      color: Color(0xFFE4E4E7)),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: const BorderSide(
+                                      color: Color(0xFFE4E4E7)),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: const BorderSide(
+                                      color: HrmPageChrome.primaryNavy),
+                                ),
+                                filled: true,
+                                fillColor: Colors.white,
+                              ),
+                              items: const [
+                                DropdownMenuItem(
+                                    value: 'all',
+                                    child: Text('Tất cả hồ sơ NS')),
+                                DropdownMenuItem(
+                                    value: 'missing_or_resigned',
+                                    child: Text('Không còn HS / Nghỉ việc')),
+                              ],
+                              onChanged: (value) => setState(
+                                  () => _selectedHrFilter = value ?? 'all'),
                             ),
                           ),
                           // Clear filter button
@@ -534,6 +668,28 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
     );
   }
 
+  Widget _buildHrIssueBadge(Map<String, dynamic> account,
+      {double fontSize = 10}) {
+    final label = _hrIssueLabel(account);
+    if (label == null) return const SizedBox.shrink();
+    return Container(
+      margin: const EdgeInsets.only(top: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF59E0B).withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: const Color(0xFFD97706),
+          fontSize: fontSize,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
   DataRow _buildAccountRow(Map<String, dynamic> account, int index) {
     final isActive = account['isActive'] as bool? ?? true;
     final roles = account['roles'] as List<dynamic>? ?? [];
@@ -585,6 +741,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                 Text('@${account['userName'] ?? ''}',
                     style: const TextStyle(
                         color: Color(0xFFA1A1AA), fontSize: 11)),
+                _buildHrIssueBadge(account, fontSize: 10),
               ],
             ),
           ],
@@ -614,7 +771,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
             borderRadius: BorderRadius.circular(5),
           ),
           child: Text(
-            isActive ? 'Hoạt động' : 'Đã khóa',
+            isActive ? 'Hoạt động' : 'Ngừng hoạt động',
             style: TextStyle(
                 color: isActive
                     ? const Color(0xFF22C55E)
@@ -648,7 +805,23 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
               ),
-            if (_perm.canDelete('UserManagement'))
+            if (_perm.canEdit('UserManagement') && !_isSelfOrOwner(account))
+              IconButton(
+                onPressed: () => _toggleAccountActive(account),
+                icon: Icon(
+                  isActive
+                      ? Icons.person_off_outlined
+                      : Icons.person_outline,
+                  size: 18,
+                ),
+                color: isActive
+                    ? const Color(0xFFF59E0B)
+                    : const Color(0xFF22C55E),
+                tooltip: isActive ? 'Vô hiệu hóa' : 'Kích hoạt lại',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              ),
+            if (_perm.canDelete('UserManagement') && !_isSelfOrOwner(account))
               IconButton(
                 onPressed: () => _deleteAccount(account),
                 icon: const Icon(Icons.delete_outline, size: 18),
@@ -699,125 +872,135 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
     }
   }
 
-  Widget _buildMobileAccountList() {
-    return Column(
-      children: List.generate(_filteredAccounts.length, (index) {
-        final account = _filteredAccounts[index];
-        final isActive = account['isActive'] as bool? ?? true;
-        final roles = account['roles'] as List<dynamic>? ?? [];
-        final role = roles.isNotEmpty ? roles.first.toString() : 'Employee';
-        final fullName = (account['fullName'] ??
-                '${account['lastName'] ?? ''} ${account['firstName'] ?? ''}')
-            .toString()
-            .trim();
-        final initials = fullName
-            .split(' ')
-            .where((s) => s.isNotEmpty)
-            .map((s) => s[0])
-            .take(2)
-            .join();
-        final roleInfo = _getRoleDisplayInfo(role);
+  Widget _buildAccountSearchField() {
+    return TextField(
+      style: const TextStyle(color: Color(0xFF18181B), fontSize: 14),
+      decoration: InputDecoration(
+        hintText: 'Tìm theo tên hoặc username...',
+        hintStyle: const TextStyle(color: Color(0xFFA1A1AA), fontSize: 14),
+        prefixIcon:
+            const Icon(Icons.search, color: Color(0xFFA1A1AA), size: 20),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        filled: true,
+        fillColor: const Color(0xFFFAFAFA),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: HrmPageChrome.primaryNavy),
+        ),
+      ),
+      onChanged: (value) => setState(() => _searchQuery = value),
+    );
+  }
 
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Material(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            elevation: 0,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(12),
-              onTap: () => _showAccountDetailSheet(account),
-              child: Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFE4E4E7)),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: (roleInfo['color'] as Color)
-                            .withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Center(
-                          child: Text(initials,
-                              style: TextStyle(
-                                  color: roleInfo['color'] as Color,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold))),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(fullName,
-                              style: const TextStyle(
-                                  color: Color(0xFF18181B),
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600)),
-                          const SizedBox(height: 2),
-                          Text('@${account['userName'] ?? ''}',
-                              style: const TextStyle(
-                                  color: Color(0xFFA1A1AA), fontSize: 12)),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: (roleInfo['color'] as Color)
-                                .withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(5),
-                          ),
-                          child: Text(roleInfo['label'] as String,
-                              style: TextStyle(
-                                  color: roleInfo['color'] as Color,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w500)),
-                        ),
-                        const SizedBox(height: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: isActive
-                                ? const Color(0xFF22C55E).withValues(alpha: 0.1)
-                                : const Color(0xFFEF4444)
-                                    .withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            isActive ? 'Hoạt động' : 'Đã khóa',
-                            style: TextStyle(
-                                color: isActive
-                                    ? const Color(0xFF22C55E)
-                                    : const Color(0xFFEF4444),
-                                fontSize: 10,
-                                fontWeight: FontWeight.w500),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(width: 4),
-                    const Icon(Icons.chevron_right,
-                        color: Color(0xFFA1A1AA), size: 20),
-                  ],
-                ),
+  Widget _buildMobileAccountList() {
+    if (HrmSettingsMobileKit.active(context)) {
+      return HrmSettingsEntityGrid(
+        itemCount: _filteredAccounts.length,
+        columns: 2,
+        childAspectRatio: 1.35,
+        itemBuilder: (ctx, index) =>
+            _buildAccountDenseTile(_filteredAccounts[index]),
+      );
+    }
+    return Column(
+      children: [
+        for (var i = 0; i < _filteredAccounts.length; i++) ...[
+          if (i > 0) const SizedBox(height: 8),
+          _buildAccountDenseTile(_filteredAccounts[i]),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildAccountDenseTile(Map<String, dynamic> account) {
+    final isActive = account['isActive'] as bool? ?? true;
+    final roles = account['roles'] as List<dynamic>? ?? [];
+    final role = roles.isNotEmpty ? roles.first.toString() : 'Employee';
+    final fullName = (account['fullName'] ??
+            '${account['lastName'] ?? ''} ${account['firstName'] ?? ''}')
+        .toString()
+        .trim();
+    final initials = fullName
+        .split(' ')
+        .where((s) => s.isNotEmpty)
+        .map((s) => s[0])
+        .take(2)
+        .join();
+    final roleInfo = _getRoleDisplayInfo(role);
+
+    return HrmSettingsDenseTile(
+      leading: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: (roleInfo['color'] as Color).withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Center(
+          child: Text(
+            initials,
+            style: TextStyle(
+              color: roleInfo['color'] as Color,
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ),
+      title: fullName,
+      subtitle: '@${account['userName'] ?? ''}',
+      trailing: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: (roleInfo['color'] as Color).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(5),
+            ),
+            child: Text(
+              roleInfo['label'] as String,
+              style: TextStyle(
+                color: roleInfo['color'] as Color,
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ),
-        );
-      }),
+          const SizedBox(height: 4),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: isActive
+                  ? const Color(0xFF22C55E).withValues(alpha: 0.1)
+                  : const Color(0xFFEF4444).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              isActive ? 'Hoạt động' : 'Ngừng hoạt động',
+              style: TextStyle(
+                color: isActive
+                    ? const Color(0xFF22C55E)
+                    : const Color(0xFFEF4444),
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          _buildHrIssueBadge(account, fontSize: 9),
+        ],
+      ),
+      onTap: () => _showAccountDetailSheet(account),
     );
   }
 
@@ -917,7 +1100,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
-                      isActive ? 'Hoạt động' : 'Đã khóa',
+                      isActive ? 'Hoạt động' : 'Ngừng hoạt động',
                       style: TextStyle(
                           color: isActive
                               ? const Color(0xFF22C55E)
@@ -926,6 +1109,25 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                           fontWeight: FontWeight.w500),
                     ),
                   ),
+                  if (_hrIssueLabel(account) != null) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF59E0B).withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        _hrIssueLabel(account)!,
+                        style: const TextStyle(
+                          color: Color(0xFFD97706),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
               const SizedBox(height: 20),
@@ -982,29 +1184,63 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                       ),
                     ),
                   ],
-                  if (_perm.canDelete('UserManagement')) ...[
-                    if (_perm.canEdit('UserManagement'))
-                      const SizedBox(width: 10),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          _deleteAccount(account);
-                        },
-                        icon: const Icon(Icons.delete_outline, size: 18),
-                        label: const Text('Xóa'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFFEF4444),
-                          side: const BorderSide(color: Color(0xFFEF4444)),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10)),
-                        ),
-                      ),
-                    ),
-                  ],
                 ],
               ),
+              if (_perm.canEdit('UserManagement') &&
+                  !_isSelfOrOwner(account)) ...[
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _toggleAccountActive(account);
+                    },
+                    icon: Icon(
+                      isActive
+                          ? Icons.person_off_outlined
+                          : Icons.person_outline,
+                      size: 18,
+                    ),
+                    label: Text(isActive ? 'Vô hiệu hóa' : 'Kích hoạt lại'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: isActive
+                          ? const Color(0xFFF59E0B)
+                          : const Color(0xFF22C55E),
+                      side: BorderSide(
+                        color: isActive
+                            ? const Color(0xFFF59E0B)
+                            : const Color(0xFF22C55E),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ),
+              ],
+              if (_perm.canDelete('UserManagement') &&
+                  !_isSelfOrOwner(account)) ...[
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _deleteAccount(account);
+                    },
+                    icon: const Icon(Icons.delete_outline, size: 18),
+                    label: const Text('Xóa'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFFEF4444),
+                      side: const BorderSide(color: Color(0xFFEF4444)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -1976,14 +2212,12 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
   }
 
   void _deleteAccount(Map<String, dynamic> account) {
-    // Prevent deleting own account
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final currentUserId = authProvider.user?.id;
-    if (currentUserId != null &&
-        account['id']?.toString() == currentUserId.toString()) {
+    if (_isSelfOrOwner(account)) {
       appNotification.showWarning(
         title: 'Không thể xóa',
-        message: 'Bạn không thể xóa tài khoản của chính mình',
+        message: account['isOwner'] == true
+            ? 'Không thể xóa tài khoản chủ cửa hàng'
+            : 'Bạn không thể xóa tài khoản của chính mình',
       );
       return;
     }
@@ -1997,7 +2231,9 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
             style: TextStyle(
                 color: Color(0xFF18181B), fontWeight: FontWeight.bold)),
         content: Text(
-          'Bạn có chắc muốn xóa tài khoản "${account['fullName']}"? Hành động này không thể hoàn tác.',
+          'Bạn có chắc muốn xóa tài khoản "${account['fullName']}"?\n\n'
+          'Hệ thống sẽ gỡ liên kết đăng nhập; dữ liệu chấm công/lương gắn hồ sơ nhân sự vẫn được giữ. '
+          'Nếu vẫn lỗi ràng buộc, dùng Vô hiệu hóa để giải phóng slot gói.',
           style: const TextStyle(color: Color(0xFF71717A)),
         ),
         actions: [
@@ -2039,6 +2275,97 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
         ],
       ),
     );
+  }
+
+  bool _isSelfOrOwner(Map<String, dynamic> account) {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final currentUserId = authProvider.user?.id;
+    if (currentUserId != null &&
+        account['id']?.toString() == currentUserId.toString()) {
+      return true;
+    }
+    return account['isOwner'] == true;
+  }
+
+  Future<void> _toggleAccountActive(Map<String, dynamic> account) async {
+    if (_isSelfOrOwner(account)) {
+      appNotification.showWarning(
+        title: 'Không thể đổi trạng thái',
+        message: account['isOwner'] == true
+            ? 'Không thể vô hiệu hóa tài khoản chủ cửa hàng'
+            : 'Bạn không thể đổi trạng thái tài khoản của chính mình',
+      );
+      return;
+    }
+
+    final isActive = account['isActive'] as bool? ?? true;
+    final name = (account['fullName'] ?? account['userName'] ?? '').toString();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => ScrollableAlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          isActive ? 'Vô hiệu hóa tài khoản' : 'Kích hoạt lại tài khoản',
+          style: const TextStyle(
+              color: Color(0xFF18181B), fontWeight: FontWeight.bold),
+        ),
+        content: Text(
+          isActive
+              ? 'Vô hiệu hóa "$name"? Tài khoản không đăng nhập được và giải phóng 1 slot gói dịch vụ. Có thể kích hoạt lại sau.'
+              : 'Kích hoạt lại "$name"? Tài khoản sẽ chiếm lại 1 slot gói dịch vụ.',
+          style: const TextStyle(color: Color(0xFF71717A)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child:
+                const Text('Hủy', style: TextStyle(color: Color(0xFF71717A))),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: isActive
+                  ? const Color(0xFFF59E0B)
+                  : const Color(0xFF22C55E),
+            ),
+            child: Text(isActive ? 'Vô hiệu hóa' : 'Kích hoạt'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      final response =
+          await _apiService.toggleAccountStatus(account['id'], !isActive);
+      if (!mounted) return;
+      if (response['isSuccess'] == true) {
+        appNotification.showSuccess(
+          title: 'Thành công',
+          message: isActive
+              ? 'Đã vô hiệu hóa tài khoản'
+              : 'Đã kích hoạt lại tài khoản',
+        );
+        _loadAccounts();
+      } else {
+        final errors = response['errors'];
+        final errMsg = response['message']?.toString();
+        final fromErrors = errors is List && errors.isNotEmpty
+            ? errors.first.toString()
+            : null;
+        appNotification.showError(
+          title: 'Lỗi',
+          message: (errMsg != null && errMsg.isNotEmpty)
+              ? errMsg
+              : (fromErrors ?? 'Không thể đổi trạng thái tài khoản'),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        appNotification.showError(title: 'Lỗi', message: 'Lỗi: $e');
+      }
+    }
   }
 
   void _showBulkAccountDialog() {

@@ -27,7 +27,10 @@ internal static class PosStockLotHelper
         return await query.SumAsync(l => (decimal?)l.QtyOnHand) ?? 0;
     }
 
-    /// <summary>Phân bổ FEFO — lô gần hết hạn trước. Trả về lỗi nếu TrackExpiry và thiếu tồn lô.</summary>
+    /// <summary>
+    /// Phân bổ FEFO — lô gần hết hạn trước.
+    /// Trừ tồn lô bằng UPDATE atomic (WHERE QtyOnHand &gt;= take) để tránh race khi nhiều máy bán cùng lúc.
+    /// </summary>
     public static async Task<(List<LotAllocation>? allocations, string? error)> AllocateFefoAsync(
         ZKTecoDbContext db,
         Guid storeId,
@@ -47,23 +50,25 @@ internal static class PosStockLotHelper
         if (!product.TrackExpiry && !hasActiveLots)
             return ([new LotAllocation(null, qtyNeeded, product.CostPrice)], null);
 
-        var lots = await db.PosStockLots.AsTracking()
+        // Snapshot FEFO — không trừ trên entity tracked (tránh oversell khi 2 transaction cùng đọc).
+        var lotSnapshots = await db.PosStockLots.AsNoTracking()
             .Where(l => l.StoreId == storeId && l.ProductId == productId &&
                         l.Deleted == null && l.IsActive &&
                         l.Status == PosStockLotStatus.Active && l.QtyOnHand > 0 &&
                         (variantId.HasValue ? l.VariantId == variantId : l.VariantId == null))
             .OrderBy(l => l.ExpiryDate ?? DateTime.MaxValue)
             .ThenBy(l => l.CreatedAt)
+            .Select(l => new { l.Id, l.QtyOnHand, l.UnitCost })
             .ToListAsync();
 
-        var planned = new List<(PosStockLot Lot, decimal Take)>();
+        var planned = new List<(Guid LotId, decimal Take, decimal UnitCost)>();
         var remaining = qtyNeeded;
-        foreach (var lot in lots)
+        foreach (var lot in lotSnapshots)
         {
             if (remaining <= 0) break;
             var take = Math.Min(lot.QtyOnHand, remaining);
             if (take <= 0) continue;
-            planned.Add((lot, take));
+            planned.Add((lot.Id, take, lot.UnitCost > 0 ? lot.UnitCost : product.CostPrice));
             remaining -= take;
         }
 
@@ -71,18 +76,27 @@ internal static class PosStockLotHelper
             return (null, $"Không đủ tồn lô/HSD: {product.Name} (thiếu {remaining})");
 
         var allocations = new List<LotAllocation>();
-        foreach (var (lot, take) in planned)
+        var now = DateTime.UtcNow;
+        foreach (var (lotId, take, unitCost) in planned)
         {
-            lot.QtyOnHand -= take;
-            if (lot.QtyOnHand <= 0)
-            {
-                lot.QtyOnHand = 0;
-                lot.Status = PosStockLotStatus.Depleted;
-            }
-            lot.UpdatedAt = DateTime.UtcNow;
-            lot.UpdatedBy = updatedBy;
-            allocations.Add(new LotAllocation(
-                lot.Id, take, lot.UnitCost > 0 ? lot.UnitCost : product.CostPrice));
+            // Atomic: chỉ trừ khi vẫn còn đủ — conflict → báo lỗi để caller retry/rollback.
+            var depleted = (int)PosStockLotStatus.Depleted;
+            var active = (int)PosStockLotStatus.Active;
+            var rows = await db.Database.ExecuteSqlInterpolatedAsync($@"
+UPDATE ""PosStockLots""
+SET ""QtyOnHand"" = ""QtyOnHand"" - {take},
+    ""Status"" = CASE WHEN ""QtyOnHand"" - {take} <= 0 THEN {depleted} ELSE {active} END,
+    ""UpdatedAt"" = {now},
+    ""UpdatedBy"" = {updatedBy}
+WHERE ""Id"" = {lotId}
+  AND ""StoreId"" = {storeId}
+  AND ""Deleted"" IS NULL
+  AND ""QtyOnHand"" >= {take}");
+
+            if (rows == 0)
+                return (null, $"Tồn lô vừa thay đổi — thử lại: {product.Name}");
+
+            allocations.Add(new LotAllocation(lotId, take, unitCost));
         }
 
         if (remaining > 0)
@@ -110,21 +124,22 @@ internal static class PosStockLotHelper
         ZKTecoDbContext db, Guid storeId, Guid lotId, decimal qty, string? updatedBy)
     {
         if (qty <= 0) return (true, null);
-        var lot = await db.PosStockLots.AsTracking()
-            .FirstOrDefaultAsync(l => l.Id == lotId && l.StoreId == storeId && l.Deleted == null);
-        if (lot == null) return (false, "Không tìm thấy lô hàng");
-        if (lot.QtyOnHand < qty)
-            return (false, $"Không đủ tồn lô để hủy trả (lô {lot.LotNo ?? lot.Id.ToString()[..8]}, cần {qty}, còn {lot.QtyOnHand})");
-        lot.QtyOnHand -= qty;
-        if (lot.QtyOnHand <= 0)
-        {
-            lot.QtyOnHand = 0;
-            lot.Status = PosStockLotStatus.Depleted;
-        }
-        else if (lot.Status == PosStockLotStatus.Depleted)
-            lot.Status = PosStockLotStatus.Active;
-        lot.UpdatedAt = DateTime.UtcNow;
-        lot.UpdatedBy = updatedBy;
+        var now = DateTime.UtcNow;
+        var depleted = (int)PosStockLotStatus.Depleted;
+        var active = (int)PosStockLotStatus.Active;
+        var rows = await db.Database.ExecuteSqlInterpolatedAsync($@"
+UPDATE ""PosStockLots""
+SET ""QtyOnHand"" = ""QtyOnHand"" - {qty},
+    ""Status"" = CASE WHEN ""QtyOnHand"" - {qty} <= 0 THEN {depleted} ELSE {active} END,
+    ""UpdatedAt"" = {now},
+    ""UpdatedBy"" = {updatedBy}
+WHERE ""Id"" = {lotId}
+  AND ""StoreId"" = {storeId}
+  AND ""Deleted"" IS NULL
+  AND ""QtyOnHand"" >= {qty}");
+
+        if (rows == 0)
+            return (false, $"Không đủ tồn lô để hủy trả (lô {lotId.ToString()[..8]}, cần {qty})");
         return (true, null);
     }
 
@@ -230,6 +245,31 @@ internal static class PosStockLotHelper
             Status = PosStockLotStatus.Active,
             StockReceiptId = receipt.Id,
             StockReceiptLineId = line.Id,
+            IsActive = true,
+            CreatedBy = createdBy,
+        };
+    }
+
+    /// <summary>Lô điều chỉnh khi kiểm kê thừa (không gắn phiếu nhập).</summary>
+    public static PosStockLot CreateLotFromCountAdjust(
+        Guid storeId,
+        Guid productId,
+        Guid? variantId,
+        decimal qtyOnHand,
+        decimal unitCost,
+        string countNo,
+        string? createdBy)
+    {
+        return new PosStockLot
+        {
+            Id = Guid.NewGuid(),
+            StoreId = storeId,
+            ProductId = productId,
+            VariantId = variantId,
+            LotNo = $"KK-{countNo}",
+            QtyOnHand = qtyOnHand,
+            UnitCost = unitCost,
+            Status = PosStockLotStatus.Active,
             IsActive = true,
             CreatedBy = createdBy,
         };

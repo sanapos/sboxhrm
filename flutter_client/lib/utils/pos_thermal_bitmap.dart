@@ -1,7 +1,7 @@
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show FontLoader, rootBundle;
 import 'package:http/http.dart' as http;
 
 import 'vietnamese_font.dart';
@@ -29,14 +29,33 @@ class PosThermalBitmapEncoder {
 
   static Future<void> ensureFont() async {
     if (_fontsLoaded) return;
-    final loader = FontLoader(kVietnameseFontFamily)
-      ..addFont(rootBundle.load('assets/fonts/BeVietnamPro-Regular.ttf'))
-      ..addFont(rootBundle.load('assets/fonts/BeVietnamPro-Bold.ttf'));
-    await loader.load();
+    // Font đã khai báo trong pubspec — KHÔNG gọi FontLoader cùng family
+    // (load trùng làm vỡ glyph / fallback Arial → “lỗi font” trên bill ảnh).
+    try {
+      await preloadVietnameseFonts();
+    } catch (e) {
+      debugPrint('ensureFont preload: $e');
+    }
     _fontsLoaded = true;
   }
 
-  /// Render toàn bộ hóa đơn thành một ảnh bitmap (ổn định nhất cho Zywell).
+  /// Style chỉ dùng BeVietnamPro — không fallback Arial/sans (thiếu tiếng Việt).
+  static TextStyle _thermalStyle({
+    required double fontSize,
+    required bool bold,
+  }) {
+    return const TextStyle().copyWith(
+      fontFamily: kVietnameseFontFamily,
+      fontFamilyFallback: const ['Be Vietnam Pro'],
+      fontSize: fontSize,
+      fontWeight: bold ? FontWeight.w700 : FontWeight.w400,
+      color: const Color(0xFF000000),
+      height: 1.12,
+      letterSpacing: 0.2,
+    );
+  }
+
+  /// Render toàn bộ hóa đơn thành một ảnh bitmap (ổn định nhất cho Zywell/LAN/BT).
   static Future<List<int>?> receiptToRaster(
     List<PosReceiptImageLine> lines, {
     required int paperDots,
@@ -45,46 +64,45 @@ class PosThermalBitmapEncoder {
     if (lines.isEmpty) return null;
     await ensureFont();
 
+    // Render 2× rồi thu nhỏ — nét chữ đậm, ít răng cưa khi chuyển 1-bit.
+    final scale = 2;
+    final renderW = paperDots * scale;
     final painters = <TextPainter?>[];
     var totalH = 0.0;
 
     for (final line in lines) {
       if (line.text.trim().isEmpty) {
         painters.add(null);
-        totalH += 10;
+        totalH += 10.0 * scale;
         continue;
       }
 
       final tp = TextPainter(
         text: TextSpan(
           text: line.text,
-          style: vietnameseTextStyle(
-            TextStyle(
-              fontSize: line.fontSize,
-              fontWeight: line.bold ? FontWeight.w700 : FontWeight.w400,
-              color: const Color(0xFF000000),
-              height: 1.15,
-            ),
+          style: _thermalStyle(
+            fontSize: line.fontSize * scale,
+            bold: line.bold,
           ),
         ),
         textAlign: line.center ? TextAlign.center : TextAlign.left,
         textDirection: TextDirection.ltr,
         maxLines: 4,
-      )..layout(maxWidth: paperDots.toDouble());
+      )..layout(maxWidth: renderW.toDouble());
 
       if (tp.height <= 0) {
         painters.add(null);
         continue;
       }
       painters.add(tp);
-      totalH += tp.height + lineGap;
+      totalH += tp.height + lineGap * scale;
     }
 
-    final h = totalH.ceil().clamp(1, 8000);
+    final hHi = totalH.ceil().clamp(1, 16000);
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
     canvas.drawRect(
-      Rect.fromLTWH(0, 0, paperDots.toDouble(), h.toDouble()),
+      Rect.fromLTWH(0, 0, renderW.toDouble(), hHi.toDouble()),
       Paint()..color = const Color(0xFFFFFFFF),
     );
 
@@ -92,19 +110,32 @@ class PosThermalBitmapEncoder {
     for (var i = 0; i < painters.length; i++) {
       final tp = painters[i];
       if (tp == null) {
-        y += 10;
+        y += 10.0 * scale;
         continue;
       }
       final x = tp.textAlign == TextAlign.center
-          ? ((paperDots - tp.width) / 2).clamp(0.0, paperDots.toDouble())
+          ? ((renderW - tp.width) / 2).clamp(0.0, renderW.toDouble())
           : 0.0;
       tp.paint(canvas, Offset(x, y));
-      y += tp.height + lineGap;
+      y += tp.height + lineGap * scale;
     }
 
     final picture = recorder.endRecording();
-    final image = await picture.toImage(paperDots, h);
-    return _imageToEscPos(image);
+    final hiRes = await picture.toImage(renderW, hHi);
+    // Thu về đúng độ rộng giấy.
+    final recorder2 = ui.PictureRecorder();
+    final canvas2 = Canvas(recorder2);
+    final outH = (hHi / scale).ceil().clamp(1, 8000);
+    canvas2.drawImageRect(
+      hiRes,
+      Rect.fromLTWH(0, 0, renderW.toDouble(), hHi.toDouble()),
+      Rect.fromLTWH(0, 0, paperDots.toDouble(), outH.toDouble()),
+      Paint()..filterQuality = FilterQuality.medium,
+    );
+    final picture2 = recorder2.endRecording();
+    final image = await picture2.toImage(paperDots, outH);
+    hiRes.dispose();
+    return _imageToEscPos(image, initPrinter: true);
   }
 
   static Future<List<int>?> textLineToRaster(
@@ -154,6 +185,26 @@ class PosThermalBitmapEncoder {
     return false;
   }
 
+  static Future<Uint8List?> networkPngBytes(
+    String url, {
+    int maxWidth = 280,
+  }) async {
+    try {
+      final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 12));
+      if (res.statusCode != 200 || res.bodyBytes.isEmpty) return null;
+      final codec = await ui.instantiateImageCodec(
+        res.bodyBytes,
+        targetWidth: maxWidth,
+      );
+      final frame = await codec.getNextFrame();
+      final png = await frame.image.toByteData(format: ui.ImageByteFormat.png);
+      if (png == null) return null;
+      return png.buffer.asUint8List();
+    } catch (_) {
+      return null;
+    }
+  }
+
   static Future<List<int>?> networkPngToEscPos(
     String url, {
     int maxWidth = 280,
@@ -189,7 +240,10 @@ class PosThermalBitmapEncoder {
     ];
   }
 
-  static Future<List<int>?> _imageToEscPos(ui.Image image) async {
+  static Future<List<int>?> _imageToEscPos(
+    ui.Image image, {
+    bool initPrinter = false,
+  }) async {
     final w = image.width;
     final h = image.height;
     if (w <= 0 || h <= 0) return null;
@@ -211,7 +265,8 @@ class PosThermalBitmapEncoder {
           final lum = 0.299 * rgba[idx] +
               0.587 * rgba[idx + 1] +
               0.114 * rgba[idx + 2];
-          if (lum < 168) {
+          // Ngưỡng thấp hơn → nét đậm, tránh răng cưa xám thành lỗ.
+          if (lum < 160) {
             b |= (0x80 >> bit);
           }
         }
@@ -222,6 +277,7 @@ class PosThermalBitmapEncoder {
     if (!raster.any((b) => b != 0)) return null;
 
     return [
+      if (initPrinter) ...[0x1B, 0x40],
       0x1D, 0x76, 0x30, 0x00,
       bytesPerRow & 0xFF,
       (bytesPerRow >> 8) & 0xFF,

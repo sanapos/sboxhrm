@@ -86,5 +86,17 @@ public record PublicAppSettingsResponse(
     string? LandingPricingJson,
     string? LandingGuideJson,
     string? LandingProducts,
-    string? LandingDownloadsJson
+    string? LandingDownloadsJson,
+    string? LandingFaqJson,
+
+    // SEO / Google
+    string? GoogleSiteVerification,
+    string? GoogleTagId,
+    string? SeoMetaTitle,
+    string? SeoMetaDescription,
+    string? SeoMetaKeywords,
+    string? SeoOgTitle,
+    string? SeoOgDescription,
+    string? SeoOgImage,
+    string? SeoCanonicalUrl
 );

@@ -73,6 +73,9 @@ public class PosProduct : AuditableEntity<Guid>
 
     public bool IsFavorite { get; set; }
 
+    /// <summary>Thứ tự hiển thị trên menu bán hàng (nhỏ hơn = trước).</summary>
+    public int SortOrder { get; set; }
+
     /// <summary>Máy in mặc định cho mặt hàng (phiếu bếp/chế biến). Null = dùng máy in nhóm hàng.</summary>
     public Guid? DefaultPrinterId { get; set; }
     public virtual PosStorePrinter? DefaultPrinter { get; set; }
@@ -89,9 +92,114 @@ public class PosProduct : AuditableEntity<Guid>
     /// <summary>Số ngày cảnh báo trước HSD (mặc định 30).</summary>
     public int ExpiryWarningDays { get; set; } = 30;
 
+    /// <summary>Cách tính tiền dịch vụ (chỉ áp dụng ProductType = Service).</summary>
+    public PosServiceBillingMode ServiceBillingMode { get; set; } = PosServiceBillingMode.Flat;
+
+    /// <summary>Phút tối thiểu khi tính giờ (vd 60).</summary>
+    public int? MinBillMinutes { get; set; }
+
+    /// <summary>Làm tròn phút (vd 15 → mỗi 15 phút).</summary>
+    public int? BillRoundMinutes { get; set; }
+
+    /// <summary>Thời lượng mặc định khi thêm vào giỏ (phút).</summary>
+    public int? DefaultDurationMinutes { get; set; }
+
+    /// <summary>Số buổi trong gói khi bán (gym). 0 = không phải gói buổi.</summary>
+    public int SessionPackCount { get; set; }
+
+    /// <summary>SP này là topping (trân châu, thạch…).</summary>
+    public bool IsTopping { get; set; }
+
+    /// <summary>Cho phép chọn topping khi bán.</summary>
+    public bool AllowToppings { get; set; }
+
+    /// <summary>Tự mở popup chọn topping ngay khi thêm món vào giỏ.</summary>
+    public bool AutoOpenToppingPopup { get; set; } = true;
+
     public virtual ICollection<PosProductUnit> Units { get; set; } = [];
     public virtual ICollection<PosProductAttributeValue> AttributeValues { get; set; } = [];
     public virtual ICollection<PosStockTransaction> StockTransactions { get; set; } = [];
     public virtual ICollection<PosProductComboLine> ComboLines { get; set; } = [];
     public virtual ICollection<PosProductVariant> Variants { get; set; } = [];
+    /// <summary>Tùy chọn thêm gắn trực tiếp vào món (giống ghi chú nhanh nhưng có giá / SP).</summary>
+    public virtual ICollection<PosProductToppingOption> ToppingOptions { get; set; } = [];
+    /// <summary>Nhóm topping chung gán vào món.</summary>
+    public virtual ICollection<PosProductToppingGroupLink> ToppingGroupLinks { get; set; } = [];
+}
+
+/// <summary>Tùy chọn thêm được phép gắn vào một món (vd trà sữa ← trân châu). Không phải nhóm topping chung.</summary>
+public class PosProductToppingOption : AuditableEntity<Guid>
+{
+    [Required]
+    public Guid StoreId { get; set; }
+    public virtual Store? Store { get; set; }
+
+    [Required]
+    public Guid ProductId { get; set; }
+    public virtual PosProduct? Product { get; set; }
+
+    [Required]
+    public Guid ToppingProductId { get; set; }
+    public virtual PosProduct? ToppingProduct { get; set; }
+
+    /// <summary>Null = dùng giá bán của SP topping.</summary>
+    public decimal? ExtraPrice { get; set; }
+
+    public int SortOrder { get; set; }
+}
+
+/// <summary>Nhóm topping dùng chung (vd: Topping trà sữa).</summary>
+public class PosToppingGroup : AuditableEntity<Guid>
+{
+    [Required]
+    public Guid StoreId { get; set; }
+    public virtual Store? Store { get; set; }
+
+    [Required]
+    [MaxLength(200)]
+    public string Name { get; set; } = string.Empty;
+
+    public int SortOrder { get; set; }
+
+    public virtual ICollection<PosToppingGroupItem> Items { get; set; } = [];
+    public virtual ICollection<PosProductToppingGroupLink> ProductLinks { get; set; } = [];
+}
+
+/// <summary>SP trong một nhóm topping (có giá phụ thu).</summary>
+public class PosToppingGroupItem : AuditableEntity<Guid>
+{
+    [Required]
+    public Guid StoreId { get; set; }
+    public virtual Store? Store { get; set; }
+
+    [Required]
+    public Guid GroupId { get; set; }
+    public virtual PosToppingGroup? Group { get; set; }
+
+    [Required]
+    public Guid ToppingProductId { get; set; }
+    public virtual PosProduct? ToppingProduct { get; set; }
+
+    /// <summary>Null = dùng BasePrice của SP topping.</summary>
+    public decimal? ExtraPrice { get; set; }
+
+    public int SortOrder { get; set; }
+}
+
+/// <summary>Gán nhóm topping chung vào hàng hóa.</summary>
+public class PosProductToppingGroupLink : AuditableEntity<Guid>
+{
+    [Required]
+    public Guid StoreId { get; set; }
+    public virtual Store? Store { get; set; }
+
+    [Required]
+    public Guid ProductId { get; set; }
+    public virtual PosProduct? Product { get; set; }
+
+    [Required]
+    public Guid GroupId { get; set; }
+    public virtual PosToppingGroup? Group { get; set; }
+
+    public int SortOrder { get; set; }
 }

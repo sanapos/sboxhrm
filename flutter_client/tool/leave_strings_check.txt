@@ -1,0 +1,7 @@
+L1899: // LEAVE CARD — 3 ḍng (tên · lo?i · ngày ngh?)
+L2006: // Ḍng 2 — lo?i ngh?
+L2167: // Delete: có quy?n xóa module — NV xóa đơn pending c?a ḿnh; QL xóa trên tab qu?n lư
+L2748: 'Ca ngh?: theo Thi?t l?p luong. Ngu?i thay ca: cùng pḥng ban.'
+L2794: 'Bạn có chắc chắn muốn hoàn tác trạng thái đơn nghỉ phép này về Chờ duyệt?\nHệ thống sẽ khôi phục lị
+L2810: 'Bạn có chắc chắn muốn xóa vĩnh viễn đơn nghỉ phép này?\nHành động này không thể hoàn tác.'
+L2872: 'Sẽ trừ $daysNeeded ngày phép năm. Còn l?i: $balanceRemaining ngày.'

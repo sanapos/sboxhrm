@@ -121,6 +121,9 @@ class NavigationNotifier {
   /// Chuyển tab trong [PosMobileHubScreen] (0=Tổng quan … 4=Nhiều hơn).
   static final ValueNotifier<int?> posHubTab = ValueNotifier<int?>(null);
 
+  /// POS bán hàng: trả true nếu đã xử lý nút Back (vd. về sơ đồ bàn).
+  static Future<bool> Function()? posHandleSystemBack;
+
   /// Sau điều hướng tới Dashboard, mở [OvertimeScreen] (thông báo tăng ca).
   static final ValueNotifier<bool> pendingOpenOvertime =
       ValueNotifier<bool>(false);

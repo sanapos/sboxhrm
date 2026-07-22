@@ -142,13 +142,13 @@ public class SystemAdminController : AuthenticatedControllerBase
 
             // Top stores by users
             var topStores = await _dbContext.Stores
-                .OrderByDescending(s => s.Users.Count)
+                .OrderByDescending(s => s.Users.Count(u => u.IsActive))
                 .Take(5)
                 .Select(s => new StoreStatDto(
                     s.Id,
                     s.Name,
                     s.Code,
-                    s.Users.Count,
+                    s.Users.Count(u => u.IsActive),
                     s.Devices.Count,
                     s.IsActive
                 ))
@@ -356,9 +356,9 @@ public class SystemAdminController : AuthenticatedControllerBase
                     s.AgentId,
                     s.Agent != null ? s.Agent.Name : null,
                     s.Agent != null ? s.Agent.Email : null,
-                    s.Users.Count,
+                    s.Users.Count(u => u.IsActive),
                     s.Devices.Count,
-                    s.Users.Count(u => u.Role == nameof(Roles.Employee)),
+                    s.Users.Count(u => u.IsActive && u.Role == nameof(Roles.Employee)),
                     s.CreatedAt,
                     s.UpdatedAt,
                     s.Devices.SelectMany(d => d.AttendanceLogs)
@@ -3134,7 +3134,7 @@ public class SystemAdminController : AuthenticatedControllerBase
                 store.ExpiryDate,
                 store.MaxUsers,
                 store.MaxDevices,
-                store.Users.Count,
+                store.Users.Count(u => u.IsActive),
                 store.Devices.Count,
                 store.OwnerId,
                 store.Owner?.FullName,
@@ -3238,9 +3238,9 @@ public class SystemAdminController : AuthenticatedControllerBase
             store.AgentId,
             store.Agent?.Name,
             store.Agent?.Email,
-            store.Users.Count,
+            store.Users.Count(u => u.IsActive),
             store.Devices.Count,
-            store.Users.Count(u => u.Role == nameof(Roles.Employee)),
+            store.Users.Count(u => u.IsActive && u.Role == nameof(Roles.Employee)),
             store.CreatedAt,
             store.UpdatedAt
         );
@@ -3497,6 +3497,18 @@ public class SystemAdminController : AuthenticatedControllerBase
                 (AppSettingKeys.LandingGuideJson, "Hướng dẫn (JSON array)", "Landing", "textarea", 7),
                 (AppSettingKeys.LandingProducts, "Sản phẩm thiết bị (JSON array)", "Landing", "textarea", 8),
                 (AppSettingKeys.LandingDownloadsJson, "Phần mềm tải về (JSON array)", "Landing", "textarea", 9),
+                (AppSettingKeys.LandingFaqJson, "FAQ trang chủ (JSON array)", "Landing", "textarea", 10),
+
+                // SEO / Google
+                (AppSettingKeys.SeoMetaTitle, "SEO – Meta title", "SEO", "text", 1),
+                (AppSettingKeys.SeoMetaDescription, "SEO – Meta description", "SEO", "textarea", 2),
+                (AppSettingKeys.SeoMetaKeywords, "SEO – Meta keywords", "SEO", "text", 3),
+                (AppSettingKeys.SeoOgTitle, "SEO – Open Graph title", "SEO", "text", 4),
+                (AppSettingKeys.SeoOgDescription, "SEO – Open Graph description", "SEO", "textarea", 5),
+                (AppSettingKeys.SeoOgImage, "SEO – Open Graph image URL", "SEO", "url", 6),
+                (AppSettingKeys.SeoCanonicalUrl, "SEO – Canonical URL", "SEO", "url", 7),
+                (AppSettingKeys.GoogleSiteVerification, "Google Search Console – verification code", "SEO", "text", 8),
+                (AppSettingKeys.GoogleTagId, "Google Analytics / Ads – Measurement ID (G-... / AW-...)", "SEO", "text", 9),
             };
 
             // Pre-load all existing setting keys to avoid N+1
@@ -3541,6 +3553,10 @@ public class SystemAdminController : AuthenticatedControllerBase
     
     private static string GetGroupFromKey(string key)
     {
+        if (key.StartsWith("landing_", StringComparison.OrdinalIgnoreCase)) return "Landing";
+        if (key.StartsWith("seo_", StringComparison.OrdinalIgnoreCase) ||
+            key.StartsWith("google_site_", StringComparison.OrdinalIgnoreCase) ||
+            key.Equals("google_tag_id", StringComparison.OrdinalIgnoreCase)) return "SEO";
         if (key.Contains("company") || key.Contains("logo")) return "General";
         if (key.Contains("email") || key.Contains("phone") || key.Contains("support") || key.Contains("sales")) return "Contact";
         if (key.Contains("url") || key.Contains("facebook") || key.Contains("youtube") || key.Contains("zalo")) return "Social";
@@ -3553,8 +3569,11 @@ public class SystemAdminController : AuthenticatedControllerBase
         if (key.Contains("logo")) return "image";
         if (key.Contains("email")) return "email";
         if (key.Contains("phone")) return "phone";
-        if (key.Contains("url")) return "url";
-        if (key.Contains("terms") || key.Contains("policy") || key.Contains("description")) return "textarea";
+        if (key.EndsWith("_json", StringComparison.OrdinalIgnoreCase) ||
+            key.Contains("description") ||
+            key.Contains("terms") ||
+            key.Contains("policy")) return "textarea";
+        if (key.Contains("url") || key.Contains("image")) return "url";
         return "text";
     }
     
@@ -4409,9 +4428,20 @@ public class SystemAdminController : AuthenticatedControllerBase
             package.UpdatedAt = DateTime.UtcNow;
             package.UpdatedBy = CurrentUserId.ToString();
 
+            // Seat / device limits are enforced on Store.MaxUsers / MaxDevices — keep assigned stores in sync.
+            foreach (var store in package.Stores)
+            {
+                store.MaxUsers = request.MaxUsers;
+                store.MaxDevices = request.MaxDevices;
+                store.UpdatedAt = DateTime.UtcNow;
+                store.UpdatedBy = CurrentUserId.ToString();
+            }
+
             await _dbContext.SaveChangesAsync();
 
-            _logger.LogInformation("SuperAdmin {UserId} updated service package {PackageId}", CurrentUserId, id);
+            _logger.LogInformation(
+                "SuperAdmin {UserId} updated service package {PackageId} and synced limits to {StoreCount} stores",
+                CurrentUserId, id, package.Stores.Count);
 
             var dto = new ServicePackageDto(
                 package.Id, package.Name, package.Description, package.IsActive,

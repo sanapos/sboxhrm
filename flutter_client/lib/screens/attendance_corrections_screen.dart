@@ -6,6 +6,7 @@ import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
 import '../utils/attendance_correction_privilege.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/safe_layout_widgets.dart';
 import '../widgets/hrm_fab_clearance.dart';
 import 'package:intl/intl.dart';
 import '../models/hrm.dart';
@@ -559,96 +560,76 @@ class _AttendanceCorrectionsScreenState
         final isLast = idx == records.length - 1;
         final color = _getApprovalStatusColor(record.status);
 
-        return IntrinsicHeight(
-          child: Row(
+        return SafeTimelineRow(
+          isLast: isLast,
+          indicator: Container(
+            width: 20,
+            height: 20,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+              border: Border.all(color: color, width: 2),
+            ),
+            child: Icon(_getApprovalStatusIcon(record.status),
+                size: 12, color: color),
+          ),
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(
-                width: 30,
-                child: Column(
-                  children: [
-                    Container(
-                      width: 20,
-                      height: 20,
-                      decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.15),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: color, width: 2),
-                      ),
-                      child: Icon(_getApprovalStatusIcon(record.status),
-                          size: 12, color: color),
+              Row(
+                children: [
+                  Text(
+                    record.stepName ?? 'Bước ${record.stepOrder}',
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: color),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 6, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    if (!isLast)
-                      Expanded(
-                          child: Container(width: 2, color: Colors.grey[300])),
-                  ],
-                ),
+                    child: Text(
+                      _getApprovalStatusLabel(record.status),
+                      style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: color),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            record.stepName ?? 'Bước ${record.stepOrder}',
-                            style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: color),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: color.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              _getApprovalStatusLabel(record.status),
-                              style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                  color: color),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        record.status == ApprovalStatus.pending
-                            ? 'Người duyệt: ${record.assignedUserName ?? 'Chưa xác định'}'
-                            : 'Người duyệt: ${record.actualUserName ?? record.assignedUserName ?? '--'}',
-                        style: TextStyle(fontSize: 12, color: Colors.grey[700]),
-                      ),
-                      if (record.note != null && record.note!.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 2),
-                          child: Text(
-                            'Ghi chú: ${record.note}',
-                            style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.grey[600],
-                                fontStyle: FontStyle.italic),
-                          ),
-                        ),
-                      if (record.actionDate != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 2),
-                          child: Text(
-                            formatApiDateTime(record.actionDate),
-                            style: TextStyle(
-                                fontSize: 11, color: Colors.grey[500]),
-                          ),
-                        ),
-                    ],
+              const SizedBox(height: 4),
+              Text(
+                record.status == ApprovalStatus.pending
+                    ? 'Người duyệt: ${record.assignedUserName ?? 'Chưa xác định'}'
+                    : 'Người duyệt: ${record.actualUserName ?? record.assignedUserName ?? '--'}',
+                style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+              ),
+              if (record.note != null && record.note!.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    'Ghi chú: ${record.note}',
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey[600],
+                        fontStyle: FontStyle.italic),
                   ),
                 ),
-              ),
+              if (record.actionDate != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    formatApiDateTime(record.actionDate),
+                    style: TextStyle(
+                        fontSize: 11, color: Colors.grey[500]),
+                  ),
+                ),
             ],
           ),
         );

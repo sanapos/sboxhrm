@@ -248,6 +248,7 @@ public class ZKTecoDbInitializer(
                             ALTER TABLE ""ShiftTemplates"" ADD COLUMN IF NOT EXISTS ""LateGraceMinutes"" INTEGER NOT NULL DEFAULT 5;
                             ALTER TABLE ""ShiftTemplates"" ADD COLUMN IF NOT EXISTS ""EarlyLeaveGraceMinutes"" INTEGER NOT NULL DEFAULT 5;
                             ALTER TABLE ""ShiftTemplates"" ADD COLUMN IF NOT EXISTS ""OvertimeMinutesThreshold"" INTEGER NOT NULL DEFAULT 30;
+                            ALTER TABLE ""ShiftTemplates"" ADD COLUMN IF NOT EXISTS ""EarlyOvertimeMinutesThreshold"" INTEGER NOT NULL DEFAULT 30;
                             ALTER TABLE ""ShiftTemplates"" ADD COLUMN IF NOT EXISTS ""ShiftType"" TEXT;
                         END IF;
                         IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'AttendanceCorrectionRequests') THEN
@@ -283,6 +284,46 @@ public class ZKTecoDbInitializer(
                         ALTER TABLE ""Payslips"" ADD COLUMN IF NOT EXISTS ""SocialInsurance"" numeric;
                         ALTER TABLE ""Payslips"" ADD COLUMN IF NOT EXISTS ""Tax"" numeric;
                         ALTER TABLE ""Payslips"" ADD COLUMN IF NOT EXISTS ""UnemploymentInsurance"" numeric;
+                        -- TravelHours/TravelSalary thêm vào entity nhưng thiếu cột thật —
+                        -- mọi query chạm bảng Payslips (kể cả gián tiếp qua CashTransactions
+                        -- DeleteTransaction) đều lỗi 500 (column p.TravelHours does not exist).
+                        ALTER TABLE ""Payslips"" ADD COLUMN IF NOT EXISTS ""TravelHours"" numeric;
+                        ALTER TABLE ""Payslips"" ADD COLUMN IF NOT EXISTS ""TravelSalary"" numeric;
+
+                        -- TransactionCode được sinh đếm theo StoreId (mỗi store tự đếm phiếu thu/chi
+                        -- trong ngày của mình), nhưng unique index cũ lại là GLOBAL trên toàn bộ bảng
+                        -- -- 2 store khác nhau tạo phiếu cùng ngày dễ ra cùng mã (VD TH-20260721-0001)
+                        -- -- lỗi 500 duplicate key khi tạo hóa đơn bán/phiếu thu chi. Đổi sang unique
+                        -- composite (StoreId, TransactionCode) đúng với cách sinh mã hiện tại.
+                        -- Partial (Deleted IS NULL): phiếu thu/chi bị soft-delete vẫn chiếm số cũ
+                        -- trong bảng nhưng GenerateCodeAsync đếm qua EF (có global filter ẩn bản ghi
+                        -- đã xóa) nên cứ đoán lại đúng số đã xóa đó — số đó bị chặn vĩnh viễn,
+                        -- sinh đơn bán/thu chi mới luôn trùng mã 23505 dù đã retry nhiều lần.
+                        DROP INDEX IF EXISTS ""IX_CashTransactions_TransactionCode"";
+                        DROP INDEX IF EXISTS ""IX_CashTransactions_StoreId_TransactionCode"";
+                        CREATE UNIQUE INDEX IF NOT EXISTS ""IX_CashTransactions_StoreId_TransactionCode""
+                            ON ""CashTransactions"" (""StoreId"", ""TransactionCode"")
+                            WHERE ""Deleted"" IS NULL;
+
+                        -- Slot hóa đơn tạm TMP-nn được tái sử dụng sau khi đơn cũ bị soft-delete
+                        -- (EnsureInvoiceSlotsAsync tạo lại slot rỗng mỗi lần poll), nhưng unique
+                        -- index cũ trên (StoreId, OrderNo) tính luôn cả bản ghi đã xóa — 1 đơn TMP
+                        -- bị xóa trước đó chặn vĩnh viễn việc tái tạo slot đó (lỗi duplicate key
+                        -- lặp lại liên tục mỗi lần poll invoice-slots). Đổi sang partial unique
+                        -- index chỉ áp cho các đơn còn sống.
+                        DROP INDEX IF EXISTS ""IX_PosSaleOrders_StoreId_OrderNo"";
+                        CREATE UNIQUE INDEX IF NOT EXISTS ""IX_PosSaleOrders_StoreId_OrderNo""
+                            ON ""PosSaleOrders"" (""StoreId"", ""OrderNo"")
+                            WHERE ""Deleted"" IS NULL;
+
+                        -- Cùng lỗi TransactionCode: TransferCode phiếu chuyển quỹ sinh đếm theo
+                        -- StoreId nhưng unique index cũ là GLOBAL trên toàn bảng. Partial để nhất
+                        -- quán với CashTransactions/PosSaleOrders.
+                        DROP INDEX IF EXISTS ""IX_FundTransfers_TransferCode"";
+                        DROP INDEX IF EXISTS ""IX_FundTransfers_StoreId_TransferCode"";
+                        CREATE UNIQUE INDEX IF NOT EXISTS ""IX_FundTransfers_StoreId_TransferCode""
+                            ON ""FundTransfers"" (""StoreId"", ""TransferCode"")
+                            WHERE ""Deleted"" IS NULL;
 
                         CREATE TABLE IF NOT EXISTS ""PayslipAttendanceSnapshots"" (
                             ""Id"" uuid NOT NULL PRIMARY KEY,
@@ -1031,7 +1072,177 @@ public class ZKTecoDbInitializer(
                     CREATE INDEX IF NOT EXISTS ""IX_PosPriceListItems_PriceList_Product""
                         ON ""PosPriceListItems""(""PriceListId"", ""ProductId"", ""VariantId"", ""UnitId"");
 
+                    ALTER TABLE ""PosPriceLists"" ADD COLUMN IF NOT EXISTS ""ValidFrom"" timestamp without time zone NULL;
+                    ALTER TABLE ""PosPriceLists"" ADD COLUMN IF NOT EXISTS ""ValidTo"" timestamp without time zone NULL;
+
+                    -- Item cũ tạo lúc IsActive mặc định false → không hiện khi đọc lại.
+                    UPDATE ""PosPriceListItems"" SET ""IsActive"" = true
+                    WHERE ""Deleted"" IS NULL AND ""IsActive"" = false;
+
                     ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""PriceListId"" uuid NULL;
+
+                    -- Floor map ops
+                    ALTER TABLE ""PosServiceResources"" ADD COLUMN IF NOT EXISTS ""LayoutX"" double precision NULL;
+                    ALTER TABLE ""PosServiceResources"" ADD COLUMN IF NOT EXISTS ""LayoutY"" double precision NULL;
+                    ALTER TABLE ""PosServiceResources"" ADD COLUMN IF NOT EXISTS ""LayoutW"" double precision NOT NULL DEFAULT 120;
+                    ALTER TABLE ""PosServiceResources"" ADD COLUMN IF NOT EXISTS ""LayoutH"" double precision NOT NULL DEFAULT 100;
+                    ALTER TABLE ""PosServiceResources"" ADD COLUMN IF NOT EXISTS ""NeedsCleaning"" boolean NOT NULL DEFAULT false;
+                    ALTER TABLE ""PosResourceSessions"" ADD COLUMN IF NOT EXISTS ""AccumulatedPauseMinutes"" integer NOT NULL DEFAULT 0;
+                    ALTER TABLE ""PosResourceSessions"" ADD COLUMN IF NOT EXISTS ""GuestCount"" integer NOT NULL DEFAULT 1;
+                    ALTER TABLE ""PosResourceSessions"" ADD COLUMN IF NOT EXISTS ""BillRequested"" boolean NOT NULL DEFAULT false;
+                    ALTER TABLE ""PosSaleOrderLines"" ADD COLUMN IF NOT EXISTS ""KitchenSentQty"" numeric(18,3) NOT NULL DEFAULT 0;
+                    ALTER TABLE ""PosSaleOrderLines"" ADD COLUMN IF NOT EXISTS ""KitchenSentAt"" timestamp without time zone NULL;
+                    ALTER TABLE ""PosSaleOrderLines"" ADD COLUMN IF NOT EXISTS ""ToppingsJson"" text NULL;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""IsTopping"" boolean NOT NULL DEFAULT false;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""AllowToppings"" boolean NOT NULL DEFAULT false;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""AutoOpenToppingPopup"" boolean NOT NULL DEFAULT true;
+                    ALTER TABLE ""PosStoreSellSettings"" ADD COLUMN IF NOT EXISTS ""AllowProvisionalBill"" boolean NOT NULL DEFAULT false;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""VatAmount"" numeric(18,2) NOT NULL DEFAULT 0;
+
+                    CREATE TABLE IF NOT EXISTS ""PosKitchenVoidSlips"" (
+                        ""Id"" uuid NOT NULL,
+                        ""StoreId"" uuid NOT NULL,
+                        ""SaleOrderId"" uuid NULL,
+                        ""OrderNo"" character varying(40) NULL,
+                        ""ResourceSessionId"" uuid NULL,
+                        ""ServiceResourceId"" uuid NULL,
+                        ""ResourceName"" character varying(120) NULL,
+                        ""ProductId"" uuid NULL,
+                        ""ProductName"" character varying(200) NOT NULL,
+                        ""UnitName"" character varying(40) NULL,
+                        ""Qty"" numeric(18,3) NOT NULL DEFAULT 0,
+                        ""LineNote"" character varying(300) NULL,
+                        ""AfterBillRequested"" boolean NOT NULL DEFAULT false,
+                        ""Printed"" boolean NOT NULL DEFAULT false,
+                        ""VoidedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""VoidedBy"" character varying(200) NULL,
+                        ""DeviceName"" character varying(120) NULL,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone NULL,
+                        ""UpdatedBy"" text NULL,
+                        ""CreatedBy"" text NULL,
+                        ""LastModified"" timestamp without time zone NULL,
+                        ""LastModifiedBy"" text NULL,
+                        ""Deleted"" timestamp without time zone NULL,
+                        ""DeletedBy"" text NULL,
+                        CONSTRAINT ""PK_PosKitchenVoidSlips"" PRIMARY KEY (""Id"")
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_PosKitchenVoidSlips_Store_VoidedAt""
+                        ON ""PosKitchenVoidSlips"" (""StoreId"", ""VoidedAt"");
+                    CREATE INDEX IF NOT EXISTS ""IX_PosKitchenVoidSlips_Store_AfterBill""
+                        ON ""PosKitchenVoidSlips"" (""StoreId"", ""AfterBillRequested"", ""VoidedAt"");
+
+                    -- Không còn dùng «cần dọn» — bàn trống ngay sau thanh toán.
+                    UPDATE ""PosServiceResources"" SET ""NeedsCleaning"" = false WHERE ""NeedsCleaning"" = true;
+
+                    CREATE TABLE IF NOT EXISTS ""PosProductToppingOptions"" (
+                        ""Id"" uuid PRIMARY KEY,
+                        ""StoreId"" uuid NOT NULL,
+                        ""ProductId"" uuid NOT NULL,
+                        ""ToppingProductId"" uuid NOT NULL,
+                        ""ExtraPrice"" numeric(18,2) NULL,
+                        ""SortOrder"" integer NOT NULL DEFAULT 0,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone NULL,
+                        ""CreatedBy"" text NULL,
+                        ""UpdatedBy"" text NULL,
+                        ""LastModified"" timestamp without time zone NULL,
+                        ""LastModifiedBy"" text NULL,
+                        ""Deleted"" timestamp without time zone NULL,
+                        ""DeletedBy"" text NULL
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_PosProductToppingOptions_Store_Product""
+                        ON ""PosProductToppingOptions"" (""StoreId"", ""ProductId"");
+
+                    CREATE TABLE IF NOT EXISTS ""PosToppingGroups"" (
+                        ""Id"" uuid PRIMARY KEY,
+                        ""StoreId"" uuid NOT NULL,
+                        ""Name"" character varying(200) NOT NULL,
+                        ""SortOrder"" integer NOT NULL DEFAULT 0,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone NULL,
+                        ""CreatedBy"" text NULL,
+                        ""UpdatedBy"" text NULL,
+                        ""LastModified"" timestamp without time zone NULL,
+                        ""LastModifiedBy"" text NULL,
+                        ""Deleted"" timestamp without time zone NULL,
+                        ""DeletedBy"" text NULL
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_PosToppingGroups_Store""
+                        ON ""PosToppingGroups"" (""StoreId"");
+
+                    CREATE TABLE IF NOT EXISTS ""PosToppingGroupItems"" (
+                        ""Id"" uuid PRIMARY KEY,
+                        ""StoreId"" uuid NOT NULL,
+                        ""GroupId"" uuid NOT NULL,
+                        ""ToppingProductId"" uuid NOT NULL,
+                        ""ExtraPrice"" numeric(18,2) NULL,
+                        ""SortOrder"" integer NOT NULL DEFAULT 0,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone NULL,
+                        ""CreatedBy"" text NULL,
+                        ""UpdatedBy"" text NULL,
+                        ""LastModified"" timestamp without time zone NULL,
+                        ""LastModifiedBy"" text NULL,
+                        ""Deleted"" timestamp without time zone NULL,
+                        ""DeletedBy"" text NULL
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_PosToppingGroupItems_Store_Group""
+                        ON ""PosToppingGroupItems"" (""StoreId"", ""GroupId"");
+
+                    CREATE TABLE IF NOT EXISTS ""PosProductToppingGroupLinks"" (
+                        ""Id"" uuid PRIMARY KEY,
+                        ""StoreId"" uuid NOT NULL,
+                        ""ProductId"" uuid NOT NULL,
+                        ""GroupId"" uuid NOT NULL,
+                        ""SortOrder"" integer NOT NULL DEFAULT 0,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone NULL,
+                        ""CreatedBy"" text NULL,
+                        ""UpdatedBy"" text NULL,
+                        ""LastModified"" timestamp without time zone NULL,
+                        ""LastModifiedBy"" text NULL,
+                        ""Deleted"" timestamp without time zone NULL,
+                        ""DeletedBy"" text NULL
+                    );
+                    CREATE UNIQUE INDEX IF NOT EXISTS ""IX_PosProductToppingGroupLinks_Store_Product_Group""
+                        ON ""PosProductToppingGroupLinks"" (""StoreId"", ""ProductId"", ""GroupId"");
+
+                    CREATE TABLE IF NOT EXISTS ""PosResourceReservations"" (
+                        ""Id"" uuid PRIMARY KEY,
+                        ""StoreId"" uuid NOT NULL,
+                        ""ResourceId"" uuid NOT NULL,
+                        ""CustomerId"" uuid NULL,
+                        ""CustomerName"" character varying(200) NOT NULL DEFAULT '',
+                        ""Phone"" character varying(30) NULL,
+                        ""GuestCount"" integer NOT NULL DEFAULT 1,
+                        ""ReservedAt"" timestamp without time zone NOT NULL,
+                        ""ReservedUntil"" timestamp without time zone NULL,
+                        ""Status"" integer NOT NULL DEFAULT 0,
+                        ""PreOrderJson"" text NULL,
+                        ""Note"" character varying(500) NULL,
+                        ""SeatedSessionId"" uuid NULL,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone NULL,
+                        ""CreatedBy"" text NULL,
+                        ""UpdatedBy"" text NULL,
+                        ""LastModified"" timestamp without time zone NULL,
+                        ""LastModifiedBy"" text NULL,
+                        ""Deleted"" timestamp without time zone NULL,
+                        ""DeletedBy"" text NULL
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_PosResourceReservations_Store_Resource_Status""
+                        ON ""PosResourceReservations"" (""StoreId"", ""ResourceId"", ""Status"");
+
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""SortOrder"" integer NOT NULL DEFAULT 0;
+                    CREATE INDEX IF NOT EXISTS ""IX_PosProducts_Store_SortOrder""
+                        ON ""PosProducts"" (""StoreId"", ""SortOrder"");
                 ");
 
                 // WorkSchedules: ensure per-shift unique index

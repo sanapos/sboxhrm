@@ -9,13 +9,18 @@ bool shouldRedirectToStaticHome() {
     return false;
   }
 
+  // Legacy Flutter landing → static homepage
+  if (path == '/landing' || path.startsWith('/landing/')) {
+    return true;
+  }
+
   const appPaths = [
     '/login-app',
     '/register',
     '/agent-register',
     '/forgot-password',
     '/admin',
-    '/landing',
+    '/guide',
   ];
   for (final p in appPaths) {
     if (path == p || path.startsWith('$p/')) return false;
@@ -30,6 +35,12 @@ bool shouldRedirectToStaticHome() {
         normalized.startsWith('/guide?')) {
       return false;
     }
+    // Old hash route /#/landing → homepage
+    if (normalized == '/landing' ||
+        normalized.startsWith('/landing?') ||
+        normalized.startsWith('/landing/')) {
+      return true;
+    }
     const hashRoutes = [
       '/login-app',
       '/register',
@@ -37,7 +48,7 @@ bool shouldRedirectToStaticHome() {
       '/forgot-password',
       '/reset-password',
       '/admin',
-      '/landing',
+      '/guide',
     ];
     for (final r in hashRoutes) {
       if (normalized == r ||
@@ -55,7 +66,19 @@ bool shouldRedirectToStaticHome() {
       path.endsWith('/');
 }
 
-void redirectToStaticHome() {
+/// Navigate browser to static homepage (`/`), optionally with `?section=`.
+void redirectToStaticHome({String? section}) {
+  final uri = Uri.base;
   final origin = web.window.location.origin;
-  web.window.location.replace('$origin/home.html');
+  final fromArg = section?.trim();
+  final fromQuery = uri.queryParameters['section']?.trim();
+  final chosen = (fromArg != null && fromArg.isNotEmpty)
+      ? fromArg
+      : (fromQuery != null && fromQuery.isNotEmpty ? fromQuery : null);
+  if (chosen != null) {
+    web.window.location
+        .replace('$origin/?section=${Uri.encodeQueryComponent(chosen)}');
+    return;
+  }
+  web.window.location.replace('$origin/');
 }

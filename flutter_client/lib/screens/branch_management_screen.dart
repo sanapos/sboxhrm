@@ -6,6 +6,7 @@ import '../services/api_service.dart';
 import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
 import '../utils/responsive_helper.dart';
+import '../widgets/hrm/hrm_settings_mobile_kit.dart';
 import '../widgets/hrm_mini_stat_chip.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
@@ -135,7 +136,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
   Widget build(BuildContext context) {
     final embedded = HrmPageChrome.isEmbedded;
     return Scaffold(
-      backgroundColor: HrmPageChrome.background,
+      backgroundColor: HrmPageChrome.scaffoldBackground(context),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -176,6 +177,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
   // ═══════════════════════════════════════════════════════════════
 
   Widget _buildListTab() {
+    final embeddedKit = HrmSettingsMobileKit.active(context);
     return RefreshIndicator(
       onRefresh: () => _loadTabData(0),
       child: Column(
@@ -185,29 +187,44 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
             child: _branches.isEmpty
                 ? _buildEmptyState('Chưa có chi nhánh nào',
                     'Hãy tạo chi nhánh đầu tiên cho hệ thống.')
-                : ListView.builder(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    itemCount: _branches.length,
-                    itemBuilder: (context, index) => Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFE4E4E7)),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.05),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
+                : embeddedKit
+                    ? ListView(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
+                        children: [
+                          HrmSettingsEntityGrid(
+                            itemCount: _branches.length,
+                            columns: 2,
+                            childAspectRatio: 0.88,
+                            itemBuilder: (ctx, index) =>
+                                _buildBranchGridTile(_branches[index]),
+                          ),
+                        ],
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
+                        itemCount: _branches.length,
+                        itemBuilder: (context, index) => Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border:
+                                  Border.all(color: const Color(0xFFE4E4E7)),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.05),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
                             ),
-                          ],
+                            child: _buildBranchDeckItem(_branches[index]),
+                          ),
                         ),
-                        child: _buildBranchDeckItem(_branches[index]),
                       ),
-                    ),
-                  ),
           ),
         ],
       ),
@@ -246,11 +263,17 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                         ?.copyWith(color: Colors.grey)),
               const Spacer(),
               if (_perm.canCreate('Branch'))
-                FilledButton.icon(
-                  onPressed: () => _showBranchDialog(),
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text('Thêm mới'),
-                ),
+                HrmSettingsMobileKit.active(context)
+                    ? HrmSettingsAddButton(
+                        label: 'Thêm mới',
+                        compact: true,
+                        onPressed: () => _showBranchDialog(),
+                      )
+                    : FilledButton.icon(
+                        onPressed: () => _showBranchDialog(),
+                        icon: const Icon(Icons.add, size: 18),
+                        label: const Text('Thêm mới'),
+                      ),
             ],
           ),
           ...[ 
@@ -403,6 +426,52 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildBranchGridTile(Branch branch) {
+    final isActive = branch.isActive;
+    final color = branch.isHeadquarter
+        ? Colors.amber.shade700
+        : (isActive ? Colors.blue : Colors.grey);
+
+    return HrmSettingsEntityTile(
+      title: branch.name,
+      subtitle: branch.code,
+      meta: '${branch.employeeCount} NV',
+      icon: branch.isHeadquarter ? Icons.domain : Icons.business,
+      iconColor: color,
+      badge: branch.isHeadquarter
+          ? 'Trụ sở'
+          : (isActive ? 'Hoạt động' : 'Ngừng HĐ'),
+      badgeColor: branch.isHeadquarter
+          ? Colors.amber.shade700
+          : (isActive ? Colors.green : Colors.red),
+      onTap: () => _showBranchDetail(branch),
+      onMenuSelected: (action) {
+        switch (action) {
+          case 'edit':
+            _showBranchDialog(branch: branch);
+            break;
+          case 'toggle':
+            _toggleBranchActive(branch);
+            break;
+          case 'delete':
+            _confirmDeleteBranch(branch);
+            break;
+        }
+      },
+      menuItems: [
+        if (_perm.canEdit('Branch')) ...[
+          const PopupMenuItem(value: 'edit', child: Text('Sửa')),
+          PopupMenuItem(
+            value: 'toggle',
+            child: Text(isActive ? 'Ngừng hoạt động' : 'Kích hoạt'),
+          ),
+        ],
+        if (_perm.canDelete('Branch'))
+          const PopupMenuItem(value: 'delete', child: Text('Xóa')),
+      ],
     );
   }
 

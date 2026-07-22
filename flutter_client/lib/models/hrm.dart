@@ -179,6 +179,9 @@ class AdvanceRequest {
   final String employeeName;
   final String employeeCode;
   final double amount;
+  /// Số tiền thực tế được duyệt — có thể thấp hơn [amount] nếu quản lý duyệt
+  /// một phần. Null = chưa duyệt hoặc duyệt đủ số tiền yêu cầu.
+  final double? approvedAmount;
   final String? reason;
   final DateTime requestDate;
   final int? forMonth;
@@ -204,6 +207,7 @@ class AdvanceRequest {
     required this.employeeName,
     required this.employeeCode,
     required this.amount,
+    this.approvedAmount,
     this.reason,
     required this.requestDate,
     this.forMonth,
@@ -256,6 +260,9 @@ class AdvanceRequest {
       employeeName: json['employeeName'] ?? '',
       employeeCode: json['employeeCode'] ?? '',
       amount: (json['amount'] ?? 0).toDouble(),
+      approvedAmount: json['approvedAmount'] != null
+          ? (json['approvedAmount'] as num).toDouble()
+          : null,
       reason: json['reason'],
       requestDate: parseApiUtcDateTime(json['requestDate']) ?? DateTime.now(),
       forMonth: json['forMonth'],
@@ -286,6 +293,14 @@ class AdvanceRequest {
         'reason': reason,
         'note': note,
       };
+
+  /// Số tiền thực tế đã/sẽ được chi (đã duyệt) — dùng để hiển thị & tính
+  /// toán, fallback về [amount] khi chưa duyệt hoặc chưa có approvedAmount.
+  double get payoutAmount => approvedAmount ?? amount;
+
+  /// true nếu quản lý duyệt số tiền thấp hơn số tiền yêu cầu ban đầu.
+  bool get isPartiallyApproved =>
+      approvedAmount != null && approvedAmount! < amount;
 }
 
 // ============ PAYMENT TRANSACTION MODEL (Bonus/Penalty) ============
@@ -928,6 +943,8 @@ class Shift {
   final String startTime;
   final String endTime;
   final int? breakMinutes;
+  final String? lunchBreakStartTime;
+  final String? lunchBreakEndTime;
   final String? description;
   final bool isActive;
   final DateTime createdAt;
@@ -935,6 +952,7 @@ class Shift {
   final int? maximumAllowedLateMinutes;
   final int? maximumAllowedEarlyLeaveMinutes;
   final int? overtimeMinutesThreshold;
+  final int? earlyOvertimeMinutesThreshold;
   final int? lateGraceMinutes;
   final int? earlyLeaveGraceMinutes;
   final String? shiftType;
@@ -946,6 +964,8 @@ class Shift {
     required this.startTime,
     required this.endTime,
     this.breakMinutes,
+    this.lunchBreakStartTime,
+    this.lunchBreakEndTime,
     this.description,
     required this.isActive,
     required this.createdAt,
@@ -953,6 +973,7 @@ class Shift {
     this.maximumAllowedLateMinutes,
     this.maximumAllowedEarlyLeaveMinutes,
     this.overtimeMinutesThreshold,
+    this.earlyOvertimeMinutesThreshold,
     this.lateGraceMinutes,
     this.earlyLeaveGraceMinutes,
     this.shiftType,
@@ -980,6 +1001,8 @@ class Shift {
       startTime: formatTime(json['startTime']),
       endTime: formatTime(json['endTime']),
       breakMinutes: json['breakTimeMinutes'] ?? json['breakMinutes'],
+      lunchBreakStartTime: json['lunchBreakStartTime']?.toString(),
+      lunchBreakEndTime: json['lunchBreakEndTime']?.toString(),
       description: json['description'],
       isActive: json['isActive'] ?? true,
       createdAt: parseApiUtcDateTime(json['createdAt']) ?? DateTime.now(),
@@ -987,6 +1010,7 @@ class Shift {
       maximumAllowedLateMinutes: json['maximumAllowedLateMinutes'],
       maximumAllowedEarlyLeaveMinutes: json['maximumAllowedEarlyLeaveMinutes'],
       overtimeMinutesThreshold: json['overtimeMinutesThreshold'],
+      earlyOvertimeMinutesThreshold: json['earlyOvertimeMinutesThreshold'],
       lateGraceMinutes: json['lateGraceMinutes'],
       earlyLeaveGraceMinutes: json['earlyLeaveGraceMinutes'],
       shiftType: json['shiftType'],

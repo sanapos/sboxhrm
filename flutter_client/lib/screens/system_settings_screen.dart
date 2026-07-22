@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
+import '../widgets/hrm/hrm_settings_mobile_kit.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
 import '../utils/shift_records_calculator.dart';
@@ -46,9 +47,12 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
   // Ngày chốt công hàng tháng
   int _payrollCutoffDay = 25;
 
-  /// Số giờ làm tối thiểu (mỗi cặp vào/ra) để tính 1 công. 0 = tắt.
-  double _minHoursForWorkDay = 0;
-  final _minHoursController = TextEditingController();
+  /// % giờ chuẩn trong ngày để đủ 1 công (mặc định 80). Chỉ dùng khi tắt thập phân.
+  double _minWorkDayPercent = 80;
+  final _minPercentController = TextEditingController(text: '80');
+  /// Giờ tối thiểu để tính nửa công (mặc định 1h).
+  double _minHalfDayHours = 1;
+  final _minHalfDayController = TextEditingController(text: '1');
   bool _decimalWorkDayEnabled = false;
 
   // Số cấp phê duyệt đơn nghỉ phép (1, 2, 3)
@@ -62,7 +66,8 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
 
   @override
   void dispose() {
-    _minHoursController.dispose();
+    _minPercentController.dispose();
+    _minHalfDayController.dispose();
     super.dispose();
   }
 
@@ -77,8 +82,10 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
         _apiService.getAppSetting('allow_manual_correction'),
         _apiService.getAppSetting('payroll_cutoff_day'),
         _apiService.getAppSetting('leave_approval_levels'),
-        _apiService.getAppSetting('min_hours_for_work_day'),
+        _apiService.getAppSetting('min_work_day_percent'),
         _apiService.getAppSetting('decimal_work_day_enabled'),
+        _apiService.getAppSetting('min_hours_for_work_day'),
+        _apiService.getAppSetting('min_half_day_hours'),
       ]);
 
       if (!mounted) return;
@@ -115,22 +122,33 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
         _leaveApprovalLevels =
             int.tryParse(data5['value']?.toString() ?? '1') ?? 1;
       }
-      if (results[6]['isSuccess'] == true && results[6]['data'] is Map) {
-        final raw = (results[6]['data'] as Map)['value']?.toString() ?? '0';
-        _minHoursForWorkDay =
-            double.tryParse(raw.replaceAll(',', '.')) ?? 0;
-        _minHoursController.text = _minHoursForWorkDay > 0
-            ? (_minHoursForWorkDay == _minHoursForWorkDay.roundToDouble()
-                ? _minHoursForWorkDay.toInt().toString()
-                : _minHoursForWorkDay.toString())
-            : '';
-      }
+      final percentRaw = results[6]['isSuccess'] == true && results[6]['data'] is Map
+          ? (results[6]['data'] as Map)['value']?.toString()
+          : null;
+      final legacyHoursRaw =
+          results[8]['isSuccess'] == true && results[8]['data'] is Map
+              ? (results[8]['data'] as Map)['value']?.toString()
+              : null;
+      _minWorkDayPercent = parseMinWorkDayPercent(
+        percentAppSettingValue: percentRaw,
+        legacyHoursAppSettingValue: legacyHoursRaw,
+      );
+      _minPercentController.text = _minWorkDayPercent == _minWorkDayPercent.roundToDouble()
+          ? _minWorkDayPercent.toInt().toString()
+          : _minWorkDayPercent.toStringAsFixed(0);
       if (results[7]['isSuccess'] == true && results[7]['data'] is Map) {
         _decimalWorkDayEnabled = parseDecimalWorkDayEnabled(
           appSettingValue:
               (results[7]['data'] as Map)['value']?.toString(),
         );
       }
+      final halfRaw = results[9]['isSuccess'] == true && results[9]['data'] is Map
+          ? (results[9]['data'] as Map)['value']?.toString()
+          : null;
+      _minHalfDayHours = parseMinHalfDayHours(appSettingValue: halfRaw);
+      _minHalfDayController.text = _minHalfDayHours == _minHalfDayHours.roundToDouble()
+          ? _minHalfDayHours.toInt().toString()
+          : _minHalfDayHours.toStringAsFixed(1);
     } catch (e) {
       debugPrint('Error loading system settings: $e');
       if (mounted) {
@@ -154,25 +172,29 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
       '${_dayEndHour.toString().padLeft(2, '0')}:${_dayEndMinute.toString().padLeft(2, '0')}:${_dayEndSecond.toString().padLeft(2, '0')}';
 
   Future<void> _saveSettings() async {
-    final minHoursText = _minHoursController.text.trim().replaceAll(',', '.');
-    final parsedMinHours = minHoursText.isEmpty
-        ? 0.0
-        : (double.tryParse(minHoursText) ?? -1);
-    if (parsedMinHours < 0) {
+    final percentText = _minPercentController.text.trim().replaceAll(',', '.');
+    final parsedPercent = percentText.isEmpty
+        ? 80.0
+        : (double.tryParse(percentText) ?? -1);
+    if (parsedPercent < 1 || parsedPercent > 100) {
       appNotification.showError(
         title: 'Lỗi',
-        message: 'Số giờ tối thiểu không hợp lệ',
+        message: '% đủ 1 công phải từ 1 đến 100 (mặc định 80)',
       );
       return;
     }
-    if (parsedMinHours > 24) {
+    final halfText = _minHalfDayController.text.trim().replaceAll(',', '.');
+    final parsedHalf =
+        halfText.isEmpty ? 1.0 : (double.tryParse(halfText) ?? -1);
+    if (parsedHalf < 0 || parsedHalf > 24) {
       appNotification.showError(
         title: 'Lỗi',
-        message: 'Số giờ tối thiểu không được lớn hơn 24',
+        message: 'Giờ tối thiểu nửa công phải từ 0 đến 24 (mặc định 1)',
       );
       return;
     }
-    _minHoursForWorkDay = parsedMinHours;
+    _minWorkDayPercent = parsedPercent;
+    _minHalfDayHours = parsedHalf;
 
     setState(() => _isSaving = true);
     try {
@@ -208,14 +230,19 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
           description: 'Số cấp phê duyệt đơn nghỉ phép',
         ),
         _apiService.upsertAppSetting(
-          key: 'min_hours_for_work_day',
-          value: _minHoursForWorkDay.toString(),
-          description: 'Số giờ tối thiểu để tính 1 công',
+          key: 'min_work_day_percent',
+          value: _minWorkDayPercent.toString(),
+          description: '% giờ chuẩn trong ngày để đủ 1 công (mặc định 80)',
+        ),
+        _apiService.upsertAppSetting(
+          key: 'min_half_day_hours',
+          value: _minHalfDayHours.toString(),
+          description: 'Giờ tối thiểu để tính nửa công (mặc định 1)',
         ),
         _apiService.upsertAppSetting(
           key: 'decimal_work_day_enabled',
           value: _decimalWorkDayEnabled.toString(),
-          description: 'Tính công theo thập phân (0.1–1.0)',
+          description: 'Tính công theo thập phân (0.1–1.0, tắt ngưỡng %)',
         ),
       ]);
 
@@ -290,7 +317,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
         : const SizedBox.shrink();
 
     return Scaffold(
-      backgroundColor: HrmPageChrome.background,
+      backgroundColor: HrmPageChrome.scaffoldBackground(context),
       appBar: HrmPageChrome.appBar(
         title: 'Thiết lập hệ thống',
         actions: [
@@ -303,7 +330,9 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              padding: EdgeInsets.all(Responsive.isMobile(context) ? 12 : 24),
+              padding: HrmSettingsMobileKit.active(context)
+                  ? HrmSettingsMobileKit.pagePadding(context)
+                  : EdgeInsets.all(Responsive.isMobile(context) ? 12 : 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -317,7 +346,9 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                   // Row 1: Giờ kết thúc ngày + Phê duyệt chấm công
                   LayoutBuilder(
                     builder: (context, constraints) {
-                      if (constraints.maxWidth > 900) {
+                      final colThreshold =
+                          HrmSettingsMobileKit.active(context) ? 360.0 : 900.0;
+                      if (constraints.maxWidth > colThreshold) {
                         return Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -345,7 +376,9 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                   // Row 2: Quy tắc làm tròn + Chấm công bù + Ngày chốt công
                   LayoutBuilder(
                     builder: (context, constraints) {
-                      if (constraints.maxWidth > 900) {
+                      final colThreshold =
+                          HrmSettingsMobileKit.active(context) ? 360.0 : 900.0;
+                      if (constraints.maxWidth > colThreshold) {
                         return Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -467,11 +500,12 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
   }
 
   Widget _buildMinHoursForWorkDayCard() {
+    final thresholdEnabled = !_decimalWorkDayEnabled;
     return _buildSettingCard(
       icon: Icons.hourglass_bottom,
       iconColor: const Color(0xFF059669),
       title: 'Quy tắc tính công',
-      subtitle: 'Giờ tối thiểu và công thập phân theo thời gian làm việc',
+      subtitle: 'Theo tổng giờ làm trong ngày (không tính từng ca riêng)',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -482,7 +516,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
               style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
             ),
             subtitle: const Text(
-              'Bậc 0.1, 0.2, 0.3 … 1.0 theo % giờ làm so với ca chuẩn',
+              'Bật: làm tròn gần 0.1 / 0.2 … 1.0 theo tỷ lệ giờ — tắt ngưỡng % đủ công / nửa công cố định',
               style: TextStyle(fontSize: 12),
             ),
             value: _decimalWorkDayEnabled,
@@ -493,12 +527,15 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
           ),
           const Divider(height: 24),
           TextField(
-            controller: _minHoursController,
+            controller: _minHalfDayController,
+            enabled: _perm.canEdit('SystemSettings'),
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: InputDecoration(
-              labelText: 'Số giờ tối thiểu',
-              hintText: 'VD: 4 (để trống hoặc 0 = tắt)',
+              labelText: 'Giờ tối thiểu tính nửa công / có công',
+              hintText: 'VD: 1',
               suffixText: 'giờ',
+              helperText:
+                  'Dưới mức này (VD 0.5h) → 0 công. Mặc định 1 giờ. Áp dụng cả khi bật thập phân.',
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -507,41 +544,126 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
             ),
             onChanged: (_) => setState(() {}),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Wrap(
             spacing: 6,
             runSpacing: 6,
             children: [
-              _buildMinHoursChip('Tắt', ''),
-              _buildMinHoursChip('2 giờ', '2'),
-              _buildMinHoursChip('4 giờ', '4'),
-              _buildMinHoursChip('6 giờ', '6'),
-              _buildMinHoursChip('8 giờ', '8'),
+              _buildMinHalfChip('0.5h', '0.5'),
+              _buildMinHalfChip('1h', '1'),
+              _buildMinHalfChip('1.5h', '1.5'),
+              _buildMinHalfChip('2h', '2'),
+              _buildMinHalfChip('3h', '3'),
             ],
+          ),
+          const SizedBox(height: 16),
+          Opacity(
+            opacity: thresholdEnabled ? 1 : 0.45,
+            child: IgnorePointer(
+              ignoring: !thresholdEnabled,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    thresholdEnabled
+                        ? '% đủ 1 công (chế độ ngưỡng)'
+                        : '% đủ 1 công (đã tắt — đang dùng thập phân)',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                      color: Color(0xFF52525B),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _minPercentController,
+                    enabled: thresholdEnabled &&
+                        _perm.canEdit('SystemSettings'),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
+                      labelText: '% đủ 1 công',
+                      hintText: 'VD: 80',
+                      suffixText: '%',
+                      helperText: thresholdEnabled
+                          ? '≥ % giờ chuẩn NV → đủ 1 công; dưới đó (≥ min nửa công) → 0.5'
+                          : 'Không dùng khi bật thập phân',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 12),
+                    ),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      _buildMinPercentChip('50%', '50'),
+                      _buildMinPercentChip('60%', '60'),
+                      _buildMinPercentChip('70%', '70'),
+                      _buildMinPercentChip('80%', '80'),
+                      _buildMinPercentChip('90%', '90'),
+                      _buildMinPercentChip('100%', '100'),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ),
           const SizedBox(height: 14),
           _buildInfoBox(
-            'Áp dụng cho tổng hợp chấm công, tổng hợp theo ca và bảng lương.\n'
-            '• Công thập phân: làm 40% ca chuẩn → 0.4 công; 90% → 0.9 công; đủ ca → 1.0\n'
-            '• Giờ tối thiểu: đặt 4 → dưới 4 giờ không được cộng công\n'
-            '• Tắt công thập phân → đủ điều kiện được cộng trọn 1 ca (hoặc 1/n ca)',
+            _decimalWorkDayEnabled
+                ? 'Đang bật thập phân:\n'
+                    '• Công = làm tròn (giờ làm ÷ giờ chuẩn NV) đến bậc 0.1 gần nhất.\n'
+                    '• VD: 3.6/8 ≈ 0.45 → 0.5 công; 7.2/8 = 0.9 → 0.9 công.\n'
+                    '• Dưới “giờ tối thiểu nửa công” → 0 (tránh 30 phút ra 0.1).\n'
+                    '• Ngưỡng % đủ công / nửa công cố định: tắt.'
+                : 'Đang dùng chế độ ngưỡng:\n'
+                    '• ≥ (giờ chuẩn × %) → 1 công.\n'
+                    '• ≥ giờ tối thiểu nửa công và dưới % → 0.5 công.\n'
+                    '• Dưới giờ tối thiểu nửa công → 0 công.\n'
+                    '• VD: chuẩn 8h, min nửa công 1h, 80% → ≥6.4h = đủ công; 1–6.4h = nửa công; dưới 1h = 0.',
           ),
         ],
       ),
     );
   }
 
-  Widget _buildMinHoursChip(String label, String value) {
-    final selected = _minHoursController.text.trim() == value;
+  Widget _buildMinHalfChip(String label, String value) {
+    final selected = _minHalfDayController.text.trim() == value;
     return ChoiceChip(
       label: Text(label),
       selected: selected,
       onSelected: _perm.canEdit('SystemSettings')
           ? (_) {
               setState(() {
-                _minHoursController.text = value;
-                _minHoursForWorkDay =
-                    value.isEmpty ? 0 : (double.tryParse(value) ?? 0);
+                _minHalfDayController.text = value;
+                _minHalfDayHours = double.tryParse(value) ?? 1;
+              });
+            }
+          : null,
+      selectedColor: const Color(0xFF059669).withValues(alpha: 0.15),
+      labelStyle: TextStyle(
+        color: selected ? const Color(0xFF059669) : const Color(0xFF52525B),
+        fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+        fontSize: 12,
+      ),
+    );
+  }
+
+  Widget _buildMinPercentChip(String label, String value) {
+    final selected = _minPercentController.text.trim() == value;
+    return ChoiceChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: _perm.canEdit('SystemSettings')
+          ? (_) {
+              setState(() {
+                _minPercentController.text = value;
+                _minWorkDayPercent = double.tryParse(value) ?? 80;
               });
             }
           : null,

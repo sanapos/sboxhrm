@@ -44,6 +44,8 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
             standardWorkDays = ParseInt(map, "standard_work_days", 26),
             lunchBreakMinutes = ParseInt(map, "lunch_break_minutes", 60),
             minHoursForWorkDay = ParseDouble(map, "min_hours_for_work_day", 0),
+            minWorkDayPercent = ParseMinWorkDayPercent(map),
+            minHalfDayHours = ParseDouble(map, "min_half_day_hours", 1),
             decimalWorkDayEnabled = ParseBool(map, "decimal_work_day_enabled", false),
             workStartTime = map.GetValueOrDefault("work_start_time") ?? "08:30",
             workEndTime = map.GetValueOrDefault("work_end_time") ?? "18:00",
@@ -74,7 +76,21 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
         {
             await UpsertStoreSettingAsync(storeId.Value, "min_hours_for_work_day",
                 request.MinHoursForWorkDay.Value.ToString(CultureInfo.InvariantCulture),
-                "Số giờ tối thiểu để tính 1 công");
+                "Số giờ tối thiểu để tính 1 công (legacy)");
+        }
+        if (request.MinWorkDayPercent.HasValue)
+        {
+            var pct = Math.Clamp(request.MinWorkDayPercent.Value, 1, 100);
+            await UpsertStoreSettingAsync(storeId.Value, "min_work_day_percent",
+                pct.ToString(CultureInfo.InvariantCulture),
+                "% giờ chuẩn trong ngày để đủ 1 công");
+        }
+        if (request.MinHalfDayHours.HasValue)
+        {
+            var half = Math.Clamp(request.MinHalfDayHours.Value, 0, 24);
+            await UpsertStoreSettingAsync(storeId.Value, "min_half_day_hours",
+                half.ToString(CultureInfo.InvariantCulture),
+                "Giờ tối thiểu để tính nửa công / có công");
         }
         if (request.DecimalWorkDayEnabled.HasValue)
         {
@@ -96,7 +112,7 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
         {
             await UpsertStoreSettingAsync(storeId.Value, "travel_salary_mode",
                 request.TravelSalaryMode.Trim().ToLowerInvariant(),
-                "Cách tính lương giờ đi đường (fixed|base_per_8h|completion_per_8h)");
+                "Cách tính lương giờ đi đường (off|fixed|base_per_8h|completion_per_8h|base_plus_completion_per_8h)");
         }
         if (request.TravelFixedHourlyRate.HasValue)
         {
@@ -112,11 +128,29 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
     private static readonly string[] SalarySettingKeys =
     [
         "standard_work_hours", "standard_work_days", "lunch_break_minutes",
-        "min_hours_for_work_day", "decimal_work_day_enabled",
+        "min_hours_for_work_day", "min_work_day_percent", "min_half_day_hours", "decimal_work_day_enabled",
         "work_start_time", "work_end_time",
         "overtime_rate", "weekend_rate", "holiday_rate",
         "travel_salary_mode", "travel_fixed_hourly_rate"
     ];
+
+    private static double ParseMinWorkDayPercent(Dictionary<string, string> map)
+    {
+        if (map.TryGetValue("min_work_day_percent", out var pctStr) &&
+            double.TryParse(pctStr, NumberStyles.Any, CultureInfo.InvariantCulture, out var pct) &&
+            pct > 0)
+        {
+            return Math.Clamp(pct, 1, 100);
+        }
+        // Migrate legacy hours → % trên chuẩn 8h
+        if (map.TryGetValue("min_hours_for_work_day", out var hoursStr) &&
+            double.TryParse(hoursStr, NumberStyles.Any, CultureInfo.InvariantCulture, out var hours) &&
+            hours > 0 && hours <= 24)
+        {
+            return Math.Clamp(hours / 8.0 * 100.0, 1, 100);
+        }
+        return 80;
+    }
 
     private static object DefaultSalarySettingsDto() => new
     {
@@ -124,6 +158,8 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
         standardWorkDays = 26,
         lunchBreakMinutes = 60,
         minHoursForWorkDay = 0,
+        minWorkDayPercent = 80,
+        minHalfDayHours = 1,
         decimalWorkDayEnabled = false,
         workStartTime = "08:30",
         workEndTime = "18:00",
@@ -177,16 +213,20 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
         public double? StandardWorkHours { get; set; }
         public int? StandardWorkDays { get; set; }
         public int? LunchBreakMinutes { get; set; }
-        /// <summary>Số giờ làm tối thiểu (mỗi cặp vào/ra) để được tính 1 công. 0 = tắt (giữ quy tắc 2/3 ca nếu có ca).</summary>
+        /// <summary>Legacy: số giờ tối thiểu tuyệt đối (đã thay bằng MinWorkDayPercent).</summary>
         public double? MinHoursForWorkDay { get; set; }
-        /// <summary>Tính công theo bậc thập phân 0.1–1.0 theo tỷ lệ giờ làm.</summary>
+        /// <summary>% giờ chuẩn NV trong ngày để đủ 1 công (mặc định 80).</summary>
+        public double? MinWorkDayPercent { get; set; }
+        /// <summary>Giờ tối thiểu để tính nửa công / có công (mặc định 1).</summary>
+        public double? MinHalfDayHours { get; set; }
+        /// <summary>Tính công thập phân 0.1–1.0 (làm tròn gần nhất; tắt ngưỡng %).</summary>
         public bool? DecimalWorkDayEnabled { get; set; }
         public string? WorkStartTime { get; set; }
         public string? WorkEndTime { get; set; }
         public double? OvertimeRate { get; set; }
         public double? WeekendRate { get; set; }
         public double? HolidayRate { get; set; }
-        /// <summary>fixed | base_per_8h | completion_per_8h</summary>
+        /// <summary>off | fixed | base_per_8h | completion_per_8h | base_plus_completion_per_8h</summary>
         public string? TravelSalaryMode { get; set; }
         public double? TravelFixedHourlyRate { get; set; }
     }

@@ -68,25 +68,28 @@ if [ -f web/flutter_bootstrap.js ]; then
   docker cp web/flutter_bootstrap.js zkteco_flutter:/usr/share/nginx/html/flutter_bootstrap.js
 fi
 
-API_URL="${API_BASE_URL:-https://sbox.sana.vn}"
+API_URL="${API_BASE_URL:-https://sboxhrm.com}"
 echo "=== 5b. Inject API_BASE_URL into static web ($API_URL) ==="
 docker exec zkteco_flutter sh -c "
   for f in /usr/share/nginx/html/index.html /usr/share/nginx/html/config.js; do
     [ -f \"\$f\" ] || continue
     sed -i \"s|__API_BASE_URL__|${API_URL}|g\" \"\$f\"
+    sed -i \"s|https://sbox.sana.vn|${API_URL}|g\" \"\$f\"
   done
-  grep -E 'API_BASE_URL|api-base-url' /usr/share/nginx/html/config.js /usr/share/nginx/html/index.html 2>/dev/null | head -4
+  grep -E 'API_BASE_URL|api-base-url|SITE_URL' /usr/share/nginx/html/config.js /usr/share/nginx/html/index.html 2>/dev/null | head -6
 "
 echo "Web file count: $(docker exec zkteco_flutter sh -c 'ls /usr/share/nginx/html/ | wc -l')"
 
 echo "=== 6. Verify endpoints ==="
 sleep 3
 echo "[Public maintenance]"
-curl -sk https://sbox.sana.vn/api/maintenance/active | head -c 400
+curl -sk https://sboxhrm.com/api/maintenance/active | head -c 400
 echo ""
 echo "[API health]"
+curl -sk -o /dev/null -w "HTTP %{http_code}\n" https://sboxhrm.com/health || true
+echo "[Legacy sana health]"
 curl -sk -o /dev/null -w "HTTP %{http_code}\n" https://sbox.sana.vn/health || true
 echo "[Web config.js API_BASE_URL]"
-curl -sk https://sbox.sana.vn/config.js | grep API_BASE_URL || true
+curl -sk https://sboxhrm.com/config.js | grep API_BASE_URL || true
 
 echo "=== DONE ==="

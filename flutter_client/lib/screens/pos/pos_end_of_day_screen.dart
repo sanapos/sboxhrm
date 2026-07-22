@@ -32,7 +32,7 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
     preset: PosKiotTimePreset.today,
     isCustom: false,
   );
-  PosEndOfDayPrintFormat _format = PosEndOfDayPrintFormat.bill;
+  PosEndOfDayPrintFormat _format = PosEndOfDayPrintFormat.bill58;
   String _filterBy = 'soldBy';
   bool _showProductDetail = true;
   bool _loading = false;
@@ -266,7 +266,7 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
               ),
             ],
             SizedBox(
-              width: 140,
+              width: 150,
               child: DropdownButtonFormField<PosEndOfDayPrintFormat>(
                 value: _format,
                 decoration: const InputDecoration(
@@ -277,8 +277,12 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
                 ),
                 items: const [
                   DropdownMenuItem(
-                    value: PosEndOfDayPrintFormat.bill,
-                    child: Text('Bill (K80)'),
+                    value: PosEndOfDayPrintFormat.bill58,
+                    child: Text('Bill K58'),
+                  ),
+                  DropdownMenuItem(
+                    value: PosEndOfDayPrintFormat.bill80,
+                    child: Text('Bill K80'),
                   ),
                   DropdownMenuItem(
                     value: PosEndOfDayPrintFormat.a4,
@@ -349,51 +353,103 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
 
   Widget _buildBillPreview(PosEndOfDayReport r) {
     final staff = r.staffName ?? r.staffEmail ?? 'Tất cả nhân viên';
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const Text(
-          'TỔNG KẾT CUỐI NGÀY',
-          textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          '${r.storeName ?? ''}\nNhân viên: $staff',
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
-        ),
-        const Divider(height: 24),
-        _summaryLine('1', 'Số đơn hàng', '${r.orderCount}'),
-        _summaryLine('2', 'Chiết khấu', _fmt(r.orderDiscount)),
-        _summaryLine('3', 'Tổng doanh thu', _fmt(r.totalSales)),
-        _summaryLine('4', 'VAT', _fmt(r.vat)),
-        _summaryLine('5', 'Doanh thu ròng', _fmt(r.netSales)),
-        _summaryLine('6', 'Trả hàng', _fmt(r.refundTotal)),
-        _summaryLine('', 'Sau trả hàng', _fmt(r.totalAfterRefund)),
-        _summaryLine('7', 'Hóa đơn hủy', '${r.canceledCount}'),
-        const Padding(
-          padding: EdgeInsets.only(top: 8, bottom: 4),
-          child: Text('Phương thức thanh toán',
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-        ),
-        _summaryLine('', 'Tiền mặt', _fmt(r.cashTotal), indent: true),
-        _summaryLine('', 'Ghi nợ', _fmt(r.debtTotal), indent: true),
-        for (final p in r.payments)
-          if (!p.paymentMethod.toLowerCase().contains('mặt'))
-            _summaryLine('', p.paymentMethod, _fmt(p.total), indent: true),
-        _summaryLine('9', 'Thực thu', _fmt(r.actualReceived), bold: true),
-        if (_showProductDetail) ...[
-          const Padding(
-            padding: EdgeInsets.only(top: 10, bottom: 4),
-            child: Text('Hàng hóa bán ra',
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+    final k58 = _format == PosEndOfDayPrintFormat.bill58;
+    final maxW = k58 ? 280.0 : 340.0;
+
+    Widget section(String title) => Padding(
+          padding: const EdgeInsets.only(top: 10, bottom: 4),
+          child: Text(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.6,
+              color: Color(0xFF334155),
+            ),
           ),
-          for (final p in r.products)
-            _summaryLine('', p.productName, '${_qty(p.qty)} · ${_fmt(p.revenue)}', indent: true),
-          _summaryLine('11', 'Giảm giá mặt hàng', _fmt(r.lineDiscountTotal)),
-        ],
-      ],
+        );
+
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxW),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFFDF8),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (r.storeName != null && r.storeName!.trim().isNotEmpty)
+                  Text(
+                    r.storeName!.trim(),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                const Text(
+                  'TỔNG KẾT CUỐI NGÀY',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                ),
+                Text(
+                  'Bill ${k58 ? 'K58' : 'K80'}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 11, color: PosTheme.textSecondary),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'NV: $staff\n'
+                  '${_dt(r.from)} – ${_dt(r.to)}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 11, color: PosTheme.textSecondary, height: 1.35),
+                ),
+                const Divider(height: 20, thickness: 1.2),
+                section('BÁN HÀNG'),
+                _summaryLine('', 'Số đơn', '${r.orderCount}'),
+                _summaryLine('', 'Doanh thu', _fmt(r.totalSales)),
+                _summaryLine('', 'Chiết khấu', _fmt(r.orderDiscount)),
+                _summaryLine('', 'VAT', _fmt(r.vat)),
+                _summaryLine('', 'DT ròng', _fmt(r.netSales), bold: true),
+                const Divider(height: 16),
+                section('TRẢ / HỦY'),
+                _summaryLine('', 'Trả hàng', _fmt(r.refundTotal)),
+                _summaryLine('', 'Sau trả', _fmt(r.totalAfterRefund)),
+                _summaryLine('', 'Hủy đơn', '${r.canceledCount}'),
+                const Divider(height: 16),
+                section('THANH TOÁN'),
+                _summaryLine('', 'Tiền mặt', _fmt(r.cashTotal), indent: true),
+                _summaryLine('', 'Ghi nợ', _fmt(r.debtTotal), indent: true),
+                for (final p in r.payments)
+                  if (!p.paymentMethod.toLowerCase().contains('mặt') &&
+                      p.paymentMethod.toLowerCase() != 'cash')
+                    _summaryLine('', p.paymentMethod, _fmt(p.total), indent: true),
+                const Divider(height: 18, thickness: 1.4),
+                _summaryLine('', 'THỰC THU', _fmt(r.actualReceived), bold: true),
+                const Divider(height: 18, thickness: 1.4),
+                if (_showProductDetail && r.products.isNotEmpty) ...[
+                  section('HÀNG BÁN'),
+                  for (final p in r.products.take(k58 ? 15 : 30))
+                    _summaryLine(
+                      '',
+                      p.productName,
+                      '${_qty(p.qty)} · ${_fmt(p.revenue)}',
+                      indent: true,
+                    ),
+                  if (r.lineDiscountTotal > 0)
+                    _summaryLine('', 'CK mặt hàng', _fmt(r.lineDiscountTotal)),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 

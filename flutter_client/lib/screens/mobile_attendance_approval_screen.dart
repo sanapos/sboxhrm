@@ -1404,7 +1404,8 @@ class _SyncScrollTablesState extends State<_SyncScrollTables> {
           ]),
         ),
         // main table: frozen col + horizontally scrollable body
-        IntrinsicHeight(
+        SizedBox(
+          height: headerH + employees.length * rowH,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

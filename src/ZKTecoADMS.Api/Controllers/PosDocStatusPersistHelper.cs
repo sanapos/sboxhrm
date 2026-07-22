@@ -15,7 +15,8 @@ internal static class PosDocStatusPersistHelper
         Guid storeId,
         PosPurchaseReceiptStatus from,
         PosPurchaseReceiptStatus to,
-        string updatedBy)
+        string updatedBy,
+        bool allowAlready = true)
     {
         var now = DateTime.UtcNow;
         var updated = await db.PosStockReceipts
@@ -29,9 +30,10 @@ internal static class PosDocStatusPersistHelper
 
         var already = await db.PosStockReceipts.AsNoTracking()
             .AnyAsync(r => r.Id == id && r.StoreId == storeId && r.Deleted == null && r.Status == to);
-        return already
-            ? (true, null)
-            : (false, "Không lưu được trạng thái phiếu — vui lòng thử lại");
+        if (already && allowAlready) return (true, null);
+        if (already)
+            return (false, "Phiếu đã được xử lý bởi thao tác khác");
+        return (false, "Không lưu được trạng thái phiếu — vui lòng thử lại");
     }
 
     public static async Task<(bool Ok, string? Error)> SetPurchaseReturnStatusAsync(
@@ -40,7 +42,8 @@ internal static class PosDocStatusPersistHelper
         Guid storeId,
         PosPurchaseReturnStatus from,
         PosPurchaseReturnStatus to,
-        string updatedBy)
+        string updatedBy,
+        bool allowAlready = true)
     {
         var now = DateTime.UtcNow;
         var updated = await db.PosPurchaseReturns
@@ -54,9 +57,10 @@ internal static class PosDocStatusPersistHelper
 
         var already = await db.PosPurchaseReturns.AsNoTracking()
             .AnyAsync(r => r.Id == id && r.StoreId == storeId && r.Deleted == null && r.Status == to);
-        return already
-            ? (true, null)
-            : (false, "Không lưu được trạng thái phiếu — vui lòng thử lại");
+        if (already && allowAlready) return (true, null);
+        if (already)
+            return (false, "Phiếu đã được xử lý bởi thao tác khác");
+        return (false, "Không lưu được trạng thái phiếu — vui lòng thử lại");
     }
 
     public static async Task<(bool Ok, string? Error)> SetStockIssueStatusAsync(
@@ -67,7 +71,8 @@ internal static class PosDocStatusPersistHelper
         PosStockIssueStatus from,
         PosStockIssueStatus to,
         string updatedBy,
-        DateTime? completedAt = null)
+        DateTime? completedAt = null,
+        bool allowAlready = true)
     {
         var now = DateTime.UtcNow;
         var updated = completedAt.HasValue
@@ -92,9 +97,10 @@ internal static class PosDocStatusPersistHelper
         var already = await db.PosStockIssues.AsNoTracking()
             .AnyAsync(i => i.Id == id && i.StoreId == storeId && i.Kind == kind && i.Deleted == null &&
                            i.Status == to);
-        return already
-            ? (true, null)
-            : (false, "Không lưu được trạng thái phiếu — vui lòng thử lại");
+        if (already && allowAlready) return (true, null);
+        if (already)
+            return (false, "Phiếu đã được xử lý bởi thao tác khác");
+        return (false, "Không lưu được trạng thái phiếu — vui lòng thử lại");
     }
 
     public static async Task<(bool Ok, string? Error)> SetStockCountStatusAsync(
@@ -105,7 +111,8 @@ internal static class PosDocStatusPersistHelper
         PosStockCountStatus to,
         string updatedBy,
         DateTime? completedAt = null,
-        string? balancedBy = null)
+        string? balancedBy = null,
+        bool allowAlready = true)
     {
         var now = DateTime.UtcNow;
         int updated;
@@ -134,9 +141,10 @@ internal static class PosDocStatusPersistHelper
 
         var already = await db.PosStockCounts.AsNoTracking()
             .AnyAsync(c => c.Id == id && c.StoreId == storeId && c.Deleted == null && c.Status == to);
-        return already
-            ? (true, null)
-            : (false, "Không lưu được trạng thái phiếu — vui lòng thử lại");
+        if (already && allowAlready) return (true, null);
+        if (already)
+            return (false, "Phiếu đã được xử lý bởi thao tác khác");
+        return (false, "Không lưu được trạng thái phiếu — vui lòng thử lại");
     }
 
     public static async Task<(bool Ok, string? Error)> SoftDeletePurchaseReceiptAsync(

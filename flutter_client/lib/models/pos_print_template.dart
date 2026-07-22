@@ -94,6 +94,8 @@ abstract final class PosPrintDocumentTypes {
   static const stockIssue = 'StockIssue';
   static const cashReceipt = 'CashReceipt';
   static const cashPayment = 'CashPayment';
+  static const kitchenSlip = 'KitchenSlip';
+  static const kitchenVoid = 'KitchenVoid';
 
   static const all = <String, String>{
     saleOrder: 'Đặt hàng',
@@ -108,6 +110,8 @@ abstract final class PosPrintDocumentTypes {
     stockIssue: 'Phiếu xuất kho',
     cashReceipt: 'Phiếu thu',
     cashPayment: 'Phiếu chi',
+    kitchenSlip: 'Phiếu chế biến',
+    kitchenVoid: 'Phiếu hủy bếp',
   };
 }
 

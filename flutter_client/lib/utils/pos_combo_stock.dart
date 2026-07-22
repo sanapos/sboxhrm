@@ -45,6 +45,19 @@ Map<String, double> buildComponentReservation(Iterable<CartLineForStock> cartLin
   return map;
 }
 
+/// Chỉ phần tồn đã giữ bởi combo (không gồm hàng lẻ cùng SP).
+Map<String, double> buildComboOnlyReservation(Iterable<CartLineForStock> cartLines) {
+  final map = <String, double>{};
+  for (final line in cartLines) {
+    if (line.productType != PosProductType.combo) continue;
+    for (final cl in line.comboLines) {
+      map[cl.componentProductId] =
+          (map[cl.componentProductId] ?? 0) + cl.qty * line.qty;
+    }
+  }
+  return map;
+}
+
 class CartLineForStock {
   const CartLineForStock({
     required this.productId,

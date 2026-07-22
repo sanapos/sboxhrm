@@ -121,7 +121,7 @@ public partial class AgentController : AuthenticatedControllerBase
             .Include(a => a.User)
             .FirstAsync(a => a.Id == agentId);
 
-        var baseUrl = configuration["AppSettings:FlutterClientUrl"] ?? "https://sbox.sana.vn";
+        var baseUrl = configuration["AppSettings:FlutterClientUrl"] ?? "https://sboxhrm.com";
         var referralLink = $"{baseUrl}/#/register?agentCode={agentFull.Code}";
 
         return new AgentProfileDto(

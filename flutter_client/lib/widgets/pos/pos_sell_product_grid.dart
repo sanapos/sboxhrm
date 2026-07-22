@@ -12,6 +12,7 @@ import '../../utils/pos_purchase_product_lookup.dart';
 import '../../utils/pos_sell_stock_patch.dart';
 import '../../utils/pos_sell_unit_views.dart';
 import '../../utils/responsive_helper.dart';
+import 'pos_catalog_sort_sheet.dart';
 import 'pos_mobile_widgets.dart';
 import '../pos_barcode_scanner.dart';
 import 'pos_product_image.dart';
@@ -26,6 +27,7 @@ class PosSellProductGrid extends StatefulWidget {
     super.key,
     required this.api,
     required this.onPick,
+    this.onDecrement,
     this.storeId,
     this.pageSize = 24,
     this.sellListLayout = false,
@@ -35,6 +37,8 @@ class PosSellProductGrid extends StatefulWidget {
 
   final ApiService api;
   final ValueChanged<PosPurchaseLookupPick> onPick;
+  /// Giảm 1 SP trong giỏ (màn chọn hàng hóa — nút −).
+  final ValueChanged<PosProduct>? onDecrement;
   /// Store hiện tại — dùng key cache catalog local.
   final String? storeId;
   final int pageSize;
@@ -54,6 +58,8 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
   final _qtyFmt = NumberFormat('#,##0.##', 'vi_VN');
   final _categoryScroll = ScrollController();
   final _gridScroll = ScrollController();
+  final _searchCtrl = TextEditingController();
+  String _searchQuery = '';
   List<PosProduct> _allProducts = [];
   List<PosProduct> _products = [];
   List<PosCatalogItem> _categories = [];
@@ -97,6 +103,13 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     ScreenRefreshNotifier.posSellStockPatch.addListener(_onStockPatch);
     _loadCategories();
     _loadProducts();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _onStockPatch();
+      if (ScreenRefreshNotifier.posSellProductGrid.value > 0) {
+        _onExternalRefresh();
+      }
+    });
   }
 
   @override
@@ -105,6 +118,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     ScreenRefreshNotifier.posSellStockPatch.removeListener(_onStockPatch);
     _categoryScroll.dispose();
     _gridScroll.dispose();
+    _searchCtrl.dispose();
     super.dispose();
   }
 
@@ -173,9 +187,97 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
   }
 
   List<PosProduct> _filterByCategory(List<PosProduct> source) {
-    if (_categoryId == null || _categoryId!.isEmpty) return source;
-    final ids = collectCategorySubtreeIds(_categories, _categoryId!);
-    return source.where((p) => p.categoryId != null && ids.contains(p.categoryId)).toList();
+    var list = source;
+    if (_categoryId != null && _categoryId!.isNotEmpty) {
+      final ids = collectCategorySubtreeIds(_categories, _categoryId!);
+      list = list
+          .where((p) => p.categoryId != null && ids.contains(p.categoryId))
+          .toList();
+    }
+    final q = _searchQuery.trim().toLowerCase();
+    if (q.isNotEmpty) {
+      list = list.where((p) {
+        final name = p.name.toLowerCase();
+        final code = p.productCode.toLowerCase();
+        final barcode = (p.barcode ?? '').toLowerCase();
+        return name.contains(q) || code.contains(q) || barcode.contains(q);
+      }).toList();
+    }
+    list = List<PosProduct>.from(list)
+      ..sort((a, b) {
+        final cs = a.sortOrder.compareTo(b.sortOrder);
+        if (cs != 0) return cs;
+        if (a.isFavorite != b.isFavorite) return a.isFavorite ? -1 : 1;
+        return a.name.compareTo(b.name);
+      });
+    return list;
+  }
+
+  Future<void> _openCatalogSort() async {
+    final ok = await showPosCatalogSortSheet(
+      context: context,
+      api: widget.api,
+      categories: _categories,
+      products: _allProducts,
+      initialCategoryId: _categoryId,
+    );
+    if (!mounted || !ok) return;
+    await _loadCategories();
+    await _loadProducts(forceNetwork: true);
+  }
+
+  void _onSearchChanged(String raw) {
+    final next = raw.trim();
+    if (next == _searchQuery) return;
+    setState(() {
+      _searchQuery = next;
+      _products = _filterByCategory(_allProducts);
+      _page = 0;
+    });
+    _prefetchPageUnitViews();
+  }
+
+  Widget _buildSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
+      child: TextField(
+        controller: _searchCtrl,
+        onChanged: _onSearchChanged,
+        textInputAction: TextInputAction.search,
+        decoration: InputDecoration(
+          hintText: 'Tìm tên, mã hàng, mã vạch…',
+          isDense: true,
+          filled: true,
+          fillColor: const Color(0xFFF8FAFC),
+          prefixIcon: const Icon(Icons.search, size: 20, color: PosTheme.textSecondary),
+          suffixIcon: _searchQuery.isEmpty
+              ? null
+              : IconButton(
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.close, size: 18),
+                  onPressed: () {
+                    _searchCtrl.clear();
+                    _onSearchChanged('');
+                  },
+                ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: PosTheme.border),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: PosTheme.border),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: PosTheme.kiotBlue, width: 1.4),
+          ),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        ),
+        style: const TextStyle(fontSize: 14),
+      ),
+    );
   }
 
   Future<void> _loadProducts({bool forceNetwork = false}) async {
@@ -362,6 +464,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
       widget.cartQtyByProductId[productId] ?? 0;
 
   List<PosProduct> get _sortedSellListProducts {
+    // Giữ thứ tự menu (sortOrder); SP đã chọn trong giỏ nổi lên đầu.
     if (widget.cartQtyByProductId.isEmpty) return _products;
     final list = List<PosProduct>.from(_products);
     list.sort((a, b) {
@@ -371,6 +474,8 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
       final bSelected = qb > 0;
       if (aSelected != bSelected) return aSelected ? -1 : 1;
       if (qa != qb) return qb.compareTo(qa);
+      final cs = a.sortOrder.compareTo(b.sortOrder);
+      if (cs != 0) return cs;
       return a.name.compareTo(b.name);
     });
     return list;
@@ -854,8 +959,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
               : lowStock
                   ? 'Sắp hết: ${_qtyFmt.format(qty)} $unit'
                   : '${_qtyFmt.format(qty)} $unit',
-          orderReservedText: 'KH đặt: 0',
-          onScanCode: _scanAndPick,
+          orderReservedText: null,
           image: PosProductImage(
             productId: p.id,
             imageUrl: p.imageUrl,
@@ -872,6 +976,18 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
                     _pickProduct(p);
                   }
                 },
+          onIncrement: !isSelected || views == null
+              ? null
+              : () {
+                  if (views.length == 1) {
+                    _pickProduct(p, view: views.first);
+                  } else {
+                    _pickProduct(p);
+                  }
+                },
+          onDecrement: !isSelected || widget.onDecrement == null
+              ? null
+              : () => widget.onDecrement!(p),
         );
       },
     );
@@ -964,17 +1080,29 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
             )
-          : Scrollbar(
-              thumbVisibility: false,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                children: [
-                  _horizontalCategoryChip('Tất cả', null),
-                  for (final node in buildPosCategoryTree(_categories))
-                    ..._horizontalCategoryChipsForNode(node),
-                ],
-              ),
+          : Row(
+              children: [
+                Expanded(
+                  child: Scrollbar(
+                    thumbVisibility: false,
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      children: [
+                        _horizontalCategoryChip('Tất cả', null),
+                        for (final node in buildPosCategoryTree(_categories))
+                          ..._horizontalCategoryChipsForNode(node),
+                      ],
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Sắp xếp menu',
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.swap_vert, size: 22),
+                  onPressed: _openCatalogSort,
+                ),
+              ],
             ),
     );
   }
@@ -1023,7 +1151,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const SizedBox(height: 6),
+            _buildSearchBar(),
             _horizontalCategoryStrip(),
             const Divider(height: 1, color: PosTheme.border),
             Expanded(child: _buildSellList()),
@@ -1068,14 +1196,26 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           ),
                         )
-                      : Scrollbar(
-                          controller: _categoryScroll,
-                          thumbVisibility: true,
-                          child: ListView(
-                            controller: _categoryScroll,
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            children: _categoryButtons(),
-                          ),
+                      : Column(
+                          children: [
+                            Expanded(
+                              child: Scrollbar(
+                                controller: _categoryScroll,
+                                thumbVisibility: true,
+                                child: ListView(
+                                  controller: _categoryScroll,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                  children: _categoryButtons(),
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: 'Sắp xếp menu',
+                              icon: const Icon(Icons.swap_vert),
+                              onPressed: _openCatalogSort,
+                            ),
+                          ],
                         ),
                 ),
               ),

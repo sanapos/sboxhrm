@@ -147,25 +147,56 @@ public class PosPurchaseReceiptsController(
     public async Task<ActionResult<AppResponse<ReceiptDto>>> Create([FromBody] SaveReceiptDto dto)
     {
         var storeId = RequiredStoreId;
-        var (receipt, lines, err) = await BuildReceiptAsync(storeId, null, dto, draft: !dto.Complete);
-        if (err != null) return BadRequest(AppResponse<ReceiptDto>.Fail(err));
-        if (dto.Complete)
+        for (var attempt = 0; attempt < 3; attempt++)
         {
-            receipt.Status = PosPurchaseReceiptStatus.Completed;
-            await PosPurchaseStockHelper.ApplyReceiptStockAsync(dbContext, storeId, receipt, lines, CurrentUserEmail);
-            await PosPurchaseStockHelper.UpdateSupplierOnReceiptCompleteAsync(dbContext, receipt);
+            try
+            {
+                // Lần retry: bỏ mã client gửi để lấy số mới (tránh đụng unique soft-delete).
+                var effectiveDto = attempt == 0
+                    ? dto
+                    : dto with { ReceiptNo = null };
+
+                var (receipt, lines, err) = await BuildReceiptAsync(
+                    storeId, null, effectiveDto, draft: !dto.Complete);
+                if (err != null) return BadRequest(AppResponse<ReceiptDto>.Fail(err));
+                if (dto.Complete)
+                {
+                    receipt.Status = PosPurchaseReceiptStatus.Completed;
+                    await PosPurchaseStockHelper.ApplyReceiptStockAsync(
+                        dbContext, storeId, receipt!, lines!, CurrentUserEmail);
+                    await PosPurchaseStockHelper.UpdateSupplierOnReceiptCompleteAsync(
+                        dbContext, receipt!);
+                }
+                dbContext.PosStockReceipts.Add(receipt!);
+                dbContext.PosStockReceiptLines.AddRange(lines!);
+                if (dto.Complete)
+                    AddReceiptPaymentRecord(storeId, receipt!, dto);
+                if (dto.Complete)
+                    await PosFinanceSyncHelper.SyncPurchaseReceiptPaymentAsync(
+                        dbContext, receipt!, CurrentUserId);
+                await dbContext.SaveChangesAsync();
+                receipt!.Supplier = dto.SupplierId.HasValue
+                    ? await dbContext.PosSuppliers.AsNoTracking()
+                        .FirstOrDefaultAsync(s => s.Id == dto.SupplierId)
+                    : null;
+                return Ok(AppResponse<ReceiptDto>.Success(await MapReceiptAsync(receipt, lines!)));
+            }
+            catch (DbUpdateException ex) when (
+                attempt < 2 &&
+                (ex.InnerException?.Message?.Contains("IX_PosStockReceipts_StoreId_ReceiptNo") == true
+                 || ex.InnerException?.Message?.Contains("duplicate key") == true))
+            {
+                dbContext.ChangeTracker.Clear();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(AppResponse<ReceiptDto>.Fail(
+                    ex.InnerException?.Message ?? ex.Message));
+            }
         }
-        dbContext.PosStockReceipts.Add(receipt!);
-        dbContext.PosStockReceiptLines.AddRange(lines!);
-        if (dto.Complete)
-            AddReceiptPaymentRecord(storeId, receipt!, dto);
-        if (dto.Complete)
-            await PosFinanceSyncHelper.SyncPurchaseReceiptPaymentAsync(dbContext, receipt!, CurrentUserId);
-        await dbContext.SaveChangesAsync();
-        receipt!.Supplier = dto.SupplierId.HasValue
-            ? await dbContext.PosSuppliers.AsNoTracking().FirstOrDefaultAsync(s => s.Id == dto.SupplierId)
-            : null;
-        return Ok(AppResponse<ReceiptDto>.Success(await MapReceiptAsync(receipt, lines!)));
+
+        return BadRequest(AppResponse<ReceiptDto>.Fail(
+            "Không tạo được mã phiếu nhập — thử lại"));
     }
 
     [HttpPut("{id:guid}")]
@@ -173,7 +204,10 @@ public class PosPurchaseReceiptsController(
     public async Task<ActionResult<AppResponse<ReceiptDto>>> Update(Guid id, [FromBody] SaveReceiptDto dto)
     {
         var storeId = RequiredStoreId;
+        // .AsTracking(): BuildReceiptAsync ghi SupplierId/Note/TotalCost/... lên receipt rồi
+        // SaveChangesAsync — thiếu tracking thì các thay đổi header bị âm thầm mất.
         var receipt = await dbContext.PosStockReceipts
+            .AsTracking()
             .Include(r => r.Lines)
             .FirstOrDefaultAsync(r => r.Id == id && r.StoreId == storeId && r.Deleted == null);
         if (receipt == null) return NotFound(AppResponse<ReceiptDto>.Fail("Không tìm thấy phiếu"));
@@ -186,23 +220,44 @@ public class PosPurchaseReceiptsController(
 
         if (dto.Complete)
         {
-            await PosPurchaseStockHelper.ApplyReceiptStockAsync(dbContext, storeId, receipt, lines!, CurrentUserEmail);
-            await PosPurchaseStockHelper.UpdateSupplierOnReceiptCompleteAsync(dbContext, receipt);
-        }
-        dbContext.PosStockReceiptLines.AddRange(lines!);
-        if (dto.Complete)
-            AddReceiptPaymentRecord(storeId, receipt, dto);
-        if (dto.Complete)
-            await PosFinanceSyncHelper.SyncPurchaseReceiptPaymentAsync(dbContext, receipt, CurrentUserId);
-        await dbContext.SaveChangesAsync();
+            await using var tx = await dbContext.Database.BeginTransactionAsync();
+            try
+            {
+                var (claimed, claimErr) = await PosDocStatusPersistHelper.SetPurchaseReceiptStatusAsync(
+                    dbContext, id, storeId,
+                    PosPurchaseReceiptStatus.Draft, PosPurchaseReceiptStatus.Completed,
+                    CurrentUserEmail, allowAlready: false);
+                if (!claimed)
+                {
+                    await tx.RollbackAsync();
+                    return Conflict(AppResponse<ReceiptDto>.Fail(claimErr ?? "Phiếu đã được xử lý"));
+                }
 
-        if (dto.Complete)
+                receipt.Status = PosPurchaseReceiptStatus.Completed;
+                await PosPurchaseStockHelper.ApplyReceiptStockAsync(
+                    dbContext, storeId, receipt, lines!, CurrentUserEmail);
+                await PosPurchaseStockHelper.UpdateSupplierOnReceiptCompleteAsync(dbContext, receipt);
+                dbContext.PosStockReceiptLines.AddRange(lines!);
+                AddReceiptPaymentRecord(storeId, receipt, dto);
+                await PosFinanceSyncHelper.SyncPurchaseReceiptPaymentAsync(dbContext, receipt, CurrentUserId);
+                await dbContext.SaveChangesAsync();
+                await tx.CommitAsync();
+            }
+            catch (InvalidOperationException ex)
+            {
+                await tx.RollbackAsync();
+                return BadRequest(AppResponse<ReceiptDto>.Fail(ex.Message));
+            }
+            catch
+            {
+                await tx.RollbackAsync();
+                throw;
+            }
+        }
+        else
         {
-            var (statusOk, statusErr) = await PosDocStatusPersistHelper.SetPurchaseReceiptStatusAsync(
-                dbContext, id, storeId,
-                PosPurchaseReceiptStatus.Draft, PosPurchaseReceiptStatus.Completed, CurrentUserEmail);
-            if (!statusOk)
-                return BadRequest(AppResponse<ReceiptDto>.Fail(statusErr!));
+            dbContext.PosStockReceiptLines.AddRange(lines!);
+            await dbContext.SaveChangesAsync();
         }
 
         dbContext.ChangeTracker.Clear();
@@ -219,7 +274,9 @@ public class PosPurchaseReceiptsController(
     public async Task<ActionResult<AppResponse<ReceiptDto>>> Complete(Guid id)
     {
         var storeId = RequiredStoreId;
+        // .AsTracking(): ImportDate/ImportedBy ghi trên receipt rồi SaveChangesAsync.
         var receipt = await dbContext.PosStockReceipts
+            .AsTracking()
             .Include(r => r.Lines)
             .Include(r => r.Supplier)
             .FirstOrDefaultAsync(r => r.Id == id && r.StoreId == storeId && r.Deleted == null);
@@ -229,18 +286,39 @@ public class PosPurchaseReceiptsController(
         if (receipt.Lines.Count == 0)
             return BadRequest(AppResponse<ReceiptDto>.Fail("Phiếu trống"));
 
-        receipt.ImportDate ??= DateTime.UtcNow;
-        receipt.ImportedBy ??= CurrentUserEmail;
-        await PosPurchaseStockHelper.ApplyReceiptStockAsync(dbContext, storeId, receipt, receipt.Lines.ToList(), CurrentUserEmail);
-        await PosPurchaseStockHelper.UpdateSupplierOnReceiptCompleteAsync(dbContext, receipt);
-        await PosFinanceSyncHelper.SyncPurchaseReceiptPaymentAsync(dbContext, receipt, CurrentUserId);
-        await dbContext.SaveChangesAsync();
+        await using var tx = await dbContext.Database.BeginTransactionAsync();
+        try
+        {
+            var (claimed, claimErr) = await PosDocStatusPersistHelper.SetPurchaseReceiptStatusAsync(
+                dbContext, id, storeId,
+                PosPurchaseReceiptStatus.Draft, PosPurchaseReceiptStatus.Completed,
+                CurrentUserEmail, allowAlready: false);
+            if (!claimed)
+            {
+                await tx.RollbackAsync();
+                return Conflict(AppResponse<ReceiptDto>.Fail(claimErr ?? "Phiếu đã được xử lý"));
+            }
 
-        var (statusOk, statusErr) = await PosDocStatusPersistHelper.SetPurchaseReceiptStatusAsync(
-            dbContext, id, storeId,
-            PosPurchaseReceiptStatus.Draft, PosPurchaseReceiptStatus.Completed, CurrentUserEmail);
-        if (!statusOk)
-            return BadRequest(AppResponse<ReceiptDto>.Fail(statusErr!));
+            receipt.Status = PosPurchaseReceiptStatus.Completed;
+            receipt.ImportDate ??= DateTime.UtcNow;
+            receipt.ImportedBy ??= CurrentUserEmail;
+            await PosPurchaseStockHelper.ApplyReceiptStockAsync(
+                dbContext, storeId, receipt, receipt.Lines.ToList(), CurrentUserEmail);
+            await PosPurchaseStockHelper.UpdateSupplierOnReceiptCompleteAsync(dbContext, receipt);
+            await PosFinanceSyncHelper.SyncPurchaseReceiptPaymentAsync(dbContext, receipt, CurrentUserId);
+            await dbContext.SaveChangesAsync();
+            await tx.CommitAsync();
+        }
+        catch (InvalidOperationException ex)
+        {
+            await tx.RollbackAsync();
+            return BadRequest(AppResponse<ReceiptDto>.Fail(ex.Message));
+        }
+        catch
+        {
+            await tx.RollbackAsync();
+            throw;
+        }
 
         dbContext.ChangeTracker.Clear();
         var fresh = await dbContext.PosStockReceipts.AsNoTracking()
@@ -381,6 +459,11 @@ public class PosPurchaseReceiptsController(
         if (!receipt.SupplierId.HasValue)
             return BadRequest(AppResponse<PaymentDto>.Fail("Phiếu chưa có nhà cung cấp"));
 
+        var balanceDue = Math.Max(0, receipt.GrandTotal - receipt.PaidAmount);
+        if (dto.Amount > balanceDue)
+            return BadRequest(AppResponse<PaymentDto>.Fail(
+                $"Số thanh toán vượt công nợ phiếu (còn {balanceDue:0.##} đ)"));
+
         var pay = new PosSupplierPayment
         {
             Id = Guid.NewGuid(),
@@ -457,9 +540,10 @@ public class PosPurchaseReceiptsController(
             string receiptNo;
             if (!string.IsNullOrEmpty(customNo))
             {
-                if (await dbContext.PosStockReceipts.AnyAsync(r =>
-                        r.StoreId == storeId && r.ReceiptNo == customNo && r.Deleted == null))
-                    return (null, null, "Mã phiếu nhập đã tồn tại");
+                // Unique index gồm cả soft-delete — không cho tái dùng mã đã từng tồn tại.
+                if (await dbContext.PosStockReceipts.IgnoreQueryFilters().AnyAsync(r =>
+                        r.StoreId == storeId && r.ReceiptNo == customNo))
+                    return (null, null, "Mã phiếu nhập đã tồn tại (kể cả phiếu đã xóa)");
                 receiptNo = customNo;
             }
             else
@@ -481,10 +565,9 @@ public class PosPurchaseReceiptsController(
         {
             if (existing.Status != PosPurchaseReceiptStatus.Draft)
                 return (null, null, "Không thể đổi mã phiếu đã hoàn thành");
-            if (await dbContext.PosStockReceipts.AnyAsync(r =>
-                    r.StoreId == storeId && r.ReceiptNo == customNo && r.Id != existing.Id &&
-                    r.Deleted == null))
-                return (null, null, "Mã phiếu nhập đã tồn tại");
+            if (await dbContext.PosStockReceipts.IgnoreQueryFilters().AnyAsync(r =>
+                    r.StoreId == storeId && r.ReceiptNo == customNo && r.Id != existing.Id))
+                return (null, null, "Mã phiếu nhập đã tồn tại (kể cả phiếu đã xóa)");
             existing.ReceiptNo = customNo;
         }
 
@@ -497,7 +580,7 @@ public class PosPurchaseReceiptsController(
         receipt.DiscountAmount = dto.DiscountAmount;
         receipt.DiscountIsPercent = dto.DiscountIsPercent;
         receipt.DiscountInput = dto.DiscountInput;
-        receipt.PaidAmount = dto.PaidAmount;
+        receipt.PaidAmount = Math.Max(0, dto.PaidAmount);
         receipt.ImportDate = dto.ImportDate ?? DateTime.UtcNow;
         receipt.ImportedBy = dto.ImportedBy?.Trim() ?? CurrentUserEmail;
         receipt.UpdatedAt = DateTime.UtcNow;
@@ -553,12 +636,16 @@ public class PosPurchaseReceiptsController(
         receipt.TotalQty = totalQty;
         receipt.TotalCost = totalCost;
         receipt.TotalVat = totalVat;
+        // Không cho PaidAmount > GrandTotal → BalanceDue âm làm lệch CurrentDebt NCC.
+        if (receipt.PaidAmount > receipt.GrandTotal)
+            receipt.PaidAmount = receipt.GrandTotal;
         return (receipt, lines, null);
     }
 
     private void AddReceiptPaymentRecord(Guid storeId, PosStockReceipt receipt, SaveReceiptDto dto)
     {
-        if (dto.PaidAmount <= 0 || !dto.SupplierId.HasValue) return;
+        var paid = Math.Min(Math.Max(0, receipt.PaidAmount), receipt.GrandTotal);
+        if (paid <= 0 || !dto.SupplierId.HasValue) return;
         var method = string.IsNullOrWhiteSpace(dto.PaymentMethod) ? "Tiền mặt" : dto.PaymentMethod.Trim();
         dbContext.PosSupplierPayments.Add(new PosSupplierPayment
         {
@@ -567,7 +654,7 @@ public class PosPurchaseReceiptsController(
             SupplierId = dto.SupplierId.Value,
             StockReceiptId = receipt.Id,
             PaymentNo = PosStockDocumentNo.NewSupplierPayment(),
-            Amount = dto.PaidAmount,
+            Amount = paid,
             PaymentMethod = method,
             PaidAt = receipt.ImportDate ?? DateTime.UtcNow,
             Note = $"Thanh toán phiếu {receipt.ReceiptNo}",

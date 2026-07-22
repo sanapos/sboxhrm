@@ -217,7 +217,16 @@ public static class ClockCommandResponsesExtensions
             ClockCommandResponses.InvalidFingerprintTemplate => "Invalid fingerprint template",
             ClockCommandResponses.UnknownCommand => "Unknown command",
             ClockCommandResponses.EnrollmentTimeout => "Hết thời gian đăng ký - vui lòng đứng trước camera/máy chấm công và thử lại",
-            _ => $"Unknown result code: {(int)result}"
+            _ => (int)result switch
+            {
+                -1001 => "Hết dung lượng trên máy",
+                -1002 => "Thiết bị không hỗ trợ lệnh/tính năng này",
+                -1004 => "Dữ liệu không khớp cấu hình máy",
+                -1005 => "Máy đang bận",
+                -1006 => "Dữ liệu quá dài",
+                -1007 => "Lỗi bộ nhớ máy",
+                _ => $"Unknown result code: {(int)result}"
+            }
         };
     }
 
@@ -244,7 +253,13 @@ public static class ClockCommandResponsesExtensions
             -11 => "Invalid fingerprint template format",
             -12 => "Invalid fingerprint template",
             -22 => "Unknown command",
+            -1001 => "Hết dung lượng trên máy",
+            -1002 => "Thiết bị không hỗ trợ lệnh/tính năng này (kiểm tra firmware/model hoặc đăng ký trực tiếp trên máy)",
             -1003 => "Hết thời gian đăng ký - vui lòng đứng trước camera/máy chấm công và thử lại",
+            -1004 => "Dữ liệu không khớp cấu hình máy (model/firmware)",
+            -1005 => "Máy đang bận, thử lại sau",
+            -1006 => "Dữ liệu quá dài",
+            -1007 => "Lỗi bộ nhớ máy",
             _ => $"Device error code: {returnCode}"
         };
     }

@@ -37,4 +37,25 @@ public class PosSaleOrderLine : AuditableEntity<Guid>
 
     [MaxLength(500)]
     public string? LineNote { get; set; }
+
+    /// <summary>Thời lượng khai báo / đã dùng (phút).</summary>
+    public int? DurationMinutes { get; set; }
+
+    /// <summary>Phút tính tiền sau làm tròn / tối thiểu.</summary>
+    public int? BillableMinutes { get; set; }
+
+    public DateTime? ServiceStartedAt { get; set; }
+    public DateTime? ServiceEndedAt { get; set; }
+
+    /// <summary>NV phụ trách dòng (stylist / PT).</summary>
+    public Guid? AssignedEmployeeId { get; set; }
+
+    /// <summary>Số lượng đã báo chế biến / gửi bếp.</summary>
+    public decimal KitchenSentQty { get; set; }
+
+    /// <summary>Lần gửi bếp gần nhất.</summary>
+    public DateTime? KitchenSentAt { get; set; }
+
+    /// <summary>JSON topping: [{id,name,price}].</summary>
+    public string? ToppingsJson { get; set; }
 }

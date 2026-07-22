@@ -85,12 +85,23 @@ Future<void> scanBarcodeContinuously(
 Future<void> _playScanBeep() async {
   try {
     await SystemSound.play(SystemSoundType.click);
-    await Future<void>.delayed(const Duration(milliseconds: 70));
-    await SystemSound.play(SystemSoundType.click);
   } catch (_) {
     HapticFeedback.heavyImpact();
   }
 }
+
+/// Định dạng mã phổ biến — tránh quét `all` làm chậm decode trên Sunmi V2s.
+const _kPosScanFormats = <BarcodeFormat>[
+  BarcodeFormat.qrCode,
+  BarcodeFormat.code128,
+  BarcodeFormat.code39,
+  BarcodeFormat.code93,
+  BarcodeFormat.ean13,
+  BarcodeFormat.ean8,
+  BarcodeFormat.upcA,
+  BarcodeFormat.upcE,
+  BarcodeFormat.dataMatrix,
+];
 
 class _BarcodeScannerSheet extends StatefulWidget {
   const _BarcodeScannerSheet({
@@ -117,11 +128,12 @@ class _BarcodeScannerSheetState extends State<_BarcodeScannerSheet> {
   void initState() {
     super.initState();
     _controller = MobileScannerController(
-      detectionSpeed: widget.continuous
-          ? DetectionSpeed.unrestricted
-          : DetectionSpeed.noDuplicates,
+      detectionSpeed: DetectionSpeed.unrestricted,
       facing: CameraFacing.back,
-      formats: const [BarcodeFormat.all],
+      // 720p thay vì mặc định 640x480 — bắt nét QR nhanh hơn trên V2s.
+      cameraResolution: const Size(1280, 720),
+      autoZoom: true,
+      formats: _kPosScanFormats,
     );
   }
 
@@ -141,7 +153,7 @@ class _BarcodeScannerSheetState extends State<_BarcodeScannerSheet> {
     if (_lastCode != raw) return false;
     final at = _lastAt;
     if (at == null) return false;
-    return DateTime.now().difference(at).inMilliseconds < 180;
+    return DateTime.now().difference(at).inMilliseconds < 280;
   }
 
   void _onDetect(BarcodeCapture capture) {
@@ -229,20 +241,33 @@ class _BarcodeScannerSheetState extends State<_BarcodeScannerSheet> {
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    MobileScanner(
-                      controller: _controller,
-                      onDetect: _onDetect,
-                    ),
-                    IgnorePointer(
-                      child: CustomPaint(
-                        painter: _ScanReticlePainter(),
-                        child: const SizedBox.expand(),
-                      ),
-                    ),
-                  ],
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final size =
+                        Size(constraints.maxWidth, constraints.maxHeight);
+                    final window = Rect.fromCenter(
+                      center: Offset(size.width / 2, size.height / 2),
+                      width: size.width * 0.78,
+                      height: size.height * 0.36,
+                    );
+                    return Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        MobileScanner(
+                          controller: _controller,
+                          onDetect: _onDetect,
+                          tapToFocus: true,
+                          scanWindow: window,
+                        ),
+                        IgnorePointer(
+                          child: CustomPaint(
+                            painter: _ScanReticlePainter(),
+                            child: const SizedBox.expand(),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ),
             ),
@@ -251,8 +276,8 @@ class _BarcodeScannerSheetState extends State<_BarcodeScannerSheet> {
             padding: const EdgeInsets.all(16),
             child: Text(
               widget.continuous
-                  ? 'Đưa mã vào tâm khung — có tiếng bíp khi quét thành công'
-                  : 'Đưa mã vạch hoặc QR vào tâm khung',
+                  ? 'Đưa mã vào tâm khung — chạm màn hình để lấy nét. Ưu tiên quét cứng Sunmi nếu có.'
+                  : 'Đưa mã vào tâm khung · chạm màn hình để lấy nét nhanh hơn',
               textAlign: TextAlign.center,
               style: const TextStyle(color: Colors.grey),
             ),
@@ -267,8 +292,8 @@ class _ScanReticlePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final rectW = size.width * 0.72;
-    final rectH = size.height * 0.34;
+    final rectW = size.width * 0.78;
+    final rectH = size.height * 0.36;
     final rect = Rect.fromCenter(center: center, width: rectW, height: rectH);
 
     final dim = Paint()..color = const Color(0x99000000);
@@ -297,16 +322,12 @@ class _ScanReticlePainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
     const len = 22.0;
-    // top-left
     canvas.drawLine(rect.topLeft, rect.topLeft + const Offset(len, 0), corner);
     canvas.drawLine(rect.topLeft, rect.topLeft + const Offset(0, len), corner);
-    // top-right
     canvas.drawLine(rect.topRight, rect.topRight + const Offset(-len, 0), corner);
     canvas.drawLine(rect.topRight, rect.topRight + const Offset(0, len), corner);
-    // bottom-left
     canvas.drawLine(rect.bottomLeft, rect.bottomLeft + const Offset(len, 0), corner);
     canvas.drawLine(rect.bottomLeft, rect.bottomLeft + const Offset(0, -len), corner);
-    // bottom-right
     canvas.drawLine(rect.bottomRight, rect.bottomRight + const Offset(-len, 0), corner);
     canvas.drawLine(rect.bottomRight, rect.bottomRight + const Offset(0, -len), corner);
 

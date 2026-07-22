@@ -96,8 +96,13 @@ public static class PosSaleWarrantyHelper
             var unitCount = (int)Math.Ceiling(dto.Qty);
             if (serials.Count == 0)
             {
+                // Dùng order.Id (bất biến) thay vì order.OrderNo — OrderNo có thể bị đổi lại khi
+                // CreateSale retry do đụng unique index (IX_PosSaleOrders_StoreId_OrderNo), nhưng
+                // entity WarrantyRegistration này đã được add vào change tracker với seri cũ từ
+                // trước đó, không được cập nhật lại → seri "AUTO-{OrderNo cũ}..." bị trùng với đơn
+                // khác đã chiếm OrderNo đó và insert thành công trước, gây lỗi 500 không được catch.
                 for (var u = 0; u < unitCount; u++)
-                    serials.Add(new SerialInput(BuildAutoSerial(order.OrderNo, i + 1, u + 1)));
+                    serials.Add(new SerialInput(BuildAutoSerial(order.Id, i + 1, u + 1)));
             }
 
             var months = product.WarrantyMonths ?? 0;
@@ -133,6 +138,7 @@ public static class PosSaleWarrantyHelper
     {
         var now = DateTime.UtcNow;
         var regs = await db.PosProductWarrantyRegistrations
+            .AsTracking()
             .Where(r => r.StoreId == storeId && r.SaleOrderId == saleOrderId &&
                         r.Deleted == null && r.Status == PosWarrantyStatus.Active)
             .ToListAsync();
@@ -158,6 +164,7 @@ public static class PosSaleWarrantyHelper
             if (toReturn <= 0) continue;
 
             var active = await db.PosProductWarrantyRegistrations
+                .AsTracking()
                 .Where(r => r.StoreId == storeId && r.SaleOrderId == saleOrderId &&
                             r.ProductId == productId && r.VariantId == variantId &&
                             r.Deleted == null && r.Status == PosWarrantyStatus.Active)
@@ -188,6 +195,7 @@ public static class PosSaleWarrantyHelper
             if (toRestore <= 0) continue;
 
             var returned = await db.PosProductWarrantyRegistrations
+                .AsTracking()
                 .Where(r => r.StoreId == storeId && r.SaleOrderId == saleOrderId &&
                             r.ProductId == productId && r.VariantId == variantId &&
                             r.Deleted == null && r.Status == PosWarrantyStatus.Returned)
@@ -252,6 +260,6 @@ public static class PosSaleWarrantyHelper
     private static string BuildAutoSerial(string prefix, int index) =>
         $"AUTO-{prefix}-{index}";
 
-    private static string BuildAutoSerial(string orderNo, int lineIndex, int unitIndex) =>
-        $"AUTO-{orderNo}-L{lineIndex}-{unitIndex}";
+    private static string BuildAutoSerial(Guid orderId, int lineIndex, int unitIndex) =>
+        $"AUTO-{orderId:N}-L{lineIndex}-{unitIndex}";
 }

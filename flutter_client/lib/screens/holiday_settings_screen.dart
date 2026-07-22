@@ -8,6 +8,7 @@ import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
 import '../utils/lunar_converter.dart';
 import '../widgets/app_button.dart';
+import '../widgets/hrm/hrm_settings_mobile_kit.dart';
 import '../widgets/hrm_mini_stat_chip.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/loading_widget.dart';
@@ -185,7 +186,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
   Widget build(BuildContext context) {
     final isMobile = Responsive.isMobile(context);
     return Scaffold(
-      backgroundColor: _bgColor,
+      backgroundColor: HrmPageChrome.scaffoldBackground(context),
       body: _isLoading
           ? const LoadingWidget()
           : isMobile
@@ -332,6 +333,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
 
   Widget _buildCompactToolbar({required bool isMobile}) {
     final embedded = HrmPageChrome.isEmbedded;
+    final embeddedKit = HrmSettingsMobileKit.active(context);
     return Container(
       padding: EdgeInsets.fromLTRB(
         isMobile ? 12 : 20,
@@ -381,18 +383,25 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
               _buildYearSelector(compact: isMobile),
               if (_perm.canCreate('Holiday')) ...[
                 const SizedBox(width: 8),
-                FilledButton.icon(
-                  onPressed: () => _showHolidayDialog(),
-                  icon: const Icon(Icons.add, size: 18),
-                  label: Text(isMobile ? 'Thêm' : 'Thêm ngày lễ'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: HrmPageChrome.primaryNavy,
-                    padding: EdgeInsets.symmetric(
-                      horizontal: isMobile ? 12 : 16,
-                      vertical: isMobile ? 8 : 12,
+                if (embeddedKit)
+                  HrmSettingsAddButton(
+                    label: 'Thêm ngày lễ',
+                    compact: true,
+                    onPressed: () => _showHolidayDialog(),
+                  )
+                else
+                  FilledButton.icon(
+                    onPressed: () => _showHolidayDialog(),
+                    icon: const Icon(Icons.add, size: 18),
+                    label: Text(isMobile ? 'Thêm' : 'Thêm ngày lễ'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: HrmPageChrome.primaryNavy,
+                      padding: EdgeInsets.symmetric(
+                        horizontal: isMobile ? 12 : 16,
+                        vertical: isMobile ? 8 : 12,
+                      ),
                     ),
                   ),
-                ),
               ],
             ],
           ),
@@ -400,7 +409,26 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
           _buildHolidayStatsBar(),
           const SizedBox(height: 10),
           if (isMobile) ...[
-            _categoryDropdown(),
+            if (embeddedKit)
+              HrmSettingsFilterChips(
+                options: [
+                  const HrmSettingsFilterChipOption(
+                      value: 'all', label: 'Tất cả'),
+                  ..._categories.map(
+                    (c) => HrmSettingsFilterChipOption(
+                      value: c,
+                      label: _shortCategory(c),
+                    ),
+                  ),
+                ],
+                selected: _categoryFilter,
+                onSelected: (v) => setState(() => _categoryFilter = v),
+                onClear: _categoryFilter != 'all'
+                    ? () => setState(() => _categoryFilter = 'all')
+                    : null,
+              )
+            else
+              _categoryDropdown(),
             const SizedBox(height: 8),
             _searchField(),
           ] else
@@ -692,6 +720,32 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
       return _buildEmptyState();
     }
 
+    final embeddedKit = HrmSettingsMobileKit.active(context);
+
+    if (embeddedKit && isMobile) {
+      return Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(12),
+              child: HrmSettingsEntityGrid(
+                itemCount: page.items.length,
+                columns: 2,
+                childAspectRatio: 0.92,
+                itemBuilder: (ctx, i) {
+                  final h = page.items[i];
+                  final globalIndex =
+                      (page.safePage - 1) * _holidayPageSize + i;
+                  return _buildHolidayGridTile(h, globalIndex);
+                },
+              ),
+            ),
+          ),
+          _buildPaginationBar(),
+        ],
+      );
+    }
+
     return Column(
       children: [
         Expanded(
@@ -737,6 +791,26 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
         ),
         _buildPaginationBar(),
       ],
+    );
+  }
+
+  Widget _buildHolidayGridTile(Map<String, dynamic> holiday, int index) {
+    final date = DateTime.tryParse(holiday['date']?.toString() ?? '');
+    final category = _getCategory(holiday);
+    final catColor = _getCategoryColor(category);
+    final color = _badgeColors[index % _badgeColors.length];
+    final solar = date != null
+        ? '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}'
+        : '';
+
+    return HrmSettingsEntityTile(
+      title: holiday['name']?.toString() ?? '',
+      subtitle: solar,
+      icon: Icons.celebration,
+      iconColor: color,
+      badge: _shortCategory(category),
+      badgeColor: catColor,
+      onTap: () => _showMobileHolidayDetailSheet(holiday),
     );
   }
 

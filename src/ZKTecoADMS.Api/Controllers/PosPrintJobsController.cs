@@ -6,6 +6,7 @@ using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Models;
+using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Infrastructure;
 
@@ -36,6 +37,145 @@ public class PosPrintJobsController(
         List<Guid> PrinterIds,
         string? AppVersion);
 
+    public record AgentOfflineDto(string DeviceId);
+
+    [HttpGet("agents")]
+    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<object>>> ListAgents(
+        [FromQuery] bool onlineOnly = true,
+        [FromQuery] int staleSeconds = 90)
+    {
+        var storeId = RequiredStoreId;
+        staleSeconds = Math.Clamp(staleSeconds, 30, 600);
+        var now = DateTime.UtcNow;
+
+        var agents = await db.PosPrintAgents.AsNoTracking()
+            .Where(a => a.StoreId == storeId && a.Deleted == null)
+            .OrderByDescending(a => a.LastHeartbeatAt)
+            .ToListAsync();
+
+        // Tính online an toàn với datetime SQL (Unspecified/Local/Utc lệch).
+        // Không đánh offline hàng loạt bằng so sánh timezone sai.
+        static bool IsFresh(PosPrintAgent a, DateTime utcNow, int staleSec)
+        {
+            if (a.LastHeartbeatAt == null) return a.IsOnline;
+            var hb = a.LastHeartbeatAt.Value;
+            var ageUtc = Math.Abs((utcNow - DateTime.SpecifyKind(hb, DateTimeKind.Utc)).TotalSeconds);
+            var ageRaw = Math.Abs((utcNow - hb).TotalSeconds);
+            var age = Math.Min(ageUtc, ageRaw);
+            if (age <= Math.Max(staleSec, 180)) return true;
+            return a.IsOnline && age <= 600;
+        }
+
+        foreach (var a in agents)
+        {
+            var fresh = IsFresh(a, now, staleSeconds);
+            if (fresh != a.IsOnline)
+            {
+                await db.PosPrintAgents
+                    .Where(x => x.Id == a.Id)
+                    .ExecuteUpdateAsync(s => s
+                        .SetProperty(x => x.IsOnline, fresh)
+                        .SetProperty(x => x.UpdatedAt, now));
+                a.IsOnline = fresh;
+            }
+        }
+
+        if (onlineOnly)
+            agents = agents.Where(a => a.IsOnline).ToList();
+
+        agents = agents
+            .OrderByDescending(a => a.IsOnline)
+            .ThenByDescending(a => a.LastHeartbeatAt)
+            .ToList();
+
+        var userIds = agents
+            .Select(a => Guid.TryParse(a.UserId, out var uid) ? uid : Guid.Empty)
+            .Where(id => id != Guid.Empty)
+            .Distinct()
+            .ToList();
+        var users = new Dictionary<Guid, (string? Email, string? UserName)>();
+        if (userIds.Count > 0)
+        {
+            var userRows = await db.Users.AsNoTracking()
+                .Where(u => userIds.Contains(u.Id))
+                .Select(u => new { u.Id, u.Email, u.UserName })
+                .ToListAsync();
+            foreach (var u in userRows)
+                users[u.Id] = (u.Email, u.UserName);
+        }
+
+        var printerNameById = await db.PosStorePrinters.AsNoTracking()
+            .Where(p => p.StoreId == storeId && p.Deleted == null)
+            .Select(p => new { p.Id, p.Name })
+            .ToDictionaryAsync(x => x.Id, x => x.Name);
+
+        var items = agents.Select(a =>
+        {
+            var printerIds = ParsePrinterIds(a.AssignedPrinterIdsJson);
+            string? accountEmail = null;
+            string? accountUserName = null;
+            if (Guid.TryParse(a.UserId, out var uid) && users.TryGetValue(uid, out var u))
+            {
+                accountEmail = u.Email;
+                accountUserName = u.UserName;
+            }
+            return new
+            {
+                agentId = a.Id,
+                a.DeviceId,
+                a.DeviceName,
+                a.EmployeeName,
+                accountEmail,
+                accountUserName,
+                accountLabel = !string.IsNullOrWhiteSpace(a.EmployeeName)
+                    ? a.EmployeeName
+                    : (!string.IsNullOrWhiteSpace(accountEmail)
+                        ? accountEmail
+                        : accountUserName),
+                printerIds,
+                printerNames = printerIds
+                    .Select(id => printerNameById.TryGetValue(id, out var n) ? n : id.ToString()[..8])
+                    .ToList(),
+                a.IsOnline,
+                a.LastHeartbeatAt,
+                a.AppVersion,
+            };
+        }).ToList();
+
+        // Cùng 1 máy in được ≥2 agent online → xung đột.
+        var conflictPrinterIds = items
+            .Where(x => x.IsOnline)
+            .SelectMany(x => x.printerIds.Select(pid => (pid, x.DeviceId)))
+            .GroupBy(x => x.pid)
+            .Where(g => g.Select(x => x.DeviceId).Distinct().Count() > 1)
+            .Select(g => g.Key)
+            .ToList();
+
+        var onlineCount = items.Count(x => x.IsOnline);
+        return Ok(AppResponse<object>.Success(new
+        {
+            onlineCount,
+            multiAgent = onlineCount > 1,
+            hasPrinterConflict = conflictPrinterIds.Count > 0,
+            conflictPrinterIds,
+            agents = items,
+        }));
+    }
+
+    static List<Guid> ParsePrinterIds(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return [];
+        try
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<List<Guid>>(json) ?? [];
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
     [HttpPost]
     [RequireModulePermission("PosSell", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> Create([FromBody] CreateJobDto dto)
@@ -64,6 +204,23 @@ public class PosPrintJobsController(
             var printer = await db.PosStorePrinters.AsNoTracking()
                 .FirstAsync(p => p.Id == job.PrinterId);
 
+            // Đếm agent heartbeat tươi có gắn đúng máy in (không tin IsOnline — timezone SQL hay lệch).
+            var now = DateTime.UtcNow;
+            var agents = await db.PosPrintAgents.AsNoTracking()
+                .Where(a => a.StoreId == RequiredStoreId && a.Deleted == null)
+                .ToListAsync();
+            var agentOnlineForPrinter = 0;
+            foreach (var a in agents)
+            {
+                if (a.LastHeartbeatAt == null) continue;
+                var hb = a.LastHeartbeatAt.Value;
+                var ageUtc = Math.Abs((now - DateTime.SpecifyKind(hb, DateTimeKind.Utc)).TotalSeconds);
+                var ageRaw = Math.Abs((now - hb).TotalSeconds);
+                if (Math.Min(ageUtc, ageRaw) > 180) continue;
+                var ids = ParsePrinterIds(a.AssignedPrinterIdsJson);
+                if (ids.Contains(printer.Id)) agentOnlineForPrinter++;
+            }
+
             return Ok(AppResponse<object>.Success(new
             {
                 jobId = job.Id,
@@ -72,6 +229,7 @@ public class PosPrintJobsController(
                 requiresAgent = printer.RequiresAgent,
                 connectionType = printer.ConnectionType.ToString(),
                 status = job.Status.ToString(),
+                agentOnlineForPrinter,
             }));
         }
         catch (InvalidOperationException ex)
@@ -151,20 +309,50 @@ public class PosPrintJobsController(
     {
         if (string.IsNullOrWhiteSpace(dto.DeviceId))
             return BadRequest(AppResponse<object>.Fail("Thiếu deviceId"));
+        if (dto.PrinterIds == null || dto.PrinterIds.Count == 0)
+            return BadRequest(AppResponse<object>.Fail("Agent phải chọn ít nhất một máy in"));
 
-        await dispatch.RegisterAgentHeartbeatAsync(
-            RequiredStoreId,
-            dto.DeviceId.Trim(),
-            dto.DeviceName,
-            dto.EmployeeName,
-            CurrentUserId.ToString(),
-            dto.PrinterIds ?? [],
-            dto.AppVersion);
+        var display = dto.EmployeeName?.Trim();
+        if (string.IsNullOrWhiteSpace(display))
+            display = CurrentUserEmail ?? User.Identity?.Name;
+
+        try
+        {
+            await dispatch.RegisterAgentHeartbeatAsync(
+                RequiredStoreId,
+                dto.DeviceId.Trim(),
+                dto.DeviceName,
+                display,
+                CurrentUserId.ToString(),
+                dto.PrinterIds,
+                dto.AppVersion);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(AppResponse<object>.Fail(ex.Message));
+        }
 
         var agent = await db.PosPrintAgents.AsNoTracking()
             .FirstAsync(a => a.StoreId == RequiredStoreId && a.DeviceId == dto.DeviceId.Trim());
 
-        return Ok(AppResponse<object>.Success(new { agentId = agent.Id }));
+        return Ok(AppResponse<object>.Success(new
+        {
+            agentId = agent.Id,
+            printerIds = ParsePrinterIds(agent.AssignedPrinterIdsJson),
+            isOnline = agent.IsOnline,
+            lastHeartbeatAt = agent.LastHeartbeatAt,
+        }));
+    }
+
+    [HttpPost("agents/offline")]
+    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<object>>> MarkAgentOffline([FromBody] AgentOfflineDto? dto)
+    {
+        if (dto == null || string.IsNullOrWhiteSpace(dto.DeviceId))
+            return BadRequest(AppResponse<object>.Fail("Thiếu deviceId"));
+
+        await dispatch.MarkAgentOfflineAsync(RequiredStoreId, dto.DeviceId.Trim());
+        return Ok(AppResponse<object>.Success(new { offline = true }));
     }
 
     [HttpPost("agents/{agentId:guid}/claim")]
@@ -175,17 +363,32 @@ public class PosPrintJobsController(
         if (job == null)
             return Ok(AppResponse<object>.Success(null));
 
-        return Ok(AppResponse<object>.Success(new
-        {
-            jobId = job.Id,
-            printerId = job.PrinterId,
-            documentType = job.DocumentType.ToString(),
-            job.ReferenceNo,
-            payloadFormat = job.PayloadFormat.ToString(),
-            payload = job.Payload,
-            job.Copies,
-        }));
+        return Ok(AppResponse<object>.Success(ToClaimDto(job)));
     }
+
+    /// <summary>Claim đúng jobId — dùng khi test cloud trên chính máy Agent.</summary>
+    [HttpPost("{id:guid}/claim")]
+    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<object>>> ClaimById(
+        Guid id, [FromQuery] Guid agentId)
+    {
+        var job = await dispatch.ClaimJobByIdAsync(RequiredStoreId, agentId, id);
+        if (job == null)
+            return Ok(AppResponse<object>.Success(null));
+
+        return Ok(AppResponse<object>.Success(ToClaimDto(job)));
+    }
+
+    static object ToClaimDto(PosPrintJob job) => new
+    {
+        jobId = job.Id,
+        printerId = job.PrinterId,
+        documentType = job.DocumentType.ToString(),
+        job.ReferenceNo,
+        payloadFormat = job.PayloadFormat.ToString(),
+        payload = job.Payload,
+        job.Copies,
+    };
 
     [HttpPost("{id:guid}/printing")]
     [RequireModulePermission("PosSell", ModulePermissionAction.View)]

@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 abstract final class PosTheme {
   static const Color kiotBlue = Color(0xFF0070F4);
   static const Color kiotBlueLight = Color(0xFFE8F4FD);
+  /// Microsoft Edge logo blue — bàn đang dùng trên sơ đồ.
+  static const Color edgeBlue = Color(0xFF0078D4);
+  static const Color edgeBlueLight = Color(0xFFDEECF9);
   static const Color primary = Color(0xFF00B63E);
   static const Color primaryDark = Color(0xFF009632);
   static const Color primaryLight = Color(0xFFE8F8ED);

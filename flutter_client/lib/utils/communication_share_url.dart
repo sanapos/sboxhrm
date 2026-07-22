@@ -11,9 +11,9 @@ String communicationPublicShareUrl(String token) {
   }
   const site = String.fromEnvironment(
     'SITE_URL',
-    defaultValue: 'https://sbox.sana.vn',
+    defaultValue: 'https://sboxhrm.com',
   );
-  final base = site.isNotEmpty ? site : 'https://sbox.sana.vn';
+  final base = site.isNotEmpty ? site : 'https://sboxhrm.com';
   return '${base.replaceAll(RegExp(r'/+$'), '')}/share/$token';
 }
 

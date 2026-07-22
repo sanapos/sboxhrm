@@ -49,6 +49,7 @@ public static class CashTransactionLinkageHelper
             return;
 
         var advance = await context.AdvanceRequests
+            .AsTracking()
             .Include(a => a.Employee)
             .Include(a => a.EmployeeUser)
             .FirstOrDefaultAsync(a => a.Id == advanceId && a.StoreId == storeId, cancellationToken);
@@ -100,6 +101,7 @@ public static class CashTransactionLinkageHelper
             return;
 
         var tx = await context.PaymentTransactions
+            .AsTracking()
             .Include(t => t.Employee)
             .FirstOrDefaultAsync(t => t.Id == paymentTxId, cancellationToken);
 
@@ -136,6 +138,7 @@ public static class CashTransactionLinkageHelper
         CancellationToken cancellationToken)
     {
         PenaltyTicket? ticket = await context.PenaltyTickets
+            .AsTracking()
             .Include(t => t.Employee)
             .FirstOrDefaultAsync(t => t.CashTransactionId == cash.Id && t.StoreId == storeId, cancellationToken);
 
@@ -149,6 +152,7 @@ public static class CashTransactionLinkageHelper
                 if (!string.IsNullOrEmpty(code))
                 {
                     ticket = await context.PenaltyTickets
+                        .AsTracking()
                         .Include(t => t.Employee)
                         .FirstOrDefaultAsync(t => t.TicketCode == code && t.StoreId == storeId, cancellationToken);
                 }
@@ -156,6 +160,7 @@ public static class CashTransactionLinkageHelper
             else if (TryExtractTrailingGuid(cash.InternalNote, PenaltyTicketMarker, out var ticketId))
             {
                 ticket = await context.PenaltyTickets
+                    .AsTracking()
                     .Include(t => t.Employee)
                     .FirstOrDefaultAsync(t => t.Id == ticketId && t.StoreId == storeId, cancellationToken);
             }
@@ -200,6 +205,7 @@ public static class CashTransactionLinkageHelper
         CancellationToken cancellationToken)
     {
         Payslip? payslip = await context.Payslips
+            .AsTracking()
             .Include(p => p.Employee)
             .FirstOrDefaultAsync(
                 p => p.CashTransactionId == cash.Id && p.StoreId == storeId,
@@ -209,6 +215,7 @@ public static class CashTransactionLinkageHelper
             && TryExtractTrailingGuid(cash.InternalNote, PayslipMarker, out var payslipId))
         {
             payslip = await context.Payslips
+                .AsTracking()
                 .Include(p => p.Employee)
                 .FirstOrDefaultAsync(p => p.Id == payslipId && p.StoreId == storeId, cancellationToken);
         }
@@ -263,6 +270,7 @@ public static class CashTransactionLinkageHelper
             return;
 
         var advance = await context.BusinessTripAdvanceClaims
+            .AsTracking()
             .Include(a => a.Case)
             .FirstOrDefaultAsync(a => a.Id == advanceClaimId && a.StoreId == storeId, cancellationToken);
 
@@ -315,6 +323,7 @@ public static class CashTransactionLinkageHelper
             return;
 
         var settlement = await context.BusinessTripSettlementClaims
+            .AsTracking()
             .Include(s => s.Case)
             .FirstOrDefaultAsync(s => s.Id == settlementId && s.StoreId == storeId, cancellationToken);
 
@@ -361,6 +370,7 @@ public static class CashTransactionLinkageHelper
             return;
 
         var settlement = await context.BusinessTripSettlementClaims
+            .AsTracking()
             .Include(s => s.Case)
             .FirstOrDefaultAsync(s => s.Id == settlementId && s.StoreId == storeId, cancellationToken);
 

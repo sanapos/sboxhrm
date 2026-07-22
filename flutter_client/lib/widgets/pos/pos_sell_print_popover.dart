@@ -130,6 +130,33 @@ Future<PosSellPrintSettings?> showPosSellPrintPopover(
                             },
                           ),
                           const SizedBox(height: 12),
+                          const Text('Tem dán ly (trà sữa)',
+                              style: TextStyle(fontSize: 13, color: PosTheme.textSecondary)),
+                          const SizedBox(height: 6),
+                          DropdownButtonFormField<PosCupLabelPrintMode>(
+                            value: settings.cupLabelPrintMode,
+                            decoration: InputDecoration(
+                              isDense: true,
+                              contentPadding:
+                                  const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                            ),
+                            items: PosCupLabelPrintMode.values
+                                .map(
+                                  (m) => DropdownMenuItem(
+                                    value: m,
+                                    child: Text(m.label, overflow: TextOverflow.ellipsis),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (v) {
+                              if (v == null) return;
+                              setLocal(
+                                () => settings = settings.copyWith(cupLabelPrintMode: v),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 12),
                           const Text('Phiếu báo xuất kho',
                               style: TextStyle(fontSize: 13, color: PosTheme.textSecondary)),
                           const SizedBox(height: 6),

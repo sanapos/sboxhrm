@@ -10,6 +10,7 @@ import '../utils/responsive_helper.dart';
 import '../utils/number_formatter.dart';
 import '../widgets/hrm_mini_stat_chip.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/hrm/hrm_settings_mobile_kit.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/notification_overlay.dart';
@@ -145,7 +146,14 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
   List<Widget> _allowanceToolbarActions(BuildContext context) {
     if (!_perm.canCreate('Allowance')) return [];
     return Responsive.isMobile(context)
-            ? [
+        ? [
+            if (HrmSettingsMobileKit.active(context))
+              HrmSettingsAddButton(
+                label: 'Thêm',
+                compact: true,
+                onPressed: () => _showAllowanceDialog(),
+              )
+            else ...[
                 IconButton(
                   tooltip: 'Thêm phụ cấp',
                   icon: const Icon(Icons.add_circle_outline,
@@ -186,7 +194,8 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                     ),
                   ],
                 ),
-              ]
+              ],
+          ]
             : [
                 Container(
                   margin: const EdgeInsets.only(right: 8),
@@ -232,7 +241,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
     final toolbarActions = _allowanceToolbarActions(context);
 
     return Scaffold(
-      backgroundColor: HrmPageChrome.background,
+      backgroundColor: HrmPageChrome.scaffoldBackground(context),
       appBar: HrmPageChrome.appBar(
         title: 'Thiết lập Phụ cấp',
         actions: toolbarActions,
@@ -240,11 +249,19 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
       body: _isLoading
           ? const LoadingWidget()
           : SingleChildScrollView(
-              padding: EdgeInsets.all(Responsive.isMobile(context) ? 12 : 24),
+              padding: HrmSettingsMobileKit.active(context)
+                  ? HrmSettingsMobileKit.pagePadding(context)
+                  : EdgeInsets.all(Responsive.isMobile(context) ? 12 : 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (HrmPageChrome.isEmbedded) ...[
+                  if (HrmSettingsMobileKit.active(context)) ...[
+                    HrmSettingsSearchToolbar(
+                      search: _buildAllowanceSearchField(),
+                      actions: toolbarActions,
+                    ),
+                    const SizedBox(height: 10),
+                  ] else if (HrmPageChrome.isEmbedded) ...[
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: toolbarActions,
@@ -261,10 +278,24 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                           'Theo ngày', const Color(0xFFF59E0B)),
                     ],
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
 
                   // Filter bar
-                  
+                  if (HrmSettingsMobileKit.active(context))
+                    HrmSettingsFilterChips(
+                      options: const [
+                        HrmSettingsFilterChipOption(
+                            value: 'all', label: 'Tất cả'),
+                        HrmSettingsFilterChipOption(
+                            value: '0', label: 'Cố định'),
+                        HrmSettingsFilterChipOption(
+                            value: '1', label: 'Theo ngày'),
+                      ],
+                      selected: _selectedType,
+                      onSelected: (v) => setState(() => _selectedType = v),
+                      onClear: _clearFilters,
+                    )
+                  else
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -538,7 +569,10 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                         },
                       ),
                     ),
-                  const SizedBox(height: 24),
+                  if (!HrmSettingsMobileKit.active(context))
+                    const SizedBox(height: 24)
+                  else
+                    const SizedBox(height: 12),
 
                   // Allowance cards grid
                   _filteredAllowances.isEmpty
@@ -558,7 +592,9 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                             }
 
                             int crossAxisCount = 4;
-                            if (constraints.maxWidth < 600) {
+                            if (HrmSettingsMobileKit.active(context)) {
+                              crossAxisCount = 2;
+                            } else if (constraints.maxWidth < 600) {
                               crossAxisCount = 1;
                             } else if (constraints.maxWidth < 900) {
                               crossAxisCount = 2;
@@ -576,6 +612,17 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                                         _filteredAllowances[index]),
                                   ),
                                 ),
+                              );
+                            }
+
+                            if (HrmSettingsMobileKit.active(context)) {
+                              return HrmSettingsEntityGrid(
+                                itemCount: _filteredAllowances.length,
+                                columns: 2,
+                                childAspectRatio: 0.95,
+                                itemBuilder: (ctx, index) =>
+                                    _buildAllowanceGridTile(
+                                        _filteredAllowances[index]),
                               );
                             }
 
@@ -600,6 +647,71 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _buildAllowanceSearchField() {
+    return TextField(
+      style: const TextStyle(color: Color(0xFF18181B), fontSize: 14),
+      decoration: InputDecoration(
+        hintText: 'Tìm theo tên phụ cấp...',
+        hintStyle: const TextStyle(color: Color(0xFFA1A1AA), fontSize: 14),
+        prefixIcon:
+            const Icon(Icons.search, color: Color(0xFFA1A1AA), size: 20),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        filled: true,
+        fillColor: Colors.white,
+        isDense: true,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: HrmPageChrome.primaryNavy),
+        ),
+      ),
+      onChanged: (value) => setState(() => _searchQuery = value),
+    );
+  }
+
+  Widget _buildAllowanceGridTile(Map<String, dynamic> allowance) {
+    final meta = _allowanceTypeMeta(allowance);
+    final isActive = allowance['isActive'] ?? true;
+    final amount = _parseAmount(allowance['amount']);
+    final empIds = _parseEmployeeIds(allowance['employeeIds']);
+    final empLabel = empIds.isEmpty
+        ? 'Tất cả NV'
+        : '${empIds.length} nhân viên';
+
+    return HrmSettingsEntityTile(
+      title: allowance['name']?.toString() ?? '',
+      subtitle: '${meta.label}: ${_currencyFormat.format(amount)}đ',
+      meta: empLabel,
+      icon: meta.icon,
+      iconColor: meta.color,
+      badge: isActive ? 'Bật' : 'Tắt',
+      badgeColor:
+          isActive ? const Color(0xFF16A34A) : const Color(0xFF71717A),
+      onTap: () => _showAllowanceDialog(allowance: allowance),
+      onMenuSelected: (v) {
+        if (v == 'edit') _showAllowanceDialog(allowance: allowance);
+        if (v == 'delete') _deleteAllowance(allowance);
+      },
+      menuItems: [
+        if (_perm.canEdit('Allowance'))
+          const PopupMenuItem(value: 'edit', child: Text('Xem / Sửa')),
+        if (_perm.canDelete('Allowance'))
+          const PopupMenuItem(value: 'delete', child: Text('Xóa')),
+      ],
+      onLongPress: _perm.canDelete('Allowance')
+          ? () => _deleteAllowance(allowance)
+          : null,
     );
   }
 
@@ -993,10 +1105,9 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    // Action buttons hiển thị rõ ràng — bảo đảm tap luôn có
-                    // tác dụng dù sự kiện InkWell ngoài có chặn hay không.
-                    if (_perm.canEdit('Allowance') ||
-                        _perm.canDelete('Allowance'))
+                    if (!HrmSettingsMobileKit.active(context) &&
+                        (_perm.canEdit('Allowance') ||
+                            _perm.canDelete('Allowance')))
                       Row(
                         children: [
                           if (_perm.canEdit('Allowance'))

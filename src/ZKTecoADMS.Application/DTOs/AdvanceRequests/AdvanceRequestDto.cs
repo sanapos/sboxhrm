@@ -10,6 +10,8 @@ public class AdvanceRequestDto
     public string EmployeeName { get; set; } = string.Empty;
     public string EmployeeCode { get; set; } = string.Empty;
     public decimal Amount { get; set; }
+    /// <summary>Số tiền thực tế được duyệt (null = chưa duyệt hoặc duyệt đủ số yêu cầu).</summary>
+    public decimal? ApprovedAmount { get; set; }
     public string? Reason { get; set; }
     public DateTime RequestDate { get; set; }
     public AdvanceRequestStatus Status { get; set; }
@@ -65,6 +67,13 @@ public class ApproveAdvanceRequestDto
     public Guid RequestId { get; set; }
     public bool IsApproved { get; set; }
     public string? RejectionReason { get; set; }
+
+    /// <summary>
+    /// Số tiền duyệt (chỉ áp dụng khi <see cref="IsApproved"/> = true). Cho
+    /// phép quản lý duyệt thấp hơn số tiền nhân viên yêu cầu. Bỏ trống = duyệt
+    /// đủ số tiền yêu cầu.
+    /// </summary>
+    public decimal? ApprovedAmount { get; set; }
 }
 
 public record BulkResultDto(int Success, int Failed);

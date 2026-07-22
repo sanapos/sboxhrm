@@ -152,7 +152,7 @@ class PosThermalPrinterSettings {
 
     this.usbDeviceName,
 
-    this.feedBeforeCut = 8,
+    this.feedBeforeCut = 14,
 
     this.partialCut = true,
 
@@ -239,20 +239,23 @@ class PosThermalPrinterSettings {
       case PosThermalPrinterBrand.epson:
         return PosThermalTextMode.utf8;
       case PosThermalPrinterBrand.sunmi:
-        return PosThermalTextMode.image;
+        // Sunmi in nội bộ hỗ trợ UTF-8; chế độ ảnh dễ tạo payload quá lớn → printEscPos fail.
+        return PosThermalTextMode.utf8;
     }
   }
 
 
 
   int get resolvedFeedBeforeCut {
-
-    final n = feedBeforeCut.clamp(3, 15);
-
+    var n = feedBeforeCut.clamp(3, 24);
     if (printerBrand == PosThermalPrinterBrand.zywell && n < 6) return 8;
-
+    // Sunmi handheld: đẩy ≥14 dòng để lộ hết chữ khỏi đầu in.
+    if ((connectionType == PosThermalConnectionType.sunmi ||
+            printerBrand == PosThermalPrinterBrand.sunmi) &&
+        n < 14) {
+      return 14;
+    }
     return n;
-
   }
 
 
@@ -349,7 +352,7 @@ class PosThermalPrinterSettings {
 
       usbDeviceName: prefs.getString(_kUsbName),
 
-      feedBeforeCut: prefs.getInt(_kFeedCut) ?? 8,
+      feedBeforeCut: prefs.getInt(_kFeedCut) ?? 14,
 
       partialCut: prefs.getBool(_kPartialCut) ?? true,
 

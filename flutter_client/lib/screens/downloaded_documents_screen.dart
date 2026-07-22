@@ -9,6 +9,7 @@ import '../models/downloaded_document.dart';
 import '../services/downloaded_documents_service.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/safe_layout_widgets.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/app_scroll_safe.dart';
 import '../widgets/hrm_mini_stat_chip.dart';
@@ -418,17 +419,7 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
   }
 
   Widget _filterRow(List<Widget> chips) {
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (var i = 0; i < chips.length; i++) ...[
-            if (i > 0) const SizedBox(width: 8),
-            Expanded(child: chips[i]),
-          ],
-        ],
-      ),
-    );
+    return SafeEqualHeightRow(children: chips);
   }
 
   Widget _filterChip(String title, String value, IconData icon, bool active,

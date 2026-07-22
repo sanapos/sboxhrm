@@ -113,6 +113,23 @@ public static class DependencyInjectionExtensions
                             }
                             return Task.CompletedTask;
                         },
+                        OnTokenValidated = async context =>
+                        {
+                            var userId = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
+                            if (string.IsNullOrEmpty(userId))
+                            {
+                                context.Fail("Invalid token principal.");
+                                return;
+                            }
+
+                            var userManager = context.HttpContext.RequestServices
+                                .GetRequiredService<UserManager<ApplicationUser>>();
+                            var user = await userManager.FindByIdAsync(userId);
+                            if (user == null || !user.IsActive)
+                            {
+                                context.Fail("Tài khoản đã bị vô hiệu hóa.");
+                            }
+                        },
                         OnAuthenticationFailed = context =>
                         {
                             var path = context.HttpContext.Request.Path;
@@ -204,6 +221,7 @@ public static class DependencyInjectionExtensions
         services.AddScoped<IAttendanceDeletePreparer, AttendanceDeletePreparer>();
         services.AddScoped<IEmployeeDeleteGuard, EmployeeDeleteGuard>();
         services.AddScoped<IDeviceCmdService, DeviceCmdService>();
+        services.AddScoped<IDeviceCapabilityService, DeviceCapabilityService>();
         services.AddScoped<IDeviceUserOperationService, EmployeeOperationService>();
         services.AddScoped<IAttendanceOperationService, AttendanceOperationService>();
         services.AddScoped<IShiftService, ShiftService>();

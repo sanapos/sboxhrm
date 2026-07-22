@@ -24,7 +24,8 @@ namespace ZKTecoADMS.API.Controllers;
 public class DevicesController(
     IMediator bus,
     IDeviceService deviceService,
-    IRepository<Device> deviceRepository
+    IRepository<Device> deviceRepository,
+    IDeviceCapabilityService capabilityService
     ) : AuthenticatedControllerBase
 {
     [HttpGet("users/{CurrentUserId}")]
@@ -119,6 +120,16 @@ public class DevicesController(
     {
         var query = new GetDeviceInfoQuery(deviceId);
         return Ok(await bus.Send(query));
+    }
+
+    /// <summary>ADMS capability / engine profile (QUERY, ENROLL_FP, stamp sync).</summary>
+    [HttpGet("{deviceId}/capability")]
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Device", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<DeviceCapabilityDto>>> GetDeviceCapability(Guid deviceId)
+    {
+        var dto = await capabilityService.GetCapabilityDtoAsync(deviceId);
+        return Ok(AppResponse<DeviceCapabilityDto>.Success(dto));
     }
 
     /// <summary>

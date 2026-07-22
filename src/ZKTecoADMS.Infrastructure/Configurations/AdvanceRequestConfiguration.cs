@@ -14,6 +14,9 @@ public class AdvanceRequestConfiguration : IEntityTypeConfiguration<AdvanceReque
             .HasPrecision(18, 2)
             .IsRequired();
 
+        builder.Property(ar => ar.ApprovedAmount)
+            .HasPrecision(18, 2);
+
         builder.Property(ar => ar.Reason)
             .IsRequired()
             .HasMaxLength(1000);

@@ -762,28 +762,60 @@ class _BrowseProductsSheetState extends State<_BrowseProductsSheet> {
     }
   }
 
-  List<Widget> _categoryButtons() {
+  List<Widget> _categoryButtons({bool horizontal = false}) {
     final widgets = <Widget>[
-      _categoryButton('Tất cả', null, depth: 0),
+      _categoryButton('Tất cả', null, depth: 0, horizontal: horizontal),
     ];
     for (final node in buildPosCategoryTree(_categories)) {
-      widgets.addAll(_categoryNodeButtons(node));
+      widgets.addAll(_categoryNodeButtons(node, horizontal: horizontal));
     }
     return widgets;
   }
 
-  List<Widget> _categoryNodeButtons(PosCategoryNode node) {
+  List<Widget> _categoryNodeButtons(PosCategoryNode node, {bool horizontal = false}) {
     final widgets = <Widget>[
-      _categoryButton(node.item.name, node.item.id, depth: node.depth),
+      _categoryButton(node.item.name, node.item.id, depth: node.depth, horizontal: horizontal),
     ];
     for (final child in node.children) {
-      widgets.addAll(_categoryNodeButtons(child));
+      widgets.addAll(_categoryNodeButtons(child, horizontal: horizontal));
     }
     return widgets;
   }
 
-  Widget _categoryButton(String label, String? id, {required int depth}) {
+  Widget _categoryButton(String label, String? id, {required int depth, bool horizontal = false}) {
     final selected = _categoryId == id;
+    if (horizontal) {
+      return Padding(
+        padding: EdgeInsets.only(right: 6, left: depth > 0 ? 2 : 0),
+        child: Material(
+          color: selected ? _blue.withValues(alpha: 0.1) : const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(20),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: () => _selectCategory(id),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: selected ? _blue : Colors.grey.shade300,
+                ),
+              ),
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                  color: selected ? _blue : PosTheme.textPrimary,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
     return Padding(
       padding: EdgeInsets.fromLTRB(4 + depth * 6.0, 2, 4, 2),
       child: Material(
@@ -848,96 +880,103 @@ class _BrowseProductsSheetState extends State<_BrowseProductsSheet> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: TextField(
-                controller: _search,
-                decoration: InputDecoration(
-                  hintText: 'Tìm mã, tên hàng hóa…',
-                  prefixIcon: const Icon(Icons.search, size: 20),
-                  suffixIcon: PosBarcodeScanIcon(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final searchField = TextField(
                     controller: _search,
-                    iconSize: 20,
-                    onScanned: (code) {
-                      // ignore: discarded_futures
-                      _load(code);
-                    },
-                  ),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(24)),
-                  isDense: true,
-                  filled: true,
-                  fillColor: const Color(0xFFF8FAFC),
-                ),
+                    decoration: InputDecoration(
+                      hintText: 'Tìm mã, tên hàng hóa…',
+                      prefixIcon: const Icon(Icons.search, size: 20),
+                      suffixIcon: PosBarcodeScanIcon(
+                        controller: _search,
+                        iconSize: 20,
+                        onScanned: (code) {
+                          // ignore: discarded_futures
+                          _load(code);
+                        },
+                      ),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(24)),
+                      isDense: true,
+                      filled: true,
+                      fillColor: const Color(0xFFF8FAFC),
+                    ),
+                  );
+                  final categoryStrip = SizedBox(
+                    height: 44,
+                    child: _loadingCategories
+                        ? const Center(
+                            child: SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          )
+                        : Scrollbar(
+                            controller: _categoryScroll,
+                            thumbVisibility: true,
+                            child: ListView(
+                              controller: _categoryScroll,
+                              scrollDirection: Axis.horizontal,
+                              padding: const EdgeInsets.symmetric(vertical: 2),
+                              children: _categoryButtons(horizontal: true),
+                            ),
+                          ),
+                  );
+                  if (constraints.maxWidth >= 420) {
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(flex: 3, child: searchField),
+                        const SizedBox(width: 8),
+                        Expanded(flex: 2, child: categoryStrip),
+                      ],
+                    );
+                  }
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      searchField,
+                      const SizedBox(height: 8),
+                      categoryStrip,
+                    ],
+                  );
+                },
               ),
             ),
-            const SizedBox(height: 8),
             Expanded(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  SizedBox(
-                    width: 128,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFC),
-                        border: Border(
-                          right: BorderSide(color: Colors.grey.shade200),
-                        ),
-                      ),
-                      child: _loadingCategories
-                          ? const Center(
-                              child: SizedBox(
-                                width: 22,
-                                height: 22,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              ),
-                            )
-                          : Scrollbar(
-                              controller: _categoryScroll,
-                              thumbVisibility: true,
-                              child: ListView(
-                                controller: _categoryScroll,
-                                padding: const EdgeInsets.symmetric(vertical: 8),
-                                children: _categoryButtons(),
-                              ),
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _items.isEmpty
+                      ? Center(
+                          child: Text(
+                            'Không có hàng hóa',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey.shade600,
                             ),
-                    ),
-                  ),
-                  Expanded(
-                    child: _loading
-                        ? const Center(child: CircularProgressIndicator())
-                        : _items.isEmpty
-                            ? Center(
-                                child: Text(
-                                  'Không có hàng hóa',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: Colors.grey.shade600,
-                                  ),
-                                ),
-                              )
-                            : Scrollbar(
-                                controller: _productScroll,
-                                thumbVisibility: true,
-                                child: ListView.separated(
-                                  controller: _productScroll,
-                                  padding: const EdgeInsets.symmetric(vertical: 4),
-                                  itemCount: _items.length,
-                                  separatorBuilder: (_, __) => Divider(
-                                    height: 1,
-                                    color: Colors.grey.shade200,
-                                  ),
-                                  itemBuilder: (_, i) => _SuggestionTile(
-                                    suggestion: _items[i],
-                                    moneyFmt: _moneyFmt,
-                                    sellMode: widget.sellMode,
-                                    onTap: () =>
-                                        Navigator.pop(context, _items[i].pick),
-                                  ),
-                                ),
-                              ),
-                  ),
-                ],
-              ),
+                          ),
+                        )
+                      : Scrollbar(
+                          controller: _productScroll,
+                          thumbVisibility: true,
+                          child: ListView.separated(
+                            controller: _productScroll,
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            itemCount: _items.length,
+                            separatorBuilder: (_, __) => Divider(
+                              height: 1,
+                              color: Colors.grey.shade200,
+                            ),
+                            itemBuilder: (_, i) => _SuggestionTile(
+                              suggestion: _items[i],
+                              moneyFmt: _moneyFmt,
+                              sellMode: widget.sellMode,
+                              onTap: () =>
+                                  Navigator.pop(context, _items[i].pick),
+                            ),
+                          ),
+                        ),
             ),
           ],
         ),

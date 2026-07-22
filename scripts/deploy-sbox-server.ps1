@@ -22,7 +22,7 @@ tar -czf "$RepoRoot\api_src.tar.gz" --exclude="**/bin" --exclude="**/obj" --excl
 Pop-Location
 
 $FlutterBat = "C:\Users\TH DECOR\flutter\bin\flutter.bat"
-$ApiBaseUrl = "https://sbox.sana.vn"
+$ApiBaseUrl = "https://sboxhrm.com"
 
 function Invoke-FlutterWebBuild {
     param([string]$ClientDir, [string]$ApiUrl)

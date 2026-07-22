@@ -18,10 +18,17 @@ public class AdvanceRequest : AuditableEntity<Guid>
     public virtual Employee? Employee { get; set; }
 
     /// <summary>
-    /// Số tiền yêu cầu ứng
+    /// Số tiền yêu cầu ứng (nhân viên nhập khi tạo yêu cầu)
     /// </summary>
     [Required]
     public decimal Amount { get; set; }
+
+    /// <summary>
+    /// Số tiền thực tế được duyệt (quản lý có thể duyệt thấp hơn số tiền yêu
+    /// cầu). Null khi chưa duyệt hoặc yêu cầu cũ trước khi có tính năng này —
+    /// khi đó dùng <see cref="Amount"/> làm số tiền duyệt/chi trả.
+    /// </summary>
+    public decimal? ApprovedAmount { get; set; }
 
     /// <summary>
     /// Lý do ứng lương

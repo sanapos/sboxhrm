@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'hrm/hrm_settings_mobile_kit.dart';
+
 /// Một mục thống kê nhanh dùng cho [HrmStatBar].
 class HrmStatItem {
   const HrmStatItem({
@@ -62,6 +64,21 @@ class HrmStatBar extends StatelessWidget {
       padding: padding,
       child: LayoutBuilder(
         builder: (context, constraints) {
+          if (HrmSettingsMobileKit.active(context)) {
+            final cols = items.length <= 2 ? items.length : 2;
+            final gapW = gap;
+            final cellW = cols == 1
+                ? constraints.maxWidth
+                : (constraints.maxWidth - gapW) / cols;
+            return Wrap(
+              spacing: gapW,
+              runSpacing: gapW,
+              children: [
+                for (final it in items)
+                  SizedBox(width: cellW, child: _card(it)),
+              ],
+            );
+          }
           final wide = constraints.maxWidth >= wideBreakpoint;
           if (wide) {
             return Row(

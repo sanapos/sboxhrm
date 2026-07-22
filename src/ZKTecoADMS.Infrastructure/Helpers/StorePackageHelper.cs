@@ -79,14 +79,20 @@ public static class StorePackageHelper
         CancellationToken cancellationToken = default)
     {
         var store = await db.Stores.AsNoTracking()
+            .Include(s => s.ServicePackage)
             .FirstOrDefaultAsync(s => s.Id == storeId, cancellationToken);
         if (store == null) return (false, "Không tìm thấy cửa hàng.");
 
+        // Prefer the higher of store vs package so a package upgrade is honored even if
+        // Store.MaxUsers was not re-synced yet (legacy data after editing ServicePackage).
         var maxUsers = store.MaxUsers;
+        if (store.ServicePackage != null && store.ServicePackage.MaxUsers > maxUsers)
+            maxUsers = store.ServicePackage.MaxUsers;
         if (maxUsers <= 0) return (true, null);
 
+        // Only active accounts occupy package seats (deactivated free a slot).
         var current = await db.Users.CountAsync(
-            u => u.StoreId == storeId,
+            u => u.StoreId == storeId && u.IsActive,
             cancellationToken);
 
         if (current >= maxUsers)

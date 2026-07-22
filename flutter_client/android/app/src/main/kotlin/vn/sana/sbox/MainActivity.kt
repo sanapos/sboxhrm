@@ -1,19 +1,35 @@
 package vn.sana.sbox
 
+import android.content.BroadcastReceiver
 import android.content.ContentValues
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
-    private val CHANNEL = "com.sboxhrm/file_saver"
+    private val FILE_CHANNEL = "com.sboxhrm/file_saver"
+    private val SCANNER_CHANNEL = "com.sboxhrm/sunmi_scanner"
+
+    private val ACTION_DATA_CODE_RECEIVED = "com.sunmi.scanner.ACTION_DATA_CODE_RECEIVED"
+    private val DATA = "data"
+
+    private var scannerEvents: EventChannel.EventSink? = null
+    private var scannerReceiver: BroadcastReceiver? = null
+
+    private val CUSTOMER_DISPLAY_CHANNEL = "com.sboxhrm/customer_display"
+    private val CUSTOMER_DISPLAY_EVENTS = "com.sboxhrm/customer_display_events"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, FILE_CHANNEL)
             .setMethodCallHandler { call, result ->
                 if (call.method == "saveFile") {
                     val bytes = call.argument<ByteArray>("bytes")
@@ -35,13 +51,104 @@ class MainActivity : FlutterActivity() {
                     result.notImplemented()
                 }
             }
+
+        EventChannel(flutterEngine.dartExecutor.binaryMessenger, SCANNER_CHANNEL)
+            .setStreamHandler(object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    scannerEvents = events
+                    registerScannerReceiver()
+                }
+
+                override fun onCancel(arguments: Any?) {
+                    unregisterScannerReceiver()
+                    scannerEvents = null
+                }
+            })
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CUSTOMER_DISPLAY_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "listDisplays" -> result.success(CustomerDisplayController.listDisplays(this))
+                    "show" -> {
+                        val displayId = call.argument<Int>("displayId")
+                        result.success(CustomerDisplayController.show(this, displayId))
+                    }
+                    "hide" -> {
+                        CustomerDisplayController.hide()
+                        result.success(true)
+                    }
+                    "publish" -> {
+                        val json = call.argument<String>("json") ?: ""
+                        CustomerDisplayController.publish(this, json)
+                        result.success(true)
+                    }
+                    "read" -> result.success(CustomerDisplayController.read(this))
+                    else -> result.notImplemented()
+                }
+            }
+
+        EventChannel(flutterEngine.dartExecutor.binaryMessenger, CUSTOMER_DISPLAY_EVENTS)
+            .setStreamHandler(object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    CustomerDisplayController.attachEventSink(events)
+                    val current = CustomerDisplayController.read(this@MainActivity)
+                    if (!current.isNullOrBlank()) events?.success(current)
+                }
+
+                override fun onCancel(arguments: Any?) {
+                    CustomerDisplayController.attachEventSink(null)
+                }
+            })
+    }
+
+    private fun registerScannerReceiver() {
+        if (scannerReceiver != null) return
+        scannerReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (intent == null) return
+                val action = intent.action ?: return
+                if (action != ACTION_DATA_CODE_RECEIVED) return
+                var code = intent.getStringExtra(DATA)
+                if (code.isNullOrBlank()) {
+                    // Một số firmware dùng key khác
+                    code = intent.getStringExtra("barcode_string")
+                        ?: intent.getStringExtra("barcode")
+                }
+                if (!code.isNullOrBlank()) {
+                    activity?.runOnUiThread {
+                        scannerEvents?.success(code.trim())
+                    }
+                }
+            }
+        }
+        val filter = IntentFilter(ACTION_DATA_CODE_RECEIVED)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(scannerReceiver, filter, Context.RECEIVER_EXPORTED)
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            registerReceiver(scannerReceiver, filter)
+        }
+    }
+
+    private fun unregisterScannerReceiver() {
+        val receiver = scannerReceiver ?: return
+        try {
+            unregisterReceiver(receiver)
+        } catch (_: Exception) {
+        }
+        scannerReceiver = null
+    }
+
+    override fun onDestroy() {
+        unregisterScannerReceiver()
+        scannerEvents = null
+        super.onDestroy()
     }
 
     private fun saveFileToMediaStore(bytes: ByteArray, filename: String, mimeType: String): String {
         val isImage = mimeType.startsWith("image/")
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            // Android 10+ (API 29+): Use MediaStore (scoped storage)
             val contentValues = ContentValues().apply {
                 put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
                 put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
@@ -72,7 +179,6 @@ class MainActivity : FlutterActivity() {
 
             return uri.toString()
         } else {
-            // Android 9 and below: Write directly to public directory
             val dir = if (isImage) {
                 Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
             } else {

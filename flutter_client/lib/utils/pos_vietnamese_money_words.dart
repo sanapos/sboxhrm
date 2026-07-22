@@ -3,7 +3,7 @@ String vietnameseMoneyInWords(int amount) {
   if (amount < 0) amount = -amount;
   if (amount == 0) return 'Không đồng';
 
-  final units = [
+  const units = [
     '',
     ' nghìn',
     ' triệu',
@@ -12,7 +12,7 @@ String vietnameseMoneyInWords(int amount) {
     ' triệu tỷ',
   ];
 
-  var words = StringBuffer();
+  final groups = <String>[];
   var n = amount;
   var groupIdx = 0;
 
@@ -21,16 +21,14 @@ String vietnameseMoneyInWords(int amount) {
     if (group != 0) {
       final chunk = _readThreeDigits(group, groupIdx > 0);
       final suffix = groupIdx < units.length ? units[groupIdx] : '';
-      if (words.isNotEmpty) {
-        words.write(' ');
-      }
-      words.write('$chunk$suffix');
+      groups.add('$chunk$suffix');
     }
     n ~/= 1000;
     groupIdx++;
   }
 
-  final text = words.toString().trim();
+  // Nhóm thấp → cao khi tách; ghép ngược để "hai triệu … nghìn".
+  final text = groups.reversed.join(' ').trim();
   if (text.isEmpty) return 'Không đồng';
   return '${_capitalizeFirst(text)} đồng chẵn';
 }

@@ -23,6 +23,7 @@ import '../widgets/loading_widget.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/app_button.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/safe_layout_widgets.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
 import 'main_layout.dart';
 import '../l10n/app_localizations.dart';
@@ -1452,17 +1453,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
   }
 
   Widget _buildEmpFilterChipRow(List<Widget> chips) {
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (var i = 0; i < chips.length; i++) ...[
-            if (i > 0) const SizedBox(width: 8),
-            Expanded(child: chips[i]),
-          ],
-        ],
-      ),
-    );
+    return SafeEqualHeightRow(children: chips);
   }
 
   Widget _buildEmpFilterChip({

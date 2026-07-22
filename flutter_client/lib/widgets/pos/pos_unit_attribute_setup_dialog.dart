@@ -1415,14 +1415,23 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final w = MediaQuery.sizeOf(context).width;
-    final dialogW = (w * 0.98).clamp(900.0, 1400.0);
+    final size = MediaQuery.sizeOf(context);
+    final pad = MediaQuery.paddingOf(context);
+    final narrow = size.width < 600;
+    final dialogW = narrow
+        ? size.width
+        : (size.width * 0.98).clamp(720.0, 1400.0);
 
     return Dialog(
-      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      insetPadding: EdgeInsets.fromLTRB(
+        narrow ? 6 : 16,
+        pad.top + (narrow ? 4 : 16),
+        narrow ? 6 : 16,
+        pad.bottom + (narrow ? 4 : 16),
+      ),
       child: SizedBox(
         width: dialogW,
-        height: MediaQuery.sizeOf(context).height * 0.88,
+        height: size.height - pad.top - pad.bottom - (narrow ? 16 : 48),
         child: Column(
           children: [
             _header(),
@@ -1431,7 +1440,7 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
               child: _loading
                   ? const Center(child: CircularProgressIndicator())
                   : SingleChildScrollView(
-                      padding: const EdgeInsets.all(20),
+                      padding: EdgeInsets.all(narrow ? 12 : 20),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
@@ -1500,6 +1509,9 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
   }
 
   Widget _unitHeaderRow() {
+    if (MediaQuery.sizeOf(context).width < 520) {
+      return const SizedBox.shrink();
+    }
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 2),
       child: Row(
@@ -1527,23 +1539,125 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
     final baseName = _baseUnit.nameCtrl.text.trim().isEmpty
         ? 'ĐVT cơ bản'
         : _baseUnit.nameCtrl.text.trim();
+    final narrow = MediaQuery.sizeOf(context).width < 520;
+
+    final nameField = TextField(
+      controller: u.nameCtrl,
+      decoration: PosTheme.inputDecoration(
+        label: u.isBase ? 'Tên đơn vị cơ bản' : 'Tên đơn vị',
+        hint: u.isBase ? 'gói' : '1 lốc',
+      ),
+      onChanged: (_) =>
+          setState(() => _scheduleRebuild(preserveMeta: true)),
+    );
+
+    final rateField = !u.isBase
+        ? Row(
+            children: [
+              Text('= ',
+                  style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.grey.shade700)),
+              SizedBox(
+                width: 72,
+                child: TextField(
+                  controller: u.rateCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: PosTheme.inputDecoration(label: 'Hệ số'),
+                  onChanged: (_) {
+                    if (!u.isBase) _onExtraUnitRateChanged(u);
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  baseName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                ),
+              ),
+            ],
+          )
+        : null;
+
+    final priceField = TextField(
+      controller: u.priceCtrl,
+      keyboardType: TextInputType.number,
+      inputFormatters: [ThousandSeparatorFormatter()],
+      decoration: PosTheme.inputDecoration(label: 'Giá bán'),
+      onChanged: (_) {
+        if (u.isBase) {
+          setState(() => _onBasePriceChanged());
+        } else {
+          u.priceAuto = false;
+          setState(() => _syncTableFromUnits(refreshCost: false));
+        }
+      },
+    );
+
+    if (narrow) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.fromLTRB(12, 10, 8, 8),
+        decoration: BoxDecoration(
+          border: Border.all(color: PosTheme.border),
+          borderRadius: BorderRadius.circular(8),
+          color: u.isBase ? const Color(0xFFF8FAFC) : Colors.white,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Text(
+                u.isBase ? 'Đơn vị cơ bản' : 'Đơn vị quy đổi',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+            ),
+            nameField,
+            if (rateField != null) ...[
+              const SizedBox(height: 8),
+              rateField,
+            ],
+            const SizedBox(height: 8),
+            priceField,
+            Row(
+              children: [
+                Checkbox(
+                  value: u.isDirectSale,
+                  activeColor: PosTheme.primary,
+                  visualDensity: VisualDensity.compact,
+                  onChanged: (v) =>
+                      setState(() => u.isDirectSale = v ?? true),
+                ),
+                const Text('Bán trực tiếp', style: TextStyle(fontSize: 12)),
+                const Spacer(),
+                if (onDelete != null)
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, size: 20),
+                    color: Colors.red.shade400,
+                    onPressed: onDelete,
+                  ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            flex: 22,
-            child: TextField(
-              controller: u.nameCtrl,
-              decoration: PosTheme.inputDecoration(
-                label: u.isBase ? 'Tên đơn vị cơ bản' : 'Tên đơn vị',
-                hint: u.isBase ? 'gói' : '1 lốc',
-              ),
-              onChanged: (_) =>
-                  setState(() => _scheduleRebuild(preserveMeta: true)),
-            ),
-          ),
+          Expanded(flex: 22, child: nameField),
           const SizedBox(width: 8),
           if (!u.isBase)
             SizedBox(
@@ -1594,23 +1708,7 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
           else
             const SizedBox(width: 168),
           const SizedBox(width: 8),
-          Expanded(
-            flex: 14,
-            child: TextField(
-              controller: u.priceCtrl,
-              keyboardType: TextInputType.number,
-              inputFormatters: [ThousandSeparatorFormatter()],
-              decoration: PosTheme.inputDecoration(label: 'Giá bán'),
-              onChanged: (_) {
-                if (u.isBase) {
-                  setState(() => _onBasePriceChanged());
-                } else {
-                  u.priceAuto = false;
-                  setState(() => _syncTableFromUnits(refreshCost: false));
-                }
-              },
-            ),
-          ),
+          Expanded(flex: 14, child: priceField),
           const SizedBox(width: 8),
           SizedBox(
             width: 100,
@@ -1714,11 +1812,13 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
+        Wrap(
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 4,
+          runSpacing: 4,
           children: [
             const Text('Hàng cùng loại',
                 style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-            const Spacer(),
             TextButton.icon(
               onPressed: _openPriceSetup,
               icon: const Icon(Icons.settings, size: 16, color: PosTheme.kiotBlue),
@@ -1746,20 +1846,26 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
           Text('Thêm đơn vị hoặc thuộc tính để sinh dòng hàng',
               style: TextStyle(color: Colors.grey.shade600, fontSize: 13))
         else
-          DecoratedBox(
-            decoration: BoxDecoration(
-              border: Border.all(color: PosTheme.border),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _relatedTableHeader(),
-                const Divider(height: 1, thickness: 1),
-                ..._relatedRows.asMap().entries.map(
-                      (e) => _relatedTableDataRow(e.key, e.value),
-                    ),
-              ],
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 720),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  border: Border.all(color: PosTheme.border),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _relatedTableHeader(),
+                    const Divider(height: 1, thickness: 1),
+                    ..._relatedRows.asMap().entries.map(
+                          (e) => _relatedTableDataRow(e.key, e.value),
+                        ),
+                  ],
+                ),
+              ),
             ),
           ),
       ],
@@ -1963,34 +2069,37 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
   static const _th = TextStyle(fontSize: 11, fontWeight: FontWeight.w600);
 
   Widget _footer() {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          OutlinedButton(
-            onPressed: _saving ? null : () => Navigator.pop(context),
-            child: const Text('Bỏ qua'),
-          ),
-          const SizedBox(width: 12),
-          OutlinedButton(
-            onPressed: _saving ? null : () => _save(addMore: true),
-            child: const Text('Lưu & Thêm hàng hóa cùng loại'),
-          ),
-          const SizedBox(width: 12),
-          FilledButton(
-            onPressed: _saving ? null : () => _save(addMore: false),
-            style: FilledButton.styleFrom(backgroundColor: PosTheme.kiotBlue),
-            child: _saving
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white),
-                  )
-                : const Text('Lưu'),
-          ),
-        ],
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+        child: Wrap(
+          alignment: WrapAlignment.end,
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            OutlinedButton(
+              onPressed: _saving ? null : () => Navigator.pop(context),
+              child: const Text('Bỏ qua'),
+            ),
+            OutlinedButton(
+              onPressed: _saving ? null : () => _save(addMore: true),
+              child: const Text('Lưu & thêm cùng loại'),
+            ),
+            FilledButton(
+              onPressed: _saving ? null : () => _save(addMore: false),
+              style: FilledButton.styleFrom(backgroundColor: PosTheme.kiotBlue),
+              child: _saving
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Text('Lưu'),
+            ),
+          ],
+        ),
       ),
     );
   }

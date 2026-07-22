@@ -14,6 +14,7 @@ import '../../widgets/pos/pos_theme.dart';
 import '../pos_products_screen.dart';
 import '../pos_sale_order_list_screen.dart';
 import '../pos_sell_screen.dart';
+import '../main_layout.dart' show ScreenRefreshNotifier;
 import 'pos_more_screen.dart';
 import 'pos_overview_screen.dart';
 
@@ -146,12 +147,19 @@ class PosMobileHubScreenState extends State<PosMobileHubScreen> {
   }
 
   void _switchTab(int index) {
-    if (_tab == index) return;
+    if (_tab == index) {
+      // Bấm lại tab Hoá đơn → đồng bộ danh sách.
+      if (index == 3) ScreenRefreshNotifier.refreshPosSaleOrders();
+      if (index == 2) ScreenRefreshNotifier.refreshPosAfterStockChange();
+      return;
+    }
     setState(() => _tab = index);
     NavigationNotifier.reportScreen(
       _labelForTab(index),
       moduleCode: _moduleForTab(index),
     );
+    if (index == 3) ScreenRefreshNotifier.refreshPosSaleOrders();
+    if (index == 2) ScreenRefreshNotifier.refreshPosAfterStockChange();
   }
 
   void _onSlotTap(int slotIndex, String slotId, PermissionProvider perm) {
@@ -186,7 +194,9 @@ class PosMobileHubScreenState extends State<PosMobileHubScreen> {
           ),
         ),
       ),
-      bottomNavigationBar: Material(
+      bottomNavigationBar: _tab == 2
+          ? null // Ẩn thanh dưới khi Bán hàng — rộng màn hình; về trang chủ bằng nút Home.
+          : Material(
         elevation: 8,
         color: Colors.white,
         child: SafeArea(

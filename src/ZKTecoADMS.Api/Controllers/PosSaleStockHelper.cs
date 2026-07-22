@@ -18,6 +18,51 @@ internal static class PosSaleStockHelper
 {
     public static string CancelReturnNotePrefix(string orderNo) => $"Hủy đơn: {orderNo}";
 
+    /// <summary>Mở rộng dòng bán + topping (mỗi topping trừ = qty dòng cha).</summary>
+    public static List<(Guid ProductId, decimal Qty, Guid? VariantId)> ExpandStockInputsWithToppings(
+        IEnumerable<(Guid ProductId, decimal Qty, Guid? VariantId, string? ToppingsJson)> lines)
+    {
+        var result = new List<(Guid ProductId, decimal Qty, Guid? VariantId)>();
+        foreach (var l in lines)
+        {
+            result.Add((l.ProductId, l.Qty, l.VariantId));
+            foreach (var tid in ParseToppingProductIds(l.ToppingsJson))
+                result.Add((tid, l.Qty, null));
+        }
+        return result;
+    }
+
+    public static IReadOnlyList<Guid> ParseToppingProductIds(string? toppingsJson)
+    {
+        if (string.IsNullOrWhiteSpace(toppingsJson)) return Array.Empty<Guid>();
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(toppingsJson);
+            if (doc.RootElement.ValueKind != System.Text.Json.JsonValueKind.Array)
+                return Array.Empty<Guid>();
+            var ids = new List<Guid>();
+            foreach (var el in doc.RootElement.EnumerateArray())
+            {
+                if (el.ValueKind != System.Text.Json.JsonValueKind.Object) continue;
+                if (!el.TryGetProperty("id", out var idEl) &&
+                    !el.TryGetProperty("Id", out idEl) &&
+                    !el.TryGetProperty("toppingProductId", out idEl) &&
+                    !el.TryGetProperty("ToppingProductId", out idEl))
+                    continue;
+                if (idEl.ValueKind == System.Text.Json.JsonValueKind.String &&
+                    Guid.TryParse(idEl.GetString(), out var g))
+                    ids.Add(g);
+                else if (idEl.TryGetGuid(out g))
+                    ids.Add(g);
+            }
+            return ids;
+        }
+        catch
+        {
+            return Array.Empty<Guid>();
+        }
+    }
+
     public static string VoidReturnNotePrefix(string returnNo) => $"Hủy trả hàng: {returnNo}";
 
     public static bool IsCustomerReturnTx(PosStockTransaction t) =>
@@ -427,15 +472,22 @@ internal static class PosSaleStockHelper
         {
             var v = variants[vid];
             var p = products[v.ProductId];
+            var baseNeed = PosVariantStockHelper.StockDeltaInBase(v, need);
             if (p.TrackExpiry)
             {
-                var baseNeed = PosVariantStockHelper.StockDeltaInBase(v, need);
                 var lotQty = await PosStockLotHelper.GetAvailableLotQtyAsync(db, storeId, p.Id, vid);
                 if (lotQty < baseNeed)
                     return (null, $"Không đủ tồn lô/HSD: {v.Name} (cần {baseNeed}, còn {lotQty})");
             }
-            if (v.OnHandQty < need)
+            if (PosVariantStockHelper.IsUnitOnlyVariant(v.AttributeJson))
+            {
+                if (p.OnHandQty < baseNeed)
+                    return (null, $"Không đủ tồn kho: {p.Name} (cần {baseNeed}, còn {p.OnHandQty})");
+            }
+            else if (v.OnHandQty < need)
+            {
                 return (null, $"Không đủ tồn kho: {v.Name} (cần {need}, còn {v.OnHandQty})");
+            }
         }
 
         foreach (var (pid, need) in stockNeeds)
@@ -499,6 +551,16 @@ internal static class PosSaleStockHelper
             {
                 await ApplyFefoSaleDeductionAsync(
                     db, storeId, order, p, null, line.Qty, "Bán hàng POS", createdBy, plan);
+            }
+
+            // Topping gắn dòng: trừ tồn SP topping (1 phần / 1 đơn vị món).
+            foreach (var toppingId in ParseToppingProductIds(line.ToppingsJson))
+            {
+                if (!plan.Products.TryGetValue(toppingId, out var toppingProduct)) continue;
+                if (toppingProduct.ProductType == PosProductType.Service) continue;
+                await ApplyFefoSaleDeductionAsync(
+                    db, storeId, order, toppingProduct, null, line.Qty,
+                    $"Topping — {p.Name}", createdBy, plan);
             }
         }
 
@@ -633,7 +695,11 @@ internal static class PosSaleStockHelper
         if (await HasReturnBeenVoidedAsync(db, storeId, order.Id, returnNo))
             return (0, [], "Phiếu trả đã hủy");
 
+        // DbContext mặc định NoTracking — thiếu AsTracking khiến "tx.IsActive = false" dưới đây
+        // không được lưu, làm phiếu trả vẫn tính là "còn hiệu lực" sau khi đã hủy (order.Total
+        // hoàn tác đúng nhưng ReturnStatus/ReturnedQty hiển thị sai — dữ liệu không đồng bộ).
         var txs = await db.PosStockTransactions
+            .AsTracking()
             .Where(t => t.SaleOrderId == order.Id && t.StoreId == storeId &&
                         t.Deleted == null && t.IsActive &&
                         t.TransactionType == PosStockTransactionType.Return &&
@@ -677,13 +743,25 @@ internal static class PosSaleStockHelper
             decimal qtyAfter;
             if (variant != null)
             {
-                qtyAfter = PosVariantStockHelper.ApplyStockDelta(product, variant, deduct, add: false);
+                // tx.QtyChange đã được quy đổi sang đơn vị cơ bản khi tạo phiếu trả (StockDeltaInBase)
+                // — nếu gọi lại ApplyStockDelta (vốn nhận đầu vào ở đơn vị bán và tự quy đổi) sẽ bị
+                // quy đổi 2 lần, trừ kho sai (VD: trả 2 Thùng = 5 đơn vị cơ bản, hủy trả lại trừ tiếp
+                // 5 × hệ số quy đổi thay vì chỉ 5). Trừ thẳng theo đơn vị cơ bản đã lưu.
+                if (PosVariantStockHelper.IsUnitOnlyVariant(variant.AttributeJson))
+                {
+                    product.OnHandQty -= deduct;
+                    qtyAfter = product.OnHandQty;
+                }
+                else
+                {
+                    variant.OnHandQty -= deduct;
+                    qtyAfter = variant.OnHandQty;
+                    touchedProducts.Add(product.Id);
+                }
                 variant.UpdatedAt = DateTime.UtcNow;
                 variant.UpdatedBy = createdBy;
                 product.UpdatedAt = DateTime.UtcNow;
                 product.UpdatedBy = createdBy;
-                if (!PosVariantStockHelper.IsUnitOnlyVariant(variant.AttributeJson))
-                    touchedProducts.Add(product.Id);
             }
             else
             {
@@ -722,7 +800,10 @@ internal static class PosSaleStockHelper
                 CreatedBy = createdBy,
             });
 
-            warrantyLines.Add((tx.ProductId, tx.VariantId, deduct));
+            // MarkReturnedAsync (lúc trả hàng) nhận Qty ở đơn vị bán — Unmark cũng phải cùng đơn vị,
+            // nếu không "Take(N)" số phiếu bảo hành cần khôi phục sẽ sai khi có quy đổi ĐVT.
+            var warrantyQty = PosVariantStockHelper.ToSaleUnitQty(deduct, variant?.AttributeJson);
+            warrantyLines.Add((tx.ProductId, tx.VariantId, warrantyQty));
         }
 
         foreach (var pid in touchedProducts)
@@ -752,12 +833,12 @@ internal static class PosSaleStockHelper
         customer.UpdatedAt = DateTime.UtcNow;
     }
 
-    /// <summary>Mã HĐ: HD + dd + MM + STT trong ngày (VN, 3 chữ số).</summary>
+    /// <summary>Mã HĐ: HD + dd + MM + yyyy + STT (giờ VN). 0001…9999 rồi 10000…; qua ngày reset 0001.</summary>
     public static async Task<string> NextOrderNoAsync(
         ZKTecoDbContext db, Guid storeId, DateTime? saleDate = null)
     {
         var local = saleDate.HasValue ? VnTimeHelper.UtcToVn(saleDate.Value) : VnTimeHelper.NowVn();
-        var prefix = $"HD{local.Day:D2}{local.Month:D2}";
+        var prefix = $"HD{local.Day:D2}{local.Month:D2}{local.Year}";
         var existing = await db.PosSaleOrders.IgnoreQueryFilters()
             .AsNoTracking()
             .Where(o => o.StoreId == storeId && o.OrderNo.StartsWith(prefix))
@@ -769,7 +850,11 @@ internal static class PosSaleStockHelper
             if (no.Length <= prefix.Length) continue;
             if (int.TryParse(no[prefix.Length..], out var n) && n > max) max = n;
         }
-        return prefix + (max + 1).ToString("D3");
+        var next = max + 1;
+        // Hỗ trợ > 9999 đơn/ngày: D4 cho 1..9999, sau đó không pad (HD…10000).
+        return next <= 9999
+            ? prefix + next.ToString("D4")
+            : prefix + next.ToString();
     }
 
     /// <summary>Thứ tự HĐ trong ngày và tổng tiền HĐ tích lũy đến đơn này.</summary>
@@ -780,28 +865,40 @@ internal static class PosSaleStockHelper
             return (0, 0);
 
         var anchor = order.SaleDate ?? order.CreatedAt;
-        var local = VnTimeHelper.UtcToVn(anchor);
-        var dayStart = local.Date;
-        var dayEnd = dayStart.AddDays(1);
-        var orderTime = anchor;
+        // Chuyển mốc ngày VN → lấy cửa sổ ±1 ngày rồi lọc client (tránh string.Compare trên SQL).
+        var windowStart = anchor.AddDays(-1);
+        var windowEnd = anchor.AddDays(1);
 
-        var baseQuery = db.PosSaleOrders.AsNoTracking()
+        var dayOrders = await db.PosSaleOrders.AsNoTracking()
             .Where(o => o.StoreId == storeId && o.Deleted == null && o.IsActive
                 && o.Status == PosSaleOrderStatus.Completed
-                && (o.SaleDate ?? o.CreatedAt) >= dayStart
-                && (o.SaleDate ?? o.CreatedAt) < dayEnd);
+                && (o.SaleDate ?? o.CreatedAt) >= windowStart
+                && (o.SaleDate ?? o.CreatedAt) < windowEnd)
+            .Select(o => new
+            {
+                Time = o.SaleDate ?? o.CreatedAt,
+                o.OrderNo,
+                o.Total,
+            })
+            .ToListAsync();
 
-        var index = await baseQuery.CountAsync(o =>
-            (o.SaleDate ?? o.CreatedAt) < orderTime
-            || ((o.SaleDate ?? o.CreatedAt) == orderTime
-                && string.Compare(o.OrderNo, order.OrderNo, StringComparison.Ordinal) <= 0));
+        var orderDay = VnTimeHelper.UtcToVn(anchor).Date;
+        var sameDay = dayOrders
+            .Where(o => VnTimeHelper.UtcToVn(o.Time).Date == orderDay)
+            .ToList();
 
-        var cumulative = await baseQuery
+        var orderNo = order.OrderNo ?? "";
+        var index = sameDay.Count(o =>
+            o.Time < anchor
+            || (o.Time == anchor
+                && string.Compare(o.OrderNo, orderNo, StringComparison.Ordinal) <= 0));
+
+        var cumulative = sameDay
             .Where(o =>
-                (o.SaleDate ?? o.CreatedAt) < orderTime
-                || ((o.SaleDate ?? o.CreatedAt) == orderTime
-                    && string.Compare(o.OrderNo, order.OrderNo, StringComparison.Ordinal) <= 0))
-            .SumAsync(o => o.Total);
+                o.Time < anchor
+                || (o.Time == anchor
+                    && string.Compare(o.OrderNo, orderNo, StringComparison.Ordinal) <= 0))
+            .Sum(o => o.Total);
 
         return (index, cumulative);
     }

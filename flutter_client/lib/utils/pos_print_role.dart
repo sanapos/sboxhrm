@@ -2,14 +2,21 @@ import 'pos_print_agent_settings.dart';
 
 /// Phân vai in cloud: thiết bị gắn máy in (Agent) vs thiết bị gửi lệnh từ xa.
 abstract final class PosPrintRole {
+  static String _normId(String id) => id.trim().toLowerCase();
+
+  /// So khớp GUID máy in (không phân biệt hoa/thường).
+  static bool matchesPrinterId(String a, String b) =>
+      _normId(a) == _normId(b);
+
   /// Thiết bị này là Print Agent cho [printerId] (nhận & in cục bộ).
   static Future<bool> isAgentForPrinter(String printerId) async {
-    if (printerId.isEmpty) return false;
+    if (printerId.trim().isEmpty) return false;
     final settings = await PosPrintAgentSettings.load();
     if (!settings.enabled) return false;
 
     final assigned = await assignedPrinterIds();
-    return assigned.contains(printerId);
+    final want = _normId(printerId);
+    return assigned.any((id) => _normId(id) == want);
   }
 
   /// Danh sách máy in mà thiết bị này đang phục vụ (Agent).

@@ -1,0 +1,10 @@
+static _StatusInfo _getStatusInfo(int status) {
+    switch (status) {
+      case 0:
+        return const _StatusInfo(
+            'Ch? duy?t', Colors.orange, Icons.hourglass_bottom_rounded);
+      case 1:
+        return const _StatusInfo(
+            'Đă duy?t', Colors.green, Icons.check_circle_rounded);
+      case 2:
+        return const _StatusInfo('T? ch?i', Colors.red, Icons.cancel_ro

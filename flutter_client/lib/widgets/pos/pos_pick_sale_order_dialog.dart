@@ -88,9 +88,16 @@ class _PosPickSaleOrderShellState extends State<_PosPickSaleOrderShell> {
   @override
   void initState() {
     super.initState();
-    final range = resolvePosKiotTimePreset(PosKiotTimePreset.thisMonth);
-    _from = range.$1;
-    _to = range.$2;
+    // Đơn tạm: không lọc theo tháng — tránh máy khác không thấy đơn vừa giữ.
+    if (widget.purpose == PosPickSaleOrderPurpose.resumeDraft) {
+      final range = resolvePosKiotTimePreset(PosKiotTimePreset.allTime);
+      _from = range.$1;
+      _to = range.$2;
+    } else {
+      final range = resolvePosKiotTimePreset(PosKiotTimePreset.thisMonth);
+      _from = range.$1;
+      _to = range.$2;
+    }
     _load();
   }
 

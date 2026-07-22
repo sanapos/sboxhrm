@@ -21,7 +21,19 @@ public class Benefit : AuditableEntity<Guid>
 
     public int? StandardHoursPerDay { get; set; }
 
+    /// <summary>
+    /// Auto = số ngày tháng − ngày nghỉ có lương; FixedCustom/Fixed25–28 = công chuẩn cố định.
+    /// </summary>
     public StandardWorkMode StandardWorkMode { get; set; }
+
+    /// <summary>Số công cố định khi StandardWorkMode = FixedCustom (mặc định 26).</summary>
+    public int? FixedStandardWorkDays { get; set; }
+
+    /// <summary>Fixed mode: trừ lương theo ngày nếu công thực tế &lt; công chuẩn cố định.</summary>
+    public bool DeductIfBelowFixedStandard { get; set; } = true;
+
+    /// <summary>Fixed mode: cộng lương theo ngày nếu công thực tế &gt; công chuẩn cố định.</summary>
+    public bool AddIfAboveFixedStandard { get; set; } = true;
 
     [MaxLength(10)]
     public string Currency { get; set; } = "VND";
@@ -104,7 +116,9 @@ public class Benefit : AuditableEntity<Guid>
     // Shifts per day for work day calculation
     public int? ShiftsPerDay { get; set; }
     
-    // Attendance mode: none, checkin, checkout, any
+    // Attendance mode: none, checkin, checkout, both, any, free2
+    // (free2 = "Chấm 2 lần bất kỳ trong ngày": ≥2 punches/day = 1 công,
+    // ignores shift matching, late/early/overtime — see AttendanceConstants.FreeTwoPunchMode)
     [MaxLength(20)]
     public string? AttendanceMode { get; set; }
     
@@ -112,7 +126,7 @@ public class Benefit : AuditableEntity<Guid>
     [MaxLength(30)]
     public string? PaidLeaveType { get; set; }
 
-    /// <summary>Cách tính lương đi đường NV: base_per_8h, completion_per_8h, fixed. Null = dùng mặc định cửa hàng.</summary>
+    /// <summary>Cách tính lương đi đường NV: off | base_per_8h | completion_per_8h | base_plus_completion_per_8h | fixed. Null = mặc định base_per_8h (bật).</summary>
     [MaxLength(30)]
     public string? TravelSalaryMode { get; set; }
 

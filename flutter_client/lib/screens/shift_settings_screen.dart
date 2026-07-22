@@ -10,9 +10,11 @@ import '../utils/responsive_helper.dart';
 import '../models/hrm.dart';
 import '../models/employee.dart';
 import '../widgets/app_button.dart';
+import '../widgets/hrm/hrm_settings_mobile_kit.dart';
 import '../widgets/hrm_mini_stat_chip.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/loading_widget.dart';
+import '../widgets/pos/pos_theme.dart';
 import '../widgets/notification_overlay.dart';
 class ShiftSettingsScreen extends StatefulWidget {
   const ShiftSettingsScreen({super.key});
@@ -160,19 +162,39 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
     return time;
   }
 
-  String _calculateWorkHours(String startTime, String endTime) {
+  String _calculateWorkHours(String startTime, String endTime,
+      {TimeOfDay? lunchStart, TimeOfDay? lunchEnd}) {
     try {
       final sp = startTime.split(':');
       final ep = endTime.split(':');
       int startMin = int.parse(sp[0]) * 60 + int.parse(sp[1]);
       int endMin = int.parse(ep[0]) * 60 + int.parse(ep[1]);
       if (endMin <= startMin) endMin += 24 * 60;
-      final diff = endMin - startMin;
+      var diff = endMin - startMin;
+      if (lunchStart != null && lunchEnd != null) {
+        final lunchStartMin = lunchStart.hour * 60 + lunchStart.minute;
+        final lunchEndMin = lunchEnd.hour * 60 + lunchEnd.minute;
+        if (lunchEndMin > lunchStartMin) diff -= lunchEndMin - lunchStartMin;
+      }
+      if (diff < 0) diff = 0;
       return '${(diff ~/ 60).toString().padLeft(2, '0')}:${(diff % 60).toString().padLeft(2, '0')}';
     } catch (_) {
       return '--:--';
     }
   }
+
+  TimeOfDay? _timeOfDayFromShiftString(String? t) {
+    if (t == null || t.isEmpty) return null;
+    final parts = t.split(':');
+    if (parts.length < 2) return null;
+    return TimeOfDay(
+      hour: int.tryParse(parts[0]) ?? 0,
+      minute: int.tryParse(parts[1]) ?? 0,
+    );
+  }
+
+  String _timeOfDayToApi(TimeOfDay t) =>
+      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}:00';
 
   String _getShiftAbbreviation(Shift shift) {
     if (shift.code.isNotEmpty && shift.code.length <= 3) {
@@ -220,8 +242,47 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
     );
   }
 
+  Widget _buildGuideButton({bool compact = false}) {
+    return InkWell(
+      onTap: _showShiftGuide,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: EdgeInsets.symmetric(
+            horizontal: compact ? 10 : 12, vertical: compact ? 8 : 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF7ED),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+              color: const Color(0xFFFB923C).withValues(alpha: 0.35)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.menu_book_outlined,
+                size: 16, color: Color(0xFFEA580C)),
+            if (!compact) ...[
+              const SizedBox(width: 6),
+              const Text('Hướng dẫn',
+                  style: TextStyle(
+                      color: Color(0xFFEA580C),
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13)),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildAddShiftButton({bool compact = false}) {
     if (!_perm.canCreate('ShiftSetup')) return const SizedBox.shrink();
+    if (HrmSettingsMobileKit.active(context) && compact) {
+      return HrmSettingsAddButton(
+        label: 'Thêm ca',
+        compact: true,
+        onPressed: () => _showShiftDialog(),
+      );
+    }
     return FilledButton.icon(
       onPressed: () => _showShiftDialog(),
       icon: const Icon(Icons.add, size: 18),
@@ -238,7 +299,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
   Widget build(BuildContext context) {
     final isMobile = Responsive.isMobile(context);
     return Scaffold(
-      backgroundColor: _bgColor,
+      backgroundColor: HrmPageChrome.scaffoldBackground(context),
       body: _isLoading
           ? const LoadingWidget()
           : isMobile
@@ -288,6 +349,8 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                               fontWeight: FontWeight.bold,
                               color: _textDark)),
                     ),
+                    _buildGuideButton(compact: isMobile),
+                    const SizedBox(width: 8),
                     _buildAddShiftButton(compact: isMobile),
                   ],
                 ),
@@ -298,6 +361,8 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                   children: [
                     Expanded(child: _buildShiftSearchField()),
                     const SizedBox(width: 10),
+                    _buildGuideButton(compact: isMobile),
+                    const SizedBox(width: 8),
                     _buildAddShiftButton(compact: isMobile),
                   ],
                 ),
@@ -463,7 +528,10 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
     final tooltipMsg =
         'Chấm sớm: ${shift.earlyCheckInMinutes ?? 30}p  •  Trễ TĐ: ${shift.maximumAllowedLateMinutes ?? 30}p  •  Về sớm TĐ: ${shift.maximumAllowedEarlyLeaveMinutes ?? 30}p\n'
         'Grace trễ: ${shift.lateGraceMinutes ?? 5}p  •  Grace về sớm: ${shift.earlyLeaveGraceMinutes ?? 5}p'
-        '${(shift.breakMinutes ?? 0) > 0 ? '  •  Tính tăng ca sau: ${shift.breakMinutes}p' : ''}';
+        '${shift.lunchBreakStartTime != null && shift.lunchBreakEndTime != null ? '\nNghỉ giữa ca: ${_formatTime(shift.lunchBreakStartTime!)} – ${_formatTime(shift.lunchBreakEndTime!)} (chấm trong khung → tăng ca)' : ''}'
+        '${(shift.breakMinutes ?? 0) > 0 ? '  •  Nghỉ giữa ca (phút): ${shift.breakMinutes}p' : ''}'
+        '${(shift.overtimeMinutesThreshold ?? 0) > 0 ? '  •  Tăng ca sau ca: ${shift.overtimeMinutesThreshold}p' : ''}'
+        '${(shift.earlyOvertimeMinutesThreshold ?? 0) > 0 ? '  •  Tăng ca trước ca: ${shift.earlyOvertimeMinutesThreshold}p' : ''}';
 
     return Tooltip(
       message: tooltipMsg,
@@ -646,6 +714,52 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
   // ===== MOBILE FULL-SCROLL LAYOUT =====
   Widget _buildMobileContent() {
     final allShifts = _filteredShifts;
+    final embeddedKit = HrmSettingsMobileKit.active(context);
+
+    if (embeddedKit) {
+      return ColoredBox(
+        color: PosTheme.background,
+        child: CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    HrmSettingsSearchToolbar(
+                      search: _buildShiftSearchField(),
+                      actions: [
+                        _buildGuideButton(compact: true),
+                        _buildAddShiftButton(compact: true),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    _buildShiftStatsBar(),
+                  ],
+                ),
+              ),
+            ),
+            if (allShifts.isEmpty)
+              SliverFillRemaining(child: _buildEmptyState())
+            else
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                  child: HrmSettingsEntityGrid(
+                    itemCount: allShifts.length,
+                    columns: 2,
+                    childAspectRatio: 0.95,
+                    itemBuilder: (ctx, i) =>
+                        _buildShiftGridTile(allShifts[i], i),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
+    }
+
     return CustomScrollView(
       slivers: [
         // Header scrolls with content
@@ -676,6 +790,8 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Expanded(child: _buildShiftSearchField()),
+                    const SizedBox(width: 8),
+                    _buildGuideButton(compact: true),
                     const SizedBox(width: 8),
                     _buildAddShiftButton(compact: true),
                   ],
@@ -719,6 +835,23 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
             ),
           ),
       ],
+    );
+  }
+
+  Widget _buildShiftGridTile(Shift shift, int index) {
+    final shiftType = _getShiftType(shift);
+    final typeColor = _getShiftTypeColor(shiftType);
+    final color = _badgeColors[index % _badgeColors.length];
+
+    return HrmSettingsEntityTile(
+      title: shift.name,
+      subtitle:
+          '${_formatTime(shift.startTime)} – ${_formatTime(shift.endTime)}',
+      icon: _getShiftTypeIcon(shiftType),
+      iconColor: color,
+      badge: shiftType,
+      badgeColor: typeColor,
+      onTap: () => _showShiftDialog(shift: shift),
     );
   }
 
@@ -1049,9 +1182,25 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                       '${shift.lateGraceMinutes ?? 5} phút', Colors.red),
                   _buildParamRow(Icons.alarm_off, 'Tính về sớm sau',
                       '${shift.earlyLeaveGraceMinutes ?? 5} phút', Colors.pink),
+                  if (shift.lunchBreakStartTime != null &&
+                      shift.lunchBreakEndTime != null)
+                    _buildParamRow(
+                        Icons.free_breakfast,
+                        'Nghỉ giữa ca',
+                        '${_formatTime(shift.lunchBreakStartTime!)} – ${_formatTime(shift.lunchBreakEndTime!)}',
+                        Colors.brown),
                   if (shift.breakMinutes != null && shift.breakMinutes! > 0)
-                    _buildParamRow(Icons.coffee, 'Tính tăng ca sau',
+                    _buildParamRow(Icons.coffee, 'Nghỉ giữa ca (phút)',
                         '${shift.breakMinutes} phút', Colors.teal),
+                  if (shift.overtimeMinutesThreshold != null &&
+                      shift.overtimeMinutesThreshold! > 0)
+                    _buildParamRow(Icons.more_time, 'Tăng ca sau ca',
+                        '${shift.overtimeMinutesThreshold} phút', Colors.amber),
+                  if (shift.earlyOvertimeMinutesThreshold != null &&
+                      shift.earlyOvertimeMinutesThreshold! > 0)
+                    _buildParamRow(Icons.more_time, 'Tăng ca trước ca',
+                        '${shift.earlyOvertimeMinutesThreshold} phút',
+                        Colors.orange),
                   const SizedBox(height: 20),
 
                   // Shift info
@@ -1270,6 +1419,224 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
   }
 
   // ===== SHIFT FORM DIALOG =====
+  // ==================== HƯỚNG DẪN SET CA & CHẤM CÔNG ====================
+  void _showShiftGuide() {
+    showDialog(
+      context: context,
+      builder: (context) => ScrollableAlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.menu_book, color: Color(0xFFEA580C)),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Hướng dẫn thiết lập ca & chấm công',
+                style: TextStyle(
+                    color: _textDark,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 17),
+              ),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: Responsive.dialogWidth(context),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildGuideSection(
+                  '1. Tạo và thiết lập ca',
+                  Icons.add_circle_outline,
+                  HrmPageChrome.primaryNavy,
+                  [
+                    'Bấm «Thêm ca» → nhập tên, mã, giờ vào / giờ ra.',
+                    'Chọn loại ca: Hành chính (ca chính), Tăng ca (OT riêng), hoặc Qua đêm.',
+                    'Điền thông số chấm công (chấm sớm, trễ, về sớm, tăng ca…).',
+                    'Lưu ca → gán ca cho nhân viên trong hồ sơ / lịch làm việc.',
+                  ],
+                ),
+                const Divider(height: 28),
+                _buildGuideSection(
+                  '2. Ý nghĩa các thông số chấm công',
+                  Icons.tune,
+                  const Color(0xFF0EA5E9),
+                  [
+                    'Cho phép chấm sớm: cửa sổ ghép ca. Chấm sớm hơn ngưỡng này → không khớp ca.',
+                    'Cho phép chấm trễ / về sớm: giới hạn tối đa vẫn còn thuộc ca.',
+                    'Tính đi trễ sau / về sớm sau (grace): trong khoảng này không bị trừ trễ/sớm.',
+                    'Tăng ca trước ca: chấm vào sớm hơn ngưỡng này mới được tính OT trước giờ vào ca.',
+                    'Tăng ca sau ca: ra muộn hơn ngưỡng này mới được tính OT sau giờ tan ca.',
+                    'Nên đặt «Cho phép chấm sớm» ≥ «Tăng ca trước ca» (+1 phút) để OT trước ca có hiệu lực.',
+                  ],
+                ),
+                const Divider(height: 28),
+                _buildGuideSection(
+                  '3. Ví dụ cấu hình (ca 07:00–11:00)',
+                  Icons.lightbulb_outline,
+                  const Color(0xFFF59E0B),
+                  [
+                    'Cho phép chấm sớm = 60 phút → nhận chấm từ 06:00.',
+                    'Tăng ca trước ca = 30 phút → vào 06:15 tính OT 45p; vào 06:31 không tính OT.',
+                    'Tăng ca sau ca = 30 phút → ra 11:31 tính OT 31p; ra 11:30 không tính OT.',
+                    'Giờ làm ca vẫn tính theo khung 07:00–11:00 khi đúng giờ (không trễ/sớm/OT).',
+                  ],
+                ),
+                _buildGuideExampleCard(
+                  title: 'Ví dụ tăng ca trước ca',
+                  rows: const [
+                    'Vào 06:15 → Ra 11:00 → OT trước ca 45 phút',
+                    'Vào 06:31 → Ra 11:00 → Không OT (sớm ≤ 30p)',
+                  ],
+                ),
+                const Divider(height: 28),
+                _buildGuideSection(
+                  '4. Cách chấm công cho nhân viên (ca hành chính)',
+                  Icons.fingerprint,
+                  const Color(0xFF059669),
+                  [
+                    'Ca bình thường: Vào đầu ca → Ra cuối ca (1 cặp Vào/Ra).',
+                    'Làm OT sau ca (khuyến nghị): Không chấm Ra lúc hết ca — chỉ Ra khi xong OT.',
+                    'Ví dụ: ca 07:00–11:00, làm đến 13:00 → Vào 07:00, Ra 13:00 → OT 120 phút.',
+                    'Chưa chấm Ra: hệ thống báo thiếu chấm, không tính OT.',
+                  ],
+                ),
+                _buildGuideExampleCard(
+                  title: 'Đúng / Sai khi làm OT sau ca',
+                  rows: const [
+                    '✅ Vào 07:00 → Ra 13:00 (không Ra lúc 11:00) → OT đúng',
+                    '❌ Vào 07:00 → Ra 11:00 → Ra 13:00 → dễ mất OT 11:00–13:00',
+                    '❌ Vào 07:00, không Ra → thiếu chấm, OT = 0',
+                  ],
+                ),
+                const Divider(height: 28),
+                _buildGuideSection(
+                  '5. Khi muốn chấm Ra đúng giờ tan ca rồi làm OT tiếp',
+                  Icons.more_time,
+                  const Color(0xFFEA580C),
+                  [
+                    'Tạo thêm ca loại «Tăng ca» (VD 11:30–13:00) và gán cho nhân viên.',
+                    'Nhân viên: Vào/Ra ca hành chính → rồi Vào/Ra ca tăng ca riêng.',
+                    'Ví dụ: 07:00–11:00 (ca HC) + 11:30–13:00 (ca Tăng ca) → OT lấy từ ca Tăng ca.',
+                    'Không có ca Tăng ca mà vẫn Vào lại sau tan ca → thường không khớp ca HC.',
+                  ],
+                ),
+                const Divider(height: 28),
+                _buildGuideSection(
+                  '6. Loại ca',
+                  Icons.category_outlined,
+                  HrmPageChrome.primaryNavy,
+                  [
+                    'Hành chính: ca chính — tính trễ, sớm, OT trước/sau ca theo ngưỡng.',
+                    'Tăng ca: toàn bộ giờ làm thực tế tính vào OT (không tính đi trễ/về sớm).',
+                    'Qua đêm: ca qua nửa đêm — hệ số lương ca đêm áp dụng theo quy định.',
+                  ],
+                ),
+                const Divider(height: 28),
+                _buildGuideSection(
+                  '7. Checklist nhanh cho quản lý',
+                  Icons.checklist,
+                  const Color(0xFF7C3AED),
+                  [
+                    'Đã tạo đủ ca HC (và ca Tăng ca nếu cần OT tách riêng).',
+                    'Đã gán ca cho nhân viên / lịch làm việc.',
+                    'Cho phép chấm sớm đủ lớn so với Tăng ca trước ca.',
+                    'Đã hướng dẫn NV: 1 cặp Vào–Ra khi làm liền OT sau ca.',
+                    'Kiểm tra «Tổng hợp theo ca» sau ngày làm mẫu.',
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(context),
+            style: FilledButton.styleFrom(
+                backgroundColor: HrmPageChrome.primaryNavy),
+            child: const Text('Đã hiểu'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGuideSection(
+      String title, IconData icon, Color color, List<String> steps) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, color: color, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(title,
+                  style: TextStyle(
+                      color: color, fontWeight: FontWeight.bold, fontSize: 15)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ...steps.map((step) => Padding(
+              padding: const EdgeInsets.only(left: 28, bottom: 6),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('• ', style: TextStyle(color: _textMuted)),
+                  Expanded(
+                    child: Text(step,
+                        style: const TextStyle(
+                            color: Color(0xFF52525B),
+                            fontSize: 13,
+                            height: 1.45)),
+                  ),
+                ],
+              ),
+            )),
+      ],
+    );
+  }
+
+  Widget _buildGuideExampleCard({
+    required String title,
+    required List<String> rows,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 10, left: 4, right: 4),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: _borderColor),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title,
+                style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: _textDark)),
+            const SizedBox(height: 8),
+            ...rows.map((row) => Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(row,
+                      style: const TextStyle(
+                          fontSize: 12.5,
+                          height: 1.4,
+                          color: Color(0xFF475569))),
+                )),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showShiftDialog({Shift? shift}) {
     final isEditing = shift != null;
     final nameCtrl = TextEditingController(text: shift?.name ?? '');
@@ -1300,6 +1667,14 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
     int lateGrace = shift?.lateGraceMinutes ?? 5;
     int earlyLeaveGrace = shift?.earlyLeaveGraceMinutes ?? 5;
     int breakMinutes = shift?.breakMinutes ?? 30;
+    int overtimeThreshold = shift?.overtimeMinutesThreshold ?? 30;
+    int earlyOvertimeThreshold = shift?.earlyOvertimeMinutesThreshold ?? 30;
+    TimeOfDay lunchBreakStart = _timeOfDayFromShiftString(
+            shift?.lunchBreakStartTime) ??
+        const TimeOfDay(hour: 11, minute: 30);
+    TimeOfDay lunchBreakEnd =
+        _timeOfDayFromShiftString(shift?.lunchBreakEndTime) ??
+            const TimeOfDay(hour: 13, minute: 0);
     bool isSaving = false;
 
     showDialog(
@@ -1310,6 +1685,8 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
           final totalHours = _calculateWorkHours(
             '${startTime.hour}:${startTime.minute}:00',
             '${endTime.hour}:${endTime.minute}:00',
+            lunchStart: lunchBreakStart,
+            lunchEnd: lunchBreakEnd,
           );
 
           final isMobile = Responsive.isMobile(context);
@@ -1597,6 +1974,83 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                             const SizedBox(height: 16),
                           ],
 
+                          const SizedBox(height: 16),
+
+                          // Lunch break window
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFF7ED),
+                              borderRadius: BorderRadius.circular(12),
+                              border:
+                                  Border.all(color: const Color(0xFFFED7AA)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Row(
+                                  children: [
+                                    Icon(Icons.free_breakfast,
+                                        color: Color(0xFFEA580C), size: 20),
+                                    SizedBox(width: 8),
+                                    Text('Nghỉ giữa ca / tăng ca trưa',
+                                        style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                            color: _textDark)),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                const Text(
+                                  'Chấm trong khung này (máy MealOut/MealIn hoặc app) được tính tăng ca. Giờ làm chính sẽ trừ khoảng nghỉ.',
+                                  style: TextStyle(
+                                      fontSize: 12, color: Color(0xFF64748B)),
+                                ),
+                                const SizedBox(height: 12),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: _dialogField(
+                                          'Bắt đầu nghỉ',
+                                          InkWell(
+                                            onTap: () async {
+                                              final t = await showTimePicker(
+                                                  context: ctx,
+                                                  initialTime: lunchBreakStart);
+                                              if (t != null) {
+                                                setDialogState(
+                                                    () => lunchBreakStart = t);
+                                              }
+                                            },
+                                            child: _timeBox(lunchBreakStart,
+                                                Icons.coffee, Colors.orange),
+                                          )),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: _dialogField(
+                                          'Vào làm sau nghỉ',
+                                          InkWell(
+                                            onTap: () async {
+                                              final t = await showTimePicker(
+                                                  context: ctx,
+                                                  initialTime: lunchBreakEnd);
+                                              if (t != null) {
+                                                setDialogState(
+                                                    () => lunchBreakEnd = t);
+                                              }
+                                            },
+                                            child: _timeBox(lunchBreakEnd,
+                                                Icons.login, Colors.green),
+                                          )),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+
                           // Attendance parameters section
                           Container(
                             padding: const EdgeInsets.all(16),
@@ -1622,56 +2076,44 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                   ],
                                 ),
                                 const SizedBox(height: 16),
-                                // Allow early/late/early leave
-                                Row(
-                                  children: [
-                                    Expanded(
-                                        child: _minuteField(
-                                            'Cho phép chấm sớm',
-                                            earlyCheckIn,
-                                            (v) => setDialogState(
-                                                () => earlyCheckIn = v))),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                        child: _minuteField(
-                                            'Cho phép chấm trễ',
-                                            allowLate,
-                                            (v) => setDialogState(
-                                                () => allowLate = v))),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                        child: _minuteField(
-                                            'Cho phép về sớm',
-                                            allowEarlyLeave,
-                                            (v) => setDialogState(
-                                                () => allowEarlyLeave = v))),
-                                  ],
+                                _buildAttendanceMinuteFieldsGrid(
+                                  isMobile: isMobile,
+                                  earlyCheckIn: earlyCheckIn,
+                                  allowLate: allowLate,
+                                  allowEarlyLeave: allowEarlyLeave,
+                                  lateGrace: lateGrace,
+                                  earlyLeaveGrace: earlyLeaveGrace,
+                                  breakMinutes: breakMinutes,
+                                  overtimeThreshold: overtimeThreshold,
+                                  earlyOvertimeThreshold: earlyOvertimeThreshold,
+                                  onEarlyCheckIn: (v) =>
+                                      setDialogState(() => earlyCheckIn = v),
+                                  onAllowLate: (v) =>
+                                      setDialogState(() => allowLate = v),
+                                  onAllowEarlyLeave: (v) => setDialogState(
+                                      () => allowEarlyLeave = v),
+                                  onLateGrace: (v) =>
+                                      setDialogState(() => lateGrace = v),
+                                  onEarlyLeaveGrace: (v) => setDialogState(
+                                      () => earlyLeaveGrace = v),
+                                  onBreakMinutes: (v) =>
+                                      setDialogState(() => breakMinutes = v),
+                                  onOvertimeThreshold: (v) => setDialogState(
+                                      () => overtimeThreshold = v),
+                                  onEarlyOvertimeThreshold: (v) =>
+                                      setDialogState(
+                                          () => earlyOvertimeThreshold = v),
                                 ),
-                                const SizedBox(height: 12),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                        child: _minuteField(
-                                            'Tính đi trễ sau',
-                                            lateGrace,
-                                            (v) => setDialogState(
-                                                () => lateGrace = v))),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                        child: _minuteField(
-                                            'Tính về sớm sau',
-                                            earlyLeaveGrace,
-                                            (v) => setDialogState(
-                                                () => earlyLeaveGrace = v))),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                        child: _minuteField(
-                                            'Tính tăng ca sau',
-                                            breakMinutes,
-                                            (v) => setDialogState(
-                                                () => breakMinutes = v))),
-                                  ],
-                                ),
+                                if (_earlyOvertimeExceedsCheckIn(
+                                    earlyCheckIn, earlyOvertimeThreshold))
+                                  _buildEarlyOvertimeCheckInWarning(
+                                    earlyCheckIn: earlyCheckIn,
+                                    earlyOvertimeThreshold:
+                                        earlyOvertimeThreshold,
+                                    onApplySuggested: () => setDialogState(() =>
+                                        earlyCheckIn =
+                                            earlyOvertimeThreshold + 1),
+                                  ),
                               ],
                             ),
                           ),
@@ -1711,6 +2153,15 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                         message: 'Vui lòng nhập tên ca');
                                     return;
                                   }
+                                  if (_earlyOvertimeExceedsCheckIn(
+                                      earlyCheckIn, earlyOvertimeThreshold)) {
+                                    appNotification.showWarning(
+                                      title: 'Cấu hình chấm công',
+                                      message:
+                                          'Tăng ca trước ca ($earlyOvertimeThreshold phút) cần Cho phép chấm sớm ít nhất ${earlyOvertimeThreshold + 1} phút để nhân viên khớp ca và tính được tăng ca.',
+                                    );
+                                    return;
+                                  }
                                   setDialogState(() => isSaving = true);
 
                                   final data = {
@@ -1732,7 +2183,13 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                     'lateGraceMinutes': lateGrace,
                                     'earlyLeaveGraceMinutes': earlyLeaveGrace,
                                     'breakTimeMinutes': breakMinutes,
-                                    'overtimeMinutesThreshold': 30,
+                                    'lunchBreakStartTime':
+                                        _timeOfDayToApi(lunchBreakStart),
+                                    'lunchBreakEndTime':
+                                        _timeOfDayToApi(lunchBreakEnd),
+                                    'overtimeMinutesThreshold': overtimeThreshold,
+                                    'earlyOvertimeMinutesThreshold':
+                                        earlyOvertimeThreshold,
                                   };
 
                                   try {
@@ -1839,11 +2296,146 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
     );
   }
 
+  Widget _buildAttendanceMinuteFieldsGrid({
+    required bool isMobile,
+    required int earlyCheckIn,
+    required int allowLate,
+    required int allowEarlyLeave,
+    required int lateGrace,
+    required int earlyLeaveGrace,
+    required int breakMinutes,
+    required int overtimeThreshold,
+    required int earlyOvertimeThreshold,
+    required ValueChanged<int> onEarlyCheckIn,
+    required ValueChanged<int> onAllowLate,
+    required ValueChanged<int> onAllowEarlyLeave,
+    required ValueChanged<int> onLateGrace,
+    required ValueChanged<int> onEarlyLeaveGrace,
+    required ValueChanged<int> onBreakMinutes,
+    required ValueChanged<int> onOvertimeThreshold,
+    required ValueChanged<int> onEarlyOvertimeThreshold,
+  }) {
+    final fields = <Widget>[
+      _minuteField('Cho phép chấm sớm', earlyCheckIn, onEarlyCheckIn),
+      _minuteField('Cho phép chấm trễ', allowLate, onAllowLate),
+      _minuteField('Cho phép về sớm', allowEarlyLeave, onAllowEarlyLeave),
+      _minuteField('Tính đi trễ sau', lateGrace, onLateGrace),
+      _minuteField('Tính về sớm sau', earlyLeaveGrace, onEarlyLeaveGrace),
+      _minuteField('Nghỉ giữa ca', breakMinutes, onBreakMinutes),
+      _minuteField('Tăng ca trước ca', earlyOvertimeThreshold,
+          onEarlyOvertimeThreshold),
+      _minuteField('Tăng ca sau ca', overtimeThreshold, onOvertimeThreshold),
+    ];
+
+    final columns = isMobile ? 2 : 3;
+    final gap = isMobile ? 10.0 : 12.0;
+    final rows = <Widget>[];
+
+    for (var i = 0; i < fields.length; i += columns) {
+      if (i > 0) rows.add(SizedBox(height: gap));
+      final rowChildren = <Widget>[];
+      for (var c = 0; c < columns; c++) {
+        final idx = i + c;
+        if (c > 0) rowChildren.add(SizedBox(width: gap));
+        rowChildren.add(
+          Expanded(
+            child: idx < fields.length ? fields[idx] : const SizedBox.shrink(),
+          ),
+        );
+      }
+      rows.add(Row(crossAxisAlignment: CrossAxisAlignment.start, children: rowChildren));
+    }
+
+    return Column(children: rows);
+  }
+
+  /// Tăng ca trước ca chỉ tính khi chấm sớm hơn ngưỡng (> threshold).
+  /// Ghép ca cần Cho phép chấm sớm ≥ số phút sớm đó.
+  bool _earlyOvertimeExceedsCheckIn(
+    int earlyCheckIn,
+    int earlyOvertimeThreshold,
+  ) =>
+      earlyOvertimeThreshold > 0 && earlyCheckIn <= earlyOvertimeThreshold;
+
+  Widget _buildEarlyOvertimeCheckInWarning({
+    required int earlyCheckIn,
+    required int earlyOvertimeThreshold,
+    required VoidCallback onApplySuggested,
+  }) {
+    final suggested = earlyOvertimeThreshold + 1;
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF7ED),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFFFED7AA)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.warning_amber_rounded,
+                    color: Color(0xFFEA580C), size: 18),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Cần tăng Cho phép chấm sớm',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF9A3412),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Tăng ca trước ca ($earlyOvertimeThreshold phút) lớn hơn hoặc bằng Cho phép chấm sớm ($earlyCheckIn phút). '
+              'Nhân viên chấm đủ sớm để tính tăng ca có thể không khớp ca. '
+              'Nên đặt Cho phép chấm sớm ít nhất $suggested phút.',
+              style: const TextStyle(
+                fontSize: 12,
+                height: 1.45,
+                color: Color(0xFF9A3412),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: onApplySuggested,
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFFEA580C),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text('Đặt chấm sớm = $suggested phút'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _minuteField(String label, int value, ValueChanged<int> onChanged) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 11, color: _textMuted)),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 11, color: _textMuted),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
         const SizedBox(height: 4),
         Container(
           decoration: BoxDecoration(
@@ -1855,24 +2447,44 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                 onTap: () {
                   if (value > 0) onChanged(value - 5);
                 },
-                child: Container(
-                  padding: const EdgeInsets.all(8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
                   child: Icon(Icons.remove,
                       size: 14,
                       color: value > 0 ? _primaryColor : Colors.grey[300]),
                 ),
               ),
               Expanded(
-                child: Text('$value phút',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                        fontSize: 13, fontWeight: FontWeight.w500)),
+                child: Center(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '$value',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          ' phút',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
               InkWell(
                 onTap: () => onChanged(value + 5),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  child: const Icon(Icons.add, size: 14, color: _primaryColor),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                  child: Icon(Icons.add, size: 14, color: _primaryColor),
                 ),
               ),
             ],

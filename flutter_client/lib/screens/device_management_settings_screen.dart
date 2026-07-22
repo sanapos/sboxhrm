@@ -9,6 +9,7 @@ import '../services/api_service.dart';
 import '../utils/device_setup_guide.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/hrm_mini_stat_chip.dart';
+import '../widgets/hrm/hrm_settings_mobile_kit.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/device_sync_progress_overlay.dart';
@@ -173,11 +174,15 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
     final success = result['isSuccess'] == true;
     final apiMsg = result['message']?.toString().trim();
     if (!success) {
+      if (commandType == 15 || commandType == 16) {
+        await _loadDevices();
+      }
       return _DeviceCommandOutcome(
         success: false,
         message: apiMsg?.isNotEmpty == true
             ? apiMsg!
             : 'Gửi lệnh "$label" thất bại',
+        disableDoorControl: commandType == 15 || commandType == 16,
       );
     }
 
@@ -192,9 +197,17 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
     }
 
     final commandId = _extractDeviceCommandId(result);
+    final isDoor = commandType == 15 || commandType == 16;
     final pollMessage = commandId != null
-        ? await _pollDeviceCommandResult(commandId)
+        ? await _pollDeviceCommandResult(commandId, isDoor: isDoor)
         : null;
+
+    final pollOk = pollMessage == null ||
+        pollMessage.contains('thành công') ||
+        pollMessage.contains('xác nhận lệnh cửa');
+    final executedOk = pollMessage == null
+        ? true
+        : (pollOk && !pollMessage.contains('chưa phản hồi'));
 
     var message = pollMessage ??
         (apiMsg?.isNotEmpty == true
@@ -204,14 +217,20 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
       message =
           'Đã gửi lệnh "$label". Máy đang xử lý — có thể mất vài giây để hoàn tất.';
     }
-    if (refreshedInfo != null) {
+    if (refreshedInfo != null && executedOk) {
       message = 'Đã cập nhật thông tin kỹ thuật từ máy.';
     }
 
+    // Sau khi máy từ chối mở/đóng cửa (-1002), backend học capability → ẩn nút.
+    if ((commandType == 15 || commandType == 16) && !executedOk) {
+      await _loadDevices();
+    }
+
     return _DeviceCommandOutcome(
-      success: true,
+      success: executedOk,
       message: message,
       refreshedDeviceInfo: refreshedInfo,
+      disableDoorControl: (commandType == 15 || commandType == 16) && !executedOk,
     );
   }
 
@@ -223,7 +242,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
     return cmdRes['commandId']?.toString();
   }
 
-  Future<String?> _pollDeviceCommandResult(String commandId) async {
+  Future<String?> _pollDeviceCommandResult(String commandId, {bool isDoor = false}) async {
     final started = DateTime.now();
     while (DateTime.now().difference(started) < const Duration(seconds: 25)) {
       await Future.delayed(const Duration(seconds: 2));
@@ -233,17 +252,28 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
 
       final s = status['status']?.toString().toLowerCase() ?? '';
       final ret = status['return']?.toString();
-      if (ret == '-1' || s == '3' || s.contains('failed')) {
+      if (ret == '-1' ||
+          ret == '-1002' ||
+          s == '3' ||
+          s.contains('failed')) {
         final err = status['errorMessage']?.toString();
         return err?.isNotEmpty == true
             ? err!
             : 'Máy báo lỗi khi thực hiện lệnh';
       }
       if (s == '2' || s == 'success' || s.contains('success')) {
+        if (isDoor) {
+          // Return=0 chỉ nghĩa là máy ACK — chưa chắc đã nhả khóa/bip.
+          return 'Máy đã xác nhận lệnh cửa (ACK). '
+              'Nếu không bip/không mở khóa: kiểm tra dây Lock trên máy, '
+              'và phần mềm kia có thể đang dùng kết nối LAN (TCP 4370) chứ không phải ADMS.';
+        }
         return 'Máy đã thực hiện lệnh thành công';
       }
     }
-    return null;
+    return isDoor
+        ? 'Đã gửi lệnh cửa nhưng máy chưa phản hồi ACK — thử lại khi máy Online.'
+        : null;
   }
 
   Future<void> _showRenameDialog(Map<String, dynamic> device) async {
@@ -724,14 +754,16 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA),
+      backgroundColor: HrmPageChrome.scaffoldBackground(context),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: _loadDevices,
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: EdgeInsets.all(Responsive.isMobile(context) ? 12 : 24),
+                padding: HrmSettingsMobileKit.active(context)
+                    ? HrmSettingsMobileKit.pagePadding(context)
+                    : EdgeInsets.all(Responsive.isMobile(context) ? 12 : 24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -755,41 +787,16 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
   Widget _buildHeader() {
     final embedded = HrmPageChrome.isEmbedded;
     final isMobile = Responsive.isMobile(context);
+    final embeddedMobile = HrmSettingsMobileKit.active(context);
 
     if (embedded) {
-      return Container(
-        padding: EdgeInsets.symmetric(
-            horizontal: isMobile ? 12 : 16, vertical: isMobile ? 10 : 12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE4E4E7)),
-        ),
-        child: Row(
-          children: [
-            const Spacer(),
-            if (_perm.canCreate('Device'))
-              if (isMobile)
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      onPressed: _showAddDeviceDialog,
-                      icon: const Icon(Icons.add_circle_outline,
-                          color: HrmPageChrome.primaryNavy),
-                    ),
-                  ],
-                )
-              else
-                FilledButton.icon(
-                  onPressed: _showAddDeviceDialog,
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text('Thêm thiết bị'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: HrmPageChrome.primaryNavy,
-                  ),
-                ),
-          ],
+      if (!_perm.canCreate('Device')) return const SizedBox.shrink();
+      return Align(
+        alignment: Alignment.centerRight,
+        child: HrmSettingsAddButton(
+          label: 'Thêm thiết bị',
+          compact: embeddedMobile,
+          onPressed: _showAddDeviceDialog,
         ),
       );
     }
@@ -1046,6 +1053,30 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
             ],
           ),
         ),
+      );
+    }
+
+    if (HrmSettingsMobileKit.active(context)) {
+      return HrmSettingsEntityGrid(
+        itemCount: devices.length,
+        columns: 2,
+        childAspectRatio: 1.35,
+        itemBuilder: (context, i) {
+          final device = devices[i];
+          final online = _isOnline(device);
+          final statusColor =
+              online ? HrmPageChrome.primaryNavy : const Color(0xFFEF4444);
+          return HrmSettingsEntityTile(
+            title: device['deviceName'] ?? 'Không tên',
+            subtitle: device['serialNumber']?.toString(),
+            meta: device['ipAddress']?.toString(),
+            icon: Icons.fingerprint,
+            iconColor: statusColor,
+            badge: online ? 'Online' : 'Offline',
+            badgeColor: online ? const Color(0xFF16A34A) : const Color(0xFFEF4444),
+            onTap: () => _showDeviceDetail(device),
+          );
+        },
       );
     }
 
@@ -1537,6 +1568,7 @@ class _DeviceCommandOutcome {
   final Map<String, dynamic>? refreshedDeviceInfo;
   final bool isSync;
   final bool cancelled;
+  final bool disableDoorControl;
 
   const _DeviceCommandOutcome({
     required this.success,
@@ -1544,6 +1576,7 @@ class _DeviceCommandOutcome {
     this.refreshedDeviceInfo,
     this.isSync = false,
     this.cancelled = false,
+    this.disableDoorControl = false,
   });
 }
 
@@ -1584,6 +1617,7 @@ class _DeviceDetailDialog extends StatefulWidget {
 }
 
 class _DeviceDetailDialogState extends State<_DeviceDetailDialog> {
+  late Map<String, dynamic> _device;
   Map<String, dynamic>? _deviceInfo;
   int? _busyCommandType;
   _DeviceCommandOutcome? _feedback;
@@ -1591,6 +1625,7 @@ class _DeviceDetailDialogState extends State<_DeviceDetailDialog> {
   @override
   void initState() {
     super.initState();
+    _device = Map<String, dynamic>.from(widget.device);
     _deviceInfo = widget.deviceInfo;
   }
 
@@ -1611,6 +1646,9 @@ class _DeviceDetailDialogState extends State<_DeviceDetailDialog> {
         if (outcome.refreshedDeviceInfo != null) {
           _deviceInfo = outcome.refreshedDeviceInfo;
         }
+        if (outcome.disableDoorControl) {
+          _device['allowDoorControlUi'] = false;
+        }
       }
     });
 
@@ -1630,7 +1668,9 @@ class _DeviceDetailDialogState extends State<_DeviceDetailDialog> {
     );
   }
 
-  List<_DeviceControlAction> _controlActions(bool canEdit, bool canDelete) {
+  List<_DeviceControlAction> _controlActions(
+      bool canEdit, bool canDelete, Map<String, dynamic> device) {
+    final allowDoor = device['allowDoorControlUi'] != false;
     final actions = <_DeviceControlAction>[
       if (canEdit)
         const _DeviceControlAction(
@@ -1647,18 +1687,20 @@ class _DeviceDetailDialogState extends State<_DeviceDetailDialog> {
           commandType: 5,
         ),
       if (canEdit) ...[
-        const _DeviceControlAction(
-          icon: Icons.lock_open,
-          label: 'Mở cửa',
-          color: HrmPageChrome.primaryNavy,
-          commandType: 15,
-        ),
-        const _DeviceControlAction(
-          icon: Icons.lock,
-          label: 'Đóng cửa',
-          color: Color(0xFFEF4444),
-          commandType: 16,
-        ),
+        if (allowDoor) ...[
+          const _DeviceControlAction(
+            icon: Icons.lock_open,
+            label: 'Mở cửa',
+            color: HrmPageChrome.primaryNavy,
+            commandType: 15,
+          ),
+          const _DeviceControlAction(
+            icon: Icons.lock,
+            label: 'Đóng cửa',
+            color: Color(0xFFEF4444),
+            commandType: 16,
+          ),
+        ],
         const _DeviceControlAction(
           icon: Icons.sync,
           label: 'Đồng bộ user',
@@ -1778,9 +1820,9 @@ class _DeviceDetailDialogState extends State<_DeviceDetailDialog> {
     final statusColor =
         widget.isOnline ? HrmPageChrome.primaryNavy : const Color(0xFFEF4444);
     final isMobile = Responsive.isMobile(context);
-    final device = widget.device;
+    final device = _device;
     final deviceInfo = _deviceInfo;
-    final controlActions = _controlActions(canEdit, canDelete);
+    final controlActions = _controlActions(canEdit, canDelete, device);
 
     Widget buildContent() {
       return Column(
@@ -1892,6 +1934,18 @@ class _DeviceDetailDialogState extends State<_DeviceDetailDialog> {
             _buildDetailRow('Mô tả', device['description'] ?? '—'),
             _buildDetailRow('Trạng thái',
                 device['isActive'] == true ? 'Hoạt động' : 'Tạm dừng'),
+            if (device['engineProfile'] != null)
+              _buildDetailRow('Engine profile', '${device['engineProfile']}'),
+            if (device['preferStampSync'] == true)
+              _buildDetailRow('Đồng bộ',
+                  'Stamp/realtime (không QUERY từ máy)'),
+            if (device['allowEnrollFingerprintUi'] == false)
+              _buildDetailRow('Đăng ký VT từ xa', 'Không hỗ trợ trên máy này'),
+            if (device['allowDoorControlUi'] == false)
+              _buildDetailRow('Mở/đóng cửa từ xa', 'Không hỗ trợ trên máy này'),
+            if (device['capabilityNotes'] != null &&
+                '${device['capabilityNotes']}'.trim().isNotEmpty)
+              _buildDetailRow('Ghi chú ADMS', '${device['capabilityNotes']}'),
           ]),
           if (deviceInfo != null) ...[
             const SizedBox(height: 16),
@@ -1899,6 +1953,11 @@ class _DeviceDetailDialogState extends State<_DeviceDetailDialog> {
                 HrmPageChrome.primaryNavy, [
               _buildDetailRow(
                   'Firmware', deviceInfo['firmwareVersion'] ?? '—'),
+              if (deviceInfo['platform'] != null)
+                _buildDetailRow('Platform', '${deviceInfo['platform']}'),
+              if (deviceInfo['engineProfile'] != null)
+                _buildDetailRow(
+                    'Engine profile', '${deviceInfo['engineProfile']}'),
               _buildDetailRow('Số user đã đăng ký',
                   '${deviceInfo['enrolledUserCount'] ?? 0}'),
               _buildDetailRow(
@@ -1909,6 +1968,12 @@ class _DeviceDetailDialogState extends State<_DeviceDetailDialog> {
               if (deviceInfo['faceTemplateCount'] != null)
                 _buildDetailRow(
                     'Số khuôn mặt', '${deviceInfo['faceTemplateCount']}'),
+              if (deviceInfo['preferStampSync'] == true)
+                _buildDetailRow(
+                    'Đồng bộ', 'Stamp/realtime (máy pull-deny)'),
+              if (deviceInfo['capabilityNotes'] != null)
+                _buildDetailRow(
+                    'Ghi chú ADMS', '${deviceInfo['capabilityNotes']}'),
             ]),
           ],
           const SizedBox(height: 20),

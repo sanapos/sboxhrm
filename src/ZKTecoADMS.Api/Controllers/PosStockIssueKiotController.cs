@@ -322,7 +322,10 @@ public class PosStockIssueKiotController(ZKTecoDbContext dbContext) : Authentica
 
         var storeId = RequiredStoreId;
 
+        // .AsTracking(): sửa Note/CategoryName/RecipientName/IssuedAt rồi SaveChangesAsync
+        // thẳng — thiếu tracking thì thay đổi bị âm thầm mất (global NoTracking).
         var issue = await dbContext.PosStockIssues
+            .AsTracking()
 
             .Include(i => i.Lines)
 
@@ -378,7 +381,10 @@ public class PosStockIssueKiotController(ZKTecoDbContext dbContext) : Authentica
 
         var storeId = RequiredStoreId;
 
+        // .AsTracking(): RecalcTotals ghi TotalQty/TotalValue lên issue, thiếu tracking
+        // thì tổng bị âm thầm mất dù dòng hàng mới vẫn lưu được (AddRange tự tracked).
         var issue = await dbContext.PosStockIssues
+            .AsTracking()
 
             .Include(i => i.Lines)
 
@@ -438,9 +444,12 @@ public class PosStockIssueKiotController(ZKTecoDbContext dbContext) : Authentica
 
 
 
+        // Snapshot TRƯỚC khi AddRange: EF Core tự fixup navigation (dòng mới có IssueId
+        // khớp issue đang track + issue.Lines đã Include sẵn) khiến "added" bị nhét luôn
+        // vào issue.Lines ngay khi AddRange chạy — Concat(added) sau đó sẽ đếm trùng.
+        var linesBeforeAdd = issue.Lines.ToList();
         dbContext.PosStockIssueLines.AddRange(added);
-
-        RecalcTotals(issue, issue.Lines.Concat(added));
+        RecalcTotals(issue, linesBeforeAdd.Concat(added));
 
         issue.UpdatedAt = DateTime.UtcNow;
 
@@ -472,7 +481,9 @@ public class PosStockIssueKiotController(ZKTecoDbContext dbContext) : Authentica
 
         var storeId = RequiredStoreId;
 
+        // .AsTracking(): RecalcTotals ghi TotalQty/TotalValue lên issue sau khi xóa dòng.
         var issue = await dbContext.PosStockIssues
+            .AsTracking()
 
             .Include(i => i.Lines)
 
@@ -534,7 +545,11 @@ public class PosStockIssueKiotController(ZKTecoDbContext dbContext) : Authentica
 
         var storeId = RequiredStoreId;
 
+        // .AsTracking(): line.Qty/CostPrice/LineNote và issue.TotalQty/TotalValue đều bị
+        // ghi trên entity untracked nếu thiếu dòng này — sửa số lượng "báo lỗi" vì server
+        // trả 200 nhưng không lưu, GET lại vẫn ra số cũ.
         var issue = await dbContext.PosStockIssues
+            .AsTracking()
 
             .Include(i => i.Lines)
 
@@ -598,91 +613,65 @@ public class PosStockIssueKiotController(ZKTecoDbContext dbContext) : Authentica
 
 
 
-    [HttpPost("{id:guid}/complete")]
-
+        [HttpPost("{id:guid}/complete")]
     [RequireModulePermission("PosProducts", ModulePermissionAction.Edit)]
-
     public async Task<ActionResult<AppResponse<StockIssueKiotDto>>> CompleteIssue(string kind, Guid id)
-
     {
-
         if (!TryParseKind(kind, out var issueKind, out _, out var noteFallback))
-
             return BadRequest(AppResponse<StockIssueKiotDto>.Fail("Loại phiếu không hợp lệ"));
 
-
-
         var storeId = RequiredStoreId;
-
+        // .AsTracking(): RecalcTotals + IssuedAt/IssuedBy ghi trên issue rồi SaveChangesAsync;
+        // Status/CompletedAt được persist riêng qua ExecuteUpdateAsync (ổn), nhưng phần còn lại
+        // cần entity tracked mới lưu được — thiếu dòng này thì "hoàn thành" xong tồn kho trừ đúng
+        // nhưng IssuedAt/IssuedBy/TotalQty/TotalValue trên phiếu vẫn null/0.
         var issue = await dbContext.PosStockIssues
-
+            .AsTracking()
             .Include(i => i.Lines)
-
             .FirstOrDefaultAsync(i => i.Id == id && i.StoreId == storeId &&
-
                                       i.Kind == issueKind && i.Deleted == null);
-
         if (issue == null)
-
             return NotFound(AppResponse<StockIssueKiotDto>.Fail("Không tìm thấy phiếu xuất"));
-
         if (issue.Status != PosStockIssueStatus.Draft)
-
             return BadRequest(AppResponse<StockIssueKiotDto>.Fail("Phiếu không ở trạng thái tạm"));
-
         if (issue.Lines.Count == 0 || !issue.Lines.Any(l => l.Qty > 0))
-
             return BadRequest(AppResponse<StockIssueKiotDto>.Fail("Phiếu không có dòng hàng hợp lệ"));
-
-
 
         RecalcTotals(issue, issue.Lines);
 
-
-
+        await using var tx = await dbContext.Database.BeginTransactionAsync();
         try
-
         {
+            var completedAt = DateTime.UtcNow;
+            var (claimed, claimErr) = await PosDocStatusPersistHelper.SetStockIssueStatusAsync(
+                dbContext, id, storeId, issueKind,
+                PosStockIssueStatus.Draft, PosStockIssueStatus.Completed,
+                CurrentUserEmail, completedAt, allowAlready: false);
+            if (!claimed)
+            {
+                await tx.RollbackAsync();
+                return Conflict(AppResponse<StockIssueKiotDto>.Fail(claimErr ?? "Phiếu đã được xử lý"));
+            }
 
+            issue.Status = PosStockIssueStatus.Completed;
+            issue.CompletedAt = completedAt;
+            issue.IssuedAt ??= DateTime.UtcNow;
+            issue.IssuedBy ??= CurrentUserEmail;
             await PosPurchaseStockHelper.ApplyIssueStockAsync(
-
                 dbContext, storeId, issue, issue.Lines.ToList(), CurrentUserEmail, noteFallback);
-
+            await dbContext.SaveChangesAsync();
+            await tx.CommitAsync();
         }
-
         catch (InvalidOperationException ex)
-
         {
-
+            await tx.RollbackAsync();
             return BadRequest(AppResponse<StockIssueKiotDto>.Fail(ex.Message));
-
         }
-
-
-
-        issue.IssuedAt ??= DateTime.UtcNow;
-
-        issue.IssuedBy ??= CurrentUserEmail;
-
-        await dbContext.SaveChangesAsync();
-
-
-
-        var completedAt = DateTime.UtcNow;
-
-        var (statusOk, statusErr) = await PosDocStatusPersistHelper.SetStockIssueStatusAsync(
-
-            dbContext, id, storeId, issueKind,
-
-            PosStockIssueStatus.Draft, PosStockIssueStatus.Completed,
-
-            CurrentUserEmail, completedAt);
-
-        if (!statusOk)
-
-            return BadRequest(AppResponse<StockIssueKiotDto>.Fail(statusErr!));
-
-
+        catch
+        {
+            await tx.RollbackAsync();
+            throw;
+        }
 
         dbContext.ChangeTracker.Clear();
 

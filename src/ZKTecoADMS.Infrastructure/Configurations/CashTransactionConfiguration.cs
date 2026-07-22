@@ -74,7 +74,19 @@ public class CashTransactionConfiguration : IEntityTypeConfiguration<CashTransac
             .OnDelete(DeleteBehavior.Restrict);
         
         // Indexes
-        builder.HasIndex(x => x.TransactionCode).IsUnique();
+        // TransactionCode được sinh theo dạng "{Prefix}-{yyyyMMdd}-{seq:D4}" và seq luôn được
+        // tính đếm THEO STORE (xem PosFinanceSyncHelper/PaymentFinanceHelper/BusinessTripFinanceHelper/
+        // CashTransactionsController.CreateTransaction GenerateCodeAsync). Unique index GLOBAL trên
+        // riêng TransactionCode khiến 2 store khác nhau tạo phiếu thu/chi cùng ngày dễ trùng mã
+        // (ví dụ cả 2 đều ra "TH-20260721-0001") → lỗi 500 duplicate key. Đổi thành unique composite
+        // theo (StoreId, TransactionCode) đúng với ý định thiết kế và khớp với cách sinh mã hiện tại.
+        // Partial (Deleted IS NULL): phiếu bị soft-delete vẫn giữ mã cũ trong bảng nhưng
+        // GenerateCodeAsync/RegenerateDuplicateCodesAsync đếm qua EF (có global filter ẩn bản ghi
+        // đã xóa) nên luôn đoán lại đúng số của phiếu đã xóa đó — không loại trừ Deleted khiến
+        // slot số đó bị "chặn" vĩnh viễn, sinh đơn bán mới luôn trùng mã 23505 vô hạn lần retry.
+        builder.HasIndex(x => new { x.StoreId, x.TransactionCode })
+            .IsUnique()
+            .HasFilter("\"Deleted\" IS NULL");
         builder.HasIndex(x => x.TransactionDate);
         builder.HasIndex(x => x.Type);
         builder.HasIndex(x => x.Status);
@@ -208,7 +220,13 @@ public class FundTransferConfiguration : IEntityTypeConfiguration<FundTransfer>
             .HasForeignKey(x => x.CreatedByUserId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasIndex(x => x.TransferCode).IsUnique();
+        // TransferCode sinh đếm theo StoreId nhưng index cũ là GLOBAL — 2 store khác nhau tạo
+        // phiếu chuyển quỹ cùng ngày dễ trùng mã (giống lỗi đã gặp ở CashTransactions). Partial
+        // (Deleted IS NULL) để nhất quán — phiếu xóa không chặn vĩnh viễn số cũ nếu sau này logic
+        // xóa chuyển qua set Deleted thay vì chỉ IsActive.
+        builder.HasIndex(x => new { x.StoreId, x.TransferCode })
+            .IsUnique()
+            .HasFilter("\"Deleted\" IS NULL");
         builder.HasIndex(x => x.TransferDate);
         builder.HasIndex(x => new { x.StoreId, x.TransferDate });
     }

@@ -174,13 +174,17 @@ public static class PaymentFinanceHelper
                 : "N/A";
 
         var transactionCode = await GenerateCodeAsync(db, storeId, CashTransactionType.Expense, cancellationToken);
+        // Dùng số tiền thực tế đã duyệt (có thể thấp hơn số tiền yêu cầu ban
+        // đầu) — fallback về Amount cho các yêu cầu cũ trước khi có trường
+        // ApprovedAmount.
+        var payoutAmount = advance.ApprovedAmount ?? advance.Amount;
         var cashTx = new CashTransaction
         {
             Id = Guid.NewGuid(),
             TransactionCode = transactionCode,
             Type = CashTransactionType.Expense,
             CategoryId = category.Id,
-            Amount = advance.Amount,
+            Amount = payoutAmount,
             TransactionDate = DateTime.UtcNow,
             Description = $"Chi ứng lương - {empName} - {advance.Reason}",
             PaymentMethod = PaymentMethodType.Cash,

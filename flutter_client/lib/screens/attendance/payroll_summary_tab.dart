@@ -30,6 +30,7 @@ import '../../utils/travel_hours_calculator.dart';
 import '../../utils/travel_hours_load_utils.dart';
 import '../../utils/travel_salary_utils.dart';
 import '../../utils/travel_eligibility_utils.dart';
+import '../../utils/standard_work_days_utils.dart';
 import '../../models/mobile_attendance.dart';
 import '../../utils/mobile_attendance_vertical_layout.dart';
 import '../main_layout.dart' show NavigationNotifier;
@@ -861,76 +862,14 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     return date.weekday == DateTime.saturday || date.weekday == DateTime.sunday;
   }
 
-  /// Calculate standard work days based on the full month (not date range)
+  /// Công chuẩn lịch (tháng − nghỉ có lương). Dùng khi mode Auto.
   double _calcStandardWorkDays(String paidLeaveType, String paidDayOff) {
-    // Use the month of _fromDate to determine the full month
-    final year = _fromDate.year;
-    final month = _fromDate.month;
-    final daysInMonth = DateTime(year, month + 1, 0).day;
-    final monthStart = DateTime(year, month, 1);
-    final monthEnd = DateTime(year, month, daysInMonth);
-    double offDays = 0;
-
-    switch (paidLeaveType) {
-      case 'sunday':
-        for (var d = monthStart;
-            !d.isAfter(monthEnd);
-            d = d.add(const Duration(days: 1))) {
-          if (d.weekday == DateTime.sunday) offDays++;
-        }
-        break;
-      case 'saturday':
-        for (var d = monthStart;
-            !d.isAfter(monthEnd);
-            d = d.add(const Duration(days: 1))) {
-          if (d.weekday == DateTime.saturday) offDays++;
-        }
-        break;
-      case 'sat-sun':
-        for (var d = monthStart;
-            !d.isAfter(monthEnd);
-            d = d.add(const Duration(days: 1))) {
-          if (d.weekday == DateTime.saturday || d.weekday == DateTime.sunday) {
-            offDays++;
-          }
-        }
-        break;
-      case 'sat-afternoon-sun':
-        for (var d = monthStart;
-            !d.isAfter(monthEnd);
-            d = d.add(const Duration(days: 1))) {
-          if (d.weekday == DateTime.sunday) {
-            offDays++;
-          } else if (d.weekday == DateTime.saturday) {
-            offDays += 0.5;
-          }
-        }
-        break;
-      case 'off-1':
-        offDays = 1;
-        break;
-      case 'off-2':
-        offDays = 2;
-        break;
-      case 'off-3':
-        offDays = 3;
-        break;
-      case 'off-4':
-        offDays = 4;
-        break;
-      default:
-        for (var d = monthStart;
-            !d.isAfter(monthEnd);
-            d = d.add(const Duration(days: 1))) {
-          if ((paidDayOff.contains('Sunday') && d.weekday == DateTime.sunday) ||
-              (paidDayOff.contains('Saturday') &&
-                  d.weekday == DateTime.saturday)) {
-            offDays++;
-          }
-        }
-    }
-
-    return daysInMonth - offDays;
+    return calcCalendarStandardWorkDays(
+      year: _fromDate.year,
+      month: _fromDate.month,
+      paidLeaveType: paidLeaveType,
+      paidDayOff: paidDayOff,
+    );
   }
 
   // ──────── Resolution helpers ────────
@@ -1178,10 +1117,6 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     final String paidLeaveType =
         benefit?['paidLeaveType']?.toString() ?? 'sunday';
 
-    // Standard work days - calculate dynamically based on paidLeaveType and month
-    final double standardWorkDays =
-        _calcStandardWorkDays(paidLeaveType, paidDayOff);
-
     // Scheduled check-in/check-out from benefit
     final String? checkInStr = benefit?['checkIn']?.toString();
     final String? checkOutStr = benefit?['checkOut']?.toString();
@@ -1242,7 +1177,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     final totalWorkHours = attStats.totalWorkHours;
     final standardHours = attStats.standardHours;
     final otHoursWeekday = attStats.otHoursWeekday;
-    final otHoursWeekend = attStats.otHoursWeekend;
+    double otHoursWeekend = attStats.otHoursWeekend;
     final otHoursHoliday = attStats.otHoursHoliday;
     final workDays = attStats.workDays;
     final lateCount = attStats.lateCount;
@@ -1305,6 +1240,35 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       }
     }
 
+    // ═══ Công chuẩn & công tính lương (theo thiết lập NV) ═══
+    final resolvedStd = resolveStandardWorkDays(
+      benefit: benefit,
+      year: _fromDate.year,
+      month: _fromDate.month,
+      rawWorkDays: workDays,
+      paidLeaveType: paidLeaveType,
+      paidDayOff: paidDayOff,
+    );
+    final double standardWorkDays = resolvedStd.divisor;
+    double billableWorkDays = resolvedStd.billableWorkDays;
+
+    // "Nghỉ N ngày bất kỳ/tháng" (off-1..off-4): không có thứ nghỉ cố định nên
+    // không tính "Tăng ca ngày nghỉ" theo ngày (xem sửa weeklyOffDays khi lưu).
+    // Thay vào đó: nếu công thực tế trong tháng VƯỢT công chuẩn (đã dùng ít hơn
+    // N ngày nghỉ được phép) → phần công vượt được trả theo đơn giá "Tăng ca
+    // ngày nghỉ" (x2), không trả theo đơn giá công thường (tránh trả thiếu).
+    // Chỉ áp dụng cho lương tháng (rateType==1) — nơi công chuẩn thực sự giới
+    // hạn lương thường; lương ngày/giờ/ca đã trả đủ theo công thực tế nên
+    // cộng thêm OT ở đây sẽ bị trả trùng.
+    if (rateType == 1 &&
+        const ['off-1', 'off-2', 'off-3', 'off-4'].contains(paidLeaveType) &&
+        resolvedStd.mode == EmployeeStandardWorkMode.monthMinusPaidLeave &&
+        workDays > standardWorkDays) {
+      final excessWorkDays = workDays - standardWorkDays;
+      otHoursWeekend += excessWorkDays * standardDayHours;
+      billableWorkDays = standardWorkDays;
+    }
+
     // ═══ Salary calculation ═══
     double workSalary = 0;
     double hourlyRate = 0;
@@ -1316,11 +1280,12 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         workSalary = baseSalary * standardHours;
         break;
       case 1: // Monthly
+        // dailyRate = Rate / công chuẩn; workSalary = dailyRate × công tính lương
         hourlyRate = standardWorkDays > 0
             ? baseSalary / standardWorkDays / standardDayHours
             : 0;
         workSalary = standardWorkDays > 0
-            ? (baseSalary / standardWorkDays) * workDays
+            ? (baseSalary / standardWorkDays) * billableWorkDays
             : 0;
         break;
       case 2: // Daily
@@ -1413,11 +1378,11 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         break;
     }
 
-    // Lương hoàn thành theo công (monthly only) — mức tháng prorate giống lương CB.
+    // Lương hoàn thành theo công (monthly only) — cùng công tính lương với LCB.
     double completionSalaryEarned = 0;
     if (rateType == 1 && completionSalary > 0 && standardWorkDays > 0) {
       completionSalaryEarned =
-          (completionSalary / standardWorkDays) * workDays;
+          (completionSalary / standardWorkDays) * billableWorkDays;
     }
 
     // ═══ OT salary ═══
@@ -1628,7 +1593,10 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         final paidDate = DateTime.tryParse(paidDateStr);
         if (paidDate == null) continue;
         if (paidDate.isBefore(_fromDate) || paidDate.isAfter(_toDate)) continue;
-        advanceTotal += _toDouble(req['amount']);
+        // Trừ lương theo số tiền THỰC TẾ đã duyệt/chi (có thể thấp hơn số
+        // tiền yêu cầu ban đầu nếu quản lý duyệt một phần).
+        advanceTotal +=
+            _toDouble(req['approvedAmount'] ?? req['amount']);
       }
     }
 

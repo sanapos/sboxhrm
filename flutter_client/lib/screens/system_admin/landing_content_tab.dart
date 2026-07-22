@@ -24,7 +24,7 @@ class LandingContentTabState extends State<LandingContentTab>
   @override
   void initState() {
     super.initState();
-    _sub = TabController(length: 7, vsync: this);
+    _sub = TabController(length: 9, vsync: this);
   }
 
   @override
@@ -53,6 +53,8 @@ class LandingContentTabState extends State<LandingContentTab>
               Tab(icon: Icon(Icons.video_library_rounded), text: 'Video'),
               Tab(icon: Icon(Icons.devices_rounded), text: 'Sản phẩm'),
               Tab(icon: Icon(Icons.download_rounded), text: 'Tải về'),
+              Tab(icon: Icon(Icons.help_outline_rounded), text: 'FAQ'),
+              Tab(icon: Icon(Icons.travel_explore_rounded), text: 'SEO Google'),
             ],
           ),
         ),
@@ -67,6 +69,8 @@ class LandingContentTabState extends State<LandingContentTab>
               _VideoSubTab(api: _api),
               _ProductsSubTab(api: _api),
               _DownloadsSubTab(api: _api),
+              _FaqSubTab(api: _api),
+              _SeoGoogleSubTab(api: _api),
             ],
           ),
         ),
@@ -272,8 +276,12 @@ class _FeaturesSubTabState extends State<_FeaturesSubTab> {
 
   static const _defaultFeatures = [
     (
-      'Chấm công ZKTeco',
-      'Tích hợp máy chấm công ZKTeco tự động, dữ liệu đồng bộ real-time qua giao thức ADMS/PUSH.'
+      'Chấm công mobile khuôn mặt',
+      'Nhận diện khuôn mặt bằng AI ngay trên điện thoại. Xác minh GPS và WiFi để đảm bảo chấm công đúng địa điểm.'
+    ),
+    (
+      'Kết nối máy chấm công Realtime',
+      'Đồng bộ máy ZKTeco qua ADMS/PUSH theo thời gian thực — dữ liệu chấm công về hệ thống ngay khi quẹt.'
     ),
     (
       'Quản lý ca làm việc',
@@ -1265,7 +1273,7 @@ class _GuideSubTabState extends State<_GuideSubTab>
                           isDense: true,
                           border: OutlineInputBorder(),
                           alignLabelWithHint: true,
-                          hintText: 'https://sbox.sana.vn/images/...',
+                          hintText: 'https://sboxhrm.com/images/...',
                         ),
                       ),
                     ],
@@ -2146,7 +2154,7 @@ class _DownloadsSubTabState extends State<_DownloadsSubTab> {
       version: 'v1.0',
       badge: 'APK',
       platform: 'android',
-      url: 'https://sbox.sana.vn/#/register'
+      url: 'https://sboxhrm.com/#/register'
     ),
     (
       title: 'Driver USB ZKTeco',
@@ -2154,7 +2162,7 @@ class _DownloadsSubTabState extends State<_DownloadsSubTab> {
       version: 'Windows',
       badge: 'Driver',
       platform: 'windows',
-      url: 'https://sbox.sana.vn/#/contact'
+      url: 'https://sboxhrm.com/#/contact'
     ),
     (
       title: 'Bộ cài công cụ đồng bộ',
@@ -2162,7 +2170,7 @@ class _DownloadsSubTabState extends State<_DownloadsSubTab> {
       version: 'v2.1',
       badge: 'Tool',
       platform: 'desktop',
-      url: 'https://sbox.sana.vn/#/contact'
+      url: 'https://sboxhrm.com/#/contact'
     ),
   ];
 
@@ -2390,6 +2398,453 @@ class _DownloadsSubTabState extends State<_DownloadsSubTab> {
         isDense: true,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
         prefixIcon: icon != null ? Icon(icon, size: 18) : null,
+      ),
+    );
+  }
+}
+
+// -------------------------------------------------------
+// Sub-tab 8: FAQ trang chủ
+// -------------------------------------------------------
+class _FaqItem {
+  _FaqItem(String q, String a)
+      : qCtrl = TextEditingController(text: q),
+        aCtrl = TextEditingController(text: a);
+  final TextEditingController qCtrl;
+  final TextEditingController aCtrl;
+}
+
+class _FaqSubTab extends StatefulWidget {
+  const _FaqSubTab({required this.api});
+  final ApiService api;
+
+  @override
+  State<_FaqSubTab> createState() => _FaqSubTabState();
+}
+
+class _FaqSubTabState extends State<_FaqSubTab> {
+  bool _loading = false;
+  bool _saving = false;
+  List<_FaqItem> _items = [];
+
+  static const _defaults = [
+    (
+      'SBOX HRM chạy trên nền tảng nào?',
+      'Đầy đủ Desktop/Web, Android (Google Play) và iOS. Dữ liệu đồng bộ realtime giữa các nền tảng.'
+    ),
+    (
+      'SBOX HRM gồm những nghiệp vụ nào?',
+      'Chấm công ZKTeco, ca làm, bảng lương, công tác phí, thu chi, giao việc & tiến độ, KPI & sản lượng, truyền thông nội bộ, góp ý/khiếu nại và hơn 30 tính năng HR.'
+    ),
+    (
+      'Có hỗ trợ máy chấm công ZKTeco không?',
+      'Có. Đồng bộ qua ADMS/PUSH (cổng 7070), quản lý nhân viên, vân tay và khuôn mặt từ phần mềm.'
+    ),
+    (
+      'Có dùng thử miễn phí không?',
+      'Có. Đăng ký tại sboxhrm.com hoặc tải app trên Google Play / liên hệ nhận bản iOS.'
+    ),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    for (final item in _items) {
+      item.qCtrl.dispose();
+      item.aCtrl.dispose();
+    }
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    try {
+      final res = await widget.api.getAllAppSettings();
+      if (!mounted) return;
+      if (res['isSuccess'] == true) {
+        final list = List<Map<String, dynamic>>.from(res['data'] ?? []);
+        final entry = list.firstWhere(
+            (s) => s['key'] == 'landing_faq_json',
+            orElse: () => {});
+        final raw = entry['value']?.toString() ?? '';
+        if (raw.isNotEmpty) {
+          final arr = jsonDecode(raw) as List;
+          _items = arr
+              .map((e) => _FaqItem(
+                    (e['q'] ?? e['question'] ?? '').toString(),
+                    (e['a'] ?? e['answer'] ?? '').toString(),
+                  ))
+              .toList();
+        }
+      }
+    } catch (_) {}
+    if (_items.isEmpty) {
+      _items = _defaults.map((e) => _FaqItem(e.$1, e.$2)).toList();
+    }
+    if (mounted) setState(() => _loading = false);
+  }
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    try {
+      final json = jsonEncode(_items
+          .where((i) => i.qCtrl.text.trim().isNotEmpty)
+          .map((i) => {
+                'q': i.qCtrl.text.trim(),
+                'a': i.aCtrl.text.trim(),
+              })
+          .toList());
+      final res = await widget.api.updateAppSettingsBatch([
+        {'key': 'landing_faq_json', 'value': json}
+      ]);
+      if (!mounted) return;
+      if (res['isSuccess'] == true) {
+        AdminHelpers.showSuccess(context, 'Đã lưu FAQ trang chủ!');
+      } else {
+        AdminHelpers.showApiError(context, res);
+      }
+    } catch (e) {
+      if (mounted) AdminHelpers.showError(context, 'Lỗi: $e');
+    }
+    if (mounted) setState(() => _saving = false);
+  }
+
+  void _addItem() => setState(() => _items.add(_FaqItem('', '')));
+  void _removeItem(int idx) => setState(() {
+        _items[idx].qCtrl.dispose();
+        _items[idx].aCtrl.dispose();
+        _items.removeAt(idx);
+      });
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Câu hỏi thường gặp (trang chủ)',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                ),
+              ),
+              FilledButton.icon(
+                onPressed: context.systemAdminCanEdit ? _addItem : null,
+                icon: const Icon(Icons.add_rounded, size: 16),
+                label: const Text('Thêm'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AdminHelpers.primary,
+                  foregroundColor: Colors.white,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: ReorderableListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: _items.length,
+            onReorder: (from, to) {
+              setState(() {
+                final item = _items.removeAt(from);
+                _items.insert(to > from ? to - 1 : to, item);
+              });
+            },
+            itemBuilder: (_, idx) {
+              final item = _items[idx];
+              return Card(
+                key: ValueKey(idx),
+                margin: const EdgeInsets.only(bottom: 10),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+                elevation: 1,
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.only(top: 14, right: 8),
+                        child: Icon(Icons.drag_handle_rounded,
+                            color: Colors.grey, size: 20),
+                      ),
+                      Expanded(
+                        child: Column(children: [
+                          TextField(
+                            controller: item.qCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'Câu hỏi',
+                              isDense: true,
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: item.aCtrl,
+                            maxLines: 3,
+                            decoration: const InputDecoration(
+                              labelText: 'Câu trả lời',
+                              isDense: true,
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                        ]),
+                      ),
+                      IconButton(
+                        onPressed: context.systemAdminCanEdit
+                            ? () => _removeItem(idx)
+                            : null,
+                        icon: const Icon(Icons.delete_outline_rounded,
+                            color: Colors.red),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: (context.systemAdminCanEdit && !_saving) ? _save : null,
+              icon: _saving
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.save_rounded),
+              label: Text(_saving ? 'Đang lưu...' : 'Lưu FAQ'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AdminHelpers.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// -------------------------------------------------------
+// Sub-tab 9: SEO Google
+// -------------------------------------------------------
+class _SeoGoogleSubTab extends StatefulWidget {
+  const _SeoGoogleSubTab({required this.api});
+  final ApiService api;
+
+  @override
+  State<_SeoGoogleSubTab> createState() => _SeoGoogleSubTabState();
+}
+
+class _SeoGoogleSubTabState extends State<_SeoGoogleSubTab> {
+  bool _loading = false;
+  bool _saving = false;
+
+  final _fields = <String, TextEditingController>{
+    'seo_meta_title': TextEditingController(),
+    'seo_meta_description': TextEditingController(),
+    'seo_meta_keywords': TextEditingController(),
+    'seo_og_title': TextEditingController(),
+    'seo_og_description': TextEditingController(),
+    'seo_og_image': TextEditingController(),
+    'seo_canonical_url': TextEditingController(),
+    'google_site_verification': TextEditingController(),
+    'google_tag_id': TextEditingController(),
+  };
+
+  static const _labels = {
+    'seo_meta_title': 'Meta title (thẻ <title>)',
+    'seo_meta_description': 'Meta description',
+    'seo_meta_keywords': 'Meta keywords',
+    'seo_og_title': 'Open Graph / Twitter title',
+    'seo_og_description': 'Open Graph / Twitter description',
+    'seo_og_image': 'Open Graph image URL',
+    'seo_canonical_url': 'Canonical URL (vd: https://sboxhrm.com/)',
+    'google_site_verification': 'Google Search Console – mã xác minh',
+    'google_tag_id': 'Google Analytics / Ads ID (G-... hoặc AW-...)',
+  };
+
+  static const _multiline = {
+    'seo_meta_description',
+    'seo_og_description',
+  };
+
+  static const _hints = {
+    'seo_meta_title':
+        'SBOX HRM – Phần mềm quản lý nhân sự, chấm công khuôn mặt & bảng lương',
+    'seo_meta_description':
+        'SBOX HRM – Phần mềm quản lý nhân sự cho doanh nghiệp Việt Nam...',
+    'google_site_verification': 'Chuỗi content trong thẻ google-site-verification',
+    'google_tag_id': 'G-XXXXXXXX hoặc AW-XXXXXXXX',
+    'seo_og_image': 'https://sboxhrm.com/images/landing/screenshot-01.jpg',
+    'seo_canonical_url': 'https://sboxhrm.com/',
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    for (final c in _fields.values) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    try {
+      final res = await widget.api.getAllAppSettings();
+      if (!mounted) return;
+      if (res['isSuccess'] == true) {
+        final list = List<Map<String, dynamic>>.from(res['data'] ?? []);
+        for (final key in _fields.keys) {
+          final entry =
+              list.firstWhere((s) => s['key'] == key, orElse: () => {});
+          _fields[key]!.text = entry['value']?.toString() ?? '';
+        }
+      }
+    } catch (e) {
+      debugPrint('SEO load error: $e');
+    }
+    if (mounted) setState(() => _loading = false);
+  }
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    try {
+      final batch = _fields.entries
+          .map((e) => {'key': e.key, 'value': e.value.text.trim()})
+          .toList();
+      final res = await widget.api.updateAppSettingsBatch(batch);
+      if (!mounted) return;
+      if (res['isSuccess'] == true) {
+        AdminHelpers.showSuccess(context, 'Đã lưu thiết lập SEO Google!');
+      } else {
+        AdminHelpers.showApiError(context, res);
+      }
+    } catch (e) {
+      if (mounted) AdminHelpers.showError(context, 'Lỗi: $e');
+    }
+    if (mounted) setState(() => _saving = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _hdr('Meta trang chủ', Icons.search_rounded),
+          const SizedBox(height: 4),
+          const Text(
+            'Áp dụng cho trang chủ SEO (home.html). Để trống sẽ giữ nội dung mặc định trên trang.',
+            style: TextStyle(color: Color(0xFF6B7280), fontSize: 12),
+          ),
+          const SizedBox(height: 16),
+          ...[
+            'seo_meta_title',
+            'seo_meta_description',
+            'seo_meta_keywords',
+            'seo_canonical_url',
+          ].map(_field),
+          const Divider(height: 32),
+          _hdr('Open Graph / chia sẻ mạng xã hội', Icons.share_rounded),
+          const SizedBox(height: 16),
+          ...[
+            'seo_og_title',
+            'seo_og_description',
+            'seo_og_image',
+          ].map(_field),
+          const Divider(height: 32),
+          _hdr('Google Search Console & Analytics', Icons.analytics_rounded),
+          const SizedBox(height: 4),
+          const Text(
+            'Mã xác minh Search Console và Measurement ID (GA4 / Google Ads). Hiển thị công khai trên trang chủ.',
+            style: TextStyle(color: Color(0xFF6B7280), fontSize: 12),
+          ),
+          const SizedBox(height: 16),
+          ...[
+            'google_site_verification',
+            'google_tag_id',
+          ].map(_field),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: (context.systemAdminCanEdit && !_saving) ? _save : null,
+              icon: _saving
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.save_rounded),
+              label: Text(_saving ? 'Đang lưu...' : 'Lưu thiết lập SEO'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AdminHelpers.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _hdr(String title, IconData icon) {
+    return Row(children: [
+      Icon(icon, color: AdminHelpers.primary, size: 20),
+      const SizedBox(width: 8),
+      Text(title,
+          style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 16,
+              color: Color(0xFF111827))),
+    ]);
+  }
+
+  Widget _field(String key) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: TextFormField(
+        controller: _fields[key],
+        maxLines: _multiline.contains(key) ? 3 : 1,
+        decoration: InputDecoration(
+          labelText: _labels[key] ?? key,
+          hintText: _hints[key],
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+          filled: true,
+          fillColor: Colors.white,
+        ),
       ),
     );
   }

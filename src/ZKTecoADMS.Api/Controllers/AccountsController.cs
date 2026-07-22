@@ -20,6 +20,7 @@ using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.DTOs.SystemAdmin;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Infrastructure;
+using ZKTecoADMS.Infrastructure.Helpers;
 
 namespace ZKTecoADMS.Api.Controllers;
 
@@ -172,53 +173,123 @@ public class AccountsController(IMediator mediator, UserManager<ApplicationUser>
             return Ok(AppResponse<bool>.Error("Không tìm thấy tài khoản"));
         }
 
-        // Don't allow deleting store owner
+        // Don't allow deleting yourself or store owner
         if (user.Id == CurrentUserId)
         {
             return Ok(AppResponse<bool>.Error("Không thể xóa tài khoản của chính mình"));
         }
 
-        // Unlink employee record
-        var employee = await dbContext.Employees
-            .FirstOrDefaultAsync(e => e.ApplicationUserId == id, cancellationToken);
-        if (employee != null)
+        var isOwner = await dbContext.Stores.AnyAsync(
+            s => s.Id == RequiredStoreId && s.OwnerId == id,
+            cancellationToken);
+        if (isOwner)
         {
-            employee.ApplicationUserId = null;
-            dbContext.Employees.Update(employee);
+            return Ok(AppResponse<bool>.Error("Không thể xóa tài khoản chủ cửa hàng"));
         }
-
-        // Reassign managed employees to current user
-        var managedEmployees = await dbContext.Employees
-            .Where(e => e.ManagerId == id)
-            .ToListAsync(cancellationToken);
-        foreach (var emp in managedEmployees)
-        {
-            emp.ManagerId = CurrentUserId;
-            dbContext.Employees.Update(emp);
-        }
-
-        // Unlink managed users (set ManagerId to null)
-        var managedUsers = await dbContext.Users
-            .Where(u => u.ManagerId == id)
-            .ToListAsync(cancellationToken);
-        foreach (var u in managedUsers)
-        {
-            u.ManagerId = null;
-        }
-
-        await dbContext.SaveChangesAsync(cancellationToken);
 
         try
         {
+            // Gỡ / chuyển mọi FK trỏ tới user (giữ lịch sử nghiệp vụ: NULL hoặc gán cho người xóa).
+            await UserAccountDeleteHelper.DetachReferencesAsync(
+                dbContext,
+                user.Id,
+                CurrentUserId,
+                cancellationToken);
+
+            await dbContext.SaveChangesAsync(cancellationToken);
+
             var result = await userManager.DeleteAsync(user);
             if (!result.Succeeded)
             {
                 return Ok(AppResponse<bool>.Error(result.Errors.Select(e => e.Description).ToList()));
             }
         }
-        catch (DbUpdateException)
+        catch (DbUpdateException ex)
         {
-            return Ok(AppResponse<bool>.Error("Không thể xóa tài khoản vì còn dữ liệu liên quan (chấm công, phiếu lương...). Hãy vô hiệu hóa thay vì xóa."));
+            var detail = ex.InnerException?.Message ?? ex.Message;
+            return Ok(AppResponse<bool>.Error(
+                "Không thể xóa tài khoản vì còn dữ liệu liên quan. "
+                + "Hãy dùng Vô hiệu hóa để giải phóng slot gói, hoặc thử lại sau. "
+                + $"({detail})"));
+        }
+
+        return Ok(AppResponse<bool>.Success(true));
+    }
+
+    /// <summary>
+    /// Activate / deactivate a store login account.
+    /// Deactivate sets IsActive=false + Identity lockout and frees a package seat.
+    /// </summary>
+    [HttpPatch("{id}/status")]
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    public async Task<ActionResult<AppResponse<bool>>> SetAccountStatus(
+        Guid id,
+        [FromBody] SetAccountStatusRequest request,
+        CancellationToken cancellationToken,
+        [FromServices] IStoreLicenseLimitService storeLicenseLimitService)
+    {
+        var user = await userManager.FindByIdAsync(id.ToString());
+        if (user == null || user.StoreId != RequiredStoreId)
+        {
+            return Ok(AppResponse<bool>.Error("Không tìm thấy tài khoản"));
+        }
+
+        if (user.Id == CurrentUserId)
+        {
+            return Ok(AppResponse<bool>.Error("Không thể thay đổi trạng thái tài khoản của chính mình"));
+        }
+
+        var isOwner = await dbContext.Stores.AnyAsync(
+            s => s.Id == RequiredStoreId && s.OwnerId == id,
+            cancellationToken);
+        if (isOwner)
+        {
+            return Ok(AppResponse<bool>.Error("Không thể vô hiệu hóa tài khoản chủ cửa hàng"));
+        }
+
+        if (request.IsActive == user.IsActive)
+        {
+            return Ok(AppResponse<bool>.Success(true));
+        }
+
+        if (request.IsActive)
+        {
+            var limitCheck = await storeLicenseLimitService.CanAddUserAsync(RequiredStoreId, cancellationToken);
+            if (!limitCheck.Ok)
+            {
+                return Ok(AppResponse<bool>.Error(
+                    limitCheck.Error ?? "Cửa hàng đã đạt giới hạn tài khoản theo gói dịch vụ."));
+            }
+
+            user.IsActive = true;
+            await userManager.SetLockoutEndDateAsync(user, null);
+            await userManager.ResetAccessFailedCountAsync(user);
+            var updateResult = await userManager.UpdateAsync(user);
+            if (!updateResult.Succeeded)
+            {
+                return Ok(AppResponse<bool>.Error(updateResult.Errors.Select(e => e.Description).ToList()));
+            }
+
+            return Ok(AppResponse<bool>.Success(true));
+        }
+
+        // Deactivate: free seat + block login/refresh/JWT
+        user.IsActive = false;
+        await userManager.SetLockoutEnabledAsync(user, true);
+        await userManager.SetLockoutEndDateAsync(user, DateTimeOffset.UtcNow.AddYears(100));
+        var deactivateResult = await userManager.UpdateAsync(user);
+        if (!deactivateResult.Succeeded)
+        {
+            return Ok(AppResponse<bool>.Error(deactivateResult.Errors.Select(e => e.Description).ToList()));
+        }
+
+        var refreshTokens = await dbContext.UserRefreshTokens
+            .Where(rt => rt.ApplicationUserId == id)
+            .ToListAsync(cancellationToken);
+        if (refreshTokens.Count > 0)
+        {
+            dbContext.RemoveRange(refreshTokens);
+            await dbContext.SaveChangesAsync(cancellationToken);
         }
 
         return Ok(AppResponse<bool>.Success(true));
@@ -243,6 +314,11 @@ public class AccountsController(IMediator mediator, UserManager<ApplicationUser>
 
         return Ok(AppResponse<bool>.Success(true));
     }
+}
+
+public class SetAccountStatusRequest
+{
+    public bool IsActive { get; set; }
 }
 
 public class UpdateEmployeeAccountRequest

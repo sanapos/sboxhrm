@@ -18,6 +18,8 @@ public enum PosPrintDocumentType
     StockIssue = 12,
     BarcodeLabel = 13,
     StockCount = 14,
+    KitchenSlip = 15,
+    KitchenVoid = 16,
 }
 
 /// <summary>Loại kết nối máy in cửa hàng.</summary>
@@ -56,6 +58,12 @@ public enum PosPrintPayloadFormat
     EscPosBase64 = 0,
     PdfBase64 = 1,
     HtmlUtf8 = 2,
+    /// <summary>JSON đơn bán — Agent Sunmi in native (UTF-8), không qua ESC/POS.</summary>
+    SaleOrderJson = 3,
+    /// <summary>JSON phiếu bếp/hủy — Agent Sunmi in native (UTF-8), không qua ESC/POS.</summary>
+    KitchenSlipJson = 4,
+    /// <summary>JSON test in — Agent Sunmi in native (UTF-8), không qua ESC/POS.</summary>
+    TestPrintJson = 5,
 }
 
 /// <summary>Khổ giấy in.</summary>

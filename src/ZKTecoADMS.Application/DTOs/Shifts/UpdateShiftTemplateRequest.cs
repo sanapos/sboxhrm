@@ -9,10 +9,13 @@ public class UpdateShiftTemplateRequest
     public int MaximumAllowedLateMinutes { get; set; } = 30;
     public int MaximumAllowedEarlyLeaveMinutes { get; set; } = 30;
     public int BreakTimeMinutes { get; set; } = 0;
+    public TimeSpan? LunchBreakStartTime { get; set; }
+    public TimeSpan? LunchBreakEndTime { get; set; }
     public int EarlyCheckInMinutes { get; set; } = 30;
     public int LateGraceMinutes { get; set; } = 5;
     public int EarlyLeaveGraceMinutes { get; set; } = 5;
     public int OvertimeMinutesThreshold { get; set; } = 30;
+    public int EarlyOvertimeMinutesThreshold { get; set; } = 30;
     public string? ShiftType { get; set; }
     public string? Description { get; set; }
     public bool IsActive { get; set; }

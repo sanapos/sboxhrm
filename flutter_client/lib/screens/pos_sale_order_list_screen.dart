@@ -13,6 +13,7 @@ import '../utils/file_saver.dart' as file_saver;
 import '../utils/pos_kiot_time_range.dart';
 import '../utils/pos_sale_order_print.dart';
 import '../utils/pos_sell_print_settings.dart';
+import '../utils/pos_print_store_info.dart';
 import '../utils/pos_sell_stock_patch.dart';
 import '../utils/pos_mutation_result.dart';
 import '../widgets/hrm_page_chrome.dart';
@@ -75,12 +76,13 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
   final _dateFmt = DateFormat('dd/MM/yyyy HH:mm', 'vi_VN');
 
   bool _loading = true;
+  String? _completingId;
   List<PosSaleOrder> _items = [];
   int _total = 0;
   int _page = 1;
   static const _pageSize = 50;
 
-  final Set<String> _statusFilter = {'Draft', 'Completed', 'Cancelled'};
+  final Set<String> _statusFilter = {'Completed', 'Cancelled'};
   String? _paymentMethod;
   bool? _isDeliveryFilter;
   PosKiotTimeFilterState _timeFilter = PosKiotTimeFilterState.thisMonth();
@@ -152,6 +154,9 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
         _total = (data['total'] as num?)?.toInt() ?? 0;
         _items = ((data['items'] as List?) ?? [])
             .map((e) => PosSaleOrder.fromJson(e as Map<String, dynamic>))
+            // Slot bán hàng (TMP…) không hiện trong DS đơn — chỉ dùng tab Bán hàng.
+            .where((o) => !(o.status == 'Draft' &&
+                o.orderNo.toUpperCase().startsWith('TMP')))
             .toList();
       });
       await _loadPeriodSummary();
@@ -247,17 +252,28 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       }
     }
     if (!mounted) return;
-    final auth = Provider.of<AuthProvider>(context, listen: false);
     final printSettings = await PosSellPrintSettings.load();
+    final store = await PosPrintStoreInfo.load();
+    if (!mounted) return;
     await printPosSaleOrder(
       context: context,
       order: order,
-      branchName: auth.currentUser?.department,
+      branchName: store.storeName,
+      storeAddress: store.address,
+      storePhone: store.phone,
       mergeSameItems: printSettings.mergeSameItems,
       copies: printSettings.copies,
       templateId: printSettings.templateId,
       skipDedup: true,
     );
+    // Làm mới printCount trên danh sách sau khi ghi nhận in.
+    if (!mounted) return;
+    final refreshed = await _api.getPosSale(o.id);
+    if (refreshed['isSuccess'] == true && refreshed['data'] is Map) {
+      _patchOrderInList(
+        PosSaleOrder.fromJson(refreshed['data'] as Map<String, dynamic>),
+      );
+    }
   }
 
   void _patchOrderInList(PosSaleOrder updated) {
@@ -402,6 +418,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
   }
 
   Future<void> _completeOrder(PosSaleOrder o) async {
+    if (_completingId != null) return;
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -418,6 +435,8 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       ),
     );
     if (ok != true || !mounted) return;
+    setState(() => _completingId = o.id);
+    try {
     final res = await _api.completePosSale(o.id);
     if (!mounted) return;
     if (res['isSuccess'] == true) {
@@ -446,6 +465,9 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     } else {
       NotificationOverlayManager()
           .showError(title: 'Lỗi', message: res['message']?.toString() ?? '');
+    }
+    } finally {
+      if (mounted) setState(() => _completingId = null);
     }
   }
 
@@ -688,7 +710,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     setState(() {
       _statusFilter
         ..clear()
-        ..addAll({'Draft', 'Completed', 'Cancelled'});
+        ..addAll({'Completed', 'Cancelled'});
       _paymentMethod = null;
       _isDeliveryFilter = null;
       _timeFilter = PosKiotTimeFilterState.thisMonth();
@@ -726,6 +748,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
             PosMobileKiotHeader(
               title: 'Hoá đơn',
               onFilter: _openFilters,
+              onRefresh: () => _load(page: _page),
               activeFilterCount: _activeFilterCount,
               filterChips: Padding(
                 padding: const EdgeInsets.only(left: 4),
@@ -799,13 +822,23 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                     child: _loading
                         ? const LoadingWidget()
                         : _items.isEmpty
-                            ? const Center(child: Text('Chưa có đơn hàng'))
+                            ? RefreshIndicator(
+                                onRefresh: () => _load(page: _page),
+                                child: ListView(
+                                  physics:
+                                      const AlwaysScrollableScrollPhysics(),
+                                  children: const [
+                                    SizedBox(height: 120),
+                                    Center(child: Text('Chưa có đơn hàng')),
+                                  ],
+                                ),
+                              )
                             : Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.stretch,
                                 children: [
                                   _buildTableHeader(),
-                                  Expanded(
-                                      child: _buildList(canEdit)),
+                                  Expanded(child: _buildList(canEdit)),
                                 ],
                               ),
                   ),
@@ -1055,9 +1088,13 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       }
     }
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-      children: children,
+    return RefreshIndicator(
+      onRefresh: () => _load(page: _page),
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+        children: children,
+      ),
     );
   }
 
@@ -1128,7 +1165,11 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                           _printOrder(order);
                         },
                         icon: const Icon(Icons.print, size: 16),
-                        label: Text(order.printCount > 0 ? 'In lại' : 'In'),
+                        label: Text(
+                          order.printCount > 0
+                              ? 'In lại (đã in ${order.printCount} lần)'
+                              : 'In',
+                        ),
                         style: FilledButton.styleFrom(backgroundColor: PosTheme.kiotBlue),
                       ),
                     if (canEdit && order.status == 'Draft')
@@ -1165,7 +1206,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                         icon: const Icon(Icons.assignment_return_outlined, size: 16),
                         label: const Text('Trả hàng'),
                       ),
-                    if (canEdit && order.canDeleteFromList && order.status != 'Draft')
+                    if (canEdit && order.canDeleteFromList)
                       OutlinedButton.icon(
                         onPressed: () {
                           Navigator.pop(ctx);
@@ -1173,7 +1214,9 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                         },
                         icon: const Icon(Icons.delete_outline, size: 16),
                         style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
-                        label: const Text('Xóa khỏi DS'),
+                        label: Text(order.status == 'Draft'
+                            ? 'Xóa phiếu tạm'
+                            : 'Xóa khỏi DS'),
                       ),
                   ],
                 ),
@@ -1488,9 +1531,13 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                   style: FilledButton.styleFrom(backgroundColor: PosTheme.kiotBlue),
                 ),
                 OutlinedButton.icon(
-                  onPressed: () => _completeOrder(o),
+                  onPressed: _completingId != null
+                      ? null
+                      : () => _completeOrder(o),
                   icon: const Icon(Icons.check_circle_outline, size: 16),
-                  label: const Text('Hoàn thành'),
+                  label: Text(
+                    _completingId == o.id ? 'Đang xử lý…' : 'Hoàn thành',
+                  ),
                 ),
                 OutlinedButton.icon(
                   onPressed: () => _deleteOrder(o),
@@ -1521,7 +1568,11 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                 OutlinedButton.icon(
                   onPressed: () => _printOrder(o),
                   icon: const Icon(Icons.print, size: 16),
-                  label: Text(o.printCount > 0 ? 'In lại' : 'In'),
+                  label: Text(
+                    o.printCount > 0
+                        ? 'In lại (đã in ${o.printCount} lần)'
+                        : 'In',
+                  ),
                 ),
                 OutlinedButton.icon(
                   onPressed: () => _copyOrder(o),
@@ -1529,12 +1580,12 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                   label: const Text('Sao chép'),
                 ),
               ],
-              if (canEdit && o.canDeleteFromList && o.status != 'Draft')
+              if (canEdit && o.canDeleteFromList)
                 OutlinedButton.icon(
                   onPressed: () => _deleteOrder(o),
                   icon: const Icon(Icons.delete_outline, size: 16),
                   style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
-                  label: const Text('Xóa khỏi DS'),
+                  label: Text(o.status == 'Draft' ? 'Xóa phiếu tạm' : 'Xóa khỏi DS'),
                 ),
             ],
           ),

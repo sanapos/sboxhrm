@@ -762,12 +762,37 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
 
   DateTime? get _openTravelStartAt => openTravelStartTime(_todayRecords);
 
+  bool _canTapLunchOtPunch(int punchType) {
+    if (!isLunchOtPunchType(punchType)) return false;
+    if (_registeredOnOtherDevice) return false;
+    if (!_isDeviceRegistered || !_isDeviceApproved) return false;
+    final settings = _settings;
+    if (settings == null) return _gpsMetForPunch(punchType);
+    if (!settings.enableFaceId) return _nonFaceMetForPunch(punchType);
+    if (settings.verificationMode == 'any') return true;
+    return _nonFaceMetForPunch(punchType);
+  }
+
+  bool _canTapLunchOtPunchInSequence(int punchType) {
+    if (!_canTapLunchOtPunch(punchType)) return false;
+    final openOut = openLunchOtStartTime(_todayRecords);
+    if (punchType == mobilePunchMealOut) return openOut == null;
+    if (punchType == mobilePunchMealIn) return openOut != null;
+    return false;
+  }
+
+  DateTime? get _openLunchOtOutAt => openLunchOtStartTime(_todayRecords);
+
   String _punchSuccessTitle(int punchType) {
     switch (punchType) {
       case mobilePunchTravelStart:
         return 'Bắt đầu đi thành công!';
       case mobilePunchTravelArrive:
         return 'Đến điểm làm thành công!';
+      case mobilePunchMealOut:
+        return 'Chấm ra tăng ca trưa thành công!';
+      case mobilePunchMealIn:
+        return 'Chấm vào lại sau nghỉ thành công!';
       case mobilePunchCheckIn:
         return 'Chấm công VÀO thành công!';
       default:
@@ -997,6 +1022,9 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
           subtitle = status == 'pending'
               ? 'Đã lưu. Chờ duyệt để tính giờ đi đường vào lương.'
               : 'Đã ghi nhận giờ đi đường.';
+        } else if (isLunchOtPunchType(punchType)) {
+          subtitle =
+              'Đã ghi nhận. Giờ trong khung nghỉ ca (theo ca làm việc) sẽ tính tăng ca khi có đủ cặp Ra/Vào.';
         } else if (status == 'pending') {
           subtitle =
               'Đã lưu trên app. Vào Duyệt chấm công → Mobile để duyệt; sau đó mới có trên Chấm công thô.';
@@ -1067,6 +1095,9 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                 subtitle = status == 'pending'
                     ? 'Đã lưu. Chờ duyệt để tính giờ đi đường vào lương.'
                     : 'Đã ghi nhận giờ đi đường.';
+              } else if (isLunchOtPunchType(punchType)) {
+                subtitle =
+                    'Đã ghi nhận. Giờ trong khung nghỉ ca (theo ca làm việc) sẽ tính tăng ca khi có đủ cặp Ra/Vào.';
               } else if (status == 'pending') {
                 subtitle =
                     'Đã lưu trên app. Vào Duyệt chấm công → Mobile để duyệt; sau đó mới có trên Chấm công thô.';
@@ -1874,6 +1905,8 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
             const SizedBox(height: 16),
             if (_allowTravelCheckIn) _buildTravelPunchSection(),
             if (_allowTravelCheckIn) const SizedBox(height: 8),
+            _buildLunchOtPunchSection(),
+            const SizedBox(height: 8),
             if (_isAutoSubmitting)
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -2153,6 +2186,77 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildLunchOtPunchSection() {
+    final openOut = _openLunchOtOutAt;
+    final outEnabled = _canTapLunchOtPunchInSequence(mobilePunchMealOut) &&
+        !_isAutoSubmitting;
+    final inEnabled = _canTapLunchOtPunchInSequence(mobilePunchMealIn) &&
+        !_isAutoSubmitting;
+
+    return Column(
+      children: [
+        Text(
+          'Tăng ca trưa (nghỉ giữa ca)',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Colors.white.withValues(alpha: 0.55),
+            letterSpacing: 0.5,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: _buildTravelPunchButton(
+                label: 'Ra tăng ca',
+                icon: Icons.free_breakfast_outlined,
+                color: const Color(0xFFF59E0B),
+                enabled: outEnabled,
+                onTap: () => _autoSubmitAttendance(
+                  punchType: mobilePunchMealOut,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _buildTravelPunchButton(
+                label: 'Vào lại',
+                icon: Icons.login_rounded,
+                color: const Color(0xFF84CC16),
+                enabled: inEnabled,
+                onTap: () => _autoSubmitAttendance(
+                  punchType: mobilePunchMealIn,
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (openOut != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            'Đang tăng ca trưa từ ${openOut.hour.toString().padLeft(2, '0')}:${openOut.minute.toString().padLeft(2, '0')} — bấm Vào lại khi xong',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 10,
+              color: const Color(0xFFF59E0B).withValues(alpha: 0.85),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+        const SizedBox(height: 6),
+        Text(
+          'Chỉ tính tăng ca khi chấm trong khung nghỉ ca (cấu hình ở Thiết lập ca)',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 10,
+            color: Colors.white.withValues(alpha: 0.35),
+          ),
+        ),
+      ],
     );
   }
 
@@ -2569,6 +2673,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
   Widget _buildRecordItem(MobileAttendanceRecord record) {
     final isCheckIn = record.punchType == mobilePunchCheckIn;
     final isTravel = record.isTravelPunch;
+    final isLunchOt = record.isLunchOtPunch;
     final approved =
         record.status == 'auto_approved' || record.status == 'approved';
     final Color color;
@@ -2580,6 +2685,13 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       icon = record.punchType == mobilePunchTravelStart
           ? Icons.directions_car_rounded
           : Icons.place_rounded;
+    } else if (isLunchOt) {
+      color = record.punchType == mobilePunchMealOut
+          ? const Color(0xFFF59E0B)
+          : const Color(0xFF84CC16);
+      icon = record.punchType == mobilePunchMealOut
+          ? Icons.free_breakfast_outlined
+          : Icons.login_rounded;
     } else {
       color = isCheckIn ? const Color(0xFF3B82F6) : const Color(0xFFEF4444);
       icon = isCheckIn ? Icons.south_west_rounded : Icons.north_east_rounded;

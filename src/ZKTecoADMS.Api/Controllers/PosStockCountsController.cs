@@ -270,6 +270,13 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
             return NotFound(AppResponse<StockCountDto>.Fail("Không tìm thấy phiếu kiểm kê"));
         if (count.Status != PosStockCountStatus.InProgress)
             return BadRequest(AppResponse<StockCountDto>.Fail("Phiếu không ở trạng thái tạm"));
+        if (count.Lines.Count == 0)
+            return BadRequest(AppResponse<StockCountDto>.Fail("Phiếu trống"));
+
+        var uncheckedLines = count.Lines.Count(l => !l.CountedQty.HasValue);
+        if (uncheckedLines > 0)
+            return BadRequest(AppResponse<StockCountDto>.Fail(
+                $"Còn {uncheckedLines} dòng chưa nhập số lượng đếm — không thể cân bằng"));
 
         var productIds = count.Lines.Select(l => l.ProductId).Distinct().ToList();
         var products = await dbContext.PosProducts
@@ -286,84 +293,156 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
                 .Where(v => variantIds.Contains(v.Id) && v.StoreId == storeId && v.Deleted == null)
                 .ToDictionaryAsync(v => v.Id);
 
-        var touchedProducts = new HashSet<Guid>();
-        foreach (var line in count.Lines)
+        await using var tx = await dbContext.Database.BeginTransactionAsync();
+        try
         {
-            if (!line.CountedQty.HasValue) continue;
-            var diff = line.CountedQty.Value - line.SystemQty;
-            if (diff == 0)
+            var completedAt = DateTime.UtcNow;
+            var (claimed, claimErr) = await PosDocStatusPersistHelper.SetStockCountStatusAsync(
+                dbContext, id, storeId,
+                PosStockCountStatus.InProgress, PosStockCountStatus.Completed,
+                CurrentUserEmail, completedAt, CurrentUserEmail, allowAlready: false);
+            if (!claimed)
             {
-                line.IsChecked = true;
-                continue;
+                await tx.RollbackAsync();
+                return Conflict(AppResponse<StockCountDto>.Fail(claimErr ?? "Phiếu đã được xử lý"));
             }
 
-            if (!products.TryGetValue(line.ProductId, out var p)) continue;
-            PosProductVariant? variant = null;
-            if (line.VariantId.HasValue)
-                variants.TryGetValue(line.VariantId.Value, out variant);
+            count.Status = PosStockCountStatus.Completed;
+            count.CompletedAt = completedAt;
+            count.BalancedBy = CurrentUserEmail;
 
-            decimal qtyAfter;
-            decimal txChange;
-            if (variant != null)
+            var touchedProducts = new HashSet<Guid>();
+            foreach (var line in count.Lines)
             {
-                if (PosVariantStockHelper.IsUnitOnlyVariant(variant.AttributeJson))
+                if (!products.TryGetValue(line.ProductId, out var p)) continue;
+                PosProductVariant? variant = null;
+                if (line.VariantId.HasValue)
+                    variants.TryGetValue(line.VariantId.Value, out variant);
+
+                // SystemQty live lúc cân — tránh lệch nếu kho đã đổi trong lúc kiểm.
+                var liveSystem = variant != null
+                    ? PosVariantStockHelper.ResolveVariantDisplayQty(
+                        p.OnHandQty, variant.AttributeJson, variant.OnHandQty)
+                    : p.OnHandQty;
+                line.SystemQty = liveSystem;
+                var counted = line.CountedQty!.Value;
+                var diff = counted - liveSystem;
+                if (diff == 0)
                 {
-                    var baseDiff = PosVariantStockHelper.StockDeltaInBase(variant, Math.Abs(diff));
-                    txChange = diff > 0 ? baseDiff : -baseDiff;
-                    p.OnHandQty += txChange;
-                    qtyAfter = p.OnHandQty;
-                    p.UpdatedAt = DateTime.UtcNow;
-                    p.UpdatedBy = CurrentUserEmail;
+                    line.IsChecked = true;
+                    continue;
+                }
+
+                decimal qtyAfter;
+                decimal txChangeBase;
+                if (variant != null)
+                {
+                    if (PosVariantStockHelper.IsUnitOnlyVariant(variant.AttributeJson))
+                    {
+                        txChangeBase = PosVariantStockHelper.StockDeltaInBase(variant, Math.Abs(diff));
+                        if (diff < 0) txChangeBase = -txChangeBase;
+                        p.OnHandQty += txChangeBase;
+                        qtyAfter = p.OnHandQty;
+                        p.UpdatedAt = DateTime.UtcNow;
+                        p.UpdatedBy = CurrentUserEmail;
+                    }
+                    else
+                    {
+                        variant.OnHandQty += diff;
+                        qtyAfter = variant.OnHandQty;
+                        txChangeBase = diff;
+                        variant.UpdatedAt = DateTime.UtcNow;
+                        variant.UpdatedBy = CurrentUserEmail;
+                        touchedProducts.Add(p.Id);
+                    }
                 }
                 else
                 {
-                    variant.OnHandQty += diff;
-                    qtyAfter = variant.OnHandQty;
-                    txChange = diff;
-                    variant.UpdatedAt = DateTime.UtcNow;
-                    variant.UpdatedBy = CurrentUserEmail;
-                    touchedProducts.Add(p.Id);
+                    p.OnHandQty += diff;
+                    qtyAfter = p.OnHandQty;
+                    txChangeBase = diff;
+                    p.UpdatedAt = DateTime.UtcNow;
+                    p.UpdatedBy = CurrentUserEmail;
                 }
-            }
-            else
-            {
-                p.OnHandQty += diff;
-                qtyAfter = p.OnHandQty;
-                txChange = diff;
-                p.UpdatedAt = DateTime.UtcNow;
-                p.UpdatedBy = CurrentUserEmail;
+
+                // Lô/HSD: thiếu → FEFO; thừa → tạo lô kiểm kê.
+                if (txChangeBase < 0)
+                {
+                    var need = Math.Abs(txChangeBase);
+                    var (allocations, lotErr) = await PosStockLotHelper.AllocateFefoAsync(
+                        dbContext, storeId, p.Id, variant?.Id, need, p, CurrentUserEmail);
+                    if (lotErr != null)
+                        throw new InvalidOperationException(lotErr);
+                    foreach (var alloc in allocations!)
+                    {
+                        dbContext.PosStockTransactions.Add(new PosStockTransaction
+                        {
+                            Id = Guid.NewGuid(),
+                            StoreId = storeId,
+                            ProductId = p.Id,
+                            VariantId = variant?.Id,
+                            LotId = alloc.LotId,
+                            TransactionType = PosStockTransactionType.Adjust,
+                            QtyChange = -alloc.Qty,
+                            QtyAfter = qtyAfter,
+                            UnitCost = alloc.UnitCost,
+                            ReferenceNo = count.CountNo,
+                            StockCountId = count.Id,
+                            Note = $"Kiểm kê: hệ thống {liveSystem:N2} → thực tế {counted:N2}",
+                            IsActive = true,
+                            CreatedBy = CurrentUserEmail,
+                        });
+                    }
+                }
+                else
+                {
+                    Guid? lotId = null;
+                    if (p.TrackExpiry || Math.Abs(txChangeBase) > 0)
+                    {
+                        var lot = PosStockLotHelper.CreateLotFromCountAdjust(
+                            storeId, p.Id, variant?.Id, txChangeBase,
+                            line.CostPrice > 0 ? line.CostPrice : p.CostPrice,
+                            count.CountNo, CurrentUserEmail);
+                        dbContext.PosStockLots.Add(lot);
+                        lotId = lot.Id;
+                    }
+                    dbContext.PosStockTransactions.Add(new PosStockTransaction
+                    {
+                        Id = Guid.NewGuid(),
+                        StoreId = storeId,
+                        ProductId = p.Id,
+                        VariantId = variant?.Id,
+                        LotId = lotId,
+                        TransactionType = PosStockTransactionType.Adjust,
+                        QtyChange = txChangeBase,
+                        QtyAfter = qtyAfter,
+                        ReferenceNo = count.CountNo,
+                        StockCountId = count.Id,
+                        Note = $"Kiểm kê: hệ thống {liveSystem:N2} → thực tế {counted:N2}",
+                        IsActive = true,
+                        CreatedBy = CurrentUserEmail,
+                    });
+                }
+
+                line.IsChecked = true;
             }
 
-            dbContext.PosStockTransactions.Add(new PosStockTransaction
-            {
-                Id = Guid.NewGuid(),
-                StoreId = storeId,
-                ProductId = p.Id,
-                VariantId = variant?.Id,
-                TransactionType = PosStockTransactionType.Adjust,
-                QtyChange = txChange,
-                QtyAfter = qtyAfter,
-                ReferenceNo = count.CountNo,
-                StockCountId = count.Id,
-                Note = $"Kiểm kê: hệ thống {line.SystemQty:N2} → thực tế {line.CountedQty:N2}",
-                IsActive = true,
-                CreatedBy = CurrentUserEmail,
-            });
-            line.IsChecked = true;
+            foreach (var pid in touchedProducts)
+                await PosVariantStockHelper.SyncParentStockFromVariantsAsync(dbContext, products[pid]);
+
+            await dbContext.SaveChangesAsync();
+            await tx.CommitAsync();
         }
-
-        foreach (var pid in touchedProducts)
-            await PosVariantStockHelper.SyncParentStockFromVariantsAsync(dbContext, products[pid]);
-
-        await dbContext.SaveChangesAsync();
-
-        var completedAt = DateTime.UtcNow;
-        var (statusOk, statusErr) = await PosDocStatusPersistHelper.SetStockCountStatusAsync(
-            dbContext, id, storeId,
-            PosStockCountStatus.InProgress, PosStockCountStatus.Completed,
-            CurrentUserEmail, completedAt, CurrentUserEmail);
-        if (!statusOk)
-            return BadRequest(AppResponse<StockCountDto>.Fail(statusErr!));
+        catch (InvalidOperationException ex)
+        {
+            await tx.RollbackAsync();
+            return BadRequest(AppResponse<StockCountDto>.Fail(ex.Message));
+        }
+        catch
+        {
+            await tx.RollbackAsync();
+            throw;
+        }
 
         dbContext.ChangeTracker.Clear();
         var fresh = await dbContext.PosStockCounts.AsNoTracking()
@@ -546,7 +625,10 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
     private PosStockCountLine BuildLineEntity(
         Guid storeId, Guid countId, PosProduct p, PosProductVariant? variant)
     {
-        var systemQty = variant?.OnHandQty ?? p.OnHandQty;
+        var systemQty = variant != null
+            ? PosVariantStockHelper.ResolveVariantDisplayQty(
+                p.OnHandQty, variant.AttributeJson, variant.OnHandQty)
+            : p.OnHandQty;
         var cost = variant?.CostPrice ?? p.CostPrice;
         var unitName = PosPurchaseStockHelper.ParseUnitName(variant?.AttributeJson) ?? p.BaseUnitName;
         return new PosStockCountLine

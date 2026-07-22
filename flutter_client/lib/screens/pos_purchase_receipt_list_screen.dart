@@ -22,6 +22,7 @@ import '../widgets/pos/pos_mobile_widgets.dart';
 import '../widgets/pos/pos_module_toolbar.dart';
 import '../widgets/pos/pos_purchase_toolbar.dart';
 import '../widgets/pos/pos_theme.dart';
+import '../widgets/pos/pos_supplier_debt_pay_dialog.dart';
 import 'pos_purchase_receipt_editor_screen.dart';
 
 const _blue = Color(0xFF2563EB);
@@ -875,6 +876,21 @@ class _PosPurchaseReceiptListScreenState
                   icon: const Icon(Icons.delete_outline, size: 16),
                   label: const Text('Xóa'),
                 ),
+              if (canEdit && r.status == 'Completed' && _balanceDue(r) > 0)
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    final ok = await showPosSupplierDebtPayDialog(
+                      context,
+                      receipt: r,
+                    );
+                    if (ok == true && mounted) {
+                      await _load(page: _page);
+                      await _refreshExpandedDetail(r.id);
+                    }
+                  },
+                  icon: const Icon(Icons.payments_outlined, size: 16),
+                  label: const Text('Thanh toán NCC'),
+                ),
               if (canEdit && r.status == 'Completed')
                 OutlinedButton.icon(
                   onPressed: () => _voidCompletedReceipt(r),
@@ -1006,32 +1022,55 @@ class _PosPurchaseReceiptListScreenState
       );
 
   Widget _buildPaymentsTab(PosPurchaseReceipt r) {
-    if (_payments.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 12),
-        child: Text('Chưa có thanh toán',
-            style: TextStyle(fontSize: 12, color: PosTheme.textSecondary)),
-      );
-    }
+    final due = _balanceDue(r);
     return Column(
-      children: _payments.map((p) {
-        final paidAt = p['paidAt'] ?? p['PaidAt'];
-        final dt = paidAt != null ? DateTime.tryParse(paidAt.toString()) : null;
-        return ListTile(
-          dense: true,
-          contentPadding: EdgeInsets.zero,
-          title: Text(
-              '${p['paymentNo'] ?? p['PaymentNo']} — ${_moneyFmt.format((p['amount'] ?? p['Amount'] as num?)?.toDouble() ?? 0)} đ',
-              style: const TextStyle(fontSize: 12)),
-          subtitle: Text(
-            [
-              if (dt != null) _dateFmt.format(dt.toLocal()),
-              p['paymentMethod'] ?? p['PaymentMethod'],
-            ].whereType<String>().join(' · '),
-            style: const TextStyle(fontSize: 11),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (r.status == 'Completed' && due > 0)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () async {
+                final ok = await showPosSupplierDebtPayDialog(
+                  context,
+                  receipt: r,
+                );
+                if (ok == true && mounted) {
+                  await _load(page: _page);
+                  await _refreshExpandedDetail(r.id);
+                }
+              },
+              icon: const Icon(Icons.payments_outlined, size: 18),
+              label: Text('Thanh toán còn lại (${_moneyFmt.format(due)} đ)'),
+            ),
           ),
-        );
-      }).toList(),
+        if (_payments.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Text('Chưa có thanh toán',
+                style: TextStyle(fontSize: 12, color: PosTheme.textSecondary)),
+          )
+        else
+          ..._payments.map((p) {
+            final paidAt = p['paidAt'] ?? p['PaidAt'];
+            final dt =
+                paidAt != null ? DateTime.tryParse(paidAt.toString()) : null;
+            return ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                  '${p['paymentNo'] ?? p['PaymentNo']} — ${_moneyFmt.format((p['amount'] ?? p['Amount'] as num?)?.toDouble() ?? 0)} đ',
+                  style: const TextStyle(fontSize: 12)),
+              subtitle: Text(
+                [
+                  if (dt != null) _dateFmt.format(dt.toLocal()),
+                  p['paymentMethod'] ?? p['PaymentMethod'],
+                ].whereType<String>().join(' · '),
+                style: const TextStyle(fontSize: 11),
+              ),
+            );
+          }),
+      ],
     );
   }
 }

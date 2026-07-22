@@ -80,6 +80,20 @@ public class ClockController(
     }
 
     /// <summary>
+    /// SenseFace / ZAM SupportPing=1 heartbeat. Return OK only —
+    /// door commands must go through getrequest (agap dialect); ping payloads are ignored.
+    /// </summary>
+    [HttpGet("ping")]
+    public async Task<IActionResult> Ping([FromQuery] string SN)
+    {
+        var clientIp = HttpContext.Connection.RemoteIpAddress?.ToString();
+        logger.LogInformation("[ICLOCK IN] GET /iclock/ping SN={SN} IP={IP}", SN, clientIp);
+        // Touch presence via getrequest handler only when no Created cmds — always OK for ping.
+        _ = SN;
+        return Content("OK", "text/plain");
+    }
+
+    /// <summary>
     /// Device reports command execution result
     /// POST /iclock/devicecmd?SN=XXX&ID=123
     /// </summary>

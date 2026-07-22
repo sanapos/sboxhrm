@@ -1,0 +1,8 @@
+missing:
+'Phép nam còn:
+'Ca ngh?: theo Thi?t l?p luong. Ngu?i thay ca: cùng pḥng ban.'
+'Sẽ trừ $daysNeeded ngày phép năm. Còn l?i: $balanceRemaining ngày.'
+// LEAVE CARD — 3 ḍng (tên · lo?i · ngày ngh?)
+// Ḍng 2 — lo?i ngh?
+// Ḍng 3 — ngày xin ngh? (d? dd/MM/yyyy)
+// Delete: có quy?n xóa module — NV xóa đơn pending c?a ḿnh; QL xóa tr

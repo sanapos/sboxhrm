@@ -16,8 +16,12 @@ namespace ZKTecoADMS.Api.Controllers;
 [Authorize]
 public class PosPriceListsController(ZKTecoDbContext dbContext) : AuthenticatedControllerBase
 {
-    public record PriceListDto(Guid Id, string Name, bool IsDefault, bool IsActive, int SortOrder, int ItemCount);
-    public record PriceListUpsertDto(string Name, bool IsDefault, bool IsActive, int SortOrder);
+    public record PriceListDto(
+        Guid Id, string Name, bool IsDefault, bool IsActive, int SortOrder, int ItemCount,
+        DateTime? ValidFrom, DateTime? ValidTo);
+    public record PriceListUpsertDto(
+        string Name, bool IsDefault, bool IsActive, int SortOrder,
+        DateTime? ValidFrom, DateTime? ValidTo);
     public record PriceListItemDto(
         Guid Id, Guid ProductId, Guid? VariantId, Guid? UnitId, decimal Price,
         string? ProductName, string? VariantName, string? UnitName);
@@ -45,7 +49,8 @@ public class PosPriceListsController(ZKTecoDbContext dbContext) : AuthenticatedC
             .OrderByDescending(x => x.IsDefault).ThenBy(x => x.SortOrder).ThenBy(x => x.Name)
             .Select(x => new PriceListDto(
                 x.Id, x.Name, x.IsDefault, x.IsActive, x.SortOrder,
-                x.Items.Count(i => i.Deleted == null && i.IsActive)))
+                x.Items.Count(i => i.Deleted == null && i.IsActive),
+                x.ValidFrom, x.ValidTo))
             .ToListAsync();
         return Ok(AppResponse<List<PriceListDto>>.Success(lists));
     }
@@ -59,7 +64,8 @@ public class PosPriceListsController(ZKTecoDbContext dbContext) : AuthenticatedC
             .Where(pl => pl.Id == id && pl.StoreId == storeId && pl.Deleted == null)
             .Select(pl => new PriceListDto(
                 pl.Id, pl.Name, pl.IsDefault, pl.IsActive, pl.SortOrder,
-                pl.Items.Count(i => i.Deleted == null && i.IsActive)))
+                pl.Items.Count(i => i.Deleted == null && i.IsActive),
+                pl.ValidFrom, pl.ValidTo))
             .FirstOrDefaultAsync();
         if (x == null)
             return NotFound(AppResponse<PriceListDto>.Fail("Không tìm thấy bảng giá"));
@@ -86,12 +92,15 @@ public class PosPriceListsController(ZKTecoDbContext dbContext) : AuthenticatedC
             IsDefault = dto.IsDefault,
             IsActive = dto.IsActive,
             SortOrder = dto.SortOrder,
+            ValidFrom = NormalizeDate(dto.ValidFrom),
+            ValidTo = NormalizeDate(dto.ValidTo),
             CreatedBy = CurrentUserEmail,
         };
         dbContext.PosPriceLists.Add(entity);
         await dbContext.SaveChangesAsync();
         return Ok(AppResponse<PriceListDto>.Success(
-            new PriceListDto(entity.Id, entity.Name, entity.IsDefault, entity.IsActive, entity.SortOrder, 0)));
+            new PriceListDto(entity.Id, entity.Name, entity.IsDefault, entity.IsActive, entity.SortOrder, 0,
+                entity.ValidFrom, entity.ValidTo)));
     }
 
     [HttpPut("{id:guid}")]
@@ -115,6 +124,8 @@ public class PosPriceListsController(ZKTecoDbContext dbContext) : AuthenticatedC
         entity.IsDefault = dto.IsDefault;
         entity.IsActive = dto.IsActive;
         entity.SortOrder = dto.SortOrder;
+        entity.ValidFrom = NormalizeDate(dto.ValidFrom);
+        entity.ValidTo = NormalizeDate(dto.ValidTo);
         entity.UpdatedAt = DateTime.UtcNow;
         entity.UpdatedBy = CurrentUserEmail;
         await dbContext.SaveChangesAsync();
@@ -122,7 +133,8 @@ public class PosPriceListsController(ZKTecoDbContext dbContext) : AuthenticatedC
         var count = await dbContext.PosPriceListItems.CountAsync(
             i => i.PriceListId == id && i.Deleted == null && i.IsActive);
         return Ok(AppResponse<PriceListDto>.Success(
-            new PriceListDto(entity.Id, entity.Name, entity.IsDefault, entity.IsActive, entity.SortOrder, count)));
+            new PriceListDto(entity.Id, entity.Name, entity.IsDefault, entity.IsActive, entity.SortOrder, count,
+                entity.ValidFrom, entity.ValidTo)));
     }
 
     [HttpDelete("{id:guid}")]
@@ -167,7 +179,7 @@ public class PosPriceListsController(ZKTecoDbContext dbContext) : AuthenticatedC
         }
 
         var items = await q
-            .OrderBy(x => x.Product!.Name)
+            .OrderBy(x => x.Product != null ? x.Product.Name : "")
             .Select(x => new PriceListItemDto(
                 x.Id, x.ProductId, x.VariantId, x.UnitId, x.Price,
                 x.Product != null ? x.Product.Name : null,
@@ -185,29 +197,45 @@ public class PosPriceListsController(ZKTecoDbContext dbContext) : AuthenticatedC
         if (!await dbContext.PosPriceLists.AnyAsync(x => x.Id == id && x.StoreId == storeId && x.Deleted == null))
             return NotFound(AppResponse<object>.Fail("Không tìm thấy bảng giá"));
 
-        if (dto.Items == null || dto.Items.Count == 0)
-            return BadRequest(AppResponse<object>.Fail("Danh sách giá trống"));
+        if (dto.Items == null)
+            return BadRequest(AppResponse<object>.Fail("Danh sách giá không hợp lệ"));
 
-        var productIds = dto.Items.Select(i => i.ProductId).Distinct().ToList();
-        var validProducts = await dbContext.PosProducts.AsNoTracking()
-            .Where(p => p.StoreId == storeId && productIds.Contains(p.Id) && p.Deleted == null)
-            .Select(p => p.Id)
-            .ToListAsync();
+        var productIds = dto.Items
+            .Where(i => i.ProductId != Guid.Empty)
+            .Select(i => i.ProductId)
+            .Distinct()
+            .ToList();
+        var validProducts = productIds.Count == 0
+            ? new List<Guid>()
+            : await dbContext.PosProducts.AsNoTracking()
+                .Where(p => p.StoreId == storeId && productIds.Contains(p.Id) && p.Deleted == null)
+                .Select(p => p.Id)
+                .ToListAsync();
         var validSet = validProducts.ToHashSet();
 
         var existing = await dbContext.PosPriceListItems.AsTracking()
             .Where(x => x.PriceListId == id && x.StoreId == storeId && x.Deleted == null)
             .ToListAsync();
 
+        var touched = new HashSet<Guid>();
+        var saved = 0;
+        var skipped = 0;
+
         foreach (var input in dto.Items)
         {
-            if (!validSet.Contains(input.ProductId)) continue;
-            if (input.Price < 0) continue;
+            if (input.ProductId == Guid.Empty || !validSet.Contains(input.ProductId) || input.Price < 0)
+            {
+                skipped++;
+                continue;
+            }
+
+            var variantId = input.VariantId is { } v && v != Guid.Empty ? v : (Guid?)null;
+            var unitId = input.UnitId is { } u && u != Guid.Empty ? u : (Guid?)null;
 
             var match = existing.FirstOrDefault(x =>
                 x.ProductId == input.ProductId &&
-                x.VariantId == input.VariantId &&
-                x.UnitId == input.UnitId);
+                NullableGuidEquals(x.VariantId, variantId) &&
+                NullableGuidEquals(x.UnitId, unitId));
 
             if (match != null)
             {
@@ -215,25 +243,40 @@ public class PosPriceListsController(ZKTecoDbContext dbContext) : AuthenticatedC
                 match.IsActive = true;
                 match.UpdatedAt = DateTime.UtcNow;
                 match.UpdatedBy = CurrentUserEmail;
+                touched.Add(match.Id);
             }
             else
             {
-                dbContext.PosPriceListItems.Add(new PosPriceListItem
+                var row = new PosPriceListItem
                 {
                     Id = Guid.NewGuid(),
                     StoreId = storeId,
                     PriceListId = id,
                     ProductId = input.ProductId,
-                    VariantId = input.VariantId,
-                    UnitId = input.UnitId,
+                    VariantId = variantId,
+                    UnitId = unitId,
                     Price = input.Price,
+                    IsActive = true,
                     CreatedBy = CurrentUserEmail,
-                });
+                };
+                dbContext.PosPriceListItems.Add(row);
+                existing.Add(row);
+                touched.Add(row.Id);
             }
+            saved++;
+        }
+
+        // Soft-delete dòng không còn trong payload (đồng bộ danh sách UI).
+        foreach (var ex in existing)
+        {
+            if (touched.Contains(ex.Id)) continue;
+            ex.Deleted = DateTime.UtcNow;
+            ex.DeletedBy = CurrentUserEmail;
+            ex.IsActive = false;
         }
 
         await dbContext.SaveChangesAsync();
-        return Ok(AppResponse<object>.Success(new { saved = dto.Items.Count }));
+        return Ok(AppResponse<object>.Success(new { saved, skipped }));
     }
 
     [HttpGet("{id:guid}/resolved-prices")]
@@ -258,5 +301,15 @@ public class PosPriceListsController(ZKTecoDbContext dbContext) : AuthenticatedC
             .ToListAsync();
         foreach (var d in defaults)
             d.IsDefault = false;
+    }
+
+    static bool NullableGuidEquals(Guid? a, Guid? b) =>
+        (!a.HasValue && !b.HasValue) || (a.HasValue && b.HasValue && a.Value == b.Value);
+
+    static DateTime? NormalizeDate(DateTime? value)
+    {
+        if (!value.HasValue) return null;
+        var v = value.Value;
+        return new DateTime(v.Year, v.Month, v.Day, 0, 0, 0, DateTimeKind.Unspecified);
     }
 }

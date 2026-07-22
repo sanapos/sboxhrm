@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import '../../models/pos_price_list.dart';
@@ -19,7 +18,7 @@ class PosPriceListsScreen extends StatefulWidget {
 
 class _PosPriceListsScreenState extends State<PosPriceListsScreen> {
   final _api = ApiService();
-  final _moneyFmt = NumberFormat('#,##0', 'vi_VN');
+  final _dateFmt = DateFormat('dd/MM/yyyy');
   List<PosPriceList> _lists = [];
   bool _loading = true;
 
@@ -36,7 +35,7 @@ class _PosPriceListsScreenState extends State<PosPriceListsScreen> {
     if (res['isSuccess'] == true && res['data'] is List) {
       setState(() {
         _lists = (res['data'] as List)
-            .map((e) => PosPriceList.fromJson(e as Map<String, dynamic>))
+            .map((e) => PosPriceList.fromJson(Map<String, dynamic>.from(e as Map)))
             .toList();
         _loading = false;
       });
@@ -49,44 +48,185 @@ class _PosPriceListsScreenState extends State<PosPriceListsScreen> {
     }
   }
 
-  Future<void> _createList() async {
-    final nameCtrl = TextEditingController();
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Thêm bảng giá'),
-        content: TextField(
-          controller: nameCtrl,
-          decoration: const InputDecoration(labelText: 'Tên bảng giá'),
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Huỷ')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Tạo')),
-        ],
-      ),
-    );
-    if (ok != true || nameCtrl.text.trim().isEmpty) {
-      nameCtrl.dispose();
-      return;
+  String _rangeLabel(PosPriceList pl) {
+    if (pl.validFrom == null && pl.validTo == null) {
+      return pl.isDefault ? 'Mặc định · mọi ngày' : '';
     }
-    final res = await _api.createPosPriceList({
-      'name': nameCtrl.text.trim(),
-      'isDefault': false,
-      'isActive': true,
-      'sortOrder': _lists.length,
-    });
-    nameCtrl.dispose();
+    final from = pl.validFrom != null ? _dateFmt.format(pl.validFrom!) : '…';
+    final to = pl.validTo != null ? _dateFmt.format(pl.validTo!) : '…';
+    final def = pl.isDefault ? 'Mặc định · ' : '';
+    return '$def$from → $to';
+  }
+
+  Future<void> _createList() async {
+    final result = await _showPriceListEditor();
+    if (result == null) return;
+    final res = await _api.createPosPriceList(result);
     if (!mounted) return;
     if (res['isSuccess'] == true) {
       await _load();
-      NotificationOverlayManager().showSuccess(title: 'Đã tạo', message: 'Bảng giá mới');
+      NotificationOverlayManager().showSuccess(
+        title: 'Đã tạo',
+        message: 'Bảng giá mới',
+      );
     } else {
       NotificationOverlayManager().showError(
         title: 'Lỗi',
         message: res['message']?.toString() ?? 'Không tạo được',
       );
     }
+  }
+
+  Future<void> _editList(PosPriceList pl) async {
+    final result = await _showPriceListEditor(existing: pl);
+    if (result == null) return;
+    final res = await _api.updatePosPriceList(pl.id, result);
+    if (!mounted) return;
+    if (res['isSuccess'] == true) {
+      await _load();
+      NotificationOverlayManager().showSuccess(
+        title: 'Đã cập nhật',
+        message: pl.name,
+      );
+    } else {
+      NotificationOverlayManager().showError(
+        title: 'Lỗi',
+        message: res['message']?.toString() ?? 'Không cập nhật được',
+      );
+    }
+  }
+
+  Future<Map<String, dynamic>?> _showPriceListEditor({PosPriceList? existing}) async {
+    final nameCtrl = TextEditingController(text: existing?.name ?? '');
+    var isDefault = existing?.isDefault ?? false;
+    DateTime? validFrom = existing?.validFrom;
+    DateTime? validTo = existing?.validTo;
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: Text(existing == null ? 'Thêm bảng giá' : 'Cài bảng giá'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextField(
+                  controller: nameCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Tên bảng giá',
+                    border: OutlineInputBorder(),
+                  ),
+                  autofocus: existing == null,
+                ),
+                const SizedBox(height: 12),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Mặc định khi bán'),
+                  subtitle: const Text(
+                    'Hóa đơn trong khoảng ngày dưới sẽ dùng bảng này',
+                  ),
+                  value: isDefault,
+                  onChanged: (v) => setLocal(() => isDefault = v),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Áp dụng từ ngày → đến ngày (để trống = mọi ngày)',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () async {
+                          final picked = await showDatePicker(
+                            context: ctx,
+                            initialDate: validFrom ?? DateTime.now(),
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime(2100),
+                          );
+                          if (picked != null) {
+                            setLocal(() => validFrom = picked);
+                          }
+                        },
+                        child: Text(
+                          validFrom == null
+                              ? 'Từ ngày'
+                              : _dateFmt.format(validFrom!),
+                        ),
+                      ),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 6),
+                      child: Text('→'),
+                    ),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () async {
+                          final picked = await showDatePicker(
+                            context: ctx,
+                            initialDate: validTo ?? validFrom ?? DateTime.now(),
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime(2100),
+                          );
+                          if (picked != null) {
+                            setLocal(() => validTo = picked);
+                          }
+                        },
+                        child: Text(
+                          validTo == null
+                              ? 'Đến ngày'
+                              : _dateFmt.format(validTo!),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (validFrom != null || validTo != null)
+                  TextButton(
+                    onPressed: () => setLocal(() {
+                      validFrom = null;
+                      validTo = null;
+                    }),
+                    child: const Text('Xóa khoảng ngày'),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Huỷ'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(existing == null ? 'Tạo' : 'Lưu'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final name = nameCtrl.text.trim();
+    nameCtrl.dispose();
+    if (ok != true || name.isEmpty) return null;
+
+    String? isoDate(DateTime? d) {
+      if (d == null) return null;
+      final local = DateTime(d.year, d.month, d.day);
+      return local.toIso8601String();
+    }
+
+    return {
+      'name': name,
+      'isDefault': isDefault,
+      'isActive': existing?.isActive ?? true,
+      'sortOrder': existing?.sortOrder ?? _lists.length,
+      'validFrom': isoDate(validFrom),
+      'validTo': isoDate(validTo),
+    };
   }
 
   @override
@@ -112,6 +252,7 @@ class _PosPriceListsScreenState extends State<PosPriceListsScreen> {
                       separatorBuilder: (_, __) => const SizedBox(height: 8),
                       itemBuilder: (ctx, i) {
                         final pl = _lists[i];
+                        final range = _rangeLabel(pl);
                         return Material(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(10),
@@ -121,11 +262,13 @@ class _PosPriceListsScreenState extends State<PosPriceListsScreen> {
                               await Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => PosPriceListDetailScreen(priceList: pl),
+                                  builder: (_) =>
+                                      PosPriceListDetailScreen(priceList: pl),
                                 ),
                               );
                               _load();
                             },
+                            onLongPress: () => _editList(pl),
                             child: Padding(
                               padding: const EdgeInsets.all(14),
                               child: Row(
@@ -133,14 +276,17 @@ class _PosPriceListsScreenState extends State<PosPriceListsScreen> {
                                   CircleAvatar(
                                     backgroundColor: PosTheme.kiotBlueLight,
                                     child: Icon(
-                                      pl.isDefault ? Icons.star : Icons.sell_outlined,
+                                      pl.isDefault
+                                          ? Icons.star
+                                          : Icons.sell_outlined,
                                       color: PosTheme.kiotBlue,
                                     ),
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           pl.name,
@@ -150,7 +296,8 @@ class _PosPriceListsScreenState extends State<PosPriceListsScreen> {
                                           ),
                                         ),
                                         Text(
-                                          '${pl.itemCount} mức giá${pl.isDefault ? ' · Mặc định' : ''}',
+                                          '${pl.itemCount} mức giá'
+                                          '${range.isNotEmpty ? ' · $range' : ''}',
                                           style: const TextStyle(
                                             color: PosTheme.textSecondary,
                                             fontSize: 13,
@@ -159,7 +306,19 @@ class _PosPriceListsScreenState extends State<PosPriceListsScreen> {
                                       ],
                                     ),
                                   ),
-                                  const Icon(Icons.chevron_right, color: PosTheme.textSecondary),
+                                  IconButton(
+                                    tooltip: 'Cài mặc định / ngày',
+                                    onPressed: () => _editList(pl),
+                                    icon: const Icon(
+                                      Icons.settings_outlined,
+                                      size: 20,
+                                      color: PosTheme.textSecondary,
+                                    ),
+                                  ),
+                                  const Icon(
+                                    Icons.chevron_right,
+                                    color: PosTheme.textSecondary,
+                                  ),
                                 ],
                               ),
                             ),

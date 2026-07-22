@@ -8,6 +8,7 @@ import '../../utils/navigation_notifier.dart';
 import '../../widgets/hrm_pushed_screen_shell.dart';
 import '../pos/pos_mobile_widgets.dart';
 import '../hrm_page_chrome.dart';
+import '../safe_layout_widgets.dart';
 
 class EmployeeModuleGrid extends StatelessWidget {
   const EmployeeModuleGrid({super.key});
@@ -288,52 +289,34 @@ class EmployeeModuleGrid extends StatelessWidget {
     const spacing = 10.0;
     const childAspectRatio = 1.05;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final maxW = constraints.maxWidth;
-        final cellWidth =
-            (maxW - spacing * (crossAxisCount - 1)) / crossAxisCount;
-        final cellHeight = cellWidth / childAspectRatio;
-        final rows =
-            (tiles.length + crossAxisCount - 1) ~/ crossAxisCount;
-        final gridHeight = rows * cellHeight + (rows - 1) * spacing;
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Chức năng',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF18181B),
-                letterSpacing: -0.2,
-              ),
-            ),
-            const SizedBox(height: 10),
-            SizedBox(
-              height: gridHeight,
-              child: GridView.builder(
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: tiles.length,
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: crossAxisCount,
-                  mainAxisSpacing: spacing,
-                  crossAxisSpacing: spacing,
-                  childAspectRatio: childAspectRatio,
-                ),
-                itemBuilder: (context, i) {
-                  final tile = tiles[i];
-                  return _ModuleTile(
-                    tile: tile,
-                    onTap: () => _openModule(context, tile),
-                  );
-                },
-              ),
-            ),
-          ],
-        );
-      },
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Chức năng',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF18181B),
+            letterSpacing: -0.2,
+          ),
+        ),
+        const SizedBox(height: 10),
+        SafeFixedGrid(
+          crossAxisCount: crossAxisCount,
+          spacing: spacing,
+          runSpacing: spacing,
+          childAspectRatio: childAspectRatio,
+          itemCount: tiles.length,
+          itemBuilder: (context, i) {
+            final tile = tiles[i];
+            return _ModuleTile(
+              tile: tile,
+              onTap: () => _openModule(context, tile),
+            );
+          },
+        ),
+      ],
     );
   }
 }

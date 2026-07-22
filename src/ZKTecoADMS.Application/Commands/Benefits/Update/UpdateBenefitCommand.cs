@@ -60,5 +60,9 @@ public class UpdateBenefitCommand : ICommand<AppResponse<BenefitDto>>
     public string? PaidLeaveType { get; set; }
     public string? TravelSalaryMode { get; set; }
     public decimal? TravelFixedHourlyRate { get; set; }
+    public string? StandardWorkMode { get; set; }
+    public int? FixedStandardWorkDays { get; set; }
+    public bool? DeductIfBelowFixedStandard { get; set; }
+    public bool? AddIfAboveFixedStandard { get; set; }
     public bool IsActive { get; set; }
 }

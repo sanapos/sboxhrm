@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
+import '../widgets/hrm/hrm_settings_mobile_kit.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/notification_overlay.dart';
@@ -355,63 +356,75 @@ class _StaffingQuotaSettingsScreenState
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(
-        backgroundColor: HrmPageChrome.background,
-        body: LoadingWidget(message: 'Đang tải định mức...'),
+      return Scaffold(
+        backgroundColor: HrmPageChrome.scaffoldBackground(context),
+        body: const LoadingWidget(message: 'Đang tải định mức...'),
       );
     }
 
+    final embeddedMobile = HrmSettingsMobileKit.active(context);
+    final pagePad = embeddedMobile
+        ? HrmSettingsMobileKit.pagePadding(context)
+        : const EdgeInsets.all(16);
+
     return Scaffold(
-      backgroundColor: HrmPageChrome.background,
+      backgroundColor: HrmPageChrome.scaffoldBackground(context),
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: pagePad,
           children: [
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF7C3AED), Color(0xFF5B21B6)],
-                ),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Row(
-                children: [
-                  Icon(Icons.groups, color: Colors.white, size: 28),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Định mức nhân sự theo ca',
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16)),
-                        SizedBox(height: 4),
-                        Text(
-                          'Min/Max từng thứ T2–CN · theo ca & phòng ban · cảnh báo trên Lịch làm việc',
-                          style: TextStyle(color: Colors.white70, fontSize: 12),
-                        ),
-                      ],
-                    ),
+            if (!embeddedMobile)
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF7C3AED), Color(0xFF5B21B6)],
                   ),
-                ],
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.groups, color: Colors.white, size: 28),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Định mức nhân sự theo ca',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16)),
+                          SizedBox(height: 4),
+                          Text(
+                            'Min/Max từng thứ T2–CN · theo ca & phòng ban · cảnh báo trên Lịch làm việc',
+                            style: TextStyle(color: Colors.white70, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
+            if (!embeddedMobile) const SizedBox(height: 12),
             if (_canEdit)
               Align(
                 alignment: Alignment.centerRight,
-                child: FilledButton.icon(
-                  onPressed: () => _openEditor(),
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text('Thêm định mức'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF7C3AED),
-                  ),
-                ),
+                child: embeddedMobile
+                    ? HrmSettingsAddButton(
+                        label: 'Thêm định mức',
+                        compact: true,
+                        onPressed: () => _openEditor(),
+                      )
+                    : FilledButton.icon(
+                        onPressed: () => _openEditor(),
+                        icon: const Icon(Icons.add, size: 18),
+                        label: const Text('Thêm định mức'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF7C3AED),
+                        ),
+                      ),
               ),
             const SizedBox(height: 12),
             if (_quotas.isEmpty)
@@ -427,49 +440,81 @@ class _StaffingQuotaSettingsScreenState
                   ),
                 ),
               )
+            else if (embeddedMobile)
+              HrmSettingsEntityGrid(
+                itemCount: _quotas.length,
+                columns: 2,
+                childAspectRatio: 0.95,
+                itemBuilder: (context, index) => _buildQuotaTile(_quotas[index]),
+              )
             else
-              ..._quotas.map((q) {
-                final dept = q['department']?.toString();
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 10),
-                  child: ListTile(
-                    title: Text(
-                      '${q['shiftName'] ?? 'Ca'}${dept != null && dept.isNotEmpty ? ' · $dept' : ' · Tất cả PB'}',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Cảnh báo sắp đủ: ≤ ${q['warningThreshold'] ?? 2} chỗ',
-                          style: const TextStyle(fontSize: 11),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          _weekdaySummary(q),
-                          style: const TextStyle(
-                              fontSize: 10, color: Color(0xFF71717A)),
-                        ),
-                      ],
-                    ),
-                    isThreeLine: true,
-                    trailing: _canEdit
-                        ? PopupMenuButton<String>(
-                            onSelected: (v) {
-                              if (v == 'edit') _openEditor(existing: q);
-                              if (v == 'delete') _deleteQuota(q['id'].toString());
-                            },
-                            itemBuilder: (_) => const [
-                              PopupMenuItem(value: 'edit', child: Text('Sửa')),
-                              PopupMenuItem(value: 'delete', child: Text('Xóa')),
-                            ],
-                          )
-                        : null,
-                  ),
-                );
-              }),
+              ..._quotas.map((q) => _buildQuotaCard(q)),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildQuotaTile(Map<String, dynamic> q) {
+    final dept = q['department']?.toString();
+    return HrmSettingsEntityTile(
+      title: q['shiftName']?.toString() ?? 'Ca',
+      subtitle: dept != null && dept.isNotEmpty ? dept : 'Tất cả PB',
+      meta: _weekdaySummary(q),
+      icon: Icons.groups,
+      iconColor: const Color(0xFF7C3AED),
+      menuItems: _canEdit
+          ? const [
+              PopupMenuItem(value: 'edit', child: Text('Sửa')),
+              PopupMenuItem(value: 'delete', child: Text('Xóa')),
+            ]
+          : null,
+      onMenuSelected: _canEdit
+          ? (v) {
+              if (v == 'edit') _openEditor(existing: q);
+              if (v == 'delete') _deleteQuota(q['id'].toString());
+            }
+          : null,
+      onTap: _canEdit ? () => _openEditor(existing: q) : null,
+    );
+  }
+
+  Widget _buildQuotaCard(Map<String, dynamic> q) {
+    final dept = q['department']?.toString();
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: ListTile(
+        title: Text(
+          '${q['shiftName'] ?? 'Ca'}${dept != null && dept.isNotEmpty ? ' · $dept' : ' · Tất cả PB'}',
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Cảnh báo sắp đủ: ≤ ${q['warningThreshold'] ?? 2} chỗ',
+              style: const TextStyle(fontSize: 11),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              _weekdaySummary(q),
+              style: const TextStyle(fontSize: 10, color: Color(0xFF71717A)),
+            ),
+          ],
+        ),
+        isThreeLine: true,
+        trailing: _canEdit
+            ? PopupMenuButton<String>(
+                onSelected: (v) {
+                  if (v == 'edit') _openEditor(existing: q);
+                  if (v == 'delete') _deleteQuota(q['id'].toString());
+                },
+                itemBuilder: (_) => const [
+                  PopupMenuItem(value: 'edit', child: Text('Sửa')),
+                  PopupMenuItem(value: 'delete', child: Text('Xóa')),
+                ],
+              )
+            : null,
       ),
     );
   }

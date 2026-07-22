@@ -59,5 +59,11 @@ public class UpdateSalaryProfileRequest
     public string? TravelSalaryMode { get; set; }
     public decimal? TravelFixedHourlyRate { get; set; }
 
+    /// <summary>Auto | FixedCustom | Fixed25…Fixed28</summary>
+    public string? StandardWorkMode { get; set; }
+    public int? FixedStandardWorkDays { get; set; }
+    public bool? DeductIfBelowFixedStandard { get; set; }
+    public bool? AddIfAboveFixedStandard { get; set; }
+
     public bool IsActive { get; set; }
 }

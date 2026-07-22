@@ -1,14 +1,22 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../models/pos_print_template.dart';
+import '../models/pos_print_template_v2.dart';
 import '../models/pos_sale_order.dart';
 import '../models/pos_store_printer.dart';
+import '../services/api_service.dart';
 import '../services/pos_product_printer_service.dart';
 import 'pos_html_print.dart';
+import 'pos_print_template_runtime.dart';
 import 'pos_print_config_session.dart';
 import 'pos_print_orchestrator.dart';
 import 'pos_print_template_renderer.dart';
+import 'pos_printer_transport.dart';
+import 'pos_receipt_layout.dart';
 import 'pos_store_printer_mapper.dart';
+import 'pos_sunmi_native_print.dart';
 import 'pos_thermal_printer_service.dart';
 import 'pos_thermal_printer_settings.dart';
 
@@ -263,7 +271,8 @@ PosThermalPrinterSettings _thermalSettingsForTemplate(
   return settings;
 }
 
-String slipTitleFromTemplate(PosPrintTemplate? template) {
+String slipTitleFromTemplate(PosPrintTemplate? template, {String? override}) {
+  if (override != null && override.trim().isNotEmpty) return override.trim();
   if (template == null) return warehouseSlipDefaultTitle();
   final html = template.htmlContent;
   final tokenMatch =
@@ -278,6 +287,12 @@ String slipTitleFromTemplate(PosPrintTemplate? template) {
   return warehouseSlipDefaultTitle();
 }
 
+/// Tiêu đề phiếu báo chế biến (F&B).
+String kitchenSendSlipTitle() => 'PHIẾU BÁO CHẾ BIẾN';
+
+/// Tiêu đề phiếu hủy món đã báo bếp.
+String kitchenCancelSlipTitle() => 'PHIẾU HỦY BẾP';
+
 Future<List<int>> _buildWarehouseEscPosBytes({
   required PosSaleOrder order,
   required PosStorePrinter printer,
@@ -286,6 +301,7 @@ Future<List<int>> _buildWarehouseEscPosBytes({
   String? branchName,
   String? storeAddress,
   String? storePhone,
+  String? slipTitleOverride,
 }) async {
   var settings = toThermalSettings(printer);
   settings = _thermalSettingsForTemplate(settings, template);
@@ -298,7 +314,7 @@ Future<List<int>> _buildWarehouseEscPosBytes({
     mergeSameItems: false,
     linesOverride: lines,
     warehouseSlip: true,
-    slipTitle: slipTitleFromTemplate(template),
+    slipTitle: slipTitleFromTemplate(template, override: slipTitleOverride),
   );
 }
 
@@ -320,7 +336,33 @@ Future<bool> _dispatchWarehouseBytes({
       skipDedup: order.id.isEmpty,
     );
 
+/// Cloud → Agent Sunmi: JSON native (cùng mẫu in local), không gửi ESC/POS.
+Future<bool> _dispatchWarehouseNativeCloud({
+  required PosStorePrinter printer,
+  required PosSaleOrder order,
+  required List<PosSaleOrderLine> lines,
+  String? branchName,
+  String? storeAddress,
+  String? storePhone,
+  String? slipTitle,
+  bool waitForCompletion = true,
+}) {
+  return PosPrintOrchestrator.instance.enqueueWarehouseSlipJson(
+    printer: printer,
+    order: order,
+    lines: lines,
+    storeName: branchName,
+    storeAddress: storeAddress,
+    storePhone: storePhone,
+    slipTitle: slipTitle,
+    waitForCompletion: waitForCompletion,
+  );
+}
+
 /// In phiếu báo xuất kho theo máy in gán cho từng sản phẩm.
+///
+/// Khi đã bật máy in cục bộ (Sunmi/BT/LAN): in local trước.
+/// Nếu vẫn còn SP gán máy in cửa hàng (bếp/kho), tiếp tục gửi cloud.
 Future<WarehouseSlipPrintResult> printWarehouseSlipForOrder({
   required PosSaleOrder order,
   String? branchName,
@@ -329,6 +371,7 @@ Future<WarehouseSlipPrintResult> printWarehouseSlipForOrder({
   String? templateId,
   bool forceRefreshConfig = false,
   bool waitForCompletion = true,
+  String? slipTitleOverride,
 }) async {
   if (order.lines.isEmpty) {
     return const WarehouseSlipPrintResult();
@@ -361,11 +404,56 @@ Future<WarehouseSlipPrintResult> printWarehouseSlipForOrder({
     groups.putIfAbsent(pid, () => []).add(row.line);
   }
 
-  if (groups.isEmpty) {
+  final attempts = <WarehouseSlipPrinterAttempt>[];
+  var localPrintedAll = false;
+
+  // Ưu tiên máy in cục bộ khi đã bật (đặc biệt Sunmi handheld).
+  if (!kIsWeb) {
+    final thermal = await PosThermalPrinterSettings.load();
+    if (thermal.enabled) {
+      final localOk = await _tryLocalWarehousePrint(
+        order: order,
+        lines: order.lines,
+        template: template,
+        branchName: branchName,
+        storeAddress: storeAddress,
+        storePhone: storePhone,
+        thermal: thermal,
+        slipTitleOverride: slipTitleOverride,
+      );
+      if (localOk) {
+        localPrintedAll = true;
+        attempts.add(
+          WarehouseSlipPrinterAttempt(
+            printerName: 'Máy in cục bộ',
+            lines: order.lines,
+            success: true,
+          ),
+        );
+        if (groups.isEmpty) {
+          return WarehouseSlipPrintResult(attempts: attempts);
+        }
+        // Có gán máy bếp/kho: vẫn gửi cloud cho từng nhóm.
+      } else if (groups.isEmpty) {
+        return WarehouseSlipPrintResult(
+          attempts: [
+            WarehouseSlipPrinterAttempt(
+              printerName: 'Máy in cục bộ',
+              lines: order.lines,
+              errorMessage: 'Không in được trên máy in cục bộ',
+              reason: PendingWarehousePrintReason.dispatchFailed,
+            ),
+          ],
+          noPrinterLines: noPrinterLines,
+        );
+      }
+      // Local lỗi nhưng vẫn còn máy cloud → bỏ qua local, gửi cloud.
+    } else if (groups.isEmpty) {
+      return WarehouseSlipPrintResult(noPrinterLines: noPrinterLines);
+    }
+  } else if (groups.isEmpty) {
     return WarehouseSlipPrintResult(noPrinterLines: noPrinterLines);
   }
-
-  final attempts = <WarehouseSlipPrinterAttempt>[];
 
   for (final entry in groups.entries) {
     PosStorePrinter? printer;
@@ -395,14 +483,27 @@ Future<WarehouseSlipPrintResult> printWarehouseSlipForOrder({
       branchName: branchName,
       storeAddress: storeAddress,
       storePhone: storePhone,
+      slipTitleOverride: slipTitleOverride,
     );
 
-    final ok = await _dispatchWarehouseBytes(
-      printer: printer,
-      bytes: bytes,
-      order: order,
-      waitForCompletion: waitForCompletion,
-    );
+    final title = slipTitleFromTemplate(template, override: slipTitleOverride);
+    final ok = printer.isSunmi
+        ? await _dispatchWarehouseNativeCloud(
+            printer: printer,
+            order: order,
+            lines: entry.value,
+            branchName: branchName,
+            storeAddress: storeAddress,
+            storePhone: storePhone,
+            slipTitle: title,
+            waitForCompletion: waitForCompletion,
+          )
+        : await _dispatchWarehouseBytes(
+            printer: printer,
+            bytes: bytes,
+            order: order,
+            waitForCompletion: waitForCompletion,
+          );
 
     attempts.add(
       WarehouseSlipPrinterAttempt(
@@ -413,17 +514,81 @@ Future<WarehouseSlipPrintResult> printWarehouseSlipForOrder({
         errorMessage: ok
             ? null
             : 'Không in được trên ${printer.name}. Kiểm tra Print Agent hoặc kết nối máy in.',
-        reason: ok
-            ? PendingWarehousePrintReason.dispatchFailed
-            : PendingWarehousePrintReason.dispatchFailed,
+        reason: PendingWarehousePrintReason.dispatchFailed,
       ),
     );
   }
 
   return WarehouseSlipPrintResult(
     attempts: attempts,
-    noPrinterLines: noPrinterLines,
+    // Đã in đủ trên máy cục bộ → không treo SP chưa gán máy cloud.
+    noPrinterLines: localPrintedAll ? const [] : noPrinterLines,
   );
+}
+
+Future<bool> _tryLocalWarehousePrint({
+  required PosSaleOrder order,
+  required List<PosSaleOrderLine> lines,
+  required PosPrintTemplate? template,
+  String? branchName,
+  String? storeAddress,
+  String? storePhone,
+  required PosThermalPrinterSettings thermal,
+  String? slipTitleOverride,
+}) async {
+  var settings = _thermalSettingsForTemplate(thermal, template);
+  settings = await PosPrinterTransport.prepareLocalSettings(settings);
+  final title = slipTitleFromTemplate(template, override: slipTitleOverride);
+
+  if (settings.connectionType == PosThermalConnectionType.sunmi ||
+      await PosPrinterTransport.isSunmiDevice()) {
+    try {
+      final sunmiOk = await PosSunmiNativePrint.printSaleOrder(
+        order,
+        settings: settings.copyWith(
+          connectionType: PosThermalConnectionType.sunmi,
+          printerBrand: PosThermalPrinterBrand.sunmi,
+        ),
+        storeName: branchName,
+        storeAddress: storeAddress,
+        storePhone: storePhone,
+        mergeSameItems: false,
+        warehouseSlip: true,
+        slipTitle: title,
+        linesOverride: lines,
+      );
+      if (sunmiOk) return true;
+    } catch (e) {
+      debugPrint('Sunmi native warehouse print failed: $e');
+    }
+  }
+
+  try {
+    final bytes = await PosThermalPrinterService.buildSaleOrderEscPosBytes(
+      order,
+      settings: settings,
+      storeName: branchName,
+      storeAddress: storeAddress,
+      storePhone: storePhone,
+      mergeSameItems: false,
+      warehouseSlip: true,
+      slipTitle: title,
+      linesOverride: lines,
+    );
+    return PosPrintOrchestrator.instance.dispatchLocalEscPos(
+      bytes: bytes,
+      showFeedback: false,
+      successTitle: title,
+      settingsOverride: settings,
+      documentType: PosPrintDocumentTypes.stockIssue,
+      referenceId: order.id.isEmpty ? null : order.id,
+      referenceNo: order.orderNo.isEmpty ? null : order.orderNo,
+      skipDedup: order.id.isEmpty,
+    );
+  } catch (e) {
+    debugPrint('Local warehouse ESC/POS failed: $e');
+    return false;
+  }
 }
 
 /// In một job treo với phương thức do thu ngân chọn.
@@ -518,26 +683,14 @@ Future<WarehouseSlipPrintResult> printWarehouseSlipWithMethod({
           ],
         );
       }
-      var settings = _thermalSettingsForTemplate(thermal, template);
-      final bytes = await PosThermalPrinterService.buildSaleOrderEscPosBytes(
-        order,
-        settings: settings,
-        storeName: branchName,
+      final ok = await _tryLocalWarehousePrint(
+        order: order,
+        lines: order.lines,
+        template: template,
+        branchName: branchName,
         storeAddress: storeAddress,
         storePhone: storePhone,
-        mergeSameItems: false,
-        warehouseSlip: true,
-        slipTitle: slipTitleFromTemplate(template),
-      );
-      final ok = await PosPrintOrchestrator.instance.dispatchLocalEscPos(
-        bytes: bytes,
-        showFeedback: false,
-        successTitle: 'In phiếu xuất kho',
-        settingsOverride: settings,
-        documentType: PosPrintDocumentTypes.stockIssue,
-        referenceId: order.id.isEmpty ? null : order.id,
-        referenceNo: order.orderNo.isEmpty ? null : order.orderNo,
-        skipDedup: order.id.isEmpty,
+        thermal: thermal,
       );
       return WarehouseSlipPrintResult(
         attempts: [
@@ -608,3 +761,294 @@ Future<bool> printKitchenTicketsForOrder({
   );
   return r.anySuccess;
 }
+
+/// Dòng món trên phiếu bếp ngắn.
+class KitchenTicketLine {
+  const KitchenTicketLine({
+    required this.productName,
+    required this.qty,
+    this.unitName,
+    this.note,
+    this.productId,
+  });
+
+  final String productName;
+  final double qty;
+  final String? unitName;
+  final String? note;
+  /// Dùng để tra máy in gán riêng cho SP/nhóm hàng (báo bếp đa máy in).
+  final String? productId;
+}
+
+/// Phiếu bếp/hủy theo mẫu: tên bàn giữa, meta, bảng Tên hàng|SL (SL + ĐVT).
+Future<bool> printKitchenCompactSlip({
+  required String tableName,
+  required bool isCancel,
+  required List<KitchenTicketLine> lines,
+  required String senderName,
+  DateTime? sentAt,
+  String? orderNo,
+}) async {
+  if (lines.isEmpty) return false;
+
+  // Món có gán máy in riêng (SP hoặc nhóm hàng) → tách phiếu, in đúng máy đó
+  // thay vì dồn hết vào 1 máy in mặc định/local.
+  final svc = PosProductPrinterService.instance;
+  final hasAnyProductId = lines.any((l) => (l.productId ?? '').isNotEmpty);
+  if (hasAnyProductId) {
+    await PosPrintOrchestrator.instance.refreshConfig();
+    final resolved = await Future.wait(lines.map((l) async => (
+          line: l,
+          printerId: (l.productId ?? '').isEmpty
+              ? null
+              : await svc.resolvePrinterId(l.productId!),
+        )));
+    final assignedGroups = <String, List<KitchenTicketLine>>{};
+    final defaultLines = <KitchenTicketLine>[];
+    for (final row in resolved) {
+      if (row.printerId == null || row.printerId!.isEmpty) {
+        defaultLines.add(row.line);
+      } else {
+        assignedGroups.putIfAbsent(row.printerId!, () => []).add(row.line);
+      }
+    }
+
+    if (assignedGroups.isNotEmpty) {
+      var anyOk = false;
+      for (final entry in assignedGroups.entries) {
+        final printer = PosPrintOrchestrator.instance.printers
+            .where((p) => p.id == entry.key)
+            .firstOrNull;
+        if (printer == null) {
+          // Máy in gán đã xóa/không còn — in theo mặc định để không mất món.
+          defaultLines.addAll(entry.value);
+          continue;
+        }
+        final ok = await PosPrintOrchestrator.instance.dispatchKitchenSlip(
+          printer: printer,
+          tableName: tableName,
+          isCancel: isCancel,
+          lines: [
+            for (final l in entry.value)
+              (
+                productName: l.productName,
+                qty: l.qty,
+                unitName: l.unitName,
+                note: l.note,
+              ),
+          ],
+          senderName: senderName.trim().isEmpty ? 'admin' : senderName.trim(),
+          sentAt: sentAt ?? DateTime.now(),
+          orderNo: (orderNo ?? '').trim(),
+          referenceNo: (orderNo ?? '').trim().isEmpty ? null : orderNo!.trim(),
+          showFeedback: false,
+          successTitle: isCancel ? 'Hủy bếp' : 'Báo bếp',
+          skipDedup: true,
+        );
+        if (ok) anyOk = true;
+      }
+      if (defaultLines.isEmpty) return anyOk;
+      final defaultOk = await _printKitchenCompactSlipDefault(
+        tableName: tableName,
+        isCancel: isCancel,
+        lines: defaultLines,
+        senderName: senderName,
+        sentAt: sentAt,
+        orderNo: orderNo,
+      );
+      return anyOk || defaultOk;
+    }
+  }
+
+  return _printKitchenCompactSlipDefault(
+    tableName: tableName,
+    isCancel: isCancel,
+    lines: lines,
+    senderName: senderName,
+    sentAt: sentAt,
+    orderNo: orderNo,
+  );
+}
+
+/// In lên máy in bếp mặc định (local nếu bật, hoặc máy in cloud đầu tiên gán
+/// cho StockIssue) — dùng cho món không có máy in riêng theo SP/nhóm hàng.
+Future<bool> _printKitchenCompactSlipDefault({
+  required String tableName,
+  required bool isCancel,
+  required List<KitchenTicketLine> lines,
+  required String senderName,
+  DateTime? sentAt,
+  String? orderNo,
+}) async {
+  if (lines.isEmpty) return false;
+  final qtyFmt = NumberFormat('#,##0.##', 'vi_VN');
+  final timeFmt = DateFormat('dd/MM/yyyy HH:mm');
+  final table =
+      tableName.trim().isEmpty ? 'Bàn' : tableName.trim();
+  final when = timeFmt.format(sentAt ?? DateTime.now());
+  final sender =
+      senderName.trim().isEmpty ? 'admin' : senderName.trim();
+  final code = (orderNo ?? '').trim().isEmpty ? '-' : orderNo!.trim();
+
+  Future<PosThermalPrinterSettings> loadSettings() async {
+    if (!kIsWeb) {
+      final thermal = await PosThermalPrinterSettings.load();
+      if (thermal.enabled) {
+        return PosPrinterTransport.prepareLocalSettings(thermal);
+      }
+    }
+    final printers = PosPrintOrchestrator.instance
+        .resolvePrinters(PosCloudDocumentTypes.stockIssue);
+    if (printers.isNotEmpty) return toThermalSettings(printers.first);
+    return const PosThermalPrinterSettings();
+  }
+
+  final settings = await loadSettings();
+  final layout = PosReceiptLayout.fromMm(settings.paperWidthMm);
+  final body = <String>[
+    if (isCancel) '*** PHIEU HUY ***' else '*** BAO CHE BIEN ***',
+    'Ma HD: $code',
+    'NV: $sender',
+    'Ngay: $when',
+    layout.equals,
+    layout.kitchenHeader,
+    layout.equals,
+    for (var i = 0; i < lines.length; i++)
+      ...layout.kitchenItemRows(
+        index: i + 1,
+        name: lines[i].productName,
+        qty: qtyFmt.format(lines[i].qty),
+        unit: lines[i].unitName,
+        note: lines[i].note,
+      ),
+    layout.equals,
+  ];
+
+  if (!kIsWeb) {
+    final thermal = await PosThermalPrinterSettings.load();
+    if (thermal.enabled) {
+      final prepared = await PosPrinterTransport.prepareLocalSettings(thermal);
+      final kitchenSettings = prepared.copyWith(feedBeforeCut: 12);
+      if (kitchenSettings.connectionType == PosThermalConnectionType.sunmi ||
+          await PosPrinterTransport.isSunmiDevice()) {
+        try {
+          final docType = isCancel
+              ? PosPrintDocumentTypes.kitchenVoid
+              : PosPrintDocumentTypes.kitchenSlip;
+          final paper = kitchenSettings.paperWidthMm <= 58
+              ? PosPrintPaperSizes.k58
+              : PosPrintPaperSizes.k80;
+          final tplEntity =
+              await PosPrintTemplateRuntime.loadDefaultTemplate(ApiService(), docType);
+          final v2 = PosPrintTemplateRuntime.resolveOrPreset(
+            template: tplEntity,
+            documentType: docType,
+            paperSize: paper,
+            printerProfile: PosPrintPrinterProfiles.sunmiK58,
+          );
+          final output = PosPrintTemplateRuntime.compileKitchenSlip(
+            template: v2,
+            tableName: table,
+            isCancel: isCancel,
+            lines: [
+              for (final l in lines)
+                (
+                  name: l.productName,
+                  qty: qtyFmt.format(l.qty),
+                  unit: l.unitName,
+                  note: l.note,
+                ),
+            ],
+            senderName: sender,
+            orderNo: code == '-' ? '' : code,
+            sentAt: sentAt ?? DateTime.now(),
+          );
+          final v2Ok = await PosPrintTemplateRuntime.printCompiledSunmi(
+            output: output,
+            settings: kitchenSettings.copyWith(
+              connectionType: PosThermalConnectionType.sunmi,
+              printerBrand: PosThermalPrinterBrand.sunmi,
+            ),
+            kitchenFeed: true,
+          );
+          if (v2Ok) return true;
+        } catch (e) {
+          debugPrint('Kitchen V2 template print failed: $e');
+        }
+        try {
+          final ok = await PosSunmiNativePrint.printKitchenSlip(
+            tableName: table,
+            isCancel: isCancel,
+            lines: [
+              for (final l in lines)
+                (
+                  name: l.productName,
+                  qty: qtyFmt.format(l.qty),
+                  unit: l.unitName,
+                  note: l.note,
+                ),
+            ],
+            senderName: sender,
+            orderNo: code == '-' ? '' : code,
+            sentAt: sentAt ?? DateTime.now(),
+            settings: kitchenSettings.copyWith(
+              connectionType: PosThermalConnectionType.sunmi,
+              printerBrand: PosThermalPrinterBrand.sunmi,
+            ),
+          );
+          if (ok) return true;
+        } catch (e) {
+          debugPrint('Sunmi kitchen compact failed: $e');
+        }
+      }
+      try {
+        final bytes = await PosThermalPrinterService.buildTextEscPosBytes(
+          settings: kitchenSettings,
+          title: table,
+          lines: body,
+        );
+        return PosPrintOrchestrator.instance.dispatchLocalEscPos(
+          bytes: bytes,
+          showFeedback: false,
+          successTitle: isCancel ? 'Hủy bếp' : 'Báo bếp',
+          settingsOverride: kitchenSettings,
+          documentType: PosPrintDocumentTypes.stockIssue,
+          skipDedup: true,
+        );
+      } catch (e) {
+        debugPrint('Local kitchen compact failed: $e');
+      }
+    }
+  }
+
+  await PosPrintOrchestrator.instance.refreshConfig();
+  final printers = PosPrintOrchestrator.instance
+      .resolvePrinters(PosCloudDocumentTypes.stockIssue);
+  if (printers.isNotEmpty) {
+    final p = printers.first;
+    return PosPrintOrchestrator.instance.dispatchKitchenSlip(
+      printer: p,
+      tableName: table,
+      isCancel: isCancel,
+      lines: [
+        for (final l in lines)
+          (
+            productName: l.productName,
+            qty: l.qty,
+            unitName: l.unitName,
+            note: l.note,
+          ),
+      ],
+      senderName: sender,
+      sentAt: sentAt ?? DateTime.now(),
+      orderNo: code == '-' ? '' : code,
+      referenceNo: code == '-' ? null : code,
+      showFeedback: false,
+      successTitle: isCancel ? 'Hủy bếp' : 'Báo bếp',
+      skipDedup: true,
+    );
+  }
+
+  return false;
+}
+

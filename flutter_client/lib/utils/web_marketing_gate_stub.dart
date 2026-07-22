@@ -1,3 +1,3 @@
 bool shouldRedirectToStaticHome() => false;
 
-void redirectToStaticHome() {}
+void redirectToStaticHome({String? section}) {}

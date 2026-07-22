@@ -12,6 +12,7 @@ import '../../widgets/pos/pos_stock_card_table.dart';
 import '../../widgets/pos/pos_product_type_badge.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'pos_product_editor_page.dart';
+import '../main_layout.dart' show ScreenRefreshNotifier;
 
 class PosProductDetailScreen extends StatefulWidget {
   const PosProductDetailScreen({super.key, required this.product});
@@ -157,6 +158,7 @@ class _PosProductDetailScreenState extends State<PosProductDetailScreen> {
         title: 'Thành công',
         message: 'Đã xóa hàng hóa',
       );
+      ScreenRefreshNotifier.refreshPosAfterStockChange();
       Navigator.pop(context, true);
     } else {
       NotificationOverlayManager().showError(

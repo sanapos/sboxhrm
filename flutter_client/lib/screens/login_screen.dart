@@ -11,6 +11,8 @@ import '../services/api_service.dart';
 import '../services/app_permission_service.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/store_agent_support_card.dart';
+import '../utils/web_marketing_gate_stub.dart'
+    if (dart.library.html) '../utils/web_marketing_gate_web.dart' as web_home;
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -515,21 +517,22 @@ class _LoginScreenState extends State<LoginScreen>
                     child: TextButton.icon(
                       onPressed: () async {
                         if (kIsWeb) {
-                          Navigator.of(context)
-                              .pushReplacementNamed('/landing');
-                        } else {
-                          // On mobile: open the web version in browser
-                          final webUrl = ApiService.baseUrl
-                              .replaceFirst(RegExp(r'/api$'), '');
-                          final uri = Uri.parse(webUrl);
-                          final ok = await launchUrl(uri,
-                              mode: LaunchMode.externalApplication);
-                          if (!ok && mounted) {
-                            NotificationOverlayManager().showError(
-                              title: 'Không mở được',
-                              message: webUrl,
-                            );
-                          }
+                          web_home.redirectToStaticHome();
+                          return;
+                        }
+                        // On mobile: open the web homepage in browser
+                        final webUrl = ApiService.baseUrl
+                            .replaceFirst(RegExp(r'/api$'), '');
+                        final uri = Uri.parse(webUrl.endsWith('/')
+                            ? webUrl
+                            : '$webUrl/');
+                        final ok = await launchUrl(uri,
+                            mode: LaunchMode.externalApplication);
+                        if (!ok && mounted) {
+                          NotificationOverlayManager().showError(
+                            title: 'Không mở được',
+                            message: uri.toString(),
+                          );
                         }
                       },
                       icon: const Icon(
@@ -965,11 +968,11 @@ class _LoginScreenState extends State<LoginScreen>
       case 'TÌM HIỂU THÊM':
         return _learnMoreUrl ??
             _websiteUrl ??
-            '$_siteOrigin/landing';
+            '$_siteOrigin/';
       case 'LIÊN HỆ':
         if (_contactUrl != null) return _contactUrl!;
         if (kIsWeb) {
-          return '$_siteOrigin/landing';
+          return '$_siteOrigin/?section=contact';
         }
         return 'tel:+84${_phoneDigits.startsWith('0') ? _phoneDigits.substring(1) : _phoneDigits}';
       case 'HỖ TRỢ':

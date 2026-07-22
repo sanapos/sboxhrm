@@ -1,10 +1,4 @@
-import 'dart:io' show Platform, Socket;
-
-import 'dart:typed_data';
-
-
-
-import 'package:device_info_plus/device_info_plus.dart';
+import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
 
@@ -12,19 +6,25 @@ import 'package:intl/intl.dart';
 
 import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 
-import 'package:sunmi_printer_plus/sunmi_printer_plus.dart';
-
 
 
 import '../models/pos_sale_order.dart';
 
 import 'pos_esc_pos_text_codec.dart';
 
+import 'pos_print_template_compiler.dart';
+
 import 'pos_thermal_bitmap.dart';
 
-import 'pos_thermal_printer_settings.dart';
+import 'pos_printer_transport.dart';
 
-import 'pos_vietnamese_money_words.dart';
+import 'pos_receipt_layout.dart';
+
+import 'pos_table_label.dart';
+
+import 'pos_sunmi_native_print.dart';
+
+import 'pos_thermal_printer_settings.dart';
 
 
 
@@ -37,29 +37,12 @@ class PosThermalPrinterService {
   static final _qty = NumberFormat('#,##0.##', 'vi_VN');
 
   static final _date = DateFormat('dd/MM/yyyy HH:mm');
+  static final _dateOnly = DateFormat('dd/MM/yyyy');
 
 
 
   static Future<bool> isSunmiDevice() async {
-
-    if (kIsWeb || !Platform.isAndroid) return false;
-
-    try {
-
-      final info = await DeviceInfoPlugin().androidInfo;
-
-      final brand = info.brand.toLowerCase();
-
-      final man = info.manufacturer.toLowerCase();
-
-      return brand.contains('sunmi') || man.contains('sunmi');
-
-    } catch (_) {
-
-      return false;
-
-    }
-
+    return PosPrinterTransport.isSunmiDevice();
   }
 
 
@@ -152,6 +135,16 @@ class PosThermalPrinterService {
 
     if (!settings.enabled || kIsWeb) return false;
 
+    if (settings.connectionType == PosThermalConnectionType.sunmi ||
+        await PosPrinterTransport.isSunmiDevice()) {
+      final nativeOk = await PosSunmiNativePrint.printTest(
+        storeLabel: 'SBOX POS',
+        feedLines: settings.resolvedFeedBeforeCut,
+        paperWidthMm: settings.paperWidthMm,
+      );
+      if (nativeOk) return true;
+    }
+
     final bytes = await buildTestEscPosBytes(settings);
 
     return _sendBytes(settings, bytes);
@@ -226,6 +219,59 @@ class PosThermalPrinterService {
   ) =>
 
       _buildTestReceipt(settings);
+
+
+
+  /// In từ mẫu V2 đã biên dịch (bitmap Zywell / ESC/POS).
+  static Future<List<int>> buildCompiledEscPosBytes(
+    PosPrintCompiledOutput output, {
+    required PosThermalPrinterSettings settings,
+  }) async {
+    final b = await _EscPosBuilder.create(settings);
+    for (final step in output.steps) {
+      if (step is PosPrintCompiledLine) {
+        final line = step;
+        if (line.isDivider) {
+          b.left();
+          await b.boldLine(line.text, size: 14);
+          continue;
+        }
+        if (line.center) {
+          b.center();
+        } else {
+          b.left();
+        }
+        if (line.text.trim().isEmpty) {
+          b.feed(1);
+          continue;
+        }
+        await b.boldLine(line.text, size: line.fontSize);
+      } else if (step is PosPrintCompiledPair) {
+        b.left();
+        await b.boldLine('${step.left}  ${step.right}', size: step.fontSize);
+      } else if (step is PosPrintCompiledQr) {
+        b.center();
+        if (step.title != null && step.title!.trim().isNotEmpty) {
+          await b.line(step.title!.trim());
+        }
+        final raster = await PosThermalBitmapEncoder.networkPngToEscPos(
+          step.imageUrl,
+          maxWidth: step.size,
+        );
+        if (raster != null) {
+          b.appendRaw(raster);
+        }
+        if (step.caption.trim().isNotEmpty) {
+          await b.line(step.caption.trim());
+        }
+        if (step.amountText != null && step.amountText!.trim().isNotEmpty) {
+          await b.line('${step.amountText!.trim()} đ');
+        }
+      }
+    }
+    await b.finishAsync();
+    return b.bytes;
+  }
 
 
 
@@ -320,113 +366,38 @@ class PosThermalPrinterService {
 
 
   static Future<bool> _sendLan(
-
     PosThermalPrinterSettings settings,
-
     List<int> bytes,
-
   ) async {
-
-    final host = settings.lanHost?.trim();
-
-    if (host == null || host.isEmpty) return false;
-
-    try {
-
-      final socket = await Socket.connect(
-
-        host,
-
-        settings.lanPort,
-
-        timeout: const Duration(seconds: 8),
-
-      );
-
-      socket.add(bytes);
-
-      await socket.flush();
-
-      await Future<void>.delayed(const Duration(milliseconds: 300));
-
-      await socket.close();
-
-      return true;
-
-    } catch (e) {
-
-      debugPrint('LAN print failed: $e');
-
-      return false;
-
-    }
-
+    return PosPrinterTransport.send(
+      connectionType: PosThermalConnectionType.lan,
+      lanHost: settings.lanHost,
+      lanPort: settings.lanPort,
+      bytes: bytes,
+    );
   }
-
-
 
   static Future<bool> _sendSunmi(
-
     PosThermalPrinterSettings settings,
-
     List<int> bytes,
-
   ) async {
-
-    if (!await isSunmiDevice()) return false;
-
-    try {
-
-      await SunmiPrinter.bindingPrinter();
-
-      await SunmiPrinter.printRawData(Uint8List.fromList(bytes));
-
-      await SunmiPrinter.lineWrap(settings.resolvedFeedBeforeCut);
-
-      return true;
-
-    } catch (e) {
-
-      debugPrint('Sunmi print failed: $e');
-
-      return false;
-
-    }
-
+    return PosPrinterTransport.send(
+      connectionType: PosThermalConnectionType.sunmi,
+      bytes: bytes,
+      sunmiFeedLines: settings.resolvedFeedBeforeCut,
+    );
   }
-
-
 
   static Future<bool> _sendBluetooth(
     PosThermalPrinterSettings settings,
     List<int> bytes,
   ) async {
-    final addr = settings.bluetoothAddress?.trim();
-    if (addr == null || addr.isEmpty) return false;
-    try {
-      final connected = await PrintBluetoothThermal.connect(
-        macPrinterAddress: addr,
-      );
-      if (connected != true) return false;
-
-      const chunkSize = 512;
-      for (var i = 0; i < bytes.length; i += chunkSize) {
-        final end = i + chunkSize < bytes.length ? i + chunkSize : bytes.length;
-        final ok = await PrintBluetoothThermal.writeBytes(bytes.sublist(i, end));
-        if (ok != true) return false;
-        if (end < bytes.length) {
-          await Future<void>.delayed(const Duration(milliseconds: 40));
-        }
-      }
-
-      await Future<void>.delayed(const Duration(milliseconds: 600));
-      return true;
-    } catch (e) {
-      debugPrint('Bluetooth print failed: $e');
-      return false;
-    }
+    return PosPrinterTransport.send(
+      connectionType: PosThermalConnectionType.bluetooth,
+      bluetoothAddress: settings.bluetoothAddress,
+      bytes: bytes,
+    );
   }
-
 
 
   static Future<List<int>> _buildTestReceipt(
@@ -528,17 +499,15 @@ class PosThermalPrinterService {
 
     if (storeAddress != null && storeAddress.trim().isNotEmpty) {
 
-      await b.line(storeAddress.trim());
+      await b.line('DC: ${storeAddress.trim()}');
 
     }
 
     if (storePhone != null && storePhone.trim().isNotEmpty) {
 
-      await b.line('ĐT: ${storePhone.trim()}');
+      await b.line('SDT: ${storePhone.trim()}');
 
     }
-
-    await b.separator();
 
     b.center();
 
@@ -547,26 +516,48 @@ class PosThermalPrinterService {
           ? (slipTitle?.trim().isNotEmpty == true
               ? slipTitle!.trim()
               : 'PHIẾU BÁO XUẤT KHO')
-          : (order.printCount > 1 ? 'HÓA ĐƠN BÁN HÀNG IN LẠI' : 'HÓA ĐƠN BÁN HÀNG'),
+          : (slipTitle?.trim().isNotEmpty == true
+              ? slipTitle!.trim()
+              : (order.printCount > 1
+                  ? 'HÓA ĐƠN BÁN HÀNG — IN LẠI'
+                  : 'HÓA ĐƠN BÁN HÀNG')),
       size: 24,
     );
 
     b.left();
 
     if (!isWarehouseSlip && order.printCount > 1) {
-      await b.line('*** Bản in lại — thông báo chủ cửa hàng ***');
+      await b.line('*** BẢN IN LẠI — Lần in thứ ${order.printCount} ***');
     }
 
-    await b.line('Mã: ${order.orderNo.isEmpty ? '-' : order.orderNo}');
+    await b.line('Số: ${order.orderNo.isEmpty ? '-' : order.orderNo}');
+    await b.line('Ngày: ${_dateOnly.format(saleDate)}');
 
-    await b.line('Ngày: ${_date.format(saleDate)}');
+    final inAt = order.serviceStartedAt?.toLocal();
+    final outAt = order.serviceEndedAt?.toLocal();
+    if (inAt != null) {
+      await b.line('Giờ vào: ${_date.format(inAt)}');
+    }
+    final isProvisionalTitle =
+        (slipTitle ?? '').toUpperCase().contains('TẠM');
+    if (outAt != null && !isWarehouseSlip && !isProvisionalTitle) {
+      await b.line('Giờ ra: ${_date.format(outAt)}');
+    }
 
-    await b.line('KH: ${order.customerName ?? 'Khách lẻ'}');
+    final tableLines = formatPosTablePrintLines(
+      areaName: order.serviceAreaName,
+      tableName: order.serviceResourceName ?? order.serviceResourceCode,
+    );
+    for (final line in tableLines) {
+      await b.line(line);
+    }
+
+    await b.line(
+      'KH: ${order.customerName ?? 'Khach le'}',
+    );
 
     if (order.soldBy != null && order.soldBy!.trim().isNotEmpty) {
-
-      await b.line('NV: ${order.soldBy!.trim()}');
-
+      await b.line('Thu ngân: ${order.soldBy!.trim()}');
     }
 
     await b.separator();
@@ -575,6 +566,7 @@ class PosThermalPrinterService {
 
     await _printReceiptSummary(
       b,
+      subTotal: isSubset ? linesTotal : (order.subTotal > 0 ? order.subTotal : linesTotal),
       total: receiptTotal,
       orderDiscount: orderDiscount,
       lineDiscount: lineDiscount,
@@ -615,9 +607,7 @@ class PosThermalPrinterService {
 
     b.center();
 
-    await b.line('Cảm ơn quý khách!');
-
-    await b.line('Hẹn gặp lại!');
+    await b.line('Cam on quy khach!');
 
     await b.finishAsync();
 
@@ -647,73 +637,48 @@ class PosThermalPrinterService {
 
 
 
-  static String _formatUnitPriceCell(PosSaleOrderLine line) {
-    if (line.discountAmount <= 0) return _money.format(line.unitPrice);
-    final saleUnit =
-        line.qty > 0 ? line.lineTotal / line.qty : line.unitPrice;
-    return '${_money.format(line.unitPrice)}>${_money.format(saleUnit)}';
-  }
-
-
-
   static Future<void> _printLineTable(
     _EscPosBuilder b,
     List<PosSaleOrderLine> lines,
   ) async {
     b.left();
-    final wide = b.maxChars >= 44;
-    if (wide) {
-      await b.boldLine(
-        'STT Hàng hóa                  SL   Giá bán  Thành tiền',
-        size: 20,
-      );
-    } else {
-      await b.boldLine('STT Hàng hóa           SL  Giá bán    TT', size: 19);
-    }
+    final layout = PosReceiptLayout.fromSettingsChars(b.maxChars);
+    String money(double v) => _money.format(v);
+    await b.boldLine(layout.saleHeader, size: layout.k58 ? 19 : 21);
     await b.separator();
 
-    for (var i = 0; i < lines.length; i++) {
-      final line = lines[i];
-      final stt = '${i + 1}'.padLeft(2);
-      var name = line.productName;
-      if (line.unitName != null && line.unitName!.trim().isNotEmpty) {
-        name = '$name (${line.unitName!.trim()})';
-      }
+    for (final line in lines) {
+      final name = line.productName;
       final qty = _qty.format(line.qty);
-      final price = _formatUnitPriceCell(line);
-      final total = _money.format(line.lineTotal);
-
-      if (wide) {
-        final nameWidth = 22;
-        final chunks = PosThermalBitmapEncoder.wrapText(name, nameWidth);
-        final first = chunks.first.padRight(nameWidth);
-        await b.line(
-          '$stt $first ${qty.padLeft(3)} ${price.padLeft(9)} ${total.padLeft(10)}',
-        );
-        for (var c = 1; c < chunks.length; c++) {
-          await b.line('   ${chunks[c]}');
-        }
-      } else {
-        final chunks = PosThermalBitmapEncoder.wrapText(name, b.maxChars - 4);
-        await b.line('$stt ${chunks.first}');
-        for (var c = 1; c < chunks.length; c++) {
-          await b.line('   ${chunks[c]}');
-        }
-        await b.line('      ${qty.padLeft(3)} x $price  $total');
+      final saleUnit = line.qty > 0 ? line.lineTotal / line.qty : line.unitPrice;
+      final price = money(
+        line.discountAmount > 0 ? saleUnit : line.unitPrice,
+      );
+      final original = line.discountAmount > 0
+          ? money(line.unitPrice)
+          : null;
+      final total = money(line.lineTotal);
+      final rows = layout.saleItemRows(
+        name: name,
+        qty: qty,
+        price: price,
+        total: total,
+        originalPrice: original,
+      );
+      for (final row in rows) {
+        await b.line(row);
       }
-
       final note = line.lineNote?.trim();
       if (note != null && note.isNotEmpty) {
-        await b.line('   • $note');
+        await b.line(' * $note');
       }
     }
   }
 
-
-
   static Future<void> _printReceiptSummary(
     _EscPosBuilder b, {
     required double total,
+    double subTotal = 0,
     double orderDiscount = 0,
     double lineDiscount = 0,
     double vatAmount = 0,
@@ -723,25 +688,23 @@ class PosThermalPrinterService {
   }) async {
     b.left();
     await b.separator();
-    if (orderDiscount > 0) {
-      await b.pair('Chiết khấu', '-${_money.format(orderDiscount)} đ');
-    } else if (lineDiscount > 0) {
-      await b.pair('Chiết khấu SP', '-${_money.format(lineDiscount)} đ');
+    final hangTotal = subTotal > 0 ? subTotal : total;
+    await b.pair('Tong thanh tien:', _money.format(hangTotal));
+    final ck = orderDiscount > 0 ? orderDiscount : lineDiscount;
+    if (ck > 0) {
+      await b.pair('Chiet khau:', _money.format(ck));
     }
     if (vatAmount > 0) {
-      await b.pair('VAT', '${_money.format(vatAmount)} đ');
+      await b.pair('VAT:', _money.format(vatAmount));
     }
     if (surchargeAmount > 0) {
-      await b.pair('Phụ thu', '${_money.format(surchargeAmount)} đ');
+      await b.pair('Phu thu:', _money.format(surchargeAmount));
     }
-    await b.boldPair('TỔNG CỘNG', '${_money.format(total)} đ');
-    b.center();
-    await b.line(vietnameseMoneyInWords(total.round()));
-    b.left();
+    await b.boldPair('Tong cong:', _money.format(total));
     if (includePayment && order != null) {
-      await b.pair('Thanh toán', '${_money.format(order.paidAmount)} đ');
+      await b.pair('Thanh toan:', _money.format(order.paidAmount));
       if (order.balanceDue > 0) {
-        await b.pair('Còn nợ', '${_money.format(order.balanceDue)} đ');
+        await b.pair('Con no:', _money.format(order.balanceDue));
       }
     }
   }
@@ -889,7 +852,7 @@ class _EscPosBuilder {
 
   void _add(List<int> data) => _buf.addAll(data);
 
-
+  void appendRaw(List<int> data) => _add(data);
 
   void left() {
     _centered = false;
@@ -1052,11 +1015,11 @@ class _EscPosBuilder {
       _imageLines.clear();
     }
 
-    final n = _settings.resolvedFeedBeforeCut;
+    final n = _settings.resolvedFeedBeforeCut.clamp(10, 28);
     if (!_useImageBatch) {
-      feed(1);
+      feed(2);
     }
-    _add([0x1B, 0x64, n.clamp(0, 255)]);
+    _add([0x1B, 0x64, n]);
     _add([0x1D, 0x56, _settings.partialCut ? 0x01 : 0x00]);
   }
 }

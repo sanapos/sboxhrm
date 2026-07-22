@@ -20,13 +20,20 @@ PosThermalPrinterSettings toThermalSettings(PosStorePrinter printer) {
       conn = PosThermalConnectionType.bluetooth;
   }
 
+  // Sunmi: luôn brand + UTF-8 — tránh auto→image (chữ rác / giấy trắng dài qua printEscPos).
+  final isSunmi = conn == PosThermalConnectionType.sunmi;
+  final brand = isSunmi
+      ? PosThermalPrinterBrand.sunmi
+      : PosThermalPrinterBrand.fromKey(printer.printerBrand?.toLowerCase());
+  final textMode = isSunmi
+      ? PosThermalTextMode.utf8
+      : PosThermalTextMode.fromKey(printer.textMode?.toLowerCase());
+
   return PosThermalPrinterSettings(
     enabled: true,
     connectionType: conn,
-    printerBrand: PosThermalPrinterBrand.fromKey(
-      printer.printerBrand?.toLowerCase(),
-    ),
-    textMode: PosThermalTextMode.fromKey(printer.textMode?.toLowerCase()),
+    printerBrand: brand,
+    textMode: textMode,
     paperSize: printer.paperSize,
     bluetoothAddress: printer.bluetoothAddress,
     bluetoothName: printer.bluetoothName,

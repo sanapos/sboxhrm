@@ -115,10 +115,10 @@ public static class AiAssistantHelpCorpus
             StepId: "register",
             Title: "Đăng ký phần mềm",
             Summary:
-            "Truy cập sbox.sana.vn, chọn Đăng ký doanh nghiệp. Điền tên cửa hàng, mã đăng nhập (chỉ chữ và số liền, không dấu), email, số điện thoại và mật khẩu. Chọn gói dịch vụ để kích hoạt tài khoản quản trị.",
+            "Truy cập sboxhrm.com, chọn Đăng ký doanh nghiệp. Điền tên cửa hàng, mã đăng nhập (chỉ chữ và số liền, không dấu), email, số điện thoại và mật khẩu. Chọn gói dịch vụ để kích hoạt tài khoản quản trị.",
             Bullets:
             [
-                "Đường dẫn: sbox.sana.vn → Đăng ký",
+                "Đường dẫn: sboxhrm.com → Đăng ký",
                 "Mã đăng nhập cửa hàng: tối đa 20 ký tự, viết thường a–z và 0–9",
                 "Nhận mã cửa hàng (Store ID) sau khi đăng ký thành công",
                 "Đăng nhập web/app bằng mã cửa hàng + tài khoản admin",

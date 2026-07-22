@@ -5,6 +5,16 @@ import 'web_route_parser.dart';
 /// Đọc deep link đã lưu trong sessionStorage (index.html ghi trước Flutter bootstrap).
 void captureInitialRouteFromStorage() {
   final route = web.window.sessionStorage.getItem('sbox_route');
+  if (route == 'login' || route == 'login-app') {
+    InitialWebRoute.showLogin = true;
+    web.window.sessionStorage.removeItem('sbox_route');
+    return;
+  }
+  if (route == 'forgot-password') {
+    InitialWebRoute.showForgotPassword = true;
+    web.window.sessionStorage.removeItem('sbox_route');
+    return;
+  }
   if (route == 'register') {
     InitialWebRoute.showRegister = true;
     final agentCode = web.window.sessionStorage.getItem('sbox_agent_code');

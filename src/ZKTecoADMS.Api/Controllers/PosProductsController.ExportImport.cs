@@ -234,7 +234,7 @@ public partial class PosProductsController
                 {
                     var code = row.ProductCode?.Trim();
                     if (string.IsNullOrEmpty(code))
-                        code = await GenerateProductCodeAsync(storeId);
+                        code = await GenerateProductCodeAsync(storeId, row.ProductType);
 
                     entity = new PosProduct
                     {

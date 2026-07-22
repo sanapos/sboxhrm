@@ -214,6 +214,10 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     public DbSet<PosProductBrand> PosProductBrands => Set<PosProductBrand>();
     public DbSet<PosStorageLocation> PosStorageLocations => Set<PosStorageLocation>();
     public DbSet<PosProduct> PosProducts => Set<PosProduct>();
+    public DbSet<PosProductToppingOption> PosProductToppingOptions => Set<PosProductToppingOption>();
+    public DbSet<PosToppingGroup> PosToppingGroups => Set<PosToppingGroup>();
+    public DbSet<PosToppingGroupItem> PosToppingGroupItems => Set<PosToppingGroupItem>();
+    public DbSet<PosProductToppingGroupLink> PosProductToppingGroupLinks => Set<PosProductToppingGroupLink>();
     public DbSet<PosProductUnit> PosProductUnits => Set<PosProductUnit>();
     public DbSet<PosSupplier> PosSuppliers => Set<PosSupplier>();
     public DbSet<PosCustomer> PosCustomers => Set<PosCustomer>();
@@ -246,6 +250,14 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     public DbSet<PosCustomerPayment> PosCustomerPayments => Set<PosCustomerPayment>();
     public DbSet<PosCustomerPointTransaction> PosCustomerPointTransactions => Set<PosCustomerPointTransaction>();
     public DbSet<PosVoucher> PosVouchers => Set<PosVoucher>();
+    public DbSet<PosStoreSellSettings> PosStoreSellSettings => Set<PosStoreSellSettings>();
+    public DbSet<PosServiceArea> PosServiceAreas => Set<PosServiceArea>();
+    public DbSet<PosServiceResource> PosServiceResources => Set<PosServiceResource>();
+    public DbSet<PosResourceSession> PosResourceSessions => Set<PosResourceSession>();
+    public DbSet<PosResourceReservation> PosResourceReservations => Set<PosResourceReservation>();
+    public DbSet<PosKitchenVoidSlip> PosKitchenVoidSlips => Set<PosKitchenVoidSlip>();
+    public DbSet<PosCustomerSessionBalance> PosCustomerSessionBalances => Set<PosCustomerSessionBalance>();
+    public DbSet<PosCustomerSessionTransaction> PosCustomerSessionTransactions => Set<PosCustomerSessionTransaction>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

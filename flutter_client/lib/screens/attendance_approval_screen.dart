@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../widgets/app_scroll_safe.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/safe_layout_widgets.dart';
 import '../utils/file_saver.dart' as file_saver;
 import '../utils/web_canvas.dart' as web_canvas;
 import 'package:intl/intl.dart';
@@ -322,8 +323,12 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
           title: 'Lỗi', message: 'Không tìm thấy mã yêu cầu');
       return;
     }
+    final canFine = Provider.of<PermissionProvider>(context, listen: false)
+        .canCreate('PenaltyTickets');
     final noteController = TextEditingController();
-    final confirmed = await showDialog<bool>(
+    // null = hủy, 'approve' = duyệt thường, 'approveAndFine' = duyệt + phạt
+    // quên chấm công theo mức phạt trong Thiết lập.
+    final choice = await showDialog<String>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
         title: const Text('Duyệt yêu cầu'),
@@ -347,21 +352,41 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                 ),
                 maxLines: 2,
               ),
+              if (canFine) ...[
+                const SizedBox(height: 10),
+                Text(
+                  'Chọn "Duyệt và phạt" nếu nhân viên quên chấm công và bạn '
+                  'muốn tạo thêm phiếu phạt theo mức phạt trong Thiết lập phạt.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                ),
+              ],
             ],
           ),
         ),
         actions: [
-          AppDialogActions(
-            onCancel: () => Navigator.pop(ctx, false),
-            onConfirm: () => Navigator.pop(ctx, true),
-            confirmLabel: 'Duyệt',
-            confirmIcon: Icons.check,
-            confirmVariant: AppButtonVariant.success,
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Hủy'),
+          ),
+          if (canFine)
+            OutlinedButton.icon(
+              onPressed: () => Navigator.pop(ctx, 'approveAndFine'),
+              icon: const Icon(Icons.gavel, size: 16, color: Colors.orange),
+              label: const Text('Duyệt và phạt',
+                  style: TextStyle(color: Colors.orange)),
+              style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Colors.orange)),
+            ),
+          FilledButton.icon(
+            onPressed: () => Navigator.pop(ctx, 'approve'),
+            icon: const Icon(Icons.check),
+            label: const Text('Duyệt'),
+            style: FilledButton.styleFrom(backgroundColor: Colors.green),
           ),
         ],
       ),
     );
-    if (confirmed != true) {
+    if (choice == null) {
       noteController.dispose();
       return;
     }
@@ -372,13 +397,102 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
       approverNote: noteController.text.isNotEmpty ? noteController.text : null,
     );
     noteController.dispose();
-    if (result['isSuccess'] == true) {
+    if (result['isSuccess'] != true) {
+      appNotification.showError(
+          title: 'Lỗi', message: result['message'] ?? 'Có lỗi xảy ra');
+      return;
+    }
+
+    if (choice != 'approveAndFine') {
       appNotification.showSuccess(
           title: 'Thành công', message: 'Đã duyệt yêu cầu');
       _loadData();
-    } else {
-      appNotification.showError(
-          title: 'Lỗi', message: result['message'] ?? 'Có lỗi xảy ra');
+      return;
+    }
+
+    final fined = await _createForgotCheckPenaltyForCorrection(req);
+    appNotification.showSuccess(
+      title: 'Thành công',
+      message: fined
+          ? 'Đã duyệt yêu cầu và tạo phiếu phạt quên chấm công'
+          : 'Đã duyệt yêu cầu (chưa tạo được phiếu phạt)',
+    );
+    _loadData();
+  }
+
+  /// Tạo phiếu phạt "Quên chấm công" (mức phạt lấy từ Thiết lập phạt) cho
+  /// nhân viên của [req] — dùng khi duyệt yêu cầu bổ sung/sửa chấm công kèm
+  /// phạt ("Duyệt và phạt").
+  Future<bool> _createForgotCheckPenaltyForCorrection(
+      Map<String, dynamic> req) async {
+    try {
+      final employeeUserId = req['employeeUserId']?.toString();
+      Map<String, dynamic>? emp;
+      if (employeeUserId != null && employeeUserId.isNotEmpty) {
+        for (final e in _employees) {
+          if (e['applicationUserId']?.toString() == employeeUserId) {
+            emp = e;
+            break;
+          }
+        }
+      }
+      final employeeId = emp?['id']?.toString();
+      if (employeeId == null || employeeId.isEmpty) {
+        appNotification.showWarning(
+            title: 'Không tạo được phiếu phạt',
+            message:
+                'Không xác định được hồ sơ nhân viên để tạo phiếu phạt');
+        return false;
+      }
+
+      final settingsResult = await _apiService.getPenaltySettings();
+      final amount = double.tryParse(
+              (settingsResult['data']?['forgotCheckPenalty'] ?? 0)
+                  .toString()) ??
+          0;
+      if (amount <= 0) {
+        appNotification.showWarning(
+            title: 'Không tạo được phiếu phạt',
+            message: 'Mức phạt "Quên chấm công" chưa được cấu hình (0đ). '
+                'Vui lòng vào Thiết lập phạt để cài đặt.');
+        return false;
+      }
+
+      final violationDate = (req['newDate'] != null
+              ? DateTime.tryParse(req['newDate'].toString())
+              : null) ??
+          (req['oldDate'] != null
+              ? DateTime.tryParse(req['oldDate'].toString())
+              : null) ??
+          DateTime.now();
+
+      final createResult = await _apiService.createPenaltyTicket({
+        'employeeId': employeeId,
+        'type': 'ForgotCheck',
+        'amount': amount,
+        'violationDate': violationDate.toIso8601String(),
+        'description':
+            'Quên chấm công - duyệt yêu cầu bổ sung chấm công (${req['employeeName'] ?? ''})',
+      });
+      if (createResult['isSuccess'] != true) {
+        appNotification.showWarning(
+            title: 'Không tạo được phiếu phạt',
+            message: createResult['message'] ?? 'Có lỗi xảy ra');
+        return false;
+      }
+
+      final ticketId = createResult['data']?['id']?.toString();
+      final canApprovePenalty = mounted &&
+          Provider.of<PermissionProvider>(context, listen: false)
+              .canApprove('PenaltyTickets');
+      if (ticketId != null && canApprovePenalty) {
+        await _apiService.approvePenaltyTicket(ticketId);
+      }
+      return true;
+    } catch (e) {
+      appNotification.showWarning(
+          title: 'Không tạo được phiếu phạt', message: e.toString());
+      return false;
     }
   }
 
@@ -990,101 +1104,77 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
             : int.tryParse(stepStatus.toString()) ?? 0;
         final color = _getApprovalStatusColor(stepStatusInt);
 
-        return IntrinsicHeight(
-          child: Row(
+        return SafeTimelineRow(
+          isLast: isLast,
+          indicator: Container(
+            width: 20,
+            height: 20,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+              border: Border.all(color: color, width: 2),
+            ),
+            child: Icon(_getApprovalStatusIcon(stepStatusInt),
+                size: 12, color: color),
+          ),
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Timeline line + dot
-              SizedBox(
-                width: 30,
-                child: Column(
-                  children: [
-                    Container(
-                      width: 20,
-                      height: 20,
-                      decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.15),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: color, width: 2),
-                      ),
-                      child: Icon(_getApprovalStatusIcon(stepStatusInt),
-                          size: 12, color: color),
+              Row(
+                children: [
+                  Text(
+                    record['stepName'] ??
+                        'Bước ${record['stepOrder'] ?? idx + 1}',
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: color),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 6, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    if (!isLast)
-                      Expanded(
-                        child: Container(width: 2, color: Colors.grey[300]),
-                      ),
-                  ],
-                ),
+                    child: Text(
+                      _getApprovalStatusLabel(stepStatusInt),
+                      style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: color),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 10),
-              // Step content
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            record['stepName'] ??
-                                'Bước ${record['stepOrder'] ?? idx + 1}',
-                            style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: color),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: color.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              _getApprovalStatusLabel(stepStatusInt),
-                              style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                  color: color),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        stepStatusInt == 0
-                            ? 'Người duyệt: ${record['assignedUserName'] ?? 'Chưa xác định'}'
-                            : 'Người duyệt: ${record['actualUserName'] ?? record['assignedUserName'] ?? '--'}',
-                        style: TextStyle(fontSize: 12, color: Colors.grey[700]),
-                      ),
-                      if (record['note'] != null &&
-                          record['note'].toString().isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 2),
-                          child: Text(
-                            'Ghi chú: ${record['note']}',
-                            style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.grey[600],
-                                fontStyle: FontStyle.italic),
-                          ),
-                        ),
-                      if (record['actionDate'] != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 2),
-                          child: Text(
-                            _formatDateTime(record['actionDate']),
-                            style: TextStyle(
-                                fontSize: 11, color: Colors.grey[500]),
-                          ),
-                        ),
-                    ],
+              const SizedBox(height: 4),
+              Text(
+                stepStatusInt == 0
+                    ? 'Người duyệt: ${record['assignedUserName'] ?? 'Chưa xác định'}'
+                    : 'Người duyệt: ${record['actualUserName'] ?? record['assignedUserName'] ?? '--'}',
+                style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+              ),
+              if (record['note'] != null &&
+                  record['note'].toString().isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    'Ghi chú: ${record['note']}',
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey[600],
+                        fontStyle: FontStyle.italic),
                   ),
                 ),
-              ),
+              if (record['actionDate'] != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    _formatDateTime(record['actionDate']),
+                    style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                  ),
+                ),
             ],
           ),
         );

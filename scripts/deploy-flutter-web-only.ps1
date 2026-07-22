@@ -11,7 +11,7 @@ $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 . (Join-Path $PSScriptRoot "deploy-ssh-helpers.ps1")
 
 $FlutterBat = "C:\Users\TH DECOR\flutter\bin\flutter.bat"
-$ApiBaseUrl = "https://sbox.sana.vn"
+$ApiBaseUrl = "https://sboxhrm.com"
 $pscp = "C:\Program Files\PuTTY\pscp.exe"
 $plink = "C:\Program Files\PuTTY\plink.exe"
 

@@ -83,7 +83,11 @@ public static class PosFinanceSyncHelper
         CancellationToken cancellationToken = default)
     {
         var prefix = $"{SaleMarker}{order.Id}";
+        // .AsTracking(): CancelLinkedCashTransaction ghi IsActive/Status lên cash rồi
+        // SaveChangesAsync ở caller — thiếu tracking thì thu tiền bán hàng vẫn "active"
+        // sau khi hủy đơn, làm sai số dư quỹ.
         var cashList = await db.CashTransactions
+            .AsTracking()
             .Where(c => c.StoreId == order.StoreId && c.Deleted == null && c.IsActive
                 && c.InternalNote != null && c.InternalNote.StartsWith(prefix))
             .ToListAsync(cancellationToken);
@@ -222,6 +226,7 @@ public static class PosFinanceSyncHelper
     {
         var marker = $"{CustomerReturnMarker}{order.Id}|{returnNo}";
         var cashList = await db.CashTransactions
+            .AsTracking()
             .Where(c => c.StoreId == order.StoreId && c.Deleted == null && c.IsActive
                 && c.InternalNote != null && c.InternalNote.StartsWith(marker))
             .ToListAsync(cancellationToken);
@@ -331,12 +336,25 @@ public static class PosFinanceSyncHelper
         await FindActiveCashAsync(db, storeId, marker, ct) != null;
 
     private static async Task<CashTransaction?> FindActiveCashAsync(
-        ZKTecoDbContext db, Guid storeId, string marker, CancellationToken ct) =>
-        await db.CashTransactions
+        ZKTecoDbContext db, Guid storeId, string marker, CancellationToken ct)
+    {
+        // Exact match trước; fallback prefix (marker + "|..." hoặc ghi chú hủy nối thêm).
+        var exact = await db.CashTransactions
             .Where(c => c.StoreId == storeId && c.Deleted == null && c.IsActive
-                && c.InternalNote != null && c.InternalNote.Contains(marker))
+                && c.InternalNote == marker)
             .OrderByDescending(c => c.CreatedAt)
             .FirstOrDefaultAsync(ct);
+        if (exact != null) return exact;
+
+        return await db.CashTransactions
+            .Where(c => c.StoreId == storeId && c.Deleted == null && c.IsActive
+                && c.InternalNote != null
+                && (c.InternalNote.StartsWith(marker + "|")
+                    || c.InternalNote.StartsWith(marker + " ")
+                    || c.InternalNote.StartsWith(marker + "\n")))
+            .OrderByDescending(c => c.CreatedAt)
+            .FirstOrDefaultAsync(ct);
+    }
 
     private static async Task<TransactionCategory?> EnsureCategoryAsync(
         ZKTecoDbContext db,
@@ -377,8 +395,56 @@ public static class PosFinanceSyncHelper
     {
         var prefix = type == CashTransactionType.Income ? "TH" : "CH";
         var dateStr = DateTime.UtcNow.ToString("yyyyMMdd");
-        var count = await db.CashTransactions
-            .CountAsync(x => x.StoreId == storeId && x.TransactionCode.StartsWith($"{prefix}-{dateStr}"), ct) + 1;
-        return $"{prefix}-{dateStr}-{count:D4}";
+        var fullPrefix = $"{prefix}-{dateStr}";
+        var dbCount = await db.CashTransactions
+            .CountAsync(x => x.StoreId == storeId && x.TransactionCode.StartsWith(fullPrefix), ct);
+        // Đơn bán chia nhiều hình thức thanh toán gọi hàm này nhiều lần LIÊN TIẾP trong cùng 1
+        // request, TRƯỚC khi SaveChanges — phải cộng cả các CashTransaction vừa Add (chưa lưu)
+        // để mỗi payment nhận mã khác nhau, tránh trùng mã chắc chắn ngay trong 1 batch.
+        var pendingCount = db.ChangeTracker.Entries<CashTransaction>()
+            .Count(e => e.State == Microsoft.EntityFrameworkCore.EntityState.Added
+                && e.Entity.StoreId == storeId
+                && e.Entity.TransactionCode.StartsWith(fullPrefix));
+        var next = dbCount + pendingCount + 1;
+        return $"{fullPrefix}-{next:D4}";
+    }
+
+    /// <summary>
+    /// GenerateCodeAsync đếm rồi +1 (không lock) — 2 request cùng store tạo phiếu thu/chi gần
+    /// như đồng thời (rất thường gặp khi nhiều máy POS bán hàng cùng lúc) có thể tính ra cùng mã,
+    /// SaveChangesAsync ném DbUpdateException do trùng unique (StoreId, TransactionCode). Gọi hàm
+    /// này trong catch để cấp lại mã mới cho mọi CashTransaction vừa Add trong batch rồi retry.
+    /// </summary>
+    public static async Task RegenerateDuplicateCodesAsync(
+        ZKTecoDbContext db, Guid storeId, CancellationToken ct = default)
+    {
+        var pending = db.ChangeTracker.Entries<CashTransaction>()
+            .Where(e => e.State == Microsoft.EntityFrameworkCore.EntityState.Added &&
+                        e.Entity.StoreId == storeId)
+            .Select(e => e.Entity)
+            .ToList();
+        if (pending.Count == 0) return;
+
+        var dateStr = DateTime.UtcNow.ToString("yyyyMMdd");
+        foreach (var group in pending.GroupBy(c => c.Type))
+        {
+            var prefix = group.Key == CashTransactionType.Income ? "TH" : "CH";
+            var existingCodes = (await db.CashTransactions
+                .Where(x => x.StoreId == storeId && x.TransactionCode.StartsWith($"{prefix}-{dateStr}"))
+                .Select(x => x.TransactionCode)
+                .ToListAsync(ct)).ToHashSet();
+
+            var next = existingCodes.Count + 1;
+            foreach (var cash in group)
+            {
+                string candidate;
+                do
+                {
+                    candidate = $"{prefix}-{dateStr}-{next:D4}";
+                    next++;
+                } while (!existingCodes.Add(candidate));
+                cash.TransactionCode = candidate;
+            }
+        }
     }
 }

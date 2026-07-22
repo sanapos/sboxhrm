@@ -24,6 +24,7 @@ public class AdvanceRequestMappingConfig : IRegister
                         ? src.EmployeeUser.Employee.EmployeeCode 
                         : "")
             .Map(dest => dest.Amount, src => src.Amount)
+            .Map(dest => dest.ApprovedAmount, src => src.ApprovedAmount)
             .Map(dest => dest.Reason, src => src.Reason)
             .Map(dest => dest.RequestDate, src => src.RequestDate)
             .Map(dest => dest.Status, src => src.Status)

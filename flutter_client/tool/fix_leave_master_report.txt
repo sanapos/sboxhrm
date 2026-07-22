@@ -1,0 +1,31 @@
+missing fixes:
+'B?n có ch?c ch?n mu?n hoàn tác tr?ng thái don ngh? phép này v? Ch? duy?t?\nH? t
+'B?n có ch?c ch?n mu?n xóa vinh vi?n don ngh? phép này?\nHành d?ng này kh?ng th?
+'Ca ngh?: theo Thi?t l?p luong. Ngu?i thay ca: cùng phòng ban.'
+'Ti?n trình duy?t: $currentStep/$totalLevels c?p'
+'S? tr? $daysNeeded ngày phép năm. Còn l?i:
+'Không ghi "Phép" trên b?ng chấm công'
+message: 'Vui lòng nh?p lý do t? ch?i'
+'Có · không ghi Phép trên ch?m công'
+'Vui lòng nh?p lý do t? ch?i:'
+hintText: 'Lý do t? ch?i...'
+'Đã hoàn tác tr?ng thái don'
+'Đã t? chối don ngh? phép'
+'Đã duy?t don ngh? phép'
+'Đã h?y don ngh? phép'
+'Đã xóa don ngh? phép'
+'Đã tr? phép nam'
+'Lý do t? ch?i'
+'Phép năm còn:
+'?ã phê duy?t'
+'Đã duy?t'
+'?ã duy?t'
+'Đã h?y'
+'?ã h?y'
+'Lý do'
+
+issues:
+L2796: 'Bạn có chắc chắn muốn hoàn tác trạng thái đơn nghỉ phép này
+L2812: 'Bạn có chắc chắn muốn xóa vĩnh viễn đơn nghỉ phép này?\nHàn
+L2874: 'Sẽ trừ $daysNeeded ngày phép năm. Còn l?i: $balanceRemainin
+L3057: 'Đã h?y'

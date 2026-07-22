@@ -176,7 +176,7 @@ public class FinanceAnalyticsController(
                               where emp == null || emp.StoreId == storeId
                               select new
                               {
-                                  a.Id, a.Amount, a.Status, a.RequestDate, a.ApprovedDate, a.IsPaid, a.PaidDate,
+                                  a.Id, a.Amount, a.ApprovedAmount, a.Status, a.RequestDate, a.ApprovedDate, a.IsPaid, a.PaidDate,
                                   a.ForMonth, a.ForYear,
                                   EmployeeCode = emp != null ? emp.EmployeeCode : "-",
                                   FirstName = emp != null ? emp.FirstName : "",
@@ -187,14 +187,23 @@ public class FinanceAnalyticsController(
             if (!string.IsNullOrWhiteSpace(department))
                 rows = rows.Where(r => (r.Department ?? "").Contains(department, StringComparison.OrdinalIgnoreCase)).ToList();
 
+            // Số tiền thực tế chi / nợ: ưu tiên ApprovedAmount (duyệt thấp hơn
+            // số yêu cầu), fallback Amount cho phiếu cũ chưa có trường này.
+            static decimal Payout(decimal amount, decimal? approved) =>
+                approved ?? amount;
+
             var activeRows = rows
                 .Where(r => r.Status != AdvanceRequestStatus.Rejected && r.Status != AdvanceRequestStatus.Cancelled)
                 .ToList();
 
-            var approvedButUnpaid = activeRows.Where(r => r.Status == AdvanceRequestStatus.Approved && !r.IsPaid).Sum(r => r.Amount);
-            var paid = activeRows.Where(r => r.IsPaid).Sum(r => r.Amount);
-            var pending = activeRows.Where(r => r.Status == AdvanceRequestStatus.Pending).Sum(r => r.Amount);
-            var rejected = rows.Where(r => r.Status == AdvanceRequestStatus.Rejected).Sum(r => r.Amount);
+            var approvedButUnpaid = activeRows.Where(r => r.Status == AdvanceRequestStatus.Approved && !r.IsPaid)
+                .Sum(r => Payout(r.Amount, r.ApprovedAmount));
+            var paid = activeRows.Where(r => r.IsPaid)
+                .Sum(r => Payout(r.Amount, r.ApprovedAmount));
+            var pending = activeRows.Where(r => r.Status == AdvanceRequestStatus.Pending)
+                .Sum(r => r.Amount);
+            var rejected = rows.Where(r => r.Status == AdvanceRequestStatus.Rejected)
+                .Sum(r => r.Amount);
 
             var byEmployee = activeRows
                 .GroupBy(r => new { r.EmployeeCode, r.FirstName, r.LastName, r.Department })
@@ -204,9 +213,12 @@ public class FinanceAnalyticsController(
                     EmployeeName = ReportHelpers.FullName(g.Key.LastName, g.Key.FirstName),
                     Department = g.Key.Department ?? "N/A",
                     TotalRequests = g.Count(),
-                    TotalApproved = g.Where(x => x.Status == AdvanceRequestStatus.Approved).Sum(x => x.Amount),
-                    TotalPaid = g.Where(x => x.IsPaid).Sum(x => x.Amount),
-                    OutstandingDebt = g.Where(x => x.Status == AdvanceRequestStatus.Approved && !x.IsPaid).Sum(x => x.Amount)
+                    TotalApproved = g.Where(x => x.Status == AdvanceRequestStatus.Approved)
+                        .Sum(x => Payout(x.Amount, x.ApprovedAmount)),
+                    TotalPaid = g.Where(x => x.IsPaid)
+                        .Sum(x => Payout(x.Amount, x.ApprovedAmount)),
+                    OutstandingDebt = g.Where(x => x.Status == AdvanceRequestStatus.Approved && !x.IsPaid)
+                        .Sum(x => Payout(x.Amount, x.ApprovedAmount))
                 })
                 .OrderByDescending(i => i.OutstandingDebt)
                 .ToList();

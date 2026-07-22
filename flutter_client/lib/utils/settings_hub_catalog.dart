@@ -165,6 +165,15 @@ class SettingsHubCatalog {
       moduleCode: 'PosProducts',
     ),
     SettingsHubItemDef(
+      index: 16,
+      icon: Icons.storefront_outlined,
+      label: 'Ngành hàng & bán hàng',
+      desc: 'Hồ sơ ngành, bàn/ghế, tính giờ, gói buổi',
+      accent: Color(0xFF0D9488),
+      groupTitle: 'POS / Bán hàng',
+      moduleCode: 'PosSell',
+    ),
+    SettingsHubItemDef(
       index: 11,
       icon: Icons.auto_awesome,
       label: 'Thiết lập AI',

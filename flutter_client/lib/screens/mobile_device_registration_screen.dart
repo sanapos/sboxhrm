@@ -68,12 +68,16 @@ class _MobileDeviceRegistrationScreenState
   @override
   void initState() {
     super.initState();
-    _loadDeviceInfo();
-    _loadRegistrationLocations();
-    _checkRegistrationStatus();
+    _initScreen();
     ScreenRefreshNotifier.mobileDeviceRegistration.addListener(_onExternalRefresh);
     _notificationSubscription =
         SignalRService().onNewNotification.listen(_onRegistrationNotification);
+  }
+
+  Future<void> _initScreen() async {
+    await _loadDeviceInfo();
+    await _loadRegistrationLocations();
+    await _checkRegistrationStatus();
   }
 
   void _onExternalRefresh() {
@@ -366,7 +370,18 @@ class _MobileDeviceRegistrationScreenState
     }
   }
 
+  static bool _parseApiBool(dynamic value) {
+    if (value == null) return false;
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    final s = value.toString().trim().toLowerCase();
+    return s == 'true' || s == '1';
+  }
+
   Future<void> _checkRegistrationStatus() async {
+    if (_deviceId.isEmpty) {
+      await _loadDeviceInfo();
+    }
     setState(() => _status = _RegStatus.loading);
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -382,9 +397,9 @@ class _MobileDeviceRegistrationScreenState
 
       if (response['isSuccess'] == true && response['data'] != null) {
         final data = response['data'];
-        final registered = data['registered'] == true;
-        final approved = data['approved'] == true;
-        final registeredOnOther = data['registeredOnOtherDevice'] == true;
+        final registered = _parseApiBool(data['registered']);
+        final approved = _parseApiBool(data['approved']);
+        final registeredOnOther = _parseApiBool(data['registeredOnOtherDevice']);
 
         if (registeredOnOther) {
           final changeReqResponse =
@@ -520,40 +535,45 @@ class _MobileDeviceRegistrationScreenState
         const SizedBox(height: 10),
         SizedBox(
           height: 100,
-          child: ListView.separated(
+          child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            itemCount: _capturedImages.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 10),
-            itemBuilder: (context, index) {
-              Uint8List? bytes;
-              try {
-                bytes = base64Decode(_capturedImages[index]);
-              } catch (_) {
-                return const SizedBox.shrink();
-              }
-              final label = index < _faceCaptureStepLabels.length
-                  ? _faceCaptureStepLabels[index]
-                  : 'Ảnh ${index + 1}';
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: Image.memory(
-                      bytes,
-                      width: 72,
-                      height: 72,
-                      fit: BoxFit.cover,
-                    ),
+            child: Row(
+              children: List.generate(_capturedImages.length, (index) {
+                Uint8List? bytes;
+                try {
+                  bytes = base64Decode(_capturedImages[index]);
+                } catch (_) {
+                  return const SizedBox.shrink();
+                }
+                final label = index < _faceCaptureStepLabels.length
+                    ? _faceCaptureStepLabels[index]
+                    : 'Ảnh ${index + 1}';
+                return Padding(
+                  padding: EdgeInsets.only(
+                      right: index < _capturedImages.length - 1 ? 10 : 0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Image.memory(
+                          bytes,
+                          width: 72,
+                          height: 72,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        label,
+                        style: const TextStyle(
+                            fontSize: 10, color: Color(0xFF71717A)),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    label,
-                    style: const TextStyle(fontSize: 10, color: Color(0xFF71717A)),
-                  ),
-                ],
-              );
-            },
+                );
+              }),
+            ),
           ),
         ),
       ],

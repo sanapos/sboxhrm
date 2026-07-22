@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../screens/settings_hub_screen.dart';
 import '../utils/navigation_notifier.dart';
 import '../utils/responsive_helper.dart';
+import 'hrm/hrm_settings_mobile_kit.dart';
+import 'pos/pos_theme.dart';
 
 /// Shared layout tokens and helpers for HRM settings sub-pages.
 class HrmPageChrome {
@@ -48,9 +50,15 @@ class HrmPageChrome {
     );
   }
 
-  /// Toolbar shown under hub AppBar (actions only).
-  static Widget embeddedActionBar({required List<Widget> actions}) {
+  /// Toolbar shown under hub AppBar — ẩn trên mobile (action gắn section).
+  static Widget embeddedActionBar({
+    required List<Widget> actions,
+    BuildContext? context,
+  }) {
     if (!isEmbedded || actions.isEmpty) return const SizedBox.shrink();
+    if (context != null && Responsive.isMobile(context)) {
+      return const SizedBox.shrink();
+    }
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -65,7 +73,7 @@ class HrmPageChrome {
     );
   }
 
-  /// Stat cards: row on wide screens, horizontal scroll on narrow.
+  /// Stat cards: lưới đều trên mobile embedded; row / scroll trên màn khác.
   static Widget horizontalStatCards({
     required List<Widget> cards,
     double minCardWidth = 132,
@@ -74,6 +82,22 @@ class HrmPageChrome {
     if (cards.isEmpty) return const SizedBox.shrink();
     return LayoutBuilder(
       builder: (context, constraints) {
+        if (HrmSettingsMobileKit.active(context)) {
+          final cols = cards.length <= 2 ? cards.length : 2;
+          return Wrap(
+            spacing: gap,
+            runSpacing: gap,
+            children: [
+              for (var i = 0; i < cards.length; i++)
+                SizedBox(
+                  width: cols == 1
+                      ? constraints.maxWidth
+                      : (constraints.maxWidth - gap) / cols,
+                  child: cards[i],
+                ),
+            ],
+          );
+        }
         if (constraints.maxWidth < 560) {
           return SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -100,6 +124,10 @@ class HrmPageChrome {
       },
     );
   }
+
+  /// Nền scaffold thống nhất cho màn con HRM.
+  static Color scaffoldBackground(BuildContext context) =>
+      HrmSettingsMobileKit.scaffoldBackground(context);
 
   /// Trên mobile luôn hiển thị bộ lọc (không ẩn sau nút filter).
   static bool inlineFiltersOnMobile(bool legacyToggle) => true;

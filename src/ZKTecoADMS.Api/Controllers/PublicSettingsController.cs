@@ -83,7 +83,19 @@ public class PublicSettingsController : ControllerBase
                 settings.GetValueOrDefault(AppSettingKeys.LandingPricingJson),
                 settings.GetValueOrDefault(AppSettingKeys.LandingGuideJson),
                 settings.GetValueOrDefault(AppSettingKeys.LandingProducts),
-                settings.GetValueOrDefault(AppSettingKeys.LandingDownloadsJson)
+                settings.GetValueOrDefault(AppSettingKeys.LandingDownloadsJson),
+                settings.GetValueOrDefault(AppSettingKeys.LandingFaqJson),
+
+                // SEO / Google
+                settings.GetValueOrDefault(AppSettingKeys.GoogleSiteVerification),
+                settings.GetValueOrDefault(AppSettingKeys.GoogleTagId),
+                settings.GetValueOrDefault(AppSettingKeys.SeoMetaTitle),
+                settings.GetValueOrDefault(AppSettingKeys.SeoMetaDescription),
+                settings.GetValueOrDefault(AppSettingKeys.SeoMetaKeywords),
+                settings.GetValueOrDefault(AppSettingKeys.SeoOgTitle),
+                settings.GetValueOrDefault(AppSettingKeys.SeoOgDescription),
+                settings.GetValueOrDefault(AppSettingKeys.SeoOgImage),
+                settings.GetValueOrDefault(AppSettingKeys.SeoCanonicalUrl)
             );
 
             return Ok(AppResponse<PublicAppSettingsResponse>.Success(response));

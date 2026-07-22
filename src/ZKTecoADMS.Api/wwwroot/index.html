@@ -1,31 +1,34 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <base href="/">
+  <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="IE=Edge">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
 
   <!-- Primary SEO -->
   <title>SBOX HRM – Phần mềm quản lý nhân sự, chấm công &amp; bảng lương</title>
   <meta name="description" content="SBOX HRM – Phần mềm quản lý nhân sự cho doanh nghiệp Việt Nam: chấm công khuôn mặt, ZKTeco, ca làm, bảng lương tự động, báo cáo realtime. Dùng thử miễn phí trên web và Android.">
   <meta name="keywords" content="SBOX HRM, phần mềm nhân sự, quản lý nhân sự, chấm công khuôn mặt, chấm công ZKTeco, bảng lương, quản lý ca, HRM Việt Nam, phần mềm chấm công">
   <meta name="author" content="SBOX HRM">
-  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
-  <meta name="googlebot" content="index, follow">
-  <link rel="canonical" href="https://sbox.sana.vn/">
+  <meta name="robots" content="noindex, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+  <meta name="googlebot" content="noindex, follow">
+  <link rel="canonical" href="https://sboxhrm.com/">
 
   <!-- Google Search Console verification (set GOOGLE_SITE_VERIFICATION in config.js / Docker) -->
   <meta name="google-site-verification" content="__GOOGLE_SITE_VERIFICATION__">
 
   <!-- Open Graph (Facebook, Zalo, LinkedIn) -->
   <meta property="og:type" content="website">
-  <meta property="og:url" content="https://sbox.sana.vn/">
+  <meta property="og:url" content="https://sboxhrm.com/">
   <meta property="og:site_name" content="SBOX HRM">
   <meta property="og:title" content="SBOX HRM – Quản lý nhân sự thông minh">
   <meta property="og:description" content="Chấm công khuôn mặt, quản lý ca, bảng lương tự động – giải pháp HRM toàn diện cho doanh nghiệp Việt Nam.">
-  <meta property="og:image" content="https://sbox.sana.vn/images/landing/mobile/mobile-01-dashboard.png">
+  <meta property="og:image" content="https://sboxhrm.com/images/landing/mobile/mobile-01-dashboard.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta property="og:locale" content="vi_VN">
@@ -34,7 +37,7 @@
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="SBOX HRM – Phần mềm quản lý nhân sự">
   <meta name="twitter:description" content="Chấm công, lương, ca làm việc – một nền tảng HRM duy nhất.">
-  <meta name="twitter:image" content="https://sbox.sana.vn/images/landing/mobile/mobile-01-dashboard.png">
+  <meta name="twitter:image" content="https://sboxhrm.com/images/landing/mobile/mobile-01-dashboard.png">
 
   <!-- PWA & icons -->
   <meta name="mobile-web-app-capable" content="yes">
@@ -49,6 +52,11 @@
   <!-- Runtime config -->
   <meta name="api-base-url" content="__API_BASE_URL__">
 
+  <!-- Vietnamese UI fallback when CanvasKit font atlas is not ready -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700&family=Noto+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
   <!-- Structured Data (JSON-LD) – Google rich results -->
   <script type="application/ld+json">
   {
@@ -56,19 +64,19 @@
     "@graph": [
       {
         "@type": "WebSite",
-        "@id": "https://sbox.sana.vn/#website",
-        "url": "https://sbox.sana.vn/",
+        "@id": "https://sboxhrm.com/#website",
+        "url": "https://sboxhrm.com/",
         "name": "SBOX HRM",
         "description": "Phần mềm quản lý nhân sự – chấm công, lương, ca làm việc",
         "inLanguage": "vi-VN",
-        "publisher": { "@id": "https://sbox.sana.vn/#organization" }
+        "publisher": { "@id": "https://sboxhrm.com/#organization" }
       },
       {
         "@type": "Organization",
-        "@id": "https://sbox.sana.vn/#organization",
+        "@id": "https://sboxhrm.com/#organization",
         "name": "SBOX HRM",
-        "url": "https://sbox.sana.vn/",
-        "logo": "https://sbox.sana.vn/icons/Icon-512.png",
+        "url": "https://sboxhrm.com/",
+        "logo": "https://sboxhrm.com/icons/Icon-512.png",
         "email": "support@sboxhrm.com",
         "telephone": "+84-935-364-556",
         "address": {
@@ -91,21 +99,46 @@
           "description": "Dùng thử miễn phí"
         },
         "description": "Phần mềm quản lý nhân sự: chấm công khuôn mặt, ZKTeco ADMS, ca làm, bảng lương, phê duyệt đơn từ, báo cáo realtime.",
-        "screenshot": "https://sbox.sana.vn/images/landing/mobile/mobile-01-dashboard.png",
+        "screenshot": "https://sboxhrm.com/images/landing/mobile/mobile-01-dashboard.png",
         "downloadUrl": "https://play.google.com/store/apps/details?id=sbox.sana.vn",
-        "url": "https://sbox.sana.vn/"
+        "url": "https://sboxhrm.com/"
       }
     ]
   }
   </script>
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700&family=Noto+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-
   <style>
+    /* Map Flutter family "BeVietnamPro" → bundled TTF (CanvasKit + HTML) */
+    @font-face {
+      font-family: 'BeVietnamPro';
+      src: url('assets/assets/fonts/BeVietnamPro-Regular.ttf') format('truetype');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'BeVietnamPro';
+      src: url('assets/assets/fonts/BeVietnamPro-Medium.ttf') format('truetype');
+      font-weight: 500;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'BeVietnamPro';
+      src: url('assets/assets/fonts/BeVietnamPro-SemiBold.ttf') format('truetype');
+      font-weight: 600;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'BeVietnamPro';
+      src: url('assets/assets/fonts/BeVietnamPro-Bold.ttf') format('truetype');
+      font-weight: 700;
+      font-style: normal;
+      font-display: swap;
+    }
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #1E3A5F; font-family: 'Be Vietnam Pro', 'Segoe UI', Arial, sans-serif; }
+    body { background: #1E3A5F; font-family: 'BeVietnamPro', 'Be Vietnam Pro', 'Noto Sans', 'Segoe UI', Arial, sans-serif; }
 
     /* Splash loading */
     #splash {
@@ -156,7 +189,7 @@
     <h2>Dùng thử miễn phí</h2>
     <p>
       Tải app trên <a href="https://play.google.com/store/apps/details?id=sbox.sana.vn">Google Play</a>
-      hoặc truy cập <a href="https://sbox.sana.vn/">sbox.sana.vn</a> trên trình duyệt.
+      hoặc truy cập <a href="https://sboxhrm.com/">sboxhrm.com</a> trên trình duyệt.
       Hotline hỗ trợ kỹ thuật: <a href="tel:+84973024042">0973 024 042</a> · Zalo: <a href="https://zalo.me/0973024042">0973 024 042</a> · Email: <a href="mailto:support@sboxhrm.com">support@sboxhrm.com</a>
     </p>
     <p><a href="/privacy-policy.html">Chính sách quyền riêng tư</a></p>
@@ -175,27 +208,127 @@
 
   <script src="config.js"></script>
   <script>
-    // Google Search Console – bỏ meta nếu chưa cấu hình
+    // Lưu deep link trước Flutter bootstrap (hash có thể bị xóa sau khi app load).
     (function () {
-      var v = window.GOOGLE_SITE_VERIFICATION || '';
-      var meta = document.querySelector('meta[name="google-site-verification"]');
-      if (meta && (!v || v.indexOf('__') === 0)) meta.remove();
-      else if (meta && v) meta.setAttribute('content', v);
-    })();
+      var path = (location.pathname || '').replace(/\/+$/, '') || '/';
+      try {
+        if (path === '/login-app') {
+          sessionStorage.setItem('sbox_route', 'login');
+          return;
+        }
+        if (path === '/forgot-password') {
+          sessionStorage.setItem('sbox_route', 'forgot-password');
+          return;
+        }
+        if (path === '/register') {
+          sessionStorage.setItem('sbox_route', 'register');
+          var qs = new URLSearchParams(location.search || '');
+          var ac = qs.get('agentCode') || qs.get('agent') || qs.get('ref');
+          if (ac) sessionStorage.setItem('sbox_agent_code', ac);
+          return;
+        }
+      } catch (e) {}
 
-    // Google Analytics 4 / Google Ads (gtag.js)
+      var hash = (location.hash || '').replace(/^#\/?/, '');
+      if (!hash) return;
+      if (hash === 'login-app' || hash === 'login' || hash.indexOf('login-app?') === 0) {
+        try { sessionStorage.setItem('sbox_route', 'login'); } catch (e) {}
+      } else if (hash === 'forgot-password' || hash.indexOf('forgot-password?') === 0) {
+        try { sessionStorage.setItem('sbox_route', 'forgot-password'); } catch (e) {}
+      } else if (hash === 'register' || hash.indexOf('register?') === 0) {
+        try { sessionStorage.setItem('sbox_route', 'register'); } catch (e) {}
+        var qi = hash.indexOf('?');
+        if (qi >= 0) {
+          try {
+            var sp = new URLSearchParams(hash.slice(qi + 1));
+            var ac2 = sp.get('agentCode') || sp.get('agent') || sp.get('ref');
+            if (ac2) sessionStorage.setItem('sbox_agent_code', ac2);
+          } catch (e) {}
+        }
+      } else if (hash.indexOf('agent-register/') === 0) {
+        try {
+          sessionStorage.setItem('sbox_route', 'agent-register');
+          sessionStorage.setItem('sbox_agent_token', hash.replace(/^agent-register\//, '').split('?')[0]);
+        } catch (e) {}
+      }
+    })();
+  </script>
+  <script>
+    // Deep link hướng dẫn: hash cũ → query (Zalo/messenger thường cắt phần sau #)
     (function () {
-      var id = window.GOOGLE_TAG_ID || '';
-      if (!id || id.indexOf('__') === 0) return;
-      var s = document.createElement('script');
-      s.async = true;
-      s.src = 'https://www.googletagmanager.com/gtag/js?id=' + encodeURIComponent(id);
-      document.head.appendChild(s);
-      window.dataLayer = window.dataLayer || [];
-      function gtag() { dataLayer.push(arguments); }
-      window.gtag = gtag;
-      gtag('js', new Date());
-      gtag('config', id, { send_page_view: true });
+      var hash = (location.hash || '').replace(/^#\/?/, '');
+      var hm = /^guide\/(basic|advanced)\/([a-z0-9_]+)$/.exec(hash);
+      if (hm) {
+        location.replace('/?guide=' + encodeURIComponent(hm[1]) + '&step=' + encodeURIComponent(hm[2]));
+        return;
+      }
+      // Ẩn SEO tĩnh ngay khi vào link đăng ký (tránh flash landing SEO trước Flutter)
+      if (hash === 'register' || hash.indexOf('register?') === 0) {
+        var seo = document.getElementById('seo-prerender');
+        if (seo) seo.classList.add('seo-hidden');
+      }
+    })();
+  </script>
+  <script>
+    // Google Search Console + Analytics:
+    // ưu tiên config.js (Docker), fallback từ SuperAdmin /api/publicsettings
+    (function () {
+      function applyGoogle(v, id) {
+        var meta = document.querySelector('meta[name="google-site-verification"]');
+        if (meta) {
+          if (!v || String(v).indexOf('__') === 0) meta.remove();
+          else meta.setAttribute('content', v);
+        }
+        if (!id || String(id).indexOf('__') === 0 || window.__sboxGtagLoaded) return;
+        window.__sboxGtagLoaded = true;
+        var s = document.createElement('script');
+        s.async = true;
+        s.src = 'https://www.googletagmanager.com/gtag/js?id=' + encodeURIComponent(id);
+        document.head.appendChild(s);
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        window.gtag = gtag;
+        gtag('js', new Date());
+        gtag('config', id, { send_page_view: true });
+      }
+
+      var cfgV = window.GOOGLE_SITE_VERIFICATION || '';
+      var cfgId = window.GOOGLE_TAG_ID || '';
+      var needFetch =
+        (!cfgV || String(cfgV).indexOf('__') === 0) ||
+        (!cfgId || String(cfgId).indexOf('__') === 0);
+
+      if (!needFetch) {
+        applyGoogle(cfgV, cfgId);
+        return;
+      }
+
+      // Áp dụng phần đã có từ config, rồi bổ sung từ CMS
+      applyGoogle(
+        (cfgV && String(cfgV).indexOf('__') !== 0) ? cfgV : '',
+        (cfgId && String(cfgId).indexOf('__') !== 0) ? cfgId : ''
+      );
+
+      fetch('/api/publicsettings', { headers: { 'Accept': 'application/json' } })
+        .then(function (r) { return r.json(); })
+        .then(function (json) {
+          var data = (json && (json.data || json.Data)) || json || {};
+          var v = data.googleSiteVerification || data.GoogleSiteVerification || '';
+          var id = data.googleTagId || data.GoogleTagId || '';
+          if ((!cfgV || String(cfgV).indexOf('__') === 0) && v) {
+            var meta = document.querySelector('meta[name="google-site-verification"]');
+            if (!meta) {
+              meta = document.createElement('meta');
+              meta.setAttribute('name', 'google-site-verification');
+              document.head.appendChild(meta);
+            }
+            meta.setAttribute('content', v);
+          }
+          if ((!cfgId || String(cfgId).indexOf('__') === 0) && id) {
+            applyGoogle('', id);
+          }
+        })
+        .catch(function () {});
     })();
 
     // Ẩn splash + thu gọn SEO prerender sau khi Flutter render
@@ -206,6 +339,39 @@
       if (seo) seo.classList.add('seo-hidden');
     });
   </script>
-  <script src="flutter_bootstrap.js" async></script>
+  <!-- Xóa cache trình duyệt (SW + Cache API) rồi mới tải app — tránh Ctrl+F5 vẫn bản cũ. -->
+  <script>
+    (function () {
+      async function clearWebCaches() {
+        if ('serviceWorker' in navigator) {
+          var regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map(function (r) { return r.unregister(); }));
+        }
+        if ('caches' in window) {
+          var keys = await caches.keys();
+          await Promise.all(keys.map(function (k) { return caches.delete(k); }));
+        }
+      }
+      function loadBootstrap() {
+        var bust = Date.now();
+        fetch('version.json?_=' + bust, { cache: 'no-store' })
+          .then(function (r) { return r.ok ? r.json() : {}; })
+          .then(function (v) {
+            if (v && v.build_number) bust = v.build_number;
+            var s = document.createElement('script');
+            s.src = 'flutter_bootstrap.js?v=' + encodeURIComponent(bust);
+            s.async = true;
+            document.body.appendChild(s);
+          })
+          .catch(function () {
+            var s = document.createElement('script');
+            s.src = 'flutter_bootstrap.js?v=' + bust;
+            s.async = true;
+            document.body.appendChild(s);
+          });
+      }
+      clearWebCaches().then(loadBootstrap).catch(loadBootstrap);
+    })();
+  </script>
 </body>
 </html>

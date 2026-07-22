@@ -1435,6 +1435,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     final int punchIndex = record.punchTimes.length + 1;
     final reasonController =
         TextEditingController(text: initialReason ?? '');
+    final canFine = Provider.of<PermissionProvider>(context, listen: false)
+        .canCreate('PenaltyTickets');
 
     showDialog(
       context: context,
@@ -1585,6 +1587,60 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+            if (canFine)
+              OutlinedButton.icon(
+                icon: const Icon(Icons.gavel, size: 16, color: Colors.orange),
+                label: const Text('Thêm công và phạt',
+                    style: TextStyle(color: Colors.orange)),
+                style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.orange)),
+                onPressed: () async {
+                  if (reasonController.text.trim().isEmpty) {
+                    NotificationOverlayManager().showError(
+                        title: 'Lỗi', message: 'Vui lòng nhập lý do');
+                    return;
+                  }
+                  final timeStr =
+                      '${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}';
+                  final api = ApiService();
+                  final result = await api.createAttendanceCorrection(
+                    action: 0,
+                    pin: record.employeeCode,
+                    employeeName: record.employeeName,
+                    employeeCode: record.employeeCode,
+                    newDate: DateTime(
+                      selectedDate.year,
+                      selectedDate.month,
+                      selectedDate.day,
+                    ),
+                    newTime: '$timeStr:00',
+                    newType: resolvedIsIn ? 'CheckIn' : 'CheckOut',
+                    reason: reasonController.text.trim(),
+                  );
+                  if (ctx.mounted) Navigator.pop(ctx);
+                  if (result['isSuccess'] != true) {
+                    if (mounted) {
+                      NotificationOverlayManager().showError(
+                          title: 'Lỗi',
+                          message: attendanceCorrectionErrorMessage(result));
+                    }
+                    return;
+                  }
+                  _notifyDataChanged();
+                  final fined = await _createForgotCheckPenaltyTicket(
+                    employeeCode: record.employeeCode,
+                    employeeName: record.employeeName,
+                    violationDate: selectedDate,
+                  );
+                  if (mounted) {
+                    NotificationOverlayManager().showSuccess(
+                        title: 'Thành công',
+                        message: fined
+                            ? 'Đã bổ sung chấm công và tạo phiếu phạt quên chấm công'
+                            : 'Đã bổ sung chấm công (chưa tạo được phiếu phạt)');
+                  }
+                },
+              ),
             FilledButton.icon(
               icon: const Icon(Icons.send),
               label: const Text('Xác nhận'),
@@ -1639,6 +1695,68 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         ),
       ),
     );
+  }
+
+  /// Tạo phiếu phạt "Quên chấm công" theo mức phạt trong Thiết lập phạt, cho
+  /// nhân viên [employeeCode] vào ngày [violationDate]. Dùng cho nút "Thêm
+  /// công và phạt" khi bổ sung chấm công thủ công. Trả về `true` nếu tạo
+  /// (và duyệt, nếu có quyền) thành công.
+  Future<bool> _createForgotCheckPenaltyTicket({
+    required String employeeCode,
+    required String employeeName,
+    required DateTime violationDate,
+  }) async {
+    try {
+      final employeeId = _employeeCodeToGuid[employeeCode];
+      if (employeeId == null || employeeId.isEmpty) {
+        NotificationOverlayManager().showWarning(
+            title: 'Không tạo được phiếu phạt',
+            message:
+                'Không xác định được hồ sơ nhân viên để tạo phiếu phạt');
+        return false;
+      }
+
+      final api = ApiService();
+      final settingsResult = await api.getPenaltySettings();
+      final amount = double.tryParse(
+              (settingsResult['data']?['forgotCheckPenalty'] ?? 0)
+                  .toString()) ??
+          0;
+      if (amount <= 0) {
+        NotificationOverlayManager().showWarning(
+            title: 'Không tạo được phiếu phạt',
+            message: 'Mức phạt "Quên chấm công" chưa được cấu hình (0đ). '
+                'Vui lòng vào Thiết lập phạt để cài đặt.');
+        return false;
+      }
+
+      final createResult = await api.createPenaltyTicket({
+        'employeeId': employeeId,
+        'type': 'ForgotCheck',
+        'amount': amount,
+        'violationDate': violationDate.toIso8601String(),
+        'description': 'Quên chấm công - bổ sung chấm công thủ công ($employeeName)',
+      });
+      if (createResult['isSuccess'] != true) {
+        NotificationOverlayManager().showWarning(
+            title: 'Không tạo được phiếu phạt',
+            message: createResult['message'] ?? 'Có lỗi xảy ra');
+        return false;
+      }
+
+      final ticketId = createResult['data']?['id']?.toString();
+      final canApprovePenalty = mounted &&
+          Provider.of<PermissionProvider>(context, listen: false)
+              .canApprove('PenaltyTickets');
+      if (ticketId != null && canApprovePenalty) {
+        await api.approvePenaltyTicket(ticketId);
+      }
+      return true;
+    } catch (e) {
+      NotificationOverlayManager()
+          .showWarning(title: 'Không tạo được phiếu phạt', message: e.toString());
+      return false;
+    }
   }
 
   /// Summary totals bar

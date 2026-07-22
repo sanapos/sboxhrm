@@ -96,14 +96,36 @@ class Attendance {
   static const int travelStartState = 6;
   static const int travelArriveState = 7;
 
+  /// Chấm nghỉ giữa ca / tăng ca trưa (máy ZKTeco MealIn/Out, BreakIn/Out).
+  static const int mealInState = 2;
+  static const int mealOutState = 3;
+  static const int breakInState = 4;
+  static const int breakOutState = 5;
+
   static bool isTravelAttendanceState(int state) =>
       state == travelStartState || state == travelArriveState;
 
+  static bool isLunchBreakMarkerState(int state) =>
+      state == mealInState ||
+      state == mealOutState ||
+      state == breakInState ||
+      state == breakOutState;
+
   bool get isTravelPunch => isTravelAttendanceState(attendanceState);
+
+  bool get isLunchBreakMarker => isLunchBreakMarkerState(attendanceState);
 
   /// Loại bỏ chấm đi đường khi tính giờ ca / ghép Vào-Ra.
   static List<Attendance> withoutTravel(List<Attendance> list) =>
       list.where((a) => !a.isTravelPunch).toList();
+
+  /// Loại bỏ chấm nghỉ giữa ca khi ghép Vào-Ra chính.
+  static List<Attendance> withoutLunchBreakMarkers(List<Attendance> list) =>
+      list.where((a) => !a.isLunchBreakMarker).toList();
+
+  /// Ghép ca chính: bỏ đi đường và marker nghỉ trưa.
+  static List<Attendance> forMainShiftPairing(List<Attendance> list) =>
+      withoutLunchBreakMarkers(withoutTravel(list));
 
   String get privilegeText => privilegeLabel(privilege);
 

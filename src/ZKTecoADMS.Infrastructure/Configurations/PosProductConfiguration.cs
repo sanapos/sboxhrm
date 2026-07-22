@@ -76,6 +76,65 @@ public class PosProductConfiguration : IEntityTypeConfiguration<PosProduct>
     }
 }
 
+public class PosProductToppingOptionConfiguration : IEntityTypeConfiguration<PosProductToppingOption>
+{
+    public void Configure(EntityTypeBuilder<PosProductToppingOption> builder)
+    {
+        builder.ToTable("PosProductToppingOptions");
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.ExtraPrice).HasPrecision(18, 2);
+        builder.HasIndex(x => new { x.StoreId, x.ProductId, x.ToppingProductId });
+        builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(x => x.Product).WithMany(x => x.ToppingOptions).HasForeignKey(x => x.ProductId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(x => x.ToppingProduct).WithMany().HasForeignKey(x => x.ToppingProductId)
+            .OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+public class PosToppingGroupConfiguration : IEntityTypeConfiguration<PosToppingGroup>
+{
+    public void Configure(EntityTypeBuilder<PosToppingGroup> builder)
+    {
+        builder.ToTable("PosToppingGroups");
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.Name).IsRequired().HasMaxLength(200);
+        builder.HasIndex(x => new { x.StoreId, x.Name });
+        builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+public class PosToppingGroupItemConfiguration : IEntityTypeConfiguration<PosToppingGroupItem>
+{
+    public void Configure(EntityTypeBuilder<PosToppingGroupItem> builder)
+    {
+        builder.ToTable("PosToppingGroupItems");
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.ExtraPrice).HasPrecision(18, 2);
+        builder.HasIndex(x => new { x.StoreId, x.GroupId, x.ToppingProductId });
+        builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(x => x.Group).WithMany(x => x.Items).HasForeignKey(x => x.GroupId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(x => x.ToppingProduct).WithMany().HasForeignKey(x => x.ToppingProductId)
+            .OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+public class PosProductToppingGroupLinkConfiguration : IEntityTypeConfiguration<PosProductToppingGroupLink>
+{
+    public void Configure(EntityTypeBuilder<PosProductToppingGroupLink> builder)
+    {
+        builder.ToTable("PosProductToppingGroupLinks");
+        builder.HasKey(x => x.Id);
+        builder.HasIndex(x => new { x.StoreId, x.ProductId, x.GroupId }).IsUnique();
+        builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(x => x.Product).WithMany(x => x.ToppingGroupLinks).HasForeignKey(x => x.ProductId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(x => x.Group).WithMany(x => x.ProductLinks).HasForeignKey(x => x.GroupId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
 public class PosProductUnitConfiguration : IEntityTypeConfiguration<PosProductUnit>
 {
     public void Configure(EntityTypeBuilder<PosProductUnit> builder)
@@ -217,6 +276,7 @@ public class PosSaleOrderConfiguration : IEntityTypeConfiguration<PosSaleOrder>
         builder.Property(x => x.SubTotal).HasPrecision(18, 2);
         builder.Property(x => x.Discount).HasPrecision(18, 2);
         builder.Property(x => x.Total).HasPrecision(18, 2);
+        builder.Property(x => x.VatAmount).HasPrecision(18, 2);
         builder.Property(x => x.PaidAmount).HasPrecision(18, 2);
         builder.Property(x => x.PaymentMethod).HasMaxLength(50);
         builder.Property(x => x.CustomerName).HasMaxLength(200);
@@ -237,8 +297,24 @@ public class PosSaleOrderConfiguration : IEntityTypeConfiguration<PosSaleOrder>
         builder.Property(x => x.PointsEarned).HasPrecision(18, 2);
         builder.HasOne(x => x.PriceList).WithMany().HasForeignKey(x => x.PriceListId).OnDelete(DeleteBehavior.SetNull);
         builder.HasOne(x => x.Voucher).WithMany().HasForeignKey(x => x.VoucherId).OnDelete(DeleteBehavior.SetNull);
-        builder.HasIndex(x => new { x.StoreId, x.OrderNo }).IsUnique();
+        builder.HasOne(x => x.ServiceResource).WithMany().HasForeignKey(x => x.ServiceResourceId)
+            .OnDelete(DeleteBehavior.SetNull);
+        builder.HasOne(x => x.ResourceSession).WithMany().HasForeignKey(x => x.ResourceSessionId)
+            .OnDelete(DeleteBehavior.SetNull);
+        builder.Property(x => x.LockVersion).HasDefaultValue(0);
+        builder.Property(x => x.LockedByDisplayName).HasMaxLength(200);
+        builder.Property(x => x.LockedByDeviceId).HasMaxLength(80);
+        builder.Property(x => x.LockedByDeviceName).HasMaxLength(120);
+        builder.HasIndex(x => new { x.StoreId, x.LockExpiresAt });
+        // Partial unique: chỉ áp uniqueness cho các đơn còn sống (Deleted IS NULL).
+        // Slot tạm TMP{nn} được tái sử dụng sau khi đơn cũ bị soft-delete — index full-table
+        // cũ khiến việc tạo lại slot va message trùng OrderNo với bản ghi đã xóa từ trước
+        // (VD TMP02 xóa ngày 18/7 chặn mọi lần EnsureInvoiceSlotsAsync tái tạo slot 2 sau đó).
+        builder.HasIndex(x => new { x.StoreId, x.OrderNo })
+            .IsUnique()
+            .HasFilter("\"Deleted\" IS NULL");
         builder.HasIndex(x => new { x.StoreId, x.Status, x.CreatedAt });
+        builder.HasIndex(x => new { x.StoreId, x.InvoiceSlot });
         builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne(x => x.Customer).WithMany(x => x.SaleOrders).HasForeignKey(x => x.CustomerId).OnDelete(DeleteBehavior.SetNull);
     }

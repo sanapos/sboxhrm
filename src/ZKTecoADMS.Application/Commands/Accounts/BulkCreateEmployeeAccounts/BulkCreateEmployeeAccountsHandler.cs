@@ -11,7 +11,8 @@ namespace ZKTecoADMS.Application.Commands.Accounts.BulkCreateEmployeeAccounts;
 public class BulkCreateEmployeeAccountsHandler(
     UserManager<ApplicationUser> userManager,
     IRepository<Employee> employeeRepository,
-    ISystemNotificationService notificationService
+    ISystemNotificationService notificationService,
+    IStoreLicenseLimitService storeLicenseLimitService
 ) : ICommandHandler<BulkCreateEmployeeAccountsCommand, AppResponse<BulkCreateEmployeeAccountsResult>>
 {
     public async Task<AppResponse<BulkCreateEmployeeAccountsResult>> Handle(
@@ -51,6 +52,12 @@ public class BulkCreateEmployeeAccountsHandler(
         {
             return AppResponse<BulkCreateEmployeeAccountsResult>.Error(
                 "Bạn không có quyền tạo tài khoản.");
+        }
+
+        if (!manager.StoreId.HasValue)
+        {
+            return AppResponse<BulkCreateEmployeeAccountsResult>.Error(
+                "Quản lý chưa thuộc cửa hàng.");
         }
 
         var employees = await employeeRepository.GetAllAsync(
@@ -102,6 +109,18 @@ public class BulkCreateEmployeeAccountsHandler(
                 continue;
             }
 
+            var limitCheck = await storeLicenseLimitService.CanAddUserAsync(
+                manager.StoreId.Value, cancellationToken);
+            if (!limitCheck.Ok)
+            {
+                item.Success = false;
+                item.Message = limitCheck.Error
+                    ?? "Cửa hàng đã đạt giới hạn tài khoản theo gói dịch vụ";
+                result.Failed++;
+                result.Items.Add(item);
+                continue;
+            }
+
             var contacts = await ResolveLoginContactsAsync(employee, manager.StoreId);
             if (contacts.Error != null)
             {
@@ -128,7 +147,8 @@ public class BulkCreateEmployeeAccountsHandler(
                 PhoneNumberConfirmed = true,
                 ManagerId = request.ManagerId,
                 StoreId = manager.StoreId,
-                Role = roleName
+                Role = roleName,
+                IsActive = true
             };
             UserPasswordVisibility.RememberPassword(newUser, request.Password);
 

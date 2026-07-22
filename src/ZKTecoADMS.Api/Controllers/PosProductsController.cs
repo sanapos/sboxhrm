@@ -65,7 +65,36 @@ public partial class PosProductsController(
         int? WarrantyMonths = null,
         bool RequiresSerial = false,
         bool TrackExpiry = false,
-        int ExpiryWarningDays = 30);
+        int ExpiryWarningDays = 30,
+        string ServiceBillingMode = "Flat",
+        int? MinBillMinutes = null,
+        int? BillRoundMinutes = null,
+        int? DefaultDurationMinutes = null,
+        int SessionPackCount = 0,
+        bool IsTopping = false,
+        bool AllowToppings = false,
+        bool AutoOpenToppingPopup = true,
+        List<PosProductToppingOptionDto>? ToppingOptions = null,
+        List<Guid>? ToppingGroupIds = null,
+        List<PosProductToppingGroupDto>? ToppingGroups = null);
+
+    public record PosProductToppingGroupDto(
+        Guid Id,
+        string Name,
+        int SortOrder,
+        List<PosProductToppingOptionDto> Items);
+
+    public record PosProductToppingOptionDto(
+        Guid Id,
+        Guid ToppingProductId,
+        string ToppingName,
+        decimal ExtraPrice,
+        int SortOrder);
+
+    public record PosProductToppingInput(
+        Guid ToppingProductId,
+        decimal? ExtraPrice = null,
+        int SortOrder = 0);
 
     public record PosProductUnitDto(
         Guid Id, string UnitName, decimal ConversionRate,
@@ -104,7 +133,17 @@ public partial class PosProductsController(
         int? WarrantyMonths = null,
         bool RequiresSerial = false,
         bool TrackExpiry = false,
-        int ExpiryWarningDays = 30);
+        int ExpiryWarningDays = 30,
+        PosServiceBillingMode ServiceBillingMode = PosServiceBillingMode.Flat,
+        int? MinBillMinutes = null,
+        int? BillRoundMinutes = null,
+        int? DefaultDurationMinutes = null,
+        int SessionPackCount = 0,
+        bool IsTopping = false,
+        bool AllowToppings = false,
+        bool AutoOpenToppingPopup = true,
+        List<PosProductToppingInput>? Toppings = null,
+        List<Guid>? ToppingGroupIds = null);
 
     public record PosProductAttributeInput(Guid? AttributeId, string? AttributeName, string Value);
 
@@ -250,6 +289,9 @@ public partial class PosProductsController(
                 p.IsFavorite,
                 p.IsActive,
                 p.SaleQuickNotesJson,
+                p.IsTopping,
+                p.AllowToppings,
+                p.AutoOpenToppingPopup,
                 p.CreatedAt,
                 p.UpdatedAt,
             })
@@ -263,12 +305,36 @@ public partial class PosProductsController(
             .Select(g => new { ProductId = g.Key, VariantCount = g.Count() })
             .ToDictionaryAsync(x => x.ProductId, x => x.VariantCount);
 
+        var toppingByProduct = await dbContext.PosProductToppingOptions
+            .AsNoTracking()
+            .Include(t => t.ToppingProduct)
+            .Where(t => rows.Select(r => r.Id).Contains(t.ProductId)
+                && t.StoreId == storeId && t.Deleted == null && t.IsActive)
+            .OrderBy(t => t.SortOrder)
+            .ToListAsync();
+        var toppingMap = toppingByProduct
+            .GroupBy(t => t.ProductId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(t => new PosProductToppingOptionDto(
+                    t.Id,
+                    t.ToppingProductId,
+                    t.ToppingProduct != null ? t.ToppingProduct.Name : "",
+                    t.ExtraPrice ?? (t.ToppingProduct != null ? t.ToppingProduct.BasePrice : 0),
+                    t.SortOrder)).ToList());
+
+        var (groupIdsMap, groupsMap) = await LoadToppingGroupsForProductsAsync(
+            storeId, rows.Select(r => r.Id));
+
         var items = rows.Select(r =>
         {
             metrics.TryGetValue(r.Id, out var m);
             var avg = m.AvgDaily;
             var stockout = ComputeStockoutDate(r.OnHandQty, avg);
             variantCounts.TryGetValue(r.Id, out var variantCount);
+            toppingMap.TryGetValue(r.Id, out var toppingOpts);
+            groupIdsMap.TryGetValue(r.Id, out var groupIds);
+            groupsMap.TryGetValue(r.Id, out var toppingGroups);
             return new PosProductDto(
                 r.Id, r.ProductCode, r.Barcode, r.Name,
                 r.CategoryId, r.CategoryName, r.CategoryName,
@@ -282,7 +348,13 @@ public partial class PosProductsController(
                 avg > 0 ? avg : null, stockout,
                 null, null,
                 PosSaleQuickNotesHelper.Parse(r.SaleQuickNotesJson),
-                r.CreatedAt, r.UpdatedAt);
+                r.CreatedAt, r.UpdatedAt,
+                IsTopping: r.IsTopping,
+                AllowToppings: r.AllowToppings,
+                AutoOpenToppingPopup: r.AutoOpenToppingPopup,
+                ToppingOptions: toppingOpts,
+                ToppingGroupIds: groupIds,
+                ToppingGroups: toppingGroups);
         }).ToList();
 
         if (stockoutFilter != PosStockoutFilter.All)
@@ -463,7 +535,7 @@ public partial class PosProductsController(
 
         var code = dto.ProductCode?.Trim();
         if (string.IsNullOrEmpty(code))
-            code = await GenerateProductCodeAsync(storeId);
+            code = await GenerateProductCodeAsync(storeId, dto.ProductType);
         else if (await dbContext.PosProducts.AnyAsync(p =>
                      p.StoreId == storeId && p.ProductCode == code && p.Deleted == null))
             return BadRequest(AppResponse<PosProductDto>.Fail("Mã hàng đã tồn tại"));
@@ -494,12 +566,23 @@ public partial class PosProductsController(
             BaseUnitName = string.IsNullOrWhiteSpace(dto.BaseUnitName) ? "Cái" : dto.BaseUnitName.Trim(),
             IsDirectSale = dto.IsDirectSale,
             IsFavorite = dto.IsFavorite,
+            SortOrder = await NextProductSortOrderAsync(storeId, dto.CategoryId),
             SaleQuickNotesJson = PosSaleQuickNotesHelper.Serialize(dto.SaleQuickNotes),
             DefaultPrinterId = await ResolvePrinterIdAsync(storeId, dto.DefaultPrinterId),
             WarrantyMonths = dto.WarrantyMonths > 0 ? dto.WarrantyMonths : null,
             RequiresSerial = dto.RequiresSerial,
             TrackExpiry = dto.TrackExpiry,
             ExpiryWarningDays = dto.ExpiryWarningDays > 0 ? dto.ExpiryWarningDays : 30,
+            ServiceBillingMode = dto.ProductType == PosProductType.Service
+                ? dto.ServiceBillingMode
+                : PosServiceBillingMode.Flat,
+            MinBillMinutes = dto.MinBillMinutes,
+            BillRoundMinutes = dto.BillRoundMinutes,
+            DefaultDurationMinutes = dto.DefaultDurationMinutes,
+            SessionPackCount = Math.Max(0, dto.SessionPackCount),
+            IsTopping = dto.IsTopping,
+            AllowToppings = dto.AllowToppings && !dto.IsTopping,
+            AutoOpenToppingPopup = dto.AutoOpenToppingPopup,
             IsActive = true,
             CreatedBy = CurrentUserEmail,
         };
@@ -513,6 +596,8 @@ public partial class PosProductsController(
 
         await EnsureBaseUnitAsync(entity);
         await SyncAttributesAsync(storeId, entity.Id, dto.Attributes);
+        await SyncToppingsAsync(storeId, entity.Id, dto.AllowToppings && !dto.IsTopping, dto.Toppings);
+        await SyncToppingGroupsAsync(storeId, entity.Id, dto.ToppingGroupIds);
         var result = await MapProductAsync(entity.Id, storeId);
         return Ok(AppResponse<PosProductDto>.Success(result!));
     }
@@ -598,6 +683,16 @@ public partial class PosProductsController(
         entity.RequiresSerial = dto.RequiresSerial;
         entity.TrackExpiry = dto.TrackExpiry;
         entity.ExpiryWarningDays = dto.ExpiryWarningDays > 0 ? dto.ExpiryWarningDays : 30;
+        entity.ServiceBillingMode = dto.ProductType == PosProductType.Service
+            ? dto.ServiceBillingMode
+            : PosServiceBillingMode.Flat;
+        entity.MinBillMinutes = dto.MinBillMinutes;
+        entity.BillRoundMinutes = dto.BillRoundMinutes;
+        entity.DefaultDurationMinutes = dto.DefaultDurationMinutes;
+        entity.SessionPackCount = Math.Max(0, dto.SessionPackCount);
+        entity.IsTopping = dto.IsTopping;
+        entity.AllowToppings = dto.AllowToppings && !dto.IsTopping;
+        entity.AutoOpenToppingPopup = dto.AutoOpenToppingPopup;
         entity.UpdatedAt = DateTime.UtcNow;
         entity.UpdatedBy = CurrentUserEmail;
 
@@ -611,6 +706,8 @@ public partial class PosProductsController(
         await dbContext.SaveChangesAsync();
         await SyncBaseUnitAsync(entity);
         await SyncAttributesAsync(storeId, entity.Id, dto.Attributes);
+        await SyncToppingsAsync(storeId, entity.Id, entity.AllowToppings, dto.Toppings);
+        await SyncToppingGroupsAsync(storeId, entity.Id, dto.ToppingGroupIds);
 
         var result = await MapProductAsync(entity.Id, storeId);
         return Ok(AppResponse<PosProductDto>.Success(result!));
@@ -667,7 +764,7 @@ public partial class PosProductsController(
         {
             Id = Guid.NewGuid(),
             StoreId = storeId,
-            ProductCode = await GenerateProductCodeAsync(storeId),
+            ProductCode = await GenerateProductCodeAsync(storeId, source.ProductType),
             Barcode = null,
             Name = source.Name + " (bản sao)",
             CategoryId = source.CategoryId,
@@ -689,6 +786,7 @@ public partial class PosProductsController(
             BaseUnitName = source.BaseUnitName,
             IsDirectSale = source.IsDirectSale,
             IsFavorite = false,
+            SortOrder = await NextProductSortOrderAsync(storeId, source.CategoryId),
             SaleQuickNotesJson = source.SaleQuickNotesJson,
             WarrantyMonths = source.WarrantyMonths,
             RequiresSerial = source.RequiresSerial,
@@ -724,6 +822,45 @@ public partial class PosProductsController(
 
         var result = await MapProductAsync(copy.Id, storeId);
         return Ok(AppResponse<PosProductDto>.Success(result!));
+    }
+
+    public class ProductSortItemDto
+    {
+        public Guid Id { get; set; }
+        public int SortOrder { get; set; }
+    }
+
+    public class ProductSortBatchDto
+    {
+        public List<ProductSortItemDto> Items { get; set; } = [];
+    }
+
+    /// <summary>Sắp xếp thứ tự sản phẩm trên menu bán.</summary>
+    [HttpPut("sort")]
+    [RequireAnyModulePermission(ModulePermissionAction.Edit, "PosProducts", "PosSell")]
+    public async Task<ActionResult<AppResponse<object>>> SortProducts([FromBody] ProductSortBatchDto? dto)
+    {
+        var storeId = RequiredStoreId;
+        if (dto?.Items == null || dto.Items.Count == 0)
+            return BadRequest(AppResponse<object>.Fail("Không có thứ tự"));
+
+        var saved = 0;
+        var now = DateTime.UtcNow;
+        var by = CurrentUserEmail;
+        foreach (var item in dto.Items)
+        {
+            if (item.Id == Guid.Empty) continue;
+            saved += await dbContext.PosProducts
+                .Where(p => p.Id == item.Id && p.StoreId == storeId && p.Deleted == null)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(p => p.SortOrder, item.SortOrder)
+                    .SetProperty(p => p.UpdatedAt, now)
+                    .SetProperty(p => p.UpdatedBy, by));
+        }
+
+        if (saved == 0)
+            return BadRequest(AppResponse<object>.Fail("Không khớp sản phẩm nào"));
+        return Ok(AppResponse<object>.Success(new { saved }));
     }
 
     [HttpPost("{id:guid}/favorite")]
@@ -786,6 +923,23 @@ public partial class PosProductsController(
                 categoryPath = $"{parent.Name} → {p.Category.Name}";
         }
 
+        var toppingOpts = await dbContext.PosProductToppingOptions
+            .AsNoTracking()
+            .Include(t => t.ToppingProduct)
+            .Where(t => t.ProductId == id && t.StoreId == storeId && t.Deleted == null && t.IsActive)
+            .OrderBy(t => t.SortOrder)
+            .Select(t => new PosProductToppingOptionDto(
+                t.Id,
+                t.ToppingProductId,
+                t.ToppingProduct != null ? t.ToppingProduct.Name : "",
+                t.ExtraPrice ?? (t.ToppingProduct != null ? t.ToppingProduct.BasePrice : 0),
+                t.SortOrder))
+            .ToListAsync();
+
+        var (groupIdsMap, groupsMap) = await LoadToppingGroupsForProductsAsync(storeId, [id]);
+        groupIdsMap.TryGetValue(id, out var groupIds);
+        groupsMap.TryGetValue(id, out var toppingGroups);
+
         return new PosProductDto(
             p.Id, p.ProductCode, p.Barcode, p.Name,
             p.CategoryId, p.Category?.Name, categoryPath,
@@ -801,7 +955,203 @@ public partial class PosProductsController(
             PosSaleQuickNotesHelper.Parse(p.SaleQuickNotesJson),
             p.CreatedAt, p.UpdatedAt,
             p.DefaultPrinterId, p.DefaultPrinter?.Name,
-            p.WarrantyMonths, p.RequiresSerial, p.TrackExpiry, p.ExpiryWarningDays);
+            p.WarrantyMonths, p.RequiresSerial, p.TrackExpiry, p.ExpiryWarningDays,
+            p.ServiceBillingMode.ToString(), p.MinBillMinutes, p.BillRoundMinutes,
+            p.DefaultDurationMinutes, p.SessionPackCount,
+            p.IsTopping, p.AllowToppings, p.AutoOpenToppingPopup, toppingOpts,
+            groupIds, toppingGroups);
+    }
+
+    private async Task<(
+        Dictionary<Guid, List<Guid>> groupIdsByProduct,
+        Dictionary<Guid, List<PosProductToppingGroupDto>> groupsByProduct)>
+        LoadToppingGroupsForProductsAsync(Guid storeId, IEnumerable<Guid> productIds)
+    {
+        var ids = productIds.Distinct().ToList();
+        var emptyIds = new Dictionary<Guid, List<Guid>>();
+        var emptyGroups = new Dictionary<Guid, List<PosProductToppingGroupDto>>();
+        if (ids.Count == 0) return (emptyIds, emptyGroups);
+
+        var links = await dbContext.PosProductToppingGroupLinks.AsNoTracking()
+            .Where(l => ids.Contains(l.ProductId) && l.StoreId == storeId &&
+                        l.Deleted == null && l.IsActive)
+            .OrderBy(l => l.SortOrder)
+            .ToListAsync();
+        if (links.Count == 0) return (emptyIds, emptyGroups);
+
+        var groupIds = links.Select(l => l.GroupId).Distinct().ToList();
+        var groups = await dbContext.PosToppingGroups.AsNoTracking()
+            .Where(g => groupIds.Contains(g.Id) && g.StoreId == storeId &&
+                        g.Deleted == null && g.IsActive)
+            .ToDictionaryAsync(g => g.Id);
+        var items = await dbContext.PosToppingGroupItems.AsNoTracking()
+            .Include(i => i.ToppingProduct)
+            .Where(i => groupIds.Contains(i.GroupId) && i.StoreId == storeId &&
+                        i.Deleted == null && i.IsActive)
+            .OrderBy(i => i.SortOrder)
+            .ToListAsync();
+        var itemsByGroup = items.GroupBy(i => i.GroupId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var groupIdsByProduct = links
+            .GroupBy(l => l.ProductId)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.GroupId).Distinct().ToList());
+
+        var groupsByProduct = new Dictionary<Guid, List<PosProductToppingGroupDto>>();
+        foreach (var g in links.GroupBy(l => l.ProductId))
+        {
+            var list = new List<PosProductToppingGroupDto>();
+            foreach (var link in g)
+            {
+                if (!groups.TryGetValue(link.GroupId, out var grp)) continue;
+                itemsByGroup.TryGetValue(grp.Id, out var gItems);
+                gItems ??= [];
+                list.Add(new PosProductToppingGroupDto(
+                    grp.Id,
+                    grp.Name,
+                    grp.SortOrder,
+                    gItems.Select(i => new PosProductToppingOptionDto(
+                        i.Id,
+                        i.ToppingProductId,
+                        i.ToppingProduct?.Name ?? "",
+                        i.ExtraPrice ?? i.ToppingProduct?.BasePrice ?? 0,
+                        i.SortOrder)).ToList()));
+            }
+            groupsByProduct[g.Key] = list;
+        }
+        return (groupIdsByProduct, groupsByProduct);
+    }
+
+    private async Task SyncToppingGroupsAsync(
+        Guid storeId, Guid productId, List<Guid>? groupIds)
+    {
+        var existing = await dbContext.PosProductToppingGroupLinks
+            .Where(l => l.ProductId == productId && l.StoreId == storeId && l.Deleted == null)
+            .ToListAsync();
+        if (groupIds == null || groupIds.Count == 0)
+        {
+            foreach (var e in existing)
+            {
+                e.Deleted = DateTime.UtcNow;
+                e.DeletedBy = CurrentUserEmail;
+                e.IsActive = false;
+            }
+            if (existing.Count > 0) await dbContext.SaveChangesAsync();
+            return;
+        }
+
+        var want = groupIds.Distinct().ToList();
+        var valid = await dbContext.PosToppingGroups.AsNoTracking()
+            .Where(g => want.Contains(g.Id) && g.StoreId == storeId && g.Deleted == null)
+            .Select(g => g.Id)
+            .ToListAsync();
+        var validSet = valid.ToHashSet();
+        var keep = new HashSet<Guid>();
+        var sort = 0;
+        foreach (var gid in want)
+        {
+            if (!validSet.Contains(gid)) continue;
+            keep.Add(gid);
+            var row = existing.FirstOrDefault(e => e.GroupId == gid);
+            if (row == null)
+            {
+                dbContext.PosProductToppingGroupLinks.Add(new PosProductToppingGroupLink
+                {
+                    Id = Guid.NewGuid(),
+                    StoreId = storeId,
+                    ProductId = productId,
+                    GroupId = gid,
+                    SortOrder = sort,
+                    IsActive = true,
+                    CreatedBy = CurrentUserEmail,
+                });
+            }
+            else
+            {
+                row.SortOrder = sort;
+                row.IsActive = true;
+                row.UpdatedAt = DateTime.UtcNow;
+                row.UpdatedBy = CurrentUserEmail;
+            }
+            sort++;
+        }
+        foreach (var e in existing.Where(e => !keep.Contains(e.GroupId)))
+        {
+            e.Deleted = DateTime.UtcNow;
+            e.DeletedBy = CurrentUserEmail;
+            e.IsActive = false;
+        }
+        await dbContext.SaveChangesAsync();
+    }
+
+    private async Task SyncToppingsAsync(
+        Guid storeId, Guid productId, bool allowToppings, List<PosProductToppingInput>? toppings)
+    {
+        var existing = await dbContext.PosProductToppingOptions
+            .Where(t => t.ProductId == productId && t.StoreId == storeId && t.Deleted == null)
+            .ToListAsync();
+        if (!allowToppings || toppings == null || toppings.Count == 0)
+        {
+            foreach (var e in existing)
+            {
+                e.Deleted = DateTime.UtcNow;
+                e.DeletedBy = CurrentUserEmail;
+                e.IsActive = false;
+            }
+            if (existing.Count > 0) await dbContext.SaveChangesAsync();
+            return;
+        }
+
+        var wantIds = toppings.Select(t => t.ToppingProductId).Distinct().ToList();
+        var validToppingIds = await dbContext.PosProducts.AsNoTracking()
+            .Where(p => wantIds.Contains(p.Id) && p.StoreId == storeId && p.Deleted == null)
+            .Select(p => p.Id)
+            .ToListAsync();
+        var validSet = validToppingIds.ToHashSet();
+
+        var now = DateTime.UtcNow;
+        var keep = new HashSet<Guid>();
+        var sort = 0;
+        foreach (var input in toppings)
+        {
+            if (!validSet.Contains(input.ToppingProductId)) continue;
+            if (input.ToppingProductId == productId) continue;
+            keep.Add(input.ToppingProductId);
+            var row = existing.FirstOrDefault(e => e.ToppingProductId == input.ToppingProductId);
+            if (row == null)
+            {
+                dbContext.PosProductToppingOptions.Add(new PosProductToppingOption
+                {
+                    Id = Guid.NewGuid(),
+                    StoreId = storeId,
+                    ProductId = productId,
+                    ToppingProductId = input.ToppingProductId,
+                    ExtraPrice = input.ExtraPrice,
+                    SortOrder = input.SortOrder != 0 ? input.SortOrder : sort,
+                    IsActive = true,
+                    CreatedAt = now,
+                    CreatedBy = CurrentUserEmail,
+                });
+            }
+            else
+            {
+                row.ExtraPrice = input.ExtraPrice;
+                row.SortOrder = input.SortOrder != 0 ? input.SortOrder : sort;
+                row.IsActive = true;
+                row.UpdatedAt = now;
+                row.UpdatedBy = CurrentUserEmail;
+            }
+            sort++;
+        }
+
+        foreach (var e in existing.Where(e => !keep.Contains(e.ToppingProductId)))
+        {
+            e.Deleted = now;
+            e.DeletedBy = CurrentUserEmail;
+            e.IsActive = false;
+        }
+
+        await dbContext.SaveChangesAsync();
     }
 
     private async Task<Guid?> ResolvePrinterIdAsync(Guid storeId, Guid? printerId)
@@ -823,6 +1173,7 @@ public partial class PosProductsController(
             entity.WarrantyMonths = null;
             entity.RequiresSerial = false;
             entity.TrackExpiry = false;
+            // Giữ ServiceBillingMode / phút / SessionPackCount từ DTO
         }
         else if (entity.ProductType == PosProductType.Combo)
         {
@@ -833,6 +1184,20 @@ public partial class PosProductsController(
             entity.WarrantyMonths = null;
             entity.RequiresSerial = false;
             entity.TrackExpiry = false;
+            entity.ServiceBillingMode = PosServiceBillingMode.Flat;
+            entity.MinBillMinutes = null;
+            entity.BillRoundMinutes = null;
+            entity.DefaultDurationMinutes = null;
+            entity.SessionPackCount = Math.Max(0, entity.SessionPackCount);
+        }
+        else
+        {
+            // Goods
+            entity.ServiceBillingMode = PosServiceBillingMode.Flat;
+            entity.MinBillMinutes = null;
+            entity.BillRoundMinutes = null;
+            entity.DefaultDurationMinutes = null;
+            entity.SessionPackCount = Math.Max(0, entity.SessionPackCount);
         }
     }
 
@@ -882,17 +1247,42 @@ public partial class PosProductsController(
         return null;
     }
 
-    private async Task<string> GenerateProductCodeAsync(Guid storeId)
+    /// <summary>
+    /// Mã tự tăng theo loại: HH00001 (hàng hóa), DV00001 (dịch vụ), CB00001 (combo).
+    /// </summary>
+    private async Task<string> GenerateProductCodeAsync(Guid storeId, PosProductType productType)
     {
-        for (var i = 0; i < 5; i++)
+        var prefix = productType switch
         {
-            var code = DateTime.UtcNow.ToString("yyMMddHHmm") + Random.Shared.Next(100, 999).ToString();
-            if (!await dbContext.PosProducts.AnyAsync(p =>
-                    p.StoreId == storeId && p.ProductCode == code && p.Deleted == null))
-                return code;
-            await Task.Delay(10);
+            PosProductType.Service => "DV",
+            PosProductType.Combo => "CB",
+            _ => "HH",
+        };
+
+        var existing = await dbContext.PosProducts.AsNoTracking()
+            .Where(p => p.StoreId == storeId && p.Deleted == null && p.ProductCode.StartsWith(prefix))
+            .Select(p => p.ProductCode)
+            .ToListAsync();
+
+        var next = 1;
+        foreach (var code in existing)
+        {
+            if (code.Length <= prefix.Length) continue;
+            var tail = code[prefix.Length..];
+            if (tail.Length == 0 || !tail.All(char.IsDigit)) continue;
+            if (int.TryParse(tail, out var n) && n >= next)
+                next = n + 1;
         }
-        return Guid.NewGuid().ToString("N")[..11];
+
+        for (var attempt = 0; attempt < 20; attempt++)
+        {
+            var candidate = $"{prefix}{next + attempt:D5}";
+            if (!await dbContext.PosProducts.AnyAsync(p =>
+                    p.StoreId == storeId && p.ProductCode == candidate && p.Deleted == null))
+                return candidate;
+        }
+
+        return $"{prefix}{DateTime.UtcNow:yyMMddHHmm}";
     }
 
     private async Task<string?> ResolveImageUrlAsync(Guid storeId, PosProductUpsertDto dto)
@@ -972,6 +1362,16 @@ public partial class PosProductsController(
             CreatedBy = CurrentUserEmail,
         });
         await dbContext.SaveChangesAsync();
+    }
+
+    private async Task<int> NextProductSortOrderAsync(Guid storeId, Guid? categoryId)
+    {
+        var q = dbContext.PosProducts.AsNoTracking()
+            .Where(p => p.StoreId == storeId && p.Deleted == null);
+        if (categoryId.HasValue)
+            q = q.Where(p => p.CategoryId == categoryId);
+        var max = await q.Select(p => (int?)p.SortOrder).MaxAsync();
+        return (max ?? -1) + 1;
     }
 
     private async Task SyncBaseUnitAsync(PosProduct product)

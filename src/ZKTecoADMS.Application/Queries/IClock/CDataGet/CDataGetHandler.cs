@@ -82,12 +82,26 @@ public class CDataGetHandler(
         
         // Kiểm tra xem có pending SyncDeviceUsers command không
         var hasSyncUsersCommand = pendingList.Any(c => c.CommandType == DeviceCommandTypes.SyncDeviceUsers);
-        
+
         // Kiểm tra xem có pending SyncAttendances command không
         var hasSyncAttendancesCommand = pendingList.Any(c => c.CommandType == DeviceCommandTypes.SyncAttendances);
-        
+
         // Kiểm tra xem có pending SyncFingerprints command không
         var hasSyncFingerprintsCommand = pendingList.Any(c => c.CommandType == DeviceCommandTypes.SyncFingerprints);
+
+        // Remote enroll UI on device is interrupted by OPERLOG/BIODATA Stamp=0 storms.
+        var enrollInProgress = pendingList.Any(c =>
+            c.CommandType is DeviceCommandTypes.EnrollFace or DeviceCommandTypes.EnrollFingerprint
+            && (c.Status == CommandStatus.Created || c.Status == CommandStatus.Sent));
+        if (enrollInProgress)
+        {
+            hasSyncUsersCommand = false;
+            hasSyncFingerprintsCommand = false;
+            hasSyncAttendancesCommand = false;
+            logger.LogInformation(
+                "[CDataGet] Device {SN} - enroll pending, suppressing stamp=0 so device can show enroll UI",
+                sn);
+        }
         
         // ATTLOGStamp=0 chỉ khi admin đã xếp lệnh SyncAttendances; còn lại chỉ chấm mới.
         var ATTLOGStamp = await AttendanceLogStampResolver.ResolveAsync(
@@ -119,25 +133,9 @@ public class CDataGetHandler(
         logger.LogInformation("[CDataGet] Device {SN} - hasSyncUsersCommand={HasSyncUsers}, hasSyncAttendancesCommand={HasSyncAtt}, hasSyncFingerprintsCommand={HasSyncFP}, ATTLOGStamp={AttStamp}, OPERLOGStamp={OpStamp}, BIODATAStamp={BioStamp}", 
             sn, hasSyncUsersCommand, hasSyncAttendancesCommand, hasSyncFingerprintsCommand, ATTLOGStamp, operLogStamp, bioDataStamp);
 
-        // TransInterval=60 = gửi heartbeat mỗi 60 giây (1 phút)
-        // Delay=5 = delay 5 giây giữa các request
-        // QUAN TRỌNG: Giảm TransInterval để device gọi lại nhanh hơn khi có lệnh mới
-        var response = $"GET OPTION FROM: {sn}\r\n" +
-                       $"ATTLOGStamp={ATTLOGStamp}\r\n" + 
-                       $"OPERLOGStamp={operLogStamp}\r\n" + 
-                       $"BIODATAStamp={bioDataStamp}\r\n" +
-                       $"FINGERTMPStamp={bioDataStamp}\r\n" +
-                       "ErrorDelay=30\r\n" +
-                       "Delay=3\r\n" +
-                       "TransTimes=00:00;14:05\r\n" +
-                       "TransInterval=10\r\n" +
-                       "TransFlag=1111111100\r\n" +
-                       "Realtime=1\r\n" +
-                       "TimeZone=+07:00\r\n" +
-                       "Timeout=20\r\n" +
-                       "SyncTime=1\r\n" +
-                       "ServerVer=2.0.4\r\n" +
-                       "Encrypt=0";
+        // Align with agap.top so SenseFace/ZAM polls /iclock/getrequest (AC_UNLOCK path).
+        var response = PushDeviceConfigBuilder.BuildGetOptionResponse(
+            sn, ATTLOGStamp, operLogStamp, bioDataStamp);
 
         // KHÔNG đánh dấu Success sớm cho SyncDeviceUsers/SyncAttendances — máy cần nhiều lần poll
         // với OPERLOGStamp=0 / ATTLOGStamp=0 cho đến khi POST dữ liệu (OperLogStrategy / PostAttendancesStrategy).
@@ -178,19 +176,39 @@ public class CDataGetHandler(
             logger.LogInformation("[CDataGet] Auto-completed stale SyncDeviceUsers command for device {SN} (sent at {SentAt})", sn, cmd.SentAt);
         }
 
+        foreach (var cmd in pendingList.Where(c =>
+                     AdmsEngineProfiles.ShouldSkipDeviceDelivery(c.CommandType, c.Command)
+                     && (c.CommandType == DeviceCommandTypes.SyncDeviceUsers
+                         || c.CommandType == DeviceCommandTypes.SyncAttendances)
+                     && c.CreatedAt < DateTime.UtcNow.AddMinutes(-10)))
+        {
+            await deviceCmdService.UpdateCommandStatusAsync(cmd.Id, CommandStatus.Success);
+            logger.LogInformation(
+                "[CDataGet] Auto-completed stamp-sync {Type} for {SN} (created {CreatedAt})",
+                cmd.CommandType, sn, cmd.CreatedAt);
+        }
+
         // Gửi lệnh sync/check qua cdata (máy PUSH thường không gọi getrequest)
+        // Stamp markers stay Created (not delivered) so Stamp=0 keeps pulling until auto-complete.
         var syncInlineCommands = pendingList
             .Where(c => c.Status == CommandStatus.Created
+                && !AdmsEngineProfiles.ShouldSkipDeviceDelivery(c.CommandType, c.Command)
                 && (c.CommandType == DeviceCommandTypes.SyncDeviceUsers
                     || c.CommandType == DeviceCommandTypes.SyncAttendances))
             .OrderByDescending(c => c.Priority)
             .ToList();
 
+        // OpenDoor/CloseDoor: chỉ giao qua getrequest/ping (agap dialect).
+        // Nhúng vào options=all → máy bỏ qua nhưng Status=Sent → ping không còn gì để gửi.
         var inlineCommands = pendingList
             .Where(c => c.Status == CommandStatus.Created
+                && !AdmsEngineProfiles.ShouldSkipDeviceDelivery(c.CommandType, c.Command)
                 && c.CommandType != DeviceCommandTypes.SyncDeviceUsers
                 && c.CommandType != DeviceCommandTypes.SyncAttendances
-                && c.CommandType != DeviceCommandTypes.SyncFingerprints)
+                && c.CommandType != DeviceCommandTypes.SyncFingerprints
+                && c.CommandType != DeviceCommandTypes.OpenDoor
+                && c.CommandType != DeviceCommandTypes.CloseDoor
+                && c.CommandType != DeviceCommandTypes.EnrollFace)
             .OrderByDescending(c => c.Priority)
             .ToList();
 
@@ -199,17 +217,19 @@ public class CDataGetHandler(
             var sb = new StringBuilder(response);
             foreach (var cmd in syncInlineCommands)
             {
-                sb.Append($"\r\nC:{cmd.CommandId}:{cmd.Command}");
+                sb.Append($"\r\n{ClockCommandBuilder.FormatWireCommand(cmd.CommandId, cmd.Command, cmd.CommandType)}");
                 await deviceCmdService.UpdateCommandStatusAsync(cmd.Id, CommandStatus.Sent);
                 logger.LogInformation("[CDataGet] Embedded SYNC command for {SN}: Type={Type}, Cmd={Cmd}", sn, cmd.CommandType, cmd.Command);
             }
             foreach (var cmd in inlineCommands)
             {
-                sb.Append($"\r\nC:{cmd.CommandId}:{cmd.Command}");
+                sb.Append($"\r\n{ClockCommandBuilder.FormatWireCommand(cmd.CommandId, cmd.Command, cmd.CommandType)}");
                 
-                var isEnrollment = cmd.CommandType == DeviceCommandTypes.EnrollFingerprint
-                    || cmd.CommandType == DeviceCommandTypes.EnrollFace;
-                var newStatus = isEnrollment ? CommandStatus.Sent : CommandStatus.Success;
+                var waitForDeviceAck = cmd.CommandType == DeviceCommandTypes.EnrollFingerprint
+                    || cmd.CommandType == DeviceCommandTypes.EnrollFace
+                    || cmd.CommandType == DeviceCommandTypes.OpenDoor
+                    || cmd.CommandType == DeviceCommandTypes.CloseDoor;
+                var newStatus = waitForDeviceAck ? CommandStatus.Sent : CommandStatus.Success;
                 await deviceCmdService.UpdateCommandStatusAsync(cmd.Id, newStatus);
                 logger.LogInformation("[CDataGet] Embedded inline command for {SN}: Type={Type}, Status={Status}, Cmd={Cmd}", sn, cmd.CommandType, newStatus, cmd.Command);
             }

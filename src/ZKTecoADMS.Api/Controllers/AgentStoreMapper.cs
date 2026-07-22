@@ -33,9 +33,9 @@ internal static class AgentStoreMapper
         store.AgentId,
         store.Agent?.Name,
         store.Agent?.Email,
-        store.Users.Count,
+        store.Users.Count(u => u.IsActive),
         store.Devices.Count,
-        store.Users.Count(u => u.Role == nameof(Roles.Employee)),
+        store.Users.Count(u => u.IsActive && u.Role == nameof(Roles.Employee)),
         store.CreatedAt,
         store.UpdatedAt
     );

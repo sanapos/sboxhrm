@@ -44,9 +44,19 @@ public static class PosPriceListResolver
             .Where(x => x.StoreId == storeId && x.PriceListId == priceListId && x.Deleted == null && x.IsActive)
             .Select(x => new { x.ProductId, x.VariantId, x.UnitId, x.Price })
             .ToListAsync(ct);
-        return items.ToDictionary(
-            x => ItemKey(x.ProductId, x.VariantId, x.UnitId),
-            x => x.Price);
+        // Tránh ToDictionary nổ khi có dòng trùng khóa (schema cũ không UNIQUE).
+        return items
+            .GroupBy(x => ItemKey(x.ProductId, x.VariantId, x.UnitId))
+            .ToDictionary(g => g.Key, g => g.Last().Price);
+    }
+
+    /// <summary>True nếu bảng giá áp dụng cho ngày hóa đơn (theo ValidFrom/ValidTo).</summary>
+    public static bool IsApplicableOn(PosPriceList list, DateTime day)
+    {
+        var d = day.Date;
+        if (list.ValidFrom.HasValue && d < list.ValidFrom.Value.Date) return false;
+        if (list.ValidTo.HasValue && d > list.ValidTo.Value.Date) return false;
+        return true;
     }
 
     public static async Task<PosPriceList> EnsureDefaultAsync(ZKTecoDbContext db, Guid storeId, string? user)

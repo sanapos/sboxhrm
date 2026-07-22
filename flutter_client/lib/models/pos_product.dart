@@ -270,6 +270,78 @@ class PosStockTransaction {
   }
 }
 
+
+class PosProductToppingOption {
+  final String id;
+  final String toppingProductId;
+  final String toppingProductName;
+  final double extraPrice;
+  final int sortOrder;
+
+  PosProductToppingOption({
+    required this.id,
+    required this.toppingProductId,
+    required this.toppingProductName,
+    this.extraPrice = 0,
+    this.sortOrder = 0,
+  });
+
+  factory PosProductToppingOption.fromJson(Map<String, dynamic> json) {
+    double n(dynamic v) =>
+        v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
+    return PosProductToppingOption(
+      id: (json['id'] ?? json['Id'] ?? '').toString(),
+      toppingProductId:
+          (json['toppingProductId'] ?? json['ToppingProductId'] ?? '').toString(),
+      toppingProductName: (json['toppingProductName'] ??
+              json['ToppingProductName'] ??
+              json['toppingName'] ??
+              json['ToppingName'] ??
+              '')
+          .toString(),
+      extraPrice: n(json['extraPrice'] ?? json['ExtraPrice']),
+      sortOrder: (json['sortOrder'] ?? json['SortOrder'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  Map<String, dynamic> toInputJson() => {
+        'toppingProductId': toppingProductId,
+        'extraPrice': extraPrice,
+        'sortOrder': sortOrder,
+      };
+}
+
+/// Nhóm topping dùng chung gắn vào hàng hóa.
+class PosProductToppingGroup {
+  final String id;
+  final String name;
+  final int sortOrder;
+  final List<PosProductToppingOption> items;
+
+  const PosProductToppingGroup({
+    required this.id,
+    required this.name,
+    this.sortOrder = 0,
+    this.items = const [],
+  });
+
+  factory PosProductToppingGroup.fromJson(Map<String, dynamic> json) {
+    final rawItems = json['items'] ?? json['Items'];
+    return PosProductToppingGroup(
+      id: (json['id'] ?? json['Id'] ?? '').toString(),
+      name: (json['name'] ?? json['Name'] ?? '').toString(),
+      sortOrder: (json['sortOrder'] ?? json['SortOrder'] as num?)?.toInt() ?? 0,
+      items: rawItems is List
+          ? rawItems
+              .whereType<Map>()
+              .map((e) => PosProductToppingOption.fromJson(
+                  Map<String, dynamic>.from(e)))
+              .toList()
+          : const [],
+    );
+  }
+}
+
 class PosProduct {
   final String id;
   final String productCode;
@@ -300,6 +372,7 @@ class PosProduct {
   final String baseUnitName;
   final bool isDirectSale;
   final bool isFavorite;
+  final int sortOrder;
   final bool isActive;
   final int variantCount;
   final List<PosProductVariant>? variants;
@@ -314,6 +387,19 @@ class PosProduct {
   final bool requiresSerial;
   final bool trackExpiry;
   final int expiryWarningDays;
+  final String serviceBillingMode;
+  final int? minBillMinutes;
+  final int? billRoundMinutes;
+  final int? defaultDurationMinutes;
+  final int sessionPackCount;
+  final bool isTopping;
+  final bool allowToppings;
+  /// Tự mở popup topping (nhóm) khi thêm món vào giỏ.
+  final bool autoOpenToppingPopup;
+  /// Tùy chọn thêm gắn trực tiếp (giống ghi chú nhanh + giá).
+  final List<PosProductToppingOption> toppingOptions;
+  final List<String> toppingGroupIds;
+  final List<PosProductToppingGroup> toppingGroups;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -347,6 +433,7 @@ class PosProduct {
     this.baseUnitName = 'Cái',
     this.isDirectSale = true,
     this.isFavorite = false,
+    this.sortOrder = 0,
     this.isActive = true,
     this.variantCount = 0,
     this.variants,
@@ -361,9 +448,43 @@ class PosProduct {
     this.requiresSerial = false,
     this.trackExpiry = false,
     this.expiryWarningDays = 30,
+    this.serviceBillingMode = 'Flat',
+    this.minBillMinutes,
+    this.billRoundMinutes,
+    this.defaultDurationMinutes,
+    this.sessionPackCount = 0,
+    this.isTopping = false,
+    this.allowToppings = false,
+    this.autoOpenToppingPopup = true,
+    this.toppingOptions = const [],
+    this.toppingGroupIds = const [],
+    this.toppingGroups = const [],
     this.createdAt,
     this.updatedAt,
   });
+
+  /// Có nhóm topping với ít nhất 1 mục.
+  bool get hasToppingGroups =>
+      toppingGroups.any((g) => g.items.isNotEmpty);
+
+  /// Gộp item từ mọi nhóm topping (unique theo productId).
+  List<PosProductToppingOption> get toppingGroupItems {
+    final seen = <String>{};
+    final out = <PosProductToppingOption>[];
+    for (final g in toppingGroups) {
+      for (final i in g.items) {
+        if (seen.add(i.toppingProductId)) out.add(i);
+      }
+    }
+    return out;
+  }
+
+  bool get isTimedService =>
+      productType == PosProductType.service &&
+      (serviceBillingMode.toLowerCase() == 'perhour' ||
+          serviceBillingMode.toLowerCase() == 'perminute');
+
+  bool get isSessionPack => sessionPackCount > 0;
 
   factory PosProduct.fromJson(Map<String, dynamic> json) {
     DateTime? dt(dynamic v) => parseApiUtcDateTime(v);
@@ -410,6 +531,7 @@ class PosProduct {
           (json['baseUnitName'] ?? json['BaseUnitName'] ?? 'Cái').toString(),
       isDirectSale: json['isDirectSale'] == true || json['IsDirectSale'] == true,
       isFavorite: json['isFavorite'] == true || json['IsFavorite'] == true,
+      sortOrder: (json['sortOrder'] ?? json['SortOrder'] as num?)?.toInt() ?? 0,
       isActive: json['isActive'] != false && json['IsActive'] != false,
       variantCount: (json['variantCount'] ?? json['VariantCount'] as num?)?.toInt() ?? 0,
       variants: json['variants'] != null || json['Variants'] != null
@@ -451,6 +573,49 @@ class PosProduct {
       trackExpiry: json['trackExpiry'] == true || json['TrackExpiry'] == true,
       expiryWarningDays:
           (json['expiryWarningDays'] ?? json['ExpiryWarningDays'] as num?)?.toInt() ?? 30,
+      serviceBillingMode:
+          (json['serviceBillingMode'] ?? json['ServiceBillingMode'] ?? 'Flat')
+              .toString(),
+      minBillMinutes:
+          (json['minBillMinutes'] ?? json['MinBillMinutes'] as num?)?.toInt(),
+      billRoundMinutes:
+          (json['billRoundMinutes'] ?? json['BillRoundMinutes'] as num?)
+              ?.toInt(),
+      defaultDurationMinutes: (json['defaultDurationMinutes'] ??
+              json['DefaultDurationMinutes'] as num?)
+          ?.toInt(),
+      sessionPackCount:
+          (json['sessionPackCount'] ?? json['SessionPackCount'] as num?)
+                  ?.toInt() ??
+              0,
+      isTopping: json['isTopping'] == true || json['IsTopping'] == true,
+      allowToppings:
+          json['allowToppings'] == true || json['AllowToppings'] == true,
+      autoOpenToppingPopup: json['autoOpenToppingPopup'] != false &&
+          json['AutoOpenToppingPopup'] != false,
+      toppingOptions: () {
+        final raw = json['toppingOptions'] ?? json['ToppingOptions'];
+        if (raw is! List) return const <PosProductToppingOption>[];
+        return raw
+            .whereType<Map>()
+            .map((e) => PosProductToppingOption.fromJson(
+                Map<String, dynamic>.from(e)))
+            .toList();
+      }(),
+      toppingGroupIds: () {
+        final raw = json['toppingGroupIds'] ?? json['ToppingGroupIds'];
+        if (raw is! List) return const <String>[];
+        return raw.map((e) => e.toString()).where((e) => e.isNotEmpty).toList();
+      }(),
+      toppingGroups: () {
+        final raw = json['toppingGroups'] ?? json['ToppingGroups'];
+        if (raw is! List) return const <PosProductToppingGroup>[];
+        return raw
+            .whereType<Map>()
+            .map((e) => PosProductToppingGroup.fromJson(
+                Map<String, dynamic>.from(e)))
+            .toList();
+      }(),
       createdAt: dt(json['createdAt'] ?? json['CreatedAt']),
       updatedAt: dt(json['updatedAt'] ?? json['UpdatedAt']),
     );
@@ -491,12 +656,25 @@ class PosProduct {
       'baseUnitName': baseUnitName,
       'isDirectSale': isDirectSale,
       'isFavorite': isFavorite,
+      'sortOrder': sortOrder,
       if (saleQuickNotes.isNotEmpty) 'saleQuickNotes': saleQuickNotes,
       if (attributes != null) 'attributes': attributes,
       if (warrantyMonths != null && warrantyMonths! > 0) 'warrantyMonths': warrantyMonths,
       if (requiresSerial) 'requiresSerial': true,
       if (trackExpiry) 'trackExpiry': true,
       if (trackExpiry) 'expiryWarningDays': expiryWarningDays,
+      'serviceBillingMode': serviceBillingMode,
+      if (minBillMinutes != null) 'minBillMinutes': minBillMinutes,
+      if (billRoundMinutes != null) 'billRoundMinutes': billRoundMinutes,
+      if (defaultDurationMinutes != null)
+        'defaultDurationMinutes': defaultDurationMinutes,
+      'sessionPackCount': sessionPackCount,
+      'isTopping': isTopping,
+      'allowToppings': allowToppings && !isTopping,
+      'autoOpenToppingPopup': autoOpenToppingPopup,
+      if (allowToppings && !isTopping)
+        'toppings': toppingOptions.map((t) => t.toInputJson()).toList(),
+      'toppingGroupIds': toppingGroupIds,
     };
   }
 
@@ -533,6 +711,7 @@ class PosProduct {
     String? baseUnitName,
     bool? isDirectSale,
     bool? isFavorite,
+    int? sortOrder,
     List<PosProductVariant>? variants,
     List<PosProductUnit>? units,
     List<PosComboLine>? comboLines,
@@ -568,11 +747,18 @@ class PosProduct {
       baseUnitName: baseUnitName ?? this.baseUnitName,
       isDirectSale: isDirectSale ?? this.isDirectSale,
       isFavorite: isFavorite ?? this.isFavorite,
+      sortOrder: sortOrder ?? this.sortOrder,
       units: units ?? this.units,
       variants: variants ?? this.variants,
       comboLines: comboLines ?? this.comboLines,
       sellableQty: sellableQty ?? this.sellableQty,
       saleQuickNotes: this.saleQuickNotes,
+      isTopping: this.isTopping,
+      allowToppings: this.allowToppings,
+      autoOpenToppingPopup: this.autoOpenToppingPopup,
+      toppingOptions: this.toppingOptions,
+      toppingGroupIds: this.toppingGroupIds,
+      toppingGroups: this.toppingGroups,
       createdAt: createdAt,
       updatedAt: updatedAt,
     );
@@ -601,6 +787,37 @@ class PosProduct {
         'isFavorite': isFavorite,
         'variantCount': variantCount,
         'saleQuickNotes': saleQuickNotes,
+        'isTopping': isTopping,
+        'allowToppings': allowToppings,
+        'autoOpenToppingPopup': autoOpenToppingPopup,
+        if (toppingOptions.isNotEmpty)
+          'toppingOptions': toppingOptions
+              .map((t) => {
+                    'id': t.id,
+                    'toppingProductId': t.toppingProductId,
+                    'toppingProductName': t.toppingProductName,
+                    'extraPrice': t.extraPrice,
+                    'sortOrder': t.sortOrder,
+                  })
+              .toList(),
+        if (toppingGroupIds.isNotEmpty) 'toppingGroupIds': toppingGroupIds,
+        if (toppingGroups.isNotEmpty)
+          'toppingGroups': toppingGroups
+              .map((g) => {
+                    'id': g.id,
+                    'name': g.name,
+                    'sortOrder': g.sortOrder,
+                    'items': g.items
+                        .map((t) => {
+                              'id': t.id,
+                              'toppingProductId': t.toppingProductId,
+                              'toppingProductName': t.toppingProductName,
+                              'extraPrice': t.extraPrice,
+                              'sortOrder': t.sortOrder,
+                            })
+                        .toList(),
+                  })
+              .toList(),
         'updatedAt': updatedAt?.toUtc().toIso8601String(),
         if (sellableQty != null) 'sellableQty': sellableQty,
         if (comboLines != null)

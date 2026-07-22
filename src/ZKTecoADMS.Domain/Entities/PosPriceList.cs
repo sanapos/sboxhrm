@@ -18,12 +18,24 @@ public class PosPriceList : AuditableEntity<Guid>
     public bool IsActive { get; set; } = true;
     public int SortOrder { get; set; }
 
+    /// <summary>Áp dụng mặc định khi bán từ ngày (null = không giới hạn đầu).</summary>
+    public DateTime? ValidFrom { get; set; }
+
+    /// <summary>Áp dụng mặc định khi bán đến ngày (null = không giới hạn cuối).</summary>
+    public DateTime? ValidTo { get; set; }
+
     public virtual ICollection<PosPriceListItem> Items { get; set; } = [];
 }
 
 /// <summary>Giá bán theo bảng giá — theo hàng / biến thể / đơn vị.</summary>
 public class PosPriceListItem : AuditableEntity<Guid>
 {
+    public PosPriceListItem()
+    {
+        // AuditableEntity.IsActive mặc định false — item bảng giá phải active khi tạo.
+        IsActive = true;
+    }
+
     [Required]
     public Guid StoreId { get; set; }
 

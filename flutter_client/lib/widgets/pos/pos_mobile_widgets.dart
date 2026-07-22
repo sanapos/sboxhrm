@@ -8,6 +8,7 @@ import '../../utils/responsive_helper.dart';
 import '../hrm_page_chrome.dart';
 import 'pos_hub_scope.dart';
 import 'pos_theme.dart';
+import '../safe_layout_widgets.dart';
 
 /// Xác nhận và đăng xuất khỏi POS / cửa hàng.
 Future<void> showPosLogoutDialog(BuildContext context) async {
@@ -137,6 +138,7 @@ class PosMobileHubSection extends StatelessWidget {
       decoration: PosTheme.mobileCardDecoration(),
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
@@ -177,37 +179,14 @@ class PosMobileHubSectionGrid extends StatelessWidget {
     if (items.isEmpty) return const SizedBox.shrink();
     return PosMobileHubSection(
       title: title,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          const crossAxisCount = 3;
-          const mainAxisSpacing = 4.0;
-          const crossAxisSpacing = 4.0;
-          const childAspectRatio = 0.92;
-          final cellWidth = (constraints.maxWidth -
-                  crossAxisSpacing * (crossAxisCount - 1)) /
-              crossAxisCount;
-          final cellHeight = cellWidth / childAspectRatio;
-          final rows =
-              (items.length + crossAxisCount - 1) ~/ crossAxisCount;
-          final gridHeight =
-              rows * cellHeight + (rows - 1) * mainAxisSpacing;
-
-          return SizedBox(
-            height: gridHeight,
-            child: GridView.builder(
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: crossAxisCount,
-                mainAxisSpacing: mainAxisSpacing,
-                crossAxisSpacing: crossAxisSpacing,
-                childAspectRatio: childAspectRatio,
-              ),
-              itemCount: items.length,
-              itemBuilder: (context, index) =>
-                  _PosMobileHubGridTile(item: items[index]),
-            ),
-          );
-        },
+      child: SafeFixedGrid(
+        crossAxisCount: 3,
+        spacing: 4,
+        runSpacing: 4,
+        childAspectRatio: 0.92,
+        itemCount: items.length,
+        itemBuilder: (context, index) =>
+            _PosMobileHubGridTile(item: items[index]),
       ),
     );
   }
@@ -1116,6 +1095,13 @@ class PosMobileKiotHeader extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (onRefresh != null)
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            onPressed: onRefresh,
+            icon: const Icon(Icons.sync),
+            tooltip: 'Đồng bộ',
+          ),
         if (onSearch != null)
           IconButton(
             visualDensity: VisualDensity.compact,
@@ -1154,7 +1140,7 @@ class PosMobileKiotHeader extends StatelessWidget {
             if (onSort != null)
               const PopupMenuItem(value: 'sort', child: Text('Sắp xếp')),
             if (onRefresh != null)
-              const PopupMenuItem(value: 'refresh', child: Text('Làm mới')),
+              const PopupMenuItem(value: 'refresh', child: Text('Đồng bộ')),
             if (onMore != null)
               const PopupMenuItem(value: 'more', child: Text('Thêm chức năng')),
           ],
@@ -1180,6 +1166,8 @@ class PosMobileProductRow extends StatelessWidget {
     this.onScanCode,
     this.isSelected = false,
     this.selectedQty,
+    this.onIncrement,
+    this.onDecrement,
   });
 
   final String name;
@@ -1195,9 +1183,13 @@ class PosMobileProductRow extends StatelessWidget {
   final VoidCallback? onScanCode;
   final bool isSelected;
   final double? selectedQty;
+  final VoidCallback? onIncrement;
+  final VoidCallback? onDecrement;
 
   @override
   Widget build(BuildContext context) {
+    final showStepper = (selectedQty ?? 0) > 0 &&
+        (onIncrement != null || onDecrement != null);
     return Material(
       color: isSelected ? const Color(0xFFE8F0FE) : Colors.white,
       child: InkWell(
@@ -1232,38 +1224,27 @@ class PosMobileProductRow extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 14,
-                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                        fontWeight:
+                            isSelected ? FontWeight.w700 : FontWeight.w600,
                         height: 1.25,
-                        color: isSelected ? PosTheme.kiotBlue : PosTheme.textPrimary,
+                        color: isSelected
+                            ? PosTheme.kiotBlue
+                            : PosTheme.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            code,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: PosTheme.textSecondary,
-                            ),
-                          ),
-                        ),
-                        if (onScanCode != null)
-                          InkWell(
-                            onTap: onScanCode,
-                            borderRadius: BorderRadius.circular(4),
-                            child: Padding(
-                              padding: const EdgeInsets.all(2),
-                              child: Icon(Icons.qr_code_scanner,
-                                  size: 16,
-                                  color: PosTheme.kiotBlue.withValues(alpha: 0.85)),
-                            ),
-                          ),
-                      ],
+                    Text(
+                      code,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: PosTheme.textSecondary,
+                      ),
                     ),
                     if (kiotSellStyle &&
-                        (stockText.isNotEmpty || orderReservedText != null)) ...[
+                        (stockText.isNotEmpty ||
+                            orderReservedText != null)) ...[
                       const SizedBox(height: 4),
                       Wrap(
                         spacing: 6,
@@ -1275,53 +1256,123 @@ class PosMobileProductRow extends StatelessWidget {
                         ],
                       ),
                     ],
+                    if (!kiotSellStyle && stockText.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          stockText,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: PosTheme.textSecondary,
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
               const SizedBox(width: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  if (selectedQty != null && selectedQty! > 0) ...[
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: PosTheme.kiotBlue,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        selectedQty == selectedQty!.roundToDouble()
-                            ? selectedQty!.toStringAsFixed(0)
-                            : selectedQty!.toStringAsFixed(1),
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
+              // Cột cố định: [ô SL] trên + [giá] dưới — giữ chỗ dù chưa chọn.
+              SizedBox(
+                width: 108,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    SizedBox(
+                      height: 34,
+                      child: showStepper
+                          ? Align(
+                              alignment: Alignment.centerRight,
+                              child: _qtyStepper(
+                                qty: selectedQty!,
+                                onMinus: onDecrement,
+                                onPlus: onIncrement ?? onTap,
+                              ),
+                            )
+                          : const SizedBox.shrink(),
                     ),
                     const SizedBox(height: 4),
-                  ],
-                  Text(
-                    priceText,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      color: PosTheme.kiotBlue,
-                    ),
-                  ),
-                  if (!kiotSellStyle && stockText.isNotEmpty)
                     Text(
-                      stockText,
+                      priceText,
+                      textAlign: TextAlign.right,
                       style: const TextStyle(
-                        fontSize: 11,
-                        color: PosTheme.textSecondary,
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: PosTheme.kiotBlue,
                       ),
                     ),
-                ],
+                  ],
+                ),
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _qtyStepper({
+    required double qty,
+    VoidCallback? onMinus,
+    VoidCallback? onPlus,
+  }) {
+    final qtyText = qty <= 0
+        ? '0'
+        : (qty == qty.roundToDouble()
+            ? qty.toStringAsFixed(0)
+            : qty.toStringAsFixed(1));
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: PosTheme.kiotBlue.withValues(alpha: 0.35)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _stepBtn(
+              icon: Icons.remove,
+              enabled: qty > 0 && onMinus != null,
+              onTap: qty > 0 ? onMinus : null,
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Text(
+                qtyText,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: PosTheme.kiotBlue,
+                ),
+              ),
+            ),
+            _stepBtn(
+              icon: Icons.add,
+              enabled: onPlus != null,
+              onTap: onPlus,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _stepBtn({
+    required IconData icon,
+    required bool enabled,
+    VoidCallback? onTap,
+  }) {
+    return InkWell(
+      onTap: enabled ? onTap : null,
+      borderRadius: BorderRadius.circular(8),
+      child: SizedBox(
+        width: 32,
+        height: 32,
+        child: Icon(
+          icon,
+          size: 18,
+          color: enabled ? PosTheme.kiotBlue : PosTheme.textSecondary.withValues(alpha: 0.35),
         ),
       ),
     );

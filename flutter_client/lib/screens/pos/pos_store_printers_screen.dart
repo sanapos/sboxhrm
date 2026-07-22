@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -6,6 +8,7 @@ import '../../models/pos_store_printer.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import '../../services/pos_print_agent_service.dart';
+import '../../services/signalr_service.dart';
 import '../../utils/pos_print_agent_settings.dart';
 import '../../utils/pos_barcode_print.dart';
 import '../../utils/pos_label_printer_settings.dart';
@@ -31,39 +34,332 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
   PosPrintAgentSettings _agent = const PosPrintAgentSettings();
   bool _loading = true;
   bool _savingRoutes = false;
+  bool _agentsLoading = false;
   List<Map<String, String>> _btDevices = [];
+  List<_OnlinePrintAgent> _onlineAgents = [];
+  bool _multiAgent = false;
+  bool _hasPrinterConflict = false;
+  Timer? _agentPoll;
+  String? _myDeviceId;
+  StreamSubscription<Map<String, dynamic>>? _agentHbSub;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    unawaited(_load());
+    // Bluetooth scan chậm — không chặn UI.
     if (!kIsWeb) {
-      PosThermalPrinterService.listBluetoothDevices().then((d) {
+      unawaited(PosThermalPrinterService.listBluetoothDevices().then((d) {
         if (mounted) setState(() => _btDevices = d);
-      });
+      }));
     }
+    _agentPoll = Timer.periodic(const Duration(seconds: 20), (_) {
+      if (mounted && !_loading && !_agentsLoading) {
+        unawaited(_loadOnlineAgents(silent: true));
+      }
+    });
+    _agentHbSub = SignalRService().onPrintAgentHeartbeat.listen((data) {
+      if (!mounted || _agentsLoading) return;
+      unawaited(_onAgentHeartbeatEvent(data));
+    });
+  }
+
+  Future<void> _onAgentHeartbeatEvent(Map<String, dynamic> data) async {
+    final deviceId =
+        (data['deviceId'] ?? data['DeviceId'])?.toString() ?? '';
+    final forceStop = data['forceStop'] == true || data['ForceStop'] == true;
+    final isOnlineFlag =
+        data['isOnline'] == true || data['IsOnline'] == true;
+
+    if (forceStop &&
+        !isOnlineFlag &&
+        deviceId.isNotEmpty &&
+        deviceId == _myDeviceId &&
+        _agent.enabled) {
+      _agent = _agent.copyWith(enabled: false);
+      await _agent.save();
+      await PosPrintAgentService.instance.stop(markOffline: false);
+      if (mounted) {
+        setState(() {});
+        NotificationOverlayManager().showWarning(
+          title: 'Agent đã tắt từ máy khác',
+          message: 'Chỉ giữ Agent trên máy gần máy in',
+        );
+      }
+    }
+
+    // Cập nhật list ngay từ SignalR — không chờ API.
+    if (mounted && deviceId.isNotEmpty) {
+      _upsertAgentFromHeartbeat(data, online: isOnlineFlag);
+    }
+
+    if (mounted && !_agentsLoading) {
+      unawaited(_loadOnlineAgents(silent: true));
+    }
+  }
+
+  void _upsertAgentFromHeartbeat(
+    Map<String, dynamic> data, {
+    required bool online,
+  }) {
+    final deviceId =
+        (data['deviceId'] ?? data['DeviceId'])?.toString() ?? '';
+    if (deviceId.isEmpty) return;
+
+    final names = <String>[];
+    final rawIds = data['printerIds'] ?? data['PrinterIds'];
+    if (rawIds is List) {
+      for (final id in rawIds) {
+        final pid = id.toString();
+        final p = _printers.where((x) => x.id == pid).firstOrNull;
+        if (p != null) names.add(p.name);
+      }
+    }
+
+    final account = (data['employeeName'] ??
+            data['EmployeeName'] ??
+            data['accountLabel'] ??
+            '')
+        .toString()
+        .trim();
+    final agent = _OnlinePrintAgent(
+      deviceId: deviceId,
+      deviceName: (data['deviceName'] ?? data['DeviceName'])?.toString() ?? '',
+      accountDisplay: account.isNotEmpty ? account : 'Agent',
+      printerNames: names,
+      isOnline: online,
+      lastHeartbeatAt: DateTime.now().toUtc(),
+    );
+
+    setState(() {
+      final next = List<_OnlinePrintAgent>.from(_onlineAgents);
+      final idx = next.indexWhere((a) => a.deviceId == deviceId);
+      if (!online) {
+        if (idx >= 0) next.removeAt(idx);
+      } else if (idx >= 0) {
+        next[idx] = agent;
+      } else {
+        next.insert(0, agent);
+      }
+      _onlineAgents = next;
+      _multiAgent = next.length > 1;
+    });
+  }
+
+  @override
+  void dispose() {
+    _agentPoll?.cancel();
+    _agentHbSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      _agent = await PosPrintAgentSettings.load();
-      await PosPrintOrchestrator.instance.refreshConfig(force: true);
-      final pr = await _api.getPosStorePrinters();
-      final rt = await _api.getPosPrinterRoutes();
-      if (pr['isSuccess'] == true && pr['data'] is List) {
-        _printers = (pr['data'] as List)
-            .map((e) => PosStorePrinter.fromJson(e as Map<String, dynamic>))
+      _agent = await PosPrintAgentSettings.load()
+          .timeout(const Duration(seconds: 3), onTimeout: () => _agent);
+      _myDeviceId = await PosPrintOrchestrator.stableDeviceId()
+          .timeout(const Duration(seconds: 3), onTimeout: () => _myDeviceId ?? '');
+      if (_myDeviceId != null && _myDeviceId!.isEmpty) _myDeviceId = null;
+
+      final results = await Future.wait([
+        _api.getPosStorePrinters(),
+        _api.getPosPrinterRoutes(),
+      ]).timeout(
+        const Duration(seconds: 12),
+        onTimeout: () => <Map<String, dynamic>>[
+          {'isSuccess': false, 'message': 'Hết thời gian tải máy in'},
+          {'isSuccess': false},
+        ],
+      );
+      if (!mounted) return;
+      final pr = results[0];
+      final rt = results[1];
+
+      if (pr['isSuccess'] == true) {
+        final raw = pr['data'];
+        final list = raw is List
+            ? raw
+            : (raw is Map && raw['items'] is List
+                ? raw['items'] as List
+                : const []);
+        _printers = list
+            .whereType<Map>()
+            .map((e) => PosStorePrinter.fromJson(Map<String, dynamic>.from(e)))
+            .where((p) => p.id.isNotEmpty)
             .toList();
       }
+      if (_printers.isEmpty &&
+          PosPrintOrchestrator.instance.printers.isNotEmpty) {
+        _printers = List.from(PosPrintOrchestrator.instance.printers);
+      }
+      if (pr['isSuccess'] != true && _printers.isEmpty && mounted) {
+        NotificationOverlayManager().showWarning(
+          title: 'Không tải danh sách máy in',
+          message: pr['message']?.toString() ?? 'Kéo xuống để thử lại',
+        );
+      }
+
       if (rt['isSuccess'] == true && rt['data'] is List) {
         _routes = (rt['data'] as List)
-            .map((e) => PosPrinterRoute.fromJson(e as Map<String, dynamic>))
+            .whereType<Map>()
+            .map((e) => PosPrinterRoute.fromJson(Map<String, dynamic>.from(e)))
             .toList();
+      }
+    } catch (e) {
+      debugPrint('PosStorePrintersScreen._load: $e');
+      if (mounted) {
+        NotificationOverlayManager().showError(
+          title: 'Lỗi tải máy in',
+          message: e.toString(),
+        );
       }
     } finally {
       if (mounted) setState(() => _loading = false);
+      if (mounted) unawaited(_loadOnlineAgents(silent: true));
+      unawaited(PosPrintOrchestrator.instance.refreshConfig(force: true));
     }
+  }
+
+  Future<void> _loadOnlineAgents({bool silent = false}) async {
+    if (_agentsLoading) return;
+    _agentsLoading = true;
+    try {
+      if (_agent.enabled && PosPrintAgentService.instance.isRunning) {
+        unawaited(
+          PosPrintAgentService.instance.forceRegister(refreshPrinters: false),
+        );
+      }
+
+      // Lấy tất cả rồi lọc — tránh onlineOnly rỗng do timezone server cũ.
+      final res = await _api
+          .getPosPrintAgents(onlineOnly: false, staleSeconds: 180)
+          .timeout(
+        const Duration(seconds: 8),
+        onTimeout: () => {
+          'isSuccess': false,
+          'message': 'Hết thời gian tải Agent',
+        },
+      );
+      if (!mounted) return;
+
+      List<_OnlinePrintAgent> parseAgents(Map data) {
+        final raw = data['agents'] ?? data['Agents'];
+        return (raw is List ? raw : const [])
+            .whereType<Map>()
+            .map((e) => _OnlinePrintAgent.fromJson(Map<String, dynamic>.from(e)))
+            .toList();
+      }
+
+      bool isFresh(_OnlinePrintAgent a) {
+        if (a.isOnline) return true;
+        final hb = a.lastHeartbeatAt;
+        if (hb == null) return false;
+        return DateTime.now().toUtc().difference(hb.toUtc()).inSeconds.abs() <
+            180;
+      }
+
+      if (res['isSuccess'] != true || res['data'] is! Map) {
+        if (!silent) {
+          NotificationOverlayManager().showWarning(
+            title: 'Không tải được Agent',
+            message: res['message']?.toString() ?? 'Thử lại',
+          );
+        }
+        return; // giữ list SignalR
+      }
+
+      final data = res['data'] as Map;
+      final list = parseAgents(data).where(isFresh).toList();
+
+      final merged = <String, _OnlinePrintAgent>{
+        for (final a in _onlineAgents)
+          if (a.isOnline) a.deviceId: a,
+        for (final a in list) a.deviceId: a,
+      };
+
+      if (_agent.enabled &&
+          PosPrintAgentService.instance.isRunning &&
+          PosPrintAgentService.instance.isRegistered &&
+          (_myDeviceId ?? '').isNotEmpty &&
+          !merged.containsKey(_myDeviceId)) {
+        final names = _printers
+            .where((p) => _agent.assignedPrinterIds.contains(p.id))
+            .map((p) => p.name)
+            .toList();
+        merged[_myDeviceId!] = _OnlinePrintAgent(
+          deviceId: _myDeviceId!,
+          deviceName: 'Máy này',
+          accountDisplay: _accountLabelForHeartbeat().isNotEmpty
+              ? _accountLabelForHeartbeat()
+              : 'Agent local',
+          printerNames: names,
+          isOnline: true,
+          lastHeartbeatAt: DateTime.now().toUtc(),
+        );
+      }
+
+      // deviceId heartbeat có thể khác _myDeviceId (android.id ngắn) — vẫn giữ.
+      if (!mounted) return;
+      setState(() {
+        _onlineAgents = merged.values.toList();
+        _multiAgent = _onlineAgents.length > 1;
+        _hasPrinterConflict = data['hasPrinterConflict'] == true;
+      });
+    } catch (e) {
+      debugPrint('PosStorePrintersScreen._loadOnlineAgents: $e');
+    } finally {
+      _agentsLoading = false;
+    }
+  }
+
+  /// Tắt Agent trên máy khác (cùng cửa hàng) — không cần cầm máy đó.
+  Future<void> _forceOfflineAgent(_OnlinePrintAgent a) async {
+    if (a.deviceId.isEmpty || a.deviceId == _myDeviceId) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Tắt Agent máy kia?'),
+        content: Text(
+          'Tắt nhận lệnh in trên «${a.deviceName.isNotEmpty ? a.deviceName : 'Máy POS'}».\n'
+          'Chỉ giữ Agent trên máy gần máy in (Sunmi).',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Tắt'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final res = await _api.markPosPrintAgentOffline(deviceId: a.deviceId);
+    if (!mounted) return;
+    if (res['isSuccess'] == true) {
+      NotificationOverlayManager().showSuccess(
+        title: 'Đã tắt Agent máy kia',
+        message: a.deviceName.isNotEmpty ? a.deviceName : a.accountDisplay,
+      );
+      await _loadOnlineAgents(silent: true);
+    } else {
+      NotificationOverlayManager().showError(
+        title: 'Không tắt được',
+        message: res['message']?.toString() ?? 'Thử lại',
+      );
+    }
+  }
+
+  String _accountLabelForHeartbeat() {
+    final u = Provider.of<AuthProvider>(context, listen: false).user;
+    final parts = <String>[
+      if ((u?.fullName ?? '').trim().isNotEmpty) u!.fullName.trim(),
+      if ((u?.email ?? '').trim().isNotEmpty) u!.email.trim(),
+    ];
+    return parts.join(' · ');
   }
 
   String _printersForDoc(String docType) {
@@ -109,14 +405,51 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
           message: 'Thêm máy in LAN/BT/USB trong danh sách bên dưới',
         );
       }
+
+      await _loadOnlineAgents(silent: true);
+      if (!mounted) return;
+      final others = _onlineAgents
+          .where((a) => a.deviceId != _myDeviceId && a.isOnline)
+          .toList();
+      if (others.isNotEmpty) {
+        final lines = others
+            .map((a) =>
+                '• ${a.deviceName.isNotEmpty ? a.deviceName : 'Máy'} — ${a.accountDisplay}')
+            .join('\n');
+        final ok = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Đã có máy khác bật Agent'),
+            content: Text(
+              'Nên chỉ 1 máy nhận lệnh in.\n\n'
+              'Đang bật:\n$lines\n\n'
+              'Vẫn bật Agent trên máy này?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Hủy'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Vẫn bật'),
+              ),
+            ],
+          ),
+        );
+        if (!mounted || ok != true) return;
+      }
+
+      final label = _accountLabelForHeartbeat();
       // Lần đầu bật: gán hết máy in cloud cho thiết bị này (chỉ 1 máy nên bật Agent).
       if (_agent.assignedPrinterIds.isEmpty && agentPrinters.isNotEmpty) {
         _agent = _agent.copyWith(
           enabled: true,
           assignedPrinterIds: agentPrinters.map((p) => p.id).toList(),
+          accountLabel: label,
         );
       } else {
-        _agent = _agent.copyWith(enabled: v);
+        _agent = _agent.copyWith(enabled: true, accountLabel: label);
       }
     } else {
       _agent = _agent.copyWith(enabled: false);
@@ -132,8 +465,10 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
         title: 'Print Agent bật',
         message: 'Giữ app mở — nhận lệnh in cloud (LAN/BT/USB)',
       );
+      await _loadOnlineAgents(silent: true);
     } else if (!v) {
       await PosPrintAgentService.instance.stop();
+      await _loadOnlineAgents(silent: true);
     }
   }
 
@@ -250,7 +585,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                 const SizedBox(width: 8),
                 const Expanded(
                   child: Text(
-                    'Print Agent (in cloud)',
+                    'Máy nhận lệnh in (Agent)',
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                   ),
                 ),
@@ -260,17 +595,36 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0F7FF),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFBFDBFE)),
+              ),
+              child: const Text(
+                'Cách dùng đơn giản (1 máy in + nhiều điện thoại):\n'
+                '1) Thêm máy in Zywell/LAN (IP:9100) vào danh sách bên dưới.\n'
+                '2) Chỉ 1 máy (Sunmi / điện thoại gần máy in): bật công tắc này + chọn chip máy in — giữ app mở.\n'
+                '3) Điện thoại thu ngân khác: tắt công tắc này. In → lệnh gửi máy chủ → máy ở bước 2 in ra.\n'
+                'Lưu ý: máy thu ngân tắt «máy in cục bộ» nếu muốn chỉ in qua máy chủ.',
+                style: TextStyle(fontSize: 12, height: 1.35, color: Color(0xFF1E3A5F)),
+              ),
+            ),
+            const SizedBox(height: 8),
             Text(
               _agent.enabled
-                  ? 'Thiết bị này nhận lệnh in cho máy in đã chọn bên dưới'
-                  : 'Chỉ bật trên 1 thiết bị đã gắn máy in (LAN/BT)',
+                  ? 'Máy này đang nhận lệnh in cho chip đã chọn'
+                  : 'Tắt trên máy thu ngân — chỉ bật trên 1 máy gần máy in',
               style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
             ),
             if (agentPrinters.isEmpty)
               const Padding(
                 padding: EdgeInsets.only(top: 6),
                 child: Text(
-                  'Thêm máy in LAN/BT/USB — in qua cloud (Print Agent)',
+                  'Chưa có máy in cửa hàng — bấm «Thêm máy in» (LAN/BT/Sunmi)',
                   style: TextStyle(fontSize: 11, color: Colors.orange),
                 ),
               ),
@@ -291,7 +645,10 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                       } else {
                         ids.remove(p.id);
                       }
-                      _agent = _agent.copyWith(assignedPrinterIds: ids);
+                      _agent = _agent.copyWith(
+                        assignedPrinterIds: ids,
+                        accountLabel: _accountLabelForHeartbeat(),
+                      );
                       await _agent.save();
                       setState(() {});
                       final storeId = Provider.of<AuthProvider>(context, listen: false)
@@ -299,21 +656,205 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                       if (_agent.enabled &&
                           storeId != null &&
                           storeId.isNotEmpty) {
-                        await PosPrintAgentService.instance.ensureRunning(storeId);
+                        await PosPrintAgentService.instance
+                            .ensureRunning(storeId, forceReregister: true);
+                        await _loadOnlineAgents(silent: true);
                       }
                     },
                   );
                 }).toList(),
               ),
             ],
-            if (PosPrintAgentService.instance.isRunning)
+            if (_agent.enabled && _agent.assignedPrinterIds.isEmpty)
               const Padding(
                 padding: EdgeInsets.only(top: 6),
                 child: Text(
-                  '● Agent đang chạy',
+                  '⚠ Chưa chọn chip máy in — Agent không nhận được lệnh từ Oppo',
+                  style: TextStyle(color: Colors.orange, fontSize: 12),
+                ),
+              ),
+            if (_agent.enabled &&
+                _agent.assignedPrinterIds.isNotEmpty &&
+                PosPrintAgentService.instance.isRunning &&
+                !PosPrintAgentService.instance.isRegistered)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  '⚠ Agent chưa đăng ký server'
+                  '${PosPrintAgentService.instance.lastRegisterError != null ? ': ${PosPrintAgentService.instance.lastRegisterError}' : ''}',
+                  style: const TextStyle(color: Colors.red, fontSize: 12),
+                ),
+              ),
+            if (_agent.enabled &&
+                _agent.assignedPrinterIds.isNotEmpty &&
+                PosPrintAgentService.instance.isRunning &&
+                PosPrintAgentService.instance.isRegistered)
+              const Padding(
+                padding: EdgeInsets.only(top: 6),
+                child: Text(
+                  '● Agent đang chạy — sẵn sàng nhận lệnh in',
                   style: TextStyle(color: Colors.green, fontSize: 12),
                 ),
               ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Agent đang online trên cửa hàng',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Tải lại',
+                  icon: const Icon(Icons.refresh, size: 18),
+                  onPressed: () => unawaited(_loadOnlineAgents()),
+                ),
+              ],
+            ),
+            if (_multiAgent || _hasPrinterConflict)
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF7ED),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFFDBA74)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _hasPrinterConflict
+                          ? 'Cảnh báo: cùng máy in đang được ≥2 máy Agent nhận — dễ tranh lệnh / in trùng. Chỉ giữ 1 máy Agent.'
+                          : 'Cảnh báo: đang có ${_onlineAgents.length} máy bật Agent. Nên chỉ bật trên máy gần máy in (Sunmi).',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        height: 1.35,
+                        color: Color(0xFF9A3412),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (_onlineAgents.any((a) => a.deviceId != _myDeviceId)) ...[
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                          onPressed: () async {
+                            final others = _onlineAgents
+                                .where((a) => a.deviceId != _myDeviceId)
+                                .toList();
+                            for (final a in others) {
+                              await _api.markPosPrintAgentOffline(
+                                  deviceId: a.deviceId);
+                            }
+                            if (!mounted) return;
+                            NotificationOverlayManager().showSuccess(
+                              title: 'Đã gửi lệnh tắt Agent máy khác',
+                              message: 'Đợi vài giây rồi kéo refresh',
+                            );
+                            await _loadOnlineAgents(silent: true);
+                          },
+                          icon: const Icon(Icons.power_settings_new, size: 16),
+                          label: const Text('Tắt Agent các máy khác'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: const Color(0xFF9A3412),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            if (_onlineAgents.isEmpty)
+              const Text(
+                'Chưa có máy nào đang nhận lệnh in (Agent offline).',
+                style: TextStyle(fontSize: 12, color: PosTheme.textSecondary),
+              )
+            else
+              ..._onlineAgents.map((a) {
+                final mine = a.deviceId == _myDeviceId;
+                return Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: mine
+                        ? const Color(0xFFECFDF5)
+                        : const Color(0xFFF9FAFB),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: mine
+                          ? const Color(0xFF86EFAC)
+                          : const Color(0xFFE5E7EB),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.smartphone,
+                            size: 16,
+                            color: mine
+                                ? const Color(0xFF166534)
+                                : PosTheme.textSecondary,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              a.displayTitle,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13,
+                                color: mine
+                                    ? const Color(0xFF166534)
+                                    : Colors.black87,
+                              ),
+                            ),
+                          ),
+                          if (mine)
+                            const Text(
+                              'Máy này',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF166534),
+                              ),
+                            )
+                          else
+                            TextButton(
+                              onPressed: () => unawaited(_forceOfflineAgent(a)),
+                              style: TextButton.styleFrom(
+                                foregroundColor: Colors.red.shade700,
+                                padding: EdgeInsets.zero,
+                                minimumSize: const Size(0, 28),
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              child: const Text('Tắt',
+                                  style: TextStyle(fontSize: 12)),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Tài khoản: ${a.accountDisplay}',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      if (a.printerNames.isNotEmpty)
+                        Text(
+                          'Máy in: ${a.printerNames.join(', ')}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: PosTheme.textSecondary,
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              }),
           ],
         ),
       ),
@@ -331,8 +872,20 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
             const SizedBox(height: 8),
             if (_printers.isEmpty)
-              const Text('Chưa có máy in. Thêm máy in LAN/BT/USB cho in cloud.',
-                  style: TextStyle(color: PosTheme.textSecondary)),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Chưa có máy in. Thêm máy in LAN/BT/Sunmi cho in cloud.',
+                    style: TextStyle(color: PosTheme.textSecondary),
+                  ),
+                  TextButton.icon(
+                    onPressed: () => unawaited(_load()),
+                    icon: const Icon(Icons.refresh, size: 16),
+                    label: const Text('Tải lại danh sách'),
+                  ),
+                ],
+              ),
             ..._printers.map(_printerTile),
           ],
         ),
@@ -388,8 +941,11 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                     ),
                   ),
                 );
-              } else if (a == 'test') {
-                final ok = await PosPrintOrchestrator.instance.testPrinter(p);
+              } else if (a == 'test' || a == 'test_cloud') {
+                final ok = await PosPrintOrchestrator.instance.testPrinter(
+                  p,
+                  forceRemote: a == 'test_cloud',
+                );
                 if (!ok && mounted) {
                   NotificationOverlayManager().showError(
                     title: 'Test thất bại',
@@ -413,14 +969,45 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                   ),
                 );
                 if (yes == true) {
-                  await _api.deletePosStorePrinter(p.id);
-                  await _load();
+                  final deletedId = p.id;
+                  final res = await _api.deletePosStorePrinter(deletedId);
+                  if (!mounted) return;
+                  if (res['isSuccess'] == true) {
+                    // Xóa ngay trên UI — không chờ reload (tránh list cũ nếu API chậm).
+                    setState(() {
+                      _printers.removeWhere((x) => x.id == deletedId);
+                      _routes.removeWhere((x) => x.printerId == deletedId);
+                      if (_agent.assignedPrinterIds.contains(deletedId)) {
+                        _agent = _agent.copyWith(
+                          assignedPrinterIds: _agent.assignedPrinterIds
+                              .where((id) => id != deletedId)
+                              .toList(),
+                        );
+                        unawaited(_agent.save());
+                      }
+                    });
+                    NotificationOverlayManager().showSuccess(
+                      title: 'Đã xóa máy in',
+                      message: p.name,
+                    );
+                    await _load();
+                  } else {
+                    NotificationOverlayManager().showError(
+                      title: 'Không xóa được',
+                      message: res['message']?.toString() ??
+                          'Kiểm tra quyền PosSell (Sửa) hoặc thử lại',
+                    );
+                  }
                 }
               }
             },
             itemBuilder: (_) => const [
               PopupMenuItem(value: 'products', child: Text('Sản phẩm in kho')),
-              PopupMenuItem(value: 'test', child: Text('Test in')),
+              PopupMenuItem(value: 'test', child: Text('Test in cục bộ')),
+              PopupMenuItem(
+                value: 'test_cloud',
+                child: Text('Test in qua cloud (máy thu ngân)'),
+              ),
               PopupMenuItem(value: 'edit', child: Text('Sửa')),
               PopupMenuItem(value: 'delete', child: Text('Xóa')),
             ],
@@ -679,9 +1266,13 @@ class _PrinterEditorSheetState extends State<_PrinterEditorSheet> {
       final body = <String, dynamic>{
         'name': name,
         'connectionType': _connection,
-        'printerBrand': _isLabel ? 'label' : _brand,
+        'printerBrand': _isLabel
+            ? 'label'
+            : (_connection == 'Sunmi' ? 'sunmi' : _brand),
         'paperSize': _isLabel ? _templateId : _paper,
-        'textMode': _isLabel ? _protocol : 'auto',
+        'textMode': _isLabel
+            ? _protocol
+            : (_connection == 'Sunmi' ? 'utf8' : 'auto'),
         'bluetoothAddress': _connection == 'Bluetooth' ? _btAddr : null,
         'bluetoothName': _connection == 'Bluetooth' ? _btName : null,
         'lanHost': _connection == 'Lan' && _lanHostCtrl.text.trim().isNotEmpty
@@ -692,7 +1283,7 @@ class _PrinterEditorSheetState extends State<_PrinterEditorSheet> {
             _connection == 'Usb' && _usbNameCtrl.text.trim().isNotEmpty
                 ? _usbNameCtrl.text.trim()
                 : null,
-        'feedBeforeCut': _isLabel ? _gapMm : 8,
+        'feedBeforeCut': _isLabel ? _gapMm : (_connection == 'Sunmi' ? 14 : 8),
         'partialCut': !_isLabel,
         'isDefault': _isDefault,
         'sortOrder': 0,
@@ -942,6 +1533,76 @@ class _PrinterEditorSheetState extends State<_PrinterEditorSheet> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _OnlinePrintAgent {
+  _OnlinePrintAgent({
+    required this.deviceId,
+    required this.deviceName,
+    required this.accountDisplay,
+    required this.printerNames,
+    required this.isOnline,
+    this.lastHeartbeatAt,
+  });
+
+  final String deviceId;
+  final String deviceName;
+  final String accountDisplay;
+  final List<String> printerNames;
+  final bool isOnline;
+  final DateTime? lastHeartbeatAt;
+
+  /// Tên máy ưu tiên model thiết bị; tránh hiện «SBOX POS» chung chung.
+  String get displayTitle {
+    final n = deviceName.trim();
+    if (n.isNotEmpty &&
+        n.toLowerCase() != 'sbox pos' &&
+        n.toLowerCase() != 'android pos' &&
+        n.toLowerCase() != 'máy pos') {
+      return n;
+    }
+    if (accountDisplay.isNotEmpty && accountDisplay != 'Không rõ tài khoản') {
+      return accountDisplay;
+    }
+    return n.isNotEmpty ? n : 'Máy POS';
+  }
+
+  factory _OnlinePrintAgent.fromJson(Map<String, dynamic> json) {
+    final names = (json['printerNames'] as List? ?? json['PrinterNames'] as List?)
+            ?.map((e) => e.toString())
+            .where((e) => e.isNotEmpty)
+            .toList() ??
+        const <String>[];
+    final account = (json['accountLabel'] ??
+                json['AccountLabel'] ??
+                json['employeeName'] ??
+                json['EmployeeName'] ??
+                json['accountEmail'] ??
+                json['accountUserName'] ??
+                '')
+            .toString()
+            .trim();
+    DateTime? hb;
+    final rawHb = json['lastHeartbeatAt'] ?? json['LastHeartbeatAt'];
+    if (rawHb != null) {
+      final s = rawHb.toString();
+      hb = DateTime.tryParse(s.endsWith('Z') || s.contains('+') ? s : '${s}Z');
+    }
+    final onlineRaw = json['isOnline'] ?? json['IsOnline'];
+    final isOnline = onlineRaw == true ||
+        onlineRaw?.toString().toLowerCase() == 'true' ||
+        (onlineRaw == null &&
+            hb != null &&
+            DateTime.now().toUtc().difference(hb.toUtc()).inMinutes < 3);
+    return _OnlinePrintAgent(
+      deviceId: (json['deviceId'] ?? json['DeviceId'])?.toString() ?? '',
+      deviceName: (json['deviceName'] ?? json['DeviceName'])?.toString() ?? '',
+      accountDisplay: account.isNotEmpty ? account : 'Không rõ tài khoản',
+      printerNames: names,
+      isOnline: isOnline,
+      lastHeartbeatAt: hb,
     );
   }
 }

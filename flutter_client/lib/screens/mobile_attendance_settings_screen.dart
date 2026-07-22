@@ -10,7 +10,9 @@ import 'package:permission_handler/permission_handler.dart';
 import '../utils/responsive_helper.dart';
 import '../models/mobile_attendance.dart';
 import '../services/api_service.dart';
+import '../widgets/hrm/hrm_settings_mobile_kit.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/safe_layout_widgets.dart';
 import '../utils/device_site_photo_prefs.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/map_location_picker.dart';
@@ -383,7 +385,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
   Widget build(BuildContext context) {
     final embedded = HrmPageChrome.isEmbedded;
     return Scaffold(
-      backgroundColor: HrmPageChrome.background,
+      backgroundColor: HrmPageChrome.scaffoldBackground(context),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -428,7 +430,9 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
   // ==================== TAB 1: CÀI ĐẶT CHUNG ====================
   Widget _buildSettingsTab() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: HrmSettingsMobileKit.active(context)
+          ? HrmSettingsMobileKit.pagePadding(context)
+          : const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1032,32 +1036,44 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
 
   // ==================== TAB 2: VỊ TRÍ LÀM VIỆC ====================
   Widget _buildLocationsTab() {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
+    final embeddedMobile = HrmSettingsMobileKit.active(context);
+    final pagePad = embeddedMobile
+        ? HrmSettingsMobileKit.pagePadding(context)
+        : const EdgeInsets.all(16);
+
+    Widget searchField = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE4E4E7)),
+      ),
+      child: TextField(
+        decoration: const InputDecoration(
+          hintText: 'Tìm kiếm vị trí...',
+          border: InputBorder.none,
+          icon: Icon(Icons.search, color: Color(0xFF71717A)),
+        ),
+        onChanged: (value) => setState(() => _locationSearchQuery = value),
+      ),
+    );
+
+    final toolbar = embeddedMobile
+        ? HrmSettingsSection(
+            title: 'Vị trí chấm công',
+            trailing: _perm.canCreate('MobileAttendance')
+                ? HrmSettingsAddButton(
+                    label: 'Thêm',
+                    compact: true,
+                    icon: Icons.add_location_alt,
+                    onPressed: () => _showAddLocationDialog(),
+                  )
+                : null,
+            child: searchField,
+          )
+        : Row(
             children: [
-              
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFE4E4E7)),
-                  ),
-                  child: TextField(
-                    decoration: const InputDecoration(
-                      hintText: 'Tìm kiếm vị trí...',
-                      border: InputBorder.none,
-                      icon: Icon(Icons.search, color: Color(0xFF71717A)),
-                    ),
-                    onChanged: (value) => setState(() => _locationSearchQuery = value),
-                  ),
-                ),
-              ),
-              
+              Expanded(child: searchField),
               if (_perm.canCreate('MobileAttendance')) ...[
                 const SizedBox(width: 12),
                 FilledButton.icon(
@@ -1072,7 +1088,13 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                 ),
               ],
             ],
-          ),
+          );
+
+    return Column(
+      children: [
+        Padding(
+          padding: EdgeInsets.fromLTRB(pagePad.left, pagePad.top, pagePad.right, 8),
+          child: toolbar,
         ),
         Expanded(
           child: _locations.isEmpty
@@ -2097,40 +2119,53 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
 
   // ==================== TAB 4: THIẾT BỊ ĐƯỢC CẤP QUYỀN ====================
   Widget _buildDevicesTab() {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
+    final embeddedMobile = HrmSettingsMobileKit.active(context);
+    final pagePad = embeddedMobile
+        ? HrmSettingsMobileKit.pagePadding(context)
+        : const EdgeInsets.all(16);
+
+    Widget searchField = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE4E4E7)),
+      ),
+      child: TextField(
+        controller: _deviceSearchController,
+        decoration: InputDecoration(
+          hintText: 'Tìm kiếm theo nhân viên, tên máy...',
+          border: InputBorder.none,
+          icon: const Icon(Icons.search, color: Color(0xFF71717A)),
+          suffixIcon: _deviceSearchQuery.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.clear, size: 18, color: Color(0xFF71717A)),
+                  onPressed: () {
+                    _deviceSearchController.clear();
+                    setState(() => _deviceSearchQuery = '');
+                  },
+                )
+              : null,
+        ),
+        onChanged: (value) => setState(() => _deviceSearchQuery = value),
+      ),
+    );
+
+    final toolbar = embeddedMobile
+        ? HrmSettingsSection(
+            title: 'Thiết bị được cấp quyền',
+            trailing: _perm.canCreate('MobileAttendance')
+                ? HrmSettingsAddButton(
+                    label: 'Cấp quyền',
+                    compact: true,
+                    onPressed: () => _showAddDeviceDialog(),
+                  )
+                : null,
+            child: searchField,
+          )
+        : Row(
             children: [
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFE4E4E7)),
-                  ),
-                  child: TextField(
-                    controller: _deviceSearchController,
-                    decoration: InputDecoration(
-                      hintText: 'Tìm kiếm theo nhân viên, tên máy...',
-                      border: InputBorder.none,
-                      icon: const Icon(Icons.search, color: Color(0xFF71717A)),
-                      suffixIcon: _deviceSearchQuery.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear, size: 18, color: Color(0xFF71717A)),
-                              onPressed: () {
-                                _deviceSearchController.clear();
-                                setState(() => _deviceSearchQuery = '');
-                              },
-                            )
-                          : null,
-                    ),
-                    onChanged: (value) => setState(() => _deviceSearchQuery = value),
-                  ),
-                ),
-              ),
+              Expanded(child: searchField),
               if (_perm.canCreate('MobileAttendance')) ...[
                 const SizedBox(width: 12),
                 FilledButton.icon(
@@ -2145,10 +2180,16 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                 ),
               ],
             ],
-          ),
+          );
+
+    return Column(
+      children: [
+        Padding(
+          padding: EdgeInsets.fromLTRB(pagePad.left, pagePad.top, pagePad.right, 8),
+          child: toolbar,
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          padding: EdgeInsets.fromLTRB(pagePad.left, 0, pagePad.right, 8),
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
@@ -3089,19 +3130,17 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                       Text('${registration.faceImages.length} ảnh đã đăng ký',
                           style: const TextStyle(color: Color(0xFF71717A), fontSize: 13)),
                       const SizedBox(height: 12),
-                      GridView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: isMobile ? 2 : 3,
-                          crossAxisSpacing: 8,
-                          mainAxisSpacing: 8,
-                        ),
+                      SafeFixedGrid(
+                        crossAxisCount: isMobile ? 2 : 3,
+                        spacing: 8,
+                        runSpacing: 8,
+                        childAspectRatio: 1,
                         itemCount: registration.faceImages.length,
                         itemBuilder: (_, index) {
                           final imageUrl = registration.faceImages[index];
                           return GestureDetector(
-                            onTap: () => _showFullScreenImage(imageUrl, registration.employeeName),
+                            onTap: () => _showFullScreenImage(
+                                imageUrl, registration.employeeName),
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(12),
                               child: AuthCachedImage(
@@ -3110,18 +3149,27 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                                 fit: BoxFit.cover,
                                 placeholder: (_, __) => Container(
                                   color: const Color(0xFFF4F4F5),
-                                  child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                                  child: const Center(
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2)),
                                 ),
                                 errorWidget: (_, url, error) => Container(
                                   color: const Color(0xFFF4F4F5),
                                   child: Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      const Icon(Icons.broken_image, color: Color(0xFF71717A)),
+                                      const Icon(Icons.broken_image,
+                                          color: Color(0xFF71717A)),
                                       const SizedBox(height: 4),
                                       Padding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                                        child: Text(url, style: const TextStyle(fontSize: 8, color: Color(0xFF71717A)), maxLines: 2, overflow: TextOverflow.ellipsis),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 4),
+                                        child: Text(url,
+                                            style: const TextStyle(
+                                                fontSize: 8,
+                                                color: Color(0xFF71717A)),
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis),
                                       ),
                                     ],
                                   ),
@@ -4178,34 +4226,22 @@ class _LocationEmployeesAssignDialogState
 
   Widget _buildBody() {
     if (_loading) {
-      return const SizedBox(
-        height: 200,
-        child: Center(child: CircularProgressIndicator()),
-      );
+      return const Center(child: CircularProgressIndicator());
     }
     if (_loadError.isNotEmpty) {
-      return SizedBox(
-        height: 120,
-        child: Center(
-          child: Text(_loadError,
-              style: const TextStyle(color: Color(0xFFEF4444))),
-        ),
+      return Center(
+        child: Text(_loadError,
+            style: const TextStyle(color: Color(0xFFEF4444))),
       );
     }
     if (_allEmployees.isEmpty) {
-      return const SizedBox(
-        height: 120,
-        child: Center(
-          child: Text('Chưa có nhân viên trong hệ thống',
-              style: TextStyle(color: Color(0xFF71717A))),
-        ),
+      return const Center(
+        child: Text('Chưa có nhân viên trong hệ thống',
+            style: TextStyle(color: Color(0xFF71717A))),
       );
     }
     final filtered = _filteredEmployees;
-    final isMobile = Responsive.isCompactViewport(context);
-    return SizedBox(
-      height: isMobile ? 360 : 420,
-      child: ListView.builder(
+    return ListView.builder(
         itemCount: filtered.length,
         itemBuilder: (_, index) {
           final emp = filtered[index];
@@ -4245,13 +4281,11 @@ class _LocationEmployeesAssignDialogState
             dense: true,
           );
         },
-      ),
     );
   }
 
   Widget _buildContent() {
     return Column(
-      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Container(
@@ -4310,7 +4344,7 @@ class _LocationEmployeesAssignDialogState
             ),
           ],
         ),
-        _buildBody(),
+        Expanded(child: _buildBody()),
       ],
     );
   }
@@ -4328,7 +4362,6 @@ class _LocationEmployeesAssignDialogState
             maxHeight: MediaQuery.of(context).size.height * 0.88,
           ),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 14, 8, 8),
@@ -4353,8 +4386,8 @@ class _LocationEmployeesAssignDialogState
                   ],
                 ),
               ),
-              Flexible(
-                child: SingleChildScrollView(
+              Expanded(
+                child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                   child: _buildContent(),
                 ),
@@ -4403,7 +4436,7 @@ class _LocationEmployeesAssignDialogState
           ),
         ],
       ),
-      content: SizedBox(width: 520, child: _buildContent()),
+      content: SizedBox(width: 520, height: 420, child: _buildContent()),
       actions: [
         TextButton(
           onPressed: _saving ? null : () => Navigator.pop(context),

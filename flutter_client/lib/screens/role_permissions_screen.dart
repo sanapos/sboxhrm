@@ -9,6 +9,7 @@ import '../utils/permission_module_catalog.dart';
 import '../utils/permission_module_labels.dart';
 import '../utils/permission_role_catalog.dart';
 import '../utils/responsive_helper.dart';
+import '../widgets/hrm/hrm_settings_mobile_kit.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/notification_overlay.dart';
@@ -1474,6 +1475,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
             children: [
               if (HrmPageChrome.isEmbedded)
                 HrmPageChrome.embeddedActionBar(
+                  context: context,
                   actions: saveAction != null ? [saveAction] : [],
                 ),
               Expanded(
@@ -1580,10 +1582,11 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
           );
 
     if (HrmPageChrome.isEmbedded) {
-      return ColoredBox(color: HrmPageChrome.background, child: body);
+      return ColoredBox(
+          color: HrmPageChrome.scaffoldBackground(context), child: body);
     }
     return Scaffold(
-      backgroundColor: HrmPageChrome.background,
+      backgroundColor: HrmPageChrome.scaffoldBackground(context),
       appBar: HrmPageChrome.appBar(
         title: 'Phân quyền Chức danh',
         actions: saveAction != null ? [saveAction] : null,
@@ -1596,69 +1599,72 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
   Widget _buildMobileBody() {
     if (_selectedRolePermissions == null) {
       // Step 1: Show role list
+      if (HrmSettingsMobileKit.active(context)) {
+        return SingleChildScrollView(
+          padding: HrmSettingsMobileKit.pagePadding(context),
+          child: HrmSettingsSection(
+            title: 'Chức danh',
+            trailing: _perm.canCreate('Role')
+                ? HrmSettingsAddButton(
+                    label: 'Thêm chức danh',
+                    onPressed: _showAddRoleDialog,
+                  )
+                : null,
+            child: HrmSettingsEntityGrid(
+              itemCount: _roles.length,
+              columns: 3,
+              childAspectRatio: 0.88,
+              itemBuilder: (ctx, index) =>
+                  _buildMobileRoleTile(_roles[index]),
+            ),
+          ),
+        );
+      }
       return Column(
         children: [
-          if (HrmPageChrome.isEmbedded)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: const BoxDecoration(
               color: Colors.white,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  if (_perm.canCreate('Role'))
-                    IconButton(
-                      onPressed: _showAddRoleDialog,
-                      icon: const Icon(Icons.add_circle,
-                          color: HrmPageChrome.primaryNavy),
-                      tooltip: 'Thêm chức danh',
-                    ),
-                ],
-              ),
-            )
-          else
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(Icons.badge,
-                        color: HrmPageChrome.primaryNavy, size: 20),
-                  ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Chức danh',
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
-                                color: Color(0xFF18181B))),
-                        Text('Chọn để phân quyền',
-                            style: TextStyle(
-                                fontSize: 12, color: Color(0xFF71717A))),
-                      ],
-                    ),
-                  ),
-                  if (_perm.canCreate('Role'))
-                    IconButton(
-                      onPressed: _showAddRoleDialog,
-                      icon: const Icon(Icons.add_circle,
-                          color: HrmPageChrome.primaryNavy),
-                      tooltip: 'Thêm chức danh',
-                    ),
-                ],
-              ),
+              border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
             ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.badge,
+                      color: HrmPageChrome.primaryNavy, size: 20),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Chức danh',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                              color: Color(0xFF18181B))),
+                      Text('Chọn để phân quyền',
+                          style: TextStyle(
+                              fontSize: 12, color: Color(0xFF71717A))),
+                    ],
+                  ),
+                ),
+                if (_perm.canCreate('Role'))
+                  IconButton(
+                    onPressed: _showAddRoleDialog,
+                    icon: const Icon(Icons.add_circle,
+                        color: HrmPageChrome.primaryNavy),
+                    tooltip: 'Thêm chức danh',
+                  ),
+              ],
+            ),
+          ),
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.symmetric(vertical: 8),
@@ -1724,6 +1730,26 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                 ),
               ),
+              if (HrmSettingsMobileKit.active(context) && _perm.canEdit('Role'))
+                Padding(
+                  padding: const EdgeInsets.only(left: 4),
+                  child: FilledButton(
+                    onPressed: _isSaving ? null : _savePermissions,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: HrmPageChrome.primaryNavy,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      minimumSize: const Size(0, 36),
+                    ),
+                    child: _isSaving
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white))
+                        : const Icon(Icons.save, size: 18),
+                  ),
+                ),
             ],
           ),
         ),
@@ -1932,6 +1958,39 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildMobileRoleTile(Map<String, dynamic> role) {
+    final permissions = role['permissions'] as List?;
+    final moduleCount = permissions != null
+        ? permissions.where((p) => p['canView'] == true).length
+        : (role['permissionCount'] ?? 0);
+    final roleName = role['roleName'] as String? ?? '';
+    final defaultRoles = [
+      'Admin',
+      'Director',
+      'Accountant',
+      'DepartmentHead',
+      'Manager',
+      'Employee',
+      'User'
+    ];
+    final canDelete =
+        _perm.canDelete('Role') && !defaultRoles.contains(roleName);
+
+    return HrmSettingsEntityTile(
+      title: role['roleDisplayName'] ?? roleName,
+      meta: '$moduleCount module',
+      icon: _getRoleIcon(roleName),
+      iconColor: _getRoleColor(roleName),
+      onTap: () => _selectRole(roleName),
+      menuItems: canDelete
+          ? const [
+              PopupMenuItem(value: 'delete', child: Text('Xóa chức danh')),
+            ]
+          : null,
+      onMenuSelected: canDelete ? (_) => _deleteRole(roleName) : null,
     );
   }
 

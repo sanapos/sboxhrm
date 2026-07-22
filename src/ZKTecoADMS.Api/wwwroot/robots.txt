@@ -7,4 +7,4 @@ Disallow: /admin
 Disallow: /login-app
 Disallow: /register
 
-Sitemap: https://sbox.sana.vn/sitemap.xml
+Sitemap: https://sboxhrm.com/sitemap.xml

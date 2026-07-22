@@ -90,6 +90,18 @@ public static class AppSettingKeys
     public const string LandingGuideJson = "landing_guide_json";
     public const string LandingProducts = "landing_products";
     public const string LandingDownloadsJson = "landing_downloads_json";
+    public const string LandingFaqJson = "landing_faq_json";
+
+    // SEO / Google (public – used by homepage & analytics)
+    public const string GoogleSiteVerification = "google_site_verification";
+    public const string GoogleTagId = "google_tag_id";
+    public const string SeoMetaTitle = "seo_meta_title";
+    public const string SeoMetaDescription = "seo_meta_description";
+    public const string SeoMetaKeywords = "seo_meta_keywords";
+    public const string SeoOgTitle = "seo_og_title";
+    public const string SeoOgDescription = "seo_og_description";
+    public const string SeoOgImage = "seo_og_image";
+    public const string SeoCanonicalUrl = "seo_canonical_url";
 
     // Legal
     public const string TermsOfService = "terms_of_service";

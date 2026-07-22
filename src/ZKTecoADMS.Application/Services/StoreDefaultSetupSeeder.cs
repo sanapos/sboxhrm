@@ -157,6 +157,7 @@ public static class StoreDefaultSetupSeeder
             LateGraceMinutes = 5,
             EarlyLeaveGraceMinutes = 5,
             OvertimeMinutesThreshold = 30,
+            EarlyOvertimeMinutesThreshold = 30,
             ShiftType = t.ShiftType,
             Description = "Mẫu mặc định — có thể chỉnh trong Thiết lập ca",
             IsActive = true,

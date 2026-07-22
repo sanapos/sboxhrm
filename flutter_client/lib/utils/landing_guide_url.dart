@@ -18,10 +18,10 @@ class GuideDeepLink {
 class LandingGuideUrl {
   LandingGuideUrl._();
 
-  static const productionOrigin = 'https://sbox.sana.vn';
+  static const productionOrigin = 'https://sboxhrm.com';
 
   /// Link chia sẻ — query param (giữ được khi gửi Zalo), không dùng hash.
-  /// Ví dụ: https://sbox.sana.vn/?guide=advanced&step=kpi
+  /// Ví dụ: https://sboxhrm.com/?guide=advanced&step=kpi
   static String buildLink({
     required String section,
     required String stepId,

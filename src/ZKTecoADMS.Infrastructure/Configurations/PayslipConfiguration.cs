@@ -62,6 +62,12 @@ public class PayslipConfiguration : IEntityTypeConfiguration<Payslip>
             .HasPrecision(18, 2)
             .IsRequired();
 
+        builder.Property(p => p.TravelHours)
+            .HasPrecision(18, 2);
+
+        builder.Property(p => p.TravelSalary)
+            .HasPrecision(18, 2);
+
         builder.Property(p => p.Currency)
             .HasMaxLength(10)
             .IsRequired();

@@ -103,6 +103,19 @@ internal static class PosVariantStockHelper
         return qtyInUnit;
     }
 
+    /// <summary>
+    /// Ngược của StockDeltaInBase — quy đổi QtyChange đã lưu ở đơn vị cơ bản (do StockDeltaInBase
+    /// tạo ra khi ghi PosStockTransaction) trở lại đơn vị bán (ĐVT quy đổi), để so sánh/hiển thị
+    /// đúng với PosSaleOrderLine.Qty (luôn lưu theo ĐVT bán, không phải đơn vị cơ bản).
+    /// Thiếu bước quy đổi này khiến "đã trả" hiển thị sai (VD: bán 3 Thùng, trả 2 Thùng nhưng
+    /// hiển thị 5 nếu 1 Thùng = 2.5 đơn vị cơ bản).
+    /// </summary>
+    public static decimal ToSaleUnitQty(decimal baseQtyChange, string? variantAttributeJson)
+    {
+        if (!IsUnitOnlyVariant(variantAttributeJson)) return baseQtyChange;
+        return ToDisplayQty(baseQtyChange, ParseConversionRate(variantAttributeJson));
+    }
+
     public static bool TryApplyVariantStockEdit(
         ZKTecoDbContext db,
         Guid storeId,

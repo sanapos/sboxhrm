@@ -111,10 +111,13 @@ public class ExecutiveReportsController(
             var advance = await db.AdvanceRequests.IgnoreQueryFilters()
                 .Where(a => a.StoreId == storeId
                     && a.RequestDate >= fromUtc && a.RequestDate < toUtc)
-                .Select(a => new { a.Amount, a.Status, a.IsPaid })
+                .Select(a => new { a.Amount, a.ApprovedAmount, a.Status, a.IsPaid })
                 .ToListAsync(ct);
-            var advanceApproved = advance.Where(a => a.Status == AdvanceRequestStatus.Approved).Sum(a => a.Amount);
-            var advanceOutstanding = advance.Where(a => a.Status == AdvanceRequestStatus.Approved && !a.IsPaid).Sum(a => a.Amount);
+            static decimal Payout(decimal amount, decimal? approved) => approved ?? amount;
+            var advanceApproved = advance.Where(a => a.Status == AdvanceRequestStatus.Approved)
+                .Sum(a => Payout(a.Amount, a.ApprovedAmount));
+            var advanceOutstanding = advance.Where(a => a.Status == AdvanceRequestStatus.Approved && !a.IsPaid)
+                .Sum(a => Payout(a.Amount, a.ApprovedAmount));
 
             var mealPeriod = $"{y:D4}-{m:D2}";
             var meals = await db.MealDebts.IgnoreQueryFilters()

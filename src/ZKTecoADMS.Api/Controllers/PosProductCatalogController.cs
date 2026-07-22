@@ -124,6 +124,47 @@ public class PosProductCatalogController(
             new MasterDto(entity.Id, entity.Name, entity.ParentId, entity.SortOrder, productCount, entity.DefaultPrinterId, null)));
     }
 
+    public class CatalogSortItemDto
+    {
+        public Guid Id { get; set; }
+        public int SortOrder { get; set; }
+    }
+
+    public class CatalogSortBatchDto
+    {
+        public List<CatalogSortItemDto> Items { get; set; } = [];
+    }
+
+    /// <summary>Sắp xếp thứ tự nhóm hàng trên menu bán.</summary>
+    [HttpPut("categories/sort")]
+    [RequireAnyModulePermission(ModulePermissionAction.Edit, "PosProducts", "PosSell")]
+    public async Task<ActionResult<AppResponse<object>>> SortCategories([FromBody] CatalogSortBatchDto? dto)
+    {
+        var storeId = RequiredStoreId;
+        if (dto?.Items == null || dto.Items.Count == 0)
+            return BadRequest(AppResponse<object>.Fail("Không có thứ tự"));
+
+        var saved = 0;
+        var now = DateTime.UtcNow;
+        var by = CurrentUserEmail;
+        foreach (var item in dto.Items)
+        {
+            if (item.Id == Guid.Empty) continue;
+            saved += await dbContext.PosProductCategories
+                .Where(c => c.Id == item.Id && c.StoreId == storeId && c.Deleted == null)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(c => c.SortOrder, item.SortOrder)
+                    .SetProperty(c => c.UpdatedAt, now)
+                    .SetProperty(c => c.UpdatedBy, by)
+                    .SetProperty(c => c.LastModified, now)
+                    .SetProperty(c => c.LastModifiedBy, by));
+        }
+
+        if (saved == 0)
+            return BadRequest(AppResponse<object>.Fail("Không khớp nhóm hàng nào"));
+        return Ok(AppResponse<object>.Success(new { saved }));
+    }
+
     [HttpDelete("categories/{id:guid}")]
     [RequireModulePermission("PosProducts", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> DeleteCategory(Guid id)

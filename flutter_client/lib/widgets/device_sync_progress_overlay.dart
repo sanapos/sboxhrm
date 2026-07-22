@@ -346,11 +346,15 @@ class DeviceSyncProgressManager {
     }
 
     final commandId = _extractCommandId(cmd);
+    final stampNote = cmd['message']?.toString().trim();
+    final waitingMsg = (stampNote != null && stampNote.isNotEmpty)
+        ? stampNote
+        : 'Chờ máy gửi dữ liệu...';
 
     _updateJob(job, () {
       job.stepIndex = 2;
       job.progress = 0.4;
-      job.statusMessage = '[$name] ?? Chờ máy gửi dữ liệu...';
+      job.statusMessage = '[$name] $waitingMsg';
     });
 
     final started = DateTime.now();

@@ -150,9 +150,11 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
     final approved =
         f.where((r) => r.status == AdvanceRequestStatus.approved).length;
     final totalAmt = f.fold(0.0, (s, r) => s + r.amount);
+    // Dùng payoutAmount (số tiền thực tế đã duyệt, có thể thấp hơn số tiền
+    // yêu cầu) để KPI phản ánh đúng số tiền đã chi/sẽ chi.
     final approvedAmt = f
         .where((r) => r.status == AdvanceRequestStatus.approved)
-        .fold(0.0, (s, r) => s + r.amount);
+        .fold(0.0, (s, r) => s + r.payoutAmount);
 
     if (!_teamView) {
       return [
@@ -244,6 +246,7 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
             : '',
         reportDateFmt.format(r.requestDate),
         r.amount,
+        r.payoutAmount,
         r.reason ?? '',
         _statusLabel(r.status),
         r.approvedByName ?? '',
@@ -260,7 +263,8 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
         if (_teamView) 'Mã NV',
         'Tháng/Năm',
         'Ngày tạo',
-        'Số tiền (đ)',
+        'Số tiền yêu cầu (đ)',
+        'Số tiền đã duyệt (đ)',
         'Lý do',
         'Trạng thái',
         'Người duyệt',
@@ -411,11 +415,13 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
     return ReportTimelineCard(
       title: _teamView ? r.employeeName : (monthYear ?? 'Ứng lương'),
       trailing: reportDateFmt.format(r.requestDate),
-      amount: '${reportMoneyFmt.format(r.amount)}đ',
+      amount: '${reportMoneyFmt.format(r.payoutAmount)}đ',
       subtitle: [
         if (_teamView && monthYear != null) monthYear,
         if (_teamView) r.employeeCode,
         r.reason ?? '',
+        if (r.isPartiallyApproved)
+          'YC ban đầu: ${reportMoneyFmt.format(r.amount)}đ',
         if (r.approvedByName != null && r.approvedByName!.isNotEmpty)
           'Duyệt: ${r.approvedByName}',
       ].where((s) => s != null && s.toString().isNotEmpty).join(' · '),

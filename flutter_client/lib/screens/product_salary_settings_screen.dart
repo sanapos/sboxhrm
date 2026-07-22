@@ -5,6 +5,7 @@ import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
+import '../widgets/hrm/hrm_settings_mobile_kit.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
 
@@ -66,14 +67,39 @@ class _ProductSalarySettingsScreenState
   Widget build(BuildContext context) {
     final isMobile = Responsive.isMobile(context);
     if (_isLoading) {
-      return const Scaffold(
-        backgroundColor: _bg,
-        body: Center(child: CircularProgressIndicator()),
+      return Scaffold(
+        backgroundColor: HrmPageChrome.scaffoldBackground(context),
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
+    final embeddedMobile = HrmSettingsMobileKit.active(context);
+    final pagePad = embeddedMobile
+        ? HrmSettingsMobileKit.pagePadding(context)
+        : EdgeInsets.zero;
+    final addActions = _perm.canCreate('ProductSalary')
+        ? [
+            HrmSettingsAddButton(
+              label: 'Nhóm SP',
+              compact: embeddedMobile,
+              icon: Icons.create_new_folder_outlined,
+              onPressed: _showAddGroupDialog,
+            ),
+            if (!embeddedMobile) const SizedBox(width: 8),
+            HrmSettingsAddButton(
+              label: embeddedMobile ? 'SP' : 'Thêm sản phẩm',
+              compact: embeddedMobile,
+              icon: Icons.add_box_outlined,
+              onPressed: () {
+                if (_groups.isEmpty) return;
+                _showAddItemDialog();
+              },
+            ),
+          ]
+        : <Widget>[];
+
     return Scaffold(
-      backgroundColor: _bg,
+      backgroundColor: HrmPageChrome.scaffoldBackground(context),
       appBar: (!HrmPageChrome.isEmbedded && isMobile)
           ? AppBar(
               backgroundColor: Colors.white,
@@ -108,47 +134,15 @@ class _ProductSalarySettingsScreenState
       body: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (HrmPageChrome.isEmbedded)
-          Container(
-            padding: EdgeInsets.symmetric(
-                horizontal: isMobile ? 12 : 16, vertical: 10),
-            color: Colors.white,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                if (_perm.canCreate('ProductSalary'))
-                  if (isMobile) ...[
-                    IconButton(
-                      onPressed: _showAddGroupDialog,
-                      icon: const Icon(Icons.create_new_folder_outlined,
-                          color: HrmPageChrome.primaryNavy),
-                    ),
-                    IconButton(
-                      onPressed: _groups.isEmpty ? null : _showAddItemDialog,
-                      icon: const Icon(Icons.add_box_outlined,
-                          color: HrmPageChrome.primaryNavy),
-                    ),
-                  ] else ...[
-                    FilledButton.icon(
-                      onPressed: _showAddGroupDialog,
-                      icon: const Icon(Icons.add, size: 18),
-                      label: const Text('Thêm nhóm SP'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: HrmPageChrome.primaryNavy,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    FilledButton.icon(
-                      onPressed: _groups.isEmpty ? null : _showAddItemDialog,
-                      icon: const Icon(Icons.add, size: 18),
-                      label: const Text('Thêm sản phẩm'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: HrmPageChrome.primaryNavy,
-                      ),
-                    ),
-                  ],
-              ],
+        if (HrmPageChrome.isEmbedded && addActions.isNotEmpty)
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              embeddedMobile ? pagePad.left : 16,
+              embeddedMobile ? pagePad.top : 10,
+              embeddedMobile ? pagePad.right : 16,
+              8,
             ),
+            child: HrmSettingsSearchToolbar(actions: addActions),
           ),
         if (!isMobile && !HrmPageChrome.isEmbedded)
           Container(
@@ -205,7 +199,10 @@ class _ProductSalarySettingsScreenState
         // Group chips
         if (_groups.isNotEmpty)
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: EdgeInsets.symmetric(
+              horizontal: embeddedMobile ? pagePad.left : 16,
+              vertical: 12,
+            ),
             color: Colors.white,
             child: Wrap(
               spacing: 8,
@@ -221,7 +218,7 @@ class _ProductSalarySettingsScreenState
         // Product list
         Expanded(
           child: ColoredBox(
-            color: _bg,
+            color: HrmPageChrome.scaffoldBackground(context),
             child: _filteredItems.isEmpty
                 ? Center(
                     child: Column(
@@ -241,11 +238,28 @@ class _ProductSalarySettingsScreenState
                       ],
                     ),
                   )
-                : ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _filteredItems.length,
-                    itemBuilder: (ctx, i) => _buildItemCard(_filteredItems[i]),
-                  ),
+                : embeddedMobile
+                    ? SingleChildScrollView(
+                        padding: EdgeInsets.fromLTRB(
+                          pagePad.left,
+                          8,
+                          pagePad.right,
+                          pagePad.bottom,
+                        ),
+                        child: HrmSettingsEntityGrid(
+                          itemCount: _filteredItems.length,
+                          columns: 2,
+                          childAspectRatio: 0.72,
+                          itemBuilder: (context, i) =>
+                              _buildItemCard(_filteredItems[i]),
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: _filteredItems.length,
+                        itemBuilder: (ctx, i) =>
+                            _buildItemCard(_filteredItems[i]),
+                      ),
           ),
         ),
       ],

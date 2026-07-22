@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:intl/intl.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/permission_provider.dart';
 import '../../utils/mobile_attendance_vertical_layout.dart';
 import 'package:excel/excel.dart' as excel_lib;
 import '../../models/attendance.dart';
@@ -5236,6 +5237,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     TimeOfDay selectedTime = TimeOfDay.now();
     DateTime selectedDate = live.date;
     final reasonController = TextEditingController();
+    final canFine = Provider.of<PermissionProvider>(context, listen: false)
+        .canCreate('PenaltyTickets');
 
     showDialog(
       context: hostContext,
@@ -5386,6 +5389,62 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
               onPressed: () => Navigator.pop(dialogCtx),
               child: const Text('Hủy'),
             ),
+            if (canFine)
+              OutlinedButton.icon(
+                onPressed: () async {
+                  if (reasonController.text.trim().isEmpty) {
+                    appNotification.showError(
+                        title: 'Lỗi', message: 'Vui lòng nhập lý do');
+                    return;
+                  }
+                  if (live.employeeGuid == null ||
+                      live.employeeGuid!.isEmpty) {
+                    appNotification.showError(
+                        title: 'Lỗi',
+                        message:
+                            'Không tìm thấy hồ sơ nhân viên. Hãy chọn lại chi nhánh để tải danh sách NV, hoặc liên kết PIN máy với hồ sơ HR.');
+                    return;
+                  }
+
+                  final timeStr =
+                      '${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}';
+                  final api = ApiService();
+                  final result = await api.createAttendanceCorrection(
+                    action: 0,
+                    pin: live.pin,
+                    employeeName: live.employeeName,
+                    employeeCode: live.employeeCode,
+                    newDate: DateTime(
+                        selectedDate.year, selectedDate.month, selectedDate.day),
+                    newTime: '$timeStr:00',
+                    newType: isIn ? 'CheckIn' : 'CheckOut',
+                    reason: reasonController.text.trim(),
+                  );
+                  Navigator.pop(dialogCtx);
+                  if (result['isSuccess'] != true) {
+                    appNotification.showError(
+                        title: 'Lỗi',
+                        message: result['message'] ?? 'Có lỗi xảy ra');
+                    return;
+                  }
+                  _notifyDataChanged();
+                  final fined = await _createForgotCheckPenaltyTicket(
+                    employeeId: live.employeeGuid!,
+                    employeeName: live.employeeName,
+                    violationDate: selectedDate,
+                  );
+                  appNotification.showSuccess(
+                      title: 'Thành công',
+                      message: fined
+                          ? 'Đã bổ sung chấm công và tạo phiếu phạt quên chấm công'
+                          : 'Đã bổ sung chấm công (chưa tạo được phiếu phạt)');
+                },
+                icon: const Icon(Icons.gavel, size: 16, color: Colors.orange),
+                label: const Text('Thêm công và phạt',
+                    style: TextStyle(color: Colors.orange)),
+                style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.orange)),
+              ),
             FilledButton.icon(
               onPressed: () async {
                 if (reasonController.text.trim().isEmpty) {
@@ -5442,6 +5501,58 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
         ),
       ),
     );
+  }
+
+  /// Tạo phiếu phạt "Quên chấm công" theo mức phạt trong Thiết lập phạt.
+  /// Dùng cho nút "Thêm công và phạt" khi bổ sung chấm công thủ công.
+  Future<bool> _createForgotCheckPenaltyTicket({
+    required String employeeId,
+    required String employeeName,
+    required DateTime violationDate,
+  }) async {
+    try {
+      final api = ApiService();
+      final settingsResult = await api.getPenaltySettings();
+      final amount = double.tryParse(
+              (settingsResult['data']?['forgotCheckPenalty'] ?? 0)
+                  .toString()) ??
+          0;
+      if (amount <= 0) {
+        appNotification.showWarning(
+            title: 'Không tạo được phiếu phạt',
+            message: 'Mức phạt "Quên chấm công" chưa được cấu hình (0đ). '
+                'Vui lòng vào Thiết lập phạt để cài đặt.');
+        return false;
+      }
+
+      final createResult = await api.createPenaltyTicket({
+        'employeeId': employeeId,
+        'type': 'ForgotCheck',
+        'amount': amount,
+        'violationDate': violationDate.toIso8601String(),
+        'description':
+            'Quên chấm công - bổ sung chấm công thủ công ($employeeName)',
+      });
+      if (createResult['isSuccess'] != true) {
+        appNotification.showWarning(
+            title: 'Không tạo được phiếu phạt',
+            message: createResult['message'] ?? 'Có lỗi xảy ra');
+        return false;
+      }
+
+      final ticketId = createResult['data']?['id']?.toString();
+      final canApprovePenalty = mounted &&
+          Provider.of<PermissionProvider>(context, listen: false)
+              .canApprove('PenaltyTickets');
+      if (ticketId != null && canApprovePenalty) {
+        await api.approvePenaltyTicket(ticketId);
+      }
+      return true;
+    } catch (e) {
+      appNotification.showWarning(
+          title: 'Không tạo được phiếu phạt', message: e.toString());
+      return false;
+    }
   }
 
   /// Hiển thị dialog sửa/xóa chấm công

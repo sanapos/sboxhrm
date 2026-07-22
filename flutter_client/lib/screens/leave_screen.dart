@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/safe_layout_widgets.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
@@ -1074,17 +1075,7 @@ class _LeaveScreenState extends State<LeaveScreen>
   }
 
   Widget _buildFilterChipRow(List<Widget> chips) {
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (var i = 0; i < chips.length; i++) ...[
-            if (i > 0) const SizedBox(width: 8),
-            Expanded(child: chips[i]),
-          ],
-        ],
-      ),
-    );
+    return SafeEqualHeightRow(children: chips);
   }
 
   Widget _buildFilterChip({
@@ -2448,72 +2439,52 @@ class _LeaveScreenState extends State<LeaveScreen>
                 break;
             }
 
-            return IntrinsicHeight(
-              child: Row(
+            return SafeTimelineRow(
+              isLast: isLast,
+              gutterWidth: 32,
+              bottomPadding: 12,
+              indicator: Icon(dotIcon, size: 18, color: dotColor),
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Timeline line + dot
-                  SizedBox(
-                    width: 32,
-                    child: Column(
-                      children: [
-                        Icon(dotIcon, size: 18, color: dotColor),
-                        if (!isLast)
-                          Expanded(
-                              child: Container(
-                                  width: 2, color: Colors.grey.shade300)),
-                      ],
-                    ),
-                  ),
-                  // Content
-                  Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.only(bottom: isLast ? 0 : 12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(stepName,
-                              style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: dotColor)),
-                          if (assignedUser.isNotEmpty)
-                            Text('Phân công: $assignedUser',
-                                style: TextStyle(
-                                    fontSize: 12, color: Colors.grey.shade600)),
-                          if (actualUser.isNotEmpty && stepStatus != 0)
-                            Text('Thực hiện: $actualUser',
-                                style: TextStyle(
-                                    fontSize: 12, color: Colors.grey.shade600)),
-                          if (stepStatus != 0)
-                            Text(
-                              _approvalStepStatusLabel(stepStatus is int
-                                  ? stepStatus
-                                  : int.tryParse('$stepStatus') ?? 0),
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: dotColor,
-                              ),
-                            ),
-                          if (actionDate != null)
-                            Text(
-                                formatApiDateTime(actionDate),
-                                style: TextStyle(
-                                    fontSize: 11, color: Colors.grey.shade500)),
-                          if (note.isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 2),
-                              child: Text('"$note"',
-                                  style: TextStyle(
-                                      fontSize: 12,
-                                      fontStyle: FontStyle.italic,
-                                      color: Colors.grey.shade700)),
-                            ),
-                        ],
+                  Text(stepName,
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: dotColor)),
+                  if (assignedUser.isNotEmpty)
+                    Text('Phân công: $assignedUser',
+                        style: TextStyle(
+                            fontSize: 12, color: Colors.grey.shade600)),
+                  if (actualUser.isNotEmpty && stepStatus != 0)
+                    Text('Thực hiện: $actualUser',
+                        style: TextStyle(
+                            fontSize: 12, color: Colors.grey.shade600)),
+                  if (stepStatus != 0)
+                    Text(
+                      _approvalStepStatusLabel(stepStatus is int
+                          ? stepStatus
+                          : int.tryParse('$stepStatus') ?? 0),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: dotColor,
                       ),
                     ),
-                  ),
+                  if (actionDate != null)
+                    Text(
+                        formatApiDateTime(actionDate),
+                        style: TextStyle(
+                            fontSize: 11, color: Colors.grey.shade500)),
+                  if (note.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text('"$note"',
+                          style: TextStyle(
+                              fontSize: 12,
+                              fontStyle: FontStyle.italic,
+                              color: Colors.grey.shade700)),
+                    ),
                 ],
               ),
             );

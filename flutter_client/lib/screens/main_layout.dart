@@ -14,7 +14,9 @@ import '../services/global_location_reporter.dart';
 import '../services/notification_preferences_cache.dart';
 import '../services/signalr_service.dart';
 import '../services/pos_print_agent_service.dart';
+import '../utils/pos_print_agent_settings.dart';
 import '../utils/pos_print_orchestrator.dart';
+import '../services/pos_sell_catalog_cache.dart';
 import '../utils/pos_sell_stock_patch.dart';
 import '../models/mobile_bottom_nav_config.dart';
 import '../models/mobile_quick_actions_config.dart';
@@ -69,6 +71,7 @@ import 'cash_report_screen.dart';
 import 'advance_report_screen.dart';
 import 'business_trip_report_screen.dart';
 import 'leave_report_screen.dart';
+import 'attendance_report_screen.dart';
 import 'asset_report_screen.dart';
 import 'downloaded_documents_screen.dart';
 import 'agent_license_keys_screen.dart';
@@ -83,13 +86,9 @@ import 'meal_tracking_screen.dart';
 import 'field_checkin_screen.dart';
 import 'pos_products_screen.dart';
 import 'pos_sell_screen.dart';
-import 'pos_purchase_receipt_list_screen.dart';
 import 'pos_sale_order_list_screen.dart';
 import 'pos_sale_return_list_screen.dart';
-import 'pos_purchase_return_list_screen.dart';
-import 'pos_stock_count_list_screen.dart';
-import 'pos_damage_issue_list_screen.dart';
-import 'pos_internal_use_list_screen.dart';
+import 'warehouse/wh_mobile_nav.dart';
 import 'pos_reports_screen.dart';
 import 'pos/pos_mobile_hub_screen.dart';
 import 'shift_swap_screen.dart';
@@ -166,6 +165,8 @@ class ScreenRefreshNotifier {
   static final ValueNotifier<int> posSaleOrders = ValueNotifier<int>(0);
   static final ValueNotifier<int> posPurchaseReceipts = ValueNotifier<int>(0);
   static final ValueNotifier<int> posOverview = ValueNotifier<int>(0);
+  static final ValueNotifier<int> posPriceLists = ValueNotifier<int>(0);
+  static final ValueNotifier<int> posSellIndustry = ValueNotifier<int>(0);
 
   static void refreshPosProducts() {
     posProducts.value++;
@@ -173,6 +174,15 @@ class ScreenRefreshNotifier {
 
   static void refreshPosSellProductGrid() {
     posSellProductGrid.value++;
+  }
+
+  static void refreshPosPriceLists() {
+    posPriceLists.value++;
+  }
+
+  /// Đổi hồ sơ ngành / cờ bàn–ghế — màn bán hàng cần tải lại.
+  static void refreshPosSellIndustry() {
+    posSellIndustry.value++;
   }
 
   /// Cộng/trừ tồn trên lưới bán hàng (theo SP/biến thể — khớp server).
@@ -205,6 +215,7 @@ class ScreenRefreshNotifier {
     refreshPosPurchaseReceipts();
     refreshPosOverview();
     if (pending.reloadCatalog) {
+      unawaited(PosSellCatalogCache.instance.invalidateLast());
       refreshPosSellProductGrid();
     }
   }
@@ -703,6 +714,18 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       if (storeId != null && storeId.isNotEmpty) {
         await _signalRService.joinStoreGroup(storeId);
         await PosPrintOrchestrator.instance.ensureListening();
+        // Gắn tên tài khoản vào heartbeat Agent (máy khác thấy ai đang giữ).
+        final agentSettings = await PosPrintAgentSettings.load();
+        if (agentSettings.enabled) {
+          final u = authProvider.user;
+          final label = [
+            if ((u?.fullName ?? '').trim().isNotEmpty) u!.fullName.trim(),
+            if ((u?.email ?? '').trim().isNotEmpty) u!.email.trim(),
+          ].join(' · ');
+          if (label.isNotEmpty && agentSettings.accountLabel != label) {
+            await agentSettings.copyWith(accountLabel: label).save();
+          }
+        }
         await PosPrintAgentService.instance.ensureRunning(storeId);
       }
       // Join user group for user-specific notifications
@@ -1473,7 +1496,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       activeIcon: Icons.shopping_cart,
       label: 'Nhập hàng NCC',
       subtitle: 'Phiếu nhập hàng nhà cung cấp (PN)',
-      screen: const PosPurchaseReceiptListScreen(),
+      screen: const WhAdaptivePurchaseReceiptList(),
       group: 'POS',
       themeColor: const Color(0xFF2563EB),
       moduleCode: 'PosPurchaseReceipts',
@@ -1483,7 +1506,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       activeIcon: Icons.reply,
       label: 'Trả hàng nhập',
       subtitle: 'Trả hàng cho nhà cung cấp (THN)',
-      screen: const PosPurchaseReturnListScreen(),
+      screen: const WhAdaptivePurchaseReturnList(),
       group: 'POS',
       themeColor: const Color(0xFF2563EB),
       moduleCode: 'PosPurchaseReturns',
@@ -1493,7 +1516,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       activeIcon: Icons.fact_check,
       label: 'Kiểm kho',
       subtitle: 'Phiếu kiểm kê, cân bằng tồn kho (KK)',
-      screen: const PosStockCountListScreen(),
+      screen: const WhAdaptiveStockCountList(),
       group: 'POS',
       themeColor: const Color(0xFF2563EB),
       moduleCode: 'PosStockCounts',
@@ -1503,7 +1526,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       activeIcon: Icons.delete_forever,
       label: 'Xuất hủy',
       subtitle: 'Phiếu xuất hủy hàng hóa (XH)',
-      screen: const PosDamageIssueListScreen(),
+      screen: const WhAdaptiveDamageIssueList(),
       group: 'POS',
       themeColor: const Color(0xFF2563EB),
       moduleCode: 'PosDamageIssues',
@@ -1513,7 +1536,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       activeIcon: Icons.outbox,
       label: 'Xuất dùng nội bộ',
       subtitle: 'Phiếu xuất dùng nội bộ (XDNB)',
-      screen: const PosInternalUseListScreen(),
+      screen: const WhAdaptiveInternalUseList(),
       group: 'POS',
       themeColor: const Color(0xFF2563EB),
       moduleCode: 'PosInternalUseIssues',
@@ -1530,6 +1553,16 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     ),
 
     // ══════════ BÁO CÁO ══════════
+    NavItem(
+      icon: Icons.fact_check_outlined,
+      activeIcon: Icons.fact_check,
+      label: 'Báo cáo chấm công',
+      subtitle: 'Vắng không chấm, đi trễ / về sớm',
+      screen: const AttendanceReportScreen(),
+      group: 'Báo cáo',
+      themeColor: const Color(0xFF0284C7),
+      moduleCode: 'AttendanceReport',
+    ),
     NavItem(
       icon: Icons.receipt_long_outlined,
       activeIcon: Icons.receipt_long,
@@ -1761,6 +1794,27 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
   // Desktop Layout với Navigation Rail mở rộng
   Widget _buildDesktopLayout() {
+    final moduleCode = _navItems[_selectedIndex].moduleCode;
+    final posFullscreen = moduleCode == 'PosSell';
+
+    if (posFullscreen) {
+      // POS desktop fullscreen — ẩn sidebar + top bar HRM.
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) async {
+          if (didPop) return;
+          final handler = NavigationNotifier.posHandleSystemBack;
+          if (handler != null && await handler()) return;
+          _tryNavigateToIndex(0);
+        },
+        child: _wrapAppShell(
+          Scaffold(
+            body: _buildPersistentMainContent(),
+          ),
+        ),
+      );
+    }
+
     return _wrapAppShell(
       Scaffold(
         body: Row(
@@ -1791,45 +1845,59 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
   // Tablet Layout với Navigation Rail thu gọn
   Widget _buildTabletLayout() {
+    final moduleCode = _navItems[_selectedIndex].moduleCode;
+    if (moduleCode == 'PosSell') {
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) async {
+          if (didPop) return;
+          final handler = NavigationNotifier.posHandleSystemBack;
+          if (handler != null && await handler()) return;
+          _tryNavigateToIndex(0);
+        },
+        child: _wrapAppShell(
+          Scaffold(body: _buildPersistentMainContent()),
+        ),
+      );
+    }
+
     return _wrapAppShell(
       Scaffold(
         body: Row(
           children: [
             SingleChildScrollView(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: MediaQuery.of(context).size.height,
-                ),
-                child: IntrinsicHeight(
-                  child: Builder(
-                    builder: (context) {
-                      final visibleIndices = _visibleNavIndices();
-                      final railSelected = visibleIndices.indexOf(_selectedIndex);
-                      final safeRailSelected = railSelected < 0
+              child: SizedBox(
+                // Chiều cao cố định — tránh IntrinsicHeight gây Stack Overflow khi
+                // NavigationRail đo lại intrinsic size (Samsung tablet / Fold mở).
+                height: MediaQuery.sizeOf(context).height,
+                child: Builder(
+                  builder: (context) {
+                    final visibleIndices = _visibleNavIndices();
+                    final railSelected = visibleIndices.indexOf(_selectedIndex);
+                    final safeRailSelected = railSelected < 0
+                        ? 0
+                        : railSelected.clamp(0, visibleIndices.length - 1);
+                    return NavigationRail(
+                      selectedIndex: visibleIndices.isEmpty
                           ? 0
-                          : railSelected.clamp(0, visibleIndices.length - 1);
-                      return NavigationRail(
-                        selectedIndex: visibleIndices.isEmpty
-                            ? 0
-                            : safeRailSelected,
-                        onDestinationSelected: (railIndex) {
-                          if (railIndex >= 0 &&
-                              railIndex < visibleIndices.length) {
-                            _tryNavigateToIndex(visibleIndices[railIndex]);
-                          }
-                        },
-                        labelType: NavigationRailLabelType.all,
-                        destinations: visibleIndices
-                            .map((i) => NavigationRailDestination(
-                                  icon: Icon(_navItems[i].icon),
-                                  selectedIcon: Icon(_navItems[i].activeIcon),
-                                  label: Text(_navItems[i].localizedLabel(
-                                      AppLocalizations.of(context))),
-                                ))
-                            .toList(),
-                      );
-                    },
-                  ),
+                          : safeRailSelected,
+                      onDestinationSelected: (railIndex) {
+                        if (railIndex >= 0 &&
+                            railIndex < visibleIndices.length) {
+                          _tryNavigateToIndex(visibleIndices[railIndex]);
+                        }
+                      },
+                      labelType: NavigationRailLabelType.all,
+                      destinations: visibleIndices
+                          .map((i) => NavigationRailDestination(
+                                icon: Icon(_navItems[i].icon),
+                                selectedIcon: Icon(_navItems[i].activeIcon),
+                                label: Text(_navItems[i].localizedLabel(
+                                    AppLocalizations.of(context))),
+                              ))
+                          .toList(),
+                    );
+                  },
                 ),
               ),
             ),
@@ -2017,8 +2085,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     if (posHubFullscreen) {
       return PopScope(
         canPop: false,
-        onPopInvokedWithResult: (didPop, _) {
+        onPopInvokedWithResult: (didPop, _) async {
           if (didPop) return;
+          final handler = NavigationNotifier.posHandleSystemBack;
+          if (handler != null && await handler()) return;
           if (_canGoBack) {
             _goBack();
           } else {
@@ -3328,6 +3398,7 @@ class NavItem {
     'PosInternalUseIssues': (l) => 'Xuất dùng nội bộ',
     'PosSalesReport': (l) => 'Báo cáo POS',
     'PenaltyReport': (l) => 'Báo cáo phạt',
+    'AttendanceReport': (l) => 'Báo cáo chấm công',
     'CashReport': (l) => 'Báo cáo thu chi',
     'AdvanceReport': (l) => 'Báo cáo ứng lương',
     'BusinessTripReport': (l) => 'Báo cáo công tác phí',
@@ -3481,7 +3552,7 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
   Widget _buildMobileQuickActionsGrid(BuildContext context) {
     final authUser =
         Provider.of<AuthProvider>(context, listen: false).user;
-    final perm = Provider.of<PermissionProvider>(context);
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
     final allowedModules = widget.allowedModules ?? authUser?.allowedModules;
     final role = authUser?.role;
     final allowed = <String>{};
@@ -3589,8 +3660,31 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
     final user = authProvider.user;
     final isMobile = MediaQuery.of(context).size.width < 768;
     final padding = isMobile ? 16.0 : 28.0;
-    final permProvider = Provider.of<PermissionProvider>(context);
 
+    // Group items — chỉ rebuild khi quyền đã tải / đang tải thay đổi.
+    return Selector<PermissionProvider, ({bool loaded, bool loading})>(
+      selector: (_, p) => (loaded: p.isLoaded, loading: p.isLoading),
+      builder: (context, permState, _) {
+        final permProvider =
+            Provider.of<PermissionProvider>(context, listen: false);
+        return _buildHomeMenuBody(
+          context,
+          user: user,
+          isMobile: isMobile,
+          padding: padding,
+          permProvider: permProvider,
+        );
+      },
+    );
+  }
+
+  Widget _buildHomeMenuBody(
+    BuildContext context, {
+    required User? user,
+    required bool isMobile,
+    required double padding,
+    required PermissionProvider permProvider,
+  }) {
     // Group items
     final groupedItems = <String, List<MapEntry<int, NavItem>>>{};
     for (int i = 0; i < widget.navItems.length; i++) {

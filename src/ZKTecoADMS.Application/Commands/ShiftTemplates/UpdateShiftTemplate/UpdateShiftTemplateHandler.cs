@@ -28,10 +28,13 @@ public class UpdateShiftTemplateHandler(IRepository<ShiftTemplate> repository)
             template.MaximumAllowedLateMinutes = request.MaximumAllowedLateMinutes;
             template.MaximumAllowedEarlyLeaveMinutes = request.MaximumAllowedEarlyLeaveMinutes;
             template.BreakTimeMinutes = request.BreakTimeMinutes;
+            template.LunchBreakStartTime = request.LunchBreakStartTime;
+            template.LunchBreakEndTime = request.LunchBreakEndTime;
             template.EarlyCheckInMinutes = request.EarlyCheckInMinutes;
             template.LateGraceMinutes = request.LateGraceMinutes;
             template.EarlyLeaveGraceMinutes = request.EarlyLeaveGraceMinutes;
             template.OvertimeMinutesThreshold = request.OvertimeMinutesThreshold;
+            template.EarlyOvertimeMinutesThreshold = request.EarlyOvertimeMinutesThreshold;
             template.ShiftType = request.ShiftType;
             template.Description = request.Description;
             template.IsActive = request.IsActive;
@@ -50,10 +53,13 @@ public class UpdateShiftTemplateHandler(IRepository<ShiftTemplate> repository)
                 MaximumAllowedLateMinutes = template.MaximumAllowedLateMinutes,
                 MaximumAllowedEarlyLeaveMinutes = template.MaximumAllowedEarlyLeaveMinutes,
                 BreakTimeMinutes = template.BreakTimeMinutes,
+                LunchBreakStartTime = template.LunchBreakStartTime,
+                LunchBreakEndTime = template.LunchBreakEndTime,
                 EarlyCheckInMinutes = template.EarlyCheckInMinutes,
                 LateGraceMinutes = template.LateGraceMinutes,
                 EarlyLeaveGraceMinutes = template.EarlyLeaveGraceMinutes,
                 OvertimeMinutesThreshold = template.OvertimeMinutesThreshold,
+                EarlyOvertimeMinutesThreshold = template.EarlyOvertimeMinutesThreshold,
                 ShiftType = template.ShiftType,
                 Description = template.Description,
                 IsActive = template.IsActive,

@@ -9,6 +9,7 @@ import '../models/pos_sale_order.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import '../utils/pos_purchase_product_lookup.dart';
+import '../utils/pos_print_store_info.dart';
 import '../utils/pos_sale_order_print.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/loading_widget.dart';
@@ -177,7 +178,7 @@ class _PosSaleOrderEditorScreenState extends State<PosSaleOrderEditorScreen> {
       if (phone != null && phone.isNotEmpty) return '$name · $phone';
       return name;
     }
-    return 'Khách lẻ';
+    return 'Bán cho người tiêu dùng';
   }
 
   Future<void> _loadOrder(String id) async {
@@ -761,7 +762,16 @@ class _PosSaleOrderEditorScreenState extends State<PosSaleOrderEditorScreen> {
               final res = await _api.getPosSale(_orderId!);
               if (!mounted || res['isSuccess'] != true) return;
               final o = PosSaleOrder.fromJson(res['data'] as Map<String, dynamic>);
-              await printPosSaleOrder(context: context, order: o, skipDedup: true);
+              final store = await PosPrintStoreInfo.load();
+              if (!mounted) return;
+              await printPosSaleOrder(
+                context: context,
+                order: o,
+                branchName: store.storeName,
+                storeAddress: store.address,
+                storePhone: store.phone,
+                skipDedup: true,
+              );
             },
             icon: const Icon(Icons.print, size: 16),
             label: const Text('In'),

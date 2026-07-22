@@ -39,6 +39,9 @@ ALTER TABLE "ShiftTemplates" ADD COLUMN IF NOT EXISTS "LateGraceMinutes" integer
 -- ALTER TABLE "ShiftTemplates" ADD COLUMN IF NOT EXISTS "OvernightCutoffTime" interval;
 ALTER TABLE "ShiftTemplates" DROP COLUMN IF EXISTS "OvernightCutoffTime";
 ALTER TABLE "ShiftTemplates" ADD COLUMN IF NOT EXISTS "OvertimeMinutesThreshold" integer NOT NULL DEFAULT 0;
+ALTER TABLE "ShiftTemplates" ADD COLUMN IF NOT EXISTS "EarlyOvertimeMinutesThreshold" integer NOT NULL DEFAULT 30;
+ALTER TABLE "ShiftTemplates" ADD COLUMN IF NOT EXISTS "LunchBreakStartTime" interval;
+ALTER TABLE "ShiftTemplates" ADD COLUMN IF NOT EXISTS "LunchBreakEndTime" interval;
 ALTER TABLE "ShiftTemplates" ADD COLUMN IF NOT EXISTS "ShiftType" text;
 ALTER TABLE "ShiftTemplates" ADD COLUMN IF NOT EXISTS "Description" text;
 
@@ -1301,6 +1304,74 @@ WHERE NOT EXISTS (SELECT 1 FROM "Permissions" WHERE "Module" = 'BusinessTripRepo
 ALTER TABLE "SalaryProfiles" ADD COLUMN IF NOT EXISTS "TravelSalaryMode" character varying(30) NULL;
 ALTER TABLE "SalaryProfiles" ADD COLUMN IF NOT EXISTS "TravelFixedHourlyRate" numeric NULL;
 
+-- Per-employee standard work days (công chuẩn)
+ALTER TABLE "SalaryProfiles" ADD COLUMN IF NOT EXISTS "FixedStandardWorkDays" integer NULL;
+ALTER TABLE "SalaryProfiles" ADD COLUMN IF NOT EXISTS "DeductIfBelowFixedStandard" boolean NOT NULL DEFAULT TRUE;
+ALTER TABLE "SalaryProfiles" ADD COLUMN IF NOT EXISTS "AddIfAboveFixedStandard" boolean NOT NULL DEFAULT TRUE;
+
+-- ADMS Phase 0/1: device capability / engine profile
+ALTER TABLE "DeviceInfos" ADD COLUMN IF NOT EXISTS "Platform" character varying(100);
+ALTER TABLE "DeviceInfos" ADD COLUMN IF NOT EXISTS "PushVersion" character varying(50);
+ALTER TABLE "DeviceInfos" ADD COLUMN IF NOT EXISTS "DeviceModelName" character varying(200);
+ALTER TABLE "DeviceInfos" ADD COLUMN IF NOT EXISTS "OemVendor" character varying(100);
+ALTER TABLE "DeviceInfos" ADD COLUMN IF NOT EXISTS "EngineProfile" character varying(50);
+ALTER TABLE "DeviceInfos" ADD COLUMN IF NOT EXISTS "SupportsUserQuery" boolean;
+ALTER TABLE "DeviceInfos" ADD COLUMN IF NOT EXISTS "SupportsAttendanceQuery" boolean;
+ALTER TABLE "DeviceInfos" ADD COLUMN IF NOT EXISTS "SupportsEnrollFingerprint" boolean;
+ALTER TABLE "DeviceInfos" ADD COLUMN IF NOT EXISTS "SupportsFaceUpdate" boolean;
+ALTER TABLE "DeviceInfos" ADD COLUMN IF NOT EXISTS "SupportsDoorControl" boolean;
+ALTER TABLE "DeviceInfos" ADD COLUMN IF NOT EXISTS "PreferStampSync" boolean NOT NULL DEFAULT false;
+ALTER TABLE "DeviceInfos" ADD COLUMN IF NOT EXISTS "CapabilityUpdatedAt" timestamp without time zone;
+ALTER TABLE "DeviceInfos" ADD COLUMN IF NOT EXISTS "CapabilityNotes" character varying(1000);
+
+UPDATE "DeviceInfos" di
+SET
+  "EngineProfile" = 'PullDeny',
+  "SupportsUserQuery" = false,
+  "SupportsAttendanceQuery" = false,
+  "SupportsEnrollFingerprint" = false,
+  "SupportsDoorControl" = false,
+  "PreferStampSync" = true,
+  "CapabilityUpdatedAt" = NOW(),
+  "CapabilityNotes" = COALESCE("CapabilityNotes", 'Seed PullDeny: SN 131* (demo/OEM query deny)')
+FROM "Devices" d
+WHERE di."DeviceId" = d."Id"
+  AND d."SerialNumber" LIKE '131%'
+  AND (di."EngineProfile" IS NULL OR di."EngineProfile" = '' OR di."EngineProfile" = 'Default');
+
 COMMIT;
 
 SELECT 'Migration script completed successfully' AS status;
+
+-- ===
+-- POS sell industry (profile / areas / hourly / gym)
+-- Source: scripts/add_pos_sell_industry.sql
+-- Apply via: scripts/add_pos_sell_industry.sql
+
+-- ===
+-- POS draft multi-device lock (P0a)
+-- Source: scripts/add_pos_sale_draft_lock.sql
+-- Apply via: scripts/add_pos_sale_draft_lock.sql
+
+
+-- POS price lists: date range + fix inactive items
+BEGIN;
+ALTER TABLE "PosPriceLists" ADD COLUMN IF NOT EXISTS "ValidFrom" timestamp without time zone NULL;
+ALTER TABLE "PosPriceLists" ADD COLUMN IF NOT EXISTS "ValidTo" timestamp without time zone NULL;
+UPDATE "PosPriceListItems" SET "IsActive" = true
+WHERE "Deleted" IS NULL AND "IsActive" = false;
+COMMIT;
+
+-- POS floor ops (layout, guests, kitchen, cleaning)
+BEGIN;
+ALTER TABLE "PosServiceResources" ADD COLUMN IF NOT EXISTS "LayoutX" double precision NULL;
+ALTER TABLE "PosServiceResources" ADD COLUMN IF NOT EXISTS "LayoutY" double precision NULL;
+ALTER TABLE "PosServiceResources" ADD COLUMN IF NOT EXISTS "LayoutW" double precision NOT NULL DEFAULT 120;
+ALTER TABLE "PosServiceResources" ADD COLUMN IF NOT EXISTS "LayoutH" double precision NOT NULL DEFAULT 100;
+ALTER TABLE "PosServiceResources" ADD COLUMN IF NOT EXISTS "NeedsCleaning" boolean NOT NULL DEFAULT false;
+ALTER TABLE "PosResourceSessions" ADD COLUMN IF NOT EXISTS "AccumulatedPauseMinutes" integer NOT NULL DEFAULT 0;
+ALTER TABLE "PosResourceSessions" ADD COLUMN IF NOT EXISTS "GuestCount" integer NOT NULL DEFAULT 1;
+ALTER TABLE "PosResourceSessions" ADD COLUMN IF NOT EXISTS "BillRequested" boolean NOT NULL DEFAULT false;
+ALTER TABLE "PosSaleOrderLines" ADD COLUMN IF NOT EXISTS "KitchenSentQty" numeric(18,3) NOT NULL DEFAULT 0;
+ALTER TABLE "PosSaleOrderLines" ADD COLUMN IF NOT EXISTS "KitchenSentAt" timestamp without time zone NULL;
+COMMIT;

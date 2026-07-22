@@ -32,7 +32,13 @@ public class DeviceCommandsController(
         logger.LogInformation("[CreateCommand] DeviceId={DeviceId}, CommandType={CommandType}, Priority={Priority}, Command={Command}", 
             deviceId, request.CommandType, request.Priority, request.Command);
         
-        var cmd = new CreateDeviceCmdCommand(deviceId, request.CommandType, request.Priority, request.Command);
+        var cmd = new CreateDeviceCmdCommand(
+            deviceId,
+            request.CommandType,
+            request.Priority,
+            request.Command,
+            request.Pin,
+            request.FingerIndex);
         var result = await bus.Send(cmd);
         
         logger.LogInformation("[CreateCommand] Result: IsSuccess={IsSuccess}, Message={Message}", 

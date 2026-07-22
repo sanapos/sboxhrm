@@ -34,6 +34,7 @@ import '../widgets/pos/pos_product_image.dart';
 import '../utils/navigation_notifier.dart';
 import 'pos/pos_product_detail_screen.dart';
 import 'pos/pos_product_editor_page.dart';
+import 'pos/pos_topping_groups_screen.dart';
 import '../widgets/pos_barcode_scanner.dart';
 import 'main_layout.dart' show ScreenRefreshNotifier;
 
@@ -385,6 +386,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
         title: 'Thành công',
         message: 'Đã xóa hàng hóa',
       );
+      ScreenRefreshNotifier.refreshPosAfterStockChange();
       await _loadProducts();
       if (mounted) setState(() {});
     } else {
@@ -654,6 +656,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
         title: 'Thành công',
         message: 'Đã xóa hàng cùng loại',
       );
+      ScreenRefreshNotifier.refreshPosAfterStockChange();
     } else {
       NotificationOverlayManager().showError(
         title: 'Lỗi',
@@ -1095,6 +1098,12 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                             _exportExcel(perm);
                           } else if (v == 'import' && perm.canCreate('PosProducts')) {
                             _importExcel(perm);
+                          } else if (v == 'topping_groups') {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const PosToppingGroupsScreen(),
+                              ),
+                            );
                           } else if (v.startsWith('create_') &&
                               perm.canCreate('PosProducts')) {
                             _onCreateType(v.replaceFirst('create_', ''));
@@ -1109,6 +1118,9 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                             const PopupMenuItem(
                                 value: 'create_combo', child: Text('Tạo combo')),
                           ],
+                          const PopupMenuItem(
+                              value: 'topping_groups',
+                              child: Text('Nhóm topping')),
                           const PopupMenuItem(
                               value: 'columns', child: Text('Hiển thị cột')),
                           const PopupMenuItem(

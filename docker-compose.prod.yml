@@ -92,8 +92,12 @@ services:
       - AllowedOrigins__3=http://localhost:${FLUTTER_PORT:-3000}
       - AllowedOrigins__4=http://localhost:8080
       - AllowedOrigins__5=https://${SERVER_HOST}:${FLUTTER_PORT:-3000}
-      - AllowedOrigins__6=https://sbox.sana.vn
-      - AllowedOrigins__7=http://sbox.sana.vn
+      - AllowedOrigins__6=https://sboxhrm.com
+      - AllowedOrigins__7=http://sboxhrm.com
+      - AllowedOrigins__8=https://www.sboxhrm.com
+      - AllowedOrigins__9=http://www.sboxhrm.com
+      - AllowedOrigins__10=https://sbox.sana.vn
+      - AllowedOrigins__11=http://sbox.sana.vn
       - DefaultEmployeeAccountPassword=${DEFAULT_EMPLOYEE_PASSWORD:-Ti100600@}
       - Email__SmtpHost=${SMTP_HOST:-smtp.gmail.com}
       - Email__SmtpPort=${SMTP_PORT:-587}
@@ -132,7 +136,7 @@ services:
     ports:
       - "${FLUTTER_PORT:-3000}:80"
     environment:
-      - API_BASE_URL=${API_BASE_URL:-https://sbox.sana.vn}
+      - API_BASE_URL=${API_BASE_URL:-https://sboxhrm.com}
     depends_on:
       - zktecoadms-api
     networks:

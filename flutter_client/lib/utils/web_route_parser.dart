@@ -55,6 +55,23 @@ bool get isPublicRegisterDeepLink {
   return Uri.base.path.contains('/register');
 }
 
+bool get isLoginDeepLink {
+  if (!kIsWeb) return false;
+  final path = Uri.base.path;
+  if (path == '/login-app' || path.endsWith('/login-app')) return true;
+  final segs = parseWebHashPathSegments();
+  if (segs.isEmpty) return false;
+  return segs.first == 'login-app' || segs.first == 'login';
+}
+
+bool get isForgotPasswordDeepLink {
+  if (!kIsWeb) return false;
+  final path = Uri.base.path;
+  if (path.contains('/forgot-password')) return true;
+  final segs = parseWebHashPathSegments();
+  return segs.isNotEmpty && segs.first == 'forgot-password';
+}
+
 /// Giữ deep link web đọc một lần lúc khởi động (tránh mất hash sau Flutter bootstrap).
 class InitialWebRoute {
   InitialWebRoute._();
@@ -62,6 +79,8 @@ class InitialWebRoute {
   static bool _captured = false;
   static bool showRegister = false;
   static bool showAgentRegister = false;
+  static bool showLogin = false;
+  static bool showForgotPassword = false;
   static String? agentRegisterToken;
   static Map<String, String> queryParams = const {};
 
@@ -72,6 +91,8 @@ class InitialWebRoute {
     showAgentRegister = isAgentRegisterDeepLink;
     agentRegisterToken = parseAgentRegistrationToken();
     showRegister = isPublicRegisterDeepLink;
+    showLogin = isLoginDeepLink;
+    showForgotPassword = isForgotPasswordDeepLink;
 
     // Fallback: index.html lưu vào sessionStorage trước khi Flutter có thể xóa hash.
     initial_route_capture.captureInitialRouteFromStorage();

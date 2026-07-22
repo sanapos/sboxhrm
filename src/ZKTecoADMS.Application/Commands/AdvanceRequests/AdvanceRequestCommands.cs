@@ -284,7 +284,10 @@ public record ApproveAdvanceRequestCommand(
     Guid RequestId,
     Guid ApprovedById,
     bool IsApproved,
-    string? RejectionReason) : ICommand<AppResponse<AdvanceRequestDto>>;
+    string? RejectionReason,
+    // Số tiền được duyệt — cho phép duyệt thấp hơn số tiền yêu cầu (Amount).
+    // Null = duyệt đủ số tiền yêu cầu.
+    decimal? ApprovedAmount = null) : ICommand<AppResponse<AdvanceRequestDto>>;
 
 public class ApproveAdvanceRequestHandler(
     IRepository<AdvanceRequest> advanceRequestRepository,
@@ -323,9 +326,26 @@ public class ApproveAdvanceRequestHandler(
 
             if (request.IsApproved)
             {
+                // Quản lý có thể duyệt số tiền thấp hơn số tiền nhân viên yêu
+                // cầu. Không cho duyệt vượt số tiền yêu cầu.
+                if (request.ApprovedAmount.HasValue)
+                {
+                    if (request.ApprovedAmount.Value <= 0)
+                    {
+                        return AppResponse<AdvanceRequestDto>.Error("Số tiền duyệt phải lớn hơn 0");
+                    }
+                    if (request.ApprovedAmount.Value > advanceRequest.Amount)
+                    {
+                        return AppResponse<AdvanceRequestDto>.Error(
+                            $"Số tiền duyệt ({request.ApprovedAmount.Value:N0}đ) không được vượt số tiền yêu cầu ({advanceRequest.Amount:N0}đ)");
+                    }
+                    advanceRequest.ApprovedAmount = request.ApprovedAmount.Value;
+                }
+
                 if (approvalRecords.Count == 0)
                 {
                     // Legacy record - approve directly
+                    advanceRequest.ApprovedAmount ??= advanceRequest.Amount;
                     advanceRequest.Status = AdvanceRequestStatus.Approved;
                     advanceRequest.ApprovedById = request.ApprovedById;
                     advanceRequest.ApprovedDate = DateTime.UtcNow;
@@ -352,6 +372,7 @@ public class ApproveAdvanceRequestHandler(
                     if (nextStep == null)
                     {
                         // All steps done - finalize
+                        advanceRequest.ApprovedAmount ??= advanceRequest.Amount;
                         advanceRequest.Status = AdvanceRequestStatus.Approved;
                         advanceRequest.ApprovedById = request.ApprovedById;
                         advanceRequest.ApprovedDate = DateTime.UtcNow;
@@ -361,10 +382,14 @@ public class ApproveAdvanceRequestHandler(
                         {
                             if (advanceRequest.EmployeeUserId.HasValue)
                             {
+                                var isPartial = advanceRequest.ApprovedAmount.Value < advanceRequest.Amount;
+                                var amountText = isPartial
+                                    ? $"{advanceRequest.ApprovedAmount.Value:N0}đ (yêu cầu ban đầu {advanceRequest.Amount:N0}đ)"
+                                    : $"{advanceRequest.Amount:N0}đ";
                                 await notificationService.CreateAndSendAsync(
                                     advanceRequest.EmployeeUserId.Value, NotificationType.Success,
                                     "Yêu cầu ứng lương đã duyệt",
-                                    $"Yêu cầu ứng lương {advanceRequest.Amount:N0}đ đã được phê duyệt hoàn tất" +
+                                    $"Yêu cầu ứng lương đã được phê duyệt hoàn tất: {amountText}" +
                                     (advanceRequest.TotalApprovalLevels > 1 ? $" ({advanceRequest.TotalApprovalLevels}/{advanceRequest.TotalApprovalLevels} cấp)" : ""),
                                     relatedEntityId: advanceRequest.Id, relatedEntityType: "AdvanceRequest",
                                     fromUserId: request.ApprovedById, categoryCode: "approval", storeId: request.StoreId);
@@ -381,10 +406,15 @@ public class ApproveAdvanceRequestHandler(
                         {
                             if (nextStep.AssignedUserId.HasValue)
                             {
+                                var pendingPayout = advanceRequest.ApprovedAmount ?? advanceRequest.Amount;
+                                var pendingAmountText = advanceRequest.ApprovedAmount.HasValue
+                                    && advanceRequest.ApprovedAmount.Value < advanceRequest.Amount
+                                    ? $"{pendingPayout:N0}đ (yêu cầu {advanceRequest.Amount:N0}đ)"
+                                    : $"{pendingPayout:N0}đ";
                                 await notificationService.CreateAndSendAsync(
                                     nextStep.AssignedUserId.Value, NotificationType.ApprovalRequired,
                                     "Yêu cầu ứng lương cần phê duyệt",
-                                    $"Yêu cầu ứng lương cần phê duyệt (Bước {nextStep.StepOrder}/{advanceRequest.TotalApprovalLevels}) - {advanceRequest.Amount:N0}đ",
+                                    $"Yêu cầu ứng lương cần phê duyệt (Bước {nextStep.StepOrder}/{advanceRequest.TotalApprovalLevels}) - {pendingAmountText}",
                                     relatedEntityId: advanceRequest.Id, relatedEntityType: "AdvanceRequest",
                                     fromUserId: request.ApprovedById, categoryCode: "approval", storeId: request.StoreId);
                             }
@@ -546,6 +576,7 @@ public class UndoApproveAdvanceRequestHandler(
             advanceRequest.ApprovedById = null;
             advanceRequest.ApprovedDate = null;
             advanceRequest.RejectionReason = null;
+            advanceRequest.ApprovedAmount = null;
             advanceRequest.CurrentApprovalStep = 0;
 
             await advanceRequestRepository.UpdateAsync(advanceRequest, cancellationToken);
@@ -700,6 +731,9 @@ public class PayAdvanceRequestHandler(
 
             var paymentMethodEnum = ParsePaymentMethod(request.PaymentMethod);
             var paymentMethodLabel = GetPaymentMethodLabel(paymentMethodEnum);
+            // Số tiền chi trả thực tế = số tiền đã duyệt (có thể thấp hơn số
+            // tiền yêu cầu ban đầu) — fallback về Amount cho yêu cầu cũ.
+            var payoutAmount = advanceRequest.ApprovedAmount ?? advanceRequest.Amount;
             var employeeName = advanceRequest.Employee != null
                 ? $"{advanceRequest.Employee.LastName} {advanceRequest.Employee.FirstName}".Trim()
                 : $"{advanceRequest.EmployeeUser?.LastName} {advanceRequest.EmployeeUser?.FirstName}".Trim();
@@ -723,7 +757,7 @@ public class PayAdvanceRequestHandler(
                     ForMonth = advanceRequest.ForMonth,
                     ForYear = advanceRequest.ForYear,
                     TransactionDate = DateTime.UtcNow,
-                    Amount = advanceRequest.Amount,
+                    Amount = payoutAmount,
                     Description = $"Thanh toán ứng lương ({paymentMethodLabel}) - {employeeName}",
                     PaymentMethod = paymentMethodLabel,
                     Status = "Completed",
@@ -779,7 +813,7 @@ public class PayAdvanceRequestHandler(
                     TransactionCode = $"CH-{now:yyyyMMdd}-{Guid.NewGuid().ToString()[..4].ToUpperInvariant()}",
                     Type = Domain.Enums.CashTransactionType.Expense,
                     CategoryId = advanceCategory.Id,
-                    Amount = advanceRequest.Amount,
+                    Amount = payoutAmount,
                     TransactionDate = now,
                     Description = $"Chi ứng lương ({paymentMethodLabel}) - {employeeName}",
                     PaymentMethod = paymentMethodEnum,
@@ -811,7 +845,7 @@ public class PayAdvanceRequestHandler(
                     await notificationService.CreateAndSendAsync(
                         advanceRequest.EmployeeUserId.Value, NotificationType.Success,
                         "Ứng lương đã thanh toán",
-                        $"Yêu cầu ứng lương {advanceRequest.Amount:N0}đ đã được thanh toán ({paymentMethodLabel})",
+                        $"Yêu cầu ứng lương {payoutAmount:N0}đ đã được thanh toán ({paymentMethodLabel})",
                         relatedEntityId: advanceRequest.Id, relatedEntityType: "AdvanceRequest",
                         fromUserId: request.PerformedById, categoryCode: "payroll", storeId: request.StoreId);
                 }

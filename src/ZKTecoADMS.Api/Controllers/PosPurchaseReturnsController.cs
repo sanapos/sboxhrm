@@ -182,7 +182,10 @@ public class PosPurchaseReturnsController(ZKTecoDbContext dbContext) : Authentic
     public async Task<ActionResult<AppResponse<ReturnDto>>> Update(Guid id, [FromBody] SaveReturnDto dto)
     {
         var storeId = RequiredStoreId;
+        // .AsTracking(): BuildReturnAsync ghi SupplierId/Note/DiscountAmount/... lên ret rồi
+        // SaveChangesAsync — thiếu tracking thì thay đổi header bị âm thầm mất.
         var ret = await dbContext.PosPurchaseReturns
+            .AsTracking()
             .Include(r => r.Lines)
             .FirstOrDefaultAsync(r => r.Id == id && r.StoreId == storeId && r.Deleted == null);
         if (ret == null) return NotFound(AppResponse<ReturnDto>.Fail("Không tìm thấy phiếu"));
@@ -195,29 +198,44 @@ public class PosPurchaseReturnsController(ZKTecoDbContext dbContext) : Authentic
 
         if (dto.Complete)
         {
+            await using var tx = await dbContext.Database.BeginTransactionAsync();
             try
             {
-                await PosPurchaseStockHelper.ApplyReturnStockAsync(dbContext, storeId, ret, lines!, CurrentUserEmail);
+                var (claimed, claimErr) = await PosDocStatusPersistHelper.SetPurchaseReturnStatusAsync(
+                    dbContext, id, storeId,
+                    PosPurchaseReturnStatus.Draft, PosPurchaseReturnStatus.Completed,
+                    CurrentUserEmail, allowAlready: false);
+                if (!claimed)
+                {
+                    await tx.RollbackAsync();
+                    return Conflict(AppResponse<ReturnDto>.Fail(claimErr ?? "Phiếu đã được xử lý"));
+                }
+
+                ret.Status = PosPurchaseReturnStatus.Completed;
+                await PosPurchaseStockHelper.ApplyReturnStockAsync(
+                    dbContext, storeId, ret, lines!, CurrentUserEmail);
                 await PosPurchaseStockHelper.UpdateSupplierOnReturnCompleteAsync(dbContext, ret);
+                dbContext.PosPurchaseReturnLines.AddRange(lines!);
+                if (ret.RefundReceived > 0)
+                    await PosFinanceSyncHelper.SyncPurchaseReturnRefundAsync(dbContext, ret, CurrentUserId);
+                await dbContext.SaveChangesAsync();
+                await tx.CommitAsync();
             }
             catch (InvalidOperationException ex)
             {
+                await tx.RollbackAsync();
                 return BadRequest(AppResponse<ReturnDto>.Fail(ex.Message));
             }
+            catch
+            {
+                await tx.RollbackAsync();
+                throw;
+            }
         }
-
-        dbContext.PosPurchaseReturnLines.AddRange(lines!);
-        if (dto.Complete && ret.RefundReceived > 0)
-            await PosFinanceSyncHelper.SyncPurchaseReturnRefundAsync(dbContext, ret, CurrentUserId);
-        await dbContext.SaveChangesAsync();
-
-        if (dto.Complete)
+        else
         {
-            var (statusOk, statusErr) = await PosDocStatusPersistHelper.SetPurchaseReturnStatusAsync(
-                dbContext, id, storeId,
-                PosPurchaseReturnStatus.Draft, PosPurchaseReturnStatus.Completed, CurrentUserEmail);
-            if (!statusOk)
-                return BadRequest(AppResponse<ReturnDto>.Fail(statusErr!));
+            dbContext.PosPurchaseReturnLines.AddRange(lines!);
+            await dbContext.SaveChangesAsync();
         }
 
         dbContext.ChangeTracker.Clear();
@@ -253,31 +271,47 @@ public class PosPurchaseReturnsController(ZKTecoDbContext dbContext) : Authentic
     public async Task<ActionResult<AppResponse<ReturnDto>>> Complete(Guid id)
     {
         var storeId = RequiredStoreId;
+        // .AsTracking(): ReturnDate/ReturnedBy ghi trên ret rồi SaveChangesAsync.
         var ret = await dbContext.PosPurchaseReturns
+            .AsTracking()
             .Include(r => r.Lines).Include(r => r.Supplier).Include(r => r.SourceReceipt)
             .FirstOrDefaultAsync(r => r.Id == id && r.StoreId == storeId && r.Deleted == null);
         if (ret == null) return NotFound(AppResponse<ReturnDto>.Fail("Không tìm thấy phiếu"));
         if (ret.Status != PosPurchaseReturnStatus.Draft)
             return BadRequest(AppResponse<ReturnDto>.Fail("Phiếu không ở trạng thái tạm"));
 
+        await using var tx = await dbContext.Database.BeginTransactionAsync();
         try
         {
+            var (claimed, claimErr) = await PosDocStatusPersistHelper.SetPurchaseReturnStatusAsync(
+                dbContext, id, storeId,
+                PosPurchaseReturnStatus.Draft, PosPurchaseReturnStatus.Completed,
+                CurrentUserEmail, allowAlready: false);
+            if (!claimed)
+            {
+                await tx.RollbackAsync();
+                return Conflict(AppResponse<ReturnDto>.Fail(claimErr ?? "Phiếu đã được xử lý"));
+            }
+
+            ret.Status = PosPurchaseReturnStatus.Completed;
             ret.ReturnDate ??= DateTime.UtcNow;
             ret.ReturnedBy ??= CurrentUserEmail;
-            await PosPurchaseStockHelper.ApplyReturnStockAsync(dbContext, storeId, ret, ret.Lines.ToList(), CurrentUserEmail);
+            await PosPurchaseStockHelper.ApplyReturnStockAsync(
+                dbContext, storeId, ret, ret.Lines.ToList(), CurrentUserEmail);
             await PosPurchaseStockHelper.UpdateSupplierOnReturnCompleteAsync(dbContext, ret);
             await PosFinanceSyncHelper.SyncPurchaseReturnRefundAsync(dbContext, ret, CurrentUserId);
             await dbContext.SaveChangesAsync();
-
-            var (statusOk, statusErr) = await PosDocStatusPersistHelper.SetPurchaseReturnStatusAsync(
-                dbContext, id, storeId,
-                PosPurchaseReturnStatus.Draft, PosPurchaseReturnStatus.Completed, CurrentUserEmail);
-            if (!statusOk)
-                return BadRequest(AppResponse<ReturnDto>.Fail(statusErr!));
+            await tx.CommitAsync();
         }
         catch (InvalidOperationException ex)
         {
+            await tx.RollbackAsync();
             return BadRequest(AppResponse<ReturnDto>.Fail(ex.Message));
+        }
+        catch
+        {
+            await tx.RollbackAsync();
+            throw;
         }
 
         dbContext.ChangeTracker.Clear();
@@ -382,6 +416,12 @@ public class PosPurchaseReturnsController(ZKTecoDbContext dbContext) : Authentic
             if (src == null) return (null, null, "Phiếu nhập gốc không hợp lệ");
             supplierId ??= src.SupplierId;
         }
+        // Thiếu check này trước đây: supplierId lấy thẳng từ client, không xác nhận thuộc
+        // store hiện tại → NCC id giả/khác store gây lỗi 500 (FK violation) hoặc tệ hơn là
+        // cộng/trừ nhầm công nợ của NCC thuộc store khác nếu id đó tồn tại thật.
+        if (supplierId.HasValue && !await dbContext.PosSuppliers.AnyAsync(s =>
+                s.Id == supplierId && s.StoreId == storeId && s.Deleted == null))
+            return (null, null, "Nhà cung cấp không hợp lệ");
 
         var ret = existing ?? new PosPurchaseReturn
         {

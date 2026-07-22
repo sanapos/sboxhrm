@@ -5,9 +5,39 @@ const int mobilePunchCheckIn = 0;
 const int mobilePunchCheckOut = 1;
 const int mobilePunchTravelStart = 2;
 const int mobilePunchTravelArrive = 3;
+const int mobilePunchMealOut = 4;
+const int mobilePunchMealIn = 5;
 
 bool isTravelPunchType(int punchType) =>
     punchType == mobilePunchTravelStart || punchType == mobilePunchTravelArrive;
+
+bool isLunchOtPunchType(int punchType) =>
+    punchType == mobilePunchMealOut || punchType == mobilePunchMealIn;
+
+String lunchOtPunchLabel(int punchType) {
+  switch (punchType) {
+    case mobilePunchMealOut:
+      return 'Ra tăng ca trưa';
+    case mobilePunchMealIn:
+      return 'Vào lại sau nghỉ';
+    default:
+      return 'Tăng ca trưa';
+  }
+}
+
+/// Thời điểm MealOut chưa có MealIn tương ứng trong ngày.
+DateTime? openLunchOtStartTime(List<dynamic> todayRecords) {
+  DateTime? lastOut;
+  for (final r in todayRecords) {
+    final pt = (r as dynamic).punchType as int;
+    if (pt == mobilePunchMealOut) {
+      lastOut = (r as dynamic).punchTime as DateTime;
+    } else if (pt == mobilePunchMealIn && lastOut != null) {
+      lastOut = null;
+    }
+  }
+  return lastOut;
+}
 
 String travelPunchTypeLabel(int punchType) {
   switch (punchType) {

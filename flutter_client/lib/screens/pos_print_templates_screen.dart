@@ -1,6 +1,4 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../models/pos_print_template.dart';
 import '../services/api_service.dart';
@@ -8,10 +6,18 @@ import '../widgets/notification_overlay.dart';
 import '../utils/pos_print_template_loader.dart';
 import '../utils/pos_print_template_defaults.dart';
 import '../utils/pos_print_template_renderer.dart';
-import '../utils/pos_html_print.dart';
+import '../utils/pos_print_template_v2_codec.dart';
+import '../utils/pos_print_template_v2_presets.dart';
+import '../utils/pos_print_template_compiler.dart';
+import '../utils/pos_print_template_runtime.dart';
+import '../utils/pos_print_orchestrator.dart';
+import '../utils/pos_printer_transport.dart';
+import '../utils/pos_thermal_printer_settings.dart';
+import '../models/pos_print_template_v2.dart';
+import '../widgets/pos/pos_print_template_v2_editor.dart';
 import '../utils/responsive_helper.dart';
-import '../widgets/pos/pos_html_preview_stub.dart'
-    if (dart.library.js_interop) '../widgets/pos/pos_html_preview_web.dart';
+import '../widgets/hrm/hrm_settings_mobile_kit.dart';
+import '../widgets/hrm_page_chrome.dart';
 import '../widgets/pos/pos_module_toolbar.dart';
 import '../widgets/pos/pos_theme.dart';
 
@@ -36,15 +42,15 @@ class PosPrintTemplatesScreen extends StatefulWidget {
 
 class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
   final _api = ApiService();
-  final _editorCtrl = TextEditingController();
   final _nameCtrl = TextEditingController();
 
   String _docType = PosPrintDocumentTypes.saleInvoice;
   List<PosPrintTemplate> _templates = [];
-  List<PosPrintTemplatePreset> _presets = [];
   PosPrintTemplate? _selected;
+  PosPrintTemplateV2? _v2Template;
   bool _loading = true;
   bool _saving = false;
+  bool _testingPrint = false;
   bool _dirty = false;
 
   @override
@@ -59,37 +65,12 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
 
   @override
   void dispose() {
-    _editorCtrl.dispose();
     _nameCtrl.dispose();
     super.dispose();
   }
 
-  Future<void> _loadPresets() async {
-    final res = await _api.getPosPrintTemplatePresets(documentType: _docType);
-    if (res['isSuccess'] == true && res['data'] is List) {
-      _presets = (res['data'] as List)
-          .map((e) => PosPrintTemplatePreset.fromJson(e as Map<String, dynamic>))
-          .toList();
-    }
-  }
-
-  String _htmlForPaper(String paperSize) {
-    final fromPreset =
-        _presets.where((p) => p.paperSize == paperSize).firstOrNull?.htmlContent;
-    if (fromPreset != null && fromPreset.trim().isNotEmpty) return fromPreset;
-    return posPrintDefaultHtml(documentType: _docType, paperSize: paperSize);
-  }
-
-  void _applyLocalDefault({String paperSize = PosPrintPaperSizes.k80}) {
-    _selected = null;
-    _editorCtrl.text = _htmlForPaper(paperSize);
-    _nameCtrl.text = posPrintDefaultTemplateName(paperSize);
-    _dirty = false;
-  }
-
   Future<void> _load() async {
     setState(() => _loading = true);
-    await _loadPresets();
 
     _templates = await loadPosPrintTemplates(_api, _docType);
 
@@ -97,10 +78,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
         _templates.firstOrNull;
 
     if (_selected != null) {
-      final html = _selected!.htmlContent.trim().isNotEmpty
-          ? _selected!.htmlContent
-          : _htmlForPaper(_selected!.paperSize);
-      _editorCtrl.text = html;
+      _v2Template = _v2FromTemplate(_selected);
       _nameCtrl.text = _selected!.name;
     } else {
       _applyLocalDefault();
@@ -109,6 +87,33 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
 
     if (!mounted) return;
     setState(() => _loading = false);
+  }
+
+  void _applyLocalDefault({String paperSize = PosPrintPaperSizes.k80}) {
+    _selected = null;
+    _v2Template = PosPrintTemplateV2Presets.build(
+      documentType: _docType,
+      paperSize: paperSize,
+      printerProfile: PosPrintPrinterProfiles.sunmiK80,
+      name: posPrintDefaultTemplateName(paperSize),
+    );
+    _nameCtrl.text = _v2Template!.name ?? posPrintDefaultTemplateName(paperSize);
+    _dirty = false;
+  }
+
+  PosPrintTemplateV2 _v2FromTemplate(PosPrintTemplate? t) {
+    final parsed = PosPrintTemplateV2Codec.tryParse(t?.htmlContent);
+    if (parsed != null) return parsed;
+    final paper = t?.paperSize ?? PosPrintPaperSizes.k80;
+    final profile = paper == PosPrintPaperSizes.k58
+        ? PosPrintPrinterProfiles.sunmiK58
+        : PosPrintPrinterProfiles.sunmiK80;
+    return PosPrintTemplateV2Presets.build(
+      documentType: _docType,
+      paperSize: paper,
+      printerProfile: profile,
+      name: t?.name,
+    );
   }
 
   void _selectTemplate(PosPrintTemplate? t) {
@@ -123,8 +128,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
     setState(() {
       _selected = t;
       if (t != null) {
-        _editorCtrl.text =
-            t.htmlContent.trim().isNotEmpty ? t.htmlContent : _htmlForPaper(t.paperSize);
+        _v2Template = _v2FromTemplate(t);
         _nameCtrl.text = t.name;
       } else {
         _applyLocalDefault();
@@ -148,16 +152,6 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
     if (ok == true && mounted) onOk();
   }
 
-  String get _previewHtml {
-    final src = _editorCtrl.text.trim();
-    if (src.isEmpty) return '';
-    return renderSampleTemplatePreview(
-      src,
-      documentType: _docType,
-      paperSize: _selected?.paperSize ?? PosPrintPaperSizes.k80,
-    );
-  }
-
   String? get _dropdownValue {
     final id = _selected?.id;
     if (id == null || id.isEmpty) return null;
@@ -172,10 +166,16 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
       return;
     }
     setState(() => _saving = true);
+    final v2 = _v2Template!.copyWith(
+      name: name,
+      documentType: _docType,
+      paperSize: _v2Template!.paperSize,
+    );
     final body = _selected!.copyWith(
       name: name,
-      htmlContent: _editorCtrl.text,
+      htmlContent: PosPrintTemplateV2Codec.encode(v2),
       documentType: _docType,
+      paperSize: v2.paperSize,
     ).toSaveJson();
     final res = await _api.updatePosPrintTemplate(_selected!.id, body);
     if (!mounted) return;
@@ -201,7 +201,6 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
         : <PosPrintTemplatePreset>[];
 
     String paper = PosPrintPaperSizes.k80;
-    String html = presets.isNotEmpty ? presets.first.htmlContent : '';
     final nameCtrl = TextEditingController(text: 'Mẫu in mới');
 
     final ok = await showDialog<bool>(
@@ -227,11 +226,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
                       .toList(),
                   onChanged: (v) {
                     if (v == null) return;
-                    setDlg(() {
-                      paper = v;
-                      final preset = presets.where((p) => p.paperSize == v).firstOrNull;
-                      if (preset != null) html = preset.htmlContent;
-                    });
+                    setDlg(() => paper = v);
                   },
                 ),
                 const SizedBox(height: 12),
@@ -249,11 +244,8 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
                     final preset = presets.where((p) => p.paperSize == v).firstOrNull;
                     setDlg(() {
                       paper = v;
-                      if (preset != null) {
-                        html = preset.htmlContent;
-                        if (nameCtrl.text == 'Mẫu in mới') {
-                          nameCtrl.text = preset.name;
-                        }
+                      if (preset != null && nameCtrl.text == 'Mẫu in mới') {
+                        nameCtrl.text = preset.name;
                       }
                     });
                   },
@@ -270,11 +262,20 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
     );
     if (ok != true || !mounted) return;
 
+    final v2Preset = PosPrintTemplateV2Presets.build(
+      documentType: _docType,
+      paperSize: paper,
+      printerProfile: paper == PosPrintPaperSizes.k58
+          ? PosPrintPrinterProfiles.sunmiK58
+          : PosPrintPrinterProfiles.zywellK80,
+      name: nameCtrl.text.trim().isEmpty ? PosPrintPaperSizes.labels[paper] : nameCtrl.text.trim(),
+    );
+
     final res = await _api.createPosPrintTemplate({
       'name': nameCtrl.text.trim().isEmpty ? PosPrintPaperSizes.labels[paper] : nameCtrl.text.trim(),
       'documentType': _docType,
       'paperSize': paper,
-      'htmlContent': html,
+      'htmlContent': PosPrintTemplateV2Codec.encode(v2Preset),
       'isDefault': _templates.isEmpty,
       'isActive': true,
       'sortOrder': _templates.length,
@@ -284,6 +285,92 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
       await _load();
       final created = PosPrintTemplate.fromJson(res['data'] as Map<String, dynamic>);
       _applyTemplate(created);
+    }
+  }
+
+  Future<void> _testPrintTemplate() async {
+    final v2 = _v2Template;
+    if (v2 == null) return;
+    setState(() => _testingPrint = true);
+    try {
+      final isKitchen = v2.documentType == PosPrintDocumentTypes.kitchenSlip ||
+          v2.documentType == PosPrintDocumentTypes.kitchenVoid;
+      final output = isKitchen
+          ? PosPrintTemplateRuntime.compileKitchenSlip(
+              template: v2,
+              tableName: 'Bàn 05',
+              isCancel: v2.documentType == PosPrintDocumentTypes.kitchenVoid,
+              lines: const [
+                (name: 'Phở bò tái', qty: '2', unit: 'tô', note: 'Ít hành'),
+                (name: 'Trà đá', qty: '2', unit: 'ly', note: null),
+              ],
+              senderName: 'NV Demo',
+              orderNo: 'DH0001',
+              sentAt: DateTime.now(),
+            )
+          : PosPrintTemplateCompiler.compile(
+              template: v2,
+              data: posPrintSampleData(documentType: v2.documentType),
+              lineItems: posPrintSampleLines(),
+            );
+
+      final settings = (await PosThermalPrinterSettings.load()).copyWith(
+        enabled: true,
+        paperSize: v2.paperSize,
+      );
+
+      if (await PosPrinterTransport.isSunmiDevice() ||
+          settings.connectionType == PosThermalConnectionType.sunmi) {
+        final ok = await PosPrintTemplateRuntime.printCompiledSunmi(
+          output: output,
+          settings: settings.copyWith(
+            connectionType: PosThermalConnectionType.sunmi,
+            printerBrand: PosThermalPrinterBrand.sunmi,
+          ),
+          kitchenFeed: isKitchen,
+        );
+        if (!mounted) return;
+        if (ok) {
+          NotificationOverlayManager()
+              .showSuccess(title: 'In thử', message: 'Đã in mẫu trên Sunmi');
+        } else {
+          NotificationOverlayManager().showError(
+            title: 'In thử thất bại',
+            message: 'Sunmi không phản hồi',
+          );
+        }
+        return;
+      }
+
+      final bytes = await PosPrintTemplateRuntime.buildCompiledEscPosBytes(
+        output: output,
+        settings: settings,
+      );
+      final ok = await PosPrintOrchestrator.instance.dispatchLocalEscPos(
+        bytes: bytes,
+        settingsOverride: settings,
+        documentType: v2.documentType,
+        showFeedback: false,
+        skipDedup: true,
+      );
+      if (!mounted) return;
+      if (ok) {
+        NotificationOverlayManager()
+            .showSuccess(title: 'In thử', message: 'Đã gửi mẫu in thử');
+      } else {
+        NotificationOverlayManager().showError(
+          title: 'In thử thất bại',
+          message: 'Kiểm tra kết nối máy in cục bộ',
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      NotificationOverlayManager().showError(
+        title: 'In thử thất bại',
+        message: e.toString(),
+      );
+    } finally {
+      if (mounted) setState(() => _testingPrint = false);
     }
   }
 
@@ -311,24 +398,12 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
     }
   }
 
-  void _insertToken(String token) {
-    final text = _editorCtrl.text;
-    final sel = _editorCtrl.selection;
-    final insert = '{$token}';
-    final start = sel.start >= 0 ? sel.start : text.length;
-    final end = sel.end >= 0 ? sel.end : text.length;
-    final next = text.replaceRange(start, end, insert);
-    _editorCtrl.text = next;
-    _editorCtrl.selection = TextSelection.collapsed(offset: start + insert.length);
-    setState(() {
-      _dirty = true;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F4F6),
+      backgroundColor: widget.embeddedInSettings
+          ? HrmPageChrome.scaffoldBackground(context)
+          : const Color(0xFFF3F4F6),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -379,95 +454,30 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
                     ? _buildMobileEditorBody()
                     : Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    child: Row(
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Expanded(
-                          child: Card(
-                            margin: EdgeInsets.zero,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-                                  child: TextField(
-                                    controller: _nameCtrl,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Tên mẫu in',
-                                      isDense: true,
-                                    ),
-                                    onChanged: (_) => setState(() => _dirty = true),
-                                  ),
-                                ),
-                                _tokenToolbar(),
-                                Expanded(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(12),
-                                    child: TextField(
-                                      controller: _editorCtrl,
-                                      maxLines: null,
-                                      expands: true,
-                                      style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                                      decoration: const InputDecoration(
-                                        hintText: 'HTML mẫu in — dùng {Token} và <!--BEGIN_ITEMS-->...<!--END_ITEMS-->',
-                                        border: OutlineInputBorder(),
-                                      ),
-                                      onChanged: (_) => setState(() {
-                                        _dirty = true;
-                                      }),
-                                    ),
-                                  ),
-                                ),
-                              ],
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: TextField(
+                            controller: _nameCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'Tên mẫu in',
+                              isDense: true,
                             ),
+                            onChanged: (_) => setState(() => _dirty = true),
                           ),
                         ),
-                        const SizedBox(width: 12),
                         Expanded(
-                          child: Card(
-                            margin: EdgeInsets.zero,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
-                                  child: Row(
-                                    children: [
-                                      const Text('Xem trước mẫu in',
-                                          style: TextStyle(fontWeight: FontWeight.w600)),
-                                      const Spacer(),
-                                      if (kIsWeb)
-                                        TextButton.icon(
-                                          onPressed: _previewHtml.isEmpty
-                                              ? null
-                                              : () => showPosHtmlPrintDialog(
-                                                    context,
-                                                    title: 'Xem trước in',
-                                                    htmlDocument: _previewHtml,
-                                                  ),
-                                          icon: const Icon(Icons.print, size: 18),
-                                          label: const Text('In thử'),
-                                        ),
-                                    ],
-                                  ),
+                          child: _v2Template == null
+                              ? const Center(child: Text('Đang tải…'))
+                              : PosPrintTemplateV2Editor(
+                                  template: _v2Template!,
+                                  onChanged: (v) => setState(() {
+                                    _v2Template = v;
+                                    _dirty = true;
+                                  }),
                                 ),
-                                Expanded(
-                                  child: Padding(
-                                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                                    child: DecoratedBox(
-                                      decoration: BoxDecoration(
-                                        border: Border.all(color: PosTheme.border),
-                                        color: Colors.grey.shade50,
-                                      ),
-                                      child: _previewHtml.isEmpty
-                                          ? const Center(child: Text('Chưa có nội dung'))
-                                          : buildPosHtmlPreview(_previewHtml),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
                         ),
                       ],
                     ),
@@ -479,66 +489,34 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
   }
 
   Widget _buildMobileEditorBody() {
-    return DefaultTabController(
-      length: 2,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, 0, 0, 4),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const TabBar(
-            labelColor: _blue,
-            tabs: [
-              Tab(text: 'Soạn mẫu'),
-              Tab(text: 'Xem trước'),
-            ],
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+            child: TextField(
+              controller: _nameCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Tên mẫu in',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              onChanged: (_) => setState(() => _dirty = true),
+            ),
           ),
           Expanded(
-            child: TabBarView(
-              children: [
-                Card(
-                  margin: const EdgeInsets.all(12),
-                  child: Column(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-                        child: TextField(
-                          controller: _nameCtrl,
-                          decoration: const InputDecoration(
-                            labelText: 'Tên mẫu in',
-                            isDense: true,
-                          ),
-                          onChanged: (_) => setState(() => _dirty = true),
-                        ),
-                      ),
-                      _tokenToolbar(),
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: TextField(
-                            controller: _editorCtrl,
-                            maxLines: null,
-                            expands: true,
-                            style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                            decoration: const InputDecoration(
-                              hintText: 'HTML mẫu in — {Token}, <!--BEGIN_ITEMS-->...',
-                              border: OutlineInputBorder(),
-                            ),
-                            onChanged: (_) => setState(() => _dirty = true),
-                          ),
-                        ),
-                      ),
-                    ],
+            child: _v2Template == null
+                ? const Center(child: CircularProgressIndicator())
+                : PosPrintTemplateV2Editor(
+                    compact: true,
+                    template: _v2Template!,
+                    onChanged: (v) => setState(() {
+                      _v2Template = v;
+                      _dirty = true;
+                    }),
                   ),
-                ),
-                Card(
-                  margin: const EdgeInsets.all(12),
-                  child: _previewHtml.isEmpty
-                      ? const Center(child: Text('Chưa có nội dung'))
-                      : ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: buildPosHtmlPreview(_previewHtml),
-                        ),
-                ),
-              ],
-            ),
           ),
         ],
       ),
@@ -567,50 +545,104 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
     );
 
     if (Responsive.isMobile(context)) {
+      final embeddedKit =
+          widget.embeddedInSettings && HrmSettingsMobileKit.active(context);
       return Padding(
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+        padding: EdgeInsets.fromLTRB(
+            12, 10, 12, embeddedKit ? 8 : 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('Mẫu in', style: TextStyle(fontWeight: FontWeight.w600)),
-            const SizedBox(height: 8),
+            if (!embeddedKit)
+              const Text('Mẫu in', style: TextStyle(fontWeight: FontWeight.w600)),
+            if (!embeddedKit) const SizedBox(height: 8),
             selector,
             const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
+            if (embeddedKit)
+              Row(
+                children: [
+                  HrmSettingsAddButton(
+                    label: 'Thêm',
+                    compact: true,
                     onPressed: _addTemplate,
-                    icon: const Icon(Icons.add_circle_outline, size: 18),
-                    label: const Text('Thêm'),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
+                  const Spacer(),
+                  IconButton(
+                    tooltip: 'Xóa mẫu',
                     onPressed: _selected == null ? null : _deleteTemplate,
-                    icon: const Icon(Icons.delete_outline, size: 18),
-                    label: const Text('Xóa'),
-                    style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+                    icon: const Icon(Icons.delete_outline, color: Colors.red),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: FilledButton.icon(
+                  IconButton(
+                    tooltip: 'In thử',
+                    onPressed: _testingPrint || _v2Template == null ? null : _testPrintTemplate,
+                    icon: _testingPrint
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.print_outlined, color: _blue),
+                  ),
+                  FilledButton.icon(
                     style: FilledButton.styleFrom(backgroundColor: _blue),
                     onPressed: _saving || _selected == null ? null : _save,
                     icon: _saving
                         ? const SizedBox(
                             width: 14,
                             height: 14,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white),
                           )
                         : const Icon(Icons.save, size: 16),
                     label: const Text('Lưu'),
                   ),
+                ],
+              )
+            else
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: _addTemplate,
+                      icon: const Icon(Icons.add_circle_outline, size: 18),
+                      label: const Text('Thêm'),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      onPressed: _selected == null ? null : _deleteTemplate,
+                      icon: const Icon(Icons.delete_outline, size: 18),
+                      label: const Text('Xóa'),
+                      style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      onPressed: _testingPrint || _v2Template == null ? null : _testPrintTemplate,
+                      icon: _testingPrint
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.print_outlined, size: 18),
+                      label: const Text('In thử'),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton.icon(
+                      style: FilledButton.styleFrom(backgroundColor: _blue),
+                      onPressed: _saving || _selected == null ? null : _save,
+                      icon: _saving
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Icon(Icons.save, size: 16),
+                      label: const Text('Lưu'),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
           ],
         ),
       );
@@ -633,6 +665,17 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
             onPressed: _selected == null ? null : _deleteTemplate,
             icon: const Icon(Icons.delete_outline, color: Colors.red),
           ),
+          IconButton(
+            tooltip: 'In thử',
+            onPressed: _testingPrint || _v2Template == null ? null : _testPrintTemplate,
+            icon: _testingPrint
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.print_outlined, color: _blue),
+          ),
           const SizedBox(width: 8),
           FilledButton.icon(
             style: FilledButton.styleFrom(backgroundColor: _blue),
@@ -646,46 +689,6 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
                 : const Icon(Icons.save, size: 18),
             label: const Text('Lưu'),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _tokenToolbar() {
-    Widget chips(String title, List<(String, String)> tokens) {
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: const TextStyle(fontSize: 11, color: PosTheme.textSecondary)),
-            const SizedBox(height: 4),
-            Wrap(
-              spacing: 4,
-              runSpacing: 4,
-              children: tokens
-                  .map((t) => ActionChip(
-                        label: Text(t.$2, style: const TextStyle(fontSize: 11)),
-                        onPressed: () => _insertToken(t.$1),
-                      ))
-                  .toList(),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          chips('Cửa hàng', PosPrintTokens.store),
-          chips('Đơn hàng', PosPrintTokens.order),
-          chips('Khách', PosPrintTokens.customer),
-          chips('Dòng hàng', PosPrintTokens.line),
-          chips('Tổng', PosPrintTokens.totals),
         ],
       ),
     );

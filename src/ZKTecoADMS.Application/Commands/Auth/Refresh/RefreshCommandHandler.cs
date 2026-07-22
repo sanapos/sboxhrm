@@ -42,6 +42,12 @@ public class RefreshCommandHandler(
             return AppResponse<AuthenticateResponse>.Error("User not found.");
         }
 
+        if (!user.IsActive)
+        {
+            return AppResponse<AuthenticateResponse>.Error(
+                "Tài khoản đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên.");
+        }
+
         if (user.Store != null &&
             (!user.Store.IsActive || StoreLicenseHelper.IsExpired(user.Store)))
         {

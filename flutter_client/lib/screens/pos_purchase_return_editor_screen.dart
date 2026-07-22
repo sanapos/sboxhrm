@@ -20,6 +20,7 @@ import '../widgets/pos/pos_supplier_form_dialog.dart';
 import '../widgets/pos/pos_purchase_toolbar.dart';
 import '../widgets/pos/pos_theme.dart';
 import '../widgets/pos_barcode_scanner.dart';
+import '../screens/main_layout.dart' show ScreenRefreshNotifier;
 
 const _blue = Color(0xFF2563EB);
 
@@ -423,6 +424,7 @@ class _PosPurchaseReturnEditorScreenState
             : r.returnNo,
       );
       if (complete && mounted) {
+        ScreenRefreshNotifier.refreshPosAfterStockChange();
         Navigator.pop(context, true);
       } else {
         await _loadReturn(r.id);
@@ -449,6 +451,7 @@ class _PosPurchaseReturnEditorScreenState
         title: 'Hoàn tất',
         message: result.successMessage(_returnNo, completedLabel: 'Đã trả hàng'),
       );
+      ScreenRefreshNotifier.refreshPosAfterStockChange();
       if (mounted) Navigator.pop(context, true);
     } else {
       NotificationOverlayManager().showError(

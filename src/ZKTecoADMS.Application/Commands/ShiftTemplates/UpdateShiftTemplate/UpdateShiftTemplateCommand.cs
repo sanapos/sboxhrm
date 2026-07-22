@@ -11,10 +11,13 @@ public record UpdateShiftTemplateCommand(
     int MaximumAllowedLateMinutes,
     int MaximumAllowedEarlyLeaveMinutes,
     int BreakTimeMinutes,
+    TimeSpan? LunchBreakStartTime,
+    TimeSpan? LunchBreakEndTime,
     int EarlyCheckInMinutes,
     int LateGraceMinutes,
     int EarlyLeaveGraceMinutes,
     int OvertimeMinutesThreshold,
+    int EarlyOvertimeMinutesThreshold,
     string? ShiftType,
     string? Description,
     bool IsActive) : ICommand<AppResponse<ShiftTemplateDto>>;

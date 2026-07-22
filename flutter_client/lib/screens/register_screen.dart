@@ -1,11 +1,15 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../data/vietnam_provinces.dart';
 import '../utils/web_route_parser.dart';
 import '../utils/agent_referral_prefs.dart';
 import '../utils/permission_navigation.dart';
 import '../services/api_service.dart';
+import '../utils/web_marketing_gate_stub.dart'
+    if (dart.library.html) '../utils/web_marketing_gate_web.dart' as web_home;
 import '../widgets/store_agent_support_card.dart';
 import 'store_success_screen.dart';
 
@@ -1302,10 +1306,13 @@ class _RegisterScreenState extends State<RegisterScreen>
   }
 
   void _openLandingPricing() {
-    Navigator.of(context).pushNamed(
-      '/landing',
-      arguments: {'scrollSection': 'pricing'},
-    );
+    if (kIsWeb) {
+      web_home.redirectToStaticHome(section: 'pricing');
+      return;
+    }
+    final base = ApiService.baseUrl.replaceFirst(RegExp(r'/api$'), '');
+    final uri = Uri.parse('$base/?section=pricing');
+    launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   static Widget _buildLabel(String text) {

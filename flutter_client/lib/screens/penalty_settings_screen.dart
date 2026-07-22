@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
 import '../utils/number_formatter.dart';
 import '../widgets/loading_widget.dart';
+import '../widgets/hrm/hrm_settings_mobile_kit.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
 
@@ -227,16 +228,16 @@ class _PenaltySettingsScreenState extends State<PenaltySettingsScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        backgroundColor: _bg,
-        body: LoadingWidget(),
+      return Scaffold(
+        backgroundColor: HrmPageChrome.scaffoldBackground(context),
+        body: const LoadingWidget(),
       );
     }
 
     final isMobile = Responsive.isMobile(context);
 
     return Scaffold(
-      backgroundColor: _bg,
+      backgroundColor: HrmPageChrome.scaffoldBackground(context),
       resizeToAvoidBottomInset: true,
       appBar: (!HrmPageChrome.isEmbedded && isMobile)
           ? AppBar(
@@ -258,7 +259,9 @@ class _PenaltySettingsScreenState extends State<PenaltySettingsScreen> {
   }
 
   Widget _buildScrollBody(BuildContext context) {
-    final pad = Responsive.isMobile(context) ? 12.0 : 20.0;
+    final pad = HrmSettingsMobileKit.active(context)
+        ? HrmSettingsMobileKit.pagePadding(context).left
+        : (Responsive.isMobile(context) ? 12.0 : 20.0);
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
 
     // LayoutBuilder + SizedBox.expand: đảm bảo vùng cuộn có chiều cao cố định
@@ -310,7 +313,8 @@ class _PenaltySettingsScreenState extends State<PenaltySettingsScreen> {
   /// Tối đa 2 cột — tránh 4 cột hẹp làm hàng nhập tiền bị cắt.
   Widget _buildCardsLayout(BuildContext context) {
     final w = MediaQuery.sizeOf(context).width;
-    final twoCols = w >= 720;
+    final twoCols =
+        (w >= 360 && HrmSettingsMobileKit.active(context)) || w >= 720;
     final gap = 16.0;
 
     final cards = [

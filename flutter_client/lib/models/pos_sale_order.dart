@@ -1,6 +1,62 @@
+import 'dart:convert';
+
 import '../utils/api_datetime.dart';
 import '../utils/pos_doc_status.dart';
 import 'pos_product.dart' show parsePosStringList;
+
+class PosSaleLineTopping {
+  final String id;
+  final String name;
+  final double price;
+
+  const PosSaleLineTopping({
+    required this.id,
+    required this.name,
+    required this.price,
+  });
+
+  factory PosSaleLineTopping.fromJson(Map<String, dynamic> json) {
+    final id = (json['id'] ?? json['Id'] ?? '').toString();
+    final name = (json['name'] ?? json['Name'] ?? '').toString();
+    final priceRaw = json['price'] ?? json['Price'];
+    final price = priceRaw is num
+        ? priceRaw.toDouble()
+        : double.tryParse('$priceRaw') ?? 0;
+    return PosSaleLineTopping(
+      id: id.isEmpty ? name : id,
+      name: name.isEmpty ? id : name,
+      price: price,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'price': price,
+      };
+}
+
+List<PosSaleLineTopping> parsePosSaleLineToppings(dynamic raw) {
+  if (raw == null) return const [];
+  dynamic decoded = raw;
+  if (raw is String) {
+    if (raw.trim().isEmpty) return const [];
+    try {
+      decoded = jsonDecode(raw);
+    } catch (_) {
+      return const [];
+    }
+  }
+  if (decoded is! List) return const [];
+  final out = <PosSaleLineTopping>[];
+  for (final e in decoded) {
+    if (e is! Map) continue;
+    final t = PosSaleLineTopping.fromJson(Map<String, dynamic>.from(e));
+    if (t.id.isEmpty && t.name.isEmpty) continue;
+    out.add(t);
+  }
+  return out;
+}
 
 class PosSaleOrderLine {
   final String? id;
@@ -15,6 +71,13 @@ class PosSaleOrderLine {
   final String? lineNote;
   final double returnedQty;
   final List<String> serialNumbers;
+  final int? durationMinutes;
+  final int? billableMinutes;
+  final DateTime? serviceStartedAt;
+  final DateTime? serviceEndedAt;
+  final double kitchenSentQty;
+  final DateTime? kitchenSentAt;
+  final List<PosSaleLineTopping> toppings;
 
   PosSaleOrderLine({
     this.id,
@@ -29,10 +92,18 @@ class PosSaleOrderLine {
     this.lineNote,
     this.returnedQty = 0,
     this.serialNumbers = const [],
+    this.durationMinutes,
+    this.billableMinutes,
+    this.serviceStartedAt,
+    this.serviceEndedAt,
+    this.kitchenSentQty = 0,
+    this.kitchenSentAt,
+    this.toppings = const [],
   });
 
   factory PosSaleOrderLine.fromJson(Map<String, dynamic> json) {
     double n(dynamic v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
+    int? i(dynamic v) => v == null ? null : (v is num ? v.toInt() : int.tryParse('$v'));
     return PosSaleOrderLine(
       id: (json['id'] ?? json['Id'])?.toString(),
       productId: (json['productId'] ?? json['ProductId']).toString(),
@@ -48,8 +119,36 @@ class PosSaleOrderLine {
       serialNumbers: json['serialNumbers'] != null || json['SerialNumbers'] != null
           ? parsePosStringList(json['serialNumbers'] ?? json['SerialNumbers'])
           : const [],
+      durationMinutes: i(json['durationMinutes'] ?? json['DurationMinutes']),
+      billableMinutes: i(json['billableMinutes'] ?? json['BillableMinutes']),
+      serviceStartedAt:
+          parseApiDateTime(json['serviceStartedAt'] ?? json['ServiceStartedAt']),
+      serviceEndedAt:
+          parseApiDateTime(json['serviceEndedAt'] ?? json['ServiceEndedAt']),
+      kitchenSentQty: n(json['kitchenSentQty'] ?? json['KitchenSentQty']),
+      kitchenSentAt:
+          parseApiDateTime(json['kitchenSentAt'] ?? json['KitchenSentAt']),
+      toppings: parsePosSaleLineToppings(
+          json['toppingsJson'] ?? json['ToppingsJson']),
     );
   }
+
+  /// Payload gọn cho Print Agent (Sunmi native) — tránh Agent phải gọi lại API.
+  Map<String, dynamic> toPrintAgentJson() => {
+        'id': id,
+        'productId': productId,
+        'variantId': variantId,
+        'productName': productName,
+        'unitName': unitName,
+        'qty': qty,
+        'unitPrice': unitPrice,
+        'discountAmount': discountAmount,
+        'lineTotal': lineTotal,
+        'lineNote': lineNote,
+        'returnedQty': returnedQty,
+        'serialNumbers': serialNumbers,
+        'toppingsJson': toppings.map((t) => t.toJson()).toList(),
+      };
 }
 
 class PosSaleOrder {
@@ -80,6 +179,7 @@ class PosSaleOrder {
   final String? soldBy;
   final String? soldByEmployeeId;
   final String? salesChannel;
+  final String? priceListId;
   final String? priceListName;
   final String? voucherCode;
   final double voucherDiscount;
@@ -93,6 +193,20 @@ class PosSaleOrder {
   final int printCount;
   final int dailyOrderIndex;
   final double dailySalesTotal;
+  final String? serviceResourceId;
+  final String? resourceSessionId;
+  final DateTime? serviceStartedAt;
+  final DateTime? serviceEndedAt;
+  final String? serviceResourceCode;
+  final String? serviceResourceName;
+  final String? serviceAreaName;
+  final int lockVersion;
+  final bool isLocked;
+  final bool isLockedByMe;
+  final String? lockedByDisplayName;
+  final String? lockedByDeviceId;
+  final String? lockedByDeviceName;
+  final DateTime? lockExpiresAt;
 
   PosSaleOrder({
     required this.id,
@@ -121,6 +235,7 @@ class PosSaleOrder {
     this.soldBy,
     this.soldByEmployeeId,
     this.salesChannel,
+    this.priceListId,
     this.priceListName,
     this.voucherCode,
     this.voucherDiscount = 0,
@@ -134,6 +249,20 @@ class PosSaleOrder {
     this.printCount = 0,
     this.dailyOrderIndex = 0,
     this.dailySalesTotal = 0,
+    this.serviceResourceId,
+    this.resourceSessionId,
+    this.serviceStartedAt,
+    this.serviceEndedAt,
+    this.serviceResourceCode,
+    this.serviceResourceName,
+    this.serviceAreaName,
+    this.lockVersion = 0,
+    this.isLocked = false,
+    this.isLockedByMe = false,
+    this.lockedByDisplayName,
+    this.lockedByDeviceId,
+    this.lockedByDeviceName,
+    this.lockExpiresAt,
   });
 
   PosSaleOrder copyWithPrintContext({
@@ -168,6 +297,7 @@ class PosSaleOrder {
         soldBy: soldBy,
         soldByEmployeeId: soldByEmployeeId,
         salesChannel: salesChannel,
+        priceListId: priceListId,
         priceListName: priceListName,
         voucherCode: voucherCode,
         voucherDiscount: voucherDiscount,
@@ -181,7 +311,32 @@ class PosSaleOrder {
         printCount: printCount ?? this.printCount,
         dailyOrderIndex: dailyOrderIndex ?? this.dailyOrderIndex,
         dailySalesTotal: dailySalesTotal ?? this.dailySalesTotal,
+        serviceResourceId: serviceResourceId,
+        resourceSessionId: resourceSessionId,
+        serviceStartedAt: serviceStartedAt,
+        serviceEndedAt: serviceEndedAt,
+        serviceResourceCode: serviceResourceCode,
+        serviceResourceName: serviceResourceName,
+        serviceAreaName: serviceAreaName,
+        lockVersion: lockVersion,
+        isLocked: isLocked,
+        isLockedByMe: isLockedByMe,
+        lockedByDisplayName: lockedByDisplayName,
+        lockedByDeviceId: lockedByDeviceId,
+        lockedByDeviceName: lockedByDeviceName,
+        lockExpiresAt: lockExpiresAt,
       );
+
+  String? get lockBadgeLabel {
+    if (!isLocked) return null;
+    if (isLockedByMe) return 'Bạn đang giữ';
+    final who = (lockedByDisplayName ?? '').trim();
+    final device = (lockedByDeviceName ?? '').trim();
+    if (who.isEmpty && device.isEmpty) return 'Đang mở trên máy khác';
+    if (who.isEmpty) return 'Đang mở · $device';
+    if (device.isEmpty) return 'Đang mở bởi $who';
+    return 'Đang mở bởi $who · $device';
+  }
 
   bool get isReprint => printCount > 1;
 
@@ -205,6 +360,7 @@ class PosSaleOrder {
 
   factory PosSaleOrder.fromJson(Map<String, dynamic> json) {
     double n(dynamic v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
+    int i(dynamic v) => v is num ? v.toInt() : int.tryParse('$v') ?? 0;
     final linesRaw = json['lines'] ?? json['Lines'];
     final lines = linesRaw is List
         ? linesRaw
@@ -243,6 +399,7 @@ class PosSaleOrder {
       soldByEmployeeId:
           (json['soldByEmployeeId'] ?? json['SoldByEmployeeId'])?.toString(),
       salesChannel: json['salesChannel'] ?? json['SalesChannel'] as String?,
+      priceListId: (json['priceListId'] ?? json['PriceListId'])?.toString(),
       priceListName: json['priceListName'] ?? json['PriceListName'] as String?,
       voucherCode: json['voucherCode'] ?? json['VoucherCode'] as String?,
       voucherDiscount: n(json['voucherDiscount'] ?? json['VoucherDiscount']),
@@ -251,13 +408,69 @@ class PosSaleOrder {
       pointsEarned: n(json['pointsEarned'] ?? json['PointsEarned']),
       createdAt: parseApiDateTime(json['createdAt'] ?? json['CreatedAt']),
       createdBy: json['createdBy'] ?? json['CreatedBy'] as String?,
-      lineCount: (json['lineCount'] ?? json['LineCount'] as num?)?.toInt() ??
-          lines.length,
+      lineCount: i(json['lineCount'] ?? json['LineCount']) > 0
+          ? i(json['lineCount'] ?? json['LineCount'])
+          : lines.length,
       lines: lines,
-      printCount: (json['printCount'] ?? json['PrintCount'] as num?)?.toInt() ?? 0,
-      dailyOrderIndex:
-          (json['dailyOrderIndex'] ?? json['DailyOrderIndex'] as num?)?.toInt() ?? 0,
+      printCount: i(json['printCount'] ?? json['PrintCount']),
+      dailyOrderIndex: i(json['dailyOrderIndex'] ?? json['DailyOrderIndex']),
       dailySalesTotal: n(json['dailySalesTotal'] ?? json['DailySalesTotal']),
+      serviceResourceId:
+          (json['serviceResourceId'] ?? json['ServiceResourceId'])?.toString(),
+      resourceSessionId:
+          (json['resourceSessionId'] ?? json['ResourceSessionId'])?.toString(),
+      serviceStartedAt:
+          parseApiDateTime(json['serviceStartedAt'] ?? json['ServiceStartedAt']),
+      serviceEndedAt:
+          parseApiDateTime(json['serviceEndedAt'] ?? json['ServiceEndedAt']),
+      serviceResourceCode:
+          (json['serviceResourceCode'] ?? json['ServiceResourceCode'])
+              ?.toString(),
+      serviceResourceName:
+          (json['serviceResourceName'] ?? json['ServiceResourceName'])
+              ?.toString(),
+      serviceAreaName:
+          (json['serviceAreaName'] ?? json['ServiceAreaName'])?.toString(),
+      lockVersion: i(json['lockVersion'] ?? json['LockVersion']),
+      isLocked: json['isLocked'] == true || json['IsLocked'] == true,
+      isLockedByMe:
+          json['isLockedByMe'] == true || json['IsLockedByMe'] == true,
+      lockedByDisplayName:
+          (json['lockedByDisplayName'] ?? json['LockedByDisplayName'])
+              ?.toString(),
+      lockedByDeviceId:
+          (json['lockedByDeviceId'] ?? json['LockedByDeviceId'])?.toString(),
+      lockedByDeviceName:
+          (json['lockedByDeviceName'] ?? json['LockedByDeviceName'])
+              ?.toString(),
+      lockExpiresAt:
+          parseApiDateTime(json['lockExpiresAt'] ?? json['LockExpiresAt']),
     );
   }
+
+  /// Payload gọn cho Print Agent — cùng dữ liệu Oppo đang xem, không phụ thuộc getPosSale.
+  Map<String, dynamic> toPrintAgentJson() => {
+        'id': id,
+        'orderNo': orderNo,
+        'status': status,
+        'subTotal': subTotal,
+        'discount': discount,
+        'total': total,
+        'paidAmount': paidAmount,
+        'balanceDue': balanceDue,
+        'paymentMethod': paymentMethod,
+        'customerName': customerName,
+        'customerPhone': customerPhone,
+        'isDelivery': isDelivery,
+        'deliveryAddress': deliveryAddress,
+        'note': note,
+        'saleDate': saleDate?.toIso8601String(),
+        'soldBy': soldBy,
+        'createdAt': createdAt?.toIso8601String(),
+        'printCount': printCount,
+        'dailyOrderIndex': dailyOrderIndex,
+        'serviceResourceName': serviceResourceName,
+        'serviceAreaName': serviceAreaName,
+        'lines': lines.map((l) => l.toPrintAgentJson()).toList(),
+      };
 }

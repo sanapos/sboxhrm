@@ -228,7 +228,8 @@ public class CashTransactionsController(
         string? vietQrUrl = null;
         if (request.PaymentMethod == PaymentMethodType.VietQR && request.BankAccountId.HasValue)
         {
-            var bankAccount = await context.BankAccounts.FindAsync(request.BankAccountId.Value);
+            var bankAccount = await context.BankAccounts.AsNoTracking()
+                .FirstOrDefaultAsync(b => b.Id == request.BankAccountId.Value && b.StoreId == storeId);
             if (bankAccount != null)
             {
                 vietQrUrl = VietQRBanks.GenerateVietQRUrl(
@@ -267,7 +268,22 @@ public class CashTransactionsController(
         };
 
         context.CashTransactions.Add(transaction);
-        await context.SaveChangesAsync();
+        for (var attempt = 0; ; attempt++)
+        {
+            try
+            {
+                await context.SaveChangesAsync();
+                break;
+            }
+            catch (DbUpdateException ex) when (attempt < 5 &&
+                ex.InnerException?.Message.Contains("IX_CashTransactions_StoreId_TransactionCode") == true)
+            {
+                // Mã phiếu trùng do 2 request cùng store tạo phiếu gần như đồng thời — sinh lại mã mới rồi thử lại.
+                var retryCount = await context.CashTransactions
+                    .CountAsync(x => x.StoreId == storeId && x.TransactionCode.StartsWith($"{prefix}-{dateStr}")) + 1;
+                transaction.TransactionCode = $"{prefix}-{dateStr}-{retryCount:D4}";
+            }
+        }
 
         try
         {
@@ -317,7 +333,8 @@ public class CashTransactionsController(
         string? vietQrUrl = transaction.VietQRUrl;
         if (request.PaymentMethod == PaymentMethodType.VietQR && request.BankAccountId.HasValue)
         {
-            var bankAccount = await context.BankAccounts.FindAsync(request.BankAccountId.Value);
+            var bankAccount = await context.BankAccounts.AsNoTracking()
+                .FirstOrDefaultAsync(b => b.Id == request.BankAccountId.Value && b.StoreId == storeId);
             if (bankAccount != null)
             {
                 vietQrUrl = VietQRBanks.GenerateVietQRUrl(
@@ -356,6 +373,11 @@ public class CashTransactionsController(
         {
             transaction.IsPaid = false;
             transaction.PaidDate = null;
+            // Nếu đang Completed mà bỏ đánh dấu đã thanh toán, phải lùi Status về Pending —
+            // nếu không GetSummary/BuildFundBalancesAsync (lọc theo Status == Completed) vẫn
+            // tính giao dịch này vào tổng thu/chi dù đã bỏ trạng thái thanh toán.
+            if (transaction.Status == CashTransactionStatus.Completed)
+                transaction.Status = CashTransactionStatus.Pending;
         }
 
         await context.SaveChangesAsync();
@@ -402,13 +424,21 @@ public class CashTransactionsController(
             transaction.IsPaid = true;
             transaction.PaidDate ??= DateTime.UtcNow;
         }
+        else if (request.Status == CashTransactionStatus.Cancelled)
+        {
+            // Hủy giao dịch phải bỏ luôn cờ đã thanh toán, tránh GetSummary/DTO hiển thị
+            // lệch giữa Status=Cancelled và IsPaid=true.
+            transaction.IsPaid = false;
+            transaction.PaidDate = null;
+        }
 
         if (request.PaymentMethod.HasValue)
         {
             transaction.PaymentMethod = request.PaymentMethod.Value;
             if (request.PaymentMethod == PaymentMethodType.VietQR && request.BankAccountId.HasValue)
             {
-                var bankAccount = await context.BankAccounts.FindAsync(request.BankAccountId.Value);
+                var bankAccount = await context.BankAccounts.AsNoTracking()
+                    .FirstOrDefaultAsync(b => b.Id == request.BankAccountId.Value && b.StoreId == storeId);
                 if (bankAccount != null)
                 {
                     transaction.BankAccountId = bankAccount.Id;
@@ -516,6 +546,7 @@ public class CashTransactionsController(
                 transaction.InternalNote, "ứng công tác #", out var tripAdvanceId))
         {
             var tripAdvance = await context.BusinessTripAdvanceClaims
+                .AsTracking()
                 .Include(a => a.Case)
                 .FirstOrDefaultAsync(a => a.Id == tripAdvanceId && a.StoreId == storeId);
             if (tripAdvance != null && tripAdvance.IsPaid)
@@ -541,6 +572,7 @@ public class CashTransactionsController(
                 transaction.InternalNote, "thu hoàn ứng công tác #", out settlementId))
         {
             var settlement = await context.BusinessTripSettlementClaims
+                .AsTracking()
                 .Include(s => s.Case)
                 .FirstOrDefaultAsync(s => s.Id == settlementId && s.StoreId == storeId);
             if (settlement != null && settlement.IsExtraPaid)
@@ -572,11 +604,13 @@ public class CashTransactionsController(
 
         // Phiếu chi lương → hoàn phiếu lương về đã chốt, chưa thanh toán
         var linkedPayslip = await context.Payslips
+            .AsTracking()
             .FirstOrDefaultAsync(p => p.CashTransactionId == transaction.Id && p.StoreId == storeId);
         if (linkedPayslip == null && CashTransactionLinkageHelper.TryExtractTrailingGuid(
                 transaction.InternalNote, "phiếu lương #", out var payslipId))
         {
             linkedPayslip = await context.Payslips
+                .AsTracking()
                 .FirstOrDefaultAsync(p => p.Id == payslipId && p.StoreId == storeId);
         }
         if (linkedPayslip != null)
@@ -743,7 +777,9 @@ public class CashTransactionsController(
 
         if (request.BankAccountId.HasValue)
         {
-            var bankAccount = await context.BankAccounts.FindAsync(request.BankAccountId.Value);
+            var storeId = RequiredStoreId;
+            var bankAccount = await context.BankAccounts.AsNoTracking()
+                .FirstOrDefaultAsync(b => b.Id == request.BankAccountId.Value && b.StoreId == storeId);
             if (bankAccount == null)
                 return BadRequest(AppResponse<VietQRResponseDto>.Error("Không tìm thấy tài khoản ngân hàng"));
 
@@ -914,7 +950,21 @@ public class CashTransactionsController(
         };
 
         context.FundTransfers.Add(transfer);
-        await context.SaveChangesAsync();
+        for (var attempt = 0; ; attempt++)
+        {
+            try
+            {
+                await context.SaveChangesAsync();
+                break;
+            }
+            catch (DbUpdateException ex) when (attempt < 5 &&
+                ex.InnerException?.Message.Contains("IX_FundTransfers_StoreId_TransferCode") == true)
+            {
+                var retryCount = await context.FundTransfers
+                    .CountAsync(x => x.StoreId == storeId && x.TransferCode.StartsWith($"CQ-{dateStr}")) + 1;
+                transfer.TransferCode = $"CQ-{dateStr}-{retryCount:D4}";
+            }
+        }
 
         var created = await context.FundTransfers
             .Include(x => x.FromBankAccount)

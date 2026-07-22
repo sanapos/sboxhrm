@@ -14,6 +14,7 @@ import '../widgets/empty_state.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
 import '../widgets/notification_overlay.dart';
+import '../widgets/safe_layout_widgets.dart';
 import '../utils/responsive_helper.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
@@ -352,50 +353,120 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
   List<AdvanceRequest> get _paidList => _filteredRequests
       .where((r) => r.status == AdvanceRequestStatus.approved && r.isPaid)
       .toList();
+  // Dùng payoutAmount (số tiền đã duyệt, fallback về số tiền yêu cầu khi
+  // chưa duyệt) để tổng đúng số tiền thực tế chờ/đã thanh toán.
   double _sumAmount(List<AdvanceRequest> list) =>
-      list.fold(0.0, (s, r) => s + r.amount);
+      list.fold(0.0, (s, r) => s + r.payoutAmount);
 
   // ==================== ACTIONS ====================
   Future<void> _approveRequest(AdvanceRequest request, bool isApproved,
       {String? reason}) async {
+    double? approvedAmount;
     if (isApproved) {
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => ScrollableAlertDialog(
-          title: const Text('Xác nhận duyệt'),
-          content: Text(
-              'Bạn có chắc muốn duyệt yêu cầu ứng lương ${_currencyFormat.format(request.amount)} của ${request.employeeName}?'),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: Text(_l10n.cancel)),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              style: FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
-              child: Text(_l10n.approveLabel,
-                  style: const TextStyle(color: Colors.white)),
-            ),
-          ],
-        ),
-      );
-      if (confirmed != true) return;
+      approvedAmount = await _showApproveAmountDialog(request);
+      if (approvedAmount == null) return;
     }
 
+    final isPartial = isApproved && approvedAmount! < request.amount;
+
+    // Luôn gửi số tiền duyệt (kể cả khi = số yêu cầu) để bước duyệt sau
+    // trong quy trình đa cấp có thể ghi đè đúng số quản lý vừa xác nhận.
     final result = await _apiService.approveAdvanceRequest(
       requestId: request.id,
       isApproved: isApproved,
       rejectionReason: reason,
+      approvedAmount: isApproved ? approvedAmount : null,
     );
     if (result['isSuccess'] == true) {
       appNotification.showSuccess(
         title: 'Thành công',
-        message: isApproved ? _l10n.approvedMsg : _l10n.rejectedMsg,
+        message: isApproved
+            ? (isPartial
+                ? 'Đã duyệt ${_currencyFormat.format(approvedAmount)} (yêu cầu ban đầu ${_currencyFormat.format(request.amount)})'
+                : _l10n.approvedMsg)
+            : _l10n.rejectedMsg,
       );
       _loadData();
     } else {
       appNotification.showError(
           title: _l10n.error, message: result['message'] ?? 'Có lỗi xảy ra');
     }
+  }
+
+  /// Hiển thị dialog xác nhận duyệt với ô số tiền có thể sửa (cho phép quản
+  /// lý duyệt thấp hơn số tiền nhân viên yêu cầu). Trả về số tiền đã xác
+  /// nhận, hoặc null nếu người dùng hủy.
+  Future<double?> _showApproveAmountDialog(AdvanceRequest request) async {
+    // Ưu tiên số đã đề xuất ở bước duyệt trước (đa cấp), fallback số yêu cầu.
+    final initialAmount = request.approvedAmount ?? request.amount;
+    final amountController = TextEditingController(
+        text: NumberFormat('#,###').format(initialAmount));
+    String? errorText;
+
+    return showDialog<double>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => ScrollableAlertDialog(
+          title: const Text('Xác nhận duyệt ứng lương'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                  'Nhân viên: ${request.employeeName} (${request.employeeCode})'),
+              const SizedBox(height: 4),
+              Text('Số tiền yêu cầu: ${_currencyFormat.format(request.amount)}'),
+              if (request.approvedAmount != null &&
+                  request.approvedAmount != request.amount) ...[
+                const SizedBox(height: 4),
+                Text(
+                  'Đề xuất bước trước: ${_currencyFormat.format(request.approvedAmount!)}',
+                  style: TextStyle(color: Colors.orange.shade800, fontSize: 13),
+                ),
+              ],
+              const SizedBox(height: 12),
+              TextField(
+                controller: amountController,
+                keyboardType: TextInputType.number,
+                inputFormatters: [ThousandSeparatorFormatter()],
+                decoration: InputDecoration(
+                  labelText: 'Số tiền duyệt *',
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.attach_money),
+                  errorText: errorText,
+                  helperText:
+                      'Có thể duyệt thấp hơn số tiền yêu cầu (vd: YC 5tr → duyệt 3tr)',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx), child: Text(_l10n.cancel)),
+            FilledButton(
+              onPressed: () {
+                final parsed = parseFormattedNumber(amountController.text)
+                    ?.toDouble();
+                if (parsed == null || parsed <= 0) {
+                  setDialogState(
+                      () => errorText = 'Vui lòng nhập số tiền hợp lệ');
+                  return;
+                }
+                if (parsed > request.amount) {
+                  setDialogState(() => errorText =
+                      'Không được vượt số tiền yêu cầu (${_currencyFormat.format(request.amount)})');
+                  return;
+                }
+                Navigator.pop(ctx, parsed);
+              },
+              style: FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
+              child: Text(_l10n.approveLabel,
+                  style: const TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _undoApprove(AdvanceRequest request) async {
@@ -473,12 +544,21 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                       ],
                       const SizedBox(height: 8),
                       Text(
-                        _currencyFormat.format(request.amount),
+                        _currencyFormat.format(request.payoutAmount),
                         style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 20,
                             color: Colors.blue),
                       ),
+                      if (request.isPartiallyApproved)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            'Đã duyệt một phần (yêu cầu ban đầu: ${_currencyFormat.format(request.amount)})',
+                            style: TextStyle(
+                                fontSize: 11, color: Colors.orange.shade800),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -756,63 +836,44 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
           break;
       }
 
-      return IntrinsicHeight(
-        child: Row(
+      return SafeTimelineRow(
+        isLast: isLast,
+        gutterWidth: 32,
+        bottomPadding: 12,
+        indicator: Icon(dotIcon, size: 18, color: dotColor),
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(
-              width: 32,
-              child: Column(
-                children: [
-                  Icon(dotIcon, size: 18, color: dotColor),
-                  if (!isLast)
-                    Expanded(
-                        child:
-                            Container(width: 2, color: Colors.grey.shade300)),
-                ],
+            Text(record.stepName ?? 'Cấp ${record.stepOrder}',
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: dotColor)),
+            if (record.assignedUserName != null &&
+                record.assignedUserName!.isNotEmpty)
+              Text('Phân công: ${record.assignedUserName}',
+                  style:
+                      TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+            if (record.actualUserName != null &&
+                record.actualUserName!.isNotEmpty &&
+                record.status != ApprovalStatus.pending)
+              Text('Thực hiện: ${record.actualUserName}',
+                  style:
+                      TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+            if (record.actionDate != null)
+              Text(
+                  DateFormat('dd/MM/yyyy HH:mm').format(record.actionDate!),
+                  style:
+                      TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+            if (record.note != null && record.note!.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text('"${record.note}"',
+                    style: TextStyle(
+                        fontSize: 12,
+                        fontStyle: FontStyle.italic,
+                        color: Colors.grey.shade700)),
               ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: EdgeInsets.only(bottom: isLast ? 0 : 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(record.stepName ?? 'Cấp ${record.stepOrder}',
-                        style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: dotColor)),
-                    if (record.assignedUserName != null &&
-                        record.assignedUserName!.isNotEmpty)
-                      Text('Phân công: ${record.assignedUserName}',
-                          style: TextStyle(
-                              fontSize: 12, color: Colors.grey.shade600)),
-                    if (record.actualUserName != null &&
-                        record.actualUserName!.isNotEmpty &&
-                        record.status != ApprovalStatus.pending)
-                      Text('Thực hiện: ${record.actualUserName}',
-                          style: TextStyle(
-                              fontSize: 12, color: Colors.grey.shade600)),
-                    if (record.actionDate != null)
-                      Text(
-                          DateFormat('dd/MM/yyyy HH:mm')
-                              .format(record.actionDate!),
-                          style: TextStyle(
-                              fontSize: 11, color: Colors.grey.shade500)),
-                    if (record.note != null && record.note!.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Text('"${record.note}"',
-                            style: TextStyle(
-                                fontSize: 12,
-                                fontStyle: FontStyle.italic,
-                                color: Colors.grey.shade700)),
-                      ),
-                  ],
-                ),
-              ),
-            ),
           ],
         ),
       );
@@ -1248,7 +1309,8 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
         'STT',
         'Mã NV',
         'Họ tên',
-        'Số tiền',
+        'Số tiền yêu cầu',
+        'Số tiền đã duyệt',
         'Tháng/Năm',
         'Lý do',
         'Trạng thái',
@@ -1281,6 +1343,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
           excel_lib.TextCellValue(r.employeeCode),
           excel_lib.TextCellValue(r.employeeName),
           excel_lib.DoubleCellValue(r.amount),
+          excel_lib.DoubleCellValue(r.payoutAmount),
           excel_lib.TextCellValue(r.forMonth != null && r.forYear != null
               ? 'T${r.forMonth}/${r.forYear}'
               : ''),
@@ -1306,6 +1369,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
         excel_lib.TextCellValue(''),
         excel_lib.TextCellValue('TỔNG CỘNG'),
         excel_lib.DoubleCellValue(data.fold(0.0, (s, r) => s + r.amount)),
+        excel_lib.DoubleCellValue(data.fold(0.0, (s, r) => s + r.payoutAmount)),
       ]);
 
       wb.delete('Sheet1');
@@ -1361,6 +1425,10 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
         _detailRow(Icons.attach_money, _l10n.amount,
             _currencyFormat.format(request.amount),
             valueColor: Colors.blue),
+        if (request.isPartiallyApproved)
+          _detailRow(Icons.check_circle, 'Số tiền đã duyệt',
+              _currencyFormat.format(request.approvedAmount!),
+              valueColor: Colors.orange.shade800),
         if (request.forMonth != null && request.forYear != null)
           _detailRow(Icons.calendar_month, _l10n.monthYear,
               'T${request.forMonth}/${request.forYear}'),
@@ -2533,12 +2601,23 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          _currencyFormat.format(r.amount),
-                          style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: HrmPageChrome.primaryNavy),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _currencyFormat.format(r.payoutAmount),
+                              style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: HrmPageChrome.primaryNavy),
+                            ),
+                            if (r.isPartiallyApproved)
+                              Text(
+                                'YC ban đầu: ${_currencyFormat.format(r.amount)}',
+                                style: TextStyle(
+                                    fontSize: 10, color: Colors.orange.shade800),
+                              ),
+                          ],
                         ),
                         Text(
                           DateFormat('dd/MM/yyyy').format(r.requestDate),
@@ -2721,12 +2800,24 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                       DataCell(Text(r.employeeName,
                           style: const TextStyle(
                               fontSize: 12, fontWeight: FontWeight.w500))),
-                      DataCell(Text(
-                        _currencyFormat.format(r.amount),
-                        style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: HrmPageChrome.primaryNavy),
+                      DataCell(Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _currencyFormat.format(r.payoutAmount),
+                            style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: HrmPageChrome.primaryNavy),
+                          ),
+                          if (r.isPartiallyApproved)
+                            Text(
+                              'YC: ${_currencyFormat.format(r.amount)}',
+                              style: TextStyle(
+                                  fontSize: 10, color: Colors.orange.shade800),
+                            ),
+                        ],
                       )),
                       DataCell(
                         r.forMonth != null && r.forYear != null

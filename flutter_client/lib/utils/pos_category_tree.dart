@@ -17,8 +17,15 @@ class PosCategoryNode {
 
 List<PosCategoryNode> buildPosCategoryTree(List<PosCatalogItem> flat) {
   List<PosCategoryNode> build(String? parentId, int depth) {
-    return flat
+    final siblings = flat
         .where((c) => (c.parentId ?? '') == (parentId ?? ''))
+        .toList()
+      ..sort((a, b) {
+        final cs = a.sortOrder.compareTo(b.sortOrder);
+        if (cs != 0) return cs;
+        return a.name.compareTo(b.name);
+      });
+    return siblings
         .map((item) => PosCategoryNode(
               item: item,
               depth: depth,

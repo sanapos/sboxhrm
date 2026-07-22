@@ -3,7 +3,7 @@ description: ZKTeco ADMS Flutter Client - Hệ thống quản lý chấm công
 
 publish_to: 'none'
 
-version: 1.0.41+51
+version: 1.0.156+166
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -99,6 +99,7 @@ dependencies:
   sunmi_printer_plus: ^4.1.0
   tflite_flutter: ^0.12.1
   flutter_local_notifications: 18.0.0
+  video_player: ^2.9.2
 
   # Firebase (FCM push notifications)
   firebase_core: ^3.6.0

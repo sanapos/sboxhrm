@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -7,9 +8,11 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/pos_product.dart';
+import '../../models/pos_sell_industry.dart';
 import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
 import '../../utils/image_source_picker.dart';
+import '../../utils/pos_product_editor_prefs.dart';
 import '../../widgets/notification_overlay.dart';
 import '../main_layout.dart' show ScreenRefreshNotifier;
 import '../../utils/number_formatter.dart';
@@ -19,8 +22,10 @@ import '../../widgets/pos/pos_unit_attribute_setup_dialog.dart';
 import '../../widgets/pos/pos_product_unit_view.dart';
 import '../../widgets/pos/pos_combo_component_picker.dart';
 import '../../widgets/pos/pos_sale_quick_notes_widgets.dart';
+import '../../widgets/pos/pos_product_editor_sections_dialog.dart';
 import '../../widgets/pos/pos_theme.dart';
 import '../../widgets/pos_barcode_scanner.dart';
+import 'pos_topping_groups_screen.dart';
 
 class PosProductEditorPage extends StatefulWidget {
   const PosProductEditorPage({
@@ -225,6 +230,12 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   late final TextEditingController _weightCtrl;
   late final TextEditingController _descCtrl;
   List<String> _saleQuickNotes = [];
+  bool _isTopping = false;
+  bool _allowToppings = false;
+  bool _autoOpenToppingPopup = true;
+  List<PosProductToppingOption> _toppingOptions = [];
+  List<String> _toppingGroupIds = [];
+  List<PosProductToppingGroup> _availableToppingGroups = [];
   late final TextEditingController _unitCtrl;
 
   String? _categoryId;
@@ -239,6 +250,11 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   late final TextEditingController _expiryWarningDaysCtrl;
   bool _requiresSerial = false;
   bool _trackExpiry = false;
+  PosServiceBillingMode _serviceBillingMode = PosServiceBillingMode.flat;
+  late final TextEditingController _minBillMinutesCtrl;
+  late final TextEditingController _billRoundMinutesCtrl;
+  late final TextEditingController _defaultDurationMinutesCtrl;
+  late final TextEditingController _sessionPackCountCtrl;
 
   List<PosCatalogItem> _categories = [];
   List<PosCatalogItem> _brands = [];
@@ -251,11 +267,16 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   late PosProductType _productType;
   final List<_VariantAttrRow> _variantAttrs = [];
   bool _generatingVariants = false;
+  Set<PosProductEditorSection> _editorSections = defaultPosProductEditorSections();
+  bool _editorPrefsLoaded = false;
 
   PosProductType get _type => _productType;
   bool get _isGoods => _type == PosProductType.goods;
   bool get _isService => _type == PosProductType.service;
   bool get _isCombo => _type == PosProductType.combo;
+  String get _autoCodeHint => _isService
+      ? 'DV00001…'
+      : (_isCombo ? 'CB00001…' : 'HH00001…');
   bool get _isEditing => widget.product != null;
   bool get _hasVariants => _variants.isNotEmpty;
   bool get _usesSharedUnitStock =>
@@ -299,7 +320,82 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     };
   }
 
-  List<String> get _tabLabels => const ['Thông tin', 'Mô tả'];
+  List<String> get _tabLabels => _showSection(PosProductEditorSection.description)
+      ? const ['Thông tin', 'Mô tả']
+      : const ['Thông tin'];
+
+  bool _showSection(PosProductEditorSection section) {
+    if (_editorSections.contains(section)) return true;
+    return _sectionForcedByProduct(section);
+  }
+
+  /// Khi sửa hàng đã có dữ liệu nâng cao — vẫn hiện mục đó dù prefs tắt.
+  bool _sectionForcedByProduct(PosProductEditorSection section) {
+    switch (section) {
+      case PosProductEditorSection.codes:
+        return _codeCtrl.text.trim().isNotEmpty ||
+            _barcodeCtrl.text.trim().isNotEmpty;
+      case PosProductEditorSection.brand:
+        return _brandId != null && _brandId!.isNotEmpty;
+      case PosProductEditorSection.supplier:
+        return _supplierId != null && _supplierId!.isNotEmpty;
+      case PosProductEditorSection.vat:
+        return _vatExempt || (_vatRate > 0 && _vatRate != 8);
+      case PosProductEditorSection.warranty:
+        return _requiresSerial ||
+            _trackExpiry ||
+            _warrantyMonthsCtrl.text.trim().isNotEmpty;
+      case PosProductEditorSection.stockLimits:
+        final min = double.tryParse(_minStockCtrl.text.trim()) ?? 0;
+        final max = double.tryParse(_maxStockCtrl.text.trim()) ?? 0;
+        return min > 0 || (max > 0 && max < 999999999);
+      case PosProductEditorSection.locationWeight:
+        return (_locationId != null && _locationId!.isNotEmpty) ||
+            _weightCtrl.text.trim().isNotEmpty;
+      case PosProductEditorSection.unitsVariants:
+        return _units.any((u) => !u.isBaseUnit) ||
+            _variants.isNotEmpty ||
+            _attributeValues.isNotEmpty ||
+            _variantAttrs.isNotEmpty;
+      case PosProductEditorSection.serviceBilling:
+        return _serviceBillingMode != PosServiceBillingMode.flat ||
+            (int.tryParse(_sessionPackCountCtrl.text.trim()) ?? 0) > 0 ||
+            _defaultDurationMinutesCtrl.text.trim().isNotEmpty;
+      case PosProductEditorSection.description:
+        return _descCtrl.text.trim().isNotEmpty || _saleQuickNotes.isNotEmpty;
+    }
+  }
+
+  Future<void> _loadEditorSectionPrefs() async {
+    final sections = await loadPosProductEditorSections();
+    if (!mounted) return;
+    setState(() {
+      _editorSections = sections;
+      _editorPrefsLoaded = true;
+      _syncTabController();
+    });
+  }
+
+  void _syncTabController() {
+    final labels = _tabLabels;
+    final idx = _tabs.index.clamp(0, labels.length - 1);
+    if (_tabs.length != labels.length) {
+      _tabs.dispose();
+      _tabs = TabController(length: labels.length, vsync: this, initialIndex: idx);
+    }
+  }
+
+  Future<void> _openEditorSectionsSettings() async {
+    final result = await showPosProductEditorSectionsDialog(
+      context,
+      initial: _editorSections,
+    );
+    if (result == null || !mounted) return;
+    setState(() {
+      _editorSections = result;
+      _syncTabController();
+    });
+  }
 
   double get _comboComponentsSum => _comboLines.fold(
         0.0,
@@ -312,8 +408,18 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     _productType = widget.product?.productType ??
         widget.templateProduct?.productType ??
         widget.productType;
-    _tabs = TabController(length: _tabLabels.length, vsync: this);
     final p = widget.product ?? widget.templateProduct;
+    // Phải tạo trước TabController: _tabLabels → _showSection(description)
+    // đọc _descCtrl / _saleQuickNotes.
+    _descCtrl = TextEditingController(text: p?.description ?? '');
+    _saleQuickNotes = List<String>.from(p?.saleQuickNotes ?? const []);
+    _isTopping = p?.isTopping ?? false;
+    _allowToppings = p?.allowToppings ?? false;
+    _autoOpenToppingPopup = p?.autoOpenToppingPopup ?? true;
+    _toppingOptions = List<PosProductToppingOption>.from(p?.toppingOptions ?? const []);
+    _toppingGroupIds = List<String>.from(p?.toppingGroupIds ?? const []);
+    unawaited(_loadToppingGroups());
+    _tabs = TabController(length: _tabLabels.length, vsync: this);
     final copyName = p != null && _isCopyFromTemplate
         ? (p.name.trim().endsWith('(bản sao)')
             ? p.name.trim()
@@ -338,8 +444,6 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             : (_isGoods ? '999999999' : '0'));
     _weightCtrl = TextEditingController(
         text: p?.weight != null ? p!.weight!.toStringAsFixed(0) : '');
-    _descCtrl = TextEditingController(text: p?.description ?? '');
-    _saleQuickNotes = List<String>.from(p?.saleQuickNotes ?? const []);
     _unitCtrl = TextEditingController(text: p?.baseUnitName ?? 'Cái');
     _categoryId = p?.categoryId;
     _brandId = p?.brandId;
@@ -359,9 +463,25 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     _expiryWarningDaysCtrl = TextEditingController(
       text: '${p?.expiryWarningDays ?? 30}',
     );
+    _serviceBillingMode = PosServiceBillingMode.parse(p?.serviceBillingMode);
+    _minBillMinutesCtrl = TextEditingController(
+      text: p?.minBillMinutes != null ? '${p!.minBillMinutes}' : '',
+    );
+    _billRoundMinutesCtrl = TextEditingController(
+      text: p?.billRoundMinutes != null ? '${p!.billRoundMinutes}' : '',
+    );
+    _defaultDurationMinutesCtrl = TextEditingController(
+      text: p?.defaultDurationMinutes != null
+          ? '${p!.defaultDurationMinutes}'
+          : '',
+    );
+    _sessionPackCountCtrl = TextEditingController(
+      text: (p?.sessionPackCount ?? 0) > 0 ? '${p!.sessionPackCount}' : '',
+    );
     _imagePreviewUrl = p?.imageUrl;
     if (p?.units != null) _units = List.from(p!.units!);
     if (p?.attributes != null) _attributeValues.addAll(p!.attributes!);
+    unawaited(_loadEditorSectionPrefs());
     _initData();
   }
 
@@ -373,7 +493,12 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       if (_isCopyFromTemplate && templateId != null)
         _loadTemplateExtras(templateId),
     ]);
-    if (mounted) setState(() => _loading = false);
+    if (mounted) {
+      setState(() {
+        _loading = false;
+        _syncTabController();
+      });
+    }
     if (mounted && widget.openUnitSetup && _isGoods) {
       await _openUnitAttributeSetup(addMore: widget.unitSetupAddMore);
     }
@@ -447,6 +572,12 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       _syncVariantAttrsFromProductAttributes();
       _supplierId = data.supplierId;
       _saleQuickNotes = List<String>.from(data.saleQuickNotes);
+      _isTopping = data.isTopping;
+      _allowToppings = data.allowToppings;
+      _autoOpenToppingPopup = data.autoOpenToppingPopup;
+      _toppingOptions =
+          List<PosProductToppingOption>.from(data.toppingOptions);
+      _toppingGroupIds = List<String>.from(data.toppingGroupIds);
       _vatRate = data.vatExempt ? 0 : data.vatRate;
       _vatExempt = data.vatExempt;
       _warrantyMonthsCtrl.text =
@@ -456,6 +587,17 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       _requiresSerial = data.requiresSerial;
       _trackExpiry = data.trackExpiry;
       _expiryWarningDaysCtrl.text = '${data.expiryWarningDays}';
+      _serviceBillingMode =
+          PosServiceBillingMode.parse(data.serviceBillingMode);
+      _minBillMinutesCtrl.text =
+          data.minBillMinutes != null ? '${data.minBillMinutes}' : '';
+      _billRoundMinutesCtrl.text =
+          data.billRoundMinutes != null ? '${data.billRoundMinutes}' : '';
+      _defaultDurationMinutesCtrl.text = data.defaultDurationMinutes != null
+          ? '${data.defaultDurationMinutes}'
+          : '';
+      _sessionPackCountCtrl.text =
+          data.sessionPackCount > 0 ? '${data.sessionPackCount}' : '';
     });
     if (_isCombo) {
       final comboRes = await _api.getPosComboLines(id);
@@ -633,6 +775,10 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     _unitCtrl.dispose();
     _warrantyMonthsCtrl.dispose();
     _expiryWarningDaysCtrl.dispose();
+    _minBillMinutesCtrl.dispose();
+    _billRoundMinutesCtrl.dispose();
+    _defaultDurationMinutesCtrl.dispose();
+    _sessionPackCountCtrl.dispose();
     super.dispose();
   }
 
@@ -721,6 +867,19 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           .map((n) => n.trim())
           .where((n) => n.isNotEmpty)
           .toList(),
+      'isTopping': _isTopping,
+      'allowToppings': _allowToppings && !_isTopping,
+      'autoOpenToppingPopup': _autoOpenToppingPopup,
+      'toppings': (_allowToppings && !_isTopping)
+          ? _toppingOptions
+              .map((t) => {
+                    'toppingProductId': t.toppingProductId,
+                    'extraPrice': t.extraPrice,
+                    'sortOrder': t.sortOrder,
+                  })
+              .toList()
+          : <Map<String, dynamic>>[],
+      'toppingGroupIds': _isTopping ? <String>[] : _toppingGroupIds,
       if (!_isEditing &&
           widget.templateProduct?.imageUrl != null &&
           _pendingImageBytes == null)
@@ -750,6 +909,15 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         'expiryWarningDays':
             int.tryParse(_expiryWarningDaysCtrl.text.trim()) ?? 30,
         'attributes': _attributeSchemaForSave(),
+      },
+      if (_isService) ...{
+        'serviceBillingMode': _serviceBillingMode.apiValue,
+        'minBillMinutes': int.tryParse(_minBillMinutesCtrl.text.trim()),
+        'billRoundMinutes': int.tryParse(_billRoundMinutesCtrl.text.trim()),
+        'defaultDurationMinutes':
+            int.tryParse(_defaultDurationMinutesCtrl.text.trim()),
+        'sessionPackCount':
+            int.tryParse(_sessionPackCountCtrl.text.trim()) ?? 0,
       },
     };
 
@@ -1076,6 +1244,11 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     _weightCtrl.clear();
     _descCtrl.clear();
     _saleQuickNotes = [];
+    _isTopping = false;
+    _allowToppings = false;
+    _autoOpenToppingPopup = true;
+    _toppingOptions = [];
+    _toppingGroupIds = [];
     _unitCtrl.text = 'Cái';
     _imageBase64 = null;
     _imagePreviewUrl = null;
@@ -1098,17 +1271,21 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
 
   Widget _buildKiotVietDialog() {
     final size = MediaQuery.sizeOf(context);
+    final pad = MediaQuery.paddingOf(context);
+    final narrow = size.width < 600;
     return Dialog(
       backgroundColor: Colors.white,
-      insetPadding: EdgeInsets.symmetric(
-        horizontal: size.width > 960 ? (size.width - 920) / 2 : 16,
-        vertical: 24,
+      insetPadding: EdgeInsets.fromLTRB(
+        narrow ? 8 : (size.width > 960 ? (size.width - 920) / 2 : 16),
+        pad.top + (narrow ? 4 : 16),
+        narrow ? 8 : (size.width > 960 ? (size.width - 920) / 2 : 16),
+        pad.bottom + (narrow ? 4 : 12),
       ),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ConstrainedBox(
         constraints: BoxConstraints(
           maxWidth: 920,
-          maxHeight: size.height * 0.92,
+          maxHeight: size.height - pad.top - pad.bottom - (narrow ? 16 : 40),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1116,27 +1293,31 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             _buildKiotVietHeader(),
             Material(
               color: Colors.white,
-              child: TabBar(
-                controller: _tabs,
-                labelColor: PosTheme.kiotBlue,
-                unselectedLabelColor: PosTheme.textSecondary,
-                indicatorColor: PosTheme.kiotBlue,
-                indicatorWeight: 3,
-                tabs: _tabLabels.map((t) => Tab(text: t)).toList(),
-              ),
+              child: _tabLabels.length > 1
+                  ? TabBar(
+                      controller: _tabs,
+                      labelColor: PosTheme.kiotBlue,
+                      unselectedLabelColor: PosTheme.textSecondary,
+                      indicatorColor: PosTheme.kiotBlue,
+                      indicatorWeight: 3,
+                      tabs: _tabLabels.map((t) => Tab(text: t)).toList(),
+                    )
+                  : const SizedBox.shrink(),
             ),
-            const Divider(height: 1),
+            if (_tabLabels.length > 1) const Divider(height: 1),
             Expanded(
               child: _loading
                   ? const Center(
                       child: CircularProgressIndicator(color: PosTheme.kiotBlue))
-                  : TabBarView(
-                      controller: _tabs,
-                      children: [
-                        _buildTypeInfoTab(),
-                        _buildDescTab(),
-                      ],
-                    ),
+                  : _tabLabels.length > 1
+                      ? TabBarView(
+                          controller: _tabs,
+                          children: [
+                            _buildTypeInfoTab(),
+                            _buildDescTab(),
+                          ],
+                        )
+                      : _buildTypeInfoTab(),
             ),
             const Divider(height: 1),
             _buildKiotVietFooter(),
@@ -1147,19 +1328,44 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   }
 
   Widget _buildKiotVietHeader() {
+    final advancedOn = _editorSections.isNotEmpty;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 8, 8),
       child: Row(
         children: [
           Expanded(
-            child: Text(
-              _pageTitle,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: PosTheme.textPrimary,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _pageTitle,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: PosTheme.textPrimary,
+                  ),
+                ),
+                if (_editorPrefsLoaded && !advancedOn)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      'Form gọn — bật thêm mục trong ⚙ nếu cần',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ),
+              ],
             ),
+          ),
+          IconButton(
+            onPressed: _saving ? null : _openEditorSectionsSettings,
+            icon: Icon(
+              advancedOn ? Icons.tune : Icons.tune_outlined,
+              color: advancedOn ? PosTheme.kiotBlue : PosTheme.textSecondary,
+            ),
+            tooltip: 'Tùy chọn hiển thị form',
           ),
           IconButton(
             onPressed: _saving ? null : () => Navigator.pop(context),
@@ -1172,63 +1378,98 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   }
 
   Widget _buildKiotVietFooter() {
+    final narrow = MediaQuery.sizeOf(context).width < 520;
+    final actions = <Widget>[
+      TextButton(
+        onPressed: _saving ? null : () => Navigator.pop(context),
+        child: const Text('Bỏ qua'),
+      ),
+      if (!_isEditing) ...[
+        const SizedBox(width: 6),
+        OutlinedButton(
+          onPressed: _saving ? null : () => _save(createAnother: true),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: PosTheme.kiotBlue,
+            side: const BorderSide(color: PosTheme.kiotBlue),
+            visualDensity: VisualDensity.compact,
+          ),
+          child: const Text('Lưu & tạo thêm'),
+        ),
+      ],
+      const SizedBox(width: 6),
+      FilledButton(
+        onPressed: _saving ? null : _save,
+        style: FilledButton.styleFrom(
+          backgroundColor: PosTheme.kiotBlue,
+          foregroundColor: Colors.white,
+          padding: EdgeInsets.symmetric(
+              horizontal: narrow ? 16 : 24, vertical: 12),
+        ),
+        child: _saving
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+            : const Text('Lưu'),
+      ),
+    ];
+
     return Material(
       color: Colors.white,
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          child: Row(
-            children: [
-              Checkbox(
-                value: _directSale,
-                activeColor: PosTheme.kiotBlue,
-                onChanged: (v) => setState(() => _directSale = v ?? true),
-              ),
-              const Text('Bán trực tiếp', style: TextStyle(fontSize: 13)),
-              const SizedBox(width: 4),
-              Tooltip(
-                message: 'Hiển thị trên màn hình bán hàng POS',
-                child: Icon(Icons.info_outline,
-                    size: 16, color: Colors.grey.shade500),
-              ),
-              const Spacer(),
-              TextButton(
-                onPressed: _saving ? null : () => Navigator.pop(context),
-                child: const Text('Bỏ qua'),
-              ),
-              const SizedBox(width: 8),
-              if (!_isEditing)
-                OutlinedButton(
-                  onPressed: _saving ? null : () => _save(createAnother: true),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: PosTheme.kiotBlue,
-                    side: const BorderSide(color: PosTheme.kiotBlue),
-                  ),
-                  child: const Text('Lưu & Tạo thêm hàng'),
-                ),
-              if (!_isEditing) const SizedBox(width: 8),
-              FilledButton(
-                onPressed: _saving ? null : _save,
-                style: FilledButton.styleFrom(
-                  backgroundColor: PosTheme.kiotBlue,
-                  foregroundColor: Colors.white,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                ),
-                child: _saving
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+          child: narrow
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        Checkbox(
+                          value: _directSale,
+                          activeColor: PosTheme.kiotBlue,
+                          visualDensity: VisualDensity.compact,
+                          onChanged: (v) =>
+                              setState(() => _directSale = v ?? true),
                         ),
-                      )
-                    : const Text('Lưu'),
-              ),
-            ],
-          ),
+                        const Expanded(
+                          child: Text('Bán trực tiếp',
+                              style: TextStyle(fontSize: 13)),
+                        ),
+                      ],
+                    ),
+                    Wrap(
+                      alignment: WrapAlignment.end,
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: actions,
+                    ),
+                  ],
+                )
+              : Row(
+                  children: [
+                    Checkbox(
+                      value: _directSale,
+                      activeColor: PosTheme.kiotBlue,
+                      onChanged: (v) =>
+                          setState(() => _directSale = v ?? true),
+                    ),
+                    const Text('Bán trực tiếp', style: TextStyle(fontSize: 13)),
+                    const SizedBox(width: 4),
+                    Tooltip(
+                      message: 'Hiển thị trên màn hình bán hàng POS',
+                      child: Icon(Icons.info_outline,
+                          size: 16, color: Colors.grey.shade500),
+                    ),
+                    const Spacer(),
+                    ...actions,
+                  ],
+                ),
         ),
       ),
     );
@@ -1284,9 +1525,11 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
 
   /// Tab Thông tin hàng hóa — layout giống KiotViet (một trang cuộn, nhiều section).
   Widget _buildGoodsInfoTab() {
-    final wide = MediaQuery.sizeOf(context).width > 640;
+    final w = MediaQuery.sizeOf(context).width;
+    final wide = w > 640;
+    final padH = w < 420 ? 12.0 : 20.0;
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+      padding: EdgeInsets.fromLTRB(padH, 12, padH, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -1301,8 +1544,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                 )
               : Column(
                   children: [
-                    _kiotImageBox(),
-                    const SizedBox(height: 16),
+                    _kiotImageBox(compact: w < 420),
+                    const SizedBox(height: 12),
                     _goodsBasicFields(),
                   ],
                 ),
@@ -1331,96 +1574,114 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             ),
           ),
           _buildProductVatSection(),
-          if (_isGoods) _buildProductWarrantySection(),
+          if (_isGoods && _showSection(PosProductEditorSection.warranty))
+            _buildProductWarrantySection(),
           _kvSection(
             title: 'Tồn kho',
-            subtitle:
-                'Quản lý số lượng tồn kho và định mức tồn. Khi tồn kho chạm đến định mức, bạn sẽ nhận được cảnh báo.',
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _stockCtrl,
-                    enabled: _canEditMainStock,
-                    keyboardType: TextInputType.number,
-                    decoration: PosTheme.inputDecoration(
-                      label: _stockFieldLabel,
-                      hint: _stockFieldHint,
-                    ),
-                  ),
+            subtitle: _showSection(PosProductEditorSection.stockLimits)
+                ? 'Quản lý số lượng tồn kho và định mức tồn.'
+                : null,
+            child: Builder(builder: (context) {
+              final narrow = MediaQuery.sizeOf(context).width < 520;
+              final stockField = TextField(
+                controller: _stockCtrl,
+                enabled: _canEditMainStock,
+                keyboardType: TextInputType.number,
+                decoration: PosTheme.inputDecoration(
+                  label: _stockFieldLabel,
+                  hint: _stockFieldHint,
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextField(
-                    controller: _minStockCtrl,
-                    keyboardType: TextInputType.number,
-                    decoration: PosTheme.inputDecoration(
-                        label: 'Định mức tồn thấp nhất'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextField(
-                    controller: _maxStockCtrl,
-                    keyboardType: TextInputType.number,
-                    decoration: PosTheme.inputDecoration(
-                        label: 'Định mức tồn cao nhất'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          _kvSection(
-            title: 'Vị trí, trọng lượng',
-            subtitle:
-                'Quản lý việc sắp xếp kho, vị trí bán hàng hoặc trọng lượng hàng hóa',
-            child: Column(
-              children: [
-                _masterDropdown(
-                  label: 'Vị trí',
-                  value: _locationId,
-                  items: _locations,
-                  onChanged: (v) => setState(() => _locationId = v),
-                  onCreate: () => _quickCreate(
-                    'vị trí',
-                    _api.createPosStorageLocation,
-                    (item) {
-                      _locations.add(item);
-                      _locationId = item.id;
-                    },
-                  ),
-                  manageKind: PosCatalogKind.location,
-                ),
-                Row(
+              );
+              if (!_showSection(PosProductEditorSection.stockLimits)) {
+                return stockField;
+              }
+              final minField = TextField(
+                controller: _minStockCtrl,
+                keyboardType: TextInputType.number,
+                decoration: PosTheme.inputDecoration(
+                    label: 'Định mức tồn thấp nhất'),
+              );
+              final maxField = TextField(
+                controller: _maxStockCtrl,
+                keyboardType: TextInputType.number,
+                decoration: PosTheme.inputDecoration(
+                    label: 'Định mức tồn cao nhất'),
+              );
+              if (narrow) {
+                return Column(
                   children: [
-                    Expanded(
-                      flex: 2,
-                      child: TextField(
-                        controller: _weightCtrl,
-                        keyboardType: TextInputType.number,
-                        decoration:
-                            PosTheme.inputDecoration(label: 'Trọng lượng'),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: DropdownButtonFormField<String>(
-                        value: _weightUnit,
-                        decoration: PosTheme.inputDecoration(label: 'ĐVT'),
-                        items: const [
-                          DropdownMenuItem(value: 'g', child: Text('g')),
-                          DropdownMenuItem(value: 'kg', child: Text('kg')),
-                        ],
-                        onChanged: (v) =>
-                            setState(() => _weightUnit = v ?? 'g'),
-                      ),
-                    ),
+                    stockField,
+                    const SizedBox(height: 10),
+                    minField,
+                    const SizedBox(height: 10),
+                    maxField,
                   ],
-                ),
-              ],
-            ),
+                );
+              }
+              return Row(
+                children: [
+                  Expanded(child: stockField),
+                  const SizedBox(width: 12),
+                  Expanded(child: minField),
+                  const SizedBox(width: 12),
+                  Expanded(child: maxField),
+                ],
+              );
+            }),
           ),
-          _buildUnitsAttributesExpansion(),
+          if (_showSection(PosProductEditorSection.locationWeight))
+            _kvSection(
+              title: 'Vị trí, trọng lượng',
+              subtitle:
+                  'Quản lý việc sắp xếp kho, vị trí bán hàng hoặc trọng lượng hàng hóa',
+              child: Column(
+                children: [
+                  _masterDropdown(
+                    label: 'Vị trí',
+                    value: _locationId,
+                    items: _locations,
+                    onChanged: (v) => setState(() => _locationId = v),
+                    onCreate: () => _quickCreate(
+                      'vị trí',
+                      _api.createPosStorageLocation,
+                      (item) {
+                        _locations.add(item);
+                        _locationId = item.id;
+                      },
+                    ),
+                    manageKind: PosCatalogKind.location,
+                  ),
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: TextField(
+                          controller: _weightCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration:
+                              PosTheme.inputDecoration(label: 'Trọng lượng'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          value: _weightUnit,
+                          decoration: PosTheme.inputDecoration(label: 'ĐVT'),
+                          items: const [
+                            DropdownMenuItem(value: 'g', child: Text('g')),
+                            DropdownMenuItem(value: 'kg', child: Text('kg')),
+                          ],
+                          onChanged: (v) =>
+                              setState(() => _weightUnit = v ?? 'g'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          if (_showSection(PosProductEditorSection.unitsVariants))
+            _buildUnitsAttributesExpansion(),
         ],
       ),
     );
@@ -1471,27 +1732,29 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _buildProductTypeSelector(),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _codeCtrl,
-                decoration: PosTheme.inputDecoration(
-                  label: 'Mã hàng',
-                  hint: 'Tự động',
+        if (_showSection(PosProductEditorSection.codes)) ...[
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _codeCtrl,
+                  decoration: PosTheme.inputDecoration(
+                    label: 'Mã hàng',
+                    hint: _autoCodeHint,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: TextField(
-                controller: _barcodeCtrl,
-                decoration: _barcodeInputDecoration(),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextField(
+                  controller: _barcodeCtrl,
+                  decoration: _barcodeInputDecoration(),
+                ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
+            ],
+          ),
+          const SizedBox(height: 12),
+        ],
         TextField(
           controller: _nameCtrl,
           decoration: PosTheme.inputDecoration(label: 'Tên hàng *'),
@@ -1505,7 +1768,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           onCreate: _quickCreateCategory,
           manageKind: PosCatalogKind.category,
         ),
-        if (!_isCombo)
+        if (!_isCombo && _showSection(PosProductEditorSection.brand))
           _masterDropdown(
             label: 'Thương hiệu',
             value: _brandId,
@@ -1521,7 +1784,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             ),
             manageKind: PosCatalogKind.brand,
           ),
-        if (_isGoods)
+        if (_isGoods && _showSection(PosProductEditorSection.supplier))
           _masterDropdown(
             label: 'Nhà cung cấp',
             value: _supplierId,
@@ -1595,7 +1858,85 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               ],
             ),
           ),
-          _buildUnitsAttributesExpansion(),
+          if (_showSection(PosProductEditorSection.serviceBilling))
+            _kvExpansion(
+              title: 'Tính giờ / gói buổi',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  DropdownButtonFormField<PosServiceBillingMode>(
+                    value: _serviceBillingMode,
+                    decoration:
+                        PosTheme.inputDecoration(label: 'Cách tính giá dịch vụ'),
+                    items: PosServiceBillingMode.values
+                        .map((m) => DropdownMenuItem(
+                              value: m,
+                              child: Text(m.label),
+                            ))
+                        .toList(),
+                    onChanged: (v) {
+                      if (v == null) return;
+                      setState(() => _serviceBillingMode = v);
+                    },
+                  ),
+                  if (_serviceBillingMode.isTimed) ...[
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _minBillMinutesCtrl,
+                            keyboardType: TextInputType.number,
+                            decoration: PosTheme.inputDecoration(
+                              label: 'Phút tối thiểu',
+                              hint: 'VD 60',
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextField(
+                            controller: _billRoundMinutesCtrl,
+                            keyboardType: TextInputType.number,
+                            decoration: PosTheme.inputDecoration(
+                              label: 'Làm tròn (phút)',
+                              hint: 'VD 15',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _defaultDurationMinutesCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration: PosTheme.inputDecoration(
+                            label: 'Thời lượng mặc định (phút)',
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: _sessionPackCountCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration: PosTheme.inputDecoration(
+                            label: 'Số buổi trong gói',
+                            hint: '0 = không phải gói',
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          if (_showSection(PosProductEditorSection.unitsVariants))
+            _buildUnitsAttributesExpansion(),
         ],
       ),
     );
@@ -1606,27 +1947,29 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _buildProductTypeSelector(),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _codeCtrl,
-                decoration: PosTheme.inputDecoration(
-                  label: 'Mã hàng',
-                  hint: 'Tự động',
+        if (_showSection(PosProductEditorSection.codes)) ...[
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _codeCtrl,
+                  decoration: PosTheme.inputDecoration(
+                    label: 'Mã hàng',
+                    hint: _autoCodeHint,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: TextField(
-                controller: _barcodeCtrl,
-                decoration: _barcodeInputDecoration(),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextField(
+                  controller: _barcodeCtrl,
+                  decoration: _barcodeInputDecoration(),
+                ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
+            ],
+          ),
+          const SizedBox(height: 12),
+        ],
         TextField(
           controller: _nameCtrl,
           decoration: PosTheme.inputDecoration(label: 'Tên hàng *'),
@@ -1640,21 +1983,22 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           onCreate: _quickCreateCategory,
           manageKind: PosCatalogKind.category,
         ),
-        _masterDropdown(
-          label: 'Thương hiệu',
-          value: _brandId,
-          items: _brands,
-          onChanged: (v) => setState(() => _brandId = v),
-          onCreate: () => _quickCreate(
-            'thương hiệu',
-            _api.createPosProductBrand,
-            (item) {
-              _brands.add(item);
-              _brandId = item.id;
-            },
+        if (_showSection(PosProductEditorSection.brand))
+          _masterDropdown(
+            label: 'Thương hiệu',
+            value: _brandId,
+            items: _brands,
+            onChanged: (v) => setState(() => _brandId = v),
+            onCreate: () => _quickCreate(
+              'thương hiệu',
+              _api.createPosProductBrand,
+              (item) {
+                _brands.add(item);
+                _brandId = item.id;
+              },
+            ),
+            manageKind: PosCatalogKind.brand,
           ),
-          manageKind: PosCatalogKind.brand,
-        ),
       ],
     );
   }
@@ -1722,57 +2066,59 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             ),
           ),
           _buildProductVatSection(),
-          _kvExpansion(
-            title: 'Vị trí, trọng lượng',
-            subtitle:
-                'Quản lý việc sắp xếp kho, vị trí bán hàng hoặc trọng lượng hàng hóa',
-            child: Column(
-              children: [
-                _masterDropdown(
-                  label: 'Vị trí',
-                  value: _locationId,
-                  items: _locations,
-                  onChanged: (v) => setState(() => _locationId = v),
-                  onCreate: () => _quickCreate(
-                    'vị trí',
-                    _api.createPosStorageLocation,
-                    (item) {
-                      _locations.add(item);
-                      _locationId = item.id;
-                    },
+          if (_showSection(PosProductEditorSection.locationWeight))
+            _kvExpansion(
+              title: 'Vị trí, trọng lượng',
+              subtitle:
+                  'Quản lý việc sắp xếp kho, vị trí bán hàng hoặc trọng lượng hàng hóa',
+              child: Column(
+                children: [
+                  _masterDropdown(
+                    label: 'Vị trí',
+                    value: _locationId,
+                    items: _locations,
+                    onChanged: (v) => setState(() => _locationId = v),
+                    onCreate: () => _quickCreate(
+                      'vị trí',
+                      _api.createPosStorageLocation,
+                      (item) {
+                        _locations.add(item);
+                        _locationId = item.id;
+                      },
+                    ),
+                    manageKind: PosCatalogKind.location,
                   ),
-                  manageKind: PosCatalogKind.location,
-                ),
-                Row(
-                  children: [
-                    Expanded(
-                      flex: 2,
-                      child: TextField(
-                        controller: _weightCtrl,
-                        keyboardType: TextInputType.number,
-                        decoration:
-                            PosTheme.inputDecoration(label: 'Trọng lượng'),
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: TextField(
+                          controller: _weightCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration:
+                              PosTheme.inputDecoration(label: 'Trọng lượng'),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: DropdownButtonFormField<String>(
-                        value: _weightUnit,
-                        decoration: PosTheme.inputDecoration(label: 'ĐVT'),
-                        items: const [
-                          DropdownMenuItem(value: 'g', child: Text('g')),
-                          DropdownMenuItem(value: 'kg', child: Text('kg')),
-                        ],
-                        onChanged: (v) =>
-                            setState(() => _weightUnit = v ?? 'g'),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          value: _weightUnit,
+                          decoration: PosTheme.inputDecoration(label: 'ĐVT'),
+                          items: const [
+                            DropdownMenuItem(value: 'g', child: Text('g')),
+                            DropdownMenuItem(value: 'kg', child: Text('kg')),
+                          ],
+                          onChanged: (v) =>
+                              setState(() => _weightUnit = v ?? 'g'),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-          _buildUnitsAttributesExpansion(),
+          if (_showSection(PosProductEditorSection.unitsVariants))
+            _buildUnitsAttributesExpansion(),
         ],
       ),
     );
@@ -1783,27 +2129,29 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _buildProductTypeSelector(),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _codeCtrl,
-                decoration: PosTheme.inputDecoration(
-                  label: 'Mã hàng',
-                  hint: 'Tự động',
+        if (_showSection(PosProductEditorSection.codes)) ...[
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _codeCtrl,
+                  decoration: PosTheme.inputDecoration(
+                    label: 'Mã hàng',
+                    hint: _autoCodeHint,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: TextField(
-                controller: _barcodeCtrl,
-                decoration: _barcodeInputDecoration(),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextField(
+                  controller: _barcodeCtrl,
+                  decoration: _barcodeInputDecoration(),
+                ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
+            ],
+          ),
+          const SizedBox(height: 12),
+        ],
         TextField(
           controller: _nameCtrl,
           decoration: PosTheme.inputDecoration(label: 'Tên hàng *'),
@@ -1816,21 +2164,6 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           onChanged: (v) => setState(() => _categoryId = v),
           onCreate: _quickCreateCategory,
           manageKind: PosCatalogKind.category,
-        ),
-        _masterDropdown(
-          label: 'Thương hiệu',
-          value: _brandId,
-          items: _brands,
-          onChanged: (v) => setState(() => _brandId = v),
-          onCreate: () => _quickCreate(
-            'thương hiệu',
-            _api.createPosProductBrand,
-            (item) {
-              _brands.add(item);
-              _brandId = item.id;
-            },
-          ),
-          manageKind: PosCatalogKind.brand,
         ),
       ],
     );
@@ -1983,6 +2316,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   }
 
   Widget _buildProductVatSection() {
+    if (!_showSection(PosProductEditorSection.vat)) {
+      return const SizedBox.shrink();
+    }
     return Padding(
       padding: const EdgeInsets.only(top: 12),
       child: Column(
@@ -2069,7 +2405,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     );
   }
 
-  Widget _kiotImageBox() {
+  Widget _kiotImageBox({bool compact = false}) {
+    final boxH = compact ? 120.0 : 160.0;
     return Column(
       children: [
         InkWell(
@@ -2077,7 +2414,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           borderRadius: BorderRadius.circular(4),
           child: Container(
             width: double.infinity,
-            height: 160,
+            height: boxH,
             decoration: BoxDecoration(
               border: Border.all(color: PosTheme.border),
               borderRadius: BorderRadius.circular(4),
@@ -2087,12 +2424,12 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             alignment: Alignment.center,
             child: _imageBase64 != null
                 ? Image.memory(base64Decode(_imageBase64!), fit: BoxFit.cover,
-                    width: double.infinity, height: 160)
+                    width: double.infinity, height: boxH)
                 : (_imagePreviewUrl != null && _imagePreviewUrl!.isNotEmpty)
                     ? PosProductImage(
                         productId: widget.product?.id,
                         imageUrl: _imagePreviewUrl,
-                        size: 160,
+                        size: boxH,
                         borderRadius: 4,
                       )
                     : _imagePlaceholder(),
@@ -2158,6 +2495,19 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             .map((n) => n.trim())
             .where((n) => n.isNotEmpty)
             .toList(),
+        'isTopping': _isTopping,
+        'allowToppings': _allowToppings && !_isTopping,
+        'autoOpenToppingPopup': _autoOpenToppingPopup,
+        'toppings': (_allowToppings && !_isTopping)
+            ? _toppingOptions
+                .map((t) => {
+                      'toppingProductId': t.toppingProductId,
+                      'extraPrice': t.extraPrice,
+                      'sortOrder': t.sortOrder,
+                    })
+                .toList()
+            : <Map<String, dynamic>>[],
+        'toppingGroupIds': _isTopping ? <String>[] : _toppingGroupIds,
       'costPrice': _parseNum(_costCtrl.text),
       'basePrice': _parseNum(_priceCtrl.text),
       'vatRate': _vatExempt ? 0 : _vatRate,
@@ -2355,106 +2705,322 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     final baseName =
         _unitCtrl.text.trim().isEmpty ? 'Cái' : _unitCtrl.text.trim();
     final extraUnits = _units.where((u) => !u.isBaseUnit).toList();
+    final narrow = MediaQuery.sizeOf(context).width < 520;
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: PosTheme.border),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Text(
-            'Đơn vị tính',
-            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-          ),
-          const SizedBox(height: 8),
-          _inlineUnitRow(
-            label: baseName,
-            conversion: '1',
-            price: _parseNum(_priceCtrl.text),
-            isBase: true,
-          ),
-          ...extraUnits.map((u) => _inlineUnitRow(
-                label: u.unitName,
-                conversion: '${u.conversionRate} $baseName',
-                price: u.basePrice,
-              )),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: _openUnitAttributeSetup,
-              icon: const Icon(Icons.add, size: 16, color: PosTheme.kiotBlue),
-              label: const Text('Thêm đơn vị',
-                  style: TextStyle(color: PosTheme.kiotBlue)),
-            ),
-          ),
-          const Divider(height: 24),
-          Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // —— Đơn vị cơ bản (tách riêng) ——
+        _kvSection(
+          title: 'Đơn vị tính cơ bản',
+          subtitle: 'Đơn vị nhỏ nhất dùng để quản lý tồn kho (vd: Cái, Kg, Chai).',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text('Hàng cùng loại',
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-              const Spacer(),
-              TextButton(
-                onPressed: _openUnitAttributeSetup,
-                child: const Text('Thiết lập giá'),
+              TextField(
+                controller: _unitCtrl,
+                decoration: PosTheme.inputDecoration(
+                  label: 'Tên đơn vị cơ bản *',
+                  hint: 'Cái',
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: PosTheme.border),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '1 $baseName',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      'Giá bán: ${_moneyFmt.format(_parseNum(_priceCtrl.text))}',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: PosTheme.kiotBlue,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          if (_variants.isEmpty && extraUnits.isEmpty)
-            Text(
-              'Thêm đơn vị hoặc thuộc tính để sinh mã riêng từng loại',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-            )
-          else
-            DecoratedBox(
-              decoration: BoxDecoration(
-                border: Border.all(color: PosTheme.border),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Column(
-                children: [
-                  Container(
-                    color: Colors.grey.shade50,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    child: const Row(
+        ),
+        // —— Đơn vị quy đổi (tách riêng) ——
+        _kvSection(
+          title: 'Đơn vị quy đổi',
+          subtitle:
+              'Đơn vị bán lớn hơn, có hệ số quy đổi về đơn vị cơ bản (vd: Thùng = 24 Cái).',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (extraUnits.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    'Chưa có đơn vị quy đổi. Thêm nếu bán theo lốc/thùng/hộp…',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  ),
+                )
+              else
+                ...extraUnits.map((u) {
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.fromLTRB(12, 10, 4, 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: PosTheme.border),
+                    ),
+                    child: Row(
                       children: [
-                        Expanded(flex: 2, child: Text('Đơn vị', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600))),
-                        Expanded(child: Text('Mã hàng', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600))),
-                        Expanded(child: Text('Giá vốn', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600), textAlign: TextAlign.right)),
-                        Expanded(child: Text('Giá bán', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600), textAlign: TextAlign.right)),
-                        Expanded(child: Text('Tồn', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600), textAlign: TextAlign.right)),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                u.unitName,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '1 ${u.unitName} = ${u.conversionRate} $baseName',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey.shade700,
+                                ),
+                              ),
+                              Text(
+                                'Giá: ${_moneyFmt.format(u.basePrice)}',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: PosTheme.kiotBlue,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.edit_outlined, size: 18),
+                          color: PosTheme.kiotBlue,
+                          onPressed: _openUnitAttributeSetup,
+                          tooltip: 'Sửa',
+                        ),
                       ],
                     ),
-                  ),
-                  if (_variants.isNotEmpty)
-                    ..._variants.map((v) => _inlineVariantRow(v))
-                  else
-                    _inlineUnitPreviewRow(baseName, _codeCtrl.text.trim(),
-                        _parseNum(_costCtrl.text), _parseNum(_priceCtrl.text),
-                        _parseNum(_stockCtrl.text)),
-                ],
+                  );
+                }),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: _openUnitAttributeSetup,
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Thêm đơn vị quy đổi'),
+                  style: TextButton.styleFrom(foregroundColor: PosTheme.kiotBlue),
+                ),
               ),
-            ),
-          const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed: _openUnitAttributeSetup,
-            icon: const Icon(Icons.tune, size: 18, color: PosTheme.kiotBlue),
-            label: const Text(
-              'Thiết lập đơn vị tính và thuộc tính',
-              style: TextStyle(color: PosTheme.kiotBlue),
-            ),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              side: const BorderSide(color: PosTheme.kiotBlue),
+            ],
+          ),
+        ),
+        // —— Thuộc tính / hàng cùng loại ——
+        if (_showSection(PosProductEditorSection.unitsVariants))
+          _kvSection(
+            title: 'Hàng cùng loại / thuộc tính',
+            subtitle: 'Sinh mã riêng theo màu, size… (tuỳ chọn).',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (_variants.isEmpty && extraUnits.isEmpty)
+                  Text(
+                    'Chưa có thuộc tính. Dùng «Thiết lập» để thêm màu, size…',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  )
+                else
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minWidth: narrow ? 420 : 520,
+                      ),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: PosTheme.border),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Column(
+                          children: [
+                            Container(
+                              color: const Color(0xFFF8FAFC),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 8),
+                              child: const Row(
+                                children: [
+                                  SizedBox(
+                                      width: 120,
+                                      child: Text('Đơn vị',
+                                          style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600))),
+                                  SizedBox(
+                                      width: 100,
+                                      child: Text('Mã hàng',
+                                          style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600))),
+                                  SizedBox(
+                                      width: 80,
+                                      child: Text('Giá vốn',
+                                          textAlign: TextAlign.right,
+                                          style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600))),
+                                  SizedBox(
+                                      width: 80,
+                                      child: Text('Giá bán',
+                                          textAlign: TextAlign.right,
+                                          style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600))),
+                                  SizedBox(
+                                      width: 60,
+                                      child: Text('Tồn',
+                                          textAlign: TextAlign.right,
+                                          style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600))),
+                                ],
+                              ),
+                            ),
+                            if (_variants.isNotEmpty)
+                              ..._variants.map((v) => Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 6),
+                                    child: Row(
+                                      children: [
+                                        SizedBox(
+                                            width: 120,
+                                            child: Text(v.name,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                    fontSize: 12))),
+                                        SizedBox(
+                                            width: 100,
+                                            child: Text(v.skuCode,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                    fontSize: 11))),
+                                        SizedBox(
+                                            width: 80,
+                                            child: Text(
+                                                _moneyFmt.format(
+                                                    v.costPrice.round()),
+                                                textAlign: TextAlign.right,
+                                                style: const TextStyle(
+                                                    fontSize: 11))),
+                                        SizedBox(
+                                            width: 80,
+                                            child: Text(
+                                                _moneyFmt.format(
+                                                    v.basePrice.round()),
+                                                textAlign: TextAlign.right,
+                                                style: const TextStyle(
+                                                    fontSize: 11))),
+                                        SizedBox(
+                                            width: 60,
+                                            child: Text(
+                                                v.onHandQty.toStringAsFixed(0),
+                                                textAlign: TextAlign.right,
+                                                style: const TextStyle(
+                                                    fontSize: 11))),
+                                      ],
+                                    ),
+                                  ))
+                            else
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 6),
+                                child: Row(
+                                  children: [
+                                    SizedBox(
+                                        width: 120,
+                                        child: Text(baseName,
+                                            style: const TextStyle(
+                                                fontSize: 12))),
+                                    SizedBox(
+                                        width: 100,
+                                        child: Text(
+                                            _codeCtrl.text.trim().isEmpty
+                                                ? '—'
+                                                : _codeCtrl.text.trim(),
+                                            style: const TextStyle(
+                                                fontSize: 11))),
+                                    SizedBox(
+                                        width: 80,
+                                        child: Text(
+                                            _moneyFmt.format(
+                                                _parseNum(_costCtrl.text)
+                                                    .round()),
+                                            textAlign: TextAlign.right,
+                                            style: const TextStyle(
+                                                fontSize: 11))),
+                                    SizedBox(
+                                        width: 80,
+                                        child: Text(
+                                            _moneyFmt.format(
+                                                _parseNum(_priceCtrl.text)
+                                                    .round()),
+                                            textAlign: TextAlign.right,
+                                            style: const TextStyle(
+                                                fontSize: 11))),
+                                    SizedBox(
+                                        width: 60,
+                                        child: Text(
+                                            _parseNum(_stockCtrl.text)
+                                                .toStringAsFixed(0),
+                                            textAlign: TextAlign.right,
+                                            style: const TextStyle(
+                                                fontSize: 11))),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed: _openUnitAttributeSetup,
+                  icon: const Icon(Icons.tune, size: 18),
+                  label: const Text('Thiết lập đơn vị & thuộc tính'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: PosTheme.kiotBlue,
+                    side: const BorderSide(color: PosTheme.kiotBlue),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 12),
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
-      ),
+      ],
     );
   }
 
@@ -2643,7 +3209,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   controller: _codeCtrl,
                   decoration: PosTheme.inputDecoration(
                     label: 'Mã hàng',
-                    hint: 'Tự sinh nếu để trống',
+                    hint: _autoCodeHint,
                   ),
                 ),
               ),
@@ -3263,9 +3829,273 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             notes: _saleQuickNotes,
             onChanged: (v) => setState(() => _saleQuickNotes = v),
           ),
+          const SizedBox(height: 20),
+          const Text(
+            'Tùy chọn thêm',
+            style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Giống ghi chú nhanh: hiện dạng chip khi bán, nhưng có giá phụ thu / trừ tồn SP.',
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          ),
+          const SizedBox(height: 8),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Đây là hàng tùy chọn thêm'),
+            subtitle: const Text(
+              'Dùng làm tùy chọn cho món khác (vd: trân châu, thạch)',
+              style: TextStyle(fontSize: 12),
+            ),
+            value: _isTopping,
+            onChanged: (v) => setState(() {
+              _isTopping = v;
+              if (v) {
+                _allowToppings = false;
+                _toppingOptions = [];
+                _toppingGroupIds = [];
+              }
+            }),
+          ),
+          if (!_isTopping) ...[
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Cho phép tùy chọn thêm khi bán'),
+              subtitle: const Text(
+                'Hiện chip chọn trên dòng hóa đơn (giống ghi chú nhanh)',
+                style: TextStyle(fontSize: 12),
+              ),
+              value: _allowToppings,
+              onChanged: (v) => setState(() {
+                _allowToppings = v;
+                if (!v) _toppingOptions = [];
+              }),
+            ),
+            if (_allowToppings) ...[
+              const SizedBox(height: 8),
+              ..._toppingOptions.asMap().entries.map((e) {
+                final i = e.key;
+                final t = e.value;
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  title: Text(t.toppingProductName),
+                  subtitle: Text(
+                    '+${_fmtInputMoney(t.extraPrice)} đ',
+                    style: const TextStyle(color: PosTheme.kiotBlue),
+                  ),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.close, size: 18),
+                    onPressed: () => setState(() => _toppingOptions.removeAt(i)),
+                  ),
+                );
+              }),
+              OutlinedButton.icon(
+                onPressed: _pickToppingProduct,
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Thêm tùy chọn cho món này'),
+              ),
+            ],
+            const Divider(height: 28),
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Topping (nhóm dùng chung)',
+                    style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    await Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const PosToppingGroupsScreen(),
+                      ),
+                    );
+                    await _loadToppingGroups();
+                  },
+                  child: const Text('Quản lý nhóm'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Chọn nhóm topping đã tạo sẵn — mọi món gắn cùng nhóm dùng chung danh sách.',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 8),
+            if (_availableToppingGroups.isEmpty)
+              Text(
+                'Chưa có nhóm — nhấn «Quản lý nhóm» để tạo.',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              )
+            else
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _availableToppingGroups.map((g) {
+                  final on = _toppingGroupIds.contains(g.id);
+                  return FilterChip(
+                    label: Text(
+                      '${g.name} (${g.items.length})',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    selected: on,
+                    onSelected: (v) => setState(() {
+                      if (v) {
+                        _toppingGroupIds = [..._toppingGroupIds, g.id];
+                      } else {
+                        _toppingGroupIds =
+                            _toppingGroupIds.where((id) => id != g.id).toList();
+                      }
+                    }),
+                  );
+                }).toList(),
+              ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Tự mở popup topping khi thêm món'),
+              subtitle: const Text(
+                'Khi món có nhóm topping — hỏi ngay lúc thêm vào giỏ',
+                style: TextStyle(fontSize: 12),
+              ),
+              value: _autoOpenToppingPopup,
+              onChanged: (v) => setState(() => _autoOpenToppingPopup = v),
+            ),
+          ],
         ],
       ),
     );
+  }
+
+  Future<void> _loadToppingGroups() async {
+    final res = await _api.getPosToppingGroups();
+    if (!mounted) return;
+    if (res['isSuccess'] == true && res['data'] is List) {
+      setState(() {
+        _availableToppingGroups = (res['data'] as List)
+            .whereType<Map>()
+            .map((e) => PosProductToppingGroup.fromJson(
+                Map<String, dynamic>.from(e)))
+            .toList();
+      });
+    }
+  }
+
+  Future<void> _pickToppingProduct() async {
+    final qCtrl = TextEditingController();
+    List<PosProduct> results = [];
+    var loading = true;
+
+    Future<void> search(StateSetter setModal, String q) async {
+      setModal(() => loading = true);
+      final res = await _api.getPosProducts(
+        page: 1,
+        pageSize: 40,
+        search: q.trim().isEmpty ? null : q.trim(),
+      );
+      final items = <PosProduct>[];
+      if (res['isSuccess'] == true) {
+        final data = res['data'];
+        final raw = data is Map
+            ? (data['items'] ?? data['Items'])
+            : null;
+        if (raw is List) {
+          for (final e in raw) {
+            if (e is! Map) continue;
+            final p = PosProduct.fromJson(Map<String, dynamic>.from(e));
+            if (p.id == widget.product?.id) continue;
+            items.add(p);
+          }
+        }
+      }
+      setModal(() {
+        results = items;
+        loading = false;
+      });
+    }
+
+    final picked = await showDialog<PosProduct>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setModal) {
+            if (loading && results.isEmpty) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                search(setModal, '');
+              });
+            }
+            return AlertDialog(
+              title: const Text('Chọn hàng topping'),
+              content: SizedBox(
+                width: 420,
+                height: 420,
+                child: Column(
+                  children: [
+                    TextField(
+                      controller: qCtrl,
+                      decoration: const InputDecoration(
+                        hintText: 'Tìm theo tên / mã…',
+                        prefixIcon: Icon(Icons.search),
+                      ),
+                      onSubmitted: (v) => search(setModal, v),
+                    ),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: loading
+                          ? const Center(child: CircularProgressIndicator())
+                          : ListView.builder(
+                              itemCount: results.length,
+                              itemBuilder: (_, i) {
+                                final p = results[i];
+                                final already = _toppingOptions
+                                    .any((t) => t.toppingProductId == p.id);
+                                return ListTile(
+                                  enabled: !already,
+                                  title: Text(p.name),
+                                  subtitle: Text(
+                                    '${p.productCode} · ${_fmtInputMoney(p.basePrice)} đ',
+                                  ),
+                                  onTap: already
+                                      ? null
+                                      : () => Navigator.pop(ctx, p),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Đóng'),
+                ),
+                TextButton(
+                  onPressed: () => search(setModal, qCtrl.text),
+                  child: const Text('Tìm'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    qCtrl.dispose();
+    if (picked == null || !mounted) return;
+    setState(() {
+      _toppingOptions = [
+        ..._toppingOptions,
+        PosProductToppingOption(
+          id: '',
+          toppingProductId: picked.id,
+          toppingProductName: picked.name,
+          extraPrice: picked.basePrice,
+          sortOrder: _toppingOptions.length,
+        ),
+      ];
+      // Gợi ý đánh dấu hàng topping nếu chưa.
+    });
   }
 
   Widget _kiotDescToolbar() {

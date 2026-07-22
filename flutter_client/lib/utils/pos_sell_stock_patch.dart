@@ -1,5 +1,6 @@
 import '../models/pos_product.dart';
 import '../widgets/pos/pos_product_unit_view.dart';
+import 'pos_combo_stock.dart';
 
 /// Một dòng điều chỉnh tồn — khớp logic server (SP / biến thể / ĐVT quy đổi).
 class PosSellStockLineDelta {
@@ -75,6 +76,39 @@ PosProduct applyPosSellStockLines(
   for (final line in lines) {
     if (line.productId != product.id) continue;
     p = applyPosSellStockLine(p, line);
+  }
+
+  // Combo: cập nhật tồn thành phần trên comboLines (patch theo componentProductId).
+  if (p.productType == PosProductType.combo &&
+      p.comboLines != null &&
+      p.comboLines!.isNotEmpty) {
+    var changed = false;
+    final updated = p.comboLines!.map((cl) {
+      var onHand = cl.componentOnHandQty;
+      for (final line in lines) {
+        if (line.productId != cl.componentProductId || line.qty <= 0) continue;
+        changed = true;
+        onHand += line.addBack ? line.qty : -line.qty;
+      }
+      if (onHand == cl.componentOnHandQty) return cl;
+      return PosComboLine(
+        id: cl.id,
+        componentProductId: cl.componentProductId,
+        componentProductCode: cl.componentProductCode,
+        componentProductName: cl.componentProductName,
+        qty: cl.qty,
+        componentOnHandQty: onHand.clamp(0.0, double.infinity),
+        componentBasePrice: cl.componentBasePrice,
+      );
+    }).toList();
+    if (changed) {
+      final sellable = computeComboSellableQty(updated);
+      p = p.copyWith(
+        comboLines: updated,
+        sellableQty: sellable,
+        onHandQty: sellable,
+      );
+    }
   }
   return p;
 }

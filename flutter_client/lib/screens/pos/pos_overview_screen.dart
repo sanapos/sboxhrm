@@ -3,19 +3,14 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
-import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
 import '../../utils/navigation_notifier.dart';
-import '../../utils/permission_navigation.dart';
 import '../../utils/pos_kiot_time_range.dart';
 import '../../widgets/pos/pos_hub_scope.dart';
 import '../../widgets/pos/pos_kiot_time_filter.dart';
 import '../../widgets/pos/pos_mobile_widgets.dart';
 import '../../widgets/pos/pos_theme.dart';
 import '../main_layout.dart' show ScreenRefreshNotifier;
-import 'pos_business_analysis_screen.dart';
-import 'pos_end_of_day_screen.dart';
-import 'pos_sales_report_screen.dart';
 
 /// Tổng quan POS mobile — layout đồng bộ với tab Nhiều hơn.
 class PosOverviewScreen extends StatefulWidget {
@@ -94,25 +89,12 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
     NavigationNotifier.posHubTab.value = index;
   }
 
-  void _openHubScreen(Widget screen) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => PosHubScope(
-          embeddedInHub: false,
-          pushedSubPage: true,
-          child: screen,
-        ),
-      ),
-    );
-  }
-
   double _num(dynamic v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
 
   @override
   Widget build(BuildContext context) {
     final inHub = PosHubScope.of(context);
     final auth = Provider.of<AuthProvider>(context);
-    final perm = Provider.of<PermissionProvider>(context);
     final user = auth.user;
 
     return ColoredBox(
@@ -153,7 +135,7 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
                             'Chi nhánh'),
                   ),
                   const SizedBox(height: 12),
-                  _buildQuickAccessSection(perm),
+                  _buildQuickAccessSection(),
                   const SizedBox(height: 12),
                   Container(
                     decoration: PosTheme.mobileCardDecoration(),
@@ -194,7 +176,9 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
     );
   }
 
-  Widget _buildQuickAccessSection(PermissionProvider perm) {
+  Widget _buildQuickAccessSection() {
+    // Tổng quan = điều hướng tab chính + số liệu.
+    // Module nghiệp vụ đầy đủ nằm ở tab «Nhiều hơn» (không trùng).
     final items = <PosMobileHubGridItem>[
       PosMobileHubGridItem(
         label: 'Bán hàng',
@@ -211,24 +195,6 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
         icon: Icons.receipt_long_outlined,
         onTap: () => _goHubTab(3),
       ),
-      if (PermissionNavigation.canNavigate(perm, 'PosSalesReport'))
-        PosMobileHubGridItem(
-          label: 'Báo cáo bán',
-          icon: Icons.bar_chart_outlined,
-          onTap: () => _openHubScreen(const PosSalesReportScreen()),
-        ),
-      if (PermissionNavigation.canNavigate(perm, 'PosSalesReport'))
-        PosMobileHubGridItem(
-          label: 'Cuối ngày',
-          icon: Icons.nightlight_round,
-          onTap: () => _openHubScreen(const PosEndOfDayScreen()),
-        ),
-      if (PermissionNavigation.canNavigate(perm, 'PosSalesReport'))
-        PosMobileHubGridItem(
-          label: 'Phân tích KD',
-          icon: Icons.insights_outlined,
-          onTap: () => _openHubScreen(const PosBusinessAnalysisScreen()),
-        ),
       PosMobileHubGridItem(
         label: 'Nhiều hơn',
         icon: Icons.apps_outlined,

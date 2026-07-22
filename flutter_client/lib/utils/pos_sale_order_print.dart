@@ -1,25 +1,52 @@
-import 'dart:typed_data';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
 
 import '../models/pos_print_template.dart';
 import '../models/pos_sale_order.dart';
 import '../models/pos_store_printer.dart';
 import '../services/api_service.dart';
+import '../widgets/notification_overlay.dart';
 import 'pos_html_print.dart';
 import 'pos_print_template_loader.dart';
 import 'pos_pdf_fonts.dart';
 import 'pos_print_orchestrator.dart';
 import 'pos_print_template_renderer.dart';
+import 'pos_printer_transport.dart';
+import 'pos_print_store_info.dart';
 import 'pos_purchase_receipt_print.dart';
 import 'pos_store_printer_mapper.dart';
+import 'pos_sunmi_native_print.dart';
 import 'pos_thermal_printer_settings.dart';
 import 'pos_thermal_printer_service.dart';
+import 'pos_print_template_runtime.dart';
+
+/// Hóa đơn bán chưa in được — treo trên màn thu ngân để in lại.
+class PendingSalePrintJob {
+  PendingSalePrintJob({
+    required this.order,
+    this.errorMessage,
+    DateTime? createdAt,
+  }) : createdAt = createdAt ?? DateTime.now();
+
+  final PosSaleOrder order;
+  final String? errorMessage;
+  final DateTime createdAt;
+
+  String get id => order.id;
+
+  String get orderLabel =>
+      order.orderNo.isEmpty ? 'Đơn vừa bán' : order.orderNo;
+
+  String get lineSummary {
+    final names = order.lines.map((l) => l.productName).take(3).join(', ');
+    if (order.lines.length > 3) return '$names…';
+    if (names.isEmpty) return '${order.lines.length} dòng';
+    return names;
+  }
+}
 
 /// Tạo PDF hóa đơn bán hàng kiểu KiotViet (khổ ngang A4, font tiếng Việt).
 Future<Uint8List> buildPosSaleOrderPdfBytes({
@@ -242,7 +269,7 @@ PosThermalPrinterSettings _thermalSettingsForTemplate(
   return settings;
 }
 
-Future<void> printPosSaleOrder({
+Future<bool> printPosSaleOrder({
   required BuildContext context,
   required PosSaleOrder order,
   String? branchName,
@@ -253,9 +280,34 @@ Future<void> printPosSaleOrder({
   String? templateId,
   String? vietQrImageUrl,
   bool skipDedup = false,
+  bool showFeedback = true,
+  /// Sau thanh toán trên máy POS: chỉ in nhiệt/cloud, không mở dialog HTML/PDF.
+  bool preferDevicePrintOnly = false,
+  /// VD: «HÓA ĐƠN TẠM TÍNH» — ghi đè tiêu đề in.
+  String? documentTitle,
 }) async {
   final printOrder = await _resolvePrintOrder(order);
   final template = await _resolveSalePrintTemplate(templateId);
+
+  // Luôn lấy tên/địa chỉ/SĐT cửa hàng từ thiết lập POS nếu caller không truyền.
+  if (branchName == null ||
+      branchName.trim().isEmpty ||
+      storeAddress == null ||
+      storePhone == null) {
+    final store = await PosPrintStoreInfo.load();
+    branchName =
+        (branchName != null && branchName.trim().isNotEmpty)
+            ? branchName
+            : store.storeName;
+    storeAddress =
+        (storeAddress != null && storeAddress.trim().isNotEmpty)
+            ? storeAddress
+            : store.address;
+    storePhone =
+        (storePhone != null && storePhone.trim().isNotEmpty)
+            ? storePhone
+            : store.phone;
+  }
 
   final thermal = await PosThermalPrinterSettings.load();
   if (!kIsWeb) {
@@ -263,17 +315,58 @@ Future<void> printPosSaleOrder({
     final cloudPrinters = PosPrintOrchestrator.instance
         .resolvePrinters(PosCloudDocumentTypes.saleInvoice);
 
+    // Ưu tiên máy in nhiệt cục bộ (Sunmi/BT/LAN) khi đã bật —
+    // tránh gửi cloud "thành công" mà thiết bị POS không in ra giấy.
+    if (thermal.enabled) {
+      var settings = await _prepareLocalThermalSettings(thermal, template);
+      final printed = await _tryLocalSalePrint(
+        printOrder: printOrder,
+        settings: settings,
+        template: template,
+        branchName: branchName,
+        storeAddress: storeAddress,
+        storePhone: storePhone,
+        mergeSameItems: mergeSameItems,
+        vietQrImageUrl: vietQrImageUrl,
+        copies: copies,
+        showFeedback: showFeedback,
+        skipDedup: skipDedup,
+        documentTitle: documentTitle,
+      );
+      if (printed) {
+        return true;
+      }
+      // Chỉ bỏ cloud khi không còn máy Agent — Oppo vẫn phải gửi được sang Sunmi.
+      if (preferDevicePrintOnly && cloudPrinters.isEmpty) {
+        return false;
+      }
+    }
+
     if (cloudPrinters.isNotEmpty) {
+      if (showFeedback) {
+        NotificationOverlayManager().show(
+          title: 'Đang gửi lệnh in…',
+          message: cloudPrinters.length == 1
+              ? '→ ${cloudPrinters.first.name}'
+              : '→ ${cloudPrinters.length} máy in',
+          duration: const Duration(seconds: 2),
+        );
+      }
       final printed =
-          await PosPrintOrchestrator.instance.dispatchEscPosToAll(
-        documentType: PosCloudDocumentTypes.saleInvoice,
+          await PosPrintOrchestrator.instance.dispatchSaleOrder(
+        order: printOrder,
         copies: copies,
         referenceNo: printOrder.orderNo.isEmpty ? null : printOrder.orderNo,
         referenceId: printOrder.id,
-        showFeedback: true,
+        showFeedback: showFeedback,
         successTitle: printOrder.isReprint ? 'In lại hóa đơn' : 'In hóa đơn',
         skipDedup: skipDedup,
-        buildBytes: (printer) async {
+        storeName: branchName,
+        storeAddress: storeAddress,
+        storePhone: storePhone,
+        mergeSameItems: mergeSameItems,
+        documentTitle: documentTitle,
+        buildEscPos: (printer) async {
           var settings = toThermalSettings(printer);
           settings = _thermalSettingsForTemplate(settings, template);
           return PosThermalPrinterService.buildSaleOrderEscPosBytes(
@@ -284,39 +377,20 @@ Future<void> printPosSaleOrder({
             storePhone: storePhone,
             mergeSameItems: mergeSameItems,
             vietQrImageUrl: vietQrImageUrl,
+            slipTitle: documentTitle,
           );
         },
       );
       if (printed) {
-        return;
+        return true;
+      }
+      if (preferDevicePrintOnly) {
+        return false;
       }
     }
 
-    if (thermal.enabled) {
-      var settings = _thermalSettingsForTemplate(thermal, template);
-      final bytes = await PosThermalPrinterService.buildSaleOrderEscPosBytes(
-        printOrder,
-        settings: settings,
-        storeName: branchName,
-        storeAddress: storeAddress,
-        storePhone: storePhone,
-        mergeSameItems: mergeSameItems,
-        vietQrImageUrl: vietQrImageUrl,
-      );
-      final printed = await PosPrintOrchestrator.instance.dispatchLocalEscPos(
-        bytes: bytes,
-        copies: copies,
-        showFeedback: true,
-        successTitle: printOrder.isReprint ? 'In lại hóa đơn' : 'In hóa đơn',
-        settingsOverride: settings,
-        documentType: PosPrintDocumentTypes.saleInvoice,
-        referenceId: printOrder.id,
-        referenceNo: printOrder.orderNo.isEmpty ? null : printOrder.orderNo,
-        skipDedup: skipDedup,
-      );
-      if (printed) {
-        return;
-      }
+    if (preferDevicePrintOnly) {
+      return false;
     }
   }
 
@@ -340,7 +414,7 @@ Future<void> printPosSaleOrder({
       htmlDocument: html,
       initialCopies: copies,
     );
-    return;
+    return true;
   }
 
   await showPosPurchaseReceiptPrintDialog(
@@ -372,23 +446,208 @@ Future<void> printPosSaleOrder({
       dailySalesTotal: printOrder.dailySalesTotal,
     ),
   );
+  return true;
+}
+
+Future<PosThermalPrinterSettings> _prepareLocalThermalSettings(
+  PosThermalPrinterSettings thermal,
+  PosPrintTemplate? template,
+) async {
+  var settings = _thermalSettingsForTemplate(thermal, template);
+  return PosPrinterTransport.prepareLocalSettings(settings);
+}
+
+Future<bool> _tryLocalSalePrint({
+  required PosSaleOrder printOrder,
+  required PosThermalPrinterSettings settings,
+  PosPrintTemplate? template,
+  String? branchName,
+  String? storeAddress,
+  String? storePhone,
+  required bool mergeSameItems,
+  String? vietQrImageUrl,
+  required int copies,
+  required bool showFeedback,
+  required bool skipDedup,
+  String? documentTitle,
+}) async {
+  // Sunmi: ưu tiên mẫu V2 (preview = in thực) rồi fallback layout cứng.
+  if (settings.connectionType == PosThermalConnectionType.sunmi ||
+      await PosPrinterTransport.isSunmiDevice()) {
+    try {
+      final v2 = PosPrintTemplateRuntime.parseTemplate(template);
+      if (v2 != null) {
+        final output = PosPrintTemplateRuntime.compileSaleOrder(
+          template: v2,
+          order: printOrder,
+          storeName: branchName,
+          storeAddress: storeAddress,
+          storePhone: storePhone,
+          mergeSameItems: mergeSameItems,
+          titleOverride: documentTitle,
+          vietQrImageUrl: vietQrImageUrl,
+        );
+        final sunmiOk = await PosPrintTemplateRuntime.printCompiledSunmi(
+          output: output,
+          settings: settings.copyWith(
+            connectionType: PosThermalConnectionType.sunmi,
+            printerBrand: PosThermalPrinterBrand.sunmi,
+          ),
+          copies: copies,
+        );
+        if (sunmiOk) {
+          if (showFeedback) {
+            NotificationOverlayManager().showSuccess(
+              title: printOrder.isReprint ? 'In lại hóa đơn' : 'In hóa đơn',
+              message: 'Máy in Sunmi (mẫu V2)',
+            );
+          }
+          return true;
+        }
+      }
+      final sunmiOk = await PosSunmiNativePrint.printSaleOrder(
+        printOrder,
+        settings: settings.copyWith(
+          connectionType: PosThermalConnectionType.sunmi,
+          printerBrand: PosThermalPrinterBrand.sunmi,
+        ),
+        storeName: branchName,
+        storeAddress: storeAddress,
+        storePhone: storePhone,
+        mergeSameItems: mergeSameItems,
+        copies: copies,
+        documentTitle: documentTitle,
+      );
+      if (sunmiOk) {
+        if (showFeedback) {
+          NotificationOverlayManager().showSuccess(
+            title: printOrder.isReprint ? 'In lại hóa đơn' : 'In hóa đơn',
+            message: 'Máy in Sunmi',
+          );
+        }
+        return true;
+      }
+    } catch (e) {
+      debugPrint('Sunmi native sale print failed: $e');
+    }
+  }
+
+  Future<bool> attempt(PosThermalPrinterSettings s, {String? qr}) async {
+    final v2 = PosPrintTemplateRuntime.parseTemplate(template);
+    if (v2 != null) {
+      final output = PosPrintTemplateRuntime.compileSaleOrder(
+        template: v2,
+        order: printOrder,
+        storeName: branchName,
+        storeAddress: storeAddress,
+        storePhone: storePhone,
+        mergeSameItems: mergeSameItems,
+        titleOverride: documentTitle,
+        vietQrImageUrl: qr ?? vietQrImageUrl,
+      );
+      final bytes = await PosPrintTemplateRuntime.buildCompiledEscPosBytes(
+        output: output,
+        settings: s,
+      );
+      return PosPrintOrchestrator.instance.dispatchLocalEscPos(
+        bytes: bytes,
+        copies: copies,
+        showFeedback: false,
+        successTitle: printOrder.isReprint ? 'In lại hóa đơn' : 'In hóa đơn',
+        settingsOverride: s,
+        documentType: PosPrintDocumentTypes.saleInvoice,
+        skipDedup: skipDedup,
+      );
+    }
+    final bytes = await PosThermalPrinterService.buildSaleOrderEscPosBytes(
+      printOrder,
+      settings: s,
+      storeName: branchName,
+      storeAddress: storeAddress,
+      storePhone: storePhone,
+      mergeSameItems: mergeSameItems,
+      vietQrImageUrl: qr,
+      slipTitle: documentTitle,
+    );
+    return PosPrintOrchestrator.instance.dispatchLocalEscPos(
+      bytes: bytes,
+      copies: copies,
+      showFeedback: false,
+      successTitle: printOrder.isReprint ? 'In lại hóa đơn' : 'In hóa đơn',
+      settingsOverride: s,
+      documentType: PosPrintDocumentTypes.saleInvoice,
+      referenceId: printOrder.id,
+      referenceNo: printOrder.orderNo.isEmpty ? null : printOrder.orderNo,
+      skipDedup: skipDedup,
+    );
+  }
+
+  try {
+    if (await attempt(settings, qr: vietQrImageUrl)) {
+      if (showFeedback) {
+        NotificationOverlayManager().showSuccess(
+          title: printOrder.isReprint ? 'In lại hóa đơn' : 'In hóa đơn',
+          message: 'Máy in cục bộ',
+        );
+      }
+      return true;
+    }
+  } catch (e) {
+    debugPrint('Local sale print (primary) failed: $e');
+  }
+
+  // Fallback: UTF-8 thuần + bỏ VietQR nếu tải ảnh lỗi.
+  if (settings.resolvedTextMode == PosThermalTextMode.image ||
+      (vietQrImageUrl != null && vietQrImageUrl.isNotEmpty)) {
+    final fallback = settings.copyWith(textMode: PosThermalTextMode.utf8);
+    try {
+      if (await attempt(fallback, qr: null)) {
+        if (showFeedback) {
+          NotificationOverlayManager().showSuccess(
+            title: printOrder.isReprint ? 'In lại hóa đơn' : 'In hóa đơn',
+            message: 'Máy in cục bộ',
+          );
+        }
+        return true;
+      }
+    } catch (e) {
+      debugPrint('Local sale print (utf8 fallback) failed: $e');
+    }
+  }
+
+  if (showFeedback) {
+    NotificationOverlayManager().showError(
+      title: 'In thất bại',
+      message: 'Không in được hóa đơn trên máy in cục bộ',
+    );
+  }
+  return false;
 }
 
 Future<PosSaleOrder> _resolvePrintOrder(PosSaleOrder order) async {
   if (order.id.isEmpty || order.status != 'Completed') return order;
   try {
     final res = await ApiService().recordPosSalePrint(order.id);
-    if (res['isSuccess'] == true && res['data'] is Map<String, dynamic>) {
-      final fromApi = PosSaleOrder.fromJson(res['data'] as Map<String, dynamic>);
+    if (res['isSuccess'] == true && res['data'] is Map) {
+      final data = Map<String, dynamic>.from(res['data'] as Map);
+      final fromApi = PosSaleOrder.fromJson(data);
+      final count = fromApi.printCount > 0
+          ? fromApi.printCount
+          : order.printCount + 1;
       if (fromApi.lines.isEmpty && order.lines.isNotEmpty) {
         return order.copyWithPrintContext(
-          printCount: fromApi.printCount,
+          printCount: count,
           dailyOrderIndex: fromApi.dailyOrderIndex,
           dailySalesTotal: fromApi.dailySalesTotal,
         );
       }
-      return fromApi;
+      return fromApi.printCount > 0
+          ? fromApi
+          : fromApi.copyWithPrintContext(printCount: count);
     }
-  } catch (_) {}
+    debugPrint('recordPosSalePrint failed: ${res['message']}');
+  } catch (e) {
+    debugPrint('recordPosSalePrint error: $e');
+  }
   return order.copyWithPrintContext(printCount: order.printCount + 1);
 }

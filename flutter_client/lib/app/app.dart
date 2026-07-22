@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -15,17 +17,41 @@ import '../screens/reset_password_screen.dart';
 import '../screens/system_admin_screen.dart';
 import '../screens/agent_register_screen.dart';
 import '../screens/admin_login_screen.dart';
-import '../screens/landing_screen.dart';
 import '../screens/landing_guide_screen.dart';
+import '../screens/pos/pos_customer_display_screen.dart';
 import '../utils/web_route_parser.dart';
 import '../utils/store_role_helper.dart';
 import '../widgets/app_boot_screen.dart';
+import '../widgets/web_static_home_redirect.dart';
 
 class ZKTecoApp extends StatelessWidget {
   const ZKTecoApp({super.key});
 
+  static bool get _isCustomerDisplayRoute {
+    final name = ui.PlatformDispatcher.instance.defaultRouteName;
+    if (name.contains('customer-display')) return true;
+    if (kIsWeb) {
+      final segs = parseWebHashPathSegments();
+      if (segs.isNotEmpty && segs.first == 'customer-display') return true;
+    }
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Màn hình phụ — không cần đăng nhập; chỉ nhận state sync local.
+    if (_isCustomerDisplayRoute) {
+      return MaterialApp(
+        title: 'SBOX Display',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData.dark(useMaterial3: true),
+        home: const PosCustomerDisplayScreen(),
+        routes: {
+          '/customer-display': (_) => const PosCustomerDisplayScreen(),
+        },
+      );
+    }
+
     return Consumer<ThemeProvider>(
       builder: (context, themeProvider, child) {
         return MaterialApp(
@@ -48,7 +74,6 @@ class ZKTecoApp extends StatelessWidget {
           locale: themeProvider.locale,
           builder: (context, child) {
             final mediaQuery = MediaQuery.of(context);
-            // Web/desktop: giữ cỡ thiết kế (14px body). Chỉ điện thoại hẹp thu nhỏ nhẹ.
             return MediaQuery(
               data: mediaQuery.copyWith(
                 textScaler: AppTextScaler.resolve(context),
@@ -60,6 +85,7 @@ class ZKTecoApp extends StatelessWidget {
             );
           },
           routes: {
+            '/customer-display': (_) => const PosCustomerDisplayScreen(),
             '/register': (context) {
               final args = ModalRoute.of(context)?.settings.arguments;
               String? agentCode;
@@ -81,16 +107,15 @@ class ZKTecoApp extends StatelessWidget {
             '/forgot-password': (context) => const ForgotPasswordScreen(),
             '/admin': (context) => const _AdminRouteGuard(),
             '/login-app': (context) => const LoginScreen(),
-            '/landing': (context) {
-              final args = ModalRoute.of(context)?.settings.arguments;
-              final section = args is Map
-                  ? args['scrollSection']?.toString()
-                  : null;
-              return LandingScreen(initialScrollSection: section);
-            },
+            '/landing': (context) => const WebStaticHomeRedirect(),
             '/guide': (context) => const LandingGuideScreen(),
           },
           onGenerateRoute: (settings) {
+            if (settings.name == '/customer-display') {
+              return MaterialPageRoute(
+                builder: (_) => const PosCustomerDisplayScreen(),
+              );
+            }
             if (settings.name == '/reset-password') {
               final args = settings.arguments as Map<String, String>?;
               final uri = Uri.parse(settings.name ?? '');
@@ -136,7 +161,15 @@ class ZKTecoApp extends StatelessWidget {
                 if (kIsWeb && InitialWebRoute.showRegister) {
                   return RegisterScreen(initialAgentCode: InitialWebRoute.agentCode);
                 }
-                return kIsWeb ? const LandingScreen() : const LoginScreen();
+                if (kIsWeb && InitialWebRoute.showForgotPassword) {
+                  return const ForgotPasswordScreen();
+                }
+                if (kIsWeb && InitialWebRoute.showLogin) {
+                  return const LoginScreen();
+                }
+                return kIsWeb
+                    ? const WebStaticHomeRedirect()
+                    : const LoginScreen();
               }
               if (StoreRoleHelper.isSystemPortalRole(state.role)) {
                 return SystemAdminScreen(

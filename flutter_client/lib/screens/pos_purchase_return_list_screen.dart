@@ -18,6 +18,7 @@ import '../widgets/pos/pos_module_toolbar.dart';
 import '../widgets/pos/pos_purchase_toolbar.dart';
 import '../widgets/pos/pos_theme.dart';
 import 'pos_purchase_return_editor_screen.dart';
+import '../screens/main_layout.dart' show ScreenRefreshNotifier;
 
 const _blue = Color(0xFF2563EB);
 
@@ -229,6 +230,7 @@ class _PosPurchaseReturnListScreenState extends State<PosPurchaseReturnListScree
         title: 'Thành công',
         message: result.successMessage(r.returnNo, completedLabel: 'Đã trả hàng'),
       );
+      ScreenRefreshNotifier.refreshPosAfterStockChange();
       await _load(page: _page);
       await _refreshExpandedDetail(r.id);
     } else {

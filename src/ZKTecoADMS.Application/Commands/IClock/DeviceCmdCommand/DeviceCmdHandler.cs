@@ -4,6 +4,7 @@ using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Extensions;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Domain.Enums;
+using IDeviceCapabilityService = ZKTecoADMS.Application.Interfaces.IDeviceCapabilityService;
 
 namespace ZKTecoADMS.Application.Commands.IClock.DeviceCmdCommand;
 
@@ -11,6 +12,7 @@ public class DeviceCmdHandler(
     IDeviceCmdService deviceCmdService,
     IDeviceCommandStrategyFactory strategyFactory,
     IDeviceService deviceService,
+    IDeviceCapabilityService capabilityService,
     ILogger<DeviceCmdHandler> logger
     ) : ICommandHandler<DeviceCmdCommand, string>
 {
@@ -55,6 +57,9 @@ public class DeviceCmdHandler(
             {
                 await deviceCmdService.UpdateCommandAfterExecutedAsync(response);
             }
+
+            await capabilityService.LearnFromCommandResultAsync(
+                device.Id, commandType, response.Return, response.CMD, cancellationToken);
 
             var strategy = strategyFactory.GetStrategy(commandType);
             if (strategy != null)

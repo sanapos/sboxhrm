@@ -27,6 +27,13 @@ public class AttendanceService(
 )
     : IAttendanceService
 {
+    /// <summary>
+    /// Benefit.AttendanceMode = "Chấm 2 lần bất kỳ trong ngày": bỏ qua ca,
+    /// không phạt đi trễ/về sớm — công được tính riêng ở client (shift_records_calculator.dart).
+    /// Phải khớp <c>kFreeTwoPunchAttendanceMode</c> bên Flutter.
+    /// </summary>
+    private const string FreeTwoPunchAttendanceMode = "free2";
+
     public async Task<IEnumerable<Attendance>> GetAttendanceByDeviceAsync(
         Guid deviceId, DateTime? startDate, DateTime? endDate)
     {
@@ -336,6 +343,15 @@ public class AttendanceService(
         }
 
         var employeeId = deviceUser.EmployeeId.Value;
+
+        // NV bật "Chấm 2 lần bất kỳ trong ngày" → không xét ca, không phạt đi trễ/về sớm.
+        if (employeeBenefits.TryGetValue(employeeId, out var employeeBenefit) &&
+            string.Equals(employeeBenefit.Benefit?.AttendanceMode, FreeTwoPunchAttendanceMode,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
         // Use logical date so that overnight punches (before day_end_time) are assigned
         // to the correct working day rather than the calendar date.
         var violationDate = GetLogicalDate(attendance.AttendanceTime, storesDayEnd);

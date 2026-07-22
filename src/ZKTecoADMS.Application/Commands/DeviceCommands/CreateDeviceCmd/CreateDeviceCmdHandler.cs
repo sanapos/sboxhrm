@@ -1,43 +1,70 @@
+using Mapster;
 using Microsoft.Extensions.Logging;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.DTOs.Devices;
+using ZKTecoADMS.Application.Interfaces;
+using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Enums;
 
 namespace ZKTecoADMS.Application.Commands.DeviceCommands.CreateDeviceCmd;
 
 public class CreateDeviceCmdHandler(
-    IRepository<Device> deviceRepository, 
+    IRepository<Device> deviceRepository,
     IRepository<DeviceCommand> deviceCmdRepository,
+    IDeviceCapabilityService capabilityService,
     ILogger<CreateDeviceCmdHandler> logger) : ICommandHandler<CreateDeviceCmdCommand, AppResponse<DeviceCmdDto>>
 {
     public async Task<AppResponse<DeviceCmdDto>> Handle(CreateDeviceCmdCommand request, CancellationToken cancellationToken)
     {
-        logger.LogWarning("[CreateDeviceCmd] Received request: DeviceId={DeviceId}, CommandType={CommandType}", 
+        logger.LogWarning("[CreateDeviceCmd] Received request: DeviceId={DeviceId}, CommandType={CommandType}",
             request.DeviceId, request.CommandType);
-        
+
         var device = await deviceRepository.GetByIdAsync(request.DeviceId, cancellationToken: cancellationToken);
         if (device == null)
         {
             logger.LogWarning("[CreateDeviceCmd] Device not found: {DeviceId}", request.DeviceId);
             return AppResponse<DeviceCmdDto>.Fail("Device not found");
         }
+
         var commandType = (DeviceCommandTypes)request.CommandType;
-        
-        // Nếu có command string từ client (cho EnrollFingerprint, DeleteFingerprint), dùng nó
-        // Ngược lại, tạo command string từ command type
-        var commandStr = !string.IsNullOrEmpty(request.Command) 
-            ? request.Command 
-            : GetCommand(commandType, request.DeviceId);
-        
+
+        DateTime? attStart = null;
+        DateTime? attEnd = null;
+        if (commandType == DeviceCommandTypes.SyncAttendances && string.IsNullOrWhiteSpace(request.Command))
+        {
+            attEnd = ClockCommandBuilder.VietnamEndOfToday();
+            attStart = DateTime.UtcNow.AddHours(7).AddYears(-5);
+        }
+
+        var (commandStr, warning) = await capabilityService.ResolveCommandAsync(
+            device.Id,
+            commandType,
+            request.Pin,
+            request.FingerIndex,
+            request.Command,
+            attStart,
+            attEnd,
+            cancellationToken);
+
+        if (string.IsNullOrWhiteSpace(commandStr) || commandStr == "NOT IMPLEMENTED")
+        {
+            return AppResponse<DeviceCmdDto>.Fail(
+                warning ?? "Thiếu tham số hoặc lệnh không hỗ trợ trên máy này.");
+        }
+
         var command = new DeviceCommand
         {
             DeviceId = device.Id,
             Command = commandStr,
             Priority = request.Priority,
             CommandType = commandType,
-            Status = CommandStatus.Created // Explicitly set status
+            Status = CommandStatus.Created
         };
-        
+
+        // agap uses C:OPENDOOR0:AC_UNLOCK — short suffix (0..9999), not DateTime.Ticks.
+        if (commandType == DeviceCommandTypes.OpenDoor)
+            command.CommandId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() % 10_000;
+
         if (commandType == DeviceCommandTypes.SyncAttendances)
         {
             await CancelStaleSyncAttendanceCommandsAsync(device.Id, cancellationToken);
@@ -45,41 +72,19 @@ public class CreateDeviceCmdHandler(
             AttendanceBulkSyncTracker.ClearUploadActivity(device.Id);
         }
 
-        logger.LogWarning("[CreateDeviceCmd] Creating command: DeviceId={DeviceId}, Command={Command}, Status={Status}, CommandType={CommandType}", 
-            command.DeviceId, command.Command, command.Status, command.CommandType);
-        
+        logger.LogWarning(
+            "[CreateDeviceCmd] Creating command: DeviceId={DeviceId}, Command={Command}, Status={Status}, CommandType={CommandType}, Warning={Warning}",
+            command.DeviceId, command.Command, command.Status, command.CommandType, warning);
+
         var created = await deviceCmdRepository.AddAsync(command, cancellationToken);
+        var dto = created.Adapt<DeviceCmdDto>();
 
-        if (commandType == DeviceCommandTypes.SyncAttendances)
-        {
-            logger.LogInformation(
-                "[CreateDeviceCmd] SyncAttendances queued for {DeviceId} — reset sync tracker",
-                device.Id);
-        }
-        
-        logger.LogWarning("[CreateDeviceCmd] Command created successfully: Id={Id}, CommandId={CommandId}, Status={Status}", 
-            created.Id, created.CommandId, created.Status);
-
-        return AppResponse<DeviceCmdDto>.Success(created.Adapt<DeviceCmdDto>());
+        // Warning in Errors while IsSuccess=true so Message surfaces in clients without failing.
+        return string.IsNullOrWhiteSpace(warning)
+            ? AppResponse<DeviceCmdDto>.Success(dto)
+            : AppResponse<DeviceCmdDto>.Create(true, dto, [warning]);
     }
 
-    private static string GetCommand(DeviceCommandTypes commandType, Guid id)
-    {
-        return commandType switch
-        {
-            DeviceCommandTypes.ClearAttendances => "CLEAR LOG",
-            DeviceCommandTypes.ClearDeviceUsers => "CLEAR ALL USERINFO",
-            DeviceCommandTypes.ClearData => "CLEAR DATA",
-            DeviceCommandTypes.RestartDevice => "REBOOT",
-            DeviceCommandTypes.SyncAttendances => ClockCommandBuilder.BuildDefaultSyncAttendancesCommand(),
-            DeviceCommandTypes.SyncDeviceUsers => ClockCommandBuilder.BuildGetAllUsersCommand(),
-            // SyncFingerprints: Query fingerprint templates
-            DeviceCommandTypes.SyncFingerprints => ClockCommandBuilder.BuildGetFingerprintsCommand(),
-            _ => "NOT IMPLEMENTED"
-        };
-    }
-
-    /// <summary>Hủy lệnh SyncAttendances cũ (Created/Sent) trước khi xếp lệnh mới — tránh kẹt nhiều lệnh Sent.</summary>
     private async Task CancelStaleSyncAttendanceCommandsAsync(Guid deviceId, CancellationToken cancellationToken)
     {
         var stale = await deviceCmdRepository.GetAllAsync(

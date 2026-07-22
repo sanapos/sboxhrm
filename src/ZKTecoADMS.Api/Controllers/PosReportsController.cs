@@ -10,6 +10,7 @@ using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Infrastructure;
+using ZKTecoADMS.Infrastructure.Services;
 
 namespace ZKTecoADMS.Api.Controllers;
 
@@ -38,11 +39,43 @@ public class PosReportsController(ZKTecoDbContext dbContext) : AuthenticatedCont
         var totalDiscount = await orders.SumAsync(o => o.Discount);
         var orderCount = await orders.CountAsync();
 
-        var byPayment = await orders
-            .GroupBy(o => o.PaymentMethod)
-            .Select(g => new { paymentMethod = g.Key, total = g.Sum(x => x.Total), count = g.Count() })
-            .OrderByDescending(x => x.total)
+        var byPaymentRaw = await dbContext.CashTransactions.AsNoTracking()
+            .Where(c => c.StoreId == storeId && c.Deleted == null && c.IsActive
+                && c.Status == CashTransactionStatus.Completed
+                && c.Type == CashTransactionType.Income
+                && c.InternalNote != null
+                && c.InternalNote.StartsWith(PosFinanceSyncHelper.SaleMarker)
+                && c.TransactionDate >= fromDt && c.TransactionDate < toDt)
+            .GroupBy(c => c.PaymentMethod)
+            .Select(g => new { Method = g.Key, total = g.Sum(x => x.Amount), count = g.Count() })
             .ToListAsync();
+
+        static string PayLabel(PaymentMethodType method) => method switch
+        {
+            PaymentMethodType.Cash => "Tiền mặt",
+            PaymentMethodType.BankTransfer => "Chuyển khoản",
+            PaymentMethodType.VietQR => "VietQR",
+            PaymentMethodType.Card => "Thẻ",
+            PaymentMethodType.EWallet => "Ví điện tử",
+            _ => "Khác",
+        };
+
+        object byPayment;
+        if (byPaymentRaw.Count > 0)
+        {
+            byPayment = byPaymentRaw
+                .Select(g => new { paymentMethod = PayLabel(g.Method), g.total, g.count })
+                .OrderByDescending(x => x.total)
+                .ToList();
+        }
+        else
+        {
+            byPayment = await orders
+                .GroupBy(o => o.PaymentMethod)
+                .Select(g => new { paymentMethod = g.Key ?? "Khác", total = g.Sum(x => x.PaidAmount), count = g.Count() })
+                .OrderByDescending(x => x.total)
+                .ToListAsync();
+        }
 
         var byDay = await orders
             .GroupBy(o => o.CreatedAt.Date)
@@ -782,6 +815,7 @@ public class PosReportsController(ZKTecoDbContext dbContext) : AuthenticatedCont
         var subTotal = await completedQuery.SumAsync(o => (decimal?)o.SubTotal) ?? 0;
         var orderDiscount = await completedQuery.SumAsync(o => (decimal?)o.Discount) ?? 0;
         var netSales = await completedQuery.SumAsync(o => (decimal?)o.Total) ?? 0;
+        var vat = await completedQuery.SumAsync(o => (decimal?)o.VatAmount) ?? 0;
         var actualReceived = await completedQuery.SumAsync(o => (decimal?)o.PaidAmount) ?? 0;
         var debtTotal = await completedQuery.SumAsync(o => (decimal?)(o.Total - o.PaidAmount)) ?? 0;
         if (debtTotal < 0) debtTotal = 0;
@@ -806,21 +840,65 @@ public class PosReportsController(ZKTecoDbContext dbContext) : AuthenticatedCont
                             orderIds.Contains(l.SaleOrderId))
                 .SumAsync(l => (decimal?)l.DiscountAmount) ?? 0;
 
-        var payments = await completedQuery
-            .GroupBy(o => o.PaymentMethod)
-            .Select(g => new
-            {
-                paymentMethod = g.Key ?? "Khác",
-                total = g.Sum(x => x.PaidAmount),
-                count = g.Count(),
-            })
-            .OrderByDescending(x => x.total)
-            .ToListAsync();
+        string paymentLabel(PaymentMethodType method) => method switch
+        {
+            PaymentMethodType.Cash => "Tiền mặt",
+            PaymentMethodType.BankTransfer => "Chuyển khoản",
+            PaymentMethodType.VietQR => "VietQR",
+            PaymentMethodType.Card => "Thẻ",
+            PaymentMethodType.EWallet => "Ví điện tử",
+            _ => "Khác",
+        };
 
-        var cashTotal = payments
-            .Where(p => p.paymentMethod.Contains("mặt", StringComparison.OrdinalIgnoreCase) ||
-                        p.paymentMethod.Equals("Cash", StringComparison.OrdinalIgnoreCase))
-            .Sum(p => p.total);
+        // Phân tách theo từng dòng thu quỹ (marker sale), không theo chuỗi PaymentMethod gộp.
+        var payments = new List<object>();
+        var cashTotal = 0m;
+        if (orderIds.Count > 0)
+        {
+            var orderIdSet = orderIds.ToHashSet();
+            var saleCashTx = await dbContext.CashTransactions.AsNoTracking()
+                .Where(c => c.StoreId == storeId && c.Deleted == null && c.IsActive
+                    && c.Status == CashTransactionStatus.Completed
+                    && c.Type == CashTransactionType.Income
+                    && c.InternalNote != null
+                    && c.InternalNote.StartsWith(PosFinanceSyncHelper.SaleMarker))
+                .ToListAsync();
+
+            // Marker: "pos bán hàng #{orderId}|{index}"
+            static Guid? ParseSaleOrderIdFromMarker(string? note)
+            {
+                if (string.IsNullOrEmpty(note)) return null;
+                var prefix = PosFinanceSyncHelper.SaleMarker;
+                if (!note.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) return null;
+                var rest = note[prefix.Length..];
+                var pipe = rest.IndexOf('|');
+                var idPart = pipe >= 0 ? rest[..pipe] : rest;
+                return Guid.TryParse(idPart, out var id) ? id : null;
+            }
+
+            var matched = saleCashTx
+                .Where(c =>
+                {
+                    var oid = ParseSaleOrderIdFromMarker(c.InternalNote);
+                    return oid.HasValue && orderIdSet.Contains(oid.Value);
+                })
+                .ToList();
+
+            var paymentRows = matched
+                .GroupBy(c => c.PaymentMethod)
+                .Select(g => new
+                {
+                    paymentMethod = paymentLabel(g.Key),
+                    total = g.Sum(x => x.Amount),
+                    count = g.Count(),
+                })
+                .OrderByDescending(x => x.total)
+                .ToList();
+            payments = paymentRows.Cast<object>().ToList();
+            cashTotal = paymentRows
+                .FirstOrDefault(p => p.paymentMethod.Equals("Tiền mặt", StringComparison.OrdinalIgnoreCase))
+                ?.total ?? 0m;
+        }
 
         object? products = null;
         if (includeProductDetail && orderIds.Count > 0)
@@ -854,7 +932,7 @@ public class PosReportsController(ZKTecoDbContext dbContext) : AuthenticatedCont
                     qty = o.Lines.Sum(l => l.Qty),
                     revenue = o.SubTotal,
                     discount = o.Discount,
-                    vat = 0m,
+                    vat = o.VatAmount,
                     rounding = 0m,
                     returnFee = 0m,
                     actualReceived = o.PaidAmount,
@@ -916,7 +994,7 @@ public class PosReportsController(ZKTecoDbContext dbContext) : AuthenticatedCont
             orderCount,
             orderDiscount,
             totalSales = subTotal,
-            vat = 0m,
+            vat,
             netSales,
             refundTotal,
             totalAfterRefund = Math.Max(0, netSales - refundTotal),

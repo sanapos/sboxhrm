@@ -1858,7 +1858,8 @@ class ApiService {
             headers: _headers,
             body: json.encode({
               'commandType': 9, // EnrollFingerprint
-              'command': 'ENROLL_FP PIN=$pin\tFID=$fingerIndex',
+              'pin': pin,
+              'fingerIndex': fingerIndex,
               'priority': 10,
             }),
           )
@@ -1892,7 +1893,8 @@ class ApiService {
             headers: _headers,
             body: json.encode({
               'commandType': 9, // EnrollFingerprint
-              'command': 'ENROLL_FP PIN=$pin\tFID=$fingerIndex',
+              'pin': pin,
+              'fingerIndex': fingerIndex,
               'priority': 10,
             }),
           )
@@ -1934,17 +1936,15 @@ class ApiService {
         debugPrint('❌ Device $deviceId is OFFLINE - cannot delete fingerprint');
         return false;
       }
-      final command = fingerIndex != null && fingerIndex >= 0
-          ? 'DATA DELETE FINGERTMP PIN=$pin\tFID=$fingerIndex'
-          : 'DATA DELETE FINGERTMP PIN=$pin';
-      debugPrint('📤 Deleting fingerprint: $command on device $deviceId');
       final response = await http
           .post(
             Uri.parse('$baseUrl/api/devices/$deviceId/commands'),
             headers: _headers,
             body: json.encode({
               'commandType': 10, // DeleteFingerprint
-              'command': command,
+              'pin': pin,
+              if (fingerIndex != null && fingerIndex >= 0)
+                'fingerIndex': fingerIndex,
               'priority': 10,
             }),
           )
@@ -2029,21 +2029,39 @@ class ApiService {
     }
   }
 
-  // Đăng ký khuôn mặt - trả về response đầy đủ để lấy commandId
+  // Đăng ký khuôn mặt từ xa — ENROLL_FP FID=50 BIODATAFLAG=8 (máy face ZAM70/visible light)
   Future<Map<String, dynamic>?> enrollFaceWithResponse(
       String deviceId, String pin) async {
-    debugPrint(
-      '⚠️ Remote face enrollment disabled for device $deviceId, PIN=$pin because ENROLL_FP opens fingerprint enrollment on FACE devices.',
-    );
-    return {
-      'isSuccess': false,
-      'message':
-          'Thiết bị này hiện không hỗ trợ mở đăng ký khuôn mặt từ xa qua ADMS. Hãy đăng ký trực tiếp trên máy rồi dùng đồng bộ sinh trắc học.',
-      'data': null,
-    };
+    try {
+      if (!await isDeviceOnline(deviceId)) {
+        return {
+          'isSuccess': false,
+          'message':
+              'Thiết bị đang offline. Vui lòng kiểm tra kết nối mạng của máy chấm công.'
+        };
+      }
+      debugPrint('📤 Enrolling FACE for PIN=$pin on device $deviceId');
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/devices/$deviceId/commands'),
+            headers: _headers,
+            body: json.encode({
+              'commandType': 12, // EnrollFace
+              'pin': pin,
+              'priority': 10,
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
+      final data = _handleResponse(response);
+      debugPrint('📥 Enroll face response: $data');
+      return data;
+    } catch (e) {
+      debugPrint('Error enrolling face: $e');
+      return null;
+    }
   }
 
-  // Xóa khuôn mặt - gửi lệnh DATA DELETE FINGERTMP PIN=xxx FID=50
+  // Xóa khuôn mặt — PUSH SDK §7.8 DATA DELETE FACE PIN=...
   Future<bool> deleteDeviceUserFace(String deviceId, String pin) async {
     try {
       if (!await isDeviceOnline(deviceId)) {
@@ -2057,7 +2075,7 @@ class ApiService {
             headers: _headers,
             body: json.encode({
               'commandType': 13, // DeleteFace
-              'command': 'DATA DELETE FINGERTMP PIN=$pin\tFID=50',
+              'pin': pin,
               'priority': 10,
             }),
           )
@@ -4606,12 +4624,16 @@ class ApiService {
     required String requestId,
     required bool isApproved,
     String? rejectionReason,
+    // Số tiền duyệt — cho phép duyệt thấp hơn số tiền yêu cầu. Bỏ trống
+    // (null) = duyệt đủ số tiền yêu cầu.
+    double? approvedAmount,
   }) async {
     try {
       final body = {
         'requestId': requestId,
         'isApproved': isApproved,
         'rejectionReason': rejectionReason,
+        if (approvedAmount != null) 'approvedAmount': approvedAmount,
       };
       final response = await http.post(
         Uri.parse('$baseUrl/api/AdvanceRequests/$requestId/approve'),
@@ -11141,11 +11163,16 @@ class ApiService {
             }
           }
         }
-        return {
+        final errOut = <String, dynamic>{
           'isSuccess': false,
           'message': _normalizeViText(errorMessage),
           'statusCode': response.statusCode,
         };
+        if (data is Map<String, dynamic>) {
+          final normalized = _normalizeResponseMap(data);
+          if (normalized['data'] != null) errOut['data'] = normalized['data'];
+        }
+        return errOut;
       }
     } catch (e) {
       // Handle non-JSON responses (e.g. nginx 413 HTML error page)
@@ -13692,6 +13719,63 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> getPosToppingGroups() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/topping-groups'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> createPosToppingGroup(
+      Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/topping-groups'),
+            headers: _headers,
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> updatePosToppingGroup(
+      String id, Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .put(
+            Uri.parse('$baseUrl/api/pos/topping-groups/$id'),
+            headers: _headers,
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> deletePosToppingGroup(String id) async {
+    try {
+      final response = await http
+          .delete(
+            Uri.parse('$baseUrl/api/pos/topping-groups/$id'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> createPosProduct(Map<String, dynamic> body) async {
     try {
       final response = await http
@@ -14023,6 +14107,38 @@ class ApiService {
               'parentId': parentId,
               'sortOrder': sortOrder,
             }),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> sortPosProductCategories(
+      List<Map<String, dynamic>> items) async {
+    try {
+      final response = await http
+          .put(
+            Uri.parse('$baseUrl/api/pos/catalog/categories/sort'),
+            headers: _headers,
+            body: jsonEncode({'items': items}),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> sortPosProducts(
+      List<Map<String, dynamic>> items) async {
+    try {
+      final response = await http
+          .put(
+            Uri.parse('$baseUrl/api/pos/products/sort'),
+            headers: _headers,
+            body: jsonEncode({'items': items}),
           )
           .timeout(const Duration(seconds: 30));
       return _handleResponse(response);
@@ -15409,6 +15525,24 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> createPosPurchaseReceiptPayment(
+    String id,
+    Map<String, dynamic> body,
+  ) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/purchase/receipts/$id/payments'),
+            headers: _headers,
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> getPosPurchaseReturns({
     String? search,
     String? status,
@@ -15630,11 +15764,22 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> getPosSale(String id) async {
+  Future<Map<String, dynamic>> getPosSale(
+    String id, {
+    String? deviceId,
+    String? deviceName,
+  }) async {
     try {
-      final response = await http
-          .get(Uri.parse('$baseUrl/api/pos/sales/$id'), headers: _headers)
-          .timeout(const Duration(seconds: 30));
+      final q = <String, String>{};
+      if (deviceId != null && deviceId.isNotEmpty) q['deviceId'] = deviceId;
+      if (deviceName != null && deviceName.isNotEmpty) {
+        q['deviceName'] = deviceName;
+      }
+      final uri = Uri.parse('$baseUrl/api/pos/sales/$id').replace(
+        queryParameters: q.isEmpty ? null : q,
+      );
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -15835,6 +15980,144 @@ class ApiService {
       final response = await http
           .post(Uri.parse('$baseUrl/api/pos/sales/$id/complete'), headers: _headers)
           .timeout(const Duration(seconds: 60));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Claim / renew / force-take khóa đơn tạm.
+  Future<Map<String, dynamic>> lockPosSaleDraft(
+    String id, {
+    required String deviceId,
+    required String deviceName,
+    bool force = false,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/sales/$id/lock'),
+            headers: _headers,
+            body: jsonEncode({
+              'deviceId': deviceId,
+              'deviceName': deviceName,
+              'force': force,
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> heartbeatPosSaleDraftLock(
+    String id, {
+    required String deviceId,
+    required String deviceName,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/sales/$id/lock/heartbeat'),
+            headers: _headers,
+            body: jsonEncode({
+              'deviceId': deviceId,
+              'deviceName': deviceName,
+            }),
+          )
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> unlockPosSaleDraft(
+    String id, {
+    required String deviceId,
+    required String deviceName,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/sales/$id/unlock'),
+            headers: _headers,
+            body: jsonEncode({
+              'deviceId': deviceId,
+              'deviceName': deviceName,
+            }),
+          )
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Slot hóa đơn động (mặc định 3, thêm/xóa được).
+  /// [pruneEmpty]: chỉ bật lúc mở màn bán — thu gọn HĐ trống thừa (cũ 8 → 3).
+  Future<Map<String, dynamic>> getPosInvoiceSlots({
+    int count = 3,
+    bool pruneEmpty = false,
+    String? deviceId,
+    String? deviceName,
+  }) async {
+    try {
+      final q = <String, String>{'count': '$count'};
+      if (pruneEmpty) q['pruneEmpty'] = 'true';
+      if (deviceId != null && deviceId.isNotEmpty) q['deviceId'] = deviceId;
+      if (deviceName != null && deviceName.isNotEmpty) {
+        q['deviceName'] = deviceName;
+      }
+      final uri = Uri.parse('$baseUrl/api/pos/sales/invoice-slots')
+          .replace(queryParameters: q);
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> addPosInvoiceSlot({
+    String? deviceId,
+    String? deviceName,
+  }) async {
+    try {
+      final q = <String, String>{};
+      if (deviceId != null && deviceId.isNotEmpty) q['deviceId'] = deviceId;
+      if (deviceName != null && deviceName.isNotEmpty) {
+        q['deviceName'] = deviceName;
+      }
+      final uri = Uri.parse('$baseUrl/api/pos/sales/invoice-slots')
+          .replace(queryParameters: q.isEmpty ? null : q);
+      final response = await http
+          .post(uri, headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> removePosInvoiceSlot(
+    int slot, {
+    bool force = false,
+    String? deviceId,
+    String? deviceName,
+  }) async {
+    try {
+      final q = <String, String>{'force': '$force'};
+      if (deviceId != null && deviceId.isNotEmpty) q['deviceId'] = deviceId;
+      if (deviceName != null && deviceName.isNotEmpty) {
+        q['deviceName'] = deviceName;
+      }
+      final uri = Uri.parse('$baseUrl/api/pos/sales/invoice-slots/$slot')
+          .replace(queryParameters: q);
+      final response = await http
+          .delete(uri, headers: _headers)
+          .timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -16633,6 +16916,25 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> getPosPrintAgents({
+    bool onlineOnly = true,
+    int staleSeconds = 180,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/pos/print-jobs/agents').replace(
+        queryParameters: {
+          'onlineOnly': '$onlineOnly',
+          'staleSeconds': '$staleSeconds',
+        },
+      );
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> registerPosPrintAgent({
     required String deviceId,
     String? deviceName,
@@ -16660,6 +16962,23 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> markPosPrintAgentOffline({
+    required String deviceId,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/print-jobs/agents/offline'),
+            headers: _headers,
+            body: jsonEncode({'deviceId': deviceId}),
+          )
+          .timeout(const Duration(seconds: 15));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> claimPosPrintJob(String agentId) async {
     try {
       final response = await http
@@ -16667,6 +16986,21 @@ class ApiService {
             Uri.parse('$baseUrl/api/pos/print-jobs/agents/$agentId/claim'),
             headers: _headers,
           )
+          .timeout(const Duration(seconds: 25));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Claim đúng 1 job (test cloud trên máy Agent).
+  Future<Map<String, dynamic>> claimPosPrintJobById(
+      String jobId, String agentId) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/pos/print-jobs/$jobId/claim')
+          .replace(queryParameters: {'agentId': agentId});
+      final response = await http
+          .post(uri, headers: _headers)
           .timeout(const Duration(seconds: 25));
       return _handleResponse(response);
     } catch (e) {
@@ -16709,8 +17043,10 @@ class ApiService {
     required String errorMessage,
   }) async {
     try {
+      final qp = <String, String>{};
+      if (agentId.trim().isNotEmpty) qp['agentId'] = agentId.trim();
       final uri = Uri.parse('$baseUrl/api/pos/print-jobs/$jobId/fail')
-          .replace(queryParameters: {'agentId': agentId});
+          .replace(queryParameters: qp.isEmpty ? null : qp);
       final response = await http
           .post(
             uri,
@@ -16726,4 +17062,541 @@ class ApiService {
       return _connectionFailure(e);
     }
   }
+
+  // ── POS sell industry (profile / areas / rooms / sessions / gym) ──
+
+  Future<Map<String, dynamic>> getPosSellSettings() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/sell-settings'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> updatePosSellSettings(Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .put(
+            Uri.parse('$baseUrl/api/pos/sell-settings'),
+            headers: _headers,
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosServiceAreas() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/service-areas'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> createPosServiceArea(Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/service-areas'),
+            headers: _headers,
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> updatePosServiceArea(String id, Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .put(
+            Uri.parse('$baseUrl/api/pos/service-areas/$id'),
+            headers: _headers,
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> sortPosServiceAreas(
+      List<Map<String, dynamic>> items) async {
+    try {
+      final response = await http
+          .put(
+            Uri.parse('$baseUrl/api/pos/service-areas/sort'),
+            headers: _headers,
+            body: jsonEncode({'items': items}),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> deletePosServiceArea(String id) async {
+    try {
+      final response = await http
+          .delete(Uri.parse('$baseUrl/api/pos/service-areas/$id'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosServiceResources({String? areaId}) async {
+    try {
+      final q = <String, String>{};
+      if (areaId != null && areaId.isNotEmpty) q['areaId'] = areaId;
+      final uri = Uri.parse('$baseUrl/api/pos/service-resources')
+          .replace(queryParameters: q.isEmpty ? null : q);
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> createPosServiceResource(Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/service-resources'),
+            headers: _headers,
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> updatePosServiceResource(String id, Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .put(
+            Uri.parse('$baseUrl/api/pos/service-resources/$id'),
+            headers: _headers,
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> deletePosServiceResource(String id) async {
+    try {
+      final response = await http
+          .delete(Uri.parse('$baseUrl/api/pos/service-resources/$id'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> openPosResourceSession(Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/resource-sessions/open'),
+            headers: _headers,
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> closePosResourceSession(String id) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/resource-sessions/$id/close'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Trả bàn về trống — đóng mọi phiên Open/Paused + xóa draft trống.
+  Future<Map<String, dynamic>> freePosServiceResource(String resourceId) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/service-resources/$resourceId/free'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> pausePosResourceSession(String id) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/resource-sessions/$id/pause'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> resumePosResourceSession(String id) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/resource-sessions/$id/resume'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> transferPosResourceSession(
+      String id, String targetResourceId) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/resource-sessions/$id/transfer'),
+            headers: _headers,
+            body: jsonEncode({'targetResourceId': targetResourceId}),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Chuyển bàn theo resourceId nguồn (ổn định hơn sessionId).
+  Future<Map<String, dynamic>> transferPosResource(
+      String fromResourceId, String targetResourceId) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse(
+                '$baseUrl/api/pos/service-resources/$fromResourceId/transfer'),
+            headers: _headers,
+            body: jsonEncode({'targetResourceId': targetResourceId}),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> splitPosResourceSession(
+    String id, {
+    required String targetResourceId,
+    required List<String> lineIds,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/resource-sessions/$id/split'),
+            headers: _headers,
+            body: jsonEncode({
+              'targetResourceId': targetResourceId,
+              'lineIds': lineIds,
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> mergePosResourceSession(
+      String id, String sourceSessionId) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/resource-sessions/$id/merge'),
+            headers: _headers,
+            body: jsonEncode({'sourceSessionId': sourceSessionId}),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> setPosResourceSessionGuests(
+      String id, int guestCount) async {
+    try {
+      final response = await http
+          .put(
+            Uri.parse('$baseUrl/api/pos/resource-sessions/$id/guests'),
+            headers: _headers,
+            body: jsonEncode({'guestCount': guestCount}),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> requestPosResourceBill(
+    String id, {
+    bool requested = true,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse(
+                '$baseUrl/api/pos/resource-sessions/$id/request-bill?requested=$requested'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Đánh dấu tạm tính theo bàn (phiên Open đang sống).
+  Future<Map<String, dynamic>> requestPosResourceBillByResource(
+    String resourceId, {
+    bool requested = true,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse(
+                '$baseUrl/api/pos/service-resources/$resourceId/request-bill?requested=$requested'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> markPosResourceCleaned(String id) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/service-resources/$id/clean'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> createPosKitchenVoids(
+      Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/kitchen-voids'),
+            headers: _headers,
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosKitchenVoids({
+    DateTime? from,
+    DateTime? to,
+    bool? afterBillOnly,
+    bool? beforeBillOnly,
+    String? resourceId,
+    String? resourceName,
+    String? voidedBy,
+    int take = 200,
+  }) async {
+    try {
+      final q = <String, String>{'take': '$take'};
+      if (from != null) q['from'] = from.toUtc().toIso8601String();
+      if (to != null) q['to'] = to.toUtc().toIso8601String();
+      if (afterBillOnly == true) q['afterBillOnly'] = 'true';
+      if (beforeBillOnly == true) q['beforeBillOnly'] = 'true';
+      if (resourceId != null && resourceId.isNotEmpty) {
+        q['resourceId'] = resourceId;
+      }
+      if (resourceName != null && resourceName.isNotEmpty) {
+        q['resourceName'] = resourceName;
+      }
+      if (voidedBy != null && voidedBy.isNotEmpty) q['voidedBy'] = voidedBy;
+      final uri = Uri.parse('$baseUrl/api/pos/kitchen-voids')
+          .replace(queryParameters: q);
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> kitchenSendPosResourceSession(
+    String id, {
+    List<String>? lineIds,
+    String? deviceId,
+    String? deviceName,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/resource-sessions/$id/kitchen-send'),
+            headers: _headers,
+            body: jsonEncode({
+              if (lineIds != null) 'lineIds': lineIds,
+              if (deviceId != null && deviceId.isNotEmpty) 'deviceId': deviceId,
+              if (deviceName != null && deviceName.isNotEmpty)
+                'deviceName': deviceName,
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> savePosResourceLayout(
+      List<Map<String, dynamic>> items) async {
+    try {
+      final response = await http
+          .put(
+            Uri.parse('$baseUrl/api/pos/service-resources/layout'),
+            headers: _headers,
+            body: jsonEncode({'items': items}),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosOpenResourceSessions() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/resource-sessions/open'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> createPosResourceReservation(
+      Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/resource-reservations'),
+            headers: _headers,
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> cancelPosResourceReservation(String id) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/resource-reservations/$id/cancel'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> seatPosResourceReservation(String id) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/resource-reservations/$id/seat'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosSessionBalances({String? customerId}) async {
+    try {
+      final q = <String, String>{};
+      if (customerId != null && customerId.isNotEmpty) q['customerId'] = customerId;
+      final uri = Uri.parse('$baseUrl/api/pos/session-balances')
+          .replace(queryParameters: q.isEmpty ? null : q);
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> redeemPosSessionBalance(Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/session-balances/redeem'),
+            headers: _headers,
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
 }
+

@@ -100,7 +100,8 @@ public class AdvanceRequestsController(
             id,
             CurrentUserId,
             request.IsApproved,
-            request.RejectionReason);
+            request.RejectionReason,
+            request.ApprovedAmount);
 
         var result = await mediator.Send(command);
 
@@ -267,11 +268,12 @@ public class AdvanceRequestsController(
         {
             if (advance.EmployeeUserId.HasValue && advance.EmployeeUserId != CurrentUserId)
             {
+                var payoutAmount = advance.ApprovedAmount ?? advance.Amount;
                 await notificationService.CreateAndSendAsync(
                     advance.EmployeeUserId.Value,
                     NotificationType.Info,
                     "Ứng lương chờ thanh toán",
-                    $"Yêu cầu ứng lương {advance.Amount:N0}đ đã được duyệt, đang chờ kế toán thanh toán.",
+                    $"Yêu cầu ứng lương {payoutAmount:N0}đ đã được duyệt, đang chờ kế toán thanh toán.",
                     relatedEntityId: advance.Id,
                     relatedEntityType: "AdvanceRequest",
                     fromUserId: CurrentUserId,

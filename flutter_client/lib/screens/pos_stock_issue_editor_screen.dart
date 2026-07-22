@@ -20,6 +20,7 @@ import '../widgets/pos/pos_stock_issue_config.dart';
 import '../widgets/pos/pos_stock_issue_helpers.dart';
 import '../widgets/pos/pos_theme.dart';
 import '../widgets/pos_barcode_scanner.dart';
+import '../screens/main_layout.dart' show ScreenRefreshNotifier;
 
 const _blue = Color(0xFF2563EB);
 
@@ -528,6 +529,7 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
         title: 'Hoàn thành',
         message: result.successMessage(_issueNo),
       );
+      ScreenRefreshNotifier.refreshPosAfterStockChange();
       if (mounted) Navigator.pop(context, true);
     } else {
       NotificationOverlayManager().showError(

@@ -134,12 +134,12 @@ Map<String, String> buildSaleOrderPrintData(
     'Dien_Thoai_Chi_Nhanh': storePhone ?? '',
     'Tieu_De_In': titleOverride ??
         (order.printCount > 1
-            ? 'HÓA ĐƠN BÁN HÀNG IN LẠI'
+            ? 'HÓA ĐƠN BÁN HÀNG — IN LẠI'
             : 'HÓA ĐƠN BÁN HÀNG'),
     'Ma_Don_Hang': order.orderNo.isEmpty ? '—' : order.orderNo,
     'Ngay': DateFormat('dd/MM/yyyy').format(saleDate),
     'Gio': DateFormat('HH:mm').format(saleDate),
-    'Khach_Hang': order.customerName ?? 'Khách lẻ',
+    'Khach_Hang': order.customerName ?? 'Bán cho người tiêu dùng',
     'SDT': order.deliveryPhone ?? '',
     'Dia_Chi_Khach_Hang': order.deliveryAddress ?? '',
     'Tong_Tien_Hang': money.format(order.subTotal),
@@ -153,7 +153,10 @@ Map<String, String> buildSaleOrderPrintData(
     'Hinh_Thuc_Thanh_Toan': order.paymentMethod,
     'Nguoi_Ban': order.soldBy ?? order.createdBy ?? '',
     'Ghi_Chu': order.note ?? '',
-    'In_Lai': order.printCount > 1 ? 'Bản in lại — thông báo chủ cửa hàng' : '',
+    'In_Lai': order.printCount > 1
+        ? 'Bản in lại — Lần in thứ ${order.printCount} — thông báo chủ cửa hàng'
+        : (order.printCount == 1 ? 'Lần in: 1' : ''),
+    'Lan_In': order.printCount > 0 ? '${order.printCount}' : '',
     'Thu_Tu_Hoa_Don_Ngay': '',
     'Tong_Hoa_Don_Trong_Ngay': '',
   };

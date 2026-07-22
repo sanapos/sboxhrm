@@ -35,6 +35,7 @@ import 'product_salary_settings_screen.dart';
 import 'branch_management_screen.dart';
 import 'staffing_quota_settings_screen.dart';
 import 'pos_print_templates_screen.dart';
+import 'pos/pos_sell_industry_settings_screen.dart';
 
 class SettingsHubScreen extends StatefulWidget {
   const SettingsHubScreen({super.key});
@@ -280,6 +281,8 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
         return const StaffingQuotaSettingsScreen();
       case 15:
         return const PosPrintTemplatesScreen(embeddedInSettings: true);
+      case 16:
+        return const PosSellIndustrySettingsScreen(embeddedInSettings: true);
       default:
         return const SizedBox();
     }

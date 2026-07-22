@@ -20,6 +20,7 @@ import '../utils/responsive_helper.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/notification_overlay.dart';
+import '../widgets/safe_layout_widgets.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
@@ -2216,17 +2217,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }
 
   Widget _buildAttFilterChipRow(List<Widget> chips) {
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (var i = 0; i < chips.length; i++) ...[
-            if (i > 0) const SizedBox(width: 8),
-            Expanded(child: chips[i]),
-          ],
-        ],
-      ),
-    );
+    return SafeEqualHeightRow(children: chips);
   }
 
   Widget _buildAttFilterChip({
@@ -3002,157 +2993,185 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     final sortedKeys = grouped.keys.toList()
       ..sort((a, b) => b.compareTo(a)); // newest first
 
+    if (shrinkWrap) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var groupIdx = 0; groupIdx < sortedKeys.length; groupIdx++)
+              _buildAttendanceDateGroup(
+                groupIdx: groupIdx,
+                sortedKeys: sortedKeys,
+                grouped: grouped,
+              ),
+          ],
+        ),
+      );
+    }
+
     return ListView.builder(
       shrinkWrap: shrinkWrap,
       physics: shrinkWrap ? const NeverScrollableScrollPhysics() : null,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       itemCount: sortedKeys.length,
-      itemBuilder: (context, groupIdx) {
-        final dateKey = sortedKeys[groupIdx];
-        final date = DateTime.parse(dateKey);
-        final dateStr = DateFormat('dd/MM/yyyy').format(date);
-        final dayOfWeek = _getDayOfWeekVN(date.weekday);
-        final dayColor = _getDayColor(date.weekday);
-        final entries = grouped[dateKey]!;
+      itemBuilder: (context, groupIdx) => _buildAttendanceDateGroup(
+        groupIdx: groupIdx,
+        sortedKeys: sortedKeys,
+        grouped: grouped,
+      ),
+    );
+  }
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Date header
-            Padding(
-              padding: EdgeInsets.fromLTRB(2, groupIdx == 0 ? 0 : 8, 0, 6),
-              child: Row(
-                children: [
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: dayColor.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.calendar_today, size: 13, color: dayColor),
-                        const SizedBox(width: 5),
-                        Text('$dayOfWeek, $dateStr',
-                            style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: dayColor)),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text('${entries.length}',
+  Widget _buildAttendanceDateGroup({
+    required int groupIdx,
+    required List<String> sortedKeys,
+    required Map<String, List<MapEntry<int, Attendance>>> grouped,
+  }) {
+    final dateKey = sortedKeys[groupIdx];
+    final date = DateTime.parse(dateKey);
+    final dateStr = DateFormat('dd/MM/yyyy').format(date);
+    final dayOfWeek = _getDayOfWeekVN(date.weekday);
+    final dayColor = _getDayColor(date.weekday);
+    final entries = grouped[dateKey]!;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Date header
+        Padding(
+          padding: EdgeInsets.fromLTRB(2, groupIdx == 0 ? 0 : 8, 0, 6),
+          child: Row(
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: dayColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.calendar_today, size: 13, color: dayColor),
+                    const SizedBox(width: 5),
+                    Text('$dayOfWeek, $dateStr',
                         style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.grey.shade600)),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: dayColor)),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text('${entries.length}',
+                    style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey.shade600)),
+              ),
+              const Spacer(),
+            ],
+          ),
+        ),
+        // Attendance rows - individual cards
+        ...entries.map((e) {
+          final globalIdx = e.key;
+          final att = e.value;
+          final timeStr = DateFormat('HH:mm:ss').format(att.punchTime);
+
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFE4E4E7)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.03),
+                    blurRadius: 3,
+                    offset: const Offset(0, 1),
                   ),
-                  const Spacer(),
                 ],
               ),
-            ),
-            // Attendance rows - individual cards
-            ...entries.map((e) {
-              final globalIdx = e.key;
-              final att = e.value;
-              final timeStr = DateFormat('HH:mm:ss').format(att.punchTime);
-
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFFE4E4E7)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.03),
-                        blurRadius: 3,
-                        offset: const Offset(0, 1),
-                      ),
-                    ],
-                  ),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(10),
-                    onTap: () => _showAttendanceDetailDialog(att, globalIdx),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 10),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Row 1: Name + Time
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  att.employeeName ?? att.pin ?? '—',
-                                  style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                timeStr,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w700,
-                                  color: Theme.of(context).primaryColor,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          // Row 2: Verify type + Device
-                          Row(
-                            children: [
-                              _buildVerifyTypeIcon(att.verifyType),
-                              const SizedBox(width: 4),
-                              Text(_getVerifyTypeName(att.verifyType),
-                                  style: const TextStyle(
-                                      fontSize: 12, color: Color(0xFF71717A))),
-                              if (att.deviceName != null &&
-                                  att.deviceName!.isNotEmpty) ...[
-                                const SizedBox(width: 8),
-                                const Icon(Icons.router,
-                                    size: 12, color: Color(0xFFA1A1AA)),
-                                const SizedBox(width: 3),
-                                Expanded(
-                                  child: Text(
-                                    att.deviceName!,
-                                    style: const TextStyle(
-                                        fontSize: 12, color: Color(0xFF71717A)),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ] else
-                                const Spacer(),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(10),
+                onTap: () => _showAttendanceDetailDialog(att, globalIdx),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 10),
+                  child: _buildAttendanceMobileCardBody(att, timeStr),
                 ),
-              );
-            }),
+              ),
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget _buildAttendanceMobileCardBody(Attendance att, String timeStr) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Row 1: Name + Time
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                att.employeeName ?? att.pin ?? '—',
+                style: const TextStyle(
+                    fontSize: 14, fontWeight: FontWeight.w600),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              timeStr,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: Theme.of(context).primaryColor,
+              ),
+            ),
           ],
-        );
-      },
+        ),
+        const SizedBox(height: 4),
+        // Row 2: Verify type + Device
+        Row(
+          children: [
+            _buildVerifyTypeIcon(att.verifyType),
+            const SizedBox(width: 4),
+            Text(_getVerifyTypeName(att.verifyType),
+                style: const TextStyle(
+                    fontSize: 12, color: Color(0xFF71717A))),
+            if (att.deviceName != null && att.deviceName!.isNotEmpty) ...[
+              const SizedBox(width: 8),
+              const Icon(Icons.router, size: 12, color: Color(0xFFA1A1AA)),
+              const SizedBox(width: 3),
+              Expanded(
+                child: Text(
+                  att.deviceName!,
+                  style: const TextStyle(
+                      fontSize: 12, color: Color(0xFF71717A)),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ] else
+              const Spacer(),
+          ],
+        ),
+      ],
     );
   }
 

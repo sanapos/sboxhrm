@@ -411,14 +411,12 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
             final deviceUsers = _deviceUsers
                 .where((u) => u.deviceId == selectedDevice!.id)
                 .toList();
-            final existingPins = deviceUsers.map((u) => u.pin).toSet();
             final existingEmployeeIds = deviceUsers
                 .where((u) => u.employeeId != null)
                 .map((u) => u.employeeId!)
                 .toSet();
             unlinkedEmployees = _employees.where((e) {
-              return !existingEmployeeIds.contains(e.id) &&
-                  !existingPins.contains(e.employeeCode);
+              return !existingEmployeeIds.contains(e.id);
             }).toList();
           } else {
             unlinkedEmployees = List.from(_employees);
@@ -487,16 +485,21 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Icon(Icons.info_outline,
                             size: 16, color: Colors.blue),
                         const SizedBox(width: 8),
-                        Text(
-                          selectedDevice == null
-                              ? 'Vui lòng chọn thiết bị để xem nhân viên'
-                              : '${unlinkedEmployees.length} nhân viên chưa có trên máy chấm công',
-                          style:
-                              const TextStyle(fontSize: 13, color: Colors.blue),
+                        Expanded(
+                          child: Text(
+                            selectedDevice == null
+                                ? 'Vui lòng chọn thiết bị để xem nhân viên'
+                                : '${unlinkedEmployees.length} nhân viên chưa liên kết máy. '
+                                    'PIN trên máy ≤ 8 số: dùng mã NV nếu ngắn; '
+                                    'nếu mã/SĐT dài sẽ lấy đuôi 6–8 số hoặc tự cấp số mới (không trùng).',
+                            style: const TextStyle(
+                                fontSize: 12, color: Colors.blue),
+                          ),
                         ),
                       ],
                     ),
@@ -633,6 +636,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
     int success = 0;
     int failed = 0;
     final failedNames = <String>[];
+    final assignedPins = <String>[];
 
     try {
       for (final emp in selectedEmployees) {
@@ -651,9 +655,15 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
           final result = await _apiService.createDeviceUser(userData);
           if (result['isSuccess'] == true) {
             success++;
+            final data = result['data'];
+            final pin = data is Map ? data['pin']?.toString() : null;
+            if (pin != null && pin.isNotEmpty) {
+              assignedPins.add('${emp.fullName}: PIN $pin');
+            }
           } else {
             failed++;
-            failedNames.add(emp.fullName);
+            failedNames.add(
+                '${emp.fullName}${result['message'] != null ? ' (${result['message']})' : ''}');
           }
         } catch (_) {
           failed++;
@@ -665,8 +675,13 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
       Navigator.pop(context); // Close progress
 
       if (success > 0) {
+        final pinHint = assignedPins.isEmpty
+            ? ''
+            : '\n${assignedPins.take(8).join('\n')}'
+                '${assignedPins.length > 8 ? '\n… +${assignedPins.length - 8} khác' : ''}';
         _showSuccess(
-            'Đã tải $success nhân viên xuống máy ${selectedDevice!.deviceName}${failed > 0 ? '. $failed thất bại.' : ''}');
+            'Đã tải $success nhân viên xuống máy ${selectedDevice!.deviceName}'
+            '${failed > 0 ? '. $failed thất bại.' : ''}$pinHint');
         await _loadDeviceUsers();
       } else {
         _showError('Không tải được nhân viên nào. Kiểm tra lại thiết bị.');
@@ -3259,6 +3274,11 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
             orElse: () => null,
           );
       if (freshDevice != null) {
+        if (freshDevice['allowEnrollFingerprintUi'] == false) {
+          _showError(
+              'Máy không hỗ trợ đăng ký vân tay từ xa. Hãy đăng ký trực tiếp trên máy.');
+          return;
+        }
         final lastOnline = freshDevice['lastOnline'] != null
             ? DateTime.tryParse(
                 freshDevice['lastOnline'].toString().endsWith('Z')
@@ -3535,35 +3555,59 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                         ),
                         const SizedBox(height: 20),
                         // Hướng dẫn
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.orange.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.info_outline,
-                                  color: Colors.orange, size: 16),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'Giao diện máy chấm công không hỗ trợ mở đăng ký khuôn mặt từ xa. Vui lòng đăng ký trực tiếp trên máy.',
-                                  style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.orange.shade700),
+                        Builder(builder: (_) {
+                          final canRemoteFace =
+                              _deviceAllowsRemoteFaceEnroll(user.deviceId);
+                          return Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: (canRemoteFace ? Colors.teal : Colors.orange)
+                                  .withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.info_outline,
+                                  color: canRemoteFace
+                                      ? Colors.teal
+                                      : Colors.orange,
+                                  size: 16,
                                 ),
-                              ),
-                            ],
-                          ),
-                        ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    canRemoteFace
+                                        ? 'Nhìn MÀN HÌNH MÁY CHẤM CÔNG (không phải điện thoại). Sau khi bấm đăng ký, máy có ~60 giây để quét mặt. Nếu máy không đổi giao diện: chạm/đánh thức màn hình, hoặc đăng ký Face trong Menu máy rồi bấm “Đồng bộ từ máy”.'
+                                        : 'Máy này không hỗ trợ đăng ký khuôn mặt từ xa. Vui lòng đăng ký trực tiếp trên máy.',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: canRemoteFace
+                                          ? Colors.teal.shade700
+                                          : Colors.orange.shade700,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }),
                         const SizedBox(height: 20),
                         // Nút đăng ký
                         SizedBox(
                           width: double.infinity,
                           child: FilledButton.icon(
                             onPressed: () async {
-                              await _showFaceNotSupportedMessage();
+                              if (!_deviceAllowsRemoteFaceEnroll(user.deviceId)) {
+                                await _showFaceNotSupportedMessage();
+                                return;
+                              }
+                              await _enrollFaceAndRefresh(
+                                user,
+                                setDialogState,
+                                (val) => hasFace = val,
+                                isReEnroll: hasFace,
+                              );
                             },
                             icon: const Icon(Icons.face, size: 20),
                             label: Text(
@@ -3578,6 +3622,30 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                             ),
                           ),
                         ),
+                        if (_deviceAllowsRemoteFaceEnroll(user.deviceId) &&
+                            _perm.canEdit('DeviceUser')) ...[
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: () => _syncFaceAfterManualEnrollment(
+                                user,
+                                setDialogState,
+                                (val) => hasFace = val,
+                                isReEnroll: hasFace,
+                              ),
+                              icon: const Icon(Icons.sync, size: 18),
+                              label: const Text('Đã đăng ký trên máy — Đồng bộ',
+                                  style: TextStyle(fontSize: 14)),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.teal,
+                                side: const BorderSide(color: Colors.teal),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 14),
+                              ),
+                            ),
+                          ),
+                        ],
                         if (hasFace && _perm.canEdit('DeviceUser')) ...[
                           const SizedBox(height: 12),
                           SizedBox(
@@ -3619,7 +3687,15 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
     );
   }
 
-  // ignore: unused_element
+  bool _deviceAllowsRemoteFaceEnroll(String deviceId) {
+    for (final d in _devices) {
+      if (d.id == deviceId) {
+        return d.allowEnrollFaceUi || d.supportsFaceUpdate == true;
+      }
+    }
+    return false;
+  }
+
   Future<void> _enrollFaceAndRefresh(
     DeviceUser user,
     StateSetter setDialogState,
@@ -3711,7 +3787,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
           ],
         ),
         content: Text(
-          'Máy FACE 2A/ZAM70 đang mở màn hình đăng ký vân tay khi nhận lệnh khuôn mặt từ xa.\n\nHãy đăng ký khuôn mặt trực tiếp trên máy chấm công cho ${user.name}, sau đó bấm "Đồng bộ ngay" để tải dữ liệu khuôn mặt về hệ thống.',
+          'Sau khi đăng ký khuôn mặt trực tiếp trên máy chấm công cho ${user.name}, bấm "Đồng bộ ngay" để tải dữ liệu khuôn mặt về hệ thống.',
         ),
         actions: [
           TextButton(
@@ -5334,9 +5410,12 @@ class _EnrollmentProgressDialogState extends State<_EnrollmentProgressDialog> {
         // Bắt đầu polling kiểm tra trạng thái
         _pollCommandStatus();
       } else {
+        final apiMsg = result?['message']?.toString().trim();
         setState(() {
           _status = 'error';
-          _message = 'Không thể gửi lệnh đăng ký vân tay';
+          _message = (apiMsg != null && apiMsg.isNotEmpty)
+              ? apiMsg
+              : 'Không thể gửi lệnh đăng ký vân tay';
         });
       }
     } catch (e) {
@@ -5727,7 +5806,7 @@ class _FaceEnrollmentProgressDialogState
             setState(() {
               _status = 'scanning';
               _message =
-                  'Máy đang chờ quét khuôn mặt...\nNhìn thẳng vào camera.';
+                  'Máy chấm công đang mở đăng ký khuôn mặt.\nNhìn MÀN HÌNH MÁY (không phải điện thoại),\nđứng trước camera khoảng 0.5–1m.';
             });
           }
 

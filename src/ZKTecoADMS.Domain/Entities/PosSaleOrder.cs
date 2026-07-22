@@ -20,6 +20,8 @@ public class PosSaleOrder : AuditableEntity<Guid>
     public decimal SubTotal { get; set; }
     public decimal Discount { get; set; }
     public decimal Total { get; set; }
+    /// <summary>Tiền VAT của đơn (tính theo cấu hình POS lúc tạo/hoàn tất).</summary>
+    public decimal VatAmount { get; set; }
     public decimal PaidAmount { get; set; }
 
     [MaxLength(50)]
@@ -84,6 +86,40 @@ public class PosSaleOrder : AuditableEntity<Guid>
     public decimal PointsDiscount { get; set; }
 
     public decimal PointsEarned { get; set; }
+
+    /// <summary>Bàn / phòng / ghế gắn đơn (F&amp;B, karaoke, salon).</summary>
+    public Guid? ServiceResourceId { get; set; }
+    public virtual PosServiceResource? ServiceResource { get; set; }
+
+    public Guid? ResourceSessionId { get; set; }
+    public virtual PosResourceSession? ResourceSession { get; set; }
+
+    public DateTime? ServiceStartedAt { get; set; }
+    public DateTime? ServiceEndedAt { get; set; }
+
+    /// <summary>Optimistic concurrency cho Draft — tăng mỗi claim/save/complete.</summary>
+    public int LockVersion { get; set; }
+
+    public Guid? LockedByUserId { get; set; }
+    public Guid? LockedByEmployeeId { get; set; }
+
+    [MaxLength(200)]
+    public string? LockedByDisplayName { get; set; }
+
+    [MaxLength(80)]
+    public string? LockedByDeviceId { get; set; }
+
+    [MaxLength(120)]
+    public string? LockedByDeviceName { get; set; }
+
+    public DateTime? LockedAt { get; set; }
+    public DateTime? LockExpiresAt { get; set; }
+
+    /// <summary>
+    /// Slot hóa đơn cố định trên POS (1..N). Chỉ gắn Draft.
+    /// Null khi đã thanh toán — mã OrderNo thật (HDxxxx) gán lúc Complete.
+    /// </summary>
+    public int? InvoiceSlot { get; set; }
 
     public virtual ICollection<PosSaleOrderLine> Lines { get; set; } = [];
 }

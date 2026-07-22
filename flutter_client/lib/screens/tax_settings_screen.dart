@@ -6,6 +6,7 @@ import '../services/api_service.dart';
 import '../utils/number_formatter.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/loading_widget.dart';
+import '../widgets/hrm/hrm_settings_mobile_kit.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
 class TaxSettingsScreen extends StatefulWidget {
@@ -181,12 +182,14 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
     final isMediumScreen = screenWidth >= 800 && screenWidth < 1200;
 
     return Scaffold(
-      backgroundColor: HrmPageChrome.background,
+      backgroundColor: HrmPageChrome.scaffoldBackground(context),
       appBar: HrmPageChrome.appBar(title: 'Thuế TNCN'),
       body: _isLoading
           ? const LoadingWidget()
           : SingleChildScrollView(
-              padding: EdgeInsets.all(Responsive.isMobile(context) ? 12 : 24),
+              padding: HrmSettingsMobileKit.active(context)
+                  ? HrmSettingsMobileKit.pagePadding(context)
+                  : EdgeInsets.all(Responsive.isMobile(context) ? 12 : 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -373,6 +376,44 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
               padding: EdgeInsets.all(40),
               child: Center(
                 child: Text('Chưa có nhân viên nào', style: TextStyle(color: Color(0xFFA1A1AA), fontSize: 14)),
+              ),
+            )
+          else if (HrmSettingsMobileKit.active(context))
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+              child: HrmSettingsEntityGrid(
+                itemCount: _employeeDeductions.length,
+                columns: 2,
+                childAspectRatio: 1.05,
+                itemBuilder: (context, index) {
+                  final emp = _employeeDeductions[index];
+                  final numDependents = (emp['numberOfDependents'] ?? 0) as int;
+                  final mandatoryIns = (emp['mandatoryInsurance'] is num)
+                      ? (emp['mandatoryInsurance'] as num).toDouble()
+                      : (double.tryParse(
+                              emp['mandatoryInsurance']?.toString() ?? '0') ??
+                          0);
+                  final otherExempt = (emp['otherExemptions'] is num)
+                      ? (emp['otherExemptions'] as num).toDouble()
+                      : (double.tryParse(
+                              emp['otherExemptions']?.toString() ?? '0') ??
+                          0);
+                  final dependentDeduction =
+                      numDependents * dependentDeductionRate;
+                  final totalExemption = personalDeduction +
+                      dependentDeduction +
+                      mandatoryIns +
+                      otherExempt;
+
+                  return HrmSettingsEntityTile(
+                    title: emp['employeeName'] ?? '',
+                    subtitle: emp['employeeCode']?.toString(),
+                    meta:
+                        '$numDependents NPT · ${_formatCurrency(totalExemption)}',
+                    icon: Icons.person,
+                    onTap: () => _showEmployeeDeductionDialog(index),
+                  );
+                },
               ),
             )
           else if (isMobile)

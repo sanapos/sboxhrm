@@ -136,14 +136,56 @@ public partial class PosPrintersController(
     public async Task<ActionResult<AppResponse<object>>> Delete(Guid id)
     {
         var storeId = RequiredStoreId;
-        var entity = await db.PosStorePrinters
-            .FirstOrDefaultAsync(p => p.Id == id && p.StoreId == storeId && p.Deleted == null);
-        if (entity == null) return NotFound(AppResponse<object>.Fail("Không tìm thấy máy in"));
+        var now = DateTime.UtcNow;
+        var by = CurrentUserId.ToString();
 
-        entity.Deleted = DateTime.UtcNow;
-        entity.DeletedBy = CurrentUserId.ToString();
-        entity.IsActive = false;
-        await db.SaveChangesAsync();
+        // ExecuteUpdate + IgnoreQueryFilters — tránh soft-delete filter / tracker
+        // khiến SaveChanges không ghi Deleted (list vẫn còn máy sau khi báo OK).
+        var affected = await db.PosStorePrinters
+            .IgnoreQueryFilters()
+            .Where(p => p.Id == id && p.StoreId == storeId && p.Deleted == null)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.Deleted, now)
+                .SetProperty(p => p.DeletedBy, by)
+                .SetProperty(p => p.IsActive, false)
+                .SetProperty(p => p.IsDefault, false)
+                .SetProperty(p => p.UpdatedAt, now)
+                .SetProperty(p => p.UpdatedBy, by));
+
+        if (affected == 0)
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy máy in"));
+
+        // Gỡ route chứng từ gắn máy.
+        await db.PosPrinterDocumentRoutes
+            .IgnoreQueryFilters()
+            .Where(r => r.PrinterId == id && r.StoreId == storeId && r.Deleted == null)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(x => x.Deleted, now)
+                .SetProperty(x => x.DeletedBy, by)
+                .SetProperty(x => x.IsActive, false)
+                .SetProperty(x => x.UpdatedAt, now)
+                .SetProperty(x => x.UpdatedBy, by));
+
+        // Bỏ gán DefaultPrinter trên SP/nhóm nếu còn trỏ máy đã xóa.
+        await db.PosProducts
+            .IgnoreQueryFilters()
+            .Where(p => p.StoreId == storeId && p.Deleted == null && p.DefaultPrinterId == id)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.DefaultPrinterId, (Guid?)null)
+                .SetProperty(p => p.UpdatedAt, now));
+
+        await db.PosProductCategories
+            .IgnoreQueryFilters()
+            .Where(c => c.StoreId == storeId && c.Deleted == null && c.DefaultPrinterId == id)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(c => c.DefaultPrinterId, (Guid?)null)
+                .SetProperty(c => c.UpdatedAt, now));
+
+        // Detach tracker — tránh query sau vẫn «nhìn» entity cũ.
+        foreach (var entry in db.ChangeTracker.Entries<PosStorePrinter>()
+                     .Where(e => e.Entity.Id == id).ToList())
+            entry.State = EntityState.Detached;
+
         await dispatch.EnsureDefaultRoutesAsync(storeId);
         return Ok(AppResponse<object>.Success(true));
     }

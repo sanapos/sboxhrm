@@ -2855,8 +2855,9 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
-        var deviceMatchesCurrent = string.IsNullOrEmpty(currentId)
-            || string.Equals(device.DeviceId, currentId, StringComparison.OrdinalIgnoreCase);
+        var hasCurrentDeviceId = !string.IsNullOrEmpty(currentId);
+        var deviceMatchesCurrent = hasCurrentDeviceId
+            && string.Equals(device.DeviceId, currentId, StringComparison.OrdinalIgnoreCase);
 
 
 
@@ -2935,10 +2936,10 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
             registered = deviceMatchesCurrent && device.IsAuthorized,
 
 
-            approved = device.IsAuthorized && (deviceMatchesCurrent || device.AllowOutsideCheckIn),
+            approved = deviceMatchesCurrent && device.IsAuthorized,
 
 
-            registeredOnOtherDevice = !deviceMatchesCurrent && !string.IsNullOrEmpty(currentId),
+            registeredOnOtherDevice = hasCurrentDeviceId && !deviceMatchesCurrent,
 
 
             deviceId = device.DeviceId,
@@ -4915,7 +4916,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
-        if (request.PunchType is not 0 and not 1 and not 2 and not 3)
+        if (request.PunchType is not 0 and not 1 and not 2 and not 3 and not 4 and not 5)
 
 
         {
@@ -4931,6 +4932,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
 
         var isTravelPunch = request.PunchType is 2 or 3;
+        var isLunchOtPunch = request.PunchType is 4 or 5;
 
 
 
@@ -9048,6 +9050,8 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
         1 => AttendanceStates.CheckOut,
         2 => AttendanceStates.TravelStart,
         3 => AttendanceStates.TravelArrive,
+        4 => AttendanceStates.MealOut,
+        5 => AttendanceStates.MealIn,
         _ => AttendanceStates.CheckIn,
     };
 

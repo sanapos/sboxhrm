@@ -16,6 +16,7 @@ import '../providers/permission_provider.dart';
 import 'allowance_settings_screen.dart';
 import '../utils/allowance_calculator.dart';
 import '../utils/travel_salary_utils.dart';
+import '../utils/standard_work_days_utils.dart';
 import '../utils/shift_records_calculator.dart';
 
 class SalarySettingsScreen extends StatefulWidget {
@@ -47,6 +48,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
   final ScrollController _salaryTableVScroll = ScrollController();
   Map<String, dynamic> _storeSalarySettings = {};
   double _standardWorkHours = 8;
+  int? _salarySortColumnIndex;
+  bool _salarySortAscending = true;
 
   @override
   void initState() {
@@ -140,7 +143,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
           'paidDayOff':
               empSalaryProfile?['benefit']?['weeklyOffDays'] ?? 'Sunday',
           'attendanceType':
-              empSalaryProfile?['benefit']?['attendanceMode'] ?? 'checkin',
+              empSalaryProfile?['benefit']?['attendanceMode'] ?? 'both',
           'shifts': _parseDescriptionField(
               empSalaryProfile?['benefit']?['description'], 'shifts'),
           'shiftsPerDay': empSalaryProfile?['benefit']?['shiftsPerDay'] ?? 1,
@@ -219,7 +222,49 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
           .toList();
     }
 
-    return list;
+    final result = List<Map<String, dynamic>>.from(list);
+    final sortIdx = _salarySortColumnIndex;
+    if (sortIdx != null) {
+      int compare(Map<String, dynamic> a, Map<String, dynamic> b) {
+        switch (sortIdx) {
+          case 0:
+            return (a['employeeCode']?.toString() ?? '')
+                .toLowerCase()
+                .compareTo((b['employeeCode']?.toString() ?? '').toLowerCase());
+          case 1:
+            return (a['fullName']?.toString() ?? '')
+                .toLowerCase()
+                .compareTo((b['fullName']?.toString() ?? '').toLowerCase());
+          case 2:
+            return _getSalaryTypeName(a['salaryType'])
+                .compareTo(_getSalaryTypeName(b['salaryType']));
+          case 3:
+            return ((a['baseSalary'] as num?) ?? 0)
+                .compareTo((b['baseSalary'] as num?) ?? 0);
+          case 4:
+            final aId = a['id']?.toString() ?? '';
+            final bId = b['id']?.toString() ?? '';
+            return _calculateEmployeeAllowanceTotal(aId, 0, employee: a)
+                .compareTo(
+                    _calculateEmployeeAllowanceTotal(bId, 0, employee: b));
+          case 5:
+            return (a['shifts']?.toString() ?? '')
+                .compareTo(b['shifts']?.toString() ?? '');
+          case 6:
+            final ac = a['isConfigured'] == true ? 1 : 0;
+            final bc = b['isConfigured'] == true ? 1 : 0;
+            return ac.compareTo(bc);
+          default:
+            return 0;
+        }
+      }
+
+      result.sort((a, b) {
+        final c = compare(a, b);
+        return _salarySortAscending ? c : -c;
+      });
+    }
+    return result;
   }
 
   int get _totalEmployees => _employeeSalaries.length;
@@ -897,11 +942,18 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
 
   Widget _buildSalaryEmployeesDataTable() {
     final employees = _filteredEmployees;
-    DataColumn col(String label, {double? width}) => DataColumn(
+    DataColumn col(String label, {double? width}) =>
+        DataColumn(
           label: SizedBox(
             width: width,
             child: Text(label, style: _salaryTableHeaderStyle),
           ),
+          onSort: (i, asc) {
+            setState(() {
+              _salarySortColumnIndex = i;
+              _salarySortAscending = asc;
+            });
+          },
         );
 
     return Container(
@@ -943,6 +995,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                             minWidth: _salaryEmployeesTableMinWidth,
                           ),
                           child: DataTable(
+                    sortColumnIndex: _salarySortColumnIndex,
+                    sortAscending: _salarySortAscending,
                     headingRowColor:
                         WidgetStateProperty.all(const Color(0xFFFAFAFA)),
                     dataRowColor: WidgetStateProperty.resolveWith<Color?>(
@@ -964,7 +1018,6 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                       col('Lương CB', width: 120),
                       col('Phụ cấp cố định', width: 120),
                       col('Ca làm việc', width: _salaryShiftsColumnWidth),
-                      col('Số ca/công', width: 88),
                       col('Trạng thái', width: 110),
                       const DataColumn(label: Text('')),
                     ],
@@ -979,8 +1032,6 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                           _calculateEmployeeAllowanceTotal(employeeId, 0,
                               employee: employee);
                       final shifts = employee['shifts']?.toString() ?? '';
-                      final shiftsPerDay =
-                          (employee['shiftsPerDay'] as num?)?.toInt() ?? 1;
                       final name =
                           employee['fullName']?.toString().trim().isNotEmpty ==
                                   true
@@ -1033,13 +1084,6 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                               child: _buildSalaryShiftsText(shifts),
                             ),
                           ),
-                          DataCell(Text(
-                            shifts.isNotEmpty ? '$shiftsPerDay' : '—',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          )),
                           DataCell(_buildSalaryStatusChip(
                             isConfigured: isConfigured,
                             label:
@@ -1419,7 +1463,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
 
   static const double _salaryShiftsColumnWidth = 300;
   static const double _salaryEmployeesTableMinWidth =
-      88 + 180 + 110 + 120 + 120 + _salaryShiftsColumnWidth + 88 + 110 + 56;
+      88 + 180 + 110 + 120 + 120 + _salaryShiftsColumnWidth + 110 + 56;
 
   String _formatShiftsDisplay(String? raw) {
     final shifts = raw?.toString().trim() ?? '';
@@ -1808,8 +1852,6 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                 _buildDetailItem(
                     'Ca làm việc',
                     _formatShiftsDisplay(employee['shifts']?.toString())),
-                _buildDetailItem('Số ca / 1 công',
-                    (employee['shiftsPerDay'] ?? 1).toString()),
                 _buildDetailItem(
                     'Ngày nghỉ có lương',
                     _getPaidLeaveTypeDisplayName(employee['benefit']
@@ -2077,10 +2119,12 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
         return 'Chấm vào & Chấm ra';
       case 'any':
         return 'Chấm bất kỳ';
+      case kFreeTwoPunchAttendanceMode:
+        return 'Chấm 2 lần bất kỳ trong ngày';
       case 'none':
         return 'Không chấm công';
       default:
-        return 'Chấm vào';
+        return 'Chấm vào & Chấm ra';
     }
   }
 
@@ -2762,6 +2806,14 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
       text: (benefit['unpaidLeaveDays'] ?? 0).toString(),
     );
 
+    EmployeeStandardWorkMode stdWorkMode =
+        parseEmployeeStandardWorkMode(benefit);
+    final fixedStdDaysController = TextEditingController(
+      text: parseFixedStandardWorkDays(benefit).toString(),
+    );
+    bool deductIfBelowFixed = parseDeductIfBelowFixedStandard(benefit);
+    bool addIfAboveFixed = parseAddIfAboveFixedStandard(benefit);
+
     String paidLeaveType = benefit['paidLeaveType']?.toString() ?? 'sunday';
     if (![
       'sunday',
@@ -2787,10 +2839,16 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
       }
     }
 
-    String attendanceMode = benefit['attendanceMode']?.toString() ?? 'checkin';
-    if (!['none', 'checkin', 'checkout', 'both', 'any']
-        .contains(attendanceMode)) {
-      attendanceMode = 'checkin';
+    String attendanceMode = benefit['attendanceMode']?.toString() ?? 'both';
+    if (![
+      'none',
+      'checkin',
+      'checkout',
+      'both',
+      'any',
+      kFreeTwoPunchAttendanceMode,
+    ].contains(attendanceMode)) {
+      attendanceMode = 'both';
     }
 
     List<String> selectedShifts = [];
@@ -2803,9 +2861,23 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
         (benefit['shiftsPerDay'] ?? employee['shiftsPerDay'] ?? 1).toString();
     if (!['1', '2', '3', '4'].contains(shiftsPerDay)) shiftsPerDay = '1';
 
+    final hoursPerWorkDayInit = parseHoursPerWorkDay(
+      benefit: benefit,
+      fallbackHours: _standardWorkHours,
+    );
+    final hoursPerWorkDayController = TextEditingController(
+      text: hoursPerWorkDayInit == hoursPerWorkDayInit.roundToDouble()
+          ? hoursPerWorkDayInit.toInt().toString()
+          : hoursPerWorkDayInit.toStringAsFixed(1),
+    );
+
+    bool travelSalaryEnabled = isTravelSalaryEnabledForEmployee(benefit: benefit);
     TravelSalaryMode employeeTravelMode = parseTravelSalaryModeForEmployee(
       benefit: benefit,
     );
+    if (employeeTravelMode == TravelSalaryMode.off) {
+      employeeTravelMode = TravelSalaryMode.basePer8h;
+    }
     final employeeTravelFixedRate = parseTravelFixedHourlyRateForEmployee(
       benefit: benefit,
     );
@@ -3388,8 +3460,108 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
 
                 const Divider(color: Color(0xFFE4E4E7)),
                 const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Lương đi đường (nhân viên)',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                          color: Color(0xFF18181B),
+                        ),
+                      ),
+                    ),
+                    Switch.adaptive(
+                      value: travelSalaryEnabled,
+                      activeTrackColor: HrmPageChrome.primaryNavy,
+                      onChanged: (v) => setDialogState(() {
+                        travelSalaryEnabled = v;
+                        if (v &&
+                            employeeTravelMode == TravelSalaryMode.off) {
+                          employeeTravelMode = TravelSalaryMode.basePer8h;
+                        }
+                      }),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  travelSalaryEnabled
+                      ? 'Bật thì chọn cách tính đơn giá giờ đi đường. Chỉ NV có giờ đi đường mobile (đã duyệt) mới có trên bảng lương.'
+                      : 'Đang tắt — không tính lương đi đường cho nhân viên này.',
+                  style:
+                      const TextStyle(fontSize: 11, color: Color(0xFF71717A)),
+                ),
+                if (travelSalaryEnabled) ...[
+                  const SizedBox(height: 8),
+                  RadioListTile<TravelSalaryMode>(
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    title: Text(
+                        'Lương cơ bản ÷ $stdDaysLabel công ÷ $stdHoursLabel giờ'),
+                    subtitle: Text(
+                      'VD: LCB 8.000.000, $stdDaysLabel công, $stdHoursLabel h → ${NumberFormat('#,###', 'vi_VN').format((8000000 / (_storeStandardWorkDays() * _standardWorkHours)).round())}đ/giờ',
+                      style: const TextStyle(fontSize: 11),
+                    ),
+                    value: TravelSalaryMode.basePer8h,
+                    groupValue: employeeTravelMode,
+                    onChanged: (v) => setDialogState(
+                        () => employeeTravelMode = TravelSalaryMode.basePer8h),
+                  ),
+                  RadioListTile<TravelSalaryMode>(
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    title: Text(
+                        'Lương hoàn thành ÷ $stdDaysLabel công ÷ $stdHoursLabel giờ'),
+                    subtitle: const Text(
+                      'Dùng mức lương hoàn thành trên hồ sơ lương NV',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    value: TravelSalaryMode.completionPer8h,
+                    groupValue: employeeTravelMode,
+                    onChanged: (v) => setDialogState(() =>
+                        employeeTravelMode = TravelSalaryMode.completionPer8h),
+                  ),
+                  RadioListTile<TravelSalaryMode>(
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    title: Text(
+                        '(Lương cơ bản + lương hoàn thành) ÷ $stdDaysLabel công ÷ $stdHoursLabel giờ'),
+                    subtitle: Text(
+                      'VD: LCB 5.000.000 + LHT 3.000.000, $stdDaysLabel công, $stdHoursLabel h → ${NumberFormat('#,###', 'vi_VN').format((8000000 / (_storeStandardWorkDays() * _standardWorkHours)).round())}đ/giờ',
+                      style: const TextStyle(fontSize: 11),
+                    ),
+                    value: TravelSalaryMode.basePlusCompletionPer8h,
+                    groupValue: employeeTravelMode,
+                    onChanged: (v) => setDialogState(() =>
+                        employeeTravelMode =
+                            TravelSalaryMode.basePlusCompletionPer8h),
+                  ),
+                  RadioListTile<TravelSalaryMode>(
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    title: const Text('Giờ cố định (VNĐ/giờ)'),
+                    value: TravelSalaryMode.fixed,
+                    groupValue: employeeTravelMode,
+                    onChanged: (v) => setDialogState(
+                        () => employeeTravelMode = TravelSalaryMode.fixed),
+                  ),
+                  if (employeeTravelMode == TravelSalaryMode.fixed) ...[
+                    const SizedBox(height: 8),
+                    _buildTextField(
+                      label: 'Đơn giá giờ đi đường:',
+                      controller: employeeTravelFixedRateController,
+                      keyboardType: TextInputType.number,
+                    ),
+                  ],
+                ],
+                const SizedBox(height: 16),
+
+                const Divider(color: Color(0xFFE4E4E7)),
+                const SizedBox(height: 8),
                 const Text(
-                  'Lương đi đường (nhân viên)',
+                  'Công chuẩn tháng',
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 14,
@@ -3398,52 +3570,67 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                 ),
                 const SizedBox(height: 4),
                 const Text(
-                  'Mặc định: LCB ÷ công chuẩn tháng ÷ 8h. Chỉ NV bật chấm đi đường trên thiết bị mobile mới có giờ đi đường trên bảng công/lương.',
+                  'Dùng chia lương tháng: đơn giá ngày = lương tháng ÷ công chuẩn. '
+                  'Công tính lương có thể khác công thực tế khi chọn cố định.',
                   style: TextStyle(fontSize: 11, color: Color(0xFF71717A)),
                 ),
                 const SizedBox(height: 8),
-                RadioListTile<TravelSalaryMode>(
+                RadioListTile<EmployeeStandardWorkMode>(
                   contentPadding: EdgeInsets.zero,
                   dense: true,
-                  title: Text('Lương cơ bản ÷ $stdDaysLabel công ÷ $stdHoursLabel giờ'),
-                  subtitle: Text(
-                    'VD: LCB 8.000.000, $stdDaysLabel công, $stdHoursLabel h → ${NumberFormat('#,###', 'vi_VN').format((8000000 / (_storeStandardWorkDays() * _standardWorkHours)).round())}đ/giờ',
-                    style: const TextStyle(fontSize: 11),
-                  ),
-                  value: TravelSalaryMode.basePer8h,
-                  groupValue: employeeTravelMode,
-                  onChanged: (v) => setDialogState(
-                      () => employeeTravelMode = TravelSalaryMode.basePer8h),
-                ),
-                RadioListTile<TravelSalaryMode>(
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                  title: Text(
-                      'Lương hoàn thành ÷ $stdDaysLabel công ÷ $stdHoursLabel giờ'),
+                  title: const Text('Số ngày trong tháng − Ngày nghỉ có lương'),
                   subtitle: const Text(
-                    'Dùng mức lương hoàn thành trên hồ sơ lương NV',
+                    'VD tháng 30 ngày, nghỉ CN → công chuẩn ≈ 26 (tùy tháng)',
                     style: TextStyle(fontSize: 11),
                   ),
-                  value: TravelSalaryMode.completionPer8h,
-                  groupValue: employeeTravelMode,
-                  onChanged: (v) => setDialogState(() =>
-                      employeeTravelMode = TravelSalaryMode.completionPer8h),
+                  value: EmployeeStandardWorkMode.monthMinusPaidLeave,
+                  groupValue: stdWorkMode,
+                  onChanged: (v) => setDialogState(() => stdWorkMode =
+                      EmployeeStandardWorkMode.monthMinusPaidLeave),
                 ),
-                RadioListTile<TravelSalaryMode>(
+                RadioListTile<EmployeeStandardWorkMode>(
                   contentPadding: EdgeInsets.zero,
                   dense: true,
-                  title: const Text('Giờ cố định (VNĐ/giờ)'),
-                  value: TravelSalaryMode.fixed,
-                  groupValue: employeeTravelMode,
+                  title: const Text('Cố định số ngày'),
+                  subtitle: const Text(
+                    'Đơn giá ngày ổn định theo N công (mặc định 26)',
+                    style: TextStyle(fontSize: 11),
+                  ),
+                  value: EmployeeStandardWorkMode.fixedDays,
+                  groupValue: stdWorkMode,
                   onChanged: (v) => setDialogState(
-                      () => employeeTravelMode = TravelSalaryMode.fixed),
+                      () => stdWorkMode = EmployeeStandardWorkMode.fixedDays),
                 ),
-                if (employeeTravelMode == TravelSalaryMode.fixed) ...[
+                if (stdWorkMode == EmployeeStandardWorkMode.fixedDays) ...[
                   const SizedBox(height: 8),
                   _buildTextField(
-                    label: 'Đơn giá giờ đi đường:',
-                    controller: employeeTravelFixedRateController,
+                    label: 'Số công cố định:',
+                    controller: fixedStdDaysController,
                     keyboardType: TextInputType.number,
+                  ),
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    title: const Text(
+                      'Trừ lương theo ngày nếu tháng không đủ số công cố định',
+                      style: TextStyle(fontSize: 13),
+                    ),
+                    value: deductIfBelowFixed,
+                    onChanged: (v) => setDialogState(
+                        () => deductIfBelowFixed = v ?? true),
+                  ),
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    title: const Text(
+                      'Cộng lương theo ngày nếu vượt số công cố định',
+                      style: TextStyle(fontSize: 13),
+                    ),
+                    value: addIfAboveFixed,
+                    onChanged: (v) =>
+                        setDialogState(() => addIfAboveFixed = v ?? true),
                   ),
                 ],
                 const SizedBox(height: 16),
@@ -3496,16 +3683,20 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                           DropdownMenuItem(
                               value: 'any',
                               child: Text('Chấm bất kỳ trong ca')),
+                          DropdownMenuItem(
+                              value: kFreeTwoPunchAttendanceMode,
+                              child: Text(
+                                  'Chấm 2 lần bất kỳ trong ngày (không theo ca, không trễ/sớm/OT)')),
                         ],
                         onChanged: (value) => setDialogState(
-                            () => attendanceMode = value ?? 'checkin'),
+                            () => attendanceMode = value ?? 'both'),
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 16),
 
-                // Ca làm việc & Số ca / 1 công
+                // Ca làm việc & Giờ / 1 công
                 Row(
                   children: [
                     Expanded(
@@ -3517,17 +3708,18 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                     ),
                     const SizedBox(width: 16),
                     Expanded(
-                      child: _buildDropdownField(
-                        label: 'Số ca / 1 công:',
-                        value: shiftsPerDay,
-                        items: const [
-                          DropdownMenuItem(value: '1', child: Text('1')),
-                          DropdownMenuItem(value: '2', child: Text('2')),
-                          DropdownMenuItem(value: '3', child: Text('3')),
-                          DropdownMenuItem(value: '4', child: Text('4')),
-                        ],
-                        onChanged: (value) =>
-                            setDialogState(() => shiftsPerDay = value ?? '1'),
+                      child: TextFormField(
+                        controller: hoursPerWorkDayController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
+                        decoration: const InputDecoration(
+                          labelText: 'Giờ / 1 công',
+                          hintText: 'Mặc định 8',
+                          suffixText: 'h',
+                          helperText: 'Tổng giờ các ca trong ngày = 1 công',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
                       ),
                     ),
                   ],
@@ -3577,7 +3769,10 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                       dailyAllowanceController.text.replaceAll('.', '')) ??
                   0;
 
-              // Map paidLeaveType to weeklyOffDays for backward compatibility
+              // Map paidLeaveType to weeklyOffDays for backward compatibility.
+              // off-1..off-4 = nghỉ N ngày bất kỳ/tháng (không cố định thứ) →
+              // weeklyOffDays để trống, không được coi Thứ 7/CN là ngày nghỉ cố
+              // định (tránh tính nhầm "Tăng ca ngày nghỉ" khi họ đi làm CN).
               String weeklyOffDays = 'Sunday';
               if (paidLeaveType == 'saturday') {
                 weeklyOffDays = 'Saturday';
@@ -3585,6 +3780,11 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                 weeklyOffDays = 'Saturday,Sunday';
               } else if (paidLeaveType == 'sat-afternoon-sun') {
                 weeklyOffDays = 'Saturday,Sunday';
+              } else if (paidLeaveType == 'off-1' ||
+                  paidLeaveType == 'off-2' ||
+                  paidLeaveType == 'off-3' ||
+                  paidLeaveType == 'off-4') {
+                weeklyOffDays = '';
               }
 
               // Build description with shifts info
@@ -3594,6 +3794,12 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                 descParts.add('shifts:${selectedShifts.join(', ')}');
               }
               descParts.add('shiftsPerDay:$shiftsPerDay');
+              final hPwd = double.tryParse(
+                      hoursPerWorkDayController.text.replaceAll(',', '.')) ??
+                  _standardWorkHours;
+              final hoursVal = hPwd > 0 ? hPwd : _standardWorkHours;
+              descParts.add(
+                  'hoursPerWorkDay:${hoursVal == hoursVal.roundToDouble() ? hoursVal.toInt() : hoursVal}');
               final description = descParts.join('|');
 
               final benefitData = <String, dynamic>{
@@ -3640,23 +3846,42 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                 'shiftsPerDay': int.parse(shiftsPerDay),
                 'attendanceMode': attendanceMode,
                 'paidLeaveType': paidLeaveType,
+                'standardWorkMode':
+                    stdWorkMode == EmployeeStandardWorkMode.fixedDays
+                        ? standardWorkModeFixedCustom
+                        : standardWorkModeAuto,
+                'fixedStandardWorkDays': () {
+                  final n = int.tryParse(fixedStdDaysController.text.trim());
+                  if (n == null || n < 1) return 26;
+                  return n.clamp(1, 31);
+                }(),
+                'deductIfBelowFixedStandard': deductIfBelowFixed,
+                'addIfAboveFixedStandard': addIfAboveFixed,
                 'isActive': true,
               };
 
-              final travelMode = switch (employeeTravelMode) {
-                TravelSalaryMode.fixed => travelSalaryModeFixed,
-                TravelSalaryMode.completionPer8h =>
-                  travelSalaryModeCompletionPer8h,
-                TravelSalaryMode.basePer8h => travelSalaryModeBasePer8h,
-              };
-              benefitData['travelSalaryMode'] = travelMode;
-              if (employeeTravelMode == TravelSalaryMode.fixed) {
-                benefitData['travelFixedHourlyRate'] = double.tryParse(
-                        employeeTravelFixedRateController.text
-                            .replaceAll('.', '')) ??
-                    0;
-              } else {
+              if (!travelSalaryEnabled) {
+                benefitData['travelSalaryMode'] = travelSalaryModeOff;
                 benefitData['travelFixedHourlyRate'] = null;
+              } else {
+                final travelMode = switch (employeeTravelMode) {
+                  TravelSalaryMode.off => travelSalaryModeBasePer8h,
+                  TravelSalaryMode.fixed => travelSalaryModeFixed,
+                  TravelSalaryMode.completionPer8h =>
+                    travelSalaryModeCompletionPer8h,
+                  TravelSalaryMode.basePlusCompletionPer8h =>
+                    travelSalaryModeBasePlusCompletionPer8h,
+                  TravelSalaryMode.basePer8h => travelSalaryModeBasePer8h,
+                };
+                benefitData['travelSalaryMode'] = travelMode;
+                if (employeeTravelMode == TravelSalaryMode.fixed) {
+                  benefitData['travelFixedHourlyRate'] = double.tryParse(
+                          employeeTravelFixedRateController.text
+                              .replaceAll('.', '')) ??
+                      0;
+                } else {
+                  benefitData['travelFixedHourlyRate'] = null;
+                }
               }
 
               if (rateType == 1) {

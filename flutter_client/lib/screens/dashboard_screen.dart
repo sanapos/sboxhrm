@@ -5,6 +5,7 @@ import 'dart:math' as math;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:intl/intl.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
@@ -17,6 +18,7 @@ import '../utils/attendance_load_utils.dart';
 import '../utils/attendance_date_range_presets.dart';
 import '../utils/salary_profile_load_utils.dart';
 import '../utils/dashboard_ui_capabilities.dart';
+import '../utils/number_formatter.dart';
 import '../utils/shift_records_calculator.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/pos/pos_mobile_widgets.dart';
@@ -3064,6 +3066,88 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return v.toStringAsFixed(0);
   }
 
+  /// Dialog xác nhận duyệt ứng lương nhanh từ dashboard — cho phép quản lý
+  /// sửa số tiền duyệt thấp hơn số tiền nhân viên yêu cầu ban đầu. Trả về
+  /// số tiền đã xác nhận, hoặc null nếu người dùng hủy.
+  Future<double?> _showAdvanceApproveAmountDialog(
+      Map<String, dynamic> item) async {
+    final requestedAmount =
+        ((item['requestedAmount'] ?? item['amount'] ?? 0) as num).toDouble();
+    final priorApproved = item['approvedAmount'] != null
+        ? (item['approvedAmount'] as num).toDouble()
+        : null;
+    final initialAmount = priorApproved ?? requestedAmount;
+    final currency = NumberFormat.currency(locale: 'vi_VN', symbol: '₫');
+    final amountController = TextEditingController(
+        text: NumberFormat('#,###').format(initialAmount));
+    String? errorText;
+    final employeeName = (item['employeeName'] ?? '').toString();
+
+    return showDialog<double>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => ScrollableAlertDialog(
+          title: const Text('Xác nhận duyệt ứng lương'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (employeeName.isNotEmpty) Text('Nhân viên: $employeeName'),
+              const SizedBox(height: 4),
+              Text('Số tiền yêu cầu: ${currency.format(requestedAmount)}'),
+              if (priorApproved != null &&
+                  priorApproved != requestedAmount) ...[
+                const SizedBox(height: 4),
+                Text(
+                  'Đề xuất bước trước: ${currency.format(priorApproved)}',
+                  style:
+                      TextStyle(color: Colors.orange.shade800, fontSize: 13),
+                ),
+              ],
+              const SizedBox(height: 12),
+              TextField(
+                controller: amountController,
+                keyboardType: TextInputType.number,
+                inputFormatters: [ThousandSeparatorFormatter()],
+                decoration: InputDecoration(
+                  labelText: 'Số tiền duyệt *',
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.attach_money),
+                  errorText: errorText,
+                  helperText:
+                      'Có thể duyệt thấp hơn số tiền yêu cầu (vd: YC 5tr → duyệt 3tr)',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Hủy')),
+            FilledButton(
+              onPressed: () {
+                final parsed =
+                    parseFormattedNumber(amountController.text)?.toDouble();
+                if (parsed == null || parsed <= 0) {
+                  setDialogState(
+                      () => errorText = 'Vui lòng nhập số tiền hợp lệ');
+                  return;
+                }
+                if (parsed > requestedAmount) {
+                  setDialogState(() => errorText =
+                      'Không được vượt số tiền yêu cầu (${currency.format(requestedAmount)})');
+                  return;
+                }
+                Navigator.pop(ctx, parsed);
+              },
+              child: const Text('Duyệt'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   // ===================== INSIGHT DETAIL SHEET =====================
   void _showInsightDetail(_InsightChipData c) {
     final List<Map<String, dynamic>> items;
@@ -3606,8 +3690,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     approve: false, rejectionReason: reason);
             break;
           case 'advance':
+            double? advanceApprovedAmount;
+            if (approve) {
+              advanceApprovedAmount =
+                  await _showAdvanceApproveAmountDialog(item);
+              if (advanceApprovedAmount == null) return; // đã hủy
+            }
+            // Luôn gửi số tiền duyệt để backend lưu đúng (kể cả = số yêu cầu).
             result = await _api.approveAdvanceRequest(
-                requestId: id, isApproved: approve, rejectionReason: reason);
+                requestId: id,
+                isApproved: approve,
+                rejectionReason: reason,
+                approvedAmount: approve ? advanceApprovedAmount : null);
             break;
           case 'mobile':
             result = await _api.approveMobileAttendance(
@@ -4131,13 +4225,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 final isLoading = loadingIds.contains(id);
 
                 Future<void> doAction(bool approve,
-                    {String? rejectReason}) async {
+                    {String? rejectReason, double? approvedAmountOverride}) async {
                   setS(() => loadingIds.add(id));
                   try {
                     final result = await _api.approveAdvanceRequest(
                         requestId: id,
                         isApproved: approve,
-                        rejectionReason: rejectReason);
+                        rejectionReason: rejectReason,
+                        // Luôn gửi số tiền duyệt khi approve (kể cả = số YC).
+                        approvedAmount:
+                            approve ? approvedAmountOverride : null);
                     final ok = result['isSuccess'] == true ||
                         result['isSuccess'] == 'true';
                     if (mounted) {
@@ -4172,7 +4269,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   setS(() => loadingIds.remove(id));
                 }
 
-                Future<void> onApprove() => doAction(true);
+                Future<void> onApprove() async {
+                  final approvedAmount =
+                      await _showAdvanceApproveAmountDialog(item);
+                  if (approvedAmount == null) return; // đã hủy
+                  await doAction(true, approvedAmountOverride: approvedAmount);
+                }
 
                 Future<void> onReject() async {
                   final ctrl = TextEditingController();

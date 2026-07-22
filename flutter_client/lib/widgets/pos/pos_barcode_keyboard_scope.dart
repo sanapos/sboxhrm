@@ -1,10 +1,16 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// Bắt input từ máy quét mã vạch (keyboard wedge) khi không gõ vào ô nhập khác.
+import '../../utils/pos_sunmi_scanner.dart';
+
+/// Bắt input từ máy quét mã vạch (keyboard wedge + Sunmi broadcast).
 ///
 /// Máy quét gõ nhanh chuỗi ký tự và kết thúc bằng Enter — widget này gom buffer
 /// và gọi [onBarcode] mà không cần focus vào ô tìm kiếm trước.
+/// Trên Sunmi V2s cũng nhận broadcast `ACTION_DATA_CODE_RECEIVED` (nhanh hơn camera).
 class PosBarcodeKeyboardScope extends StatefulWidget {
   const PosBarcodeKeyboardScope({
     super.key,
@@ -28,20 +34,51 @@ class _PosBarcodeKeyboardScopeState extends State<PosBarcodeKeyboardScope> {
   final StringBuffer _buffer = StringBuffer();
   DateTime? _lastKeyAt;
   bool _handling = false;
+  StreamSubscription<String>? _sunmiSub;
+  String? _lastSunmiCode;
+  DateTime? _lastSunmiAt;
 
   static const _maxGap = Duration(milliseconds: 90);
   static const _minCodeLength = 2;
+  static const _sunmiDedupe = Duration(milliseconds: 400);
 
   @override
   void initState() {
     super.initState();
     HardwareKeyboard.instance.addHandler(_onKey);
+    if (!kIsWeb) {
+      _sunmiSub = PosSunmiScanner.barcodes.listen(_onSunmiCode);
+    }
   }
 
   @override
   void dispose() {
     HardwareKeyboard.instance.removeHandler(_onKey);
+    _sunmiSub?.cancel();
     super.dispose();
+  }
+
+  void _onSunmiCode(String code) {
+    if (!widget.enabled || _handling) return;
+    final now = DateTime.now();
+    if (_lastSunmiCode == code &&
+        _lastSunmiAt != null &&
+        now.difference(_lastSunmiAt!) < _sunmiDedupe) {
+      return;
+    }
+    _lastSunmiCode = code;
+    _lastSunmiAt = now;
+    _emit(code);
+  }
+
+  void _emit(String code) {
+    final trimmed = code.trim();
+    if (trimmed.length < _minCodeLength) return;
+    _handling = true;
+    HapticFeedback.lightImpact();
+    widget.onBarcode(trimmed).whenComplete(() {
+      if (mounted) _handling = false;
+    });
   }
 
   bool _shouldCapture() {
@@ -69,10 +106,7 @@ class _PosBarcodeKeyboardScopeState extends State<PosBarcodeKeyboardScope> {
       final code = _buffer.toString().trim();
       _buffer.clear();
       if (code.length >= _minCodeLength) {
-        _handling = true;
-        widget.onBarcode(code).whenComplete(() {
-          if (mounted) _handling = false;
-        });
+        _emit(code);
       }
       return true;
     }

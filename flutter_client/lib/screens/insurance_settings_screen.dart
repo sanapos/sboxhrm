@@ -7,6 +7,7 @@ import '../utils/number_formatter.dart';
 import '../widgets/app_button.dart';
 import '../widgets/app_responsive_dialog.dart';
 import '../widgets/loading_widget.dart';
+import '../widgets/hrm/hrm_settings_mobile_kit.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
 class InsuranceSettingsScreen extends StatefulWidget {
@@ -209,18 +210,31 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
   }
 
   Widget _buildPageContent(BuildContext context) {
-    final isWideScreen = !_useStackedCards(context);
-    final isMediumScreen = MediaQuery.sizeOf(context).width >= 800 &&
-        MediaQuery.sizeOf(context).width < 1200 &&
-        MediaQuery.sizeOf(context).height >= 900;
+    final size = MediaQuery.sizeOf(context);
+    final embeddedTwoCol =
+        HrmSettingsMobileKit.active(context) && size.width >= 360;
+    final isWideScreen = !embeddedTwoCol && !_useStackedCards(context);
+    final isMediumScreen = !embeddedTwoCol &&
+        !isWideScreen &&
+        size.width >= 800 &&
+        size.width < 1200 &&
+        size.height >= 900;
 
     if (_isLoading) {
       return const LoadingWidget();
     }
 
-    final padH = Responsive.isMobile(context) ? 12.0 : 24.0;
-    final padTop = Responsive.isMobile(context) ? 12.0 : 16.0;
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final pad = HrmSettingsMobileKit.active(context)
+        ? HrmSettingsMobileKit.pagePadding(context)
+        : EdgeInsets.fromLTRB(
+            Responsive.isMobile(context) ? 12.0 : 24.0,
+            Responsive.isMobile(context) ? 12.0 : 16.0,
+            Responsive.isMobile(context) ? 12.0 : 24.0,
+            32 + bottomInset,
+          );
+    final padH = pad.left;
+    final padTop = pad.top;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -234,12 +248,14 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
             physics: const AlwaysScrollableScrollPhysics(
               parent: ClampingScrollPhysics(),
             ),
-            padding: EdgeInsets.fromLTRB(
-              padH,
-              padTop,
-              padH,
-              32 + bottomInset,
-            ),
+            padding: HrmSettingsMobileKit.active(context)
+                ? EdgeInsets.fromLTRB(padH, padTop, padH, pad.bottom + bottomInset)
+                : EdgeInsets.fromLTRB(
+                    padH,
+                    padTop,
+                    padH,
+                    32 + bottomInset,
+                  ),
             child: ConstrainedBox(
               constraints: BoxConstraints(
                 minHeight: constraints.maxHeight > 0
@@ -295,7 +311,38 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
                   ],
 
                   // Row 1: Lương cơ sở, BHXH, BHYT
-                  if (isWideScreen)
+                  if (embeddedTwoCol)
+                    Column(
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(child: _buildBaseSalaryCard()),
+                            const SizedBox(width: 12),
+                            Expanded(child: _buildBHXHCard()),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(child: _buildBHYTCard()),
+                            const SizedBox(width: 12),
+                            Expanded(child: _buildBHTNCard()),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(child: _buildUnionCard()),
+                            const SizedBox(width: 12),
+                            Expanded(child: _buildSummaryCard()),
+                          ],
+                        ),
+                      ],
+                    )
+                  else if (isWideScreen)
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -335,42 +382,44 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
                   const SizedBox(height: 16),
 
                   // Row 2: BHTN, Công đoàn, Tổng kết
-                  if (isWideScreen)
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(child: _buildBHTNCard()),
-                        const SizedBox(width: 16),
-                        Expanded(child: _buildUnionCard()),
-                        const SizedBox(width: 16),
-                        Expanded(child: _buildSummaryCard()),
-                      ],
-                    )
-                  else if (isMediumScreen)
-                    Column(
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(child: _buildBHTNCard()),
-                            const SizedBox(width: 16),
-                            Expanded(child: _buildUnionCard()),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        _buildSummaryCard(),
-                      ],
-                    )
-                  else
-                    Column(
-                      children: [
-                        _buildBHTNCard(),
-                        const SizedBox(height: 16),
-                        _buildUnionCard(),
-                        const SizedBox(height: 16),
-                        _buildSummaryCard(),
-                      ],
-                    ),
+                  if (!embeddedTwoCol) ...[
+                    if (isWideScreen)
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(child: _buildBHTNCard()),
+                          const SizedBox(width: 16),
+                          Expanded(child: _buildUnionCard()),
+                          const SizedBox(width: 16),
+                          Expanded(child: _buildSummaryCard()),
+                        ],
+                      )
+                    else if (isMediumScreen)
+                      Column(
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(child: _buildBHTNCard()),
+                              const SizedBox(width: 16),
+                              Expanded(child: _buildUnionCard()),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          _buildSummaryCard(),
+                        ],
+                      )
+                    else
+                      Column(
+                        children: [
+                          _buildBHTNCard(),
+                          const SizedBox(height: 16),
+                          _buildUnionCard(),
+                          const SizedBox(height: 16),
+                          _buildSummaryCard(),
+                        ],
+                      ),
+                  ],
 
                   if (!HrmPageChrome.isEmbedded) ...[
                     const SizedBox(height: 24),
@@ -390,7 +439,7 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
     final isMobile = Responsive.isMobile(context);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA),
+      backgroundColor: HrmPageChrome.scaffoldBackground(context),
       resizeToAvoidBottomInset: true,
       appBar: (!HrmPageChrome.isEmbedded && isMobile)
           ? AppBar(

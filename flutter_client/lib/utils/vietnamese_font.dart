@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show FontLoader, rootBundle;
 import 'package:google_fonts/google_fonts.dart';
 
 /// Font chính (pubspec) + fallback. Trên web dùng [GoogleFonts.beVietnamPro] vì
@@ -29,10 +28,8 @@ Future<void> preloadVietnameseFonts() async {
     return;
   }
   if (_mobileFontsLoaded) return;
-  final loader = FontLoader(kVietnameseFontFamily)
-    ..addFont(rootBundle.load('assets/fonts/BeVietnamPro-Regular.ttf'))
-    ..addFont(rootBundle.load('assets/fonts/BeVietnamPro-Bold.ttf'));
-  await loader.load();
+  // Mobile: font đã khai báo trong pubspec.yaml — không FontLoader trùng family
+  // (trùng load dễ làm mất glyph tiếng Việt khi in ảnh nhiệt).
   _mobileFontsLoaded = true;
 }
 

@@ -103,13 +103,13 @@ class _PosVietQrPaymentPanelState extends State<PosVietQrPaymentPanel> {
               const Expanded(
                 child: Text(
                   'VietQR thanh toán',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                 ),
               ),
               Text(
                 '${_money.format(widget.amount)} đ',
                 style: const TextStyle(
-                  fontSize: 14,
+                  fontSize: 15,
                   fontWeight: FontWeight.bold,
                   color: _kiotBlue,
                 ),
