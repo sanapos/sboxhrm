@@ -17,6 +17,7 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.FlutterEngineCache
 import io.flutter.embedding.engine.dart.DartExecutor
 import io.flutter.plugin.common.EventChannel
+import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugins.GeneratedPluginRegistrant
 
 class CustomerDisplayActivity : FlutterActivity() {
@@ -27,6 +28,8 @@ class CustomerDisplayActivity : FlutterActivity() {
     companion object {
         const val ENGINE_ID = "sbox_customer_display_engine"
         const val ROUTE = "/customer-display"
+        private const val METHOD = "com.sboxhrm/customer_display"
+        private const val EVENTS = "com.sboxhrm/customer_display_events"
 
         fun ensureEngine(context: Context): FlutterEngine {
             FlutterEngineCache.getInstance().get(ENGINE_ID)?.let { return it }
@@ -35,12 +38,54 @@ class CustomerDisplayActivity : FlutterActivity() {
                 GeneratedPluginRegistrant.registerWith(engine)
             } catch (_: Exception) {
             }
+            // Cho phép engine màn phụ đọc/nhận state (cùng channel với MainActivity).
+            registerChannels(engine, context.applicationContext)
             engine.navigationChannel.setInitialRoute(ROUTE)
             engine.dartExecutor.executeDartEntrypoint(
                 DartExecutor.DartEntrypoint.createDefault(),
             )
             FlutterEngineCache.getInstance().put(ENGINE_ID, engine)
             return engine
+        }
+
+        fun registerChannels(engine: FlutterEngine, context: Context) {
+            MethodChannel(engine.dartExecutor.binaryMessenger, METHOD)
+                .setMethodCallHandler { call, result ->
+                    when (call.method) {
+                        "listDisplays" ->
+                            result.success(CustomerDisplayController.listDisplays(context))
+                        "hasSecondaryDisplay" ->
+                            result.success(CustomerDisplayController.hasSecondaryDisplay(context))
+                        "show" -> result.success(false) // không mở đệ quy từ màn phụ
+                        "hide" -> {
+                            CustomerDisplayController.hide()
+                            result.success(true)
+                        }
+                        "publish" -> {
+                            val json = call.argument<String>("json") ?: ""
+                            CustomerDisplayController.publish(context, json)
+                            result.success(true)
+                        }
+                        "read" -> result.success(CustomerDisplayController.read(context))
+                        else -> result.notImplemented()
+                    }
+                }
+            EventChannel(engine.dartExecutor.binaryMessenger, EVENTS)
+                .setStreamHandler(object : EventChannel.StreamHandler {
+                    private var sink: EventChannel.EventSink? = null
+
+                    override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                        sink = events
+                        CustomerDisplayController.attachEventSink(events)
+                        val current = CustomerDisplayController.read(context)
+                        if (!current.isNullOrBlank()) events?.success(current)
+                    }
+
+                    override fun onCancel(arguments: Any?) {
+                        CustomerDisplayController.detachEventSink(sink)
+                        sink = null
+                    }
+                })
         }
     }
 }
@@ -79,14 +124,19 @@ object CustomerDisplayController {
     private const val KEY_STATE = "state_json"
 
     private var presentation: CustomerDisplayPresentation? = null
-    private var eventSink: EventChannel.EventSink? = null
+    private val eventSinks = java.util.concurrent.CopyOnWriteArrayList<EventChannel.EventSink>()
 
     fun prefs(context: Context): SharedPreferences =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     fun publish(context: Context, json: String) {
         prefs(context).edit().putString(KEY_STATE, json).apply()
-        eventSink?.success(json)
+        for (sink in eventSinks) {
+            try {
+                sink.success(json)
+            } catch (_: Exception) {
+            }
+        }
     }
 
     fun read(context: Context): String? = prefs(context).getString(KEY_STATE, null)
@@ -98,21 +148,42 @@ object CustomerDisplayController {
                 "id" to d.displayId,
                 "name" to (d.name ?: "Display ${d.displayId}"),
                 "isPrimary" to (d.displayId == Display.DEFAULT_DISPLAY),
+                "isSecondary" to isSecondaryDisplay(d),
             )
         }
     }
 
+    /** Màn thật sự phụ (không phải DEFAULT) — máy 1 màn (V2S…) trả rỗng. */
+    fun secondaryDisplays(context: Context): List<Display> {
+        val dm = context.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+        return dm.displays.filter { isSecondaryDisplay(it) }
+    }
+
+    fun hasSecondaryDisplay(context: Context): Boolean =
+        secondaryDisplays(context).isNotEmpty()
+
+    private fun isSecondaryDisplay(d: Display): Boolean {
+        if (d.displayId == Display.DEFAULT_DISPLAY) return false
+        // Bỏ display ảo/tắt nếu API hỗ trợ.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT_WATCH) {
+            if (d.state == Display.STATE_OFF) return false
+        }
+        return true
+    }
+
     fun show(activity: FlutterActivity, preferredDisplayId: Int? = null): Boolean {
-        val dm = activity.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
-        val secondary = dm.displays.filter { it.displayId != Display.DEFAULT_DISPLAY }
+        val secondary = secondaryDisplays(activity)
         val target = when {
             preferredDisplayId != null ->
-                dm.displays.firstOrNull { it.displayId == preferredDisplayId }
+                secondary.firstOrNull { it.displayId == preferredDisplayId }
             secondary.isNotEmpty() -> secondary.first()
             else -> null
         }
 
-        if (target != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        // Không có màn phụ → KHÔNG mở Activity trên màn chính (tránh V2S bị chiếm UI).
+        if (target == null) return false
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             try {
                 CustomerDisplayActivity.ensureEngine(activity)
                 val intent = Intent(activity, CustomerDisplayActivity::class.java)
@@ -125,23 +196,11 @@ object CustomerDisplayController {
             }
         }
 
-        if (target != null) {
-            try {
-                presentation?.dismiss()
-                val p = CustomerDisplayPresentation(activity, target)
-                p.show()
-                presentation = p
-                return true
-            } catch (_: Exception) {
-            }
-        }
-
         return try {
-            CustomerDisplayActivity.ensureEngine(activity)
-            activity.startActivity(
-                Intent(activity, CustomerDisplayActivity::class.java)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            )
+            presentation?.dismiss()
+            val p = CustomerDisplayPresentation(activity, target)
+            p.show()
+            presentation = p
             true
         } catch (_: Exception) {
             false
@@ -157,6 +216,15 @@ object CustomerDisplayController {
     }
 
     fun attachEventSink(sink: EventChannel.EventSink?) {
-        eventSink = sink
+        if (sink == null) return
+        if (!eventSinks.contains(sink)) eventSinks.add(sink)
+    }
+
+    fun detachEventSink(sink: EventChannel.EventSink?) {
+        if (sink == null) {
+            eventSinks.clear()
+            return
+        }
+        eventSinks.remove(sink)
     }
 }

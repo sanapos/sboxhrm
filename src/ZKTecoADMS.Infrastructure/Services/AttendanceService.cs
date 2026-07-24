@@ -34,6 +34,15 @@ public class AttendanceService(
     /// </summary>
     private const string FreeTwoPunchAttendanceMode = "free2";
 
+    /// <summary>
+    /// Benefit.AttendanceMode = "Chấm vào 1 lần/ca": vẫn phạt đi trễ theo giờ bắt đầu ca;
+    /// không phạt về sớm (giờ ra = hết ca). Khớp <c>kOncePerShiftAttendanceMode</c> Flutter.
+    /// </summary>
+    private const string OncePerShiftAttendanceMode = "once";
+
+    private static bool IsOncePerShiftMode(string? mode) =>
+        string.Equals(mode, OncePerShiftAttendanceMode, StringComparison.OrdinalIgnoreCase);
+
     public async Task<IEnumerable<Attendance>> GetAttendanceByDeviceAsync(
         Guid deviceId, DateTime? startDate, DateTime? endDate)
     {
@@ -447,6 +456,11 @@ public class AttendanceService(
         }
         else if (attendance.AttendanceState == AttendanceStates.CheckOut)
         {
+            // Mode once: không chấm ra thật — bỏ phạt về sớm.
+            if (employeeBenefits.TryGetValue(employeeId, out var onceBenefit) &&
+                IsOncePerShiftMode(onceBenefit.Benefit?.AttendanceMode))
+                return;
+
             if (punchTime < shiftEnd)
             {
                 var earlyMinutes = (int)(shiftEnd - punchTime).TotalMinutes;

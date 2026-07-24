@@ -1,5 +1,7 @@
 /// Stub — nền tảng không hỗ trợ mở cửa sổ/display phụ qua bridge.
 class CustomerDisplayPlatformBridge {
+  static Future<bool> hasSecondaryDisplay() async => false;
+
   static Future<bool> openSecondary({String route = '/customer-display'}) async =>
       false;
 

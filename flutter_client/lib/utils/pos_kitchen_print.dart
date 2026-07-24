@@ -781,6 +781,10 @@ class KitchenTicketLine {
 }
 
 /// Phiếu bếp/hủy theo mẫu: tên bàn giữa, meta, bảng Tên hàng|SL (SL + ĐVT).
+///
+/// [skipDedup]: mặc định false — chặn in trùng cùng nội dung trong ~25s
+/// (bấm Báo bếp 2 lần / auto-retry sau khi Agent đã nhận job). Truyền true
+/// chỉ khi người dùng chủ động "In lại" từ phiếu treo.
 Future<bool> printKitchenCompactSlip({
   required String tableName,
   required bool isCancel,
@@ -788,8 +792,15 @@ Future<bool> printKitchenCompactSlip({
   required String senderName,
   DateTime? sentAt,
   String? orderNo,
+  bool skipDedup = false,
 }) async {
   if (lines.isEmpty) return false;
+
+  final dedupRef = _kitchenDedupReference(
+    orderNo: orderNo,
+    isCancel: isCancel,
+    lines: lines,
+  );
 
   // Món có gán máy in riêng (SP hoặc nhóm hàng) → tách phiếu, in đúng máy đó
   // thay vì dồn hết vào 1 máy in mặc định/local.
@@ -840,10 +851,10 @@ Future<bool> printKitchenCompactSlip({
           senderName: senderName.trim().isEmpty ? 'admin' : senderName.trim(),
           sentAt: sentAt ?? DateTime.now(),
           orderNo: (orderNo ?? '').trim(),
-          referenceNo: (orderNo ?? '').trim().isEmpty ? null : orderNo!.trim(),
+          referenceNo: dedupRef,
           showFeedback: false,
           successTitle: isCancel ? 'Hủy bếp' : 'Báo bếp',
-          skipDedup: true,
+          skipDedup: skipDedup,
         );
         if (ok) anyOk = true;
       }
@@ -855,6 +866,8 @@ Future<bool> printKitchenCompactSlip({
         senderName: senderName,
         sentAt: sentAt,
         orderNo: orderNo,
+        skipDedup: skipDedup,
+        dedupRef: dedupRef,
       );
       return anyOk || defaultOk;
     }
@@ -867,7 +880,23 @@ Future<bool> printKitchenCompactSlip({
     senderName: senderName,
     sentAt: sentAt,
     orderNo: orderNo,
+    skipDedup: skipDedup,
+    dedupRef: dedupRef,
   );
+}
+
+/// Khóa chống in trùng: loại phiếu + mã HĐ + danh sách món/SL.
+String _kitchenDedupReference({
+  required String? orderNo,
+  required bool isCancel,
+  required List<KitchenTicketLine> lines,
+}) {
+  final code = (orderNo ?? '').trim();
+  final items = lines
+      .map((l) =>
+          '${(l.productId ?? '').trim().isNotEmpty ? l.productId : l.productName}:${l.qty}')
+      .join('|');
+  return '${isCancel ? 'kvoid' : 'ksend'}|$code|$items';
 }
 
 /// In lên máy in bếp mặc định (local nếu bật, hoặc máy in cloud đầu tiên gán
@@ -879,6 +908,8 @@ Future<bool> _printKitchenCompactSlipDefault({
   required String senderName,
   DateTime? sentAt,
   String? orderNo,
+  bool skipDedup = false,
+  String? dedupRef,
 }) async {
   if (lines.isEmpty) return false;
   final qtyFmt = NumberFormat('#,##0.##', 'vi_VN');
@@ -1013,7 +1044,8 @@ Future<bool> _printKitchenCompactSlipDefault({
           successTitle: isCancel ? 'Hủy bếp' : 'Báo bếp',
           settingsOverride: kitchenSettings,
           documentType: PosPrintDocumentTypes.stockIssue,
-          skipDedup: true,
+          skipDedup: skipDedup,
+          referenceNo: dedupRef ?? (code == '-' ? null : code),
         );
       } catch (e) {
         debugPrint('Local kitchen compact failed: $e');
@@ -1042,10 +1074,10 @@ Future<bool> _printKitchenCompactSlipDefault({
       senderName: sender,
       sentAt: sentAt ?? DateTime.now(),
       orderNo: code == '-' ? '' : code,
-      referenceNo: code == '-' ? null : code,
+      referenceNo: dedupRef ?? (code == '-' ? null : code),
       showFeedback: false,
       successTitle: isCancel ? 'Hủy bếp' : 'Báo bếp',
-      skipDedup: true,
+      skipDedup: skipDedup,
     );
   }
 

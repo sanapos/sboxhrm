@@ -124,6 +124,31 @@ public class PosPrintDispatchService(
 
         var tracked = await db.PosStorePrinters.FirstAsync(p => p.Id == printer.Id, ct);
 
+        // Chặn in trùng: cùng máy in + cùng payload trong 10 phút (app điện thoại
+        // cũ hay mở lại rồi auto-retry phiếu báo chế biến đã in).
+        var since = DateTime.UtcNow.AddMinutes(-10);
+        var duplicate = await db.PosPrintJobs.AsNoTracking()
+            .Where(j => j.StoreId == request.StoreId
+                && j.PrinterId == tracked.Id
+                && j.Deleted == null
+                && j.CreatedAt >= since
+                && j.PayloadFormat == request.PayloadFormat
+                && j.Payload == request.Payload
+                && (j.Status == PosPrintJobStatus.Queued
+                    || j.Status == PosPrintJobStatus.Claimed
+                    || j.Status == PosPrintJobStatus.Printing
+                    || j.Status == PosPrintJobStatus.Completed))
+            .OrderByDescending(j => j.CreatedAt)
+            .FirstOrDefaultAsync(ct);
+        if (duplicate != null)
+        {
+            logger.LogInformation(
+                "Print job dedup hit — reuse {JobId} (printer {PrinterId}, age {AgeSec:F0}s)",
+                duplicate.Id, tracked.Id,
+                (DateTime.UtcNow - duplicate.CreatedAt).TotalSeconds);
+            return await db.PosPrintJobs.FirstAsync(j => j.Id == duplicate.Id, ct);
+        }
+
         var job = new PosPrintJob
         {
             Id = Guid.NewGuid(),

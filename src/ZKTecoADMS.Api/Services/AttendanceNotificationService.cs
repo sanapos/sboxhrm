@@ -3,11 +3,13 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using ZKTecoADMS.Api.Hubs;
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Notifications;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Domain.Repositories;
+using ZKTecoADMS.Infrastructure;
 
 namespace ZKTecoADMS.Api.Services;
 
@@ -462,8 +464,11 @@ public class AttendanceNotificationService : IAttendanceNotificationService
         var userName = notification.UserName ?? attendance.PIN ?? "Unknown";
         var deviceLabel = device.DeviceName ?? device.SerialNumber;
         var title = "Chấm công";
+        var (shiftName, lateMinutes) = await ResolveShiftAndLateAsync(
+            attendance, device, user);
         var message = NotificationPushFormatter.BuildAttendanceStoredMessage(
-            userName, attendance.AttendanceTime, deviceLabel, branchLabel);
+            userName, attendance.AttendanceTime, deviceLabel, branchLabel,
+            shiftName, lateMinutes > 0 ? lateMinutes : null);
 
         var notifications = targetUserIds.Select(uid => new Notification
         {
@@ -582,6 +587,147 @@ public class AttendanceNotificationService : IAttendanceNotificationService
 
         var store = await storeRepo.GetByIdAsync(device.StoreId.Value);
         return string.IsNullOrWhiteSpace(store?.Name) ? null : store!.Name.Trim();
+    }
+
+    /// <summary>
+    /// Ghép ca theo lịch / template + phút đi trễ (sau grace) để đưa vào FCM.
+    /// </summary>
+    private async Task<(string? ShiftName, int LateMinutes)> ResolveShiftAndLateAsync(
+        Attendance attendance,
+        Device device,
+        DeviceUser? user)
+    {
+        try
+        {
+            if (user?.EmployeeId == null)
+                return (null, 0);
+
+            using var scope = _serviceScopeFactory.CreateScope();
+            var db = scope.ServiceProvider.GetService<ZKTecoDbContext>();
+            if (db == null) return (null, 0);
+
+            var dayEnd = TimeSpan.Zero;
+            if (device.StoreId.HasValue)
+            {
+                var dayEndRaw = await db.AppSettings.AsNoTracking()
+                    .Where(s => s.StoreId == device.StoreId && s.Key == "day_end_time" && s.Deleted == null)
+                    .Select(s => s.Value)
+                    .FirstOrDefaultAsync();
+                if (!string.IsNullOrWhiteSpace(dayEndRaw) && TimeSpan.TryParse(dayEndRaw, out var parsed))
+                    dayEnd = parsed;
+            }
+
+            var punchLocal = VnTimeHelper.AttendanceWallClock(attendance.AttendanceTime);
+            var punchTod = punchLocal.TimeOfDay;
+            var logicalDate = dayEnd > TimeSpan.Zero && punchTod < dayEnd
+                ? punchLocal.Date.AddDays(-1)
+                : punchLocal.Date;
+
+            var employeeId = user.EmployeeId.Value;
+            var schedules = await db.WorkSchedules.AsNoTracking()
+                .Include(s => s.Shift)
+                .Where(s => s.EmployeeUserId == employeeId
+                    && s.Date.Date == logicalDate
+                    && s.Deleted == null)
+                .ToListAsync();
+
+            ShiftTemplate? template = null;
+            TimeSpan shiftStart;
+            TimeSpan shiftEnd;
+            int lateGrace = 5;
+            string? shiftName = null;
+
+            if (schedules.Count > 0)
+            {
+                var pick = schedules.Count == 1
+                    ? schedules[0]
+                    : schedules
+                        .OrderBy(s =>
+                        {
+                            var start = s.StartTime ?? s.Shift?.StartTime ?? TimeSpan.FromHours(8);
+                            var dist = Math.Abs((int)(punchTod - start).TotalMinutes);
+                            if (dist > 720) dist = 1440 - dist;
+                            return dist;
+                        })
+                        .First();
+                shiftStart = pick.StartTime ?? pick.Shift?.StartTime ?? TimeSpan.FromHours(8);
+                shiftEnd = pick.EndTime ?? pick.Shift?.EndTime ?? TimeSpan.FromHours(17);
+                lateGrace = pick.Shift?.LateGraceMinutes ?? 5;
+                shiftName = pick.Shift?.Name;
+                template = pick.Shift;
+            }
+            else
+            {
+                // Fallback: ca gán trong hồ sơ lương (Benefit.Description / ShiftSalaryLevel) —
+                // lấy template cửa hàng gần giờ vào nhất.
+                var templates = await db.ShiftTemplates.AsNoTracking()
+                    .Where(t => t.StoreId == device.StoreId && t.IsActive)
+                    .ToListAsync();
+                if (templates.Count == 0) return (null, 0);
+
+                template = templates
+                    .OrderBy(t =>
+                    {
+                        var dist = Math.Abs((int)(punchTod - t.StartTime).TotalMinutes);
+                        if (dist > 720) dist = 1440 - dist;
+                        return dist;
+                    })
+                    .First();
+                shiftStart = template.StartTime;
+                shiftEnd = template.EndTime;
+                lateGrace = template.LateGraceMinutes;
+                shiftName = template.Name;
+            }
+
+            // Chỉ gắn ca khi punch nằm trong cửa sổ hợp lý quanh ca.
+            var startMin = (int)shiftStart.TotalMinutes;
+            var endMin = (int)shiftEnd.TotalMinutes;
+            var punchMin = (int)punchTod.TotalMinutes;
+            var earlyWin = template?.EarlyCheckInMinutes ?? 30;
+            var maxLate = template?.MaximumAllowedLateMinutes ?? 60;
+            var inWindow = IsPunchNearShift(punchMin, startMin, endMin, earlyWin, maxLate);
+            if (!inWindow)
+                return (shiftName, 0);
+
+            var late = 0;
+            if (startMin > endMin)
+            {
+                // Qua đêm
+                if (punchMin >= startMin)
+                    late = punchMin - startMin;
+                else if (punchMin < endMin)
+                    late = (1440 - startMin) + punchMin;
+            }
+            else if (punchMin > startMin)
+            {
+                late = punchMin - startMin;
+            }
+
+            if (late > 0 && late <= lateGrace) late = 0;
+            return (shiftName, late);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "ResolveShiftAndLateAsync failed (non-fatal)");
+            return (null, 0);
+        }
+    }
+
+    private static bool IsPunchNearShift(
+        int punchMin, int startMin, int endMin, int earlyWin, int maxLate)
+    {
+        var cross = startMin > endMin;
+        if (!cross)
+        {
+            var from = startMin - earlyWin;
+            var to = Math.Max(endMin, startMin + maxLate);
+            return punchMin >= from && punchMin <= to + 120;
+        }
+        // Overnight: window from (start-early) .. 1440 and 0 .. end
+        var fromNight = startMin - earlyWin;
+        if (fromNight < 0) fromNight += 1440;
+        return punchMin >= fromNight || punchMin <= endMin + 120 ||
+               (punchMin >= startMin && punchMin <= startMin + maxLate);
     }
 
     /// <summary>

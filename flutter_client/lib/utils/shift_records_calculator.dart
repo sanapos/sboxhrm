@@ -12,6 +12,10 @@ import 'leave_salary_shifts.dart';
 /// gửi lên backend (C#) khi lưu hồ sơ lương — giữ đúng chuỗi 'free2'.
 const String kFreeTwoPunchAttendanceMode = 'free2';
 
+/// Chấm vào 1 lần/ca: báo đi trễ theo giờ bắt đầu ca; giờ ra = giờ kết thúc ca.
+/// Phải khớp constant `OncePerShiftAttendanceMode` bên C#.
+const String kOncePerShiftAttendanceMode = 'once';
+
 /// Số phút làm việc tối thiểu (mỗi cặp vào/ra) để được cộng công.
 /// Legacy: [minHoursForWorkDay] > 0 dùng giờ tuyệt đối; = 0 → 2/3 thời lượng ca.
 /// Ưu tiên dùng [computeDayWorkCredit] theo % giờ ngày.
@@ -355,6 +359,41 @@ Map<String, dynamic>? _primaryWorkShiftForDay(
 }
 
 bool _isCheckOutAttendance(Attendance att) => att.attendanceState == 1;
+
+/// Mỗi lần chấm = 1 lần vào ca (bỏ qua loại Ra) — dùng cho mode [kOncePerShiftAttendanceMode].
+List<DayAttendancePair> buildOncePerShiftCheckInPairs(List<Attendance> dayAtts) {
+  final sorted = List<Attendance>.from(Attendance.forMainShiftPairing(dayAtts))
+    ..sort((a, b) => a.punchTime.compareTo(b.punchTime));
+  return [
+    for (final a in sorted) DayAttendancePair(checkIn: a.punchTime),
+  ];
+}
+
+/// Giờ ra giả lập = giờ kết thúc ca (cùng ngày logic với giờ vào; qua đêm thì +1 ngày).
+DateTime? synthesizeShiftEndCheckOut({
+  required DateTime checkIn,
+  required Map<String, dynamic> matchedShift,
+}) {
+  final startMin =
+      _parseTimeSpanToMinutes(matchedShift['startTime']?.toString());
+  final endMin = _parseTimeSpanToMinutes(matchedShift['endTime']?.toString());
+  if (endMin < 0) return null;
+  final cross = startMin > endMin;
+  var day = DateTime(checkIn.year, checkIn.month, checkIn.day);
+  final inMin = _dateTimeToMinutes(checkIn);
+  if (cross && inMin < endMin) {
+    // Vào sau nửa đêm thuộc ca qua đêm bắt đầu hôm trước.
+    day = day.subtract(const Duration(days: 1));
+  }
+  var out = day.add(Duration(hours: endMin ~/ 60, minutes: endMin % 60));
+  if (cross) {
+    out = out.add(const Duration(days: 1));
+  }
+  if (!out.isAfter(checkIn)) {
+    out = out.add(const Duration(days: 1));
+  }
+  return out;
+}
 
 /// Một cặp Vào/Ra trong ngày — có thể chỉ có Ra (ca HC sau tăng ca).
 class DayAttendancePair {
@@ -798,7 +837,7 @@ class _ShiftLookups {
   final Map<String, String> employeeCodeToWeeklyOffDays;
   final Map<String, double> employeeCodeToHolidayMultiplier;
   final Map<String, int> employeeCodeToHolidayOvertimeType;
-  /// Benefit.attendanceMode — 'none'/'checkin'/'checkout'/'both'/'any'/[kFreeTwoPunchAttendanceMode].
+  /// Benefit.attendanceMode — 'none'/'checkin'/'checkout'/'both'/'any'/free2/once.
   final Map<String, String> employeeGuidToAttendanceMode;
 
   _ShiftLookups({
@@ -813,13 +852,18 @@ class _ShiftLookups {
     required this.employeeGuidToAttendanceMode,
   });
 
+  String? attendanceModeOf(String empGuid, String employeeCode) =>
+      employeeGuidToAttendanceMode[empGuid] ??
+      employeeGuidToAttendanceMode[employeeCode];
+
   /// True nếu NV bật "Chấm 2 lần bất kỳ trong ngày" — tra theo GUID trước,
   /// PIN/mã chấm công sau (log thường chỉ có PIN).
-  bool isFreeTwoPunchMode(String empGuid, String employeeCode) {
-    final mode = employeeGuidToAttendanceMode[empGuid] ??
-        employeeGuidToAttendanceMode[employeeCode];
-    return mode == kFreeTwoPunchAttendanceMode;
-  }
+  bool isFreeTwoPunchMode(String empGuid, String employeeCode) =>
+      attendanceModeOf(empGuid, employeeCode) == kFreeTwoPunchAttendanceMode;
+
+  /// Chấm vào 1 lần/ca — giờ ra = hết ca, vẫn tính đi trễ.
+  bool isOncePerShiftMode(String empGuid, String employeeCode) =>
+      attendanceModeOf(empGuid, employeeCode) == kOncePerShiftAttendanceMode;
 
   factory _ShiftLookups.build({
     required List<Map<String, dynamic>> shiftTemplates,
@@ -1127,6 +1171,7 @@ List<DailyShiftRecord> computeDailyShiftRecords({
       final empGuid = lookups.employeeCodeToGuid[employeeCode] ?? '';
       final assignedShiftIds =
           lookups.employeeGuidToShiftTemplateIds[empGuid] ?? [];
+      final isOnceShift = lookups.isOncePerShiftMode(empGuid, employeeCode);
 
       // Chấm 2 lần bất kỳ trong ngày: bỏ hoàn toàn ghép ca / đi trễ / về sớm /
       // tăng ca — chỉ cần ≥2 lần chấm trong ngày (logical day) là đủ 1 công.
@@ -1189,19 +1234,21 @@ List<DailyShiftRecord> computeDailyShiftRecords({
       final shiftNames = <String>[];
       final missingOutShiftNames = <String>[];
       final usedShiftIds = <String>{};
-      final dayPairs = _logicalDayPairsFromAttendances(
-        workDayAttendances,
-        dayEndHour: dayEndHour,
-        dayEndMinute: dayEndMinute,
-      );
+      final dayPairs = isOnceShift
+          ? buildOncePerShiftCheckInPairs(workDayAttendances)
+          : _logicalDayPairsFromAttendances(
+              workDayAttendances,
+              dayEndHour: dayEndHour,
+              dayEndMinute: dayEndMinute,
+            );
 
       for (var pairIndex = 0; pairIndex < dayPairs.length; pairIndex++) {
         final pair = dayPairs[pairIndex];
         DateTime? punchIn = pair.checkIn;
-        final punchOut = pair.checkOut;
+        DateTime? punchOut = pair.checkOut;
 
         Map<String, dynamic>? matchedShift;
-        if (pair.isOrphanOut && punchOut != null) {
+        if (!isOnceShift && pair.isOrphanOut && punchOut != null) {
           final outMin = _dateTimeToMinutes(punchOut);
           matchedShift = matchShiftForOrphanCheckOut(
             checkOutMinutes: outMin,
@@ -1299,6 +1346,14 @@ List<DailyShiftRecord> computeDailyShiftRecords({
           isCrossMidnight = shiftStartMin > shiftEndMin;
         }
 
+        // Mode once: giờ ra = hết ca — không báo thiếu chấm ra.
+        if (isOnceShift && punchOut == null && matchedShift != null) {
+          punchOut = synthesizeShiftEndCheckOut(
+            checkIn: punchIn,
+            matchedShift: matchedShift,
+          );
+        }
+
         if (punchOut == null) {
           hasMissingPunch = true;
           String name = matchedShift?['name']?.toString() ?? '';
@@ -1313,7 +1368,7 @@ List<DailyShiftRecord> computeDailyShiftRecords({
           continue;
         }
 
-        final outMinutes = punchOutMinutes!;
+        final resolvedOutMin = _dateTimeToMinutes(punchOut);
         var effectiveOut = punchOut;
         if (effectiveOut.isBefore(punchIn)) {
           effectiveOut = effectiveOut.add(const Duration(days: 1));
@@ -1332,24 +1387,31 @@ List<DailyShiftRecord> computeDailyShiftRecords({
 
         if (matchedShift != null) {
           int earlyCalc = 0;
-          if (isCrossMidnight) {
-            if (outMinutes <= shiftEndMin) {
-              earlyCalc = shiftEndMin - outMinutes;
-            } else if (outMinutes >= shiftStartMin) {
-              earlyCalc = (1440 - outMinutes) + shiftEndMin;
+          // once: giờ ra cố định hết ca → không phạt về sớm.
+          if (!isOnceShift) {
+            if (isCrossMidnight) {
+              if (resolvedOutMin <= shiftEndMin) {
+                earlyCalc = shiftEndMin - resolvedOutMin;
+              } else if (resolvedOutMin >= shiftStartMin) {
+                earlyCalc = (1440 - resolvedOutMin) + shiftEndMin;
+              }
+            } else if (resolvedOutMin < shiftEndMin) {
+              earlyCalc = shiftEndMin - resolvedOutMin;
             }
-          } else if (outMinutes < shiftEndMin) {
-            earlyCalc = shiftEndMin - outMinutes;
+            if (earlyCalc > 0 && earlyCalc <= earlyGrace) earlyCalc = 0;
           }
-          if (earlyCalc > 0 && earlyCalc <= earlyGrace) earlyCalc = 0;
 
           int extraMin = 0;
-          if (isCrossMidnight) {
-            if (outMinutes > shiftEndMin && outMinutes < shiftStartMin) {
-              extraMin = outMinutes - shiftEndMin;
+          // once: ra = hết ca → không tính OT sau ca từ giờ ra giả.
+          if (!isOnceShift) {
+            if (isCrossMidnight) {
+              if (resolvedOutMin > shiftEndMin &&
+                  resolvedOutMin < shiftStartMin) {
+                extraMin = resolvedOutMin - shiftEndMin;
+              }
+            } else if (resolvedOutMin > shiftEndMin) {
+              extraMin = resolvedOutMin - shiftEndMin;
             }
-          } else if (outMinutes > shiftEndMin) {
-            extraMin = outMinutes - shiftEndMin;
           }
           if (extraMin > overtimeThreshold) {
             totalOT += extraMin;
@@ -1677,20 +1739,23 @@ List<DailyShiftPair> computeDailyShiftPairs({
       final assignedShiftIds =
           lookups.employeeGuidToShiftTemplateIds[empGuid] ?? [];
       final isFree2 = lookups.isFreeTwoPunchMode(empGuid, employeeCode);
+      final isOnceShift = lookups.isOncePerShiftMode(empGuid, employeeCode);
       final usedShiftIds = <String>{};
-      final dayPairs = _logicalDayPairsFromAttendances(
-        workDayAttendances,
-        dayEndHour: dayEndHour,
-        dayEndMinute: dayEndMinute,
-      );
+      final dayPairs = isOnceShift
+          ? buildOncePerShiftCheckInPairs(workDayAttendances)
+          : _logicalDayPairsFromAttendances(
+              workDayAttendances,
+              dayEndHour: dayEndHour,
+              dayEndMinute: dayEndMinute,
+            );
 
       for (var pairIndex = 0; pairIndex < dayPairs.length; pairIndex++) {
         final pair = dayPairs[pairIndex];
         DateTime? punchIn = pair.checkIn;
-        final punchOut = pair.checkOut;
+        DateTime? punchOut = pair.checkOut;
 
         Map<String, dynamic>? matchedShift;
-        if (!isFree2 && pair.isOrphanOut && punchOut != null) {
+        if (!isFree2 && !isOnceShift && pair.isOrphanOut && punchOut != null) {
           final outMin = _dateTimeToMinutes(punchOut);
           matchedShift = matchShiftForOrphanCheckOut(
             checkOutMinutes: outMin,
@@ -1730,6 +1795,13 @@ List<DailyShiftPair> computeDailyShiftPairs({
           if (shiftId.isNotEmpty) usedShiftIds.add(shiftId);
         }
 
+        if (isOnceShift && punchOut == null && matchedShift != null) {
+          punchOut = synthesizeShiftEndCheckOut(
+            checkIn: punchIn,
+            matchedShift: matchedShift,
+          );
+        }
+
         String shiftName;
         String? pairShiftTemplateId;
         int lateCalc = 0;
@@ -1760,7 +1832,7 @@ List<DailyShiftPair> computeDailyShiftPairs({
             }
             if (lateCalc > 0 && lateCalc <= lateGrace) lateCalc = 0;
 
-            if (punchOut != null) {
+            if (!isOnceShift && punchOut != null) {
               final outMin = _dateTimeToMinutes(punchOut);
               if (isCrossMidnight) {
                 if (outMin <= shiftEndMin) {

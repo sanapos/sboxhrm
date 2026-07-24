@@ -9,6 +9,9 @@ import 'customer_display_bridge_stub.dart'
     if (dart.library.io) 'customer_display_bridge_io.dart' as bridge;
 
 /// Đồng bộ trạng thái màn hình phụ giữa máy thu ngân ↔ màn khách.
+///
+/// POS và màn phụ chạy **2 FlutterEngine riêng** — EventChannel chỉ gắn
+/// MainActivity nên màn phụ phải **poll** SharedPreferences để nhận hóa đơn.
 class CustomerDisplaySync extends ChangeNotifier {
   CustomerDisplaySync._();
   static final CustomerDisplaySync instance = CustomerDisplaySync._();
@@ -18,7 +21,9 @@ class CustomerDisplaySync extends ChangeNotifier {
   CustomerDisplayState _state = CustomerDisplayState.idle;
   CustomerDisplayConfig _config = const CustomerDisplayConfig();
   StreamSubscription<String>? _nativeSub;
+  Timer? _pollTimer;
   bool _listening = false;
+  bool _pollBusy = false;
 
   CustomerDisplayState get state => _state;
   CustomerDisplayConfig get config => _config;
@@ -32,15 +37,7 @@ class CustomerDisplaySync extends ChangeNotifier {
   Future<void> startListening() async {
     if (_listening) return;
     _listening = true;
-    final cached = await bridge.CustomerDisplayPlatformBridge.readNative();
-    final fromBridge = CustomerDisplayState.tryDecode(cached);
-    if (fromBridge != null) {
-      _state = fromBridge;
-    } else {
-      final prefs = await SharedPreferences.getInstance();
-      final local = CustomerDisplayState.tryDecode(prefs.getString(_prefsKey));
-      if (local != null) _state = local;
-    }
+    await _pullLatestFromStorage();
     notifyListeners();
 
     _nativeSub?.cancel();
@@ -49,11 +46,61 @@ class CustomerDisplaySync extends ChangeNotifier {
       _nativeSub = stream.listen((raw) {
         final s = CustomerDisplayState.tryDecode(raw);
         if (s == null) return;
-        if (s.updatedAtMs < _state.updatedAtMs) return;
-        _state = s;
-        notifyListeners();
+        _applyIfNewer(s);
       });
     }
+
+    // Engine màn phụ không nhận EventChannel từ MainActivity → poll.
+    _pollTimer?.cancel();
+    _pollTimer = Timer.periodic(const Duration(milliseconds: 280), (_) {
+      unawaited(_pollStorage());
+    });
+  }
+
+  Future<void> _pollStorage() async {
+    if (_pollBusy) return;
+    _pollBusy = true;
+    try {
+      await _pullLatestFromStorage();
+    } finally {
+      _pollBusy = false;
+    }
+  }
+
+  Future<void> _pullLatestFromStorage() async {
+    try {
+      final cached = await bridge.CustomerDisplayPlatformBridge.readNative();
+      final fromBridge = CustomerDisplayState.tryDecode(cached);
+      if (fromBridge != null) {
+        _applyIfNewer(fromBridge);
+      }
+    } catch (_) {}
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final local = CustomerDisplayState.tryDecode(prefs.getString(_prefsKey));
+      if (local != null) {
+        _applyIfNewer(local);
+      }
+    } catch (_) {}
+  }
+
+  void _applyIfNewer(CustomerDisplayState s) {
+    if (s.updatedAtMs < _state.updatedAtMs) return;
+    // Cùng timestamp nhưng nội dung đổi (hiếm) — so sánh encode ngắn.
+    if (s.updatedAtMs == _state.updatedAtMs &&
+        identical(s, _state)) {
+      return;
+    }
+    if (s.updatedAtMs == _state.updatedAtMs &&
+        s.mode == _state.mode &&
+        s.lines.length == _state.lines.length &&
+        s.total == _state.total &&
+        s.tableLabel == _state.tableLabel &&
+        s.subtotal == _state.subtotal) {
+      return;
+    }
+    _state = s;
+    notifyListeners();
   }
 
   Future<void> publish(CustomerDisplayState next) async {
@@ -112,6 +159,9 @@ class CustomerDisplaySync extends ChangeNotifier {
     ));
   }
 
+  Future<bool> hasSecondaryDisplay() =>
+      bridge.CustomerDisplayPlatformBridge.hasSecondaryDisplay();
+
   Future<bool> openSecondary() =>
       bridge.CustomerDisplayPlatformBridge.openSecondary();
 
@@ -123,6 +173,7 @@ class CustomerDisplaySync extends ChangeNotifier {
 
   @override
   void dispose() {
+    _pollTimer?.cancel();
     _nativeSub?.cancel();
     super.dispose();
   }

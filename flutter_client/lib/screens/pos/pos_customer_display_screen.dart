@@ -7,9 +7,10 @@ import 'package:video_player/video_player.dart';
 
 import '../../models/customer_display_models.dart';
 import '../../services/customer_display_sync.dart';
-import '../../widgets/pos/pos_theme.dart';
+import '../../widgets/hrm_page_chrome.dart';
 
-/// Màn hình phụ phía khách: idle = promo ảnh/video; active = menu + hóa đơn.
+/// Màn hình phụ phía khách: luôn 2 cột — media | bill (trắng/đen).
+/// Không có ảnh/video → panel branding SBOX HRM (giống trang chủ).
 class PosCustomerDisplayScreen extends StatefulWidget {
   const PosCustomerDisplayScreen({super.key});
 
@@ -25,6 +26,12 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
   int _promoIndex = 0;
   VideoPlayerController? _video;
   String? _playingVideoUrl;
+  String _promoFingerprint = '';
+
+  static const _billBg = Color(0xFFFFFFFF);
+  static const _billFg = Color(0xFF111827);
+  static const _billMuted = Color(0xFF6B7280);
+  static const _billLine = Color(0xFFE5E7EB);
 
   @override
   void initState() {
@@ -32,6 +39,7 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
     _sync.startListening();
     _sync.addListener(_onSync);
     _restartIdleTimer();
+    unawaited(_ensurePromoMedia());
   }
 
   @override
@@ -45,14 +53,14 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
   void _onSync() {
     if (!mounted) return;
     setState(() {});
-    final s = _sync.state;
-    if (s.isActive) {
-      _idleTimer?.cancel();
-      _disposeVideo();
-    } else {
-      _restartIdleTimer();
-      _ensurePromoMedia();
-    }
+    // Chỉ đổi media khi danh sách promo đổi — tránh reset video mỗi lần cập nhật bill.
+    final fp = _promoList
+        .map((e) => '${e.videoUrl ?? ''}|${e.imageUrl ?? ''}')
+        .join(';');
+    if (fp == _promoFingerprint) return;
+    _promoFingerprint = fp;
+    _restartIdleTimer();
+    unawaited(_ensurePromoMedia());
   }
 
   void _restartIdleTimer() {
@@ -60,13 +68,12 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
     final sec = _sync.config.idleSeconds.clamp(3, 60);
     _idleTimer = Timer.periodic(Duration(seconds: sec), (_) {
       if (!mounted) return;
-      if (_sync.state.isActive) return;
       final items = _promoList;
       if (items.isEmpty) return;
       setState(() {
         _promoIndex = (_promoIndex + 1) % items.length;
       });
-      _ensurePromoMedia();
+      unawaited(_ensurePromoMedia());
     });
   }
 
@@ -82,7 +89,10 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
 
   Future<void> _ensurePromoMedia() async {
     final items = _promoList;
-    if (items.isEmpty) return;
+    if (items.isEmpty) {
+      _disposeVideo();
+      return;
+    }
     final item = items[_promoIndex % items.length];
     final url = (item.videoUrl ?? '').trim();
     if (url.isEmpty) {
@@ -119,45 +129,37 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
   @override
   Widget build(BuildContext context) {
     final s = _sync.state;
+    final wide = MediaQuery.sizeOf(context).width >= 720;
     return Scaffold(
-      backgroundColor: const Color(0xFF0B1220),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 350),
-        child: s.isActive ? _buildActive(s) : _buildIdle(s),
-      ),
+      backgroundColor: _billBg,
+      body: wide
+          ? Row(
+              children: [
+                Expanded(flex: 6, child: _buildMediaPane(s)),
+                Expanded(flex: 4, child: _buildBillPane(s)),
+              ],
+            )
+          : Column(
+              children: [
+                Expanded(flex: 5, child: _buildMediaPane(s)),
+                Expanded(flex: 5, child: _buildBillPane(s)),
+              ],
+            ),
     );
   }
 
-  Widget _buildIdle(CustomerDisplayState s) {
+  // ── Media (ảnh / video / brand fallback) ──────────────────────────
+
+  Widget _buildMediaPane(CustomerDisplayState s) {
     final items = _promoList;
-    final store = (s.storeName ?? 'SBOX').trim();
     if (items.isEmpty) {
-      return Center(
-        key: const ValueKey('idle-empty'),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              store,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 42,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Xin chào quý khách',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 22),
-            ),
-          ],
-        ),
-      );
+      return _buildBrandFallback(s.storeName);
     }
     final item = items[_promoIndex % items.length];
     final hasVideo = _video != null && _video!.value.isInitialized;
+    final imageUrl = (item.imageUrl ?? '').trim();
+
     return Stack(
-      key: ValueKey('idle-$_promoIndex'),
       fit: StackFit.expand,
       children: [
         if (hasVideo)
@@ -169,303 +171,241 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
               child: VideoPlayer(_video!),
             ),
           )
-        else if ((item.imageUrl ?? '').isNotEmpty)
+        else if (imageUrl.isNotEmpty)
           CachedNetworkImage(
-            imageUrl: item.imageUrl!,
+            imageUrl: imageUrl,
             fit: BoxFit.cover,
-            errorWidget: (_, __, ___) => Container(color: const Color(0xFF111827)),
+            errorWidget: (_, __, ___) => _buildBrandFallback(s.storeName),
           )
         else
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFF0F766E), Color(0xFF0B1220)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-          ),
-        Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Colors.black.withValues(alpha: 0.15),
-                Colors.black.withValues(alpha: 0.75),
-              ],
-            ),
-          ),
-        ),
-        Positioned(
-          left: 48,
-          right: 48,
-          bottom: 48,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                store,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.75),
-                  fontSize: 18,
-                  letterSpacing: 1.2,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                item.title,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 40,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              if ((item.subtitle ?? '').isNotEmpty) ...[
-                const SizedBox(height: 6),
-                Text(
-                  item.subtitle!,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.85),
-                    fontSize: 20,
-                  ),
-                ),
-              ],
-              if (item.price != null) ...[
-                const SizedBox(height: 12),
-                Text(
-                  '${_money.format(item.price)}đ',
-                  style: const TextStyle(
-                    color: Color(0xFF5EEAD4),
-                    fontSize: 28,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
+          _buildBrandFallback(s.storeName),
       ],
     );
   }
 
-  Widget _buildActive(CustomerDisplayState s) {
+  /// Panel SBOX HRM — cùng palette banner chào trang chủ.
+  Widget _buildBrandFallback(String? storeName) {
+    final store = (storeName ?? '').trim();
+    return Container(
+      key: const ValueKey('brand-fallback'),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            HrmPageChrome.primaryNavy,
+            HrmPageChrome.primaryNavy.withValues(alpha: 0.85),
+          ],
+        ),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 96,
+              height: 96,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white24, width: 2),
+              ),
+              child: Image.asset(
+                'assets/logo.png',
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const Icon(
+                  Icons.storefront_rounded,
+                  color: Colors.white,
+                  size: 48,
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'SBOX HRM',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 36,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.2,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              store.isNotEmpty ? store : 'Xin chào quý khách',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.8),
+                fontSize: 18,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Bill (nền trắng, chữ đen) ─────────────────────────────────────
+
+  Widget _buildBillPane(CustomerDisplayState s) {
+    final active = s.isActive;
     final table = [
       if ((s.areaName ?? '').isNotEmpty) s.areaName,
       if ((s.tableLabel ?? '').isNotEmpty) s.tableLabel,
     ].whereType<String>().join(' · ');
-    return Row(
-      key: const ValueKey('active'),
-      children: [
-        Expanded(
-          flex: 5,
-          child: Container(
-            color: const Color(0xFF111827),
-            padding: const EdgeInsets.fromLTRB(28, 28, 16, 28),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  table.isEmpty ? 'Đơn hiện tại' : table,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 28,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                if ((s.orderNo ?? '').isNotEmpty || s.guestCount > 0) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    [
-                      if ((s.orderNo ?? '').isNotEmpty) s.orderNo,
-                      if (s.guestCount > 0) '${s.guestCount} khách',
-                    ].join(' · '),
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.65),
-                      fontSize: 16,
+
+    return Container(
+      color: _billBg,
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            (s.storeName ?? 'Hóa đơn').trim(),
+            style: const TextStyle(
+              color: _billFg,
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            active
+                ? (table.isEmpty ? 'Đơn hiện tại' : table)
+                : 'Chờ phục vụ',
+            style: const TextStyle(color: _billMuted, fontSize: 14),
+          ),
+          if (active &&
+              ((s.orderNo ?? '').isNotEmpty || s.guestCount > 0)) ...[
+            const SizedBox(height: 2),
+            Text(
+              [
+                if ((s.orderNo ?? '').isNotEmpty) s.orderNo,
+                if (s.guestCount > 0) '${s.guestCount} khách',
+              ].join(' · '),
+              style: const TextStyle(color: _billMuted, fontSize: 13),
+            ),
+          ],
+          const SizedBox(height: 14),
+          Container(height: 1, color: _billLine),
+          const SizedBox(height: 12),
+          Expanded(
+            child: !active || s.lines.isEmpty
+                ? Center(
+                    child: Text(
+                      active ? 'Chưa có món' : 'Xin chào quý khách',
+                      style: const TextStyle(
+                        color: _billMuted,
+                        fontSize: 18,
+                      ),
                     ),
-                  ),
-                ],
-                const SizedBox(height: 18),
-                Expanded(
-                  child: s.lines.isEmpty
-                      ? Center(
-                          child: Text(
-                            'Chưa có món',
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.5),
-                              fontSize: 20,
+                  )
+                : ListView.separated(
+                    itemCount: s.lines.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (_, i) {
+                      final l = s.lines[i];
+                      final qty = l.qty % 1 == 0
+                          ? l.qty.toStringAsFixed(0)
+                          : l.qty.toStringAsFixed(2);
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  l.name,
+                                  style: const TextStyle(
+                                    color: _billFg,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'SL $qty'
+                                  '${(l.unitLabel ?? '').isNotEmpty ? ' ${l.unitLabel}' : ''}'
+                                  ' × ${_money.format(l.unitPrice)}đ',
+                                  style: const TextStyle(
+                                    color: _billMuted,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        )
-                      : ListView.separated(
-                          itemCount: s.lines.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 10),
-                          itemBuilder: (_, i) {
-                            final l = s.lines[i];
-                            return Container(
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF1F2937),
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: Row(
-                                children: [
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(10),
-                                    child: SizedBox(
-                                      width: 64,
-                                      height: 64,
-                                      child: (l.imageUrl ?? '').isNotEmpty
-                                          ? CachedNetworkImage(
-                                              imageUrl: l.imageUrl!,
-                                              fit: BoxFit.cover,
-                                              errorWidget: (_, __, ___) =>
-                                                  const ColoredBox(
-                                                color: Color(0xFF374151),
-                                              ),
-                                            )
-                                          : const ColoredBox(
-                                              color: Color(0xFF374151),
-                                              child: Icon(Icons.restaurant,
-                                                  color: Colors.white54),
-                                            ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 14),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          l.name,
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          'SL ${l.qty % 1 == 0 ? l.qty.toStringAsFixed(0) : l.qty.toStringAsFixed(2)}'
-                                          '${(l.unitLabel ?? '').isNotEmpty ? ' ${l.unitLabel}' : ''}'
-                                          ' × ${_money.format(l.unitPrice)}đ',
-                                          style: TextStyle(
-                                            color: Colors.white
-                                                .withValues(alpha: 0.6),
-                                            fontSize: 14,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Text(
-                                    '${_money.format(l.lineTotal)}đ',
-                                    style: const TextStyle(
-                                      color: Color(0xFF5EEAD4),
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                ),
-              ],
+                          const SizedBox(width: 8),
+                          Text(
+                            '${_money.format(l.lineTotal)}đ',
+                            style: const TextStyle(
+                              color: _billFg,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+          ),
+          Container(height: 1, color: _billLine),
+          const SizedBox(height: 12),
+          _billRow('Tạm tính', '${_money.format(s.subtotal)}đ'),
+          if (s.discount > 0) ...[
+            const SizedBox(height: 6),
+            _billRow(
+              'Giảm giá',
+              '-${_money.format(s.discount)}đ',
+              valueColor: const Color(0xFFDC2626),
+            ),
+          ],
+          const SizedBox(height: 10),
+          _billRow(
+            'TỔNG CỘNG',
+            '${_money.format(s.total)}đ',
+            emphasize: true,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Cảm ơn quý khách',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: HrmPageChrome.primaryNavy.withValues(alpha: 0.85),
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
             ),
           ),
-        ),
-        Expanded(
-          flex: 4,
-          child: Container(
-            color: const Color(0xFF0B1220),
-            padding: const EdgeInsets.all(28),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  (s.storeName ?? 'Hóa đơn').trim(),
-                  textAlign: TextAlign.right,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.7),
-                    fontSize: 18,
-                  ),
-                ),
-                const Spacer(),
-                _billRow('Tạm tính', '${_money.format(s.subtotal)}đ'),
-                if (s.discount > 0) ...[
-                  const SizedBox(height: 10),
-                  _billRow('Giảm giá', '-${_money.format(s.discount)}đ',
-                      accent: true),
-                ],
-                const SizedBox(height: 18),
-                Container(height: 1, color: Colors.white24),
-                const SizedBox(height: 18),
-                const Text(
-                  'TỔNG CỘNG',
-                  textAlign: TextAlign.right,
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 16,
-                    letterSpacing: 1.1,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '${_money.format(s.total)}đ',
-                  textAlign: TextAlign.right,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 48,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 28),
-                Container(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  decoration: BoxDecoration(
-                    color: PosTheme.primary.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: PosTheme.primary.withValues(alpha: 0.5)),
-                  ),
-                  child: const Text(
-                    'Cảm ơn quý khách',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Color(0xFF5EEAD4),
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
-  Widget _billRow(String label, String value, {bool accent = false}) {
+  Widget _billRow(
+    String label,
+    String value, {
+    bool emphasize = false,
+    Color? valueColor,
+  }) {
     return Row(
       children: [
         Text(
           label,
           style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.65),
-            fontSize: 18,
+            color: emphasize ? _billFg : _billMuted,
+            fontSize: emphasize ? 16 : 15,
+            fontWeight: emphasize ? FontWeight.w700 : FontWeight.w500,
           ),
         ),
         const Spacer(),
         Text(
           value,
           style: TextStyle(
-            color: accent ? const Color(0xFFFCA5A5) : Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
+            color: valueColor ?? _billFg,
+            fontSize: emphasize ? 28 : 17,
+            fontWeight: FontWeight.w800,
           ),
         ),
       ],

@@ -122,6 +122,11 @@ abstract final class MobileQuickActionsCatalog {
       icon: Icons.settings_outlined,
     ),
     MobileQuickActionDef(
+      moduleCode: 'PosSaleReturns',
+      label: 'Trả hàng',
+      icon: Icons.assignment_return_outlined,
+    ),
+    MobileQuickActionDef(
       moduleCode: 'Notification',
       label: 'Thông báo',
       icon: Icons.notifications_outlined,

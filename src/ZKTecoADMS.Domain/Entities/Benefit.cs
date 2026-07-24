@@ -116,9 +116,10 @@ public class Benefit : AuditableEntity<Guid>
     // Shifts per day for work day calculation
     public int? ShiftsPerDay { get; set; }
     
-    // Attendance mode: none, checkin, checkout, both, any, free2
+    // Attendance mode: none, checkin, checkout, both, any, free2, once
     // (free2 = "Chấm 2 lần bất kỳ trong ngày": ≥2 punches/day = 1 công,
-    // ignores shift matching, late/early/overtime — see AttendanceConstants.FreeTwoPunchMode)
+    // ignores shift matching, late/early/overtime)
+    // (once = "Chấm vào 1 lần/ca": late vs shift start; checkout = shift end)
     [MaxLength(20)]
     public string? AttendanceMode { get; set; }
     

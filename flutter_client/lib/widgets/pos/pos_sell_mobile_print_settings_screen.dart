@@ -14,6 +14,7 @@ import '../../utils/pos_printer_transport.dart';
 import '../../utils/pos_thermal_printer_service.dart';
 import '../../utils/pos_thermal_printer_settings.dart';
 import '../../utils/responsive_helper.dart';
+import '../hrm_page_chrome.dart';
 import '../notification_overlay.dart';
 import 'pos_theme.dart';
 
@@ -278,34 +279,61 @@ class _PosSellMobilePrintSettingsScreenState
 
   @override
   Widget build(BuildContext context) {
+    final embedded = HrmPageChrome.isEmbedded;
     return Scaffold(
       backgroundColor: const Color(0xFFF3F4F6),
-      appBar: AppBar(
-        title: const Text('Thiết lập in'),
-        backgroundColor: Colors.white,
-        foregroundColor: PosTheme.textPrimary,
-        elevation: 0,
-        actions: [
-          IconButton(
-            tooltip: 'Máy in cửa hàng',
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const PosStorePrintersScreen(),
+      appBar: embedded
+          ? null
+          : AppBar(
+              title: const Text('Thiết lập in'),
+              backgroundColor: Colors.white,
+              foregroundColor: PosTheme.textPrimary,
+              elevation: 0,
+              actions: [
+                IconButton(
+                  tooltip: 'Máy in cửa hàng',
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const PosStorePrintersScreen(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.print_outlined),
                 ),
-              );
-            },
-            icon: const Icon(Icons.print_outlined),
-          ),
-          TextButton(
-            onPressed: _loading ? null : _save,
-            child: const Text('Lưu', style: TextStyle(fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
+                TextButton(
+                  onPressed: _loading ? null : _save,
+                  child: const Text('Lưu',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
       body: ListView(
               padding: const EdgeInsets.fromLTRB(14, 12, 14, 24),
               children: [
+                if (embedded) ...[
+                  Row(
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const PosStorePrintersScreen(),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.print_outlined, size: 18),
+                        label: const Text('Máy in cửa hàng'),
+                      ),
+                      const Spacer(),
+                      FilledButton(
+                        onPressed: _loading ? null : _save,
+                        child: const Text('Lưu'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 _sectionTitle('Hóa đơn'),
                 _card([
                   SwitchListTile(

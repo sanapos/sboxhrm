@@ -2672,14 +2672,8 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     return const Color(0xFFD1D5DB);
   }
 
-  String _statusLabel(PosServiceResourceDto r) {
-    if (r.billRequested || r.isBillRequested) return 'Tạm tính';
-    if (r.isReserved) return 'Đặt';
-    if (r.isPaused) return 'Tạm dừng';
-    if (r.isActivelyOpen && r.isLockedByOtherDevice(_deviceId)) return 'Máy khác';
-    // Bàn đang dùng / tạm rời — màu xanh đã đủ, không ghi thêm dòng trạng thái.
-    return '';
-  }
+  // Trạng thái "Tạm tính"/"Máy khác" thể hiện bằng màu nền + icon giữa ô,
+  // không gắn chip chữ cạnh tên bàn.
 
   bool _isWaitingTable(PosServiceResourceDto r) =>
       r.isHolding && r.lineCount <= 0;
@@ -3545,7 +3539,6 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
         interactive && !_layoutEdit && widget.manageMode;
 
     final kindIcon = _kindIcon(r.resourceKind);
-    final status = _statusLabel(r);
     final accent = _tileAccent(r);
     final showMoney = r.subtotal > 0 &&
         !_isWaitingTable(r) &&
@@ -3564,6 +3557,8 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Chỉ tên bàn — không gắn chip "Tạm tính"/"Máy khác" cạnh tên
+          // (đã thể hiện bằng màu nền / icon giữa ô).
           Row(
             children: [
               Icon(kindIcon, size: 13, color: _tileBorder(r)),
@@ -3581,18 +3576,6 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                   ),
                 ),
               ),
-              if (status.isNotEmpty)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                  decoration: BoxDecoration(
-                    color: accent.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    status,
-                    style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: accent),
-                  ),
-                ),
             ],
           ),
           Expanded(child: _buildTileCenter(r, accent)),

@@ -760,10 +760,19 @@ class PosPrintOrchestrator {
     String? referenceNo,
     bool showFeedback = false,
     String? successTitle,
-    bool skipDedup = true,
+    bool skipDedup = false,
     bool waitForCompletion = true,
   }) async {
     if (kIsWeb || lines.isEmpty) return false;
+
+    if (!skipDedup &&
+        PosPrintDedup.shouldSkip(
+          documentType: PosCloudDocumentTypes.stockIssue,
+          referenceNo: referenceNo,
+          printerId: printer.id,
+        )) {
+      return true;
+    }
 
     final isAgent = await PosPrintRole.isAgentForPrinter(printer.id);
     final onSunmiHw = await PosPrinterTransport.isSunmiDevice();
@@ -1163,16 +1172,13 @@ class PosPrintOrchestrator {
             showFeedback: showFeedback,
           );
         } else if (status == 'Claimed' || status == 'Printing') {
-          // Job kẹt sau khi claim — không để Oppo chờ hết 90s.
+          // Agent đã nhận job — giấy thường đã/ sắp ra. Coi là thành công để
+          // không đẩy vào hàng "chờ in" rồi auto-retry in trùng phiếu
+          // (báo chế biến bị in lại sau ~45s).
           if (i >= 6) {
             _finishJob(
               jobId,
-              _JobOutcome(
-                false,
-                status == 'Claimed'
-                    ? 'Agent đã nhận nhưng chưa in xong — kiểm tra chip máy in trên Sunmi'
-                    : 'Agent đang in quá lâu — kiểm tra giấy / máy in Sunmi',
-              ),
+              const _JobOutcome(true, null),
               showFeedback: showFeedback,
             );
           }

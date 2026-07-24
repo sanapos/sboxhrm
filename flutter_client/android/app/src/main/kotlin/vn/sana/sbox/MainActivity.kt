@@ -69,6 +69,8 @@ class MainActivity : FlutterActivity() {
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "listDisplays" -> result.success(CustomerDisplayController.listDisplays(this))
+                    "hasSecondaryDisplay" ->
+                        result.success(CustomerDisplayController.hasSecondaryDisplay(this))
                     "show" -> {
                         val displayId = call.argument<Int>("displayId")
                         result.success(CustomerDisplayController.show(this, displayId))
@@ -89,14 +91,18 @@ class MainActivity : FlutterActivity() {
 
         EventChannel(flutterEngine.dartExecutor.binaryMessenger, CUSTOMER_DISPLAY_EVENTS)
             .setStreamHandler(object : EventChannel.StreamHandler {
+                private var sink: EventChannel.EventSink? = null
+
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    sink = events
                     CustomerDisplayController.attachEventSink(events)
                     val current = CustomerDisplayController.read(this@MainActivity)
                     if (!current.isNullOrBlank()) events?.success(current)
                 }
 
                 override fun onCancel(arguments: Any?) {
-                    CustomerDisplayController.attachEventSink(null)
+                    CustomerDisplayController.detachEventSink(sink)
+                    sink = null
                 }
             })
     }

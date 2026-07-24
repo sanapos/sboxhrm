@@ -36,6 +36,9 @@ import 'branch_management_screen.dart';
 import 'staffing_quota_settings_screen.dart';
 import 'pos_print_templates_screen.dart';
 import 'pos/pos_sell_industry_settings_screen.dart';
+import 'pos/pos_store_settings_hub_screen.dart';
+import 'pos/pos_printer_settings_hub_screen.dart';
+import 'pos/pos_resource_floor_screen.dart';
 
 class SettingsHubScreen extends StatefulWidget {
   const SettingsHubScreen({super.key});
@@ -283,6 +286,16 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
         return const PosPrintTemplatesScreen(embeddedInSettings: true);
       case 16:
         return const PosSellIndustrySettingsScreen(embeddedInSettings: true);
+      case 17:
+        return const PosStoreSettingsHubScreen();
+      case 18:
+        return const PosPrinterSettingsHubScreen();
+      case 19:
+        return const PosResourceFloorScreen(
+          manageMode: true,
+          embedded: true,
+          showAppBar: false,
+        );
       default:
         return const SizedBox();
     }

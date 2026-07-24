@@ -51,7 +51,6 @@ import '../widgets/pos/pos_sell_product_grid.dart';
 import '../widgets/pos/pos_sell_desktop_layout.dart';
 import '../widgets/notification_overlay.dart';
 import '../screens/main_layout.dart' show ScreenRefreshNotifier;
-import '../utils/navigation_notifier.dart';
 import '../screens/pos/pos_product_editor_page.dart';
 import '../widgets/pos/pos_discount_editor_dialog.dart';
 import '../widgets/pos/pos_customer_form_dialog.dart';
@@ -75,6 +74,9 @@ import 'pos_sale_return_screen.dart';
 import 'pos_sale_return_list_screen.dart';
 import '../widgets/pos/pos_cash_voucher_dialog.dart';
 import '../widgets/pos/pos_pick_sale_order_dialog.dart';
+import '../utils/navigation_notifier.dart';
+import '../utils/permission_navigation.dart';
+import 'settings_hub_screen.dart';
 
 const _kiotBlue = PosTheme.kiotBlue;
 
@@ -831,10 +833,19 @@ class _PosSellScreenState extends State<PosSellScreen> {
 
   Future<void> _bootstrapCustomerDisplay() async {
     await CustomerDisplaySync.instance.startListening();
+    final hasSecondary =
+        await CustomerDisplaySync.instance.hasSecondaryDisplay();
+    if (mounted) {
+      setState(() => _hasSecondaryCustomerDisplay = hasSecondary || kIsWeb);
+    } else {
+      _hasSecondaryCustomerDisplay = hasSecondary || kIsWeb;
+    }
     if (!CustomerDisplaySync.instance.enabled) return;
+    // Luôn đẩy state (kể cả máy 1 màn) để khi mở màn phụ / popup nhận được bill.
     await _refreshCustomerDisplayPromos();
     _scheduleCustomerDisplayPublish();
-    if (CustomerDisplaySync.instance.config.autoOpenOnPos) {
+    if (_hasSecondaryCustomerDisplay &&
+        CustomerDisplaySync.instance.config.autoOpenOnPos) {
       await CustomerDisplaySync.instance.openSecondary();
     }
   }
@@ -1201,6 +1212,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
   bool _tabletPaymentStage = false;
   Timer? _customerDisplayPublishTimer;
   List<CustomerDisplayPromoItem> _customerDisplayPromos = const [];
+  /// Máy có display phụ thật (Android DisplayManager). Web luôn true (popup).
+  bool _hasSecondaryCustomerDisplay = kIsWeb;
 
   void _scheduleCustomerDisplayPublish() {
     _customerDisplayPublishTimer?.cancel();
@@ -1259,11 +1272,10 @@ class _PosSellScreenState extends State<PosSellScreen> {
       for (final p in products) {
         final img = (p.imageUrl ?? '').trim();
         if (img.isEmpty) continue;
+        // Chỉ ảnh — không gắn tên/mã/giá (tránh chữ đè lên media màn phụ).
         fromProducts.add(CustomerDisplayPromoItem(
-          title: p.name,
+          title: '',
           imageUrl: img,
-          subtitle: p.productCode,
-          price: p.basePrice,
         ));
         if (fromProducts.length >= 24) break;
       }
@@ -1312,6 +1324,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
       subtotal: _subTotal,
       discount: _tab.discount + _tab.voucherDiscount + _tab.pointsDiscount,
       total: _grandTotal,
+      storeName: _warehouseBranchName,
       promoItems: _customerDisplayPromos,
     );
   }
@@ -1325,6 +1338,19 @@ class _PosSellScreenState extends State<PosSellScreen> {
       );
       return;
     }
+    final hasSecondary = await sync.hasSecondaryDisplay();
+    if (mounted) {
+      setState(() => _hasSecondaryCustomerDisplay = hasSecondary || kIsWeb);
+    }
+    if (!hasSecondary && !kIsWeb) {
+      if (!mounted) return;
+      NotificationOverlayManager().showWarning(
+        title: 'Máy chỉ có 1 màn hình',
+        message:
+            'Màn hình phụ chỉ mở khi thiết bị có display thứ hai (màn khách).',
+      );
+      return;
+    }
     await _refreshCustomerDisplayPromos();
     _scheduleCustomerDisplayPublish();
     final ok = await sync.openSecondary();
@@ -1332,14 +1358,14 @@ class _PosSellScreenState extends State<PosSellScreen> {
     if (ok) {
       NotificationOverlayManager().showSuccess(
         title: 'Đã mở màn hình phụ',
-        message: 'Idle: ảnh/video SP · Mở bàn: menu + hóa đơn',
+        message: 'Ảnh/video | hóa đơn — chỉ trên màn khách',
       );
     } else {
       NotificationOverlayManager().showWarning(
         title: 'Không mở được màn phụ',
         message: kIsWeb
             ? 'Cho phép popup hoặc mở #/customer-display trên màn khác'
-            : 'Không thấy display phụ — đã thử mở Activity trên máy chính',
+            : 'Không phát hiện display phụ — không chiếu trên màn chính',
       );
     }
   }
@@ -1789,8 +1815,10 @@ class _PosSellScreenState extends State<PosSellScreen> {
         .where((l) => l.qty > 0)
         .toList();
 
-    // In theo phiếu client đang chờ — kể cả khi server báo already (lệch đồng bộ).
-    final shouldPrint = sendTicketLines.isNotEmpty;
+    // Chỉ in khi server ghi nhận món mới. Nếu alreadyAllSent mà vẫn in
+    // theo phiếu client → phiếu báo chế biến bị in lại (thường không liên tiếp
+    // vì lệch đồng bộ / báo bếp từ sơ đồ trước đó).
+    final shouldPrint = sendTicketLines.isNotEmpty && !already;
     if (shouldPrint) {
       if (mounted) {
         setState(() {
@@ -6803,6 +6831,10 @@ class _PosSellScreenState extends State<PosSellScreen> {
   Future<void> _loadPendingPrintQueueFromDisk() async {
     final snap = await PosPendingPrintStore.load();
     if (!mounted || snap.isEmpty) return;
+    // Phiếu bếp trong hàng chờ thường đã in thật (Agent nhận rồi client
+    // ghi fail) — mở lại app cũ sẽ auto-retry và in trùng trên máy thu ngân.
+    // Chỉ giữ job bếp còn mới (< 10 phút); job cũ bỏ hẳn, in lại thì dùng tay.
+    final kitchenFresh = PosPendingPrintStore.filterFreshKitchenJobs(snap.kitchen);
     setState(() {
       _failedWarehousePrints
         ..clear()
@@ -6812,11 +6844,15 @@ class _PosSellScreenState extends State<PosSellScreen> {
         ..addAll(snap.sales);
       _failedKitchenPrints
         ..clear()
-        ..addAll(snap.kitchen);
+        ..addAll(kitchenFresh);
       _failedCupPrints
         ..clear()
         ..addAll(snap.cups);
     });
+    // Ghi lại ngay để máy cũ sau khi cập nhật không còn queue bếp độc.
+    if (kitchenFresh.length != snap.kitchen.length) {
+      unawaited(_persistPendingPrintQueue());
+    }
   }
 
   Future<void> _persistPendingPrintQueue() async {
@@ -6841,33 +6877,9 @@ class _PosSellScreenState extends State<PosSellScreen> {
     if (_checkingOut || _warehousePrinting) return;
     _pendingPrintRetryBusy = true;
     try {
-      // Ưu tiên bếp / tem — ảnh hưởng chế biến.
-      if (_failedKitchenPrints.isNotEmpty) {
-        final job = _failedKitchenPrints.first;
-        if (job.attemptCount >= 8) return;
-        final ok = await printKitchenCompactSlip(
-          tableName: job.tableName,
-          isCancel: job.isCancel,
-          lines: job.lines,
-          senderName: job.senderName,
-          orderNo: job.orderNo,
-          sentAt: job.sentAt,
-        );
-        if (!mounted) return;
-        if (ok) {
-          _removeFailedKitchenPrint(job);
-        } else {
-          setState(() {
-            final i = _failedKitchenPrints.indexWhere((j) => j.id == job.id);
-            if (i >= 0) {
-              _failedKitchenPrints[i] =
-                  job.copyWith(attemptCount: job.attemptCount + 1);
-            }
-          });
-          unawaited(_persistPendingPrintQueue());
-        }
-        return;
-      }
+      // KHÔNG auto-retry phiếu bếp: mở app (nhất là bản cũ) sẽ gửi lại job
+      // lên máy in thu ngân → in trùng không liên tiếp. In lại bếp chỉ bằng tay
+      // từ biểu tượng phiếu treo.
       if (_failedCupPrints.isNotEmpty) {
         final job = _failedCupPrints.first;
         if (job.attemptCount >= 8) return;
@@ -7332,9 +7344,12 @@ class _PosSellScreenState extends State<PosSellScreen> {
     final user = auth.user;
     final canCash = perm.canCreate('CashTransaction') ||
         (perm.isLoaded && perm.canView('CashTransaction'));
-    final canReturn = perm.canEdit('PosProducts') || perm.canCreate('PosSell');
-    final canReport = perm.canView('PosSalesReport') || perm.canView('PosProducts');
-    final canSell = perm.canView('PosSell') || perm.canView('PosProducts');
+    final canReturn = PermissionNavigation.canNavigate(perm, 'PosSaleReturns');
+    final canReport = PermissionNavigation.canNavigate(perm, 'PosSalesReport');
+    final canEod = canReport;
+    final canPosSettings = PermissionNavigation.canNavigate(perm, 'PosSell') ||
+        PermissionNavigation.canNavigate(perm, 'PosProducts') ||
+        PermissionNavigation.canNavigate(perm, 'SettingsHub');
     final accountName = user != null && user.fullName.trim().isNotEmpty
         ? user.fullName.trim()
         : (user?.email.isNotEmpty == true ? user!.email : 'Tài khoản');
@@ -7353,7 +7368,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
     final isMobile = Responsive.isMobile(context);
     final action = await showMenu<String>(
       context: context,
-      position: RelativeRect.fromLTRB(topRight.dx - 240, topRight.dy, topRight.dx, topRight.dy + 8),
+      position: RelativeRect.fromLTRB(
+          topRight.dx - 240, topRight.dy, topRight.dx, topRight.dy + 8),
       items: [
         if (isMobile)
           PopupMenuItem(
@@ -7363,49 +7379,39 @@ class _PosSellScreenState extends State<PosSellScreen> {
               leading: const Icon(Icons.merge_type_outlined, size: 20),
               title: const Text('Tự động gộp cùng sản phẩm'),
               trailing: Icon(
-                _mobileMergeSameOnAdd ? Icons.check_circle : Icons.circle_outlined,
+                _mobileMergeSameOnAdd
+                    ? Icons.check_circle
+                    : Icons.circle_outlined,
                 size: 20,
-                color: _mobileMergeSameOnAdd ? _kiotBlue : PosTheme.textSecondary,
+                color: _mobileMergeSameOnAdd
+                    ? _kiotBlue
+                    : PosTheme.textSecondary,
               ),
               contentPadding: EdgeInsets.zero,
             ),
           ),
-        const PopupMenuItem(
-          value: 'print_settings',
-          child: ListTile(
-            dense: true,
-            leading: Icon(Icons.print_outlined, size: 20),
-            title: Text('Thiết lập máy in'),
-            contentPadding: EdgeInsets.zero,
+        if (canPosSettings)
+          const PopupMenuItem(
+            value: 'pos_settings_hub',
+            child: ListTile(
+              dense: true,
+              leading: Icon(Icons.settings_outlined, size: 20),
+              title: Text('Thiết lập POS'),
+              subtitle: Text('Cửa hàng, máy in, ngành hàng…',
+                  style: TextStyle(fontSize: 11)),
+              contentPadding: EdgeInsets.zero,
+            ),
           ),
-        ),
-        const PopupMenuItem(
-          value: 'store_settings',
-          child: ListTile(
-            dense: true,
-            leading: Icon(Icons.store_outlined, size: 20),
-            title: Text('Thiết lập cửa hàng'),
-            contentPadding: EdgeInsets.zero,
+        if (_hasSecondaryCustomerDisplay || kIsWeb)
+          const PopupMenuItem(
+            value: 'customer_display',
+            child: ListTile(
+              dense: true,
+              leading: Icon(Icons.tv_outlined, size: 20),
+              title: Text('Mở màn hình phụ (khách)'),
+              contentPadding: EdgeInsets.zero,
+            ),
           ),
-        ),
-        const PopupMenuItem(
-          value: 'industry_settings',
-          child: ListTile(
-            dense: true,
-            leading: Icon(Icons.storefront_outlined, size: 20),
-            title: Text('Ngành hàng & bán hàng'),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-        const PopupMenuItem(
-          value: 'customer_display',
-          child: ListTile(
-            dense: true,
-            leading: Icon(Icons.tv_outlined, size: 20),
-            title: Text('Mở màn hình phụ (khách)'),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
         if (_showFloorPlan)
           const PopupMenuItem(
             value: 'floor_plan',
@@ -7426,15 +7432,16 @@ class _PosSellScreenState extends State<PosSellScreen> {
               contentPadding: EdgeInsets.zero,
             ),
           ),
-        const PopupMenuItem(
-          value: 'eod',
-          child: ListTile(
-            dense: true,
-            leading: Icon(Icons.summarize_outlined, size: 20),
-            title: Text('Xem báo cáo cuối ngày'),
-            contentPadding: EdgeInsets.zero,
+        if (canEod)
+          const PopupMenuItem(
+            value: 'eod',
+            child: ListTile(
+              dense: true,
+              leading: Icon(Icons.summarize_outlined, size: 20),
+              title: Text('Xem báo cáo cuối ngày'),
+              contentPadding: EdgeInsets.zero,
+            ),
           ),
-        ),
         if (canReport)
           const PopupMenuItem(
             value: 'reports',
@@ -7480,7 +7487,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
             value: 'receipt',
             child: ListTile(
               dense: true,
-              leading: Icon(Icons.call_received, size: 20, color: Colors.green),
+              leading:
+                  Icon(Icons.call_received, size: 20, color: Colors.green),
               title: Text('Lập phiếu thu'),
               contentPadding: EdgeInsets.zero,
             ),
@@ -7550,16 +7558,15 @@ class _PosSellScreenState extends State<PosSellScreen> {
         await showPosLogoutDialog(context);
       case 'toggle_merge':
         setState(() => _mobileMergeSameOnAdd = !_mobileMergeSameOnAdd);
-      case 'print_settings':
-        await _openPrintSettings();
-      case 'store_settings':
-        await _openStoreSettings();
-      case 'industry_settings':
-        await Navigator.of(context).push(
-          MaterialPageRoute(
-              builder: (_) => const PosSellIndustrySettingsScreen()),
-        );
-        await _loadIndustrySettings();
+      case 'pos_settings_hub':
+        SettingsHubScreen.pendingSubIndex.value = null;
+        if (NavigationNotifier.mainLayoutReady.value) {
+          NavigationNotifier.navigateToModule.value = 'SettingsHub';
+        } else if (mounted) {
+          await Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const SettingsHubScreen()),
+          );
+        }
       case 'customer_display':
         await _openCustomerDisplay();
       case 'floor_plan':
@@ -7582,7 +7589,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
         final order = await showPosPickSaleOrderDialog(context);
         if (!mounted || order == null) return;
         await Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => PosSaleReturnScreen(orderId: order.id)),
+          MaterialPageRoute(
+              builder: (_) => PosSaleReturnScreen(orderId: order.id)),
         );
       case 'return':
         await Navigator.of(context).push(
@@ -7602,6 +7610,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
         );
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -7928,12 +7937,14 @@ class _PosSellScreenState extends State<PosSellScreen> {
                       ),
                     ),
             ),
-            IconButton(
-              visualDensity: VisualDensity.compact,
-              tooltip: 'Màn hình phụ',
-              icon: const Icon(Icons.tv_outlined, size: 22, color: Colors.white),
-              onPressed: () => unawaited(_openCustomerDisplay()),
-            ),
+            if (_hasSecondaryCustomerDisplay || kIsWeb)
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                tooltip: 'Màn hình phụ',
+                icon:
+                    const Icon(Icons.tv_outlined, size: 22, color: Colors.white),
+                onPressed: () => unawaited(_openCustomerDisplay()),
+              ),
             IconButton(
               visualDensity: VisualDensity.compact,
               tooltip: 'Thêm',
@@ -10161,12 +10172,14 @@ class _PosSellScreenState extends State<PosSellScreen> {
                 ),
               ),
             ),
-            IconButton(
-              visualDensity: VisualDensity.compact,
-              tooltip: 'Màn hình phụ',
-              icon: const Icon(Icons.tv_outlined, size: 22, color: Colors.white),
-              onPressed: () => unawaited(_openCustomerDisplay()),
-            ),
+            if (_hasSecondaryCustomerDisplay || kIsWeb)
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                tooltip: 'Màn hình phụ',
+                icon:
+                    const Icon(Icons.tv_outlined, size: 22, color: Colors.white),
+                onPressed: () => unawaited(_openCustomerDisplay()),
+              ),
             PosPendingPrintIconButton(
               pendingCount: _pendingPrintCount,
               onTap: _openPendingPrintQueue,

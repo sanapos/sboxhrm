@@ -8913,7 +8913,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
                 VerifyMode = verifyMode,
 
 
-                AttendanceState = MapMobilePunchTypeToAttendanceState(record.PunchType),
+                AttendanceState = await ResolveMobileAttendanceStateAsync(employee, record.PunchType),
 
 
                 AttendanceTime = record.PunchTime,
@@ -9054,6 +9054,25 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
         5 => AttendanceStates.MealIn,
         _ => AttendanceStates.CheckIn,
     };
+
+    /// <summary>
+    /// Mode "once": mọi chấm vào/ra thường → CheckIn (1 lần/ca; giờ ra = hết ca trên bảng công).
+    /// </summary>
+    private async Task<AttendanceStates> ResolveMobileAttendanceStateAsync(Employee? employee, int punchType)
+    {
+        var state = MapMobilePunchTypeToAttendanceState(punchType);
+        if (employee == null) return state;
+        if (state is not (AttendanceStates.CheckIn or AttendanceStates.CheckOut)) return state;
+
+        var mode = await _dbContext.EmployeeBenefits.AsNoTracking()
+            .Where(eb => eb.EmployeeId == employee.Id && eb.Deleted == null)
+            .OrderByDescending(eb => eb.CreatedAt)
+            .Select(eb => eb.Benefit != null ? eb.Benefit.AttendanceMode : null)
+            .FirstOrDefaultAsync();
+        if (string.Equals(mode, "once", StringComparison.OrdinalIgnoreCase))
+            return AttendanceStates.CheckIn;
+        return state;
+    }
 
 
 }

@@ -24,7 +24,10 @@ import 'pos_goods_report_screen.dart';
 import 'pos_resource_floor_screen.dart';
 import 'pos_sales_report_screen.dart';
 import 'pos_sell_industry_settings_screen.dart';
+import 'pos_store_settings_hub_screen.dart';
+import 'pos_printer_settings_hub_screen.dart';
 import 'pos_vouchers_screen.dart';
+import '../settings_hub_screen.dart';
 
 /// Hub «Nhiều hơn» — module POS phụ kiểu KiotViet.
 class PosMoreScreen extends StatelessWidget {
@@ -125,13 +128,34 @@ class PosMoreScreen extends StatelessWidget {
                 _section(
                   context,
                   perm,
-                  title: 'Ngành hàng & mặt bằng',
+                  title: 'Thiết lập POS',
                   items: [
+                    _Item(
+                      'Thiết lập HRM / POS',
+                      Icons.settings_outlined,
+                      'SettingsHub',
+                      const SettingsHubScreen(),
+                      altModules: const ['PosSell', 'PosProducts'],
+                    ),
                     _Item(
                       'Hồ sơ ngành',
                       Icons.storefront_outlined,
                       'PosSell',
                       const PosSellIndustrySettingsScreen(),
+                      altModules: const ['PosProducts'],
+                    ),
+                    _Item(
+                      'Thiết lập cửa hàng',
+                      Icons.store_outlined,
+                      'PosSell',
+                      const PosStoreSettingsHubScreen(),
+                      altModules: const ['PosProducts'],
+                    ),
+                    _Item(
+                      'Máy in (thiết bị)',
+                      Icons.print_outlined,
+                      'PosSell',
+                      const PosPrinterSettingsHubScreen(),
                       altModules: const ['PosProducts'],
                     ),
                     _Item(

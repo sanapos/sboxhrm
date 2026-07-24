@@ -244,6 +244,18 @@ class PosPendingPrintStore {
   static const _kKey = 'pos_pending_print_queue_v1';
   static const maxJobsPerKind = 40;
 
+  /// Job bếp cũ hơn ngưỡng này khi mở app → bỏ (tránh máy cũ auto-in trùng).
+  static const kitchenMaxAge = Duration(minutes: 10);
+
+  static List<PendingKitchenPrintJob> filterFreshKitchenJobs(
+      List<PendingKitchenPrintJob> jobs) {
+    final cutoff = DateTime.now().subtract(kitchenMaxAge);
+    return jobs
+        .where((j) =>
+            j.createdAt.isAfter(cutoff) || j.sentAt.isAfter(cutoff))
+        .toList();
+  }
+
   static Future<PosPendingPrintSnapshot> load() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -251,7 +263,13 @@ class PosPendingPrintStore {
       if (raw == null || raw.isEmpty) return const PosPendingPrintSnapshot();
       final map = jsonDecode(raw);
       if (map is! Map) return const PosPendingPrintSnapshot();
-      return _fromMap(Map<String, dynamic>.from(map));
+      final snap = _fromMap(Map<String, dynamic>.from(map));
+      // Lọc bếp cũ ngay khi load — máy cập nhật một lần là hết queue độc.
+      final kitchen = filterFreshKitchenJobs(snap.kitchen);
+      if (kitchen.length == snap.kitchen.length) return snap;
+      final cleaned = snap.copyWith(kitchen: kitchen);
+      await save(cleaned);
+      return cleaned;
     } catch (e) {
       debugPrint('PosPendingPrintStore.load: $e');
       return const PosPendingPrintSnapshot();

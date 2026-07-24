@@ -523,6 +523,12 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                       value: 'both', child: Text('Chấm vào & Chấm ra')),
                   DropdownMenuItem(value: 'any', child: Text('Chấm bất kỳ')),
                   DropdownMenuItem(
+                      value: kOncePerShiftAttendanceMode,
+                      child: Text('Chấm vào 1 lần/ca')),
+                  DropdownMenuItem(
+                      value: kFreeTwoPunchAttendanceMode,
+                      child: Text('Chấm 2 lần bất kỳ trong ngày')),
+                  DropdownMenuItem(
                       value: 'none', child: Text('Không chấm công')),
                 ],
                 onChanged: (value) =>
@@ -680,6 +686,12 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
         DropdownMenuItem(value: 'checkout', child: Text('Chấm ra')),
         DropdownMenuItem(value: 'both', child: Text('Chấm vào & Chấm ra')),
         DropdownMenuItem(value: 'any', child: Text('Chấm bất kỳ')),
+        DropdownMenuItem(
+            value: kOncePerShiftAttendanceMode,
+            child: Text('Chấm vào 1 lần/ca')),
+        DropdownMenuItem(
+            value: kFreeTwoPunchAttendanceMode,
+            child: Text('Chấm 2 lần bất kỳ trong ngày')),
         DropdownMenuItem(value: 'none', child: Text('Không chấm công')),
       ],
       onChanged: (value) => setState(() => _filterAttendance = value ?? 'all'),
@@ -2119,6 +2131,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
         return 'Chấm vào & Chấm ra';
       case 'any':
         return 'Chấm bất kỳ';
+      case kOncePerShiftAttendanceMode:
+        return 'Chấm vào 1 lần/ca';
       case kFreeTwoPunchAttendanceMode:
         return 'Chấm 2 lần bất kỳ trong ngày';
       case 'none':
@@ -2846,6 +2860,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
       'checkout',
       'both',
       'any',
+      kOncePerShiftAttendanceMode,
       kFreeTwoPunchAttendanceMode,
     ].contains(attendanceMode)) {
       attendanceMode = 'both';
@@ -3683,6 +3698,10 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                           DropdownMenuItem(
                               value: 'any',
                               child: Text('Chấm bất kỳ trong ca')),
+                          DropdownMenuItem(
+                              value: kOncePerShiftAttendanceMode,
+                              child: Text(
+                                  'Chấm vào 1 lần/ca (trễ theo ca, giờ ra = hết ca)')),
                           DropdownMenuItem(
                               value: kFreeTwoPunchAttendanceMode,
                               child: Text(

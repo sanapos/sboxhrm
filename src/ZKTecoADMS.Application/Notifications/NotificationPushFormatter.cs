@@ -229,29 +229,42 @@ public static class NotificationPushFormatter
     }
 
     /// <summary>
-    /// DB message: dòng 1 = họ tên, dòng 2 = giờ - thiết bị [tại chi nhánh].
+    /// DB message: dòng 1 = họ tên, dòng 2 = giờ · ca · trễ/đúng giờ · thiết bị.
     /// </summary>
     public static string BuildAttendanceStoredMessage(
         string employeeName,
         DateTime attendanceTime,
         string deviceLabel,
-        string? branchLabel = null)
+        string? branchLabel = null,
+        string? shiftName = null,
+        int? lateMinutes = null)
     {
         var name = string.IsNullOrWhiteSpace(employeeName) ? "Nhân viên" : employeeName.Trim();
-        return $"{name}\n{FormatAttendanceDetailLine(attendanceTime, deviceLabel, branchLabel)}";
+        return $"{name}\n{FormatAttendanceDetailLine(attendanceTime, deviceLabel, branchLabel, shiftName, lateMinutes)}";
     }
 
     public static string FormatAttendanceDetailLine(
         DateTime attendanceTime,
         string deviceLabel,
-        string? branchLabel = null)
+        string? branchLabel = null,
+        string? shiftName = null,
+        int? lateMinutes = null)
     {
         var device = string.IsNullOrWhiteSpace(deviceLabel) ? "Thiết bị" : deviceLabel.Trim();
         var timeStr = attendanceTime.ToString("HH:mm:ss");
+        var parts = new List<string> { timeStr };
+        var shift = shiftName?.Trim();
+        if (!string.IsNullOrEmpty(shift))
+            parts.Add($"Ca {shift}");
+        if (lateMinutes is > 0)
+            parts.Add($"Trễ {lateMinutes} phút");
+        else if (!string.IsNullOrEmpty(shift))
+            parts.Add("Đúng giờ");
+        parts.Add(device);
         var branch = branchLabel?.Trim();
         if (!string.IsNullOrEmpty(branch))
-            return $"{timeStr} - {device} tại {branch}";
-        return $"{timeStr} - {device}";
+            parts.Add($"tại {branch}");
+        return string.Join(" · ", parts);
     }
 
     private static NotificationPushDisplay FormatAttendanceDisplay(string rawMessage, string? sender)

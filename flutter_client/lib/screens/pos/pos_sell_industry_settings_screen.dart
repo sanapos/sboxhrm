@@ -321,7 +321,7 @@ class _PosSellIndustrySettingsScreenState
         ),
         const SizedBox(height: 4),
         Text(
-          'Idle: ảnh/video sản phẩm. Khi mở bàn/đơn: menu + hóa đơn.',
+          'Chỉ máy có 2 màn (display phụ). Ảnh/video | hóa đơn. Không media → SBOX HRM.',
           style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
         ),
         const SizedBox(height: 8),
