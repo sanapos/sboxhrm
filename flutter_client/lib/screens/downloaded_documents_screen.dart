@@ -4,7 +4,6 @@ import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:intl/intl.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:share_plus/share_plus.dart';
-import '../design_system/design_system.dart';
 
 import '../models/downloaded_document.dart';
 import '../services/downloaded_documents_service.dart';
@@ -302,32 +301,32 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
             padding:
                 const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: AppColors.info.shade50,
+              color: Colors.blue.shade50,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
               children: [
                 Icon(Icons.analytics_outlined,
-                    size: 16, color: AppColors.info.shade700),
+                    size: 16, color: Colors.blue.shade700),
                 const SizedBox(width: 6),
                 Text(tr('Tổng quan & bộ lọc'),
                     style: TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 13,
-                        color: AppColors.info.shade700)),
+                        color: Colors.blue.shade700)),
                 const Spacer(),
                 Text(tr('$visibleCount/$total'),
                     style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.info.shade700)),
+                        color: Colors.blue.shade700)),
                 const SizedBox(width: 4),
                 Icon(
                     _showOverviewPanel
                         ? Icons.expand_less
                         : Icons.expand_more,
                     size: 20,
-                    color: AppColors.info.shade700),
+                    color: Colors.blue.shade700),
               ],
             ),
           ),

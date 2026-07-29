@@ -982,7 +982,7 @@ class StoresTabState extends State<StoresTab> {
             Text(tr('Gán đại lý cho cửa hàng'), style: TextStyle(fontSize: 18)),
           ]),
           content: SizedBox(
-            width: MediaQuery.of(context).size.width < 768
+            width: MediaQuery.of(context).size.width < 600
                 ? MediaQuery.of(context).size.width - 32
                 : 400,
             child: Column(
@@ -1085,7 +1085,7 @@ class StoresTabState extends State<StoresTab> {
           Text(tr('Chỉnh sửa cửa hàng'), style: TextStyle(fontSize: 18)),
         ]),
         content: SizedBox(
-          width: MediaQuery.of(context).size.width < 768 ? MediaQuery.of(context).size.width - 32 : 400,
+          width: MediaQuery.of(context).size.width < 600 ? MediaQuery.of(context).size.width - 32 : 400,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -1180,7 +1180,7 @@ class StoresTabState extends State<StoresTab> {
     }
 
     final d = res['data'] as Map<String, dynamic>? ?? {};
-    final isMobile = MediaQuery.of(context).size.width < 768;
+    final isMobile = MediaQuery.of(context).size.width < 600;
 
     final titleRow = Row(children: [
       const Icon(Icons.store, color: AdminHelpers.primary, size: 22),
@@ -1451,7 +1451,7 @@ class StoresTabState extends State<StoresTab> {
           Text(tr('Khôi phục cài đặt gốc')),
         ]),
         content: SizedBox(
-          width: MediaQuery.of(context).size.width < 768 ? MediaQuery.of(context).size.width - 32 : 400,
+          width: MediaQuery.of(context).size.width < 600 ? MediaQuery.of(context).size.width - 32 : 400,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1531,7 +1531,7 @@ class StoresTabState extends State<StoresTab> {
           Text(tr('Xóa hoàn toàn cửa hàng')),
         ]),
         content: SizedBox(
-          width: MediaQuery.of(context).size.width < 768 ? MediaQuery.of(context).size.width - 32 : 400,
+          width: MediaQuery.of(context).size.width < 600 ? MediaQuery.of(context).size.width - 32 : 400,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1724,7 +1724,7 @@ class StoresTabState extends State<StoresTab> {
                     style: const TextStyle(fontSize: 17))),
           ]),
           content: SizedBox(
-            width: MediaQuery.of(context).size.width < 768
+            width: MediaQuery.of(context).size.width < 600
                 ? MediaQuery.of(context).size.width - 32
                 : 380,
             child: Column(
@@ -2033,7 +2033,7 @@ class StoresTabState extends State<StoresTab> {
                     style: const TextStyle(fontSize: 17))),
           ]),
           content: SizedBox(
-            width: MediaQuery.of(context).size.width < 768 ? MediaQuery.of(context).size.width - 32 : 500,
+            width: MediaQuery.of(context).size.width < 600 ? MediaQuery.of(context).size.width - 32 : 500,
             child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -2413,7 +2413,7 @@ class _StoreUsersDialogState extends State<_StoreUsersDialog> {
         ),
       ]),
       content: SizedBox(
-        width: MediaQuery.of(context).size.width < 768 ? MediaQuery.of(context).size.width - 32 : 600,
+        width: MediaQuery.of(context).size.width < 600 ? MediaQuery.of(context).size.width - 32 : 600,
         height: 450,
         child: _users.isEmpty
             ? AdminHelpers.emptyState(Icons.person_off, 'Không có tài khoản')

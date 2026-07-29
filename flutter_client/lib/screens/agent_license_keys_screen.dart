@@ -587,7 +587,7 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
     final durationDays = key['durationDays'] ?? 0;
     final packageName = key['servicePackageName']?.toString();
     final notes = key['notes']?.toString();
-    final isMobile = MediaQuery.of(context).size.width < 768;
+    final isMobile = MediaQuery.of(context).size.width < 600;
 
     final titleRow = Row(children: [
       Icon(Icons.vpn_key, color: _primary, size: 22),

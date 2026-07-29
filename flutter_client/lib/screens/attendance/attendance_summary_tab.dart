@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 import '../../utils/file_saver.dart' as file_saver;
 import '../../utils/web_canvas.dart' as web_canvas;
-import '../../design_system/design_system.dart';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -1326,7 +1325,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     final maxPunches = cols.maxPunches;
     final maxShifts = cols.maxShifts;
 
-    final isMobileLayout = MediaQuery.sizeOf(context).width < 768;
+    final isMobileLayout = MediaQuery.sizeOf(context).width < 600;
 
     Widget buildMobileOverviewCard() {
       return Container(
@@ -1354,7 +1353,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: BoxDecoration(
-                  color: AppColors.info.shade50,
+                  color: Colors.blue.shade50,
                   borderRadius: BorderRadius.vertical(
                     top: const Radius.circular(12),
                     bottom: _showMobileSummary
@@ -1365,20 +1364,20 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                 child: Row(
                   children: [
                     Icon(Icons.analytics_outlined,
-                        size: 16, color: AppColors.info.shade700),
+                        size: 16, color: Colors.blue.shade700),
                     const SizedBox(width: 6),
                     Text(tr('Tổng quan'),
                         style: TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 13,
-                            color: AppColors.info.shade700)),
+                            color: Colors.blue.shade700)),
                     const Spacer(),
                     Icon(
                         _showMobileSummary
                             ? Icons.expand_less
                             : Icons.expand_more,
                         size: 20,
-                        color: AppColors.info.shade700),
+                        color: Colors.blue.shade700),
                   ],
                 ),
               ),
@@ -1658,7 +1657,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           style: TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w700,
-            color: AppColors.info.shade700,
+            color: Colors.blue.shade700,
           ),
         ),
       ),
@@ -1713,7 +1712,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
             fontSize: 12,
             fontWeight: FontWeight.w700,
             color: totals.totalWork > 0
-                ? AppColors.info.shade700
+                ? Colors.blue.shade700
                 : const Color(0xFFA1A1AA),
           ),
         ),
@@ -1728,7 +1727,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
             fontSize: 12,
             fontWeight: FontWeight.w600,
             color: totals.totalHours > 0
-                ? AppColors.info.shade700
+                ? Colors.blue.shade700
                 : const Color(0xFFA1A1AA),
           ),
         ),
@@ -3514,7 +3513,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
             return ScrollableAlertDialog(
               title: Row(
                 children: [
-                  const Icon(Icons.people, color: AppColors.info, size: 22),
+                  const Icon(Icons.people, color: Colors.blue, size: 22),
                   const SizedBox(width: 8),
                   Text(tr('Chọn nhân viên'),
                       style:
@@ -3567,7 +3566,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: AppColors.info.shade50,
+                        color: Colors.blue.shade50,
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Row(
@@ -3575,7 +3574,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                           Text(tr('Đã chọn: ${tempSelected.length}/${employees.length}'),
                               style: TextStyle(
                                   fontSize: 12,
-                                  color: AppColors.info.shade700,
+                                  color: Colors.blue.shade700,
                                   fontWeight: FontWeight.w500)),
                         ],
                       ),
@@ -3625,7 +3624,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                                   const SizedBox(width: 10),
                                   CircleAvatar(
                                     radius: 14,
-                                    backgroundColor: AppColors.info.shade100,
+                                    backgroundColor: Colors.blue.shade100,
                                     child: Text(
                                         tr(emp.name.isNotEmpty
                                             ? emp.name[0].toUpperCase()
@@ -3633,7 +3632,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                                         style: TextStyle(
                                             fontSize: 12,
                                             fontWeight: FontWeight.bold,
-                                            color: AppColors.info.shade700)),
+                                            color: Colors.blue.shade700)),
                                   ),
                                   const SizedBox(width: 10),
                                   Expanded(
@@ -4395,7 +4394,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
   }
   void _showRowDetailDialog(
       _DailySummary summary, int maxPunches, int maxShifts) {
-    final isMobile = MediaQuery.of(context).size.width < 768;
+    final isMobile = MediaQuery.of(context).size.width < 600;
     _openDetailLookupKey = _detailLookupKey(summary);
     _openDetailMaxPunches = maxPunches;
     _openDetailMaxShifts = maxShifts;
@@ -4532,7 +4531,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
             'Giờ thập phân',
             _formatDecimalHours(s.totalHours),
             icon: Icons.onetwothree,
-            iconColor: AppColors.info.shade700,
+            iconColor: Colors.blue.shade700,
             isBold: true,
           ),
           _buildDetailRow(
@@ -4575,7 +4574,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                           children: [
                             CircleAvatar(
                               radius: 20,
-                              backgroundColor: AppColors.info.shade100,
+                              backgroundColor: Colors.blue.shade100,
                               child: Text(
                                 tr(live.employeeName.isNotEmpty
                                     ? live.employeeName[0].toUpperCase()
@@ -4583,7 +4582,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                                 style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
-                                    color: AppColors.info.shade700),
+                                    color: Colors.blue.shade700),
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -4666,7 +4665,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                         children: [
                           CircleAvatar(
                             radius: 20,
-                            backgroundColor: AppColors.info.shade100,
+                            backgroundColor: Colors.blue.shade100,
                             child: Text(
                               tr(live.employeeName.isNotEmpty
                                   ? live.employeeName[0].toUpperCase()
@@ -4674,7 +4673,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                               style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
-                                  color: AppColors.info.shade700),
+                                  color: Colors.blue.shade700),
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -4982,7 +4981,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                 : (summary.isRestDay && summary.effectiveMultiplier > 1
                     ? Colors.purple.withValues(alpha: 0.12)
                     : (summary.workCount > 0
-                        ? AppColors.info.withValues(alpha: 0.10)
+                        ? Colors.blue.withValues(alpha: 0.10)
                         : Colors.transparent)),
             borderRadius: BorderRadius.circular(6),
           ),
@@ -5001,7 +5000,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                   : (summary.isRestDay && summary.effectiveMultiplier > 1
                       ? Colors.purple
                       : (summary.workCount > 0
-                          ? AppColors.info.shade700
+                          ? Colors.blue.shade700
                           : Colors.grey)),
             ),
           ),
@@ -5016,7 +5015,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
             fontSize: 12,
             fontWeight: FontWeight.w500,
             color:
-                summary.totalHours > 0 ? AppColors.info.shade700 : Colors.grey,
+                summary.totalHours > 0 ? Colors.blue.shade700 : Colors.grey,
           ),
         ),
       ));
@@ -5395,7 +5394,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
         builder: (dialogCtx, setDialogState) => ScrollableAlertDialog(
           title: Row(
             children: [
-              Icon(Icons.add_circle, color: AppColors.info),
+              Icon(Icons.add_circle, color: Colors.blue),
               SizedBox(width: 8),
               Text(tr('Thêm chấm công')),
             ],
@@ -5450,7 +5449,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.calendar_today, color: AppColors.info),
+                        const Icon(Icons.calendar_today, color: Colors.blue),
                         const SizedBox(width: 8),
                         Text(
                           tr(DateFormat('dd/MM/yyyy').format(selectedDate)),

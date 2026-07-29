@@ -14,7 +14,6 @@ import '../providers/permission_provider.dart';
 import '../utils/navigation_notifier.dart';
 import '../widgets/hrm_pushed_screen_shell.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
-import '../design_system/design_system.dart';
 
 /// Màn hình quản lý phiếu phạt
 class PenaltyTicketsScreen extends StatefulWidget {
@@ -250,7 +249,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
       case 'Approved':
         return Colors.green;
       case 'AutoApproved':
-        return AppColors.info;
+        return Colors.blue;
       case 'Cancelled':
         return const Color(0xFFDC2626);
       default:
@@ -1423,25 +1422,25 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                    color: AppColors.info.shade50,
+                    color: Colors.blue.shade50,
                     borderRadius: BorderRadius.circular(8)),
                 child: Row(
                   children: [
                     Icon(Icons.analytics_outlined,
-                        size: 16, color: AppColors.info.shade700),
+                        size: 16, color: Colors.blue.shade700),
                     const SizedBox(width: 6),
                     Text(tr('Tổng quan'),
                         style: TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 13,
-                            color: AppColors.info.shade700)),
+                            color: Colors.blue.shade700)),
                     const Spacer(),
                     Icon(
                         _showMobileSummary
                             ? Icons.expand_less
                             : Icons.expand_more,
                         size: 20,
-                        color: AppColors.info.shade700),
+                        color: Colors.blue.shade700),
                   ],
                 ),
               ),

@@ -547,7 +547,7 @@ class DevicesTabState extends State<DevicesTab> {
           AdminHelpers.statusChip('$onlineCount online',
               onlineCount > 0 ? AdminHelpers.success : Colors.grey),
         ]),
-        children: MediaQuery.of(context).size.width < 768
+        children: MediaQuery.of(context).size.width < 600
           ? [
               Column(
                 mainAxisSize: MainAxisSize.min,
@@ -823,7 +823,7 @@ class DevicesTabState extends State<DevicesTab> {
                     style: const TextStyle(fontSize: 17))),
           ]),
           content: SizedBox(
-            width: MediaQuery.of(context).size.width < 768 ? MediaQuery.of(context).size.width - 32 : 400,
+            width: MediaQuery.of(context).size.width < 600 ? MediaQuery.of(context).size.width - 32 : 400,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -965,7 +965,7 @@ class DevicesTabState extends State<DevicesTab> {
           Text(tr('Xóa dữ liệu thiết bị'), style: TextStyle(fontSize: 17)),
         ]),
         content: SizedBox(
-          width: MediaQuery.of(context).size.width < 768 ? MediaQuery.of(context).size.width - 32 : 380,
+          width: MediaQuery.of(context).size.width < 600 ? MediaQuery.of(context).size.width - 32 : 380,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1055,7 +1055,7 @@ class DevicesTabState extends State<DevicesTab> {
                   style: const TextStyle(fontSize: 16))),
         ]),
         content: SizedBox(
-          width: MediaQuery.of(context).size.width < 768 ? MediaQuery.of(context).size.width - 32 : 400,
+          width: MediaQuery.of(context).size.width < 600 ? MediaQuery.of(context).size.width - 32 : 400,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [

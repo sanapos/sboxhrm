@@ -2237,7 +2237,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
       return const Center(child: CircularProgressIndicator());
     }
     return LayoutBuilder(builder: (context, constraints) {
-      if (constraints.maxWidth < 768) {
+      if (constraints.maxWidth < 600) {
         return ListView(
           padding: const EdgeInsets.all(12),
           children:
@@ -2453,7 +2453,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
       return const Center(child: CircularProgressIndicator());
     }
     final s = _stats!;
-    final isMobile = MediaQuery.of(context).size.width < 768;
+    final isMobile = MediaQuery.of(context).size.width < 600;
     return SingleChildScrollView(
       padding: EdgeInsets.all(isMobile ? 10 : 16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -3963,7 +3963,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                   Text(tr('Tạo công việc mới'), style: TextStyle(fontSize: 18)),
                 ]),
                 content: SizedBox(
-                    width: MediaQuery.of(ctx).size.width < 768
+                    width: MediaQuery.of(ctx).size.width < 600
                         ? MediaQuery.of(ctx).size.width - 32
                         : 520,
                     child: formContent),
@@ -4285,7 +4285,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                           style: const TextStyle(fontSize: 16))),
                 ]),
                 content: SizedBox(
-                    width: MediaQuery.of(ctx).size.width < 768
+                    width: MediaQuery.of(ctx).size.width < 600
                         ? MediaQuery.of(ctx).size.width - 32
                         : 520,
                     child: formContent),
@@ -4469,7 +4469,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                   Text(tr('Đốc thúc công việc'), style: TextStyle(fontSize: 16)),
                 ]),
                 content: SizedBox(
-                    width: MediaQuery.of(ctx).size.width < 768
+                    width: MediaQuery.of(ctx).size.width < 600
                         ? MediaQuery.of(ctx).size.width - 32
                         : 420,
                     child: formContent),
@@ -4626,7 +4626,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                   Text(tr('Đánh giá công việc'), style: TextStyle(fontSize: 16)),
                 ]),
                 content: SizedBox(
-                    width: MediaQuery.of(ctx).size.width < 768
+                    width: MediaQuery.of(ctx).size.width < 600
                         ? MediaQuery.of(ctx).size.width - 32
                         : 420,
                     child: formContent),
@@ -4876,7 +4876,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: Text(tr('Giao việc hàng loạt')),
             content: SizedBox(
-                width: MediaQuery.of(ctx).size.width < 768
+                width: MediaQuery.of(ctx).size.width < 600
                     ? MediaQuery.of(ctx).size.width - 64
                     : 300,
                 child: listContent),

@@ -18,7 +18,6 @@ import '../widgets/empty_state.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/attendance_correction_reason_field.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
-import '../design_system/design_system.dart';
 
 class AttendanceCorrectionsScreen extends StatefulWidget {
   final String? highlightId;
@@ -356,7 +355,7 @@ class _AttendanceCorrectionsScreenState
       case CorrectionAction.add:
         return Colors.green;
       case CorrectionAction.edit:
-        return AppColors.info;
+        return Colors.blue;
       case CorrectionAction.delete:
         return Colors.red;
     }

@@ -2,7 +2,6 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
-import '../design_system/design_system.dart';
 
 /// Kết quả crop ảnh
 class CropResult {
@@ -78,7 +77,7 @@ class _ImageCropDialogState extends State<ImageCropDialog> {
     return ScrollableAlertDialog(
       title: Row(
         children: [
-          const Icon(Icons.crop, color: AppColors.info),
+          const Icon(Icons.crop, color: Colors.blue),
           const SizedBox(width: 8),
           Text(tr(widget.title)),
         ],
@@ -92,18 +91,18 @@ class _ImageCropDialogState extends State<ImageCropDialog> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: AppColors.info.withValues(alpha: 0.1),
+                color: Colors.blue.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.aspect_ratio, size: 16, color: AppColors.info),
+                  const Icon(Icons.aspect_ratio, size: 16, color: Colors.blue),
                   const SizedBox(width: 6),
                   Text(
                     tr(_aspectRatioLabel),
                     style: const TextStyle(
-                      color: AppColors.info,
+                      color: Colors.blue,
                       fontWeight: FontWeight.w500,
                       fontSize: 13,
                     ),
@@ -170,7 +169,7 @@ class _ImageCropDialogState extends State<ImageCropDialog> {
           icon: const Icon(Icons.check),
           label: Text(tr('Sử dụng ảnh')),
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.info,
+            backgroundColor: Colors.blue,
             foregroundColor: Colors.white,
           ),
         ),

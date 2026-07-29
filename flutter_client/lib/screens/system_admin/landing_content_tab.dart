@@ -8,7 +8,6 @@ import '../../utils/landing_guide_url.dart';
 import '../../utils/landing_usage_guide.dart';
 import 'system_admin_helpers.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
-import '../../design_system/design_system.dart';
 
 /// SuperAdmin – Tab quản lý nội dung trang Landing Page của SBOX HRM.
 class LandingContentTab extends StatefulWidget {
@@ -1510,7 +1509,7 @@ class _VideoSubTabState extends State<_VideoSubTab> {
           _buildVideoCard(
             label: 'Video 1 – Giới thiệu',
             icon: Icons.play_circle_outline_rounded,
-            color: AppColors.primary,
+            color: const Color(0xFF0C56D0),
             urlCtrl: _introUrlCtrl,
             titleCtrl: _introTitleCtrl,
             subtitleCtrl: _introSubtitleCtrl,
@@ -1886,7 +1885,7 @@ class _ProductsSubTabState extends State<_ProductsSubTab> {
           child: Row(
             children: [
               const Icon(Icons.devices_rounded,
-                  size: 18, color: AppColors.primary),
+                  size: 18, color: Color(0xFF0C56D0)),
               const SizedBox(width: 8),
               Text(tr('Danh sách máy chấm công'),
                   style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
@@ -1951,7 +1950,7 @@ class _ProductsSubTabState extends State<_ProductsSubTab> {
                   borderRadius: BorderRadius.circular(8)),
               child: Text(tr('Sản phẩm ${idx + 1}'),
                   style: const TextStyle(
-                      color: AppColors.primary,
+                      color: Color(0xFF0C56D0),
                       fontWeight: FontWeight.w700,
                       fontSize: 12)),
             ),
@@ -2280,7 +2279,7 @@ class _DownloadsSubTabState extends State<_DownloadsSubTab> {
           child: Row(
             children: [
               const Icon(Icons.download_rounded,
-                  size: 18, color: AppColors.primary),
+                  size: 18, color: Color(0xFF0C56D0)),
               const SizedBox(width: 8),
               Text(tr('Danh sách file tải về'),
                   style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
@@ -2345,7 +2344,7 @@ class _DownloadsSubTabState extends State<_DownloadsSubTab> {
                   borderRadius: BorderRadius.circular(8)),
               child: Text(tr('File ${idx + 1}'),
                   style: const TextStyle(
-                      color: AppColors.primary,
+                      color: Color(0xFF0C56D0),
                       fontWeight: FontWeight.w700,
                       fontSize: 12)),
             ),

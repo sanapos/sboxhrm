@@ -8,7 +8,6 @@ import '../../models/attendance.dart';
 import '../../models/device.dart';
 import '../../widgets/notification_overlay.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
-import '../../design_system/design_system.dart';
 
 /// Model nội bộ cho yêu cầu chỉnh sửa (có thêm trạng thái xử lý)
 class CorrectionRequestInternal {
@@ -156,7 +155,7 @@ class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
       case 'add':
         return Colors.green;
       case 'edit':
-        return AppColors.info;
+        return Colors.blue;
       case 'delete':
         return Colors.red;
       default:
@@ -255,7 +254,7 @@ class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
                           items: [
                             DropdownMenuItem(value: 'all', child: Text(tr('Loại'), style: TextStyle(fontSize: 11))),
                             DropdownMenuItem(value: 'add', child: Row(children: [Icon(Icons.add_circle, size: 12, color: Colors.green), SizedBox(width: 4), Text(tr('Thêm'), style: TextStyle(fontSize: 11))])),
-                            DropdownMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit, size: 12, color: AppColors.info), SizedBox(width: 4), Text(tr('Sửa'), style: TextStyle(fontSize: 11))])),
+                            DropdownMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit, size: 12, color: Colors.blue), SizedBox(width: 4), Text(tr('Sửa'), style: TextStyle(fontSize: 11))])),
                             DropdownMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete, size: 12, color: Colors.red), SizedBox(width: 4), Text(tr('Xóa'), style: TextStyle(fontSize: 11))])),
                           ],
                           onChanged: (value) => setState(() => _filterType = value ?? 'all'),
@@ -303,7 +302,7 @@ class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.date_range, size: 14, color: _filterDateFrom != null ? AppColors.info : Colors.grey[500]),
+                          Icon(Icons.date_range, size: 14, color: _filterDateFrom != null ? Colors.blue : Colors.grey[500]),
                           const SizedBox(width: 4),
                           Text(
                             tr(_filterDateFrom != null 
@@ -496,7 +495,7 @@ class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
           if (_showPending) ...[
             if (pendingRequests.isEmpty)
               _buildEmptyState('Không có yêu cầu chờ xử lý')
-            else if (MediaQuery.of(context).size.width < 768)
+            else if (MediaQuery.of(context).size.width < 600)
               Column(
                 mainAxisSize: MainAxisSize.min,
                 children: List.generate(pendingRequests.length, (i) => Padding(
@@ -523,7 +522,7 @@ class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
           if (_showProcessed) ...[
             if (_filteredProcessedRequests.isEmpty)
               _buildEmptyState(processedRequests.isEmpty ? 'Chưa có yêu cầu được xử lý' : 'Không có kết quả phù hợp')
-            else if (MediaQuery.of(context).size.width < 768)
+            else if (MediaQuery.of(context).size.width < 600)
               Column(
                 mainAxisSize: MainAxisSize.min,
                 children: List.generate(_filteredProcessedRequests.length, (i) => Padding(

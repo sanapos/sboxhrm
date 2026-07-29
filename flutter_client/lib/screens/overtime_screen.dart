@@ -14,7 +14,6 @@ import '../widgets/hrm_page_chrome.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
 import '../widgets/hrm_mini_stat_chip.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
-import '../design_system/design_system.dart';
 
 class OvertimeScreen extends StatefulWidget {
   const OvertimeScreen({super.key});
@@ -384,26 +383,26 @@ class _OvertimeScreenState extends State<OvertimeScreen>
               padding:
                   const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: AppColors.info.shade50,
+                color: Colors.blue.shade50,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
                 children: [
                   Icon(Icons.analytics_outlined,
-                      size: 16, color: AppColors.info.shade700),
+                      size: 16, color: Colors.blue.shade700),
                   const SizedBox(width: 6),
                   Text(tr('Tổng quan'),
                       style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 13,
-                          color: AppColors.info.shade700)),
+                          color: Colors.blue.shade700)),
                   const Spacer(),
                   Icon(
                       _showMobileSummary
                           ? Icons.expand_less
                           : Icons.expand_more,
                       size: 20,
-                      color: AppColors.info.shade700),
+                      color: Colors.blue.shade700),
                 ],
               ),
             ),

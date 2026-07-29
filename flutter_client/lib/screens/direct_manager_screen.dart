@@ -12,7 +12,6 @@ import '../widgets/notification_overlay.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
-import '../design_system/design_system.dart';
 
 class DirectManagerScreen extends StatefulWidget {
   const DirectManagerScreen({super.key});
@@ -164,9 +163,9 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
       case 'Kế toán trưởng':
         return Colors.purple[600]!;
       case 'Trưởng phòng':
-        return AppColors.info[700]!;
+        return Colors.blue[700]!;
       case 'Phó phòng':
-        return AppColors.info[400]!;
+        return Colors.blue[400]!;
       case 'Trưởng nhóm':
         return Colors.teal[600]!;
       default:
@@ -233,26 +232,26 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: AppColors.info.shade50,
+                color: Colors.blue.shade50,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
                 children: [
                   Icon(Icons.analytics_outlined,
-                      size: 16, color: AppColors.info.shade700),
+                      size: 16, color: Colors.blue.shade700),
                   const SizedBox(width: 6),
                   Text(tr('Tổng quan'),
                       style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 13,
-                          color: AppColors.info.shade700)),
+                          color: Colors.blue.shade700)),
                   const Spacer(),
                   Icon(
                       _showMobileSummary
                           ? Icons.expand_less
                           : Icons.expand_more,
                       size: 20,
-                      color: AppColors.info.shade700),
+                      color: Colors.blue.shade700),
                 ],
               ),
             ),
@@ -470,7 +469,7 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
   Widget _buildHeader(bool isMobile) {
     return Row(
       children: [
-        Icon(Icons.supervisor_account, size: 28, color: AppColors.info[700]),
+        Icon(Icons.supervisor_account, size: 28, color: Colors.blue[700]),
         const SizedBox(width: 10),
         Expanded(
           child: Column(
@@ -519,7 +518,7 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
             icon: Icons.people,
             label: 'Tổng',
             count: _managers.length,
-            color: AppColors.info,
+            color: Colors.blue,
           ),
           const SizedBox(width: 8),
           ...sortedPositions.map((e) => Padding(
@@ -698,7 +697,7 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
                 onTap: () => _sendEmail(manager.email!),
                 child: Padding(
                   padding: const EdgeInsets.all(4),
-                  child: Icon(Icons.email, size: 18, color: AppColors.info[600]),
+                  child: Icon(Icons.email, size: 18, color: Colors.blue[600]),
                 ),
               ),
             const Icon(Icons.chevron_right, size: 18, color: Color(0xFF71717A)),
@@ -800,7 +799,7 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
                         title: Text(tr(pos), style: const TextStyle(fontSize: 14)),
                         subtitle: Text(tr('$count nhân viên'), style: TextStyle(fontSize: 12, color: Colors.grey[500])),
                         dense: true,
-                        activeColor: AppColors.info[700],
+                        activeColor: Colors.blue[700],
                         controlAffinity: ListTileControlAffinity.trailing,
                       );
                     },
@@ -830,7 +829,7 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
                     appBar: AppBar(
                       leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
                       title: Row(children: [
-                        Icon(Icons.tune, size: 20, color: AppColors.info),
+                        Icon(Icons.tune, size: 20, color: Colors.blue),
                         SizedBox(width: 10),
                         Expanded(child: Text(tr('Thiết lập chức vụ'))),
                       ]),
@@ -867,20 +866,20 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                       decoration: BoxDecoration(
-                        color: AppColors.info[50],
+                        color: Colors.blue[50],
                         borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.tune, color: AppColors.info[700], size: 22),
+                          Icon(Icons.tune, color: Colors.blue[700], size: 22),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(tr('Thiết lập chức vụ'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.info[800])),
+                                Text(tr('Thiết lập chức vụ'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.blue[800])),
                                 const SizedBox(height: 2),
-                                Text(tr('Chọn chức vụ hiển thị trong danh sách'), style: TextStyle(fontSize: 12, color: AppColors.info[600])),
+                                Text(tr('Chọn chức vụ hiển thị trong danh sách'), style: TextStyle(fontSize: 12, color: Colors.blue[600])),
                               ],
                             ),
                           ),
@@ -998,8 +997,8 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
                   icon: const Icon(Icons.email, size: 18),
                   label: Text(tr('Gửi email'), style: TextStyle(fontSize: 13)),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.info[700],
-                    side: BorderSide(color: AppColors.info[300]!),
+                    foregroundColor: Colors.blue[700],
+                    side: BorderSide(color: Colors.blue[300]!),
                     padding: const EdgeInsets.symmetric(vertical: 10),
                   ),
                 ),

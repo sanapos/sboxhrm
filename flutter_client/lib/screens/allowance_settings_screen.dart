@@ -594,7 +594,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                             int crossAxisCount = 4;
                             if (HrmSettingsMobileKit.active(context)) {
                               crossAxisCount = 2;
-                            } else if (constraints.maxWidth < 768) {
+                            } else if (constraints.maxWidth < 600) {
                               crossAxisCount = 1;
                             } else if (constraints.maxWidth < 900) {
                               crossAxisCount = 2;

@@ -12,7 +12,6 @@ import '../models/employee.dart';
 import '../widgets/loading_widget.dart';
 import '../utils/responsive_helper.dart';
 import '../l10n/app_localizations.dart';
-import '../design_system/design_system.dart';
 
 import '../widgets/notification_overlay.dart';
 import '../widgets/app_scroll_safe.dart';
@@ -1655,7 +1654,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
 
     final leaveTypes = [
       (0, 'Phép năm', Icons.beach_access_rounded, Colors.teal),
-      (2, 'Việc riêng có lương', Icons.paid_rounded, AppColors.info),
+      (2, 'Việc riêng có lương', Icons.paid_rounded, Colors.blue),
       (3, 'Việc riêng không lương', Icons.money_off_rounded, Colors.amber),
       (4, 'Ốm đau', Icons.local_hospital_rounded, Colors.red),
       (6, 'Nghỉ bù', Icons.swap_horiz_rounded, Colors.indigo),
@@ -4727,7 +4726,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       child: LayoutBuilder(
         builder: (context, constraints) {
           final allEmps = _filteredEmployees;
-          final isMobile = constraints.maxWidth < 768;
+          final isMobile = constraints.maxWidth < 600;
           final totalPages = (allEmps.length / _schedulePageSize).ceil();
           final safePage =
               _schedulePage.clamp(1, totalPages == 0 ? 1 : totalPages);
@@ -6828,7 +6827,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final isMobile = constraints.maxWidth < 768;
+          final isMobile = constraints.maxWidth < 600;
           final totalPages = (emps.length / _schedulePageSize).ceil();
           final safePage =
               _approvedPage.clamp(1, totalPages == 0 ? 1 : totalPages);

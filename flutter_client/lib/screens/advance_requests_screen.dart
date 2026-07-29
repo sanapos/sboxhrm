@@ -23,7 +23,6 @@ import '../utils/navigation_notifier.dart';
 import '../widgets/hrm_pushed_screen_shell.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
-import '../design_system/design_system.dart';
 
 class AdvanceRequestsScreen extends StatefulWidget {
   final String? highlightId;
@@ -518,7 +517,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppColors.info.shade50,
+                    color: Colors.blue.shade50,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Column(
@@ -527,7 +526,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                       Row(
                         children: [
                           const Icon(Icons.person,
-                              size: 18, color: AppColors.info),
+                              size: 18, color: Colors.blue),
                           const SizedBox(width: 8),
                           Expanded(
                               child: Text(tr(request.employeeName),
@@ -547,7 +546,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                         style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 20,
-                            color: AppColors.info),
+                            color: Colors.blue),
                       ),
                       if (request.isPartiallyApproved)
                         Padding(
@@ -941,12 +940,12 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 12, vertical: 12),
                     decoration: BoxDecoration(
-                      color: AppColors.info.shade50,
+                      color: Colors.blue.shade50,
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppColors.info.shade200),
+                      border: Border.all(color: Colors.blue.shade200),
                     ),
                     child: Row(children: [
-                      Icon(Icons.person, size: 18, color: AppColors.info.shade700),
+                      Icon(Icons.person, size: 18, color: Colors.blue.shade700),
                       const SizedBox(width: 8),
                       Expanded(
                           child: selectedEmployee != null
@@ -958,14 +957,14 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                                           style: TextStyle(
                                               fontSize: 14,
                                               fontWeight: FontWeight.w600,
-                                              color: AppColors.info.shade800)),
+                                              color: Colors.blue.shade800)),
                                       if (selectedEmployee!
                                           .employeeCode.isNotEmpty)
                                         Text(
                                             tr('${selectedEmployee!.employeeCode}${selectedEmployee!.department != null ? ' • ${selectedEmployee!.department}' : ''}'),
                                             style: TextStyle(
                                                 fontSize: 12,
-                                                color: AppColors.info.shade600)),
+                                                color: Colors.blue.shade600)),
                                     ])
                               : Text(tr('Chưa tìm thấy hồ sơ nhân viên'),
                                   style: TextStyle(
@@ -1037,7 +1036,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                                   dense: true,
                                   leading: CircleAvatar(
                                     radius: 16,
-                                    backgroundColor: AppColors.info.shade100,
+                                    backgroundColor: Colors.blue.shade100,
                                     child: Icon(
                                       employee.gender?.toLowerCase() ==
                                                   'female' ||
@@ -1046,7 +1045,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                                           ? Icons.woman_rounded
                                           : Icons.man_rounded,
                                       size: 18,
-                                      color: AppColors.info.shade700,
+                                      color: Colors.blue.shade700,
                                     ),
                                   ),
                                   title: Text(
@@ -1391,7 +1390,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
   void _showDetailDialog(AdvanceRequest request) {
     final statusColor = _getStatusColor(request);
     final statusLabel = _getStatusLabel(request);
-    final isMobile = MediaQuery.of(context).size.width < 768;
+    final isMobile = MediaQuery.of(context).size.width < 600;
 
     final titleRow = Row(
       children: [
@@ -1421,7 +1420,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
         _detailRow(Icons.badge, _l10n.employeeCode, request.employeeCode),
         _detailRow(Icons.attach_money, _l10n.amount,
             _currencyFormat.format(request.amount),
-            valueColor: AppColors.info),
+            valueColor: Colors.blue),
         if (request.isPartiallyApproved)
           _detailRow(Icons.check_circle, 'Số tiền đã duyệt',
               _currencyFormat.format(request.approvedAmount!),
@@ -1482,7 +1481,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                       ? Colors.green
                       : request.status == AdvanceRequestStatus.rejected
                           ? Colors.red
-                          : AppColors.info,
+                          : Colors.blue,
                 ),
               ),
             ),
@@ -1751,19 +1750,19 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                       return ListTile(
                         dense: true,
                         selected: isSelected,
-                        selectedTileColor: AppColors.info.shade50,
+                        selectedTileColor: Colors.blue.shade50,
                         leading: CircleAvatar(
                           radius: 14,
                           backgroundColor: isSelected
-                              ? AppColors.info.shade200
-                              : AppColors.info.shade100,
+                              ? Colors.blue.shade200
+                              : Colors.blue.shade100,
                           child: Icon(
                             emp.gender?.toLowerCase() == 'female' ||
                                     emp.gender?.toLowerCase() == 'nữ'
                                 ? Icons.woman_rounded
                                 : Icons.man_rounded,
                             size: 16,
-                            color: AppColors.info.shade700,
+                            color: Colors.blue.shade700,
                           ),
                         ),
                         title: Text(tr('${emp.lastName} ${emp.firstName}'),
@@ -1773,7 +1772,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                                 fontSize: 11, color: Colors.grey[600])),
                         trailing: isSelected
                             ? Icon(Icons.check,
-                                size: 18, color: AppColors.info.shade700)
+                                size: 18, color: Colors.blue.shade700)
                             : null,
                         onTap: () {
                           setState(() {
@@ -1988,26 +1987,26 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: AppColors.info.shade50,
+                color: Colors.blue.shade50,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
                 children: [
                   Icon(Icons.analytics_outlined,
-                      size: 16, color: AppColors.info.shade700),
+                      size: 16, color: Colors.blue.shade700),
                   const SizedBox(width: 6),
                   Text(tr('Tổng quan'),
                       style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 13,
-                          color: AppColors.info.shade700)),
+                          color: Colors.blue.shade700)),
                   const Spacer(),
                   Icon(
                       _showMobileSummary
                           ? Icons.expand_less
                           : Icons.expand_more,
                       size: 20,
-                      color: AppColors.info.shade700),
+                      color: Colors.blue.shade700),
                 ],
               ),
             ),

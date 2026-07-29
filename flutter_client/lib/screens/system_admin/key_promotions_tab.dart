@@ -66,7 +66,7 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
           child: _promotions.isEmpty
               ? AdminHelpers.emptyState(
                   Icons.card_giftcard, 'Chưa có chương trình kích hoạt nào')
-              : MediaQuery.of(context).size.width < 768
+              : MediaQuery.of(context).size.width < 600
                 ? ListView.builder(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     itemCount: _promotions.length,

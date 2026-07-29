@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
-import '../design_system/design_system.dart';
 
 /// Chuẩn hóa trạng thái phiếu POS từ API (enum string, số, hoặc lowercase).
 String normalizePosDocStatus(dynamic raw, {String fallback = 'Draft'}) {
@@ -43,7 +42,7 @@ String posDocStatusLabel(String status, {String completedLabel = 'Hoàn thành'}
 Color posDocStatusColor(String status) => switch (status) {
       'Completed' => Colors.green,
       'Cancelled' => Colors.red,
-      'InProgress' => AppColors.info,
+      'InProgress' => Colors.blue,
       _ => Colors.orange,
     };
 
@@ -118,19 +117,19 @@ Widget? posDocStatusBanner(String status, {String completedLabel = 'Hoàn thành
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: AppColors.info.shade50,
-        border: Border(bottom: BorderSide(color: AppColors.info.shade200)),
+        color: Colors.blue.shade50,
+        border: Border(bottom: BorderSide(color: Colors.blue.shade200)),
       ),
       child: Row(
         children: [
-          Icon(Icons.fact_check_outlined, size: 18, color: AppColors.info.shade800),
+          Icon(Icons.fact_check_outlined, size: 18, color: Colors.blue.shade800),
           const SizedBox(width: 8),
           Expanded(
             child: Text(tr('Đang kiểm kê — chưa cân bằng kho'),
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: AppColors.info.shade900,
+                color: Colors.blue.shade900,
               ),
             ),
           ),

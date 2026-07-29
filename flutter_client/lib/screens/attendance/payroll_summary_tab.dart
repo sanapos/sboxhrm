@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:math' as math;
 import '../../utils/file_saver.dart' as file_saver;
 import '../../utils/web_canvas.dart' as web_canvas;
-import '../../design_system/design_system.dart';
 
 import 'package:excel/excel.dart' as excel_lib;
 import 'package:flutter/material.dart';
@@ -2156,7 +2155,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           return ScrollableAlertDialog(
             title: Row(
               children: [
-                const Icon(Icons.view_column, color: AppColors.info),
+                const Icon(Icons.view_column, color: Colors.blue),
                 const SizedBox(width: 8),
                 Expanded(
                     child: Text(tr('Chọn & sắp xếp cột'),
@@ -2249,12 +2248,12 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                           margin: const EdgeInsets.only(bottom: 2),
                           decoration: BoxDecoration(
                             color: col.visible
-                                ? AppColors.info.shade50
+                                ? Colors.blue.shade50
                                 : Colors.white,
                             borderRadius: BorderRadius.circular(6),
                             border: Border.all(
                               color: col.visible
-                                  ? AppColors.info.shade200
+                                  ? Colors.blue.shade200
                                   : Colors.grey.shade200,
                               width: 0.5,
                             ),
@@ -2960,18 +2959,18 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
 
   // ──────── Employee detail dialog ────────
   void _showEmployeeDetail(Map<String, dynamic> row) {
-    final isMobile = MediaQuery.of(context).size.width < 768;
+    final isMobile = MediaQuery.of(context).size.width < 600;
 
     final titleRow = Row(
       children: [
         CircleAvatar(
-          backgroundColor: AppColors.info.shade100,
+          backgroundColor: Colors.blue.shade100,
           child: Text(
             tr((row['name'] as String).isNotEmpty
                 ? (row['name'] as String)[0].toUpperCase()
                 : '?'),
             style: TextStyle(
-                color: AppColors.info.shade700, fontWeight: FontWeight.bold),
+                color: Colors.blue.shade700, fontWeight: FontWeight.bold),
           ),
         ),
         const SizedBox(width: 12),
@@ -3075,7 +3074,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                   style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 18,
-                      color: AppColors.info.shade700)),
+                      color: Colors.blue.shade700)),
             ],
           ),
         ),
@@ -3144,7 +3143,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
               style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 13,
-                  color: AppColors.info.shade700)),
+                  color: Colors.blue.shade700)),
         ),
         ...children,
         const Divider(),
@@ -3225,26 +3224,26 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: AppColors.info.shade50,
+                  color: Colors.blue.shade50,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   children: [
                     Icon(Icons.analytics_outlined,
-                        size: 16, color: AppColors.info.shade700),
+                        size: 16, color: Colors.blue.shade700),
                     const SizedBox(width: 6),
                     Text(tr('Tổng quan'),
                         style: TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 13,
-                            color: AppColors.info.shade700)),
+                            color: Colors.blue.shade700)),
                     const Spacer(),
                     Icon(
                         _showMobileSummary
                             ? Icons.expand_less
                             : Icons.expand_more,
                         size: 20,
-                        color: AppColors.info.shade700),
+                        color: Colors.blue.shade700),
                   ],
                 ),
               ),
@@ -3397,7 +3396,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           return ScrollableAlertDialog(
             title: Row(
               children: [
-                const Icon(Icons.people, color: AppColors.info, size: 20),
+                const Icon(Icons.people, color: Colors.blue, size: 20),
                 const SizedBox(width: 8),
                 Expanded(
                     child:
@@ -3472,7 +3471,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                           secondary: CircleAvatar(
                             radius: 16,
                             backgroundColor: isSelected
-                                ? AppColors.info.shade100
+                                ? Colors.blue.shade100
                                 : Colors.grey.shade200,
                             child: Text(
                               tr(emp.fullName.isNotEmpty
@@ -3481,7 +3480,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                               style: TextStyle(
                                 fontSize: 12,
                                 color: isSelected
-                                    ? AppColors.info.shade700
+                                    ? Colors.blue.shade700
                                     : Colors.grey.shade600,
                               ),
                             ),
@@ -3954,7 +3953,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           Icon(icon,
               size: 16,
               color: _selectedPeriod == value
-                  ? AppColors.info
+                  ? Colors.blue
                   : Colors.grey.shade600),
           const SizedBox(width: 8),
           Text(tr(label),
@@ -3963,7 +3962,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                 fontWeight: _selectedPeriod == value
                     ? FontWeight.bold
                     : FontWeight.normal,
-                color: _selectedPeriod == value ? AppColors.info : null,
+                color: _selectedPeriod == value ? Colors.blue : null,
               )),
         ],
       ),
@@ -4366,7 +4365,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                                 ? FontWeight.bold
                                 : FontWeight.normal,
                             color: n == _rowsPerPage
-                                ? AppColors.info
+                                ? Colors.blue
                                 : Colors.black87,
                           )),
                     ))
@@ -4639,7 +4638,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                 Icon(
                   _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
                   size: 12,
-                  color: AppColors.info.shade700,
+                  color: Colors.blue.shade700,
                 ),
             ],
           ),
@@ -4762,7 +4761,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     switch (key) {
       case 'netSalary':
         final val = (row[key] as num?)?.toDouble() ?? 0;
-        return val >= 0 ? AppColors.info.shade700 : Colors.red;
+        return val >= 0 ? Colors.blue.shade700 : Colors.red;
       case 'penalty':
       case 'latePenalty':
       case 'bhxh':
@@ -5131,7 +5130,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
               fontSize: 12,
               fontWeight: FontWeight.w700,
               color: col.key == 'netSalary'
-                  ? AppColors.info.shade800
+                  ? Colors.blue.shade800
                   : const Color(0xFF1E40AF),
             ),
           ),
@@ -5425,13 +5424,13 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
               const EdgeInsets.fromLTRB(16, 0, 16, 12),
           leading: CircleAvatar(
             radius: 16,
-            backgroundColor: AppColors.info.shade50,
+            backgroundColor: Colors.blue.shade50,
             child: Text(
               tr('${globalIndex + 1}'),
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
-                color: AppColors.info.shade700,
+                color: Colors.blue.shade700,
               ),
             ),
           ),
@@ -5473,7 +5472,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       0,
       (sum, row) => sum + _toDouble(row['netSalary']),
     );
-    final isMobile = MediaQuery.of(context).size.width < 768;
+    final isMobile = MediaQuery.of(context).size.width < 600;
     final listView = ListView(
       padding: EdgeInsets.zero,
       shrinkWrap: isMobile,
@@ -5523,7 +5522,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
-              color: AppColors.info.shade50.withValues(alpha: 0.35),
+              color: Colors.blue.shade50.withValues(alpha: 0.35),
               border: const Border(
                 top: BorderSide(color: Color(0xFFE4E4E7)),
               ),
@@ -5540,7 +5539,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 15,
-                    color: AppColors.info.shade800,
+                    color: Colors.blue.shade800,
                   ),
                 ),
               ],
@@ -5728,7 +5727,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
             cellColors: cols.map((c) {
               final text = _payrollTotalCellText(c, data);
               if (text.isEmpty || text == '—') return null;
-              if (c.key == 'netSalary') return AppColors.info.shade800;
+              if (c.key == 'netSalary') return Colors.blue.shade800;
               if (c.key == 'totalSalary') return const Color(0xFF15803D);
               if (c.key == 'totalDeduction') return Colors.red.shade700;
               return const Color(0xFF1E40AF);

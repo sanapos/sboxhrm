@@ -13,7 +13,6 @@ import '../widgets/landing_product_image.dart';
 import 'landing_guide_screen.dart';
 import '../widgets/landing_youtube_player.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
-import '../design_system/design_system.dart';
 
 /// Landing/Marketing page for SBOX HRM.
 /// Nội dung (tiêu đề, mô tả, liên hệ...) load từ /api/publicsettings để
@@ -85,7 +84,7 @@ class _LandingScreenState extends State<LandingScreen> {
   bool _scrollSectionHandled = false;
 
   // Brand colors – Blue theme matching LoginScreen
-  static const Color kBlue = AppColors.primary;
+  static const Color kBlue = Color(0xFF0C56D0);
   static const Color kDark = Color(0xFF111827);
 
   @override
@@ -596,7 +595,7 @@ class _MobileMenuOverlay extends StatelessWidget {
   final VoidCallback onLogin;
   final VoidCallback onRegister;
 
-  static const Color _kBlue = AppColors.primary;
+  static const Color _kBlue = Color(0xFF0C56D0);
   static const Color _kDark = Color(0xFF111827);
   static const Color _kGrey = Color(0xFF6B7280);
 
@@ -756,7 +755,7 @@ class _HeroSection extends StatelessWidget {
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [Color(0xFFDAE2FF), AppColors.primary],
+                    colors: [Color(0xFFDAE2FF), Color(0xFF0C56D0)],
                   ),
                 ),
               ),
@@ -770,8 +769,8 @@ class _HeroSection extends StatelessWidget {
                   begin: Alignment.bottomLeft,
                   end: Alignment.topRight,
                   colors: [
-                    AppColors.primary.withValues(alpha: 0.85),
-                    AppColors.primary.withValues(alpha: 0.40),
+                    const Color(0xFF0C56D0).withValues(alpha: 0.85),
+                    const Color(0xFF0C56D0).withValues(alpha: 0.40),
                     Colors.transparent,
                   ],
                   stops: const [0.0, 0.5, 1.0],
@@ -904,7 +903,7 @@ class _HeroSection extends StatelessWidget {
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.white,
-            foregroundColor: AppColors.primary,
+            foregroundColor: const Color(0xFF0C56D0),
             padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 15),
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -1077,7 +1076,7 @@ class _FeaturesSection extends StatelessWidget {
   static const features = [
     (
       Icons.fingerprint_rounded,
-      '1E3A5F',
+      '0C56D0',
       'Chấm công ZKTeco',
       'Tích hợp máy chấm công ZKTeco tự động, dữ liệu đồng bộ real-time qua giao thức ADMS/PUSH.'
     ),
@@ -1137,7 +1136,7 @@ class _FeaturesSection extends StatelessWidget {
     ),
     (
       Icons.restaurant_rounded,
-      '1E3A5F',
+      '0C56D0',
       'Quản lý bữa ăn',
       'Đăng ký xuất ăn, theo dõi khẩu phần thực tế, báo cáo chi phí bữa ăn hàng ngày.'
     ),
@@ -1180,7 +1179,7 @@ class _FeaturesSection extends StatelessWidget {
     // If admin has set dynamic features via API, show those (text-only cards)
     if (dynamicFeatures != null && dynamicFeatures!.isNotEmpty) {
       final colors = [
-        AppColors.primary,
+        const Color(0xFF0C56D0),
         const Color(0xFF1565C0),
         const Color(0xFF1976D2),
         const Color(0xFF1E88E5),
@@ -1395,7 +1394,7 @@ class _PricingSection extends StatelessWidget {
       price: '900.000',
       unit: 'đ/năm',
       tag: 'Phổ biến',
-      color: 0xFF1E3A5F,
+      color: 0xFF0C56D0,
       highlight: true,
       contactOnly: false,
       desc: 'Dành cho hộ kinh doanh & cửa hàng nhỏ',
@@ -1506,7 +1505,7 @@ class _PricingSection extends StatelessWidget {
       unit: d.unit,
       tag: d.highlight ? 'Phổ biến' : (d.contactOnly ? 'Chuyên biệt' : ''),
       color:
-          d.highlight ? 0xFF1E3A5F : (d.contactOnly ? 0xFF0F2340 : 0xFF757575),
+          d.highlight ? 0xFF0C56D0 : (d.contactOnly ? 0xFF0D47A1 : 0xFF757575),
       highlight: d.highlight,
       contactOnly: d.contactOnly,
       desc: d.desc,
@@ -1745,7 +1744,7 @@ class _VideoSection extends StatelessWidget {
                     title: videoIntroTitle,
                     subtitle: videoIntroSubtitle,
                     icon: Icons.play_circle_filled_rounded,
-                    color: AppColors.primary,
+                    color: const Color(0xFF0C56D0),
                     badge: videoIntroBadge,
                     url: videoIntroUrl,
                     duration: videoIntroDuration,
@@ -1769,7 +1768,7 @@ class _VideoSection extends StatelessWidget {
                         title: videoIntroTitle,
                         subtitle: videoIntroSubtitle,
                         icon: Icons.play_circle_filled_rounded,
-                        color: AppColors.primary,
+                        color: const Color(0xFF0C56D0),
                         badge: videoIntroBadge,
                         url: videoIntroUrl,
                         duration: videoIntroDuration,
@@ -2175,7 +2174,7 @@ class _ContactSection extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF0A3880), AppColors.primary, Color(0xFF1976D2)],
+          colors: [Color(0xFF0A3880), Color(0xFF0C56D0), Color(0xFF1976D2)],
         ),
       ),
       padding:
@@ -2272,7 +2271,7 @@ class _ContactSection extends StatelessWidget {
           style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
       style: ElevatedButton.styleFrom(
         backgroundColor: Colors.white,
-        foregroundColor: AppColors.primary,
+        foregroundColor: const Color(0xFF0C56D0),
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         elevation: 0,
@@ -2446,7 +2445,7 @@ class _RegisterFormState extends State<_RegisterForm> {
           decoration: const BoxDecoration(
               color: Color(0xFFEBF2FF), shape: BoxShape.circle),
           child: const Icon(Icons.check_circle_rounded,
-              color: AppColors.primary, size: 48),
+              color: Color(0xFF0C56D0), size: 48),
         ),
         const SizedBox(height: 20),
         Text(tr('Yêu cầu đã được gửi!'),
@@ -2518,7 +2517,7 @@ class _RegisterFormState extends State<_RegisterForm> {
             child: FilledButton(
               onPressed: _isSubmitting ? null : _submit,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
+                backgroundColor: const Color(0xFF0C56D0),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
@@ -2738,7 +2737,7 @@ class _SectionBadge extends StatelessWidget {
       ),
       child: Text(tr(label),
           style: TextStyle(
-              color: dark ? Colors.white70 : AppColors.primary,
+              color: dark ? Colors.white70 : const Color(0xFF0C56D0),
               fontSize: 12,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.5)),
@@ -2871,8 +2870,8 @@ class _DevicesSection extends StatelessWidget {
             icon: const Icon(Icons.support_agent_rounded, size: 18),
             label: Text(tr('Tư vấn chọn thiết bị phù hợp')),
             style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.primary,
-              side: const BorderSide(color: AppColors.primary),
+              foregroundColor: const Color(0xFF0C56D0),
+              side: const BorderSide(color: Color(0xFF0C56D0)),
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10)),
@@ -2997,14 +2996,14 @@ class _ProductCardState extends State<_ProductCard> {
             boxShadow: [
               BoxShadow(
                 color: _hovered
-                    ? const Color(0x331E3A5F)
+                    ? const Color(0x330C56D0)
                     : const Color(0x18000000),
                 blurRadius: _hovered ? 20 : 8,
                 offset: const Offset(0, 4),
               ),
             ],
             border: Border.all(
-              color: _hovered ? AppColors.primary : Colors.transparent,
+              color: _hovered ? const Color(0xFF0C56D0) : Colors.transparent,
               width: 1.5,
             ),
           ),
@@ -3039,7 +3038,7 @@ class _ProductCardState extends State<_ProductCard> {
                       ),
                       child: Text(tr(p.brand),
                           style: const TextStyle(
-                              color: AppColors.primary,
+                              color: Color(0xFF0C56D0),
                               fontSize: 10,
                               fontWeight: FontWeight.w700,
                               letterSpacing: 0.5)),
@@ -3063,7 +3062,7 @@ class _ProductCardState extends State<_ProductCard> {
                             style: const TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w900,
-                                color: AppColors.primary)),
+                                color: Color(0xFF0C56D0))),
                         if (p.badge.isNotEmpty) ...[
                           const SizedBox(width: 6),
                           Container(
@@ -3102,13 +3101,13 @@ class _ProductCardState extends State<_ProductCard> {
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
                                 color: _hovered
-                                    ? AppColors.primary
+                                    ? const Color(0xFF0C56D0)
                                     : const Color(0xFF6B7280))),
                         const SizedBox(width: 2),
                         Icon(Icons.arrow_forward_rounded,
                             size: 12,
                             color: _hovered
-                                ? AppColors.primary
+                                ? const Color(0xFF0C56D0)
                                 : const Color(0xFF9CA3AF)),
                       ],
                     ),
@@ -3202,7 +3201,7 @@ class _ProductDetailDialogState extends State<_ProductDetailDialog> {
                           borderRadius: BorderRadius.circular(6)),
                       child: Text(tr(p.brand),
                           style: const TextStyle(
-                              color: AppColors.primary,
+                              color: Color(0xFF0C56D0),
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
                               letterSpacing: 0.5)),
@@ -3225,7 +3224,7 @@ class _ProductDetailDialogState extends State<_ProductDetailDialog> {
                             style: const TextStyle(
                                 fontSize: 22,
                                 fontWeight: FontWeight.w900,
-                                color: AppColors.primary)),
+                                color: Color(0xFF0C56D0))),
                         if (p.badge.isNotEmpty) ...[
                           const SizedBox(width: 8),
                           Container(
@@ -3313,7 +3312,7 @@ class _ProductDetailDialogState extends State<_ProductDetailDialog> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Icon(Icons.memory_rounded,
-                                size: 16, color: AppColors.primary),
+                                size: 16, color: Color(0xFF0C56D0)),
                             const SizedBox(width: 8),
                             Expanded(
                                 child: Text(tr(p.specs),
@@ -3354,7 +3353,7 @@ class _ProductDetailDialogState extends State<_ProductDetailDialog> {
                                 }
                               },
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.primary,
+                                backgroundColor: const Color(0xFF0C56D0),
                                 foregroundColor: Colors.white,
                                 padding:
                                     const EdgeInsets.symmetric(vertical: 14),
@@ -3430,7 +3429,7 @@ class _DownloadSection extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF0A3880), AppColors.primary],
+          colors: [Color(0xFF0A3880), Color(0xFF0C56D0)],
         ),
       ),
       padding:

@@ -21,7 +21,6 @@ import '../widgets/hrm_responsive_list_layout.dart';
 import '../widgets/app_responsive_dialog.dart';
 import '../utils/responsive_helper.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
-import '../design_system/design_system.dart';
 
 // Hàm chuyển đổi tiếng Việt có dấu sang không dấu
 String removeVietnameseAccents(String str) {
@@ -483,14 +482,14 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: AppColors.info.withValues(alpha: 0.08),
+                      color: Colors.blue.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Icon(Icons.info_outline,
-                            size: 16, color: AppColors.info),
+                            size: 16, color: Colors.blue),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
@@ -500,7 +499,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                     'PIN trên máy ≤ 8 số: dùng mã NV nếu ngắn; '
                                     'nếu mã/SĐT dài sẽ lấy đuôi 6–8 số hoặc tự cấp số mới (không trùng).'),
                             style: const TextStyle(
-                                fontSize: 12, color: AppColors.info),
+                                fontSize: 12, color: Colors.blue),
                           ),
                         ),
                       ],
@@ -1450,26 +1449,26 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: AppColors.info.shade50,
+              color: Colors.blue.shade50,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
               children: [
                 Icon(Icons.analytics_outlined,
-                    size: 16, color: AppColors.info.shade700),
+                    size: 16, color: Colors.blue.shade700),
                 const SizedBox(width: 6),
                 Text(tr('Tổng quan'),
                     style: TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 13,
-                        color: AppColors.info.shade700)),
+                        color: Colors.blue.shade700)),
                 const Spacer(),
                 Icon(
                     _showMobileSummary
                         ? Icons.expand_less
                         : Icons.expand_more,
                     size: 20,
-                    color: AppColors.info.shade700),
+                    color: Colors.blue.shade700),
               ],
             ),
           ),
@@ -2345,7 +2344,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
       if (_perm.canEdit('DeviceUser')) ...[
         ListTile(
           leading: const CircleAvatar(
-            backgroundColor: AppColors.info,
+            backgroundColor: Colors.blue,
             child: Icon(Icons.edit, color: Colors.white, size: 20),
           ),
           title: Text(tr(_l10n.editInfo)),
@@ -2697,7 +2696,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                         const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
                       color: isLeftHand
-                          ? AppColors.info.shade50
+                          ? Colors.blue.shade50
                           : Colors.orange.shade50,
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -2708,7 +2707,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                           isLeftHand ? Icons.back_hand : Icons.front_hand,
                           size: 14,
                           color: isLeftHand
-                              ? AppColors.info.shade600
+                              ? Colors.blue.shade600
                               : Colors.orange.shade600,
                         ),
                         const SizedBox(width: 4),
@@ -2718,7 +2717,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
                             color: isLeftHand
-                                ? AppColors.info.shade700
+                                ? Colors.blue.shade700
                                 : Colors.orange.shade700,
                           ),
                         ),
@@ -2799,19 +2798,19 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: AppColors.info.withValues(alpha: 0.1),
+                                color: Colors.blue.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   const Icon(Icons.fingerprint,
-                                      color: AppColors.info, size: 20),
+                                      color: Colors.blue, size: 20),
                                   const SizedBox(width: 8),
                                   Text(tr('Đã đăng ký: ${enrolledFingers.length}/10 vân tay'),
                                     style: const TextStyle(
                                         fontWeight: FontWeight.bold,
-                                        color: AppColors.info),
+                                        color: Colors.blue),
                                   ),
                                 ],
                               ),
@@ -3008,19 +3007,19 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: AppColors.info.withValues(alpha: 0.1),
+                            color: Colors.blue.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               const Icon(Icons.fingerprint,
-                                  color: AppColors.info, size: 20),
+                                  color: Colors.blue, size: 20),
                               const SizedBox(width: 8),
                               Text(tr('Đã đăng ký: ${enrolledFingers.length}/10 vân tay'),
                                 style: const TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    color: AppColors.info),
+                                    color: Colors.blue),
                               ),
                             ],
                           ),
@@ -4081,7 +4080,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
     // ZKTeco chỉ có 2 loại: 0 = Người dùng, 14 = Quản trị viên
     final isAdmin = privilege == 14;
     final text = isAdmin ? 'Admin' : 'User';
-    final color = isAdmin ? Colors.red : AppColors.info;
+    final color = isAdmin ? Colors.red : Colors.blue;
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: compact ? 6 : 8,
@@ -4219,7 +4218,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                       value: 'link',
                       child: Row(
                         children: [
-                          const Icon(Icons.link, size: 20, color: AppColors.info),
+                          const Icon(Icons.link, size: 20, color: Colors.blue),
                           const SizedBox(width: 12),
                           Text(tr(user.employeeId != null
                               ? 'Đổi liên kết NV'

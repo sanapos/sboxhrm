@@ -667,7 +667,7 @@ class AgentsTabState extends State<AgentsTab> {
         builder: (ctx, setSt) => ScrollableAlertDialog(
         title: Text(tr('Thêm đại lý')),
         content: SizedBox(
-          width: MediaQuery.of(context).size.width < 768 ? MediaQuery.of(context).size.width - 32 : 420,
+          width: MediaQuery.of(context).size.width < 600 ? MediaQuery.of(context).size.width - 32 : 420,
           child: SingleChildScrollView(
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               AdminHelpers.dialogField(nameCtrl, 'Tên đại lý', Icons.person),
@@ -962,7 +962,7 @@ class AgentsTabState extends State<AgentsTab> {
         builder: (ctx, setSt) => ScrollableAlertDialog(
           title: Text(tr('Quỹ gia hạn — $name')),
           content: SizedBox(
-            width: MediaQuery.of(context).size.width < 768
+            width: MediaQuery.of(context).size.width < 600
                 ? MediaQuery.of(context).size.width - 32
                 : 400,
             child: Column(
@@ -1072,7 +1072,7 @@ class AgentsTabState extends State<AgentsTab> {
       builder: (ctx) => ScrollableAlertDialog(
         title: Text(tr(readOnly ? 'Thông tin đại lý' : 'Sửa đại lý')),
         content: SizedBox(
-          width: MediaQuery.of(context).size.width < 768 ? MediaQuery.of(context).size.width - 32 : 420,
+          width: MediaQuery.of(context).size.width < 600 ? MediaQuery.of(context).size.width - 32 : 420,
           child: SingleChildScrollView(
             child: Column(mainAxisSize: MainAxisSize.min, children: [
             AdminHelpers.dialogField(

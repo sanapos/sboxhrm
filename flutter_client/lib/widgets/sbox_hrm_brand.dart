@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../design_system/design_system.dart';
+import 'pos/pos_theme.dart';
 import '../l10n/app_tr.dart';
 
 /// Logo vector SBOX HRM — sắc nét, không phụ thuộc PNG nhỏ bị scale mờ.
@@ -21,9 +21,9 @@ class SboxHrmBrandMark extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final titleColor =
-        darkText ? AppColors.textPrimary : Colors.white;
+        darkText ? PosTheme.textPrimary : Colors.white;
     final subtitleColor = darkText
-        ? AppColors.textSecondary
+        ? PosTheme.textSecondary
         : Colors.white.withValues(alpha: 0.88);
     final radius = logoSize * 0.22;
 
@@ -37,12 +37,12 @@ class SboxHrmBrandMark extends StatelessWidget {
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [AppColors.primaryLight, AppColors.primary],
+              colors: [Color(0xFF0070F4), Color(0xFF0056C7)],
             ),
             borderRadius: BorderRadius.circular(radius),
             boxShadow: [
               BoxShadow(
-                color: AppColors.primary.withValues(alpha: 0.32),
+                color: PosTheme.kiotBlue.withValues(alpha: 0.32),
                 blurRadius: 24,
                 offset: const Offset(0, 8),
               ),

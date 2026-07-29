@@ -1121,7 +1121,7 @@ class DashboardTabState extends State<DashboardTab> {
   void _showAttendanceTodayDetail() {
     final stores = _dashboard?['storeAttendances'] as List? ?? [];
     final total = _dashboard?['todayAttendances'] ?? 0;
-    final isMobile = MediaQuery.of(context).size.width < 768;
+    final isMobile = MediaQuery.of(context).size.width < 600;
 
     final titleRow = Row(children: [
       Container(

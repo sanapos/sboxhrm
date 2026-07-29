@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:math' as math;
-import '../../design_system/design_system.dart';
 // ignore_for_file: unused_element
 import '../../utils/file_saver.dart' as file_saver;
 import '../../utils/web_canvas.dart' as web_canvas;
@@ -956,7 +955,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     int totalRecords = records.length;
     final uniqueEmployees = records.map((r) => r.employeeId).toSet().length;
 
-    final isMobileLayout = MediaQuery.sizeOf(context).width < 768;
+    final isMobileLayout = MediaQuery.sizeOf(context).width < 600;
 
     Widget buildMobileHeader() {
       return Column(
@@ -974,26 +973,26 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
               padding:
                   const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: AppColors.info.shade50,
+                color: Colors.blue.shade50,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
                 children: [
                   Icon(Icons.analytics_outlined,
-                      size: 16, color: AppColors.info.shade700),
+                      size: 16, color: Colors.blue.shade700),
                   const SizedBox(width: 6),
                   Text(tr('Tổng quan'),
                       style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 13,
-                          color: AppColors.info.shade700)),
+                          color: Colors.blue.shade700)),
                   const Spacer(),
                   Icon(
                       _showMobileSummary
                           ? Icons.expand_less
                           : Icons.expand_more,
                       size: 20,
-                      color: AppColors.info.shade700),
+                      color: Colors.blue.shade700),
                 ],
               ),
             ),
@@ -1384,7 +1383,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
             return ScrollableAlertDialog(
               title: Row(
                 children: [
-                  const Icon(Icons.people, color: AppColors.info, size: 22),
+                  const Icon(Icons.people, color: Colors.blue, size: 22),
                   const SizedBox(width: 8),
                   Text(tr('Chọn nhân viên'),
                       style:
@@ -1435,7 +1434,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: AppColors.info.shade50,
+                        color: Colors.blue.shade50,
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Row(
@@ -1443,7 +1442,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                           Text(tr('Đã chọn: ${tempSelected.length}/${employees.length}'),
                               style: TextStyle(
                                   fontSize: 12,
-                                  color: AppColors.info.shade700,
+                                  color: Colors.blue.shade700,
                                   fontWeight: FontWeight.w500)),
                         ],
                       ),
@@ -1492,7 +1491,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                                   const SizedBox(width: 10),
                                   CircleAvatar(
                                     radius: 14,
-                                    backgroundColor: AppColors.info.shade100,
+                                    backgroundColor: Colors.blue.shade100,
                                     child: Text(
                                         tr(emp.name.isNotEmpty
                                             ? emp.name[0].toUpperCase()
@@ -1500,7 +1499,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                                         style: TextStyle(
                                             fontSize: 12,
                                             fontWeight: FontWeight.bold,
-                                            color: AppColors.info.shade700)),
+                                            color: Colors.blue.shade700)),
                                   ),
                                   const SizedBox(width: 10),
                                   Expanded(
@@ -1576,7 +1575,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         builder: (ctx, setDialogState) => ScrollableAlertDialog(
           title: Row(
             children: [
-              Icon(Icons.add_circle, color: AppColors.info),
+              Icon(Icons.add_circle, color: Colors.blue),
               SizedBox(width: 8),
               Text(tr('Thêm chấm công')),
             ],
@@ -1603,7 +1602,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                             shiftContextLabel.isNotEmpty)
                           Text(tr('Ca: $shiftContextLabel'),
                               style: TextStyle(
-                                  color: AppColors.info.shade700,
+                                  color: Colors.blue.shade700,
                                   fontWeight: FontWeight.w500)),
                         Text(tr('Lần chấm: $punchIndex (${resolvedIsIn ? "Vào" : "Ra"})')),
                       ],
@@ -1637,7 +1636,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.calendar_today, color: AppColors.info),
+                        const Icon(Icons.calendar_today, color: Colors.blue),
                         const SizedBox(width: 8),
                         Text(tr(DateFormat('dd/MM/yyyy').format(selectedDate)),
                             style: const TextStyle(
@@ -2228,7 +2227,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                           width: 28,
                           height: 28,
                           decoration: BoxDecoration(
-                            color: AppColors.info.withValues(alpha: 0.1),
+                            color: Colors.blue.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Icon(
@@ -2236,7 +2235,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                                 ? Icons.login
                                 : Icons.logout,
                             size: 15,
-                            color: AppColors.info,
+                            color: Colors.blue,
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -2286,7 +2285,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                         record.workCount == record.workCount.roundToDouble()
                             ? '${record.workCount.toInt()}'
                             : record.workCount.toStringAsFixed(2),
-                        AppColors.info)),
+                        Colors.blue)),
               ]),
             ],
           ),
@@ -2409,7 +2408,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     final startRow = totalRows == 0 ? 0 : _currentPage * _rowsPerPage + 1;
     final endRow = ((_currentPage + 1) * _rowsPerPage).clamp(0, totalRows);
     final primary = Theme.of(context).primaryColor;
-    final isMobile = MediaQuery.of(context).size.width < 768;
+    final isMobile = MediaQuery.of(context).size.width < 600;
 
     final infoWidget = Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -2687,7 +2686,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.calendar_today, color: AppColors.info),
+                        const Icon(Icons.calendar_today, color: Colors.blue),
                         const SizedBox(width: 8),
                         Text(tr(DateFormat('dd/MM/yyyy').format(selectedDate)),
                             style: const TextStyle(
@@ -4249,7 +4248,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       _shiftTableCell(Text(tr('Tổng'),
           textAlign: TextAlign.center,
           style: TextStyle(
-              fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.info.shade700))),
+              fontSize: 11, fontWeight: FontWeight.w700, color: Colors.blue.shade700))),
       _shiftTableCell(Text(tr('${totals.presentDays} ngày'),
           textAlign: TextAlign.center,
           style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600))),
@@ -4290,7 +4289,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
               fontSize: 12,
               fontWeight: FontWeight.w600,
               color: totals.decimalHours > 0
-                  ? AppColors.info.shade700
+                  ? Colors.blue.shade700
                   : const Color(0xFFA1A1AA)))),
       _shiftTableCell(Text(
           tr(totals.totalWork > 0 ? totals.totalWork.toStringAsFixed(2) : '—'),
@@ -4299,7 +4298,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
               fontSize: 12,
               fontWeight: FontWeight.w700,
               color: totals.totalWork > 0
-                  ? AppColors.info.shade700
+                  ? Colors.blue.shade700
                   : const Color(0xFFA1A1AA)))),
       _shiftTableCell(Text(tr('—'),
           textAlign: TextAlign.center,
@@ -4371,7 +4370,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
             style: TextStyle(
                 fontSize: 12,
                 color: r.decimalHours > 0
-                    ? AppColors.info.shade700
+                    ? Colors.blue.shade700
                     : Colors.grey))),
         _shiftTableCell(Text(
             tr(r.workCount > 0 ? r.workCount.toStringAsFixed(2) : '—'),
@@ -4379,7 +4378,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
             style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: r.workCount > 0 ? AppColors.info.shade700 : Colors.grey))),
+                color: r.workCount > 0 ? Colors.blue.shade700 : Colors.grey))),
         _shiftTableCell(
           Text(tr(r.shiftNames.join(', ')),
               textAlign: TextAlign.left,
@@ -5543,10 +5542,10 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       return Text(tr('-'), style: TextStyle(fontSize: 12));
     }
     // Assign colors based on common shift name patterns
-    Color color = AppColors.info;
+    Color color = Colors.blue;
     final lower = name.toLowerCase();
     if (lower.contains('sáng') || lower.contains('sang')) {
-      color = AppColors.info;
+      color = Colors.blue;
     } else if (lower.contains('chiều') || lower.contains('chieu')) {
       color = Colors.purple;
     } else if (lower.contains('tối') || lower.contains('toi')) {
@@ -5661,7 +5660,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
   }
 
   Widget _buildWorkCountBadge(double count) {
-    final color = count > 0 ? AppColors.info : Colors.grey;
+    final color = count > 0 ? Colors.blue : Colors.grey;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(

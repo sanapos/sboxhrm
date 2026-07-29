@@ -8,7 +8,6 @@ import '../widgets/notification_overlay.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
-import '../design_system/design_system.dart';
 
 class UserManagementScreen extends StatefulWidget {
   const UserManagementScreen({super.key});
@@ -397,7 +396,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                     PopupMenuItem(
                         value: 'reset',
                         child: Row(children: [
-                          Icon(Icons.password, size: 16, color: AppColors.info),
+                          Icon(Icons.password, size: 16, color: Colors.blue),
                           SizedBox(width: 8),
                           Text(tr('Đặt lại mật khẩu'))
                         ])),

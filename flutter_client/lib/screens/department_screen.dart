@@ -13,7 +13,6 @@ import '../widgets/hrm_page_chrome.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
 import '../widgets/notification_overlay.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
-import '../design_system/design_system.dart';
 
 class DepartmentScreen extends StatefulWidget {
   const DepartmentScreen({super.key});
@@ -1305,12 +1304,12 @@ class _DepartmentScreenState extends State<DepartmentScreen>
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                 decoration: BoxDecoration(
-                  color: AppColors.info[50],
+                  color: Colors.blue[50],
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.people, color: AppColors.info[700], size: 22),
+                    Icon(Icons.people, color: Colors.blue[700], size: 22),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Column(
@@ -1321,7 +1320,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 15,
-                              color: AppColors.info[800],
+                              color: Colors.blue[800],
                             ),
                           ),
                           const SizedBox(height: 2),
@@ -1329,7 +1328,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                             tr('${deptEmployees.length} employees'),
                             style: TextStyle(
                               fontSize: 12,
-                              color: AppColors.info[600],
+                              color: Colors.blue[600],
                             ),
                           ),
                         ],
@@ -1380,7 +1379,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                           return ListTile(
                             leading: CircleAvatar(
                               radius: 20,
-                              backgroundColor: AppColors.info[100],
+                              backgroundColor: Colors.blue[100],
                               backgroundImage:
                                   photo != null && photo.isNotEmpty
                                       ? _apiService.storeImageProvider(photo)
@@ -1392,7 +1391,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                                           ? fullName[0].toUpperCase()
                                           : '?'),
                                       style: TextStyle(
-                                        color: AppColors.info[700],
+                                        color: Colors.blue[700],
                                         fontWeight: FontWeight.bold,
                                       ),
                                     )
@@ -1697,11 +1696,11 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                             decoration: BoxDecoration(
-                              color: AppColors.info.withValues(alpha: 0.08),
+                              color: Colors.blue.withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(tr('Thứ tự: ${dept.sortOrder}'),
-                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.info[700]),
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.blue[700]),
                             ),
                           ),
                         ],
@@ -2347,7 +2346,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
               ],
             ),
             content: SizedBox(
-              width: MediaQuery.of(context).size.width < 768 ? MediaQuery.of(context).size.width - 32 : 500,
+              width: MediaQuery.of(context).size.width < 600 ? MediaQuery.of(context).size.width - 32 : 500,
               child: formContent,
             ),
             actions: [AppDialogActions(

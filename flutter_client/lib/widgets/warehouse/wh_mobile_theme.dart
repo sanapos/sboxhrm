@@ -3,11 +3,10 @@ import '../../l10n/app_tr.dart';
 
 /// Design tokens — Material 3 + iOS (glass nhẹ, bo góc lớn, nhiều khoảng trắng).
 abstract final class WhMobileTheme {
-  // ── Palette (warehouse domain accent; neutrals align with App DS) ───────
+  // ── Palette (tối giản, ít màu) ──────────────────────────────────────────
   static const bg = Color(0xFFF2F2F7);
   static const surface = Color(0xFFFFFFFF);
   static const surfaceGlass = Color(0xEFFFFFFF);
-  /// Keep iOS-blue as warehouse accent (domain), not HRM navy.
   static const primary = Color(0xFF007AFF);
   static const primaryMuted = Color(0x1A007AFF);
   static const accent = Color(0xFF34C759);
@@ -18,7 +17,7 @@ abstract final class WhMobileTheme {
   static const textTertiary = Color(0xFFC7C7CC);
   static const divider = Color(0xFFE5E5EA);
 
-  // ── Geometry (aligned to AppRadius 8–12–16–20) ───────────────────────────
+  // ── Geometry ─────────────────────────────────────────────────────────────
   static const radiusSm = 12.0;
   static const radiusMd = 16.0;
   static const radiusLg = 20.0;

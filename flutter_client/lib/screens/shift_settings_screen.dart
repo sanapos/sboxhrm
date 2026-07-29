@@ -18,7 +18,6 @@ import '../widgets/loading_widget.dart';
 import '../widgets/pos/pos_theme.dart';
 import '../widgets/notification_overlay.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
-import '../design_system/design_system.dart';
 class ShiftSettingsScreen extends StatefulWidget {
   const ShiftSettingsScreen({super.key});
 
@@ -1170,7 +1169,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                           color: _textDark)),
                   const SizedBox(height: 10),
                   _buildParamRow(Icons.fast_forward, 'Cho phép chấm sớm',
-                      '${shift.earlyCheckInMinutes ?? 30} phút', AppColors.info),
+                      '${shift.earlyCheckInMinutes ?? 30} phút', Colors.blue),
                   _buildParamRow(
                       Icons.schedule,
                       'Cho phép chấm trễ',
@@ -2597,7 +2596,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                           rateLabel = 'Lương theo giờ';
                           rateValue =
                               '${_formatCurrency(sl['hourlyRate'])} /giờ';
-                          rateColor = AppColors.info;
+                          rateColor = Colors.blue;
                         } else if (rateType == 'multiplier') {
                           rateLabel = 'Nhân hệ số';
                           rateValue = 'x${sl['multiplier'] ?? 1.0}';

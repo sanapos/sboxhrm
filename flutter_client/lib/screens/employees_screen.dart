@@ -34,7 +34,6 @@ import '../providers/auth_provider.dart';
 import '../widgets/notification_overlay.dart';
 import 'employee_career_tab.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
-import '../design_system/design_system.dart';
 
 class EmployeesScreen extends StatefulWidget {
   final String? highlightId;
@@ -630,7 +629,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
           ],
         ),
         content: SizedBox(
-          width: MediaQuery.of(context).size.width < 768
+          width: MediaQuery.of(context).size.width < 600
               ? MediaQuery.of(context).size.width - 32
               : 460,
           child: Column(
@@ -712,7 +711,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
             builder: (ctx) => ScrollableAlertDialog(
               title: Text(tr('Import: $imported mới, $updated cập nhật, $failed lỗi')),
               content: SizedBox(
-                width: MediaQuery.of(context).size.width < 768
+                width: MediaQuery.of(context).size.width < 600
                     ? MediaQuery.of(context).size.width - 32
                     : 400,
                 height: 300,
@@ -1699,26 +1698,26 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: AppColors.info.shade50,
+              color: Colors.blue.shade50,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
               children: [
                 Icon(Icons.analytics_outlined,
-                    size: 16, color: AppColors.info.shade700),
+                    size: 16, color: Colors.blue.shade700),
                 const SizedBox(width: 6),
                 Text(tr('Tổng quan & bộ lọc'),
                     style: TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 13,
-                        color: AppColors.info.shade700)),
+                        color: Colors.blue.shade700)),
                 const Spacer(),
                 Icon(
                     _showOverviewPanel
                         ? Icons.expand_less
                         : Icons.expand_more,
                     size: 20,
-                    color: AppColors.info.shade700),
+                    color: Colors.blue.shade700),
               ],
             ),
           ),
@@ -2505,10 +2504,10 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                   value: 'salary',
                   child: Row(
                     children: [
-                      Icon(Icons.payments, size: 20, color: AppColors.info),
+                      Icon(Icons.payments, size: 20, color: Colors.blue),
                       SizedBox(width: 12),
                       Text(tr('Salary Settings'),
-                          style: TextStyle(color: AppColors.info)),
+                          style: TextStyle(color: Colors.blue)),
                     ],
                   ),
                 ),
@@ -2960,7 +2959,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                         child: ConstrainedBox(
                           constraints: BoxConstraints(
                               maxHeight: 250,
-                              maxWidth: MediaQuery.of(context).size.width < 768
+                              maxWidth: MediaQuery.of(context).size.width < 600
                                   ? MediaQuery.of(context).size.width - 48
                                   : 320),
                           child: ListView.builder(
@@ -3554,7 +3553,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                         child: ConstrainedBox(
                           constraints: BoxConstraints(
                               maxHeight: 300,
-                              maxWidth: MediaQuery.of(context).size.width < 768
+                              maxWidth: MediaQuery.of(context).size.width < 600
                                   ? MediaQuery.of(context).size.width - 48
                                   : 400),
                           child: ListView.builder(
@@ -3890,7 +3889,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
           return ScrollableAlertDialog(
             title: Text(tr(isEditing ? _l10n.editEmployee : _l10n.addNewEmployee)),
             content: SizedBox(
-              width: MediaQuery.of(context).size.width < 768
+              width: MediaQuery.of(context).size.width < 600
                   ? MediaQuery.of(context).size.width - 32
                   : 750,
               height: MediaQuery.of(context).size.height < 750
@@ -3919,7 +3918,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
         style: const TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.bold,
-          color: AppColors.info,
+          color: Colors.blue,
         ),
       ),
     );
@@ -4082,7 +4081,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
             ],
           ),
           content: SizedBox(
-            width: MediaQuery.of(context).size.width < 768
+            width: MediaQuery.of(context).size.width < 600
                 ? MediaQuery.of(context).size.width - 32
                 : 500,
             height: 450,
@@ -4226,7 +4225,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
   }
 
   void _showEmployeeDetails(Employee employee) {
-    final isMobile = MediaQuery.of(context).size.width < 768;
+    final isMobile = MediaQuery.of(context).size.width < 600;
 
     final titleRow = Row(
       children: [
@@ -4583,7 +4582,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
           style: const TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.bold,
-            color: AppColors.info,
+            color: Colors.blue,
           ),
         ),
         const SizedBox(height: 8),
@@ -4593,7 +4592,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
   }
 
   Widget _buildDetailItem(IconData icon, String label, String value) {
-    final isMobile = MediaQuery.of(context).size.width < 768;
+    final isMobile = MediaQuery.of(context).size.width < 600;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
@@ -4706,7 +4705,7 @@ class _CccdQrScannerDialogState extends State<_CccdQrScannerDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = MediaQuery.of(context).size.width < 768;
+    final isMobile = MediaQuery.of(context).size.width < 600;
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),

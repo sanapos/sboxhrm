@@ -20,7 +20,6 @@ import '../widgets/app_button.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
 import '../widgets/app_scroll_safe.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
-import '../design_system/design_system.dart';
 
 class CashTransactionScreen extends StatefulWidget {
   const CashTransactionScreen({super.key});
@@ -892,13 +891,13 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
         children: [
           Row(
             children: [
-              Icon(Icons.account_balance_wallet, size: 16, color: AppColors.info.shade700),
+              Icon(Icons.account_balance_wallet, size: 16, color: Colors.blue.shade700),
               const SizedBox(width: 6),
               Text(tr('Số dư quỹ'),
                   style: TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: 13,
-                      color: AppColors.info.shade700)),
+                      color: Colors.blue.shade700)),
             ],
           ),
           const SizedBox(height: 8),
@@ -1021,7 +1020,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: AppColors.info.shade50,
+                    color: Colors.blue.shade50,
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
@@ -1029,7 +1028,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.info.shade800,
+                      color: Colors.blue.shade800,
                     ),
                   ),
                 ),
@@ -1063,7 +1062,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Icon(Icons.arrow_forward, size: 18, color: AppColors.info.shade600),
+                  child: Icon(Icons.arrow_forward, size: 18, color: Colors.blue.shade600),
                 ),
                 Expanded(
                   child: Text(
@@ -1082,7 +1081,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: AppColors.info.shade800,
+                color: Colors.blue.shade800,
               ),
             ),
             if (transfer.description.isNotEmpty) ...[
@@ -1162,26 +1161,26 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: AppColors.info.shade50,
+                  color: Colors.blue.shade50,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   children: [
                     Icon(Icons.analytics_outlined,
-                        size: 16, color: AppColors.info.shade700),
+                        size: 16, color: Colors.blue.shade700),
                     const SizedBox(width: 6),
                     Text(tr('Tổng quan'),
                         style: TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 13,
-                            color: AppColors.info.shade700)),
+                            color: Colors.blue.shade700)),
                     const Spacer(),
                     Icon(
                         _showMobileSummary
                             ? Icons.expand_less
                             : Icons.expand_more,
                         size: 20,
-                        color: AppColors.info.shade700),
+                        color: Colors.blue.shade700),
                   ],
                 ),
               ),
@@ -1497,7 +1496,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
     );
 
     Widget balanceCard = Card(
-      color: s.balance >= 0 ? AppColors.info.shade50 : Colors.orange.shade50,
+      color: s.balance >= 0 ? Colors.blue.shade50 : Colors.orange.shade50,
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
@@ -1505,16 +1504,16 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
           children: [
             Row(children: [
               Icon(s.balance >= 0 ? Icons.trending_up : Icons.trending_down,
-                color: s.balance >= 0 ? AppColors.info.shade700 : Colors.orange.shade700, size: 16),
+                color: s.balance >= 0 ? Colors.blue.shade700 : Colors.orange.shade700, size: 16),
               const SizedBox(width: 6),
               Text(tr('Số dư'), style: TextStyle(
-                color: s.balance >= 0 ? AppColors.info.shade700 : Colors.orange.shade700,
+                color: s.balance >= 0 ? Colors.blue.shade700 : Colors.orange.shade700,
                 fontWeight: FontWeight.w600, fontSize: 13)),
             ]),
             const SizedBox(height: 4),
             Text(tr(_currencyFormat.format(s.balance)),
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold,
-                color: s.balance >= 0 ? AppColors.info.shade700 : Colors.orange.shade700)),
+                color: s.balance >= 0 ? Colors.blue.shade700 : Colors.orange.shade700)),
             Text(tr(_datePresetLabel), style: TextStyle(
               color: Colors.grey.shade400, fontSize: 11)),
           ],
@@ -1684,7 +1683,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: AppColors.info.shade50,
+                    color: Colors.blue.shade50,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Column(
@@ -1698,7 +1697,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                         style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
-                            color: AppColors.info.shade800),
+                            color: Colors.blue.shade800),
                       ),
                     ],
                   ),
@@ -1843,7 +1842,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                 ),
               if (perms.canEdit('CashTransaction'))
                 ListTile(
-                  leading: const Icon(Icons.edit, color: AppColors.info),
+                  leading: const Icon(Icons.edit, color: Colors.blue),
                   title: Text(tr('Sửa')),
                   onTap: () {
                     Navigator.pop(ctx);
@@ -2180,7 +2179,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                 _ActionBtn(
                   icon: Icons.edit_rounded,
                   label: 'Sửa',
-                  color: AppColors.info,
+                  color: Colors.blue,
                   onTap: () => _showTransactionForm(transaction),
                 ),
                 if (Provider.of<PermissionProvider>(context, listen: false).canEdit('CashTransaction'))
@@ -2242,7 +2241,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
         color = Colors.orange;
         break;
       case CashTransactionStatus.waitingPayment:
-        color = AppColors.info;
+        color = Colors.blue;
         break;
       case CashTransactionStatus.cancelled:
         color = Colors.red;
@@ -2527,10 +2526,10 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
         child: Row(children: [
           Container(
             width: 36, height: 36,
-            decoration: BoxDecoration(color: AppColors.info.withAlpha(30), borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(color: Colors.blue.withAlpha(30), borderRadius: BorderRadius.circular(8)),
             child: account.bankLogoUrl != null
-              ? ClipRRect(borderRadius: BorderRadius.circular(8), child: CachedNetworkImage(imageUrl: account.bankLogoUrl!, fit: BoxFit.contain, width: 36, height: 36, errorWidget: (_, __, ___) => const Icon(Icons.account_balance, color: AppColors.info, size: 18)))
-              : const Icon(Icons.account_balance, color: AppColors.info, size: 18),
+              ? ClipRRect(borderRadius: BorderRadius.circular(8), child: CachedNetworkImage(imageUrl: account.bankLogoUrl!, fit: BoxFit.contain, width: 36, height: 36, errorWidget: (_, __, ___) => const Icon(Icons.account_balance, color: Colors.blue, size: 18)))
+              : const Icon(Icons.account_balance, color: Colors.blue, size: 18),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -2564,7 +2563,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
           width: 48,
           height: 48,
           decoration: BoxDecoration(
-            color: AppColors.info.withAlpha(30),
+            color: Colors.blue.withAlpha(30),
             borderRadius: BorderRadius.circular(8),
           ),
           child: account.bankLogoUrl != null
@@ -2574,10 +2573,10 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                     imageUrl: account.bankLogoUrl!,
                     fit: BoxFit.contain,
                     errorWidget: (_, __, ___) =>
-                        const Icon(Icons.account_balance, color: AppColors.info),
+                        const Icon(Icons.account_balance, color: Colors.blue),
                   ),
                 )
-              : const Icon(Icons.account_balance, color: AppColors.info),
+              : const Icon(Icons.account_balance, color: Colors.blue),
         ),
         title: Text(
           tr(account.accountName),
@@ -2772,7 +2771,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
           _buildSummaryCard(
             'Số dư',
             _summary!.balance,
-            _summary!.balance >= 0 ? AppColors.info : Colors.orange,
+            _summary!.balance >= 0 ? Colors.blue : Colors.orange,
             _summary!.balance >= 0 ? Icons.trending_up : Icons.trending_down,
             'Tổng ${_summary!.totalTransactions} giao dịch',
           ),

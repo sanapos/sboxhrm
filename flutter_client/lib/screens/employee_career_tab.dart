@@ -164,7 +164,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
 
   // ─── Dialogs ──────────────────────────────────────────────────────────────
   Future<void> _showAddPositionDialog() async {
-    final isMobile = MediaQuery.of(context).size.width < 768;
+    final isMobile = MediaQuery.of(context).size.width < 600;
 
     // Load org positions and departments first
     final posRes = await _apiService.getOrgPositions();
@@ -325,7 +325,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
   }
 
   Future<void> _showAddAwardDialog({bool isDiscipline = false}) async {
-    final isMobile = MediaQuery.of(context).size.width < 768;
+    final isMobile = MediaQuery.of(context).size.width < 600;
     final nameCtrl = TextEditingController();
     final notesCtrl = TextEditingController();
     final docNumberCtrl = TextEditingController();

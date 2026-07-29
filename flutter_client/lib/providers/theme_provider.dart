@@ -1,7 +1,6 @@
 ﻿import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../design_system/design_system.dart';
 import '../l10n/app_locale.dart';
 import '../l10n/app_tr.dart';
 import '../utils/vietnamese_font.dart';
@@ -125,14 +124,12 @@ class AppTypography {
 class ThemeProvider extends ChangeNotifier {
   bool _isDarkMode = false;
   Locale _locale = const Locale('vi');
-  bool _compactDensity = false;
 
   ThemeProvider() {
     _loadPreferences();
   }
 
   bool get isDarkMode => _isDarkMode;
-  bool get compactDensity => _compactDensity;
   Locale get locale => _locale;
   String get languageLabel =>
       _locale.languageCode == 'vi' ? 'Tiếng Việt' : 'English';
@@ -140,7 +137,6 @@ class ThemeProvider extends ChangeNotifier {
   Future<void> _loadPreferences() async {
     final prefs = await SharedPreferences.getInstance();
     _isDarkMode = prefs.getBool('isDarkMode') ?? false;
-    _compactDensity = prefs.getBool('compactDensity') ?? false;
     final langCode = prefs.getString('languageCode') ?? 'vi';
     _locale = Locale(langCode);
     AppLocale.setLanguageCode(langCode);
@@ -155,14 +151,6 @@ class ThemeProvider extends ChangeNotifier {
     await prefs.setBool('isDarkMode', _isDarkMode);
   }
 
-  Future<void> setCompactDensity(bool value) async {
-    if (_compactDensity == value) return;
-    _compactDensity = value;
-    notifyListeners();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('compactDensity', value);
-  }
-
   Future<void> setLocale(Locale locale) async {
     _locale = locale;
     AppLocale.setLanguageCode(locale.languageCode);
@@ -172,22 +160,17 @@ class ThemeProvider extends ChangeNotifier {
     await prefs.setString('languageCode', locale.languageCode);
   }
 
-  // Alias → design system tokens (backward compatible).
-  static const Color primaryColor = AppColors.primary;
-  static const Color primaryColorLight = AppColors.primaryLight;
-  static const Color primaryColorDark = AppColors.primaryDark;
-  static const Color accentColor = AppColors.accent;
-
-  AppDesignTokens get _tokens =>
-      _compactDensity ? AppDesignTokens.compact : AppDesignTokens.comfortable;
+  // Màu chính của ứng dụng - Navy Dashboard palette
+  static const Color primaryColor =
+      Color(0xFF1E3A5F); // Navy (màu nền Tổng quan hệ thống)
+  static const Color primaryColorLight = Color(0xFF2D5F8B); // Navy Light
+  static const Color primaryColorDark = Color(0xFF0F2340); // Navy Dark
+  static const Color accentColor = Color(0xFFEC4899); // Pink 500 (accent)
 
   ThemeData get lightTheme {
     final baseTheme = ThemeData(
-      useMaterial3: true,
       fontFamily: kVietnameseFontFamily,
       fontFamilyFallback: kVietnameseFontFallback,
-      colorScheme: AppColors.lightScheme(),
-      visualDensity: _tokens.density,
     );
     var textTheme = AppTypography.lightTextTheme;
     if (kIsWeb) {
@@ -195,24 +178,36 @@ class ThemeProvider extends ChangeNotifier {
     }
     return baseTheme.copyWith(
       textTheme: textTheme,
-      scaffoldBackgroundColor: AppColors.scaffold,
+      scaffoldBackgroundColor: const Color(0xFFFAFAFA),
       primaryColor: primaryColor,
-      extensions: <ThemeExtension<dynamic>>[_tokens],
+      colorScheme: const ColorScheme.light(
+        primary: primaryColor,
+        secondary: Color(0xFFEC4899),
+        tertiary: primaryColorDark,
+        surface: Colors.white,
+        surfaceTint: Colors.transparent,
+        error: Color(0xFFEF4444),
+        onPrimary: Colors.white,
+        onSecondary: Colors.white,
+        onTertiary: Colors.white,
+        onSurface: Color(0xFF18181B),
+        onError: Colors.white,
+      ),
       appBarTheme: AppBarTheme(
-        backgroundColor: AppColors.surface,
+        backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         centerTitle: false,
         titleTextStyle: textTheme.headlineLarge,
-        iconTheme: const IconThemeData(color: AppColors.textPrimary),
+        iconTheme: const IconThemeData(color: Color(0xFF18181B)),
       ),
       cardTheme: CardThemeData(
-        color: AppColors.surface,
+        color: Colors.white,
         elevation: 0,
         shadowColor: const Color(0x0A000000),
         shape: RoundedRectangleBorder(
-          borderRadius: AppRadius.card,
-          side: const BorderSide(color: AppColors.borderSubtle),
+          borderRadius: BorderRadius.circular(14),
+          side: const BorderSide(color: Color(0xFFEEEEF0)),
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -220,7 +215,9 @@ class ThemeProvider extends ChangeNotifier {
           backgroundColor: primaryColor,
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: AppRadius.control),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
           elevation: 1,
           shadowColor: primaryColor.withValues(alpha: 0.3),
         ),
@@ -230,7 +227,9 @@ class ThemeProvider extends ChangeNotifier {
           backgroundColor: primaryColor,
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          shape: RoundedRectangleBorder(borderRadius: AppRadius.control),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
           elevation: 0,
           textStyle: const TextStyle(fontWeight: FontWeight.w600),
         ),
@@ -240,79 +239,83 @@ class ThemeProvider extends ChangeNotifier {
           foregroundColor: primaryColor,
           side: const BorderSide(color: primaryColor),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          shape: RoundedRectangleBorder(borderRadius: AppRadius.control),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
           textStyle: const TextStyle(fontWeight: FontWeight.w600),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: AppColors.textSecondary,
+          foregroundColor: const Color(0xFF71717A),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          shape: RoundedRectangleBorder(borderRadius: AppRadius.control),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
           textStyle: const TextStyle(fontWeight: FontWeight.w500),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.scaffold,
+        fillColor: const Color(0xFFFAFAFA),
         border: OutlineInputBorder(
-          borderRadius: AppRadius.control,
-          borderSide: const BorderSide(color: AppColors.border),
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: AppRadius.control,
-          borderSide: const BorderSide(color: AppColors.border, width: 1),
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Color(0xFFE4E4E7), width: 1),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: AppRadius.control,
+          borderRadius: BorderRadius.circular(10),
           borderSide: const BorderSide(color: primaryColor, width: 2),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: AppRadius.control,
-          borderSide: const BorderSide(color: AppColors.danger, width: 1),
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Color(0xFFEF4444), width: 1),
         ),
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         labelStyle:
-            textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+            textTheme.bodyMedium?.copyWith(color: const Color(0xFF71717A)),
         hintStyle:
-            textTheme.bodyMedium?.copyWith(color: AppColors.textTertiary),
-        errorStyle: textTheme.labelSmall?.copyWith(color: AppColors.danger),
+            textTheme.bodyMedium?.copyWith(color: const Color(0xFFA1A1AA)),
+        errorStyle:
+            textTheme.labelSmall?.copyWith(color: const Color(0xFFEF4444)),
         floatingLabelStyle:
             textTheme.labelMedium?.copyWith(color: primaryColor),
       ),
       dividerTheme: const DividerThemeData(
-        color: AppColors.border,
+        color: Color(0xFFE4E4E7),
         thickness: 1,
       ),
       navigationRailTheme: NavigationRailThemeData(
-        backgroundColor: AppColors.surface,
+        backgroundColor: Colors.white,
         selectedIconTheme: const IconThemeData(color: primaryColor),
-        unselectedIconTheme:
-            const IconThemeData(color: AppColors.textSecondary),
+        unselectedIconTheme: const IconThemeData(color: Color(0xFF71717A)),
         selectedLabelTextStyle: textTheme.labelLarge
             ?.copyWith(color: primaryColor, fontWeight: FontWeight.w600),
         unselectedLabelTextStyle:
-            textTheme.labelMedium?.copyWith(color: AppColors.textSecondary),
+            textTheme.labelMedium?.copyWith(color: const Color(0xFF71717A)),
       ),
       drawerTheme: const DrawerThemeData(
-        backgroundColor: AppColors.surface,
+        backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
       ),
-      navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: AppColors.surface,
+      navigationBarTheme: const NavigationBarThemeData(
+        backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
-        indicatorColor: primaryColor.withValues(alpha: 0.12),
+        indicatorColor: Color(0xFFE0E7FF),
         elevation: 1,
       ),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: AppColors.surface,
+        backgroundColor: Colors.white,
         selectedItemColor: primaryColor,
-        unselectedItemColor: AppColors.textSecondary,
+        unselectedItemColor: Color(0xFF71717A),
       ),
       tabBarTheme: TabBarThemeData(
         labelColor: primaryColor,
-        unselectedLabelColor: AppColors.textSecondary,
+        unselectedLabelColor: const Color(0xFF71717A),
         indicatorColor: primaryColor,
         labelStyle: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
         unselectedLabelStyle: textTheme.labelLarge,
@@ -325,33 +328,37 @@ class ThemeProvider extends ChangeNotifier {
         dataTextStyle: textTheme.bodySmall,
       ),
       chipTheme: ChipThemeData(
-        backgroundColor: AppColors.surface,
+        backgroundColor: Colors.white,
         selectedColor: primaryColor.withValues(alpha: 0.1),
         labelStyle:
-            textTheme.labelMedium?.copyWith(color: AppColors.textPrimary),
+            textTheme.labelMedium?.copyWith(color: const Color(0xFF18181B)),
         secondaryLabelStyle:
-            textTheme.labelMedium?.copyWith(color: AppColors.textPrimary),
+            textTheme.labelMedium?.copyWith(color: const Color(0xFF18181B)),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadius.sm),
-          side: const BorderSide(color: AppColors.border),
+          borderRadius: BorderRadius.circular(8),
+          side: const BorderSide(color: Color(0xFFE4E4E7)),
         ),
       ),
       snackBarTheme: SnackBarThemeData(
-        backgroundColor: AppColors.textPrimary,
+        backgroundColor: const Color(0xFF18181B),
         contentTextStyle: textTheme.bodyMedium?.copyWith(color: Colors.white),
-        shape: RoundedRectangleBorder(borderRadius: AppRadius.control),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
         behavior: SnackBarBehavior.floating,
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: AppColors.surface,
-        surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: AppRadius.dialog),
-      ),
-      bottomSheetTheme: const BottomSheetThemeData(
-        backgroundColor: AppColors.surface,
+        backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xxl)),
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
       ),
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
@@ -366,13 +373,13 @@ class ThemeProvider extends ChangeNotifier {
           if (states.contains(WidgetState.selected)) {
             return primaryColor;
           }
-          return AppColors.textTertiary;
+          return const Color(0xFFA1A1AA);
         }),
         trackColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
             return primaryColor.withValues(alpha: 0.5);
           }
-          return AppColors.border;
+          return const Color(0xFFE4E4E7);
         }),
       ),
       checkboxTheme: CheckboxThemeData(
@@ -392,48 +399,45 @@ class ThemeProvider extends ChangeNotifier {
           if (states.contains(WidgetState.selected)) {
             return primaryColor;
           }
-          return AppColors.textSecondary;
+          return const Color(0xFF71717A);
         }),
       ),
-      pageTransitionsTheme: const PageTransitionsTheme(
-        builders: {
-          TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
-          TargetPlatform.iOS: ZoomPageTransitionsBuilder(),
-          TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
-          TargetPlatform.macOS: FadeUpwardsPageTransitionsBuilder(),
-          TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
-        },
-      ),
-      focusColor: primaryColor.withValues(alpha: 0.18),
     );
   }
 
   ThemeData get darkTheme {
+    const darkBg = Color(0xFF121212);
+    const darkSurface = Color(0xFF1E1E1E);
+    const darkCard = Color(0xFF2A2A2A);
+    const darkBorder = Color(0xFF3A3A3A);
+    const darkText = Color(0xFFE4E4E7);
+    const darkSubtext = Color(0xFF9CA3AF);
+
     final baseDarkTheme = ThemeData(
-      useMaterial3: true,
       fontFamily: kVietnameseFontFamily,
       fontFamilyFallback: kVietnameseFontFallback,
       brightness: Brightness.dark,
-      colorScheme: AppColors.darkScheme(),
-      visualDensity: _tokens.density,
     );
     var textTheme = AppTypography.darkTextTheme;
     if (kIsWeb) {
       textTheme = vietnameseTextTheme(textTheme);
     }
-    const darkBg = AppColors.scaffoldDark;
-    const darkSurface = AppColors.surfaceDark;
-    const darkCard = AppColors.surfaceMutedDark;
-    const darkBorder = AppColors.borderDark;
-    const darkText = AppColors.textPrimaryDark;
-    const darkSubtext = AppColors.textSecondaryDark;
-
     return baseDarkTheme.copyWith(
       textTheme: textTheme,
       scaffoldBackgroundColor: darkBg,
       primaryColor: primaryColor,
-      extensions: <ThemeExtension<dynamic>>[_tokens],
-      colorScheme: AppColors.darkScheme(),
+      colorScheme: const ColorScheme.dark(
+        primary: primaryColor,
+        secondary: Color(0xFFEC4899),
+        tertiary: Color(0xFF2D5F8B),
+        surface: darkSurface,
+        error: Color(0xFFEF4444),
+        onPrimary: Colors.white,
+        onSecondary: Colors.white,
+        onTertiary: Colors.white,
+        onSurface: darkText,
+        onError: Colors.white,
+      ),
       appBarTheme: AppBarTheme(
         backgroundColor: darkSurface,
         elevation: 0,

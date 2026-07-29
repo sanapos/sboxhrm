@@ -24,7 +24,6 @@ import '../utils/navigation_notifier.dart';
 import '../utils/vietnamese_font.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
-import '../design_system/design_system.dart';
 class LeaveScreen extends StatefulWidget {
   final String? highlightId;
   const LeaveScreen({super.key, this.highlightId});
@@ -532,26 +531,26 @@ class _LeaveScreenState extends State<LeaveScreen>
             padding:
                 const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: AppColors.info.shade50,
+              color: Colors.blue.shade50,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
               children: [
                 Icon(Icons.analytics_outlined,
-                    size: 16, color: AppColors.info.shade700),
+                    size: 16, color: Colors.blue.shade700),
                 const SizedBox(width: 6),
                 Text(tr('Tổng quan & bộ lọc'),
                     style: TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 13,
-                        color: AppColors.info.shade700)),
+                        color: Colors.blue.shade700)),
                 const Spacer(),
                 Icon(
                     _showOverviewPanel
                         ? Icons.expand_less
                         : Icons.expand_more,
                     size: 20,
-                    color: AppColors.info.shade700),
+                    color: Colors.blue.shade700),
               ],
             ),
           ),
@@ -734,7 +733,7 @@ class _LeaveScreenState extends State<LeaveScreen>
       _buildStatCard('Nghỉ lễ, Tết', '$holiday', Icons.celebration_rounded,
           const Color(0xFFF59E0B)),
       _buildStatCard(
-          'Có lương', '$personalPaid', Icons.paid_rounded, AppColors.info),
+          'Có lương', '$personalPaid', Icons.paid_rounded, Colors.blue),
     ];
 
     if (Responsive.isMobile(context)) {
@@ -1394,7 +1393,7 @@ class _LeaveScreenState extends State<LeaveScreen>
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth < 768) {
+        if (constraints.maxWidth < 600) {
           final cards = <Widget>[
             for (var index = 0; index < pageLeaves.length; index++)
               Padding(
@@ -2106,7 +2105,7 @@ class _LeaveScreenState extends State<LeaveScreen>
       buttons.add(_ActionBtn(
           icon: Icons.edit_rounded,
           label: 'Sửa',
-          color: AppColors.info,
+          color: Colors.blue,
           onTap: () => _showLeaveFormDialog(leave: leave)));
       buttons.add(const SizedBox(width: 6));
     }
@@ -2217,7 +2216,7 @@ class _LeaveScreenState extends State<LeaveScreen>
       dialogActions.add(_ActionBtn(
           icon: Icons.edit_rounded,
           label: 'Sửa',
-          color: AppColors.info,
+          color: Colors.blue,
           onTap: () {
             Navigator.pop(context);
             _showLeaveFormDialog(leave: leave);
@@ -2397,7 +2396,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                     ? Colors.green
                     : status == 2
                         ? Colors.red
-                        : AppColors.info),
+                        : Colors.blue),
               ),
             ),
             const SizedBox(height: 12),
@@ -3051,7 +3050,7 @@ class _LeaveScreenState extends State<LeaveScreen>
             'Nghỉ lễ, Tết', Colors.orange, Icons.celebration_rounded);
       case 2:
         return const _LeaveTypeInfo(
-            'VR có luong', AppColors.info, Icons.paid_rounded);
+            'VR có luong', Colors.blue, Icons.paid_rounded);
       case 3:
         return const _LeaveTypeInfo(
             'VR không luong', Colors.amber, Icons.money_off_rounded);

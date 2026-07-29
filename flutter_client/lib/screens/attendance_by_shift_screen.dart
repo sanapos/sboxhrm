@@ -12,7 +12,6 @@ import '../utils/travel_hours_load_utils.dart';
 import '../utils/travel_eligibility_utils.dart';
 import 'attendance/attendance_by_shift_tab.dart';
 import 'attendance/attendance_summary_tab.dart'
-import '../design_system/design_system.dart';
     show AttendanceCorrectionRequest;
 import 'main_layout.dart' show ScreenRefreshNotifier;
 import '../widgets/notification_overlay.dart';
@@ -409,14 +408,14 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
                   child: Row(
                     children: [
                       Icon(Icons.info_outline,
-                          size: 18, color: AppColors.info.shade800),
+                          size: 18, color: Colors.blue.shade800),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           tr('Ch\u01b0a c\u00f3 b\u1ea3ng l\u01b0\u01a1ng c\u1ea5u h\u00ecnh \u2014 h\u1ec7 s\u1ed1 ca/l\u01b0\u01a1ng c\u00f3 th\u1ec3 kh\u00f4ng ch\u00ednh x\u00e1c. '
                           'V\u00e0o Thi\u1ebft l\u1eadp l\u01b0\u01a1ng \u0111\u1ec3 c\u1ea5u h\u00ecnh.'),
                           style: vietnameseTextStyle(TextStyle(
-                              fontSize: 12, color: AppColors.info.shade900)),
+                              fontSize: 12, color: Colors.blue.shade900)),
                         ),
                       ),
                     ],

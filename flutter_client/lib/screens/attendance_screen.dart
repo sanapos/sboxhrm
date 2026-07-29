@@ -27,7 +27,6 @@ import '../providers/permission_provider.dart';
 import '../utils/attendance_correction_privilege.dart';
 import '../widgets/app_button.dart';
 import 'attendance/attendance_correction_tab.dart'
-import '../design_system/design_system.dart';
     show CorrectionRequestInternal, CorrectionStatus;
 import 'main_layout.dart' show ScreenRefreshNotifier;
 import '../l10n/app_localizations.dart';
@@ -1048,7 +1047,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         builder: (context) => ScrollableAlertDialog(
           title: Row(
             children: [
-              Icon(Icons.upload_file, color: AppColors.info[400]),
+              Icon(Icons.upload_file, color: Colors.blue[400]),
               const SizedBox(width: 8),
               Text(tr('Import từ Excel')),
             ],
@@ -1081,12 +1080,12 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: AppColors.info.withValues(alpha: 0.1),
+                  color: Colors.blue.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.info_outline, color: AppColors.info[700], size: 18),
+                    Icon(Icons.info_outline, color: Colors.blue[700], size: 18),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(tr('Tất cả bản ghi import sẽ có kiểu xác thực: Thủ công'),
@@ -1329,7 +1328,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                       value: 'sync',
                                       child: Row(children: [
                                         const Icon(Icons.sync,
-                                            size: 18, color: AppColors.info),
+                                            size: 18, color: Colors.blue),
                                         const SizedBox(width: 10),
                                         Text(tr(_l10n.syncData))
                                       ])),
@@ -1608,26 +1607,26 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             padding:
                 const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: AppColors.info.shade50,
+              color: Colors.blue.shade50,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
               children: [
                 Icon(Icons.analytics_outlined,
-                    size: 16, color: AppColors.info.shade700),
+                    size: 16, color: Colors.blue.shade700),
                 const SizedBox(width: 6),
                 Text(tr('Tổng quan & bộ lọc'),
                     style: TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 13,
-                        color: AppColors.info.shade700)),
+                        color: Colors.blue.shade700)),
                 const Spacer(),
                 Icon(
                     _showOverviewPanel
                         ? Icons.expand_less
                         : Icons.expand_more,
                     size: 20,
-                    color: AppColors.info.shade700),
+                    color: Colors.blue.shade700),
               ],
             ),
           ),
@@ -2502,7 +2501,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth < 768) {
+        if (constraints.maxWidth < 600) {
           return _buildAttendanceMobileList(displayedAttendances, startIndex);
         }
 
@@ -2727,7 +2726,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                 tr(att.enrollNumber ?? '-'),
                                 style: const TextStyle(
                                     fontWeight: FontWeight.w600,
-                                    color: AppColors.info,
+                                    color: Colors.blue,
                                     fontSize: 12),
                               ),
                             )),
@@ -2841,7 +2840,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         final data = result['data'] as Map<String, dynamic>;
         final actionMap = {0: 'Thêm mới', 1: 'Sửa giờ', 2: 'Xóa'};
         final statusMap = {0: 'Chờ duyệt', 1: 'Đã duyệt', 2: 'Từ chối'};
-        final isMobile = MediaQuery.of(context).size.width < 768;
+        final isMobile = MediaQuery.of(context).size.width < 600;
 
         final titleRow = Row(
           children: [
@@ -3185,7 +3184,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         break;
       case 1:
         icon = Icons.fingerprint;
-        color = AppColors.info;
+        color = Colors.blue;
         break;
       case 2:
         icon = Icons.credit_card;
@@ -3234,7 +3233,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     final dateStr = DateFormat('dd/MM/yyyy').format(detailAtt.punchTime);
     final timeStr = DateFormat('HH:mm:ss').format(att.punchTime);
     final dayOfWeek = _getDayOfWeekVN(att.punchTime.weekday);
-    final isMobile = MediaQuery.of(context).size.width < 768;
+    final isMobile = MediaQuery.of(context).size.width < 600;
 
     final titleRow = Row(
       children: [
@@ -3615,7 +3614,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         ? att.locationName!.trim()
         : (att.employeeName ?? 'Vị trí chấm');
 
-    if (MediaQuery.of(context).size.width < 768) {
+    if (MediaQuery.of(context).size.width < 600) {
       final uri = Uri.parse(
           'https://www.google.com/maps/search/?api=1&query=$lat,$lng');
       if (await canLaunchUrl(uri)) {
@@ -3801,7 +3800,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         builder: (context, setDialogState) => ScrollableAlertDialog(
           title: Row(
             children: [
-              Icon(Icons.edit, color: AppColors.info),
+              Icon(Icons.edit, color: Colors.blue),
               SizedBox(width: 8),
               Text(tr('Sửa chấm công')),
             ],
@@ -3899,15 +3898,15 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppColors.info.withValues(alpha: 0.1),
+                    color: Colors.blue.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                     border:
-                        Border.all(color: AppColors.info.withValues(alpha: 0.3)),
+                        Border.all(color: Colors.blue.withValues(alpha: 0.3)),
                   ),
                   child: Row(
                     children: [
                       Icon(Icons.info_outline,
-                          color: AppColors.info[700], size: 20),
+                          color: Colors.blue[700], size: 20),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -3916,14 +3915,14 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                             Text(tr('Loại chấm công: ${att.attendanceState == 0 ? "Chấm vào" : "Chấm ra"}'),
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                color: AppColors.info[700],
+                                color: Colors.blue[700],
                               ),
                             ),
                             const SizedBox(height: 4),
                             Text(tr('Tự động xác định dựa trên thứ tự chấm công trong ngày (lẻ = Vào, chẵn = Ra)'),
                               style: TextStyle(
                                 fontSize: 11,
-                                color: AppColors.info[600],
+                                color: Colors.blue[600],
                               ),
                             ),
                           ],
@@ -4064,7 +4063,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   Color _getDayColor(int weekday) {
     switch (weekday) {
       case DateTime.saturday:
-        return AppColors.info;
+        return Colors.blue;
       case DateTime.sunday:
         return Colors.red;
       default:
@@ -4087,7 +4086,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         text = 'Ra';
         break;
       case 2:
-        color = AppColors.info;
+        color = Colors.blue;
         text = 'Nghỉ ra';
         break;
       case 3:
@@ -4137,7 +4136,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       case 1:
         icon = Icons.fingerprint;
         text = 'Vân tay';
-        color = AppColors.info;
+        color = Colors.blue;
         break;
       case 2:
         icon = Icons.credit_card;

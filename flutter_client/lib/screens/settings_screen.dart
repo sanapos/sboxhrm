@@ -109,29 +109,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     },
                   ),
                 ),
-                _buildSettingTile(
-                  context,
-                  icon: Icons.density_medium_rounded,
-                  title: 'Mật độ giao diện',
-                  subtitle: Consumer<ThemeProvider>(
-                    builder: (context, tp, _) => Text(
-                      tp.compactDensity
-                          ? 'Gọn (compact) — bảng/danh sách dày hơn'
-                          : 'Thoải mái (comfortable)',
-                      style: TextStyle(color: Colors.grey[400], fontSize: 14),
-                    ),
-                  ),
-                  trailing: Consumer<ThemeProvider>(
-                    builder: (context, themeProvider, child) {
-                      return Switch(
-                        value: themeProvider.compactDensity,
-                        onChanged: (value) {
-                          themeProvider.setCompactDensity(value);
-                        },
-                      );
-                    },
-                  ),
-                ),
                 Consumer<ThemeProvider>(
                   builder: (context, themeProvider, _) {
                     return _buildSettingTile(

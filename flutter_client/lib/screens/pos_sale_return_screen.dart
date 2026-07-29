@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import '../design_system/design_system.dart';
 
 import '../models/pos_product.dart';
 import '../models/pos_sale_order.dart';
@@ -418,7 +417,7 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: orange ? Colors.orange.shade50 : AppColors.info.shade50,
+        color: orange ? Colors.orange.shade50 : Colors.blue.shade50,
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(

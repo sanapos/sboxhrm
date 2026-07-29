@@ -1273,7 +1273,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   Widget _buildKiotVietDialog() {
     final size = MediaQuery.sizeOf(context);
     final pad = MediaQuery.paddingOf(context);
-    final narrow = size.width < 768;
+    final narrow = size.width < 600;
     return Dialog(
       backgroundColor: Colors.white,
       insetPadding: EdgeInsets.fromLTRB(

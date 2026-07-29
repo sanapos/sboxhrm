@@ -13,7 +13,6 @@ import '../widgets/notification_overlay.dart';
 import '../widgets/store_agent_support_card.dart';
 import '../utils/web_marketing_gate_stub.dart'
     if (dart.library.html) '../utils/web_marketing_gate_web.dart' as web_home;
-import '../design_system/design_system.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -348,7 +347,7 @@ class _LoginScreenState extends State<LoginScreen>
                     end: Alignment.bottomRight,
                     colors: [
                       const Color(0xFFDAE2FF),
-                      AppColors.primary.withValues(alpha: 0.3),
+                      const Color(0xFF0C56D0).withValues(alpha: 0.3),
                     ],
                   ),
                 ),
@@ -356,7 +355,7 @@ class _LoginScreenState extends State<LoginScreen>
                   child: Icon(
                     Icons.face_retouching_natural,
                     size: 180,
-                    color: AppColors.primary.withValues(alpha: 0.2),
+                    color: const Color(0xFF0C56D0).withValues(alpha: 0.2),
                   ),
                 ),
               );
@@ -370,8 +369,8 @@ class _LoginScreenState extends State<LoginScreen>
                   begin: Alignment.bottomLeft,
                   end: Alignment.topRight,
                   colors: [
-                    AppColors.primary.withValues(alpha: 0.60),
-                    AppColors.primary.withValues(alpha: 0.20),
+                    const Color(0xFF0C56D0).withValues(alpha: 0.60),
+                    const Color(0xFF0C56D0).withValues(alpha: 0.20),
                     Colors.transparent,
                   ],
                   stops: const [0.0, 0.5, 1.0],
@@ -451,11 +450,11 @@ class _LoginScreenState extends State<LoginScreen>
                         width: 40,
                         height: 40,
                         decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.1),
+                          color: const Color(0xFF0C56D0).withValues(alpha: 0.1),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(Icons.trending_up_rounded,
-                            color: AppColors.primary, size: 20),
+                            color: Color(0xFF0C56D0), size: 20),
                       ),
                       const SizedBox(width: 16),
                       Flexible(
@@ -473,7 +472,7 @@ class _LoginScreenState extends State<LoginScreen>
                             SizedBox(height: 2),
                             Text(tr('TĂNG 100%'),
                               style: TextStyle(
-                                  color: AppColors.primary,
+                                  color: Color(0xFF0C56D0),
                                   fontSize: 18,
                                   fontWeight: FontWeight.w800),
                             ),
@@ -632,7 +631,7 @@ class _LoginScreenState extends State<LoginScreen>
                               onPressed: () => Navigator.of(context)
                                   .pushNamed('/forgot-password'),
                               style: TextButton.styleFrom(
-                                foregroundColor: AppColors.primary,
+                                foregroundColor: const Color(0xFF0C56D0),
                                 padding: EdgeInsets.zero,
                                 minimumSize: Size.zero,
                                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -716,12 +715,12 @@ class _LoginScreenState extends State<LoginScreen>
                               gradient: const LinearGradient(
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
-                                colors: [AppColors.primary, Color(0xFF004ABA)],
+                                colors: [Color(0xFF0C56D0), Color(0xFF004ABA)],
                               ),
                               borderRadius: BorderRadius.circular(12),
                               boxShadow: [
                                 BoxShadow(
-                                  color: AppColors.primary
+                                  color: const Color(0xFF0C56D0)
                                       .withValues(alpha: 0.25),
                                   blurRadius: 16,
                                   offset: const Offset(0, 6),
@@ -786,13 +785,13 @@ class _LoginScreenState extends State<LoginScreen>
                             onPressed: () =>
                                 Navigator.of(context).pushNamed('/register'),
                             style: TextButton.styleFrom(
-                                foregroundColor: AppColors.primary),
+                                foregroundColor: const Color(0xFF0C56D0)),
                             child: Text(tr('Đăng ký ngay'),
                                 style: TextStyle(
                                   fontWeight: FontWeight.w600,
                                   fontSize: 14,
                                   decoration: TextDecoration.underline,
-                                  decorationColor: AppColors.primary,
+                                  decorationColor: Color(0xFF0C56D0),
                                 )),
                           ),
                         ],
@@ -905,7 +904,7 @@ class _LoginScreenState extends State<LoginScreen>
           style: TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.w800,
-            color: AppColors.primary,
+            color: Color(0xFF0C56D0),
             letterSpacing: -0.3,
           ),
         ),
@@ -1155,7 +1154,7 @@ class _LoginScreenState extends State<LoginScreen>
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: AppColors.primary, width: 2),
+          borderSide: const BorderSide(color: Color(0xFF0C56D0), width: 2),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),

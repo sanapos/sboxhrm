@@ -7,7 +7,6 @@ import '../services/api_service.dart';
 import '../utils/file_saver.dart' as file_saver;
 import '../widgets/notification_overlay.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
-import '../design_system/design_system.dart';
 
 class StoreSuccessScreen extends StatefulWidget {
   final String storeName;
@@ -178,7 +177,7 @@ class _StoreSuccessScreenState extends State<StoreSuccessScreen>
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    AppColors.info.withValues(alpha: 0.15),
+                    Colors.blue.withValues(alpha: 0.15),
                     Colors.transparent,
                   ],
                 ),
@@ -539,7 +538,7 @@ class _StoreInfoCardState extends State<_StoreInfoCard> {
         ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.info.withValues(alpha: 0.08),
+            color: Colors.blue.withValues(alpha: 0.08),
             blurRadius: 40,
             offset: const Offset(0, 12),
           ),
@@ -640,11 +639,11 @@ class _StoreInfoCardState extends State<_StoreInfoCard> {
                         children: [
                           Icon(Icons.key_rounded,
                               size: 14,
-                              color: AppColors.info.shade300),
+                              color: Colors.blue.shade300),
                           const SizedBox(width: 6),
                           Text(tr('MÃ CỬA HÀNG'),
                             style: TextStyle(
-                              color: AppColors.info.shade300,
+                              color: Colors.blue.shade300,
                               fontSize: 11,
                               letterSpacing: 2,
                               fontWeight: FontWeight.w700,
@@ -795,7 +794,7 @@ class _StoreInfoCardState extends State<_StoreInfoCard> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(Icons.verified_rounded,
-                    size: 13, color: AppColors.info.shade400),
+                    size: 13, color: Colors.blue.shade400),
                 const SizedBox(width: 6),
                 Text(tr('SBOX HRM  •  Quản lý nhân sự thời gian thực'),
                   style: TextStyle(
@@ -904,7 +903,7 @@ class _CopyButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(Icons.copy_rounded,
-              size: 15, color: AppColors.info.shade300),
+              size: 15, color: Colors.blue.shade300),
         ),
       ),
     );

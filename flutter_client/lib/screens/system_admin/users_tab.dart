@@ -832,7 +832,7 @@ class UsersTabState extends State<UsersTab> {
                     style: const TextStyle(fontSize: 17))),
           ]),
           content: SizedBox(
-            width: MediaQuery.of(context).size.width < 768
+            width: MediaQuery.of(context).size.width < 600
                 ? MediaQuery.of(context).size.width - 32
                 : 380,
             child: Column(
@@ -966,7 +966,7 @@ class UsersTabState extends State<UsersTab> {
           Text(tr('Cập nhật thông tin'), style: TextStyle(fontSize: 17)),
         ]),
         content: SizedBox(
-          width: MediaQuery.of(context).size.width < 768 ? MediaQuery.of(context).size.width - 32 : 420,
+          width: MediaQuery.of(context).size.width < 600 ? MediaQuery.of(context).size.width - 32 : 420,
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             AdminHelpers.dialogField(
                 fullNameCtrl, 'Họ tên', Icons.person),
@@ -1043,7 +1043,7 @@ class UsersTabState extends State<UsersTab> {
           Text(tr('Tạo SuperAdmin'), style: TextStyle(fontSize: 17)),
         ]),
         content: SizedBox(
-          width: MediaQuery.of(context).size.width < 768 ? MediaQuery.of(context).size.width - 32 : 420,
+          width: MediaQuery.of(context).size.width < 600 ? MediaQuery.of(context).size.width - 32 : 420,
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             AdminHelpers.dialogField(
                 fullNameCtrl, 'Họ tên', Icons.person),

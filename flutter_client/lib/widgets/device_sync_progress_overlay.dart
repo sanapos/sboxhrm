@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import 'device_sync_types.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
-import '../design_system/design_system.dart';
 
 export 'device_sync_types.dart';
 export 'device_sync_progress_dialog.dart';
@@ -633,7 +632,7 @@ class _DeviceSyncProgressOverlayState extends State<DeviceSyncProgressOverlay> {
 
     _overlayEntry = OverlayEntry(
       builder: (overlayContext) {
-        final isMobile = MediaQuery.sizeOf(overlayContext).width < 768;
+        final isMobile = MediaQuery.sizeOf(overlayContext).width < 600;
         final activeJobs = _manager.jobs;
         if (activeJobs.isEmpty) return const SizedBox.shrink();
 
@@ -672,7 +671,7 @@ class _SyncJobCard extends StatelessWidget {
     final accent = job.kind == DeviceSyncKind.deviceUsers
         ? const Color(0xFF1E3A5F)
         : const Color(0xFF0284C7);
-    final isMobile = MediaQuery.sizeOf(context).width < 768;
+    final isMobile = MediaQuery.sizeOf(context).width < 600;
     final cardWidth = math.min(isMobile ? double.infinity : 340.0,
         MediaQuery.sizeOf(context).width - 24);
 
@@ -836,8 +835,8 @@ class _SyncJobCard extends StatelessWidget {
       bg = Colors.green.withValues(alpha: 0.12);
       fg = Colors.green.shade800;
     } else if (blue) {
-      bg = AppColors.info.withValues(alpha: 0.12);
-      fg = AppColors.info.shade800;
+      bg = Colors.blue.withValues(alpha: 0.12);
+      fg = Colors.blue.shade800;
     } else if (orange) {
       bg = Colors.orange.withValues(alpha: 0.15);
       fg = Colors.orange.shade900;

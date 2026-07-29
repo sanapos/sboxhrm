@@ -1,5 +1,4 @@
 import 'dart:convert';
-import '../design_system/design_system.dart';
 
 import 'package:flutter/material.dart';
 
@@ -224,7 +223,7 @@ class LandingUsageGuide {
         'Đăng nhập web/app bằng mã cửa hàng + tài khoản admin',
       ],
       tip: 'Dùng email và số điện thoại thật để nhận hỗ trợ kích hoạt nhanh.',
-      accent: AppColors.primary,
+      accent: Color(0xFF0C56D0),
     ),
     const LandingUsageGuideStep(
       id: 'employees',
@@ -526,7 +525,7 @@ class LandingUsageGuide {
         'Theo dõi trạng thái đã xử lý / chờ xử lý',
       ],
       tip: 'Khuyến khích góp ý ẩn danh để nhận phản hồi trung thực từ tập thể.',
-      accent: AppColors.primary,
+      accent: Color(0xFF0C56D0),
     ),
     LandingUsageGuideStep(
       id: 'meal',

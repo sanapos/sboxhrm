@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
-import '../design_system/design_system.dart';
 
 class PickedImageResult {
   final Uint8List bytes;
@@ -62,7 +61,7 @@ Future<List<PickedImageResult>?> pickImagesWithCamera(
             ListTile(
               leading: const CircleAvatar(
                 backgroundColor: Color(0xFFE3F2FD),
-                child: Icon(Icons.camera_alt, color: AppColors.info),
+                child: Icon(Icons.camera_alt, color: Colors.blue),
               ),
               title: Text(tr('Chụp ảnh')),
               subtitle: Text(tr('Sử dụng camera để chụp')),

@@ -6,7 +6,6 @@ import '../models/dashboard.dart';
 import '../services/api_service.dart';
 import '../widgets/notification_overlay.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
-import '../design_system/design_system.dart';
 
 class GoogleSheetsScreen extends StatefulWidget {
   const GoogleSheetsScreen({super.key});
@@ -409,7 +408,7 @@ class _GoogleSheetsScreenState extends State<GoogleSheetsScreen> {
             _buildSyncCard(
               title: 'Thiết bị',
               icon: Icons.devices,
-              color: AppColors.info,
+              color: Colors.blue,
               buttonText: 'Đồng bộ thiết bị',
               onPressed: _isConnected && !_isLoading ? _syncDevices : null,
             ),
@@ -627,7 +626,7 @@ class _GoogleSheetsScreenState extends State<GoogleSheetsScreen> {
                     label: 'Thiết bị',
                     count: _lastSyncResult!.devicesCount,
                     isSuccess: _lastSyncResult!.devicesSynced,
-                    color: AppColors.info,
+                    color: Colors.blue,
                   ),
                 ),
                 const SizedBox(width: 16),
