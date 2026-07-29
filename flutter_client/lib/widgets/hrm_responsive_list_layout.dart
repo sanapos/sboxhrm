@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../design_system/design_system.dart';
 import '../utils/responsive_helper.dart';
 
 /// On mobile: [headerSections] and [mobileSlivers] share one [CustomScrollView].
 /// On tablet/desktop: [headerSections] stay fixed above [Expanded(desktopBody)].
-/// Desktop/wide: content is centered with [Responsive.maxContentWidth].
 class HrmResponsiveListLayout extends StatelessWidget {
   const HrmResponsiveListLayout({
     super.key,
@@ -16,7 +14,6 @@ class HrmResponsiveListLayout extends StatelessWidget {
     this.physics,
     this.fabAware = false,
     this.extendedFab = false,
-    this.constrainWidth = true,
   });
 
   final EdgeInsetsGeometry? padding;
@@ -27,8 +24,6 @@ class HrmResponsiveListLayout extends StatelessWidget {
   /// Thêm padding dưới/phải cho **danh sách** khi có FAB.
   final bool fabAware;
   final bool extendedFab;
-  /// Giới hạn chiều rộng nội dung trên màn rộng (mặc định bật).
-  final bool constrainWidth;
 
   EdgeInsets? _mobilePadding(BuildContext context) {
     if (!Responsive.useUnifiedPageScroll(context)) return null;
@@ -52,19 +47,6 @@ class HrmResponsiveListLayout extends StatelessWidget {
     ];
   }
 
-  Widget _maybeConstrain(BuildContext context, Widget child) {
-    if (!constrainWidth || Responsive.isMobile(context)) return child;
-    final max = Responsive.maxContentWidth(context);
-    if (max == null) return child;
-    return Align(
-      alignment: Alignment.topCenter,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: max),
-        child: child,
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     if (Responsive.useUnifiedPageScroll(context)) {
@@ -81,9 +63,10 @@ class HrmResponsiveListLayout extends StatelessWidget {
         slivers: slivers,
       );
       final mobilePad = _mobilePadding(context);
-      final padded =
-          mobilePad != null ? Padding(padding: mobilePad, child: scroll) : scroll;
-      return _maybeConstrain(context, padded);
+      if (mobilePad != null) {
+        return Padding(padding: mobilePad, child: scroll);
+      }
+      return scroll;
     }
 
     final column = Column(
@@ -93,9 +76,10 @@ class HrmResponsiveListLayout extends StatelessWidget {
         Expanded(child: desktopBody),
       ],
     );
-    final padded =
-        padding != null ? Padding(padding: padding!, child: column) : column;
-    return _maybeConstrain(context, padded);
+    if (padding != null) {
+      return Padding(padding: padding!, child: column);
+    }
+    return column;
   }
 }
 

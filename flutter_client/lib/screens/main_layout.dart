@@ -2091,13 +2091,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         title: Text(tr(_settingsHubTitle(l))),
         actions: [
           IconButton(
-            icon: const Icon(Icons.search_rounded, size: 22),
-            onPressed: _openCommandPalette,
-            tooltip: tr('Tìm module…'),
-            visualDensity: VisualDensity.compact,
-          ),
-          IconButton(
-            icon: Icon(Icons.auto_awesome_rounded, color: AppColors.secondary),
+            icon: const Icon(Icons.auto_awesome, color: Color(0xFF8B5CF6)),
             onPressed: () => showAiAssistant(context),
             tooltip: tr('Trợ lý ảo AI'),
           ),
@@ -2989,94 +2983,61 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
   // Top bar
   Widget _buildTopBar() {
-    final scheme = Theme.of(context).colorScheme;
-    final l = AppLocalizations.of(context);
     return Container(
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: 24),
       decoration: BoxDecoration(
-        color: scheme.surface,
+        color: Theme.of(context).colorScheme.surface,
         border: Border(
-          bottom: BorderSide(color: scheme.outlineVariant),
+          bottom: BorderSide(color: Theme.of(context).dividerColor),
         ),
       ),
       child: Row(
         children: [
           if (_canGoBack)
             IconButton(
-              icon: Icon(Icons.arrow_back, color: scheme.onSurface),
+              icon: Icon(Icons.arrow_back,
+                  color: Theme.of(context).colorScheme.onSurface),
               onPressed: _goBack,
-              tooltip: tr(l.goBack),
+              tooltip: tr(AppLocalizations.of(context).goBack),
             ),
           if (_canGoBack) const SizedBox(width: 4),
           Text(
-            tr(_settingsHubTitle(l)),
+            tr(_settingsHubTitle(AppLocalizations.of(context))),
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w700,
-              color: scheme.onSurface,
+              color: Theme.of(context).colorScheme.onSurface,
             ),
           ),
           const Spacer(),
-          // Command palette trigger (Ctrl/Cmd+K)
-          Material(
-            color: scheme.surfaceContainerHighest.withValues(alpha: 0.45),
-            borderRadius: AppRadius.control,
-            child: InkWell(
-              onTap: _openCommandPalette,
-              borderRadius: AppRadius.control,
-              child: Container(
-                width: 300,
-                height: 40,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  borderRadius: AppRadius.control,
-                  border: Border.all(color: scheme.outlineVariant),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.search_rounded,
-                        size: 20, color: scheme.onSurfaceVariant),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        tr('Tìm module, chức năng…'),
-                        style: TextStyle(
-                          color: scheme.onSurfaceVariant,
-                          fontSize: 14,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: scheme.surface,
-                        borderRadius: BorderRadius.circular(AppRadius.xs),
-                        border: Border.all(color: scheme.outlineVariant),
-                      ),
-                      child: Text(
-                        'Ctrl+K',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: scheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+          // Search
+          Container(
+            width: 300,
+            height: 40,
+            decoration: BoxDecoration(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Theme.of(context).dividerColor),
+            ),
+            child: TextField(
+              decoration: InputDecoration(
+                hintText: tr(AppLocalizations.of(context).search),
+                hintStyle: const TextStyle(color: Color(0xFFA1A1AA)),
+                prefixIcon: const Icon(Icons.search, color: Color(0xFFA1A1AA)),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 10),
               ),
             ),
           ),
           const SizedBox(width: 16),
           IconButton(
-            icon: Icon(Icons.auto_awesome_rounded, color: AppColors.secondary),
+            icon: const Icon(Icons.auto_awesome, color: Color(0xFF8B5CF6)),
             onPressed: () => showAiAssistant(context),
             tooltip: tr('Trợ lý ảo AI'),
           ),
           const SizedBox(width: 4),
+          // Notifications
           IconButton(
             icon: Badge(
               isLabelVisible: _unreadNotificationsCount > 0,
@@ -3087,9 +3048,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             ),
             onPressed: () {
               _tryNavigateToIndex(_notificationsIndex);
+              // Reload notification count khi chuyển đến màn hình thông báo
               _loadNotificationCount();
             },
-            tooltip: tr(l.notifications),
+            tooltip: tr(AppLocalizations.of(context).notifications),
           ),
           const SizedBox(width: 8),
           _buildUserMenu(),
@@ -4235,17 +4197,16 @@ class _MenuCardState extends State<_MenuCard>
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             curve: Curves.easeOut,
-            padding: const EdgeInsets.symmetric(
-                horizontal: AppSpace.sm + 2, vertical: AppSpace.sm + 2),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
             decoration: BoxDecoration(
               color: _isHovered
                   ? widget.color.withValues(alpha: 0.06)
-                  : AppColors.surface,
-              borderRadius: AppRadius.card,
+                  : Colors.white,
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(
                 color: _isHovered
                     ? widget.color.withValues(alpha: 0.25)
-                    : AppColors.borderSubtle,
+                    : const Color(0xFFE8ECF0),
                 width: 1,
               ),
               boxShadow: _isHovered
@@ -4256,7 +4217,13 @@ class _MenuCardState extends State<_MenuCard>
                         offset: const Offset(0, 6),
                       ),
                     ]
-                  : AppElevation.soft(),
+                  : [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.03),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
             ),
             child: Row(
               children: [
@@ -4273,11 +4240,11 @@ class _MenuCardState extends State<_MenuCard>
                         widget.color.withValues(alpha: 0.06),
                       ],
                     ),
-                    borderRadius: BorderRadius.circular(AppRadius.md),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(widget.icon, color: widget.color, size: 20),
                 ),
-                const SizedBox(width: AppSpace.sm),
+                const SizedBox(width: 12),
                 // Label
                 Expanded(
                   child: Column(
@@ -4291,7 +4258,7 @@ class _MenuCardState extends State<_MenuCard>
                           fontWeight: FontWeight.w600,
                           color: _isHovered
                               ? widget.color
-                              : AppColors.textPrimary,
+                              : const Color(0xFF2B3437),
                           letterSpacing: -0.1,
                           height: 1.3,
                         ),
@@ -4305,7 +4272,7 @@ class _MenuCardState extends State<_MenuCard>
                           tr(widget.subtitle!),
                           style: const TextStyle(
                             fontSize: 11,
-                            color: AppColors.textSecondary,
+                            color: Color(0xFF8A9199),
                             height: 1.3,
                           ),
                           maxLines: 1,
@@ -4322,7 +4289,7 @@ class _MenuCardState extends State<_MenuCard>
                   child: Icon(
                     Icons.arrow_forward_ios_rounded,
                     size: 14,
-                    color: _isHovered ? widget.color : AppColors.textTertiary,
+                    color: _isHovered ? widget.color : const Color(0xFFB0B7BD),
                   ),
                 ),
               ],
